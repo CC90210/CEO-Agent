@@ -82,12 +82,12 @@ After writing:
 ```bash
 chmod 600 /srv/sunbiz/ceo-agent/.env.agents
 ls -la /srv/sunbiz/ceo-agent/.env.agents   # confirm -rw-------
-sudo -u sunbiz pm2 restart all --update-env
-sudo -u sunbiz pm2 list
+pm2 restart all --update-env
+pm2 list
 ```
 
-If you are already running as the `sunbiz` user (per the non-root
-migration), drop the `sudo -u sunbiz` prefix.
+These commands run as the current user (root on CC's VPS layout; future
+tenants with the non-root migration would prefix `sudo -u sunbiz`).
 
 ## Step 3 — Doctor sweep
 
@@ -111,8 +111,8 @@ If any fail, fix root cause before continuing. Do NOT mask with
 ## Step 4 — PM2 health
 
 ```bash
-sudo -u sunbiz pm2 list
-sudo -u sunbiz pm2 logs --lines 20 --nostream
+pm2 list
+pm2 logs --lines 20 --nostream
 ```
 
 Required online (status=`online`, restarts <5, uptime >1m):
@@ -199,7 +199,7 @@ Expect HTTP 200 + `{"ok": true, "lead_id": "..."}`. Record the
 ### 6c — Watch the sequence-runner pick it up
 
 ```bash
-sudo -u sunbiz pm2 logs sunbiz-sequence-runner --lines 50 --nostream
+pm2 logs sunbiz-sequence-runner --lines 50 --nostream
 ```
 
 Within 60 seconds you should see a log line referencing the new lead

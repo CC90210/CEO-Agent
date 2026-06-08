@@ -78,8 +78,8 @@ ls -la /srv/sunbiz/sunbiz-agent/database/078_adon_inquiry_welcomer_template.sql
 ## Step 2 — Install Python dependencies
 
 ```bash
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/pip install openpyxl pdfplumber
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "import openpyxl, pdfplumber; print(f'openpyxl {openpyxl.__version__} / pdfplumber {pdfplumber.__version__}')"
+/srv/sunbiz/ceo-agent/.venv/bin/pip install openpyxl pdfplumber
+/srv/sunbiz/ceo-agent/.venv/bin/python -c "import openpyxl, pdfplumber; print(f'openpyxl {openpyxl.__version__} / pdfplumber {pdfplumber.__version__}')"
 ```
 
 Both versions must print. If `pdfplumber` install fails on a slim
@@ -92,7 +92,7 @@ Sentinel needs `ANTHROPIC_API_KEY` (or `BRAVO_ANTHROPIC_API_KEY`). Check
 what's currently configured:
 
 ```bash
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "
+/srv/sunbiz/ceo-agent/.venv/bin/python -c "
 from lib.secret_loader import load_env
 env = load_env()
 k = (env.get('BRAVO_ANTHROPIC_API_KEY') or env.get('ANTHROPIC_API_KEY') or '').strip()
@@ -106,7 +106,7 @@ secrets file:
 
 ```bash
 # When CC pastes the real key, replace REAL_KEY below
-sudo -u sunbiz bash -c 'cat >> /srv/sunbiz/ceo-agent/.env.agents <<EOF
+bash -c 'cat >> /srv/sunbiz/ceo-agent/.env.agents <<EOF
 BRAVO_ANTHROPIC_API_KEY=REAL_KEY
 ANTHROPIC_API_KEY=REAL_KEY
 EOF'
@@ -118,7 +118,7 @@ last-4 alone is sufficient for display):
 
 ```bash
 PEPPER=$(openssl rand -hex 32)
-sudo -u sunbiz bash -c "echo SSN_HMAC_PEPPER=$PEPPER >> /srv/sunbiz/ceo-agent/.env.agents"
+bash -c "echo SSN_HMAC_PEPPER=$PEPPER >> /srv/sunbiz/ceo-agent/.env.agents"
 unset PEPPER
 sudo chmod 600 /srv/sunbiz/ceo-agent/.env.agents
 ```
@@ -145,7 +145,7 @@ If CC supplies values, patch the file:
 
 ```bash
 # Replace these literal strings — CC provides EZRA_NAME and FULL_ADDR
-sudo -u sunbiz sed -i \
+sed -i \
   -e 's|"sender_name": "Sun Biz Funding Team",|"sender_name": "EZRA_NAME",|' \
   -e 's|"business_address": "Sun Biz Funding",|"business_address": "FULL_ADDR",|' \
   /srv/sunbiz/ceo-agent/scripts/integrations/send_gateway.py
@@ -164,7 +164,7 @@ until resolved.
 
 ```bash
 cd /srv/sunbiz/sunbiz-agent
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python \
+/srv/sunbiz/ceo-agent/.venv/bin/python \
   scripts/apply_migration.py database/078_adon_inquiry_welcomer_template.sql
 ```
 
@@ -176,7 +176,7 @@ don't overwrite.
 Verify the template:
 
 ```bash
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "
+/srv/sunbiz/ceo-agent/.venv/bin/python -c "
 from lib.secret_loader import load_env
 import os
 for k,v in load_env().items(): os.environ.setdefault(k,v)
@@ -191,8 +191,8 @@ print(r.data)
 ## Step 6 — Restart pm2 with new env
 
 ```bash
-sudo -u sunbiz pm2 restart all --update-env
-sudo -u sunbiz pm2 list
+pm2 restart all --update-env
+pm2 list
 ```
 
 Existing daemons should all return to `online` with restarts <= prior +1.
@@ -203,16 +203,16 @@ If any errored, pull the log for that specific daemon and surface to CC
 
 ```bash
 cd /srv/sunbiz/sunbiz-agent
-sudo -u sunbiz pm2 start /srv/sunbiz/ceo-agent/.venv/bin/python \
+pm2 start /srv/sunbiz/ceo-agent/.venv/bin/python \
   --name sunbiz-sentinel \
   --interpreter none \
   -- scripts/sentinel.py loop --interval 60
-sudo -u sunbiz pm2 save
-sudo -u sunbiz pm2 list | grep sentinel
+pm2 save
+pm2 list | grep sentinel
 # Expect: sunbiz-sentinel, online, restarts=0
 
 sleep 5
-sudo -u sunbiz pm2 logs sunbiz-sentinel --lines 5 --nostream
+pm2 logs sunbiz-sentinel --lines 5 --nostream
 # Expect: "sentinel: starting loop interval=60s window=5 tenant=aa04fa1f.."
 ```
 
@@ -221,12 +221,12 @@ sudo -u sunbiz pm2 logs sunbiz-sentinel --lines 5 --nostream
 ### 8a. Sentinel scoring (no DB writes)
 
 ```bash
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python \
+/srv/sunbiz/ceo-agent/.venv/bin/python \
   /srv/sunbiz/sunbiz-agent/scripts/sentinel.py score \
   --text "stop emailing me you idiots, this is harassment" --json | head -10
 # Expect: score ~-100, source=llm, frustration_signals includes profanity + hard_stop
 
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python \
+/srv/sunbiz/ceo-agent/.venv/bin/python \
   /srv/sunbiz/sunbiz-agent/scripts/sentinel.py score \
   --text "Hey, thanks for following up — I'd love to chat tomorrow if you're free?" --json | head -10
 # Expect: score ~+50 to +80
@@ -238,7 +238,7 @@ fix that first.
 ### 8b. Operator kill switches (pause_controller)
 
 ```bash
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python \
+/srv/sunbiz/ceo-agent/.venv/bin/python \
   /srv/sunbiz/ceo-agent/scripts/pause_controller.py --json status
 # Expect: ok=true, operating_mode.mode='standard', empty pause arrays
 ```
@@ -246,7 +246,7 @@ sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python \
 ### 8c. Send-gateway extended gates load correctly
 
 ```bash
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "
+/srv/sunbiz/ceo-agent/.venv/bin/python -c "
 import sys
 sys.path.insert(0, '/srv/sunbiz/ceo-agent/scripts')
 sys.path.insert(0, '/srv/sunbiz/ceo-agent/scripts/integrations')
@@ -274,7 +274,7 @@ emails go out.
 # table is actually `forms` (NOT `tenant_forms` despite the migration
 # filename) and the active flag is `enabled` (NOT `published`). Earlier
 # revs of this prompt had the wrong names — fixed 2026-06-08.
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "
+/srv/sunbiz/ceo-agent/.venv/bin/python -c "
 from lib.secret_loader import load_env
 import os
 for k,v in load_env().items(): os.environ.setdefault(k,v)

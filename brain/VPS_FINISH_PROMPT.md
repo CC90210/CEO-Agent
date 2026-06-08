@@ -24,7 +24,7 @@ CC has provided the three values inline below. Substitute them
 literally, write to the secrets file, never echo them back to chat.
 
 ```bash
-sudo -u sunbiz bash -c 'cat >> /srv/sunbiz/ceo-agent/.env.agents <<EOF
+bash -c 'cat >> /srv/sunbiz/ceo-agent/.env.agents <<EOF
 BRAVO_ANTHROPIC_API_KEY=<FILL_IN_ANTHROPIC_KEY>
 ANTHROPIC_API_KEY=<FILL_IN_ANTHROPIC_KEY>
 EOF'
@@ -35,7 +35,7 @@ Then patch the SunBiz BRAND_IDENTITY block in send_gateway.py to remove
 the two placeholder TODOs:
 
 ```bash
-sudo -u sunbiz sed -i \
+sed -i \
   -e 's|"sender_name": "Sun Biz Funding Team",  # TODO: confirm with Ezra|"sender_name": "<FILL_IN_SENDER_NAME>",|' \
   -e 's|"business_address": "Sun Biz Funding",  # TODO: confirm address with Ezra|"business_address": "<FILL_IN_BUSINESS_ADDRESS>",|' \
   /srv/sunbiz/ceo-agent/scripts/integrations/send_gateway.py
@@ -45,7 +45,7 @@ Also remove "Sun Biz Funding" from the PLACEHOLDER_BUSINESS_ADDRESSES
 frozenset (it should only contain the empty string now):
 
 ```bash
-sudo -u sunbiz sed -i 's|    "Sun Biz Funding",$||' /srv/sunbiz/ceo-agent/scripts/integrations/send_gateway.py
+sed -i 's|    "Sun Biz Funding",$||' /srv/sunbiz/ceo-agent/scripts/integrations/send_gateway.py
 ```
 
 Verify:
@@ -59,8 +59,8 @@ Should show non-placeholder sender_name + business_address.
 ## Step B — restart pm2 with new env
 
 ```bash
-sudo -u sunbiz pm2 restart all --update-env
-sudo -u sunbiz pm2 list
+pm2 restart all --update-env
+pm2 list
 ```
 
 All daemons should return to `online`. Surface any errored ones.
@@ -69,13 +69,13 @@ All daemons should return to `online`. Surface any errored ones.
 
 ```bash
 cd /srv/sunbiz/sunbiz-agent
-sudo -u sunbiz pm2 start /srv/sunbiz/ceo-agent/.venv/bin/python \
+pm2 start /srv/sunbiz/ceo-agent/.venv/bin/python \
   --name sunbiz-sentinel \
   --interpreter none \
   -- scripts/sentinel.py loop --interval 60
-sudo -u sunbiz pm2 save
+pm2 save
 sleep 5
-sudo -u sunbiz pm2 logs sunbiz-sentinel --lines 5 --nostream
+pm2 logs sunbiz-sentinel --lines 5 --nostream
 ```
 
 Expect a "sentinel: starting loop interval=60s window=5 tenant=aa04fa1f.."
@@ -84,7 +84,7 @@ line in the log.
 ## Step D — smoke test the Anthropic key with Sentinel
 
 ```bash
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python \
+/srv/sunbiz/ceo-agent/.venv/bin/python \
   /srv/sunbiz/sunbiz-agent/scripts/sentinel.py score \
   --text "stop emailing me you idiots" --json | head -10
 ```
