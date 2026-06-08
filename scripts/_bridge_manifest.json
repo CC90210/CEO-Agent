@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-06T18:21:08.403914+00:00",
-  "script_count": 90,
-  "entry_count": 234,
+  "generated_at_iso": "2026-06-08T15:44:31.088208+00:00",
+  "script_count": 92,
+  "entry_count": 238,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1581,6 +1581,14 @@
       "help": "import_lender_catalog.py \u2014 bulk import / update known_funding_companies."
     },
     {
+      "key": "import_mca_leads",
+      "path": "scripts/import_mca_leads.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": false,
+      "help": "import_mca_leads.py \u2014 bulk-import Adon's MCA web-form lead list into the"
+    },
+    {
       "key": "kixie_tool_call",
       "path": "scripts/kixie_tool.py",
       "root": "sunbiz",
@@ -1707,6 +1715,30 @@
       "subcmd": "once",
       "mutating": false,
       "help": "renewal_reminder.py \u2014 daily sweep of funded deals approaching renewal window. \u2014 subcommand: once"
+    },
+    {
+      "key": "sentinel_loop",
+      "path": "scripts/sentinel.py",
+      "root": "sunbiz",
+      "subcmd": "loop",
+      "mutating": false,
+      "help": "sentinel.py \u2014 merchant-reply sentiment scorer + auto-pause arbiter. \u2014 subcommand: loop"
+    },
+    {
+      "key": "sentinel_once",
+      "path": "scripts/sentinel.py",
+      "root": "sunbiz",
+      "subcmd": "once",
+      "mutating": false,
+      "help": "sentinel.py \u2014 merchant-reply sentiment scorer + auto-pause arbiter. \u2014 subcommand: once"
+    },
+    {
+      "key": "sentinel_score",
+      "path": "scripts/sentinel.py",
+      "root": "sunbiz",
+      "subcmd": "score",
+      "mutating": false,
+      "help": "sentinel.py \u2014 merchant-reply sentiment scorer + auto-pause arbiter. \u2014 subcommand: score"
     },
     {
       "key": "sequence_runner_once",

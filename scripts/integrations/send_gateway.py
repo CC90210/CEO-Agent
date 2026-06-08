@@ -544,6 +544,272 @@ def get_bounce_rate(db, last_n_hours: int = 24) -> float:
     return stats["rate"]
 
 
+# ---- Phase 1 — extended pre-send gates (Adon brief, 2026-06-08) ------------
+#
+# Five new gates layered on top of the original 5 + suppression surface in
+# can_act. Built after Adon's MCA follow-up architecture brief asked for the
+# 13-check pre-send chokepoint. The cheap deterministic checks (suppression,
+# manual pause, sentinel pause, send window) fire first; DB queries
+# (reply-since, inter-touch gap) only run when the cheap checks pass.
+#
+# Every new gate is fail-closed on DB error: if the ledger is unavailable,
+# the gate refuses the send rather than ship blind. Same posture as the
+# existing cooldown / cap gates.
+
+# 90-min minimum gap between ANY two outbound touches to the same lead, across
+# all channels and all agents. Adon §4.2 gate #8. Lower than the per-channel
+# cooldown (which is 24-168h depending on channel) — this catches the case
+# where Agent A sends SMS at 10:00 and Agent B tries email at 10:30.
+INTER_TOUCH_GAP_MINUTES = 90
+
+# Channel-specific send windows in lead LOCAL time. TCPA hard rule for SMS
+# (8am-9pm); B2B email reply rates peak 9am-6pm weekdays. Outside these
+# windows we refuse the send and the caller can reschedule.
+SEND_WINDOWS: dict[str, dict[str, Any]] = {
+    "sms": {
+        "earliest_hour": 8,
+        "latest_hour": 21,  # 9pm
+        "weekdays_only": False,  # TCPA permits weekend SMS in the window
+    },
+    "email": {
+        "earliest_hour": 9,
+        "latest_hour": 18,  # 6pm
+        "weekdays_only": True,
+    },
+    "instagram": {
+        "earliest_hour": 9,
+        "latest_hour": 20,
+        "weekdays_only": False,
+    },
+    # Phone calls — kept loose because the human operator is the one making
+    # the call. Gateway just records the activity for cooldown purposes.
+    "phone": {
+        "earliest_hour": 0,
+        "latest_hour": 23,
+        "weekdays_only": False,
+    },
+    # Telegram + skool are internal / community channels — no window enforcement.
+}
+
+
+def _lead_data_blob(db: Any, lead_id: Optional[str]) -> dict[str, Any]:
+    """Best-effort lookup of the lead's jsonb data blob from tenant_records.
+    SunBiz stores leads in tenant_records(entity_type='lead'); the legacy
+    OASIS path uses the leads table. We check tenant_records first (it
+    carries the new MCA fields Adon's brief introduces); fall back to
+    leads on miss. Returns empty dict on any failure so callers never
+    crash on a malformed row."""
+    if not lead_id:
+        return {}
+    try:
+        r = (
+            db.table("tenant_records")
+            .select("data")
+            .eq("id", lead_id)
+            .eq("entity_type", "lead")
+            .limit(1)
+            .execute()
+        )
+        if r.data and isinstance(r.data[0].get("data"), dict):
+            return r.data[0]["data"]
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        r = db.table("leads").select("data").eq("id", lead_id).limit(1).execute()
+        if r.data and isinstance(r.data[0].get("data"), dict):
+            return r.data[0]["data"]
+    except Exception:  # noqa: BLE001
+        pass
+    return {}
+
+
+def _check_suppression(to_email: Optional[str], lead_data: dict[str, Any],
+                       intent: str = "commercial") -> Optional[str]:
+    """Surface CASL suppression / opt-out in can_act. The legacy path
+    enforced this inside send() only; surfacing here lets the scheduler
+    see WHY a lead is uncontactable before queuing the next touch. Returns
+    a string reason if blocked, None if cleared.
+
+    Three sources of suppression checked, in order:
+      1. lead_data.opted_out (set by /unsubscribe handler + manual ops)
+      2. casl_compliance.should_suppress(to_email) — reads suppression
+         table + email_suppressions table populated by /unsubscribe
+      3. Reserved domain check (e.g. anthropic.com, supabase.io —
+         the should_suppress helper handles this internally)
+    """
+    if intent == "transactional":
+        # CASL s. 10(9) exemption — booking confirms, contract sends, etc.
+        # Still pass through the explicit opt-out check below; an operator
+        # who manually opted-out the lead overrides the exemption.
+        pass
+    if lead_data.get("opted_out") is True:
+        return "lead opted out (data.opted_out=true)"
+    if intent == "commercial" and to_email and to_email.strip():
+        try:
+            if should_suppress(to_email.strip().lower()):
+                return f"suppressed address: {to_email.strip().lower()}"
+        except Exception:  # noqa: BLE001
+            # should_suppress failing means the suppression table query
+            # broke — fail closed (refuse send) rather than risk a CASL
+            # violation.
+            return "suppression ledger unavailable"
+    return None
+
+
+def _check_manual_pause(lead_data: dict[str, Any], now: datetime) -> Optional[str]:
+    """Operator can manually pause all automated outbound to a lead by
+    setting lead.data.manual_paused = true OR lead.data.paused_until =
+    '<future ISO timestamp>'. Used when the operator is mid-conversation
+    by phone or in person and doesn't want the automation to interject.
+
+    `paused_until` takes precedence — it auto-clears at the timestamp.
+    `manual_paused` boolean is sticky and requires explicit unset.
+    """
+    if lead_data.get("manual_paused") is True:
+        return "lead manually paused by operator (data.manual_paused=true)"
+    paused_until = lead_data.get("paused_until")
+    if paused_until:
+        try:
+            cutoff = datetime.fromisoformat(str(paused_until).replace("Z", "+00:00"))
+            if now < cutoff:
+                return f"lead manually paused until {cutoff.isoformat()}"
+        except (ValueError, TypeError):
+            pass
+    return None
+
+
+def _check_sentinel_pause(lead_data: dict[str, Any], now: datetime) -> Optional[str]:
+    """Sentinel (sentiment scorer) auto-pauses outbound when the rolling
+    sentiment average drops below -30. The pause has a hard expiry so the
+    lead becomes reachable again after the cool-off window. Set by
+    sunbiz-agent/scripts/sentinel.py."""
+    pause_until = lead_data.get("sentinel_pause_until")
+    if not pause_until:
+        return None
+    try:
+        cutoff = datetime.fromisoformat(str(pause_until).replace("Z", "+00:00"))
+        if now < cutoff:
+            reason_detail = lead_data.get("sentinel_pause_reason", "negative sentiment")
+            return f"sentinel pause active until {cutoff.isoformat()}: {reason_detail}"
+    except (ValueError, TypeError):
+        pass
+    return None
+
+
+def _check_send_window(channel: str, lead_data: dict[str, Any],
+                       now: datetime) -> Optional[str]:
+    """TCPA + B2B etiquette: refuse SMS outside 8am-9pm local; refuse
+    email outside 9am-6pm weekdays local. Uses lead.data.timezone if
+    set, falls back to America/Toronto (operator local time). Returns
+    a reason string if the send would land outside the window, None
+    if it's safely inside.
+
+    Timezone fallback to America/Toronto matches the empire's quiet-day
+    rule (CC's feedback_quiet_days_and_local_tz_for_crons.md): the
+    operator's local time, not UTC. Lead-specific tz override exists
+    so a California merchant doesn't get a 6am SMS just because the
+    operator is in Ontario.
+    """
+    window = SEND_WINDOWS.get(channel)
+    if window is None:
+        return None  # internal / unconfigured channels skip window check
+    lead_tz = (lead_data.get("timezone") or "America/Toronto").strip()
+    try:
+        from zoneinfo import ZoneInfo  # py3.9+
+        local_now = now.astimezone(ZoneInfo(lead_tz))
+    except Exception:  # noqa: BLE001
+        # ZoneInfo can fail if tzdata isn't installed on the runtime.
+        # Fall back to operator local (UTC -4 in summer Ontario / -5 winter).
+        # Approximate UTC-4 — close enough for 8am/9pm/9am/6pm gates.
+        local_now = now - timedelta(hours=4)
+    if window.get("weekdays_only") and local_now.weekday() >= 5:
+        return (
+            f"{channel} send window: weekday-only "
+            f"(today is {local_now.strftime('%A')} in {lead_tz})"
+        )
+    hour = local_now.hour
+    earliest = window["earliest_hour"]
+    latest = window["latest_hour"]
+    if hour < earliest or hour >= latest:
+        return (
+            f"{channel} send window: {earliest}:00-{latest}:00 "
+            f"(currently {local_now.strftime('%H:%M %Z')} in {lead_tz})"
+        )
+    return None
+
+
+def _check_reply_since_last_outbound(db: Any, lead_id: Optional[str]) -> Optional[str]:
+    """If the merchant has replied (any inbound interaction) since our
+    most recent outbound, automated agents MUST hold back — the operator
+    is now the right interface. Adon §4.2 gate #5.
+
+    Runs as ONE query against lead_interactions ordered by created_at
+    desc, takes the most recent row, and checks direction. If the last
+    interaction was inbound, block.
+    """
+    if not lead_id:
+        return None
+    try:
+        rows = (
+            db.table("lead_interactions")
+            .select("direction, channel, created_at, type")
+            .eq("lead_id", lead_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+            .data
+        ) or []
+    except Exception as exc:  # noqa: BLE001
+        # Fail closed — if we can't read the ledger we don't know whether
+        # the merchant replied. Better to delay than to talk over them.
+        return f"reply-since-outbound ledger unavailable: {exc}"
+    if not rows:
+        return None
+    last = rows[0]
+    direction = (last.get("direction") or "").strip().lower()
+    if direction == "inbound":
+        ts = last.get("created_at") or "unknown"
+        return (
+            "merchant replied since last outbound "
+            f"(inbound {last.get('channel')} at {ts}); handing off to operator"
+        )
+    return None
+
+
+def _check_inter_touch_gap(db: Any, lead_id: Optional[str],
+                           now: datetime) -> Optional[str]:
+    """No agent may touch the same merchant within 90 minutes of any
+    other outbound, regardless of channel. Adon §4.2 gate #8 — protects
+    against two agents firing at the same merchant in quick succession.
+
+    Single query: any outbound lead_interactions within the gap window?
+    """
+    if not lead_id:
+        return None
+    cutoff = now - timedelta(minutes=INTER_TOUCH_GAP_MINUTES)
+    try:
+        rows = (
+            db.table("lead_interactions")
+            .select("channel, created_at, agent_source")
+            .eq("lead_id", lead_id)
+            .eq("direction", "outbound")
+            .gte("created_at", cutoff.isoformat())
+            .limit(1)
+            .execute()
+            .data
+        ) or []
+    except Exception as exc:  # noqa: BLE001
+        return f"inter-touch ledger unavailable: {exc}"
+    if rows:
+        r = rows[0]
+        return (
+            f"inter-touch gap: {INTER_TOUCH_GAP_MINUTES}min cooldown "
+            f"(recent outbound {r.get('channel')} at {r.get('created_at')} "
+            f"by {r.get('agent_source')})"
+        )
+    return None
+
+
 def _get_bounce_window_stats(db, last_n_hours: int = 24) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     window_start = now - timedelta(hours=last_n_hours)
@@ -694,10 +960,51 @@ def can_act(
         result.update(allowed=False, reason=f"bounce-rate check failed: {exc}")
         return result
 
+    # Gates 1b-1e (Phase 1, Adon brief 2026-06-08): cheap deterministic
+    # lead-state checks BEFORE we burn a DB query on cooldowns/caps. Suppression,
+    # manual pause, sentinel pause, send window. Lead data blob fetched once
+    # and reused across all four gates.
+    lead_data = _lead_data_blob(db, lead_id) if lead_id else {}
+
+    reason_suppression = _check_suppression(to_email, lead_data, intent="commercial")
+    if reason_suppression:
+        result.update(allowed=False, reason=reason_suppression)
+        return result
+
+    reason_manual = _check_manual_pause(lead_data, now)
+    if reason_manual:
+        result.update(allowed=False, reason=reason_manual)
+        return result
+
+    reason_sentinel = _check_sentinel_pause(lead_data, now)
+    if reason_sentinel:
+        result.update(allowed=False, reason=reason_sentinel)
+        return result
+
+    reason_window = _check_send_window(channel, lead_data, now)
+    if reason_window:
+        result.update(allowed=False, reason=reason_window)
+        return result
+
     # Gate 2: empty email (commercial intent will catch suppression separately).
     if to_email is not None and not (to_email or "").strip():
         result.update(allowed=False, reason="empty recipient")
         return result
+
+    # Gates 2b-2c (Phase 1): reply-since-last-outbound + 90-min inter-touch
+    # gap. Both run one cheap DB query against lead_interactions. Inserted
+    # BEFORE per-channel cooldown so an inbound reply or recent cross-channel
+    # touch short-circuits the heavier cooldown ledger scan.
+    if lead_id:
+        reason_reply = _check_reply_since_last_outbound(db, lead_id)
+        if reason_reply:
+            result.update(allowed=False, reason=reason_reply)
+            return result
+
+        reason_gap = _check_inter_touch_gap(db, lead_id, now)
+        if reason_gap:
+            result.update(allowed=False, reason=reason_gap)
+            return result
 
     # Gate 3: active cooldown on this lead+channel.
     if lead_id:
