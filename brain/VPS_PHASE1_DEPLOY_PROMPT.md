@@ -75,6 +75,22 @@ grep -c "_check_sentinel_pause\|_check_manual_pause\|_check_inter_touch_gap\|_ch
 # Expect: the grep returns at least 5
 ```
 
+Install the new spreadsheet dependency. `import_mca_leads.py` needs
+`openpyxl` (just added to SunBiz-Agent requirements.txt):
+
+```bash
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/pip install openpyxl
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "import openpyxl; print(f'openpyxl {openpyxl.__version__}')"
+# Expect: a version string like "openpyxl 3.1.x"
+```
+
+Make sure the import landing directory exists for Step 7:
+
+```bash
+sudo -u sunbiz mkdir -p /srv/sunbiz/imports
+sudo -u sunbiz chmod 750 /srv/sunbiz/imports
+```
+
 ## Step 2 — Sanity check existing creds
 
 Sentinel needs ANTHROPIC_API_KEY. Phase 1 does NOT need Twilio.

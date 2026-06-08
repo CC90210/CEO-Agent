@@ -906,6 +906,7 @@ def can_act(
     to_email: Optional[str] = None,
     cooldown_hours: Optional[int] = None,
     db: Any = None,
+    intent: str = "commercial",
 ) -> dict:
     """Pre-send check. Returns::
 
@@ -966,7 +967,7 @@ def can_act(
     # and reused across all four gates.
     lead_data = _lead_data_blob(db, lead_id) if lead_id else {}
 
-    reason_suppression = _check_suppression(to_email, lead_data, intent="commercial")
+    reason_suppression = _check_suppression(to_email, lead_data, intent=intent)
     if reason_suppression:
         result.update(allowed=False, reason=reason_suppression)
         return result
@@ -2343,6 +2344,7 @@ def send(
             to_email=to_email,
             cooldown_hours=cooldown_hours,
             db=db,
+            intent=intent,
         )
         if not check["allowed"]:
             return {"status": "blocked",
