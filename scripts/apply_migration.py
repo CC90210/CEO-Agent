@@ -293,7 +293,15 @@ def main() -> None:
     url_key = PROJECTS[args.project]["url_key"]
     supabase_url = env.get(url_key) or os.environ.get(url_key)
 
-    if not token:
+    # 2026-06-08 fix (VPS agent diagnosis): the OLD unconditional
+    # SUPABASE_ACCESS_TOKEN check blocked the service-role RPC path — which
+    # is the PREFERRED path for the bravo project and doesn't use the
+    # Management API token at all. Now: only refuse upfront when the
+    # operator forced --force-api OR is targeting a non-bravo project
+    # (those skip the RPC path entirely). The bravo + default path defers
+    # the check to the fallback site, so the RPC can succeed without a PAT.
+    api_path_required = args.force_api or args.project != "bravo"
+    if api_path_required and not token:
         print(
             "ERROR: SUPABASE_ACCESS_TOKEN missing in .env.agents. "
             "Create a personal access token at https://supabase.com/dashboard/account/tokens",
@@ -334,6 +342,16 @@ def main() -> None:
     if args.project == "bravo" and not args.force_api:
         ok, body = run_query_via_rpc(env, sql)
         if not ok:
+            # RPC failed — fall back to Management API. NOW we need the PAT.
+            if not token:
+                print(
+                    "[apply_migration] RPC path unavailable AND "
+                    "SUPABASE_ACCESS_TOKEN is missing — can't fall back to "
+                    "Management API. Either fix the RPC (apply migration 004) "
+                    "or set SUPABASE_ACCESS_TOKEN in .env.agents.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
             print(f"[apply_migration] RPC path unavailable ({body[:160]}) — "
                   "falling back to Management API.", file=sys.stderr)
             ok, body = run_query_via_management_api(token, project_ref, sql)

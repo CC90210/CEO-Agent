@@ -269,20 +269,24 @@ sequence_runner enrollment check. Template is disabled so NO actual
 emails go out.
 
 ```bash
-# 9a. Confirm SunBiz has a published intake form (required for URL stamping)
+# 9a. Confirm SunBiz has at least one enabled intake form (required for
+# URL stamping). Schema reference: database/042_tenant_forms.sql — the
+# table is actually `forms` (NOT `tenant_forms` despite the migration
+# filename) and the active flag is `enabled` (NOT `published`). Earlier
+# revs of this prompt had the wrong names — fixed 2026-06-08.
 sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "
 from lib.secret_loader import load_env
 import os
 for k,v in load_env().items(): os.environ.setdefault(k,v)
 from supabase import create_client
 sb = create_client(os.environ['BRAVO_SUPABASE_URL'], os.environ['BRAVO_SUPABASE_SERVICE_ROLE_KEY'])
-r = sb.table('tenant_forms').select('id, slug, published').eq('tenant_id', 'aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110').eq('published', True).execute()
-print(f'published SunBiz forms: {len(r.data or [])}')
+r = sb.table('forms').select('id, slug, enabled').eq('tenant_id', 'aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110').eq('enabled', True).execute()
+print(f'enabled SunBiz forms: {len(r.data or [])}')
 for f in r.data or []: print(f'  {f[\"slug\"]} ({f[\"id\"][:8]}..)')
 "
 ```
 
-If zero published forms: report to CC. He needs to publish at least one
+If zero enabled forms: report to CC. He needs to publish at least one
 form via `/sequences` (or `/forms` if that page is wired) before
 `application_url` can be generated. Skip the rest of Step 9.
 
