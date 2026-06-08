@@ -75,14 +75,33 @@ grep -c "_check_sentinel_pause\|_check_manual_pause\|_check_inter_touch_gap\|_ch
 # Expect: the grep returns at least 5
 ```
 
-Install the new spreadsheet dependency. `import_mca_leads.py` needs
-`openpyxl` (just added to SunBiz-Agent requirements.txt):
+Install the new spreadsheet dependencies. `import_mca_leads.py` needs
+`openpyxl` (xlsx) and `pdfplumber` (PDF fallback — already in
+SunBiz-Agent requirements.txt):
 
 ```bash
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/pip install openpyxl
-sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "import openpyxl; print(f'openpyxl {openpyxl.__version__}')"
-# Expect: a version string like "openpyxl 3.1.x"
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/pip install openpyxl pdfplumber
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "import openpyxl, pdfplumber; print(f'openpyxl {openpyxl.__version__} / pdfplumber {pdfplumber.__version__}')"
+# Expect: version strings for both
 ```
+
+Optional but recommended — SSN HMAC pepper. If you want the importer to
+persist a non-reversible SSN hash for cross-import dedup (otherwise it
+only stores last 4), generate a 32-byte pepper ONCE and append to the
+secrets file:
+
+```bash
+PEPPER=$(openssl rand -hex 32)
+sudo -u sunbiz tee -a /srv/sunbiz/ceo-agent/.env.agents > /dev/null <<EOF
+SSN_HMAC_PEPPER=$PEPPER
+EOF
+unset PEPPER
+sudo chmod 600 /srv/sunbiz/ceo-agent/.env.agents
+sudo -u sunbiz pm2 restart all --update-env
+```
+
+Skip this if SSN dedup isn't needed — the importer falls back to
+email/phone/business+state for dedup and persists only last 4 of SSN.
 
 Make sure the import landing directory exists for Step 7:
 
