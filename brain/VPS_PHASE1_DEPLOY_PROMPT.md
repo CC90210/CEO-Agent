@@ -1,177 +1,205 @@
-# VPS Phase 1 Deploy Prompt — Adon MCA brief infrastructure
+# VPS Full Deploy Prompt — Adon MCA infrastructure (Phase 1 + Phase 2)
 
 > Paste everything between the triple-dashes into your VPS Claude Code chat.
-> Two `<FILL_IN>` placeholders inside if Twilio/Anthropic creds still need
-> provisioning — but Phase 1 itself only requires Anthropic for the Sentinel.
-> Twilio is not part of Phase 1.
+> One end-to-end deploy: pulls latest code from both SunBiz repos, installs
+> deps, registers new daemon under pm2, applies migration 078 (Inquiry
+> Welcomer template), runs smoke tests, end-to-end verification.
+>
+> Supersedes earlier `VPS_PHASE1_DEPLOY_PROMPT` (single-stage Phase 1 prompt).
 
 ---
 
 You are a Claude Code agent on CC's SunBiz Funding VPS (Ubuntu 22.04,
-srv1723601, `sunbiz` user). CC + Bravo just shipped Phase 1 of Adon's
-MCA follow-up architecture brief (commits: CEO-Agent `1cc17da`,
-SunBiz-Agent `a8d4f4b` after rebase, oasis-command-center `12a0c63` —
-dashboard deploys automatically via Vercel). Your job is to deploy the
-agent-side changes to this VPS and verify them end-to-end.
+srv1723601, `sunbiz` user). CC has shipped Phase 1 + Phase 2 of Adon's
+MCA follow-up architecture across three repos. Your job: deploy
+everything VPS-side and verify it end-to-end.
 
-## What landed in this push
+## What this deploy lands
 
-**CEO-Agent (Business-Empire-Agent → ceo-agent/) — `1cc17da`:**
-- `scripts/integrations/send_gateway.py` — added 5 new pre-send gates
-  (manual_pause, sentinel_pause, send_window, reply_since_outbound,
-  inter_touch_gap) + surfaced CASL suppression in `can_act()`. Gate
-  count went from 5 to 10. Each gate fails closed on DB error.
+**Business-Empire-Agent (ceo-agent/) — tip `ed2bdce`:**
+- `scripts/integrations/send_gateway.py` — extended from 5 to 12 pre-send
+  gates (kill switches, operating modes, sentinel pause, send window,
+  reply-since-outbound, 90-min inter-touch + yellow-flag 180-min, etc.)
+- `scripts/pause_controller.py` (NEW) — operator kill switches +
+  operating modes, backed by `tenant_records` rows
+- `telegram_agent.js` — `/sb` operator panic command suite (Telegram-side)
 
-**SunBiz-Agent (sunbiz-agent/) — `a8d4f4b`:**
-- `scripts/sentinel.py` (NEW) — merchant-reply sentiment scorer. Polls
-  inbound `lead_interactions` every 60s, scores -100..+100 via Claude
-  Haiku + deterministic signal modifiers, maintains rolling avg of last
-  5 inbounds per lead. On rolling avg ≤ -30: sets
-  `lead.data.sentinel_pause_until = now+7d`, emits BRAVO_SENTIMENT_PAUSE
-  event, fires Telegram alert. On new score ≥ +20: clears active pause.
-- `scripts/import_mca_leads.py` (NEW) — bulk-importer for Adon's MCA
-  web-form spreadsheet. Maps multi-position funding history, multi-phone,
-  PII-safe SSN handling (last-4 + hash only) into tenant_records.data.
+**SunBiz-Agent (sunbiz-agent/) — tip `2ad664d`:**
+- `scripts/sentinel.py` (NEW) — Claude-scored merchant-reply sentiment +
+  auto-pause + Telegram alert daemon
+- `scripts/import_mca_leads.py` (NEW) — bulk MCA lead importer (xlsx /
+  CSV / PDF)
+- `scripts/sequence_runner.py` — brand resolved from tenant + reads
+  `body_html` from step templates
+- `database/078_adon_inquiry_welcomer_template.sql` (NEW) — first of 12
+  Adon drip templates. Ships DISABLED — operator activates from
+  `/sequences` after smoke-testing.
 
-**oasis-command-center (Vercel) — `12a0c63`:**
-- `lib/sunbiz-stage-meta.ts` — `LEAD_PIPELINE_STAGES` expanded from 9 to
-  14 (added: funded, renewal_eligible, ghost, renewed_elsewhere, opted_out).
-- `components/leads/MCAProfilePanel.tsx` (NEW) — surfaces MCA-specific
-  lead fields in the pipeline detail drawer.
+**oasis-command-center (Vercel, auto-deploys) — tip `e343770`:**
+- Per-lead `application_url` auto-stamping on lead create/update
+- Lead drawer UI polish (softer borders, refined chip + composer)
+- 14 pipeline stages including post-funded lifecycle
 
 ## Scope — strictly SunBiz infrastructure
 
 Touch ONLY:
 - `/srv/sunbiz/ceo-agent` + `/srv/sunbiz/sunbiz-agent`
-- `/srv/sunbiz/ceo-agent/.env.agents` (the shared secrets file)
-- The `sunbiz` user's PM2 instance — add ONE new daemon (`sunbiz-sentinel`)
+- The shared secrets file at `/srv/sunbiz/ceo-agent/.env.agents`
+- The `sunbiz` user's pm2 (add ONE new daemon: `sunbiz-sentinel`)
 - Supabase rows scoped to `tenant_id=aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110`
 
-Do NOT touch:
-- `~/CMO-Agent`, `~/APPS/CFO-Agent`, or any non-SunBiz repo
-- The dashboard repo `oasis-command-center` (Vercel handles it)
-- Database schema migrations (Phase 1 uses jsonb fields only; no DDL)
+Do NOT touch: `~/CMO-Agent`, `~/APPS/CFO-Agent`, the `oasis-command-center`
+repo (Vercel handles it), any non-SunBiz tenant rows.
 
-## Step 1 — Pull the latest
-
-Fast-forward only; if either repo is dirty, STOP and report.
+## Step 1 — Pull both repos
 
 ```bash
 cd /srv/sunbiz/ceo-agent && git fetch origin && git status --short
-cd /srv/sunbiz/ceo-agent && git log --oneline HEAD..origin/main | head -5
+cd /srv/sunbiz/ceo-agent && git log --oneline HEAD..origin/main | head -10
 cd /srv/sunbiz/ceo-agent && git pull --ff-only origin main
 
 cd /srv/sunbiz/sunbiz-agent && git fetch origin && git status --short
-cd /srv/sunbiz/sunbiz-agent && git log --oneline HEAD..origin/main | head -5
+cd /srv/sunbiz/sunbiz-agent && git log --oneline HEAD..origin/main | head -10
 cd /srv/sunbiz/sunbiz-agent && git pull --ff-only origin main
 ```
 
-After pull, verify the new files landed:
+If either repo is dirty, STOP and report what's uncommitted. Do not
+discard work.
+
+Verify the new files landed:
 
 ```bash
+ls -la /srv/sunbiz/ceo-agent/scripts/pause_controller.py
 ls -la /srv/sunbiz/sunbiz-agent/scripts/sentinel.py
 ls -la /srv/sunbiz/sunbiz-agent/scripts/import_mca_leads.py
-grep -c "_check_sentinel_pause\|_check_manual_pause\|_check_inter_touch_gap\|_check_send_window\|_check_reply_since_last_outbound" /srv/sunbiz/ceo-agent/scripts/integrations/send_gateway.py
-# Expect: the grep returns at least 5
+ls -la /srv/sunbiz/sunbiz-agent/database/078_adon_inquiry_welcomer_template.sql
 ```
 
-Install the new spreadsheet dependencies. `import_mca_leads.py` needs
-`openpyxl` (xlsx) and `pdfplumber` (PDF fallback — already in
-SunBiz-Agent requirements.txt):
+## Step 2 — Install Python dependencies
 
 ```bash
 sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/pip install openpyxl pdfplumber
 sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "import openpyxl, pdfplumber; print(f'openpyxl {openpyxl.__version__} / pdfplumber {pdfplumber.__version__}')"
-# Expect: version strings for both
 ```
 
-Optional but recommended — SSN HMAC pepper. If you want the importer to
-persist a non-reversible SSN hash for cross-import dedup (otherwise it
-only stores last 4), generate a 32-byte pepper ONCE and append to the
-secrets file:
+Both versions must print. If `pdfplumber` install fails on a slim
+Debian, install build deps first: `sudo apt-get install -y libpango-1.0-0
+libpangoft2-1.0-0`.
+
+## Step 3 — Anthropic key sanity + optional SSN pepper
+
+Sentinel needs `ANTHROPIC_API_KEY` (or `BRAVO_ANTHROPIC_API_KEY`). Check
+what's currently configured:
 
 ```bash
-PEPPER=$(openssl rand -hex 32)
-sudo -u sunbiz tee -a /srv/sunbiz/ceo-agent/.env.agents > /dev/null <<EOF
-SSN_HMAC_PEPPER=$PEPPER
-EOF
-unset PEPPER
-sudo chmod 600 /srv/sunbiz/ceo-agent/.env.agents
-sudo -u sunbiz pm2 restart all --update-env
-```
-
-Skip this if SSN dedup isn't needed — the importer falls back to
-email/phone/business+state for dedup and persists only last 4 of SSN.
-
-Make sure the import landing directory exists for Step 7:
-
-```bash
-sudo -u sunbiz mkdir -p /srv/sunbiz/imports
-sudo -u sunbiz chmod 750 /srv/sunbiz/imports
-```
-
-## Step 2 — Sanity check existing creds
-
-Sentinel needs ANTHROPIC_API_KEY. Phase 1 does NOT need Twilio.
-
-```bash
-cd /srv/sunbiz/ceo-agent && /srv/sunbiz/ceo-agent/.venv/bin/python -c "
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "
 from lib.secret_loader import load_env
 env = load_env()
 k = (env.get('BRAVO_ANTHROPIC_API_KEY') or env.get('ANTHROPIC_API_KEY') or '').strip()
-print(f'anthropic_key_present: {bool(k)}')
-print(f'anthropic_key_len: {len(k)} (expect 100+ for real key)')
-print(f'anthropic_key_prefix: {k[:14] if k else \"(missing)\"}')
+print(f'present: {bool(k)}, length: {len(k)}, prefix: {k[:14]}')
 "
 ```
 
-If `anthropic_key_len < 50`, the key is a placeholder. Ask CC to paste the
-real key in the chat and write it to `.env.agents` as BOTH
-`ANTHROPIC_API_KEY` and `BRAVO_ANTHROPIC_API_KEY` (the codebase reads
-either). After write: `chmod 600` and `sudo -u sunbiz pm2 restart all
---update-env`.
+If `length < 50`, the value is a placeholder. Ask CC to paste the real
+key in this chat (don't echo back), then append both forms to the
+secrets file:
 
-## Step 3 — Smoke test the Sentinel (no DB writes)
+```bash
+# When CC pastes the real key, replace REAL_KEY below
+sudo -u sunbiz bash -c 'cat >> /srv/sunbiz/ceo-agent/.env.agents <<EOF
+BRAVO_ANTHROPIC_API_KEY=REAL_KEY
+ANTHROPIC_API_KEY=REAL_KEY
+EOF'
+sudo chmod 600 /srv/sunbiz/ceo-agent/.env.agents
+```
 
-Standalone scoring test — exercises the LLM call and deterministic modifiers
-without touching production data.
+Optional — if CC wants SSN dedup hashing across imports (not required;
+last-4 alone is sufficient for display):
+
+```bash
+PEPPER=$(openssl rand -hex 32)
+sudo -u sunbiz bash -c "echo SSN_HMAC_PEPPER=$PEPPER >> /srv/sunbiz/ceo-agent/.env.agents"
+unset PEPPER
+sudo chmod 600 /srv/sunbiz/ceo-agent/.env.agents
+```
+
+## Step 4 — SunBiz BRAND_IDENTITY confirmation (one-time)
+
+`scripts/integrations/send_gateway.py` BRAND_IDENTITY["sunbiz"] has two
+TODO placeholders that BLOCK external SunBiz emails until resolved.
+Inspect:
+
+```bash
+grep -A 6 '"sunbiz":' /srv/sunbiz/ceo-agent/scripts/integrations/send_gateway.py
+```
+
+If you see `sender_name: "Sun Biz Funding Team"` or `business_address:
+"Sun Biz Funding"`, those are placeholders. Real values needed:
+- `sender_name`: the human name SunBiz emails sign off as (probably
+  "Ezra" given that's the operator). Confirm with CC.
+- `business_address`: the legal mailing address for the CASL footer.
+  REQUIRED by Canada anti-spam law — without it commercial sends will
+  block at the placeholder check.
+
+If CC supplies values, patch the file:
+
+```bash
+# Replace these literal strings — CC provides EZRA_NAME and FULL_ADDR
+sudo -u sunbiz sed -i \
+  -e 's|"sender_name": "Sun Biz Funding Team",|"sender_name": "EZRA_NAME",|' \
+  -e 's|"business_address": "Sun Biz Funding",|"business_address": "FULL_ADDR",|' \
+  /srv/sunbiz/ceo-agent/scripts/integrations/send_gateway.py
+
+# Also remove the placeholder from PLACEHOLDER_BUSINESS_ADDRESSES
+grep "PLACEHOLDER_BUSINESS_ADDRESSES" /srv/sunbiz/ceo-agent/scripts/integrations/send_gateway.py
+# If you see the frozenset still listing "Sun Biz Funding", remove that
+# entry manually with sed or by editing the file.
+```
+
+If CC doesn't have the address ready, leave the placeholders in place,
+note in the final report that SunBiz commercial email sends will block
+until resolved.
+
+## Step 5 — Apply migration 078 (Inquiry Welcomer template)
 
 ```bash
 cd /srv/sunbiz/sunbiz-agent
-/srv/sunbiz/ceo-agent/.venv/bin/python scripts/sentinel.py score \
-  --text "stop emailing me you idiots, this is harassment" --json
-# Expect: score ~-100, source=llm, frustration_signals includes
-#         "profanity:idiot" + "hard_stop_keyword:stop"
-
-/srv/sunbiz/ceo-agent/.venv/bin/python scripts/sentinel.py score \
-  --text "Hey, thanks for following up — I'd love to chat tomorrow if you're free?" --json
-# Expect: score ~+50 to +80, source=llm, positive_signals non-empty
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python \
+  scripts/apply_migration.py database/078_adon_inquiry_welcomer_template.sql
 ```
 
-If both pass: Sentinel scoring is wired correctly. If `source=fallback` on
-both: ANTHROPIC_API_KEY is wrong — see Step 2.
+Expected output: `Adon Agent 1 (Inquiry Welcomer) template inserted
+DISABLED.` If you see `Skipping insert — an Inquiry Welcomer already
+exists`, an operator-created duplicate is in the way — surface to CC,
+don't overwrite.
 
-## Step 4 — One-pass Sentinel run against production inbounds
-
-Real run — touches the DB. Scores any unscored inbound merchant replies
-from the last 48h. If avg drops below -30 for any lead, it WILL pause that
-lead and send a Telegram alert. That's the intended behavior.
+Verify the template:
 
 ```bash
-cd /srv/sunbiz/sunbiz-agent
-/srv/sunbiz/ceo-agent/.venv/bin/python scripts/sentinel.py once
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "
+from lib.secret_loader import load_env
+import os
+for k,v in load_env().items(): os.environ.setdefault(k,v)
+from supabase import create_client
+sb = create_client(os.environ['BRAVO_SUPABASE_URL'], os.environ['BRAVO_SUPABASE_SERVICE_ROLE_KEY'])
+r = sb.table('drip_sequences').select('id, name, enabled').eq('id', 'a4d1a5c2-1111-5811-1111-c87a83d40078').execute()
+print(r.data)
+"
+# Expect: one row, enabled=False
 ```
 
-Expected output:
-```
-[ISO timestamp] run_once: scored=N paused=M recovered=K errors=E
+## Step 6 — Restart pm2 with new env
+
+```bash
+sudo -u sunbiz pm2 restart all --update-env
+sudo -u sunbiz pm2 list
 ```
 
-If `scored=0` and there are no errors: no fresh inbounds in the last 48h
-(normal). If `errors>0`: read `/srv/sunbiz/sunbiz-agent/state/sentinel.log`
-for the failure mode.
+Existing daemons should all return to `online` with restarts <= prior +1.
+If any errored, pull the log for that specific daemon and surface to CC
+— don't auto-restart.
 
-## Step 5 — Start the Sentinel daemon under PM2
+## Step 7 — Register the Sentinel daemon
 
 ```bash
 cd /srv/sunbiz/sunbiz-agent
@@ -181,145 +209,133 @@ sudo -u sunbiz pm2 start /srv/sunbiz/ceo-agent/.venv/bin/python \
   -- scripts/sentinel.py loop --interval 60
 sudo -u sunbiz pm2 save
 sudo -u sunbiz pm2 list | grep sentinel
-# Expect: status=online, restarts=0
-sudo -u sunbiz pm2 logs sunbiz-sentinel --lines 10 --nostream
-# Expect: "sentinel: starting loop interval=60s window=5"
+# Expect: sunbiz-sentinel, online, restarts=0
+
+sleep 5
+sudo -u sunbiz pm2 logs sunbiz-sentinel --lines 5 --nostream
+# Expect: "sentinel: starting loop interval=60s window=5 tenant=aa04fa1f.."
 ```
 
-If the daemon crash-loops within 60s: check the log for the failure mode,
-fix root cause, do NOT auto-restart with `--force`.
+## Step 8 — Smoke tests
 
-## Step 6 — send_gateway gate verification
-
-Verify the new gates fire correctly. The CLI has a `can-act` subcommand —
-we'll create a synthetic test lead with each pause flag, then probe.
+### 8a. Sentinel scoring (no DB writes)
 
 ```bash
-cd /srv/sunbiz/ceo-agent
-/srv/sunbiz/ceo-agent/.venv/bin/python -c "
-import json
-from scripts.lib.secret_loader import load_env
-import os
-env = load_env()
-for k, v in env.items():
-    os.environ.setdefault(k, v)
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python \
+  /srv/sunbiz/sunbiz-agent/scripts/sentinel.py score \
+  --text "stop emailing me you idiots, this is harassment" --json | head -10
+# Expect: score ~-100, source=llm, frustration_signals includes profanity + hard_stop
 
-# Confirm the gate functions exist
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python \
+  /srv/sunbiz/sunbiz-agent/scripts/sentinel.py score \
+  --text "Hey, thanks for following up — I'd love to chat tomorrow if you're free?" --json | head -10
+# Expect: score ~+50 to +80
+```
+
+If both `source=fallback`, the Anthropic key from Step 3 isn't valid —
+fix that first.
+
+### 8b. Operator kill switches (pause_controller)
+
+```bash
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python \
+  /srv/sunbiz/ceo-agent/scripts/pause_controller.py --json status
+# Expect: ok=true, operating_mode.mode='standard', empty pause arrays
+```
+
+### 8c. Send-gateway extended gates load correctly
+
+```bash
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "
 import sys
 sys.path.insert(0, '/srv/sunbiz/ceo-agent/scripts')
+sys.path.insert(0, '/srv/sunbiz/ceo-agent/scripts/integrations')
 from integrations.send_gateway import (
     _check_manual_pause, _check_sentinel_pause, _check_send_window,
     _check_reply_since_last_outbound, _check_inter_touch_gap,
     _check_suppression,
 )
-print('all 6 new gate functions imported OK')
-print('test manual_pause flag:',
-      _check_manual_pause({'manual_paused': True},
-                          __import__('datetime').datetime.now(
-                              __import__('datetime').timezone.utc)))
+from pause_controller import check_kill_switches, check_operating_mode
+print('all 8 new gate helpers importable')
 "
-# Expect: "all 6 new gate functions imported OK"
-# Expect: "test manual_pause flag: lead manually paused by operator..."
+# Expect: "all 8 new gate helpers importable"
 ```
 
-If imports fail with `ModuleNotFoundError`: the daemon's venv is out of date.
-`pip install -r /srv/sunbiz/ceo-agent/requirements.txt` and retry.
+## Step 9 — End-to-end smoke (no real lead created)
 
-## Step 7 — End-to-end lead import (dry-run first, then real)
-
-CC will SCP Adon's xlsx to the VPS. Run dry-run on 10 rows first to verify
-parsing, then full import.
+Create a synthetic SunBiz lead via the dashboard's API to exercise the
+full path: lead insert → `application_url` stamping → event publish →
+sequence_runner enrollment check. Template is disabled so NO actual
+emails go out.
 
 ```bash
-# Expect CC to drop the file here:
-ls -la /srv/sunbiz/imports/MCA_Webforms_June1-5.xlsx
-
-# Dry-run on first 10 rows — no DB writes, prints report
-/srv/sunbiz/ceo-agent/.venv/bin/python \
-  /srv/sunbiz/sunbiz-agent/scripts/import_mca_leads.py \
-  --source-path /srv/sunbiz/imports/MCA_Webforms_June1-5.xlsx \
-  --source-tag adon_handoff_2026-06-08 \
-  --date-range 2026-06-01..2026-06-05 \
-  --dry-run --limit 10
+# 9a. Confirm SunBiz has a published intake form (required for URL stamping)
+sudo -u sunbiz /srv/sunbiz/ceo-agent/.venv/bin/python -c "
+from lib.secret_loader import load_env
+import os
+for k,v in load_env().items(): os.environ.setdefault(k,v)
+from supabase import create_client
+sb = create_client(os.environ['BRAVO_SUPABASE_URL'], os.environ['BRAVO_SUPABASE_SERVICE_ROLE_KEY'])
+r = sb.table('tenant_forms').select('id, slug, published').eq('tenant_id', 'aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110').eq('published', True).execute()
+print(f'published SunBiz forms: {len(r.data or [])}')
+for f in r.data or []: print(f'  {f[\"slug\"]} ({f[\"id\"][:8]}..)')
+"
 ```
 
-Review the dry-run report:
-- `parsed`: should equal 10
-- `insertable`: ≥ 8 (some rows may be skipped malformed if name+company+contact all blank — that's expected)
-- `skipped_duplicate`: 0 if this is the first run; >0 if CC has imported any of these before
-- `by_state` + `by_positions`: spot-check the totals make sense
+If zero published forms: report to CC. He needs to publish at least one
+form via `/sequences` (or `/forms` if that page is wired) before
+`application_url` can be generated. Skip the rest of Step 9.
 
-If the report looks healthy, do the full import:
+If at least one form exists:
 
 ```bash
-/srv/sunbiz/ceo-agent/.venv/bin/python \
-  /srv/sunbiz/sunbiz-agent/scripts/import_mca_leads.py \
-  --source-path /srv/sunbiz/imports/MCA_Webforms_June1-5.xlsx \
-  --source-tag adon_handoff_2026-06-08 \
-  --date-range 2026-06-01..2026-06-05
+# 9b. Verify FORM_LINK_HMAC_KEY is set in env (required for token signing)
+grep -c "^FORM_LINK_HMAC_KEY=" /srv/sunbiz/ceo-agent/.env.agents
+# Expect: 1
 ```
 
-Final report goes to `/srv/sunbiz/sunbiz-agent/state/import_mca_leads.<timestamp>.json`.
-Surface the totals to CC.
+If 0, CC needs to set this either in `.env.agents` here OR in Vercel env
+(the URL signing happens dashboard-side; this Vercel env is what
+matters). Surface to CC.
 
-## Step 8 — Cross-check the dashboard
+## Step 10 — Final report
 
-The new stages + MCA profile panel deploy automatically via Vercel from the
-oasis-command-center push. Confirm they're live by curling the dashboard:
-
-```bash
-curl -sS https://oasisai.work/api/health 2>&1 | head -3
-# Expect: 200 + {"ok": true, ...}
-```
-
-CC will eyeball the dashboard manually:
-- /pipeline (SunBiz tenant): kanban shows 14 stage columns including the
-  new ones (funded / renewal_eligible / ghost / renewed_elsewhere / opted_out)
-- /pipeline/<lead_id> on any imported MCA lead: "MCA Profile" collapsible
-  card visible between LeadLifecycleActions and LeadTimelinePanel, showing
-  positions / current_funders / EIN / SSN-last-4 / etc.
-
-## Step 9 — Final report
-
-Write to `/srv/sunbiz/phase1-deploy.log`:
+Write to `/srv/sunbiz/full-deploy.log`:
 
 ```
-=== SunBiz Phase 1 Deploy — {ISO timestamp} ===
+=== SunBiz Full Deploy — {ISO timestamp} ===
 
-[1] Repos current                    : YES / NO — {SHA pulled for each}
-[2] Anthropic key valid              : YES / NO — {len + prefix}
-[3] Sentinel score CLI smoke test    : PASS / FAIL — {hostile + friendly scores}
-[4] Sentinel run_once (production)   : scored=N paused=M errors=E
-[5] sunbiz-sentinel pm2 daemon       : online / errored / restart-looping
-[6] send_gateway new gates imported  : 6/6 / partial / failed
-[7] MCA lead import dry-run          : parsed=N insertable=M skipped_dupe=K
-[8] MCA lead import (full)           : inserted=N / DEFERRED / SKIPPED
-[9] Dashboard /api/health            : 200 / non-200
-[10] /pipeline kanban stages         : 14 / fewer (record actual count)
+[1] Repos current                  : YES / NO — ceo-agent={sha}, sunbiz-agent={sha}
+[2] openpyxl + pdfplumber installed: YES / NO — versions
+[3] Anthropic key valid            : YES / NO — length
+[4] SunBiz BRAND_IDENTITY resolved : YES / NO — sender_name + business_address now non-placeholder
+[5] Migration 078 applied          : INSERTED / SKIPPED-DUPLICATE / FAILED
+[6] pm2 daemons after restart      : N/N online, errored=[list]
+[7] sunbiz-sentinel registered     : online / errored / restart-looping
+[8a] Sentinel score smoke          : PASS / FAIL — hostile + friendly scores
+[8b] pause_controller status       : PASS / FAIL
+[8c] send_gateway gate imports     : 8/8 / partial / failed
+[9a] SunBiz published forms        : N forms found
+[9b] FORM_LINK_HMAC_KEY in env     : YES / NO
+[10] Lead import dry-run available : YES (script: import_mca_leads.py) / NO
 
-Phase 1 readiness: {%}
+Production-readiness: {%}
 ```
 
-Plus a one-paragraph plain-English summary to CC: what's operational,
-what's deferred, any decisions needed.
+Plus a one-paragraph summary for CC: what's operational, what's still
+blocked on him (Anthropic key, BRAND_IDENTITY values, published form,
+HMAC key in Vercel env), and the single most important next step.
 
 ## Constraints — non-negotiable
 
-1. **Never echo secret values to chat.** Sentinel + import use the same
-   `.env.agents`; you should never need to see a key value.
-2. **Never push to git from this VPS.** Anything that needs to land in
-   the repo gets committed locally and reported — CC pushes from his PC.
-3. **Never flip BRAVO_FORCE_DRY_RUN.** Phase 1 doesn't require it. If
-   it's currently `=1`, the Sentinel still scores and pauses (those are
-   metadata writes, not sends). The cold-outreach question Adon's brief
-   raises (Agent 11 — Lost Deal Reanimator) is explicitly OUT OF SCOPE
-   for this deploy.
-4. **Sentinel scoring is a DB write.** It updates `lead_interactions.metadata`
-   and `tenant_records.data.sentiment_history`. These writes are additive
-   and reversible (`UPDATE tenant_records SET data = data - 'sentiment_history'
-   WHERE tenant_id = '<sunbiz>'`). But still — verify Step 3 (CLI smoke
-   test) is green before letting Step 4 (production run) touch the DB.
-5. **If any step fails, halt and report.** Half-deployed gates are worse
-   than clearly-broken-and-rolled-back.
+1. Never echo secret values to chat (Anthropic key, HMAC pepper, etc.).
+2. Never push to git from this VPS — CC pushes from his PC.
+3. Never flip `BRAVO_FORCE_DRY_RUN=0` if currently `=1` — that's a
+   policy decision. Inquiry Welcomer ships disabled anyway, so no
+   automated sends would happen yet.
+4. Never enable the Inquiry Welcomer template via SQL — operator
+   activates from `/sequences` after smoke-testing.
+5. If any step fails, halt and report. Don't proceed with steps that
+   depend on a failed earlier step.
 
 Begin Step 1 now.
