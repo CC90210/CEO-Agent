@@ -1192,57 +1192,95 @@ bot.on('message', async (msg) => {
     if (sbMatch) {
         const sub = sbMatch[1];
         const arg = (sbMatch[2] || '').trim();
-        let cliArgs = null;
+        // Codex P2-#1 (critical): the OLD code built a single shell string and
+        // passed to exec(), so a reason containing $(whoami) would execute on
+        // the bot host. New impl: build an argv ARRAY and use execFile (no
+        // shell), plus per-arg validation so an operator can't even feed a
+        // mangled lead_id / agent name through.
+        //
+        // Validators (deny first, allow second):
+        const AGENT_NAME_RE = /^[a-z0-9_\-]{1,64}$/i;
+        const UUID_RE       = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const MODE_VALUES   = ['silent', 'conservative', 'standard', 'aggressive'];
+        const MAX_REASON    = 200;
+        let argv = null;
         if (sub === 'status') {
-            cliArgs = '--json status';
+            argv = ['--json', 'status'];
         } else if (sub === 'mode') {
-            if (!arg || !['silent', 'conservative', 'standard', 'aggressive'].includes(arg)) {
+            if (!MODE_VALUES.includes(arg)) {
                 await bot.sendMessage(chatId, 'Usage: /sb mode <silent|conservative|standard|aggressive>');
                 return;
             }
-            cliArgs = `--json set-mode ${arg}`;
+            argv = ['--json', 'set-mode', arg];
         } else if (sub.startsWith('pause-')) {
-            const scope = sub.slice('pause-'.length);  // global | agent | lead
+            const scope = sub.slice('pause-'.length);
             if (scope === 'global') {
-                // arg is the reason (or empty)
-                const reason = arg ? `--reason ${JSON.stringify(arg)}` : '';
-                cliArgs = `--json pause global ${reason}`.trim();
+                const reason = arg.substring(0, MAX_REASON);
+                argv = ['--json', 'pause', 'global'];
+                if (reason) argv.push('--reason', reason);
             } else {
                 if (!arg) {
                     await bot.sendMessage(chatId, `Usage: /sb pause-${scope} <target> [reason]`);
                     return;
                 }
-                // First token = target (agent name or lead UUID); rest = reason
-                const argParts = arg.split(/\s+/);
-                const target = argParts[0];
-                const reason = argParts.slice(1).join(' ');
-                const reasonFlag = reason ? `--reason ${JSON.stringify(reason)}` : '';
-                cliArgs = `--json pause ${scope} ${JSON.stringify(target)} ${reasonFlag}`.trim();
+                const parts = arg.split(/\s+/);
+                const target = parts[0];
+                const reason = parts.slice(1).join(' ').substring(0, MAX_REASON);
+                // Per-scope validation
+                if (scope === 'agent' && !AGENT_NAME_RE.test(target)) {
+                    await bot.sendMessage(chatId,
+                        `Invalid agent name: must match [A-Za-z0-9_-]{1,64}. ` +
+                        `Got: ${target.substring(0, 80)}`);
+                    return;
+                }
+                if (scope === 'lead' && !UUID_RE.test(target)) {
+                    await bot.sendMessage(chatId,
+                        `Invalid lead UUID. Got: ${target.substring(0, 80)}`);
+                    return;
+                }
+                argv = ['--json', 'pause', scope, target];
+                if (reason) argv.push('--reason', reason);
             }
         } else if (sub.startsWith('resume-')) {
             const scope = sub.slice('resume-'.length);
             if (scope === 'global') {
-                cliArgs = `--json resume global`;
+                argv = ['--json', 'resume', 'global'];
             } else {
                 if (!arg) {
                     await bot.sendMessage(chatId, `Usage: /sb resume-${scope} <target>`);
                     return;
                 }
-                cliArgs = `--json resume ${scope} ${JSON.stringify(arg)}`;
+                const target = arg.split(/\s+/)[0];
+                if (scope === 'agent' && !AGENT_NAME_RE.test(target)) {
+                    await bot.sendMessage(chatId,
+                        `Invalid agent name: must match [A-Za-z0-9_-]{1,64}.`);
+                    return;
+                }
+                if (scope === 'lead' && !UUID_RE.test(target)) {
+                    await bot.sendMessage(chatId, `Invalid lead UUID.`);
+                    return;
+                }
+                argv = ['--json', 'resume', scope, target];
             }
         }
-        if (!cliArgs) {
+        if (!argv) {
             await bot.sendMessage(chatId, `Unknown /sb subcommand: ${sub}`);
             return;
         }
-        const cmd = `${PYTHON} scripts/pause_controller.py ${cliArgs}`;
+        const { execFile: execFileSb } = require('child_process');
+        const scriptPath = `${__dirname}/scripts/pause_controller.py`;
         log(`[SUNBIZ-OPS] ${sub} ${arg.substring(0, 60)}`);
-        exec(cmd, { cwd: __dirname, windowsHide: IS_WIN, timeout: 15000 }, (err, out, errOut) => {
-            const result = (out || errOut || err?.message || 'No output.').substring(0, 4000);
-            bot.sendMessage(chatId, '```\n' + result + '\n```', { parse_mode: 'Markdown' }).catch(() =>
-                bot.sendMessage(chatId, result).catch(() => {})
-            );
-        });
+        execFileSb(
+            PYTHON,
+            [scriptPath, ...argv],
+            { cwd: __dirname, windowsHide: IS_WIN, timeout: 15000 },
+            (err, out, errOut) => {
+                const result = (out || errOut || err?.message || 'No output.').substring(0, 4000);
+                bot.sendMessage(chatId, '```\n' + result + '\n```', { parse_mode: 'Markdown' }).catch(() =>
+                    bot.sendMessage(chatId, result).catch(() => {})
+                );
+            }
+        );
         return;
     }
 
