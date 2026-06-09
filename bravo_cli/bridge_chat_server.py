@@ -1750,14 +1750,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 "hint": "This agent's repo is not present at any known path on this machine.",
             })
             return
-        entry = resolve_entry_file(root)
+        entry = resolve_entry_file(root, agent)
         if not entry:
             self._json(412, {
                 "ok": False,
                 "error": "no_entry_brain",
                 "agent": agent,
                 "root": str(root),
-                "hint": "No CLAUDE.md / AGENTS.md / brain/SOUL.md found in the agent's repo root.",
+                "hint": f"No {agent.upper()}.md / CLAUDE.md / AGENTS.md / brain/SOUL.md found in the agent's repo root.",
             })
             return
 
@@ -2263,7 +2263,12 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # persona content into Codex/Gemini's context. Without this the
         # underlying runtime introduces itself as Codex or Gemini and the
         # operator's chosen agent persona is lost.
-        entry = resolve_entry_file(root)
+        #
+        # Pass the agent slug so resolve_entry_file prefers <AGENT>.md (e.g.
+        # HELIOS.md for the helios slug) over the generic CLAUDE.md fallback.
+        # SunBiz-Agent hosts both Solara and Helios — without the slug, both
+        # would receive Solara's CLAUDE.md and the identity would bleed.
+        entry = resolve_entry_file(root, agent)
         prompt_text = self._build_local_cli_prompt(agent, messages, entry)
         if not prompt_text.strip():
             emit("error", {
@@ -2582,6 +2587,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # that are actually working.
         timeout_s: int = 21_600,
         path_hint: str | None = None,
+        stdin_input: str | None = None,
     ) -> subprocess.CompletedProcess:
         env = dict(os.environ)
         # Enriched PATH so subprocess children (gemini → node → npm
@@ -2600,12 +2606,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
             "FORCE_COLOR": "0",
         })
         cmd = [*_command_without_cmd_shim(args[0]), *args[1:]] if args else args
-        return _safe_run(
-            cmd,
+        # When stdin_input is supplied (Codex v0.136+ prompt path), pipe it
+        # via subprocess.PIPE + input=... and let _safe_run feed it. Without
+        # input, stay on DEVNULL so the CLI doesn't sit waiting for stdin
+        # that will never come (the SubprocessError default).
+        run_kwargs: dict = dict(
             cwd=str(root),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            stdin=subprocess.DEVNULL,
             shell=False,
             env=env,
             text=True,
@@ -2615,6 +2623,12 @@ class _ChatHandler(BaseHTTPRequestHandler):
             creationflags=_WINDOWLESS_FLAGS,
             startupinfo=_windowless_startupinfo(),
         )
+        if stdin_input is None:
+            run_kwargs["stdin"] = subprocess.DEVNULL
+        else:
+            run_kwargs["stdin"] = subprocess.PIPE
+            run_kwargs["input"] = stdin_input
+        return _safe_run(cmd, **run_kwargs)
 
     def _run_codex_cli(self, root: Path, prompt_text: str, chat_mode: str = "build") -> str:
         codex_bin = self._which_cli("codex")
@@ -2636,6 +2650,13 @@ class _ChatHandler(BaseHTTPRequestHandler):
         try:
             with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt", delete=False) as fh:
                 out_path = fh.name
+            # Codex CLI v0.136+ (gpt-5.5 era) reads the prompt from STDIN when
+            # invoked with --stdin, even when a positional prompt arg is
+            # present. Previously we passed the prompt as a positional arg
+            # and stdin=DEVNULL — the new CLI saw EOF on stdin and emitted
+            # "Reading additional input from stdin..." then exited 1.
+            # Switching to stdin-piping matches Codex's documented batch
+            # invocation pattern and works with both old and new CLI versions.
             args = [
                 codex_bin,
                 "exec",
@@ -2646,12 +2667,15 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 str(root),
                 "--output-last-message",
                 out_path,
-                self._cli_arg_prompt(prompt_text),
+                "-",  # read prompt from stdin
             ]
             # Bumped 2026-05-28 from 180s to 21600s (6h) — long Codex
             # refactor runs were getting killed mid-loop. Watchdog
             # below catches true wedges.
-            proc = self._run_cli_command(args, root, timeout_s=21_600, path_hint=codex_bin)
+            proc = self._run_cli_command(
+                args, root, timeout_s=21_600, path_hint=codex_bin,
+                stdin_input=prompt_text,
+            )
             try:
                 text = Path(out_path).read_text(encoding="utf-8", errors="replace").strip()
             except Exception:

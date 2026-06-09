@@ -108,8 +108,27 @@ def resolve_root(agent_slug: str) -> Path | None:
     return None
 
 
-def resolve_entry_file(root: Path) -> Path | None:
-    """Pick the brain entry file for a given agent root."""
+def resolve_entry_file(root: Path, agent_slug: str | None = None) -> Path | None:
+    """Pick the brain entry file for a given agent root.
+
+    Resolution order:
+      1. <AGENT_SLUG_UPPER>.md (e.g. HELIOS.md, SOLARA.md) — explicit
+         per-agent identity file. Required when a single repo hosts
+         multiple agents (SunBiz-Agent has BOTH Solara and Helios).
+      2. ENTRY_CANDIDATES — CLAUDE.md, AGENTS.md, brain/SOUL.md, README.md.
+         These are the fallback / single-agent-repo convention.
+
+    Without (1), a multi-agent repo would always serve CLAUDE.md (whoever
+    happens to own that file) regardless of which agent the operator
+    selected — the bug that caused Helios to respond as Solara on
+    2026-06-09. The per-agent file is the FIX; the fallback chain stays
+    for the common case of single-agent repos (Bravo, Atlas, Maven,
+    Aura, Hermes).
+    """
+    if agent_slug:
+        agent_specific = root / f"{agent_slug.upper()}.md"
+        if agent_specific.is_file():
+            return agent_specific
     for rel in ENTRY_CANDIDATES:
         p = root / rel
         if p.is_file():
@@ -125,7 +144,7 @@ def all_resolved() -> dict[str, dict[str, str | None]]:
     out: dict[str, dict[str, str | None]] = {}
     for slug in DEFAULTS:
         root = resolve_root(slug)
-        entry = resolve_entry_file(root) if root else None
+        entry = resolve_entry_file(root, slug) if root else None
         out[slug] = {
             "root": str(root) if root else None,
             "entry": str(entry) if entry else None,
