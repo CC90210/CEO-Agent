@@ -36,6 +36,9 @@ Started: 2026-06-09 · Agent: Bravo (Opus 4.8) · Brief: [MISSION_2026-06-09_AUD
 ## Follow-ups / deferred
 
 - **[CC manual] Back up `.env.agents` (+ `.env.agents.template`):** the agent cannot copy it (secret guard). If CC wants a machine-loss-proof copy, manually copy it into `../BEA_local_backup_20260609/`. It is gitignored and stays on disk; only a disk loss endangers it.
+- **[CC action — Phase 1 residual] GitHub PR-ref retention:** branches + tags are fully purged (a normal `git clone` is clean), but the 11 real-lead emails persist in GitHub's internal `refs/pull/*` (PRs #1–22), which `git push` cannot rewrite. To fully eliminate: (a) **GitHub Support** request to purge/GC unreachable commits (the belt-and-suspenders the brief named — most thorough), or (b) make the repo **private** (instantly removes public access to PR refs), or (c) accept it — PR refs are not in default clones; only an explicit `git fetch origin refs/pull/N/head` reaches them (low real-world risk; the data is business `info@` addresses). Recommend (a).
+- **[deferred] CSV-absent resilience patch** in `casl_compliance.py` + gitignoring the runtime CSV (brief step 6) — skipped in Phase 1 (CSV has no real-lead PII; CC narrowed scope). Candidate to fold into Phase 2.
+- **Bundle `../BEA_backup_20260609_1504.bundle` contains OLD PII history** — it's the rollback safety net; keep it private, delete when comfortable the rewrite is final.
 
 ## Phase log
 
