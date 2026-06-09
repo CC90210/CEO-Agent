@@ -136,6 +136,42 @@ def resolve_entry_file(root: Path, agent_slug: str | None = None) -> Path | None
     return None
 
 
+def claude_identity_overlay(root: Path, agent_slug: str) -> tuple[str, str]:
+    """For multi-agent repos, return the identity content + suppressed settings.
+
+    The Claude Code CLI reads the project's CLAUDE.md from cwd as its system
+    prompt. When a single repo hosts MULTIPLE agents (SunBiz-Agent has BOTH
+    Solara at CLAUDE.md AND Helios at HELIOS.md), picking Helios from the
+    dropdown but spawning claude in that cwd makes claude read CLAUDE.md
+    (Solara's identity) regardless of dropdown — that was the 2026-06-09
+    identity-bleed bug where Helios responded as Solara.
+
+    The fix: when resolve_entry_file picks a file OTHER than CLAUDE.md (the
+    signal that this is a multi-agent repo and the operator picked a
+    specific persona), we tell the bridge to:
+      1. Read the per-agent file (HELIOS.md / SOLARA.md / etc) from disk.
+      2. Pass --setting-sources=local so claude SKIPS the project CLAUDE.md.
+      3. Pass --append-system-prompt=<entry_text> so the agent-specific
+         identity becomes the system prompt instead.
+
+    Returns: (identity_text, setting_sources).
+      - identity_text="" + setting_sources="project,local" — single-agent
+        repo (entry IS CLAUDE.md, or no entry resolved). Let claude load
+        CLAUDE.md naturally — preserves existing behavior for Bravo /
+        Atlas / Maven / Aura / Hermes.
+      - identity_text=<entry contents> + setting_sources="local" — multi-
+        agent repo (entry is HELIOS.md / SOLARA.md / etc). Suppress project
+        CLAUDE.md and inject the per-agent file.
+    """
+    entry = resolve_entry_file(root, agent_slug)
+    if entry and entry.name.upper() != "CLAUDE.MD":
+        try:
+            return entry.read_text(encoding="utf-8", errors="ignore"), "local"
+        except Exception:
+            return "", "project,local"
+    return "", "project,local"
+
+
 def all_resolved() -> dict[str, dict[str, str | None]]:
     """Diagnostic helper — what does each agent resolve to right now?
     Used by `bravo bridge status` and the dashboard so the operator can see

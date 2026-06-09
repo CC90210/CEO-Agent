@@ -65,6 +65,7 @@ try:
     from .agent_roots import (
         resolve_root,
         resolve_entry_file,
+        claude_identity_overlay,
         all_resolved,
         under_root,
     )
@@ -77,6 +78,7 @@ except ImportError:
     from agent_roots import (  # type: ignore
         resolve_root,
         resolve_entry_file,
+        claude_identity_overlay,
         all_resolved,
         under_root,
     )
@@ -2863,6 +2865,13 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # _run_chat_via_warm_pool — so each plan-mode turn cold-spawns
         # with the correct permission mode).
         permission_mode = "plan" if chat_mode == "plan" else "bypassPermissions"
+        # Multi-agent repos (SunBiz-Agent hosts both Solara at CLAUDE.md AND
+        # Helios at HELIOS.md): suppress project's CLAUDE.md and inject the
+        # per-agent file as --append-system-prompt so Helios doesn't speak in
+        # Solara's voice when spawned in the shared cwd. Single-agent repos
+        # (Bravo, Atlas, Maven, etc.) return ("", "project,local") — claude
+        # loads CLAUDE.md the usual way and behavior is unchanged.
+        identity_override, setting_sources = claude_identity_overlay(root, agent)
         args = [
             claude_bin,
             "-p", prompt_text,
@@ -2875,8 +2884,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
             "--verbose",  # required when --output-format=stream-json
             "--include-partial-messages",
             "--max-turns", "12",
-            "--setting-sources", "project,local",
+            "--setting-sources", setting_sources,
         ]
+        if identity_override:
+            args.extend(["--append-system-prompt", identity_override])
         # Boot-context strip — see warm_claude_pool.chat_lean_args() for
         # the measured 87% drop in cache_creation_input_tokens (50k → 6.6k).
         # Splice before --resume so resume args (if any) come last.

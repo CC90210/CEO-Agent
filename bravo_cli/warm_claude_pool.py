@@ -55,6 +55,15 @@ from ._subprocess_helpers import WINDOWLESS_FLAGS
 # by bridge_chat_server (which inspects recent_stderr() after a failed
 # send_turn) — not here. Only build_claude_spawn_env is needed in the pool.
 from ._claude_auth import build_claude_spawn_env
+# Multi-agent identity overlay — for SunBiz-Agent which hosts both Solara
+# (CLAUDE.md) and Helios (HELIOS.md). Without this, every helios warm
+# process spawned in /srv/sunbiz/sunbiz-agent reads CLAUDE.md as the
+# system prompt and the operator sees Helios respond as Solara. See
+# agent_roots.claude_identity_overlay for the discrimination logic.
+try:
+    from .agent_roots import claude_identity_overlay
+except ImportError:  # pragma: no cover — fallback for direct-script invocation
+    from agent_roots import claude_identity_overlay  # type: ignore
 
 
 _POOL_LOCK = threading.RLock()
@@ -274,6 +283,14 @@ class WarmClaudeProcess:
         # --output-format stream-json puts claude in non-interactive
         # JSON mode (no TUI). --input-format stream-json keeps stdin
         # open across turns.
+        # Multi-agent repos (SunBiz-Agent at /srv/sunbiz/sunbiz-agent hosts
+        # both Solara at CLAUDE.md AND Helios at HELIOS.md): suppress
+        # project's CLAUDE.md and inject the per-agent file as system
+        # prompt. Without this, the helios warm process spawned in that cwd
+        # reads CLAUDE.md (Solara) and responds in Solara's voice — the
+        # 2026-06-09 identity-bleed bug. Single-agent repos keep current
+        # behavior (entry=CLAUDE.md, overlay returns ("","project,local")).
+        identity_override, setting_sources = claude_identity_overlay(root, agent)
         args = [
             claude_bin,
             "--permission-mode", "bypassPermissions",
@@ -282,8 +299,10 @@ class WarmClaudeProcess:
             "--verbose",
             "--include-partial-messages",
             "--max-turns", "12",
-            "--setting-sources", "project,local",
+            "--setting-sources", setting_sources,
         ]
+        if identity_override:
+            args.extend(["--append-system-prompt", identity_override])
         # Boot-context strip — see chat_lean_args() docstring for the
         # measured 87% drop in cache_creation_input_tokens. Splice
         # before --resume so resume args (if any) come last.
