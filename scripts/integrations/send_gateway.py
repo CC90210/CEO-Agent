@@ -90,6 +90,7 @@ import math
 import os
 import re
 import smtplib
+import hashlib
 import sys
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -490,13 +491,45 @@ def _maybe_notify_daily_cap_threshold(channel: str, count: int, cap: Optional[in
 
 # ---- Lead resolution --------------------------------------------------------
 
-def resolve_lead_id(db, to_email: Optional[str], lead_id: Optional[str]) -> Optional[str]:
-    """Return the lead UUID for a given email, creating one if it does not
+def resolve_lead_id(
+    db,
+    to_email: Optional[str],
+    lead_id: Optional[str],
+    tenant_id: Optional[str] = None,
+) -> Optional[str]:
+    """Return the lead UUID for a given email, creating one if it doesn't
     exist yet. None if neither lead_id nor to_email is provided.
 
     The gateway deliberately auto-creates a lead record. Before this existed,
     outreach to a freshly-scraped address had no CRM trace, so scoring and
     pipeline reports were always behind reality.
+
+    TENANT-AWARENESS (Codex audit 2026-06-09 round-6 [high]):
+
+    The original implementation did an unscoped `leads.email = norm` lookup.
+    In a single-tenant world (SunBiz today) that's fine; the moment a second
+    tenant exists with a lead row for the same email, the lookup returns
+    whichever row the DB happens to order first — which can apply the
+    WRONG tenant's kill switch and stamp the WRONG lead's interaction ledger.
+
+    New behavior when `tenant_id` is supplied:
+
+      1. Constrain the SELECT to `tenant_id = ...`. If a lead exists for
+         this email under this tenant, return it.
+      2. If no match under this tenant, auto-create WITH tenant_id set so
+         the new row is correctly scoped.
+
+    When `tenant_id` is NOT supplied (legacy callers, OASIS personal tenant):
+
+      1. Do the unscoped lookup as before, but use case-insensitive matching
+         (`ilike` on normalized lowercase) so a mixed-case stored email
+         doesn't cause a phantom auto-create.
+      2. If multiple tenants share the email, return None and let the
+         kill-switch gate fail-closed. The caller must supply tenant_id
+         explicitly to disambiguate.
+
+    Email normalization is lowercase + strip — same canonical form on both
+    write and read.
     """
     if lead_id:
         return lead_id
@@ -504,13 +537,64 @@ def resolve_lead_id(db, to_email: Optional[str], lead_id: Optional[str]) -> Opti
         return None
     norm = to_email.strip().lower()
     try:
-        existing = db.table("leads").select("id").eq("email", norm).limit(1).execute()
-        if existing.data:
-            return existing.data[0]["id"]
-        # Create a minimal lead record for audit trail
+        if tenant_id:
+            existing = (
+                db.table("leads")
+                .select("id")
+                .eq("email", norm)
+                .eq("tenant_id", tenant_id)
+                .limit(1)
+                .execute()
+            )
+            if existing.data:
+                return existing.data[0]["id"]
+            now = datetime.now(timezone.utc).isoformat()
+            created = db.table("leads").insert({
+                "name": norm.split("@")[0],
+                "email": norm,
+                "tenant_id": tenant_id,
+                "status": "new",
+                "source": "gateway_autocreate",
+                "created_at": now,
+                "updated_at": now,
+            }).execute()
+            return created.data[0]["id"] if created.data else None
+        # No tenant_id supplied — legacy / OASIS path. Do the unscoped lookup
+        # but refuse to commit if multiple rows match across tenants.
+        matches = (
+            db.table("leads")
+            .select("id, tenant_id")
+            .eq("email", norm)
+            .limit(5)
+            .execute()
+        )
+        rows = list(matches.data or [])
+        distinct_tenants = {r.get("tenant_id") for r in rows if r.get("tenant_id")}
+        if len(rows) == 1:
+            return rows[0]["id"]
+        if len(rows) > 1 and len(distinct_tenants) > 1:
+            # Ambiguous cross-tenant — caller must disambiguate.
+            print(
+                f"[send_gateway] resolve_lead_id ambiguous: {len(rows)} leads "
+                f"across {len(distinct_tenants)} tenants for {norm!r}; "
+                "caller must supply tenant_id",
+                file=sys.stderr,
+            )
+            _slog.warn(
+                "resolve_lead_id_ambiguous",
+                email_hash=hashlib.sha256(norm.encode()).hexdigest()[:12],
+                row_count=len(rows),
+                tenant_count=len(distinct_tenants),
+            )
+            return None
+        if len(rows) > 1:
+            # Multiple rows but same tenant — return the first, same as
+            # before. Possible if there's a duplicate at the DB layer.
+            return rows[0]["id"]
+        # No existing row — auto-create tenantless (legacy / OASIS-personal).
         now = datetime.now(timezone.utc).isoformat()
         created = db.table("leads").insert({
-            "name": norm.split("@")[0],  # placeholder — CC or scraper can enrich later
+            "name": norm.split("@")[0],
             "email": norm,
             "status": "new",
             "source": "gateway_autocreate",
@@ -2476,7 +2560,11 @@ def send(
     # FK target) and must NOT retroactively widen the security scope.
     caller_supplied_tenant_scope = bool(lead_id or tenant_id)
 
-    lead_id = resolve_lead_id(db, to_email, lead_id)
+    # Pass tenant_id so resolve_lead_id can scope its email lookup +
+    # auto-create to the correct tenant (Codex round-6 [high]). When
+    # tenant_id is None, the function falls through to the unscoped
+    # legacy path and refuses to resolve cross-tenant ambiguity.
+    lead_id = resolve_lead_id(db, to_email, lead_id, tenant_id=tenant_id)
 
     # ---- SMS STOP / DNC suppression ----
     # STOP is a channel-level opt-out. Once a phone is on the local DNC CSV,

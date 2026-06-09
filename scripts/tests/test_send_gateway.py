@@ -1033,6 +1033,52 @@ class TestSendGateway(unittest.TestCase):
             f"caller-supplied tenant_id should have skipped the lookup gate: {r}",
         )
 
+    def test_22h_resolve_lead_id_tenant_scoped_when_supplied(self):
+        """Codex audit 2026-06-09 round-6 [high]: resolve_lead_id's unscoped
+        email lookup is a multi-tenant correctness bug. With tenant A and
+        tenant B both having a lead for 'shared@example.com', the original
+        impl returned whichever DB ordered first — potentially applying
+        the WRONG tenant's kill switch.
+
+        Round-6 fix: when caller supplies tenant_id, the lookup is
+        constrained to that tenant. Auto-create also stamps tenant_id."""
+        self.db.table("leads").rows.append({
+            "id": "tenant-a-lead",
+            "email": "shared@example.com",
+            "tenant_id": "TENANT-A",
+        })
+        self.db.table("leads").rows.append({
+            "id": "tenant-b-lead",
+            "email": "shared@example.com",
+            "tenant_id": "TENANT-B",
+        })
+        # Caller specifies tenant A — must get tenant-a-lead, not tenant-b-lead.
+        from integrations.send_gateway import resolve_lead_id
+        resolved = resolve_lead_id(self.db, "shared@example.com", None, tenant_id="TENANT-A")
+        self.assertEqual(resolved, "tenant-a-lead", "tenant-scoped lookup must return matching tenant's row")
+        # Caller specifies tenant B — must get tenant-b-lead.
+        resolved_b = resolve_lead_id(self.db, "shared@example.com", None, tenant_id="TENANT-B")
+        self.assertEqual(resolved_b, "tenant-b-lead")
+
+    def test_22i_resolve_lead_id_refuses_ambiguous_cross_tenant_without_scope(self):
+        """When the caller passes NO tenant_id and the same email exists
+        under multiple tenants, the legacy unscoped lookup would silently
+        return a random row. Round-6 fails closed (returns None) so the
+        downstream kill-switch gate's safety property triggers."""
+        self.db.table("leads").rows.append({
+            "id": "tenant-x-lead",
+            "email": "ambiguous@example.com",
+            "tenant_id": "TENANT-X",
+        })
+        self.db.table("leads").rows.append({
+            "id": "tenant-y-lead",
+            "email": "ambiguous@example.com",
+            "tenant_id": "TENANT-Y",
+        })
+        from integrations.send_gateway import resolve_lead_id
+        resolved = resolve_lead_id(self.db, "ambiguous@example.com", None)
+        self.assertIsNone(resolved, "ambiguous cross-tenant lookup must refuse to commit to a single row")
+
     def test_22g_email_resolution_enforces_kill_switch_for_existing_tenant_lead(self):
         """Codex audit 2026-06-09 round-5 [high]: round-4's
         caller_supplied_tenant_scope snapshot blocked the auto-create
@@ -1098,6 +1144,32 @@ class TestSendGateway(unittest.TestCase):
         self.assertIsNone(to_e164("1234567890123"))  # too long for US/CA bare
         self.assertIsNone(to_e164("abc"))  # no digits
         self.assertIsNone(to_e164("+"))  # plus with no digits
+
+    def test_23e_e164_helper_rejects_unicode_digit_imposters(self):
+        """Codex audit 2026-06-09 round-6 [medium]: round-5's to_e164 used
+        str.isdigit() which returns True for Unicode decimal digits
+        (Arabic-Indic, fullwidth, Devanagari, etc.). The resulting "+" +
+        digits string would contain non-ASCII bytes that SMS providers
+        reject silently. Round-6 restricts digit handling to ASCII 0-9.
+
+        Pins:
+          - Arabic-Indic digits in plus-prefixed input rejected
+          - Fullwidth digits in bare input rejected
+          - Mixed ASCII + Unicode digits rejected
+          - Pure ASCII NANP still accepts (regression check)"""
+        from casl_compliance import to_e164
+        # Arabic-Indic digits inside a plus-prefixed string.
+        # Without ASCII restriction: would become "+1234567890" (wrong bytes).
+        # With ASCII restriction: digits are 0, regex fails, returns None.
+        self.assertIsNone(to_e164("+١٢٣٤٥٦٧٨٩٠"))
+        # Fullwidth digits bare.
+        self.assertIsNone(to_e164("７６３４２１８２２９"))
+        # Mixed ASCII + Arabic-Indic — the non-ASCII digits get dropped,
+        # leaving fewer ASCII digits than required, so rejected.
+        self.assertIsNone(to_e164("763٤٢٦1229"))
+        # Sanity: pure ASCII still works.
+        self.assertEqual(to_e164("7634218229"), "+17634218229")
+        self.assertEqual(to_e164("+17634218229"), "+17634218229")
 
     def test_23d_e164_helper_strict_validation(self):
         """Codex audit 2026-06-09 round-5 [medium]: round-4's to_e164

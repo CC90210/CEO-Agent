@@ -142,19 +142,22 @@ def to_e164(phone: str | None) -> str | None:
     if not phone:
         return None
     raw = phone.strip()
+    # ASCII-ONLY digit handling (Codex round-6 [medium]). str.isdigit()
+    # returns True for Unicode decimal digits — Arabic-Indic (٠-٩),
+    # fullwidth (０-９), Devanagari (०-९), etc. A normalized number
+    # containing those bytes is not E.164 and SMS providers reject it
+    # silently or with confusing errors. Restrict to ASCII 0-9 so the
+    # final string is byte-valid for the wire.
     if raw.startswith("+"):
-        # Caller-asserted E.164. Strip non-digits, then validate the
-        # final shape against ITU E.164 (8-15 digits total, country
-        # code 1-9 — no leading-zero country codes).
-        digits = "".join(ch for ch in raw[1:] if ch.isdigit())
+        digits = "".join(ch for ch in raw[1:] if ch in _ASCII_DIGITS)
         candidate = "+" + digits
-        if _E164_REGEX.match(candidate):
+        if _E164_REGEX.fullmatch(candidate):
             return candidate
         return None
     # Bare digits — assume NANP (US/CA), prepend +1 for 10-digit,
     # prepend + for 11-digit starting with 1. Anything else is
     # ambiguous and rejected.
-    digits = "".join(ch for ch in raw if ch.isdigit())
+    digits = "".join(ch for ch in raw if ch in _ASCII_DIGITS)
     if len(digits) == 10:
         return "+1" + digits
     if len(digits) == 11 and digits.startswith("1"):
@@ -162,9 +165,14 @@ def to_e164(phone: str | None) -> str | None:
     return None
 
 
+# ASCII 0-9. Used by to_e164 to reject Unicode digit imposters that
+# str.isdigit() / \d would otherwise accept.
+_ASCII_DIGITS = frozenset("0123456789")
+
 # Strict E.164 shape: leading '+', country code 1-9, 7-14 more digits
-# (8-15 total). https://en.wikipedia.org/wiki/E.164
-_E164_REGEX = re.compile(r"^\+[1-9]\d{7,14}$")
+# (8-15 total). re.ASCII flag so \d only matches [0-9], never Unicode
+# decimal digits. https://en.wikipedia.org/wiki/E.164
+_E164_REGEX = re.compile(r"^\+[1-9][0-9]{7,14}$", re.ASCII)
 
 
 # ----------------------------------------------------------------------------
