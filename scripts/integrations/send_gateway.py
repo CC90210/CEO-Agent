@@ -571,6 +571,54 @@ def resolve_lead_id(
             return created.data[0]["id"] if created.data else None
         # No tenant_id supplied — legacy / OASIS path. Do the unscoped lookup
         # but refuse to commit if multiple rows match across tenants.
+        #
+        # Codex audit 2026-06-09 round-7 [high] follow-up: ALSO check
+        # tenant_records (entity_type='lead') for the same email. SunBiz +
+        # any modern multi-tenant client writes leads to tenant_records,
+        # NOT to the legacy leads table. Without this cross-check, a caller
+        # that FORGOT to pass tenant_id (a daemon misconfiguration bug)
+        # could auto-create a tenantless legacy leads row for an email
+        # that SunBiz already owns — bypassing SunBiz's kill-switch on
+        # all subsequent sends keyed by that auto-created lead_id.
+        try:
+            tr_matches = (
+                db.table("tenant_records")
+                .select("id, tenant_id")
+                .eq("entity_type", "lead")
+                .contains("data", {"email": norm})
+                .limit(5)
+                .execute()
+            )
+            tr_rows = list(tr_matches.data or [])
+        except Exception as exc:  # noqa: BLE001
+            # Some Supabase clients / staging envs don't support .contains()
+            # on jsonb. Fail open here (tenant_records cross-check unavailable)
+            # rather than block all unscoped sends — the legacy-leads-table
+            # ambiguity check below still runs.
+            print(
+                f"[send_gateway] tenant_records cross-check warning: {exc}",
+                file=sys.stderr,
+            )
+            tr_rows = []
+        tr_distinct_tenants = {r.get("tenant_id") for r in tr_rows if r.get("tenant_id")}
+        if tr_distinct_tenants:
+            # The email is owned by ONE OR MORE tenant_records tenants. An
+            # unscoped caller cannot safely commit — refuse and let the
+            # kill-switch gate's safety property catch it.
+            print(
+                f"[send_gateway] resolve_lead_id refusing unscoped commit: "
+                f"{len(tr_rows)} tenant_records lead(s) own {norm!r} across "
+                f"{len(tr_distinct_tenants)} tenant(s). Caller must supply tenant_id.",
+                file=sys.stderr,
+            )
+            _slog.warn(
+                "resolve_lead_id_tenant_records_owned",
+                email_hash=hashlib.sha256(norm.encode()).hexdigest()[:12],
+                tenant_records_count=len(tr_rows),
+                tenant_count=len(tr_distinct_tenants),
+            )
+            return None
+
         matches = (
             db.table("leads")
             .select("id, tenant_id")

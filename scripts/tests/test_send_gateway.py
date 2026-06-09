@@ -65,6 +65,13 @@ class _FakeSelect:
         self.filters.append(("lte", col, val))
         return self
 
+    def contains(self, col, subobj):
+        """Mirror Supabase Python client's jsonb `.contains()` — matches
+        rows whose `col` (a dict) contains all key/value pairs in `subobj`.
+        Used by resolve_lead_id to query tenant_records by data.email."""
+        self.filters.append(("contains", col, subobj))
+        return self
+
     def order(self, col, desc=False):
         self.ordering = (col, desc)
         return self
@@ -82,6 +89,13 @@ class _FakeSelect:
                 rows = [r for r in rows if (r.get(col) or "") >= val]
             elif op == "lte":
                 rows = [r for r in rows if (r.get(col) or "") <= val]
+            elif op == "contains":
+                def _has(r):
+                    blob = r.get(col)
+                    if not isinstance(blob, dict):
+                        return False
+                    return all(blob.get(k) == v for k, v in (val or {}).items())
+                rows = [r for r in rows if _has(r)]
         if self.ordering:
             col, desc = self.ordering
             rows = sorted(rows, key=lambda r: r.get(col) or "", reverse=desc)
@@ -1032,6 +1046,39 @@ class TestSendGateway(unittest.TestCase):
             r.get("reason") or "",
             f"caller-supplied tenant_id should have skipped the lookup gate: {r}",
         )
+
+    def test_22k_resolve_lead_id_blocks_when_tenant_records_owns_email(self):
+        """Codex audit 2026-06-09 round-7 [high] follow-up: round-7's
+        ambiguity guard checked only the legacy `leads` table. SunBiz and
+        modern multi-tenant clients write leads to `tenant_records`
+        (entity_type='lead') with the email in `data.email`. A caller
+        that FORGOT to pass tenant_id (daemon misconfiguration) could
+        auto-create a tenantless legacy leads row for an email that
+        tenant_records already owns — bypassing the kill-switch on every
+        send keyed by that auto-created lead_id.
+
+        After the cross-check: when tenant_records has ANY entity_type='lead'
+        row matching the email, an unscoped caller is refused (returns
+        None). The caller must supply tenant_id explicitly to proceed."""
+        # Seed a SunBiz lead in tenant_records — no legacy leads row.
+        self.db.table("tenant_records").rows.append({
+            "id": "sunbiz-tr-lead",
+            "entity_type": "lead",
+            "tenant_id": "SUNBIZ-TENANT",
+            "data": {"email": "merchant@example.com"},
+        })
+        from integrations.send_gateway import resolve_lead_id
+        # Unscoped caller (no tenant_id, no lead_id) — must refuse.
+        resolved = resolve_lead_id(self.db, "merchant@example.com", None)
+        self.assertIsNone(
+            resolved,
+            "unscoped lookup MUST refuse when tenant_records owns the email "
+            "(prevents auto-create that bypasses tenant kill-switch)",
+        )
+        # Sanity: a SCOPED caller (passes the correct tenant_id) still works.
+        # The scoped path doesn't even reach the tenant_records cross-check.
+        resolved_scoped = resolve_lead_id(self.db, "merchant@example.com", None, tenant_id="SUNBIZ-TENANT")
+        self.assertIsNotNone(resolved_scoped, "scoped resolve must still auto-create when scoped")
 
     def test_22j_resolve_lead_id_blocks_tenantless_plus_tenant_collision(self):
         """Codex audit 2026-06-09 round-7 [high]: the round-6 ambiguity
