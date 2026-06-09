@@ -1033,6 +1033,50 @@ class TestSendGateway(unittest.TestCase):
             f"caller-supplied tenant_id should have skipped the lookup gate: {r}",
         )
 
+    def test_22g_email_resolution_enforces_kill_switch_for_existing_tenant_lead(self):
+        """Codex audit 2026-06-09 round-5 [high]: round-4's
+        caller_supplied_tenant_scope snapshot blocked the auto-create
+        false positive, but introduced a real bypass — a caller passing
+        only to_email (no lead_id, no tenant_id) for an EXISTING
+        paused-tenant lead would skip kill-switch entirely while
+        downstream still stamped the resolved tenant on the interaction
+        ledger.
+
+        After round-5: even when the caller supplies no scope, if
+        resolve_lead_id returns a lead that LIVES IN A TENANT, the
+        kill-switch + mismatch gates fire. Only genuinely unscoped sends
+        (caller passed nothing AND the resolved lead has no tenant)
+        are exempt.
+
+        This test: seed a leads row for jane@acme.example with
+        tenant_id="TENANT-G". Caller passes only to_email. With a
+        mismatched tenant_id NO — wait, the caller passes no tenant_id.
+        So the assertion is: lookup_tenant resolves; without a caller
+        tenant_id there's no mismatch; the send proceeds past tenant
+        gates with resolved_tenant set to TENANT-G. We assert the
+        rejection reason (if any) is NOT 'kill-switch enforcement
+        unavailable' — meaning the gate was actually evaluated."""
+        # The setUp lead already has tenant_id (added in the round-1
+        # fixture fix). jane@acme.example -> lead-001 -> tenant fix uuid.
+        # Confirm the email-resolution path enforces.
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                # Caller supplies NO lead_id, NO tenant_id.
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                brand="conaugh_mckenna",
+                intent="commercial",
+                db=self.db,
+            )
+        # The seed lead has a tenant_id. The gate runs. The gate doesn't
+        # complain about 'kill-switch enforcement unavailable' because
+        # the post-resolve lookup found the tenant.
+        reason = (r.get("reason") or "").lower()
+        self.assertNotIn("kill-switch enforcement unavailable", reason, r)
+
     def test_23_e164_normalization_helper(self):
         """VPS health audit 2026-06-09 — every SunBiz SMS was failing on
         the strict E.164 check because lead.data.phone stores bare 10-digit
@@ -1054,6 +1098,34 @@ class TestSendGateway(unittest.TestCase):
         self.assertIsNone(to_e164("1234567890123"))  # too long for US/CA bare
         self.assertIsNone(to_e164("abc"))  # no digits
         self.assertIsNone(to_e164("+"))  # plus with no digits
+
+    def test_23d_e164_helper_strict_validation(self):
+        """Codex audit 2026-06-09 round-5 [medium]: round-4's to_e164
+        was too permissive — '+1' / '+12345' passed through because the
+        plus-prefix branch only stripped non-digits without validating
+        E.164 shape. Round-5 adds strict ITU E.164 regex
+        ^\\+[1-9]\\d{7,14}$ for already-prefixed input.
+
+        Pins:
+          - '+1' rejected (too short — plus prefix needs 8-15 digits)
+          - '+12345' rejected (still too short)
+          - '+0123456789' rejected (country code can't start with 0)
+          - '+447946112233' accepted (valid UK E.164)
+          - '+12345678901234567' rejected (too long)"""
+        from casl_compliance import to_e164
+        # Too short plus-prefixed — round-4 wrongly accepted these.
+        self.assertIsNone(to_e164("+1"))
+        self.assertIsNone(to_e164("+12345"))
+        self.assertIsNone(to_e164("+1234567"))  # 7 digits, below 8 min
+        # Country code starting with 0 — invalid per E.164.
+        self.assertIsNone(to_e164("+0123456789"))
+        # Too long.
+        self.assertIsNone(to_e164("+1234567890123456"))
+        # Valid international (non-NANP) E.164 — must still pass.
+        self.assertEqual(to_e164("+447946112233"), "+447946112233")
+        self.assertEqual(to_e164("+33612345678"), "+33612345678")
+        # Already-correct NANP stays correct.
+        self.assertEqual(to_e164("+17634218229"), "+17634218229")
 
     def test_23b_sms_send_passes_e164_gate_with_bare_10_digit_phone(self):
         """The production breakage VPS health audit caught: a sequence

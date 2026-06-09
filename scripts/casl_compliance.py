@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import csv
 import os
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -108,36 +109,62 @@ def to_e164(phone: str | None) -> str | None:
     Returns None when the input can't be confidently normalized so the
     caller fails closed rather than ships to a bad number.
 
+    Codex audit 2026-06-09 round-5 [medium]: round-4 was too permissive.
+    "+1" / "+12345" passed through because the plus-prefix branch only
+    stripped non-digits without validating E.164 shape. Round-5 adds a
+    strict ITU E.164 regex: ^\\+[1-9]\\d{7,14}$ (country code starts
+    1-9, total 8-15 digits including country code).
+
     Accepts:
       - "+17634218229"            -> "+17634218229"  (already E.164)
-      - "7634218229"              -> "+17634218229"  (10-digit US/CA)
+      - "+447946112233"           -> "+447946112233" (UK, passes E.164 regex)
+      - "7634218229"              -> "+17634218229"  (10-digit US/CA, default)
       - "17634218229"             -> "+17634218229"  (11-digit with leading 1)
       - "(763) 421-8229"          -> "+17634218229"  (formatted 10-digit)
       - "1-763-421-8229"          -> "+17634218229"  (formatted 11-digit)
+      - " +1 763 421 8229 "       -> "+17634218229"  (whitespace tolerant)
 
     Rejects (returns None):
-      - "" / None
-      - "+44..."  unknown country code passthrough is risky; require explicit
-      - "12345"   too short
-      - "1234567890123" too long
+      - "" / None                 — empty
+      - "+1"                      — plus prefix but too short
+      - "+12345"                  — plus prefix below 8-digit minimum
+      - "+0123456789"             — country code starts with 0 (invalid)
+      - "12345"                   — bare digits too short for NANP
+      - "1234567890123"           — too long for NANP (US/CA = 10 digits)
+      - "abc"                     — no digits
+
+    NOTE: bare 10/11-digit input is assumed US/CA (NANP) and gets
+    "+1" prepended. If SunBiz ever takes non-NANP leads, callers MUST
+    pre-format with the correct country code as a "+..." string. The
+    helper has no way to distinguish a bare French mobile from a US
+    one if both are 10 digits.
     """
     if not phone:
         return None
     raw = phone.strip()
     if raw.startswith("+"):
-        # Caller-asserted E.164. Trust the country code but strip non-digits
-        # after the +. We don't validate length-per-country — providers
-        # do that and surface clear errors when wrong.
+        # Caller-asserted E.164. Strip non-digits, then validate the
+        # final shape against ITU E.164 (8-15 digits total, country
+        # code 1-9 — no leading-zero country codes).
         digits = "".join(ch for ch in raw[1:] if ch.isdigit())
-        if not digits:
-            return None
-        return "+" + digits
+        candidate = "+" + digits
+        if _E164_REGEX.match(candidate):
+            return candidate
+        return None
+    # Bare digits — assume NANP (US/CA), prepend +1 for 10-digit,
+    # prepend + for 11-digit starting with 1. Anything else is
+    # ambiguous and rejected.
     digits = "".join(ch for ch in raw if ch.isdigit())
     if len(digits) == 10:
         return "+1" + digits
     if len(digits) == 11 and digits.startswith("1"):
         return "+" + digits
     return None
+
+
+# Strict E.164 shape: leading '+', country code 1-9, 7-14 more digits
+# (8-15 total). https://en.wikipedia.org/wiki/E.164
+_E164_REGEX = re.compile(r"^\+[1-9]\d{7,14}$")
 
 
 # ----------------------------------------------------------------------------

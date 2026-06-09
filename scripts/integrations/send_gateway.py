@@ -2585,12 +2585,32 @@ def send(
     #   3. Caller-supplied tenant_id that CONTRADICTS the lookup is a hard
     #      block — surface the mismatch loud, never silent.
     resolved_tenant: Optional[str] = None
-    # Use caller_supplied_tenant_scope (snapshot before resolve_lead_id
-    # auto-create) so an internal infrastructure send to a never-seen
-    # email doesn't get a tenant-scope gate retroactively applied to
-    # an auto-created tenant-less leads row. See Codex round-4 finding.
-    if caller_supplied_tenant_scope:
-        lookup_tenant = _resolve_tenant_for_lead(db, lead_id) if lead_id else None
+    # Resolution order for the structural tenant-scope gate:
+    #
+    #   1. If the caller supplied a scope identifier (lead_id or tenant_id),
+    #      enforce. (Round 3.)
+    #   2. Else, if resolve_lead_id() returned a lead that LIVES IN A TENANT
+    #      (existing row in tenant_records or legacy leads with a tenant_id),
+    #      enforce. The send IS tenant-scoped — we just learned about it via
+    #      email lookup. (Round 5 fix below.)
+    #   3. Else, exempt. Genuine cross-tenant infrastructure (no caller
+    #      scope, no resolvable tenant on the lead — typically a fresh
+    #      auto-created tenant-less leads row from a never-seen email).
+    #
+    # Codex audit 2026-06-09 round-5 [high]: round 4 only honored case 1.
+    # Case 2 was a real bypass — a caller passing only to_email for an
+    # EXISTING paused-tenant customer would skip kill-switch entirely
+    # while downstream still stamped the resolved tenant on the interaction
+    # ledger. Now we look up the post-resolve tenant before deciding.
+    post_resolve_tenant: Optional[str] = (
+        _resolve_tenant_for_lead(db, lead_id) if lead_id else None
+    )
+    enforce_tenant_gates = caller_supplied_tenant_scope or bool(post_resolve_tenant)
+
+    if enforce_tenant_gates:
+        # Reuse the post-resolve lookup we already did above for the gate
+        # decision — avoid a duplicate DB read.
+        lookup_tenant = post_resolve_tenant
         if tenant_id and lookup_tenant and tenant_id != lookup_tenant:
             return {
                 "status": "blocked",
