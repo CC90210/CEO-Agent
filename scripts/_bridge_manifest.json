@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-09T03:05:57.870121+00:00",
-  "script_count": 93,
-  "entry_count": 244,
+  "generated_at_iso": "2026-06-09T06:09:29.849475+00:00",
+  "script_count": 94,
+  "entry_count": 245,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1875,6 +1875,14 @@
       "subcmd": "providers",
       "mutating": false,
       "help": "Sun Biz Agent \u2014 Multi-Provider SMS Engine (V1). \u2014 subcommand: providers"
+    },
+    {
+      "key": "sunbiz_health_check",
+      "path": "scripts/sunbiz_health_check.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": false,
+      "help": "sunbiz_health_check.py \u2014 standing read-only auditor for the SunBiz backend."
     },
     {
       "key": "text_torrent_tool_blast",

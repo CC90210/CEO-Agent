@@ -376,14 +376,18 @@ def _tool_send_email(payload: dict) -> dict:
         return _err("missing 'subject'")
     if not body:
         return _err("missing 'body'")
+    # send_gateway.py defines --json as a TOP-LEVEL flag on the main
+    # parser BEFORE the subparser (send_gateway.py:3648). Argparse
+    # rejects --json when it appears after the `send` subcommand.
+    # VPS agent surfaced this 2026-06-09; cost: chat-driven send_email
+    # tool exits 2 with "unrecognized arguments: --json".
     args = [
-        "scripts/integrations/send_gateway.py", "send",
+        "scripts/integrations/send_gateway.py", "--json", "send",
         "--channel", "email",
         "--agent-source", "manual_cc",
         "--to", to_addr,
         "--subject", subject,
         "--body", body,
-        "--json",
     ]
     lead_id = payload.get("lead_id")
     if isinstance(lead_id, str) and lead_id.strip():
@@ -414,13 +418,14 @@ def _tool_send_sms(payload: dict) -> dict:
         return _err("missing 'to' phone number")
     if not body:
         return _err("missing 'body'")
+    # Same --json placement fix as _tool_send_email above.
+    # send_gateway.py defines --json on the main parser, not on send.
     args = [
-        "scripts/integrations/send_gateway.py", "send",
+        "scripts/integrations/send_gateway.py", "--json", "send",
         "--channel", "sms",
         "--agent-source", "manual_cc",
         "--to", to_num,
         "--body", body,
-        "--json",
     ]
     lead_id = payload.get("lead_id")
     if isinstance(lead_id, str) and lead_id.strip():
