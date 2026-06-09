@@ -10,8 +10,8 @@
 You are a Claude Code agent on CC's SunBiz Funding VPS (Ubuntu 22.04,
 srv1723601, non-root user `sunbiz`). Two prior passes have landed:
 
-- **Diagnostic + bearer enforcement** (`brain/VPS_DIAGNOSTIC_PROMPT.md`)
-- **Finalization patches** (`brain/VPS_FINALIZATION_PROMPT.md` —
+- **Diagnostic + bearer enforcement** (`docs/deploy/VPS_DIAGNOSTIC_PROMPT.md`)
+- **Finalization patches** (`docs/deploy/VPS_FINALIZATION_PROMPT.md` —
   `fix/vps-readiness-patches` merged locally)
 
 CC has now provisioned the last two credentials he was holding —

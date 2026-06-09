@@ -1,8 +1,8 @@
 ---
 tags: [mac, sync, antigravity, deprecated-pointer]
-purpose: Backward-compat pointer. The Mac-specific prompt has been generalized to support N machines (Mac + Linux + Windows-as-secondary). Body moved to brain/MULTI_MACHINE_PAIRING_PROMPT.md.
+purpose: Backward-compat pointer. The Mac-specific prompt has been generalized to support N machines (Mac + Linux + Windows-as-secondary). Body moved to docs/deploy/MULTI_MACHINE_PAIRING_PROMPT.md.
 last_updated: 2026-05-09
-superseded_by: brain/MULTI_MACHINE_PAIRING_PROMPT.md
+superseded_by: docs/deploy/MULTI_MACHINE_PAIRING_PROMPT.md
 ---
 
 # MAC COMMAND CENTER — Moved
@@ -19,7 +19,7 @@ once we looked at it — `bravo bridge install` already supports launchd
 (Windows). The Mac-only framing was just historical.
 
 The generalized version:
-- **`brain/MULTI_MACHINE_PAIRING_PROMPT.md`** — paste-ready prompt
+- **`docs/deploy/MULTI_MACHINE_PAIRING_PROMPT.md`** — paste-ready prompt
   with OS-detection in STEP 0 and per-OS branches in STEPS 5/7/8/10
   for the install / verify steps. Same 12-step structure CC's Mac
   side already verified.
@@ -50,6 +50,6 @@ WorkingDirectory) fixed in 894585b; Linux parity confirmed via the
 shared `bravo bridge install` code path.
 
 ## Obsidian Links
-- [[brain/MULTI_MACHINE_PAIRING_PROMPT]] (canonical — paste this)
+- [[docs/deploy/MULTI_MACHINE_PAIRING_PROMPT]] (canonical — paste this)
 - [[brain/CROSS_MACHINE_SYNC]] (the rules)
 - [[brain/SECURITY_MODEL]] (how pairing actually works under the hood)

@@ -319,7 +319,7 @@ compliance again.
 
 ## Obsidian Links
 - [[brain/CROSS_MACHINE_SYNC]] (the operating rules)
-- [[brain/MULTI_MACHINE_PAIRING_PROMPT]] (the canonical pairing playbook)
+- [[docs/deploy/MULTI_MACHINE_PAIRING_PROMPT]] (the canonical pairing playbook)
 - [[brain/CAPABILITIES]] (what tools the agent has — what it CAN do)
 - [[memory/MISTAKES]] (what we learned the hard way — including the
   2026-05-06 plaintext Stripe key leak that drove the MCP-shim

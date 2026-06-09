@@ -82,7 +82,7 @@ tags: [changelog, audit]
 - NEW `.github/workflows/deploy-vps.yml` — CD pipeline with tests + Telegram notify
 - UPDATE `scripts/integrations/send_gateway.py` (via Codex) — bounce circuit breaker, HOURLY_CAPS, per-domain cooldown, draft_critic gate, DNS reputation doctor
 - NEW `scripts/dns_reputation.py` (via Codex) — SPF/DKIM/DMARC verification
-- FIX stale Calendly references in `APPS_CONTEXT/OASIS_AI_CLAUDE.md`, `brain/MAC_SYNC_PROMPT.md`, `memory/ARCHIVES/lead_system/build_workflows.py`, `.agents/plans/inbound-engine-build-plan.md`
+- FIX stale Calendly references in `APPS_CONTEXT/OASIS_AI_CLAUDE.md`, `docs/deploy/MAC_SYNC_PROMPT.md`, `memory/ARCHIVES/lead_system/build_workflows.py`, `.agents/plans/inbound-engine-build-plan.md`
 - UPDATE `brain/CAPABILITIES.md` — registered browser_connect.py + V6 scaffold table
 - UPDATE `brain/STATE.md`, `memory/SESSION_LOG.md`, `memory/ACTIVE_TASKS.md` — session outputs + V6 active task
 **Why:** CC's V6.0 upgrade brief (architectural vulnerabilities: pulse JSON race conditions, context collapse, IDE dependency) + Antigravity handover (stale-data diagnostic + send_gateway $5k MRR audit). Scaffolding V6 in-repo lets CC sign-off and activate incrementally without rewriting under pressure. Send_gateway hardening closes the 2 CRITICAL gaps blocking outbound scale past 50/day.

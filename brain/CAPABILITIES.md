@@ -776,8 +776,8 @@ These are registered in Claude Code's native skill system with proper frontmatte
 
 Paste-into-Claude-Code prompts for operating the SunBiz Funding VPS (`ssh root@srv1723601`). Idempotent, config-only — safe to re-run.
 
-- [[brain/VPS_BYPASS_PERMISSIONS_SETUP]] — Configure Claude Code / Codex / Gemini CLI for auto-approve defaults so VPS sessions can do extensive work without permission prompts.
-- [[brain/VPS_DIAGNOSTIC_PROMPT]] — Full SunBiz portal health check — layered diagnostic that fixes what it can safely and reports what needs CC's attention.
+- [[docs/deploy/VPS_BYPASS_PERMISSIONS_SETUP]] — Configure Claude Code / Codex / Gemini CLI for auto-approve defaults so VPS sessions can do extensive work without permission prompts.
+- [[docs/deploy/VPS_DIAGNOSTIC_PROMPT]] — Full SunBiz portal health check — layered diagnostic that fixes what it can safely and reports what needs CC's attention.
 
 ## Operational & Maintenance Scripts
 

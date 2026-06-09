@@ -198,9 +198,9 @@ Your existing `telegram_agent.js` already acts as a bridge between your phone an
 This is future work — the protocol supports it, the implementation is ~60 lines in `telegram_agent.js`.
 
 ## Obsidian Links
-- [[brain/MAC_SYNC_PROMPT]]
-- [[brain/MULTI_MACHINE_PAIRING_PROMPT]] — paste-ready prompt for pairing any secondary machine (Mac/Linux/Windows) to the Agent Command Center
-- [[brain/MAC_COMMAND_CENTER_PROMPT]] — backward-compat pointer at MULTI_MACHINE_PAIRING_PROMPT (Mac body moved there)
+- [[docs/deploy/MAC_SYNC_PROMPT]]
+- [[docs/deploy/MULTI_MACHINE_PAIRING_PROMPT]] — paste-ready prompt for pairing any secondary machine (Mac/Linux/Windows) to the Agent Command Center
+- [[docs/deploy/MAC_COMMAND_CENTER_PROMPT]] — backward-compat pointer at MULTI_MACHINE_PAIRING_PROMPT (Mac body moved there)
 - [[brain/SECURITY_MODEL]] — how tenant isolation, encryption, and bridge auth work end-to-end
 - [[brain/CREDENTIALS_SCAFFOLD]]
 - [[memory/SESSION_LOG]]

@@ -13,7 +13,7 @@ Started: 2026-06-09 · Agent: Bravo (Opus 4.8) · Brief: [MISSION_2026-06-09_AUD
 - [x] **Phase 5** — Version Single-Sourcing + Entry-Point Parity Test 🟠 ✅
 - [x] **Phase 6** — Generate Routing Docs From the Graph 🟠 ✅
 - [x] **Phase 7** — Wiki-Link Integrity 🟡 ✅
-- [ ] **Phase 8** — Hygiene + LOCKSTEP Discipline Block 🟡
+- [x] **Phase 8** — Hygiene + LOCKSTEP Discipline Block 🟡 ✅
 - [ ] **Phase 9** — Brain Freshness Sweep 🟡
 - [ ] **Phase 10** — send_gateway Decomposition 🟡 (OPTIONAL)
 - [ ] **Final** — Full verification, ship, retrospective, CC report
@@ -127,6 +127,15 @@ EMPIRE_HOOK_STATE_GUARD=report
 - `APPS_CONTEXT/README.md` (documents local-only store) + `.gitignore` fix `APPS_CONTEXT/` → `APPS_CONTEXT/*` so the `!README.md` negation works (same parent-ignored gotcha as outreach_archive).
 - Fixed 2 genuinely-stale links (removed): `brain/CLIENT_PLAYBOOK.md` → `[[brain/AGENT_GAP_AUDIT]]` (file never existed), `media/INDEX.md` → `[[media/.../BRAND_GUIDE]]` (no brand-guide doc exists).
 - Regenerated indexes (memory/INDEX now lists the 3 templates); freshness + parity still green.
+
+### Phase 8 — Hygiene + LOCKSTEP Discipline Block ✅ DONE
+- **Moved** 12 `VPS_*`/`MAC_*`/`MULTI_MACHINE_*` deploy prompts `brain/` → `docs/deploy/` (`git mv`); repointed inbound `brain/{VPS_,MAC_,MULTI_MACHINE_}` refs across 10 .md files (byte-level, preserved line endings).
+- **Removed** root `SECURITY_ANTIGRAVITY_FIX_LOG.md` (machine forensics; backed up to `../BEA_local_backup_20260609/` first; stays in old git history — low sensitivity, noted).
+- **Removed** empty `app/` breadcrumb dir; appended a clear "where the dashboard went" breadcrumb to `brain/APP_REGISTRY.md` (repo + local + prod URLs). No inbound `[[app/` links existed.
+- **`.gitignore`:** deduped `*.pt`, `*.pth`, `*.key`, `*.pem`, `tmp/` (each now once); fixed mojibake `# Security �` → `# Security — key and certificate files` (0 stray non-ASCII).
+- **LOCKSTEP block** (`tool_discipline`) inserted byte-identical into all 5 entry points — the durable "evidence-before-claims / verify-after-edit / four-line report / plain-English-to-CC" discipline that makes *any* model behave. Parity test validates the ×5 identity.
+- **Did NOT touch** `rules/` vs `.rules/` or `templates/` vs `_templates/` (per brief — different animals).
+- Regenerated indexes (brain/INDEX dropped to 53 files after the 12 moved out). **Gate: parity + wiki + freshness 8 passed; git status clean after commit.**
 
 ### Phase 4 — Migration Ledger
 _GATED — CC said "proceed" but did not confirm prod-current. Per brief, running in SAFE mode: build ledger + tooling + status checklist; NOT blind-marking 88 applied. Prod seed = one CC command. (No live Supabase in this session anyway.)_

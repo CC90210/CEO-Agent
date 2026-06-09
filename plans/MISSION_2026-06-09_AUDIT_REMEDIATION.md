@@ -187,7 +187,7 @@ Why: a fresh clone (or your own agent after a re-clone) currently meets 88 dead 
 Why: clear the clutter, and install the durable fix for "the agent forgets its tools and makes CC do too much."
 
 1. Moves (update all inbound wiki/md links you find via `git grep` for each basename before moving):
-   - `git mv brain/VPS_*.md brain/MAC_*.md brain/MULTI_MACHINE_PAIRING_PROMPT.md docs/deploy/`
+   - `git mv docs/deploy/VPS_*.md docs/deploy/MAC_*.md docs/deploy/MULTI_MACHINE_PAIRING_PROMPT.md docs/deploy/`
    - `git rm SECURITY_ANTIGRAVITY_FIX_LOG.md` — first copy it to `../BEA_local_backup_<date>/` so CC keeps the record. (It stays in old git history; that's acceptable — it's low-sensitivity. Note this in the report.)
    - Delete `app/` after appending its breadcrumb (dashboard extracted 2026-05-18 → new repo URL, read it from `app/README.md`) into `brain/APP_REGISTRY.md`.
    - Do not touch `rules/` (datalog compliance — different animal from `.rules/`) or `templates/` vs `_templates/` (different purposes).

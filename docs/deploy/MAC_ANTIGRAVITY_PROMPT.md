@@ -61,7 +61,7 @@ Run this Python one-liner (Mac python3):
   "
 
 Classify the missing keys (if any) into one of these buckets based on
-brain/MAC_SYNC_PROMPT.md and brain/CREDENTIALS_SCAFFOLD.md:
+docs/deploy/MAC_SYNC_PROMPT.md and brain/CREDENTIALS_SCAFFOLD.md:
   (a) HARD BLOCKER — daemon/script actually fails without it
   (b) ALIAS — code falls back to another name you already have
   (c) CODE DEFAULT — Python has a hardcoded default if unset
@@ -168,7 +168,7 @@ Paste the full report back to me here. I'll triage from the Windows side without
 
 ## Obsidian Links
 - [[brain/CROSS_MACHINE_SYNC]]
-- [[brain/MAC_SYNC_PROMPT]]
-- [[brain/MAC_COMMAND_CENTER_PROMPT]] — for connecting the Mac to the dashboard chat-server bridge (separate concern from this general sync prompt)
+- [[docs/deploy/MAC_SYNC_PROMPT]]
+- [[docs/deploy/MAC_COMMAND_CENTER_PROMPT]] — for connecting the Mac to the dashboard chat-server bridge (separate concern from this general sync prompt)
 - [[brain/CREDENTIALS_SCAFFOLD]]
 - [[memory/HANDOFF]]

@@ -64,6 +64,16 @@ After completing work in an app repo, append to memory/SESSION_LOG.md:
 **Commit:** [hash or "pushed to origin/main"]
 ```
 
+## Removed: `app/` breadcrumb directory (audit Phase 8, 2026-06-09)
+
+The empty `app/` directory (kept only as a "where did the dashboard go?" marker)
+was removed 2026-06-09. The OASIS Command Center dashboard was extracted 2026-05-18
+and now lives in its own repo:
+- **Repo:** [CC90210/oasis-command-center](https://github.com/CC90210/oasis-command-center)
+- **Local clone:** `~/APPS/oasis-command-center` · **Production:** `agent-dashboard-cc90210.vercel.app`
+
+Dashboard work goes in that repo. New agent components go in `scripts/` or `apps/<name>/` — never a recreated `app/`.
+
 ## Obsidian Links
 - [[APPS_CONTEXT/OASIS_AI_CLAUDE]] | [[APPS_CONTEXT/PROPFLOW_CLAUDE]] | [[APPS_CONTEXT/NOSTALGIC_REQUESTS_CLAUDE]]
 - [[memory/SESSION_LOG]] | [[brain/DASHBOARD]]

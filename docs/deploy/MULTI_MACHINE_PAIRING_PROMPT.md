@@ -74,7 +74,7 @@ STEP 1 — Sync repo.
 STEP 2 — Read the canonical rules.
   Read these in full so you understand the multi-machine model:
     brain/CROSS_MACHINE_SYNC.md
-    brain/MULTI_MACHINE_PAIRING_PROMPT.md (this file — for context)
+    docs/deploy/MULTI_MACHINE_PAIRING_PROMPT.md (this file — for context)
   Confirm understanding: this machine runs ONLY the chat-server.
 
 STEP 3 — Verify Python venv.
@@ -285,7 +285,7 @@ If anything is yellow/red:
 
 ## Obsidian Links
 - [[brain/CROSS_MACHINE_SYNC]] (the rules — daemons stay primary, chat-server allowed everywhere)
-- [[brain/MAC_COMMAND_CENTER_PROMPT]] (legacy pointer — body moved here)
-- [[brain/MAC_ANTIGRAVITY_PROMPT]] (general Mac sync — env audit)
-- [[brain/MAC_SYNC_PROMPT]] (env audit + Mac-specific overrides like GWS_PATH)
+- [[docs/deploy/MAC_COMMAND_CENTER_PROMPT]] (legacy pointer — body moved here)
+- [[docs/deploy/MAC_ANTIGRAVITY_PROMPT]] (general Mac sync — env audit)
+- [[docs/deploy/MAC_SYNC_PROMPT]] (env audit + Mac-specific overrides like GWS_PATH)
 - [[brain/SECURITY_MODEL]] (how pairing + tokens + tenant isolation actually work)

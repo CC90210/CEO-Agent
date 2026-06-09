@@ -63,7 +63,7 @@ Then run this audit so I know exactly what's missing:
 Classify each missing key into: (a) REQUIRED (daemon won't run without it),
 (b) CORE (major capability lost), (c) OPTIONAL (edge case only), (d) HAS
 FALLBACK (code falls back to another key that's already set). Use the
-classification list in brain/MAC_SYNC_PROMPT.md as reference.
+classification list in docs/deploy/MAC_SYNC_PROMPT.md as reference.
 
 STEP 3 — Apply the Mac-specific overrides I'm about to give you.
 The biggest one: GWS_PATH must be set to the Mac path, not Windows. Also
@@ -235,7 +235,7 @@ Commits you're pulling (newest first):
 - [scripts/sync-from-github.sh](scripts/sync-from-github.sh) — the script at the top of this document
 - [brain/CLIENT_READY.md](brain/CLIENT_READY.md) — the honest 15/100 scorecard
 - [brain/CREDENTIALS_SCAFFOLD.md](brain/CREDENTIALS_SCAFFOLD.md) — master env var documentation
-- [brain/MAC_SYNC_PROMPT.md](brain/MAC_SYNC_PROMPT.md) — this file
+- [docs/deploy/MAC_SYNC_PROMPT.md](docs/deploy/MAC_SYNC_PROMPT.md) — this file
 - [skills/ethical-hacking/SKILL.md](skills/ethical-hacking/SKILL.md)
 - [skills/sales-closing/SKILL.md](skills/sales-closing/SKILL.md)
 - [.agents/workflows/close-review.md](.agents/workflows/close-review.md)

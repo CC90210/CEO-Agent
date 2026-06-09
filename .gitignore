@@ -63,9 +63,6 @@ brain/USER_PROFILE.md
 brain/CLIENT_*.md
 data/snapshots/
 data/exports/
-tmp/
-*.pt
-*.pth
 
 # Ship sanitized templates instead
 !brain/USER.template.md
@@ -79,8 +76,6 @@ brain/operator.profile.json
 # Credential files (extra defense)
 *credentials*.json
 *credentials*.yaml
-*.pem
-*.key
 id_rsa
 id_ed25519
 *.ppk
@@ -237,7 +232,7 @@ e2e-screenshots/
 /on-the-hill-*
 /shopify-ad-*
 
-# Security � key and certificate files
+# Security — key and certificate files
 *.key
 *.pem
 *.p12

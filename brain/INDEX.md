@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **65 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **53 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -24,18 +24,6 @@ Auto-generated index of tracked `brain/*.md` — **65 files**. Each file's first
 
 ## Deploy & multi-machine
 - [CROSS_MACHINE_SYNC.md](CROSS_MACHINE_SYNC.md) — CROSS-MACHINE SYNC PROTOCOL
-- [MAC_ANTIGRAVITY_PROMPT.md](MAC_ANTIGRAVITY_PROMPT.md) — MAC ANTIGRAVITY PROMPT — Paste This
-- [MAC_COMMAND_CENTER_PROMPT.md](MAC_COMMAND_CENTER_PROMPT.md) — MAC COMMAND CENTER — Moved
-- [MAC_SYNC_PROMPT.md](MAC_SYNC_PROMPT.md) — MAC SYNC PROMPT — Paste into Mac Claude Code
-- [MULTI_MACHINE_PAIRING_PROMPT.md](MULTI_MACHINE_PAIRING_PROMPT.md) — MULTI-MACHINE PAIRING — Antigravity Setup Prompt
-- [VPS_BYPASS_PERMISSIONS_SETUP.md](VPS_BYPASS_PERMISSIONS_SETUP.md) — VPS AI-CLI Bypass-Permissions Setup
-- [VPS_DIAGNOSTIC_PROMPT.md](VPS_DIAGNOSTIC_PROMPT.md) — VPS Diagnostic Prompt — SunBiz Portal Health Check
-- [VPS_FINALIZATION_PROMPT.md](VPS_FINALIZATION_PROMPT.md) — VPS Finalization Prompt — close the gap from 65% → 100%
-- [VPS_FINISH_PROMPT.md](VPS_FINISH_PROMPT.md) — VPS Finish Prompt — last-mile paste to finalize Adon Phase 2 deploy
-- [VPS_FULL_VERIFY_PROMPT.md](VPS_FULL_VERIFY_PROMPT.md) — VPS Full Verify Prompt — end-to-end check that everything is wired
-- [VPS_NONROOT_MIGRATION_PROMPT.md](VPS_NONROOT_MIGRATION_PROMPT.md) — VPS Non-Root Migration Prompt
-- [VPS_PHASE1_DEPLOY_PROMPT.md](VPS_PHASE1_DEPLOY_PROMPT.md) — VPS Full Deploy Prompt — Adon MCA infrastructure (Phase 1 + Phase 2)
-- [VPS_PRODUCTION_READINESS_PROMPT.md](VPS_PRODUCTION_READINESS_PROMPT.md) — VPS Production-Readiness Prompt — Twilio + Anthropic + Submissions Email Smoke Test
 
 ## Prompts & playbooks
 - [CLIENT_PLAYBOOK.md](CLIENT_PLAYBOOK.md) — 🎯 CLIENT PLAYBOOK — What CC Does, How He's Different, How to Run a Meeting
