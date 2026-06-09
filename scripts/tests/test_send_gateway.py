@@ -338,12 +338,17 @@ class TestSendGateway(unittest.TestCase):
                 kwargs["body_html"] = "<p>" + (kwargs.get("body_text") or "") + "</p>"
             return _orig_send(**kwargs)
         self.sg.send = _send_with_default_html
-        # Seed one lead so resolve_lead_id has something to find
+        # Seed one lead so resolve_lead_id has something to find.
+        # tenant_id is REQUIRED for the kill-switch gate (Codex audit
+        # 2026-06-08 finding #1) — without it every commercial-intent test
+        # case fail-closes at the gate. Production leads all carry tenant_id;
+        # the test fixture should match that shape.
         self.db.tables["leads"].rows.append({
             "id": "lead-001",
             "name": "Jane Test",
             "email": "jane@acme.example",
             "status": "new",
+            "tenant_id": "00000000-0000-0000-0000-000000000fix",
         })
 
     def _patch_smtp_ok(self):
@@ -964,6 +969,103 @@ class TestSendGateway(unittest.TestCase):
                 db=self.db,
             )
         self.assertTrue(notify_mock.called)
+
+    # ---- Kill-switch gate regression tests --------------------------------
+    # These three tests anchor the behavior of the lead_id -> tenant_id
+    # resolution gate that lives in send() right before can_act(). The gate
+    # was added per Codex audit 2026-06-08 finding #1 (fail-closed on
+    # unresolvable tenant so per-tenant kill-switches can't be silently
+    # bypassed). Two distinct bugs since then:
+    #   - First production hit: _resolve_tenant_for_lead originally only
+    #     looked at the legacy `leads` table, so every SunBiz drip blocked.
+    #     Fixed by adding tenant_records lookup.
+    #   - Second production hit: the tenant_records lookup filtered by
+    #     entity_type='lead', so shop-out (which fans out per-lender and
+    #     passes application_id as the lead_id when app_data.lead_id is
+    #     missing) ALSO blocked. Fixed by dropping the entity_type filter
+    #     AND by accepting an explicit caller-supplied tenant_id kwarg
+    #     that short-circuits the lookup entirely (CEO-Agent 1a0283a).
+    # These tests pin all three cases so a future "tighten the gate" pass
+    # can't re-break them silently.
+
+    def test_20_kill_switch_blocks_when_neither_caller_nor_lookup_yields(self):
+        """Safety property — must STILL fail-closed when nothing resolves."""
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                lead_id="never-existed-anywhere",
+                brand="conaugh_mckenna",
+                intent="commercial",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked", r)
+        self.assertIn("kill-switch enforcement unavailable", r["reason"])
+
+    def test_21_kill_switch_passes_when_caller_supplies_tenant_id(self):
+        """shop_out_sender / sequence_runner pattern: caller knows the tenant
+        from the row it's processing and supplies it. The gate must trust
+        that and skip the DB lookup. Without this, every shop-out blocked
+        on 2026-06-08.
+
+        Assertion is scoped to "this specific gate doesn't fire" — a later
+        gate (send window, cap, etc.) may still block depending on test
+        clock + fixtures, but it MUST NOT be the kill-switch gate."""
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                lead_id="some-application-uuid-not-a-lead-row",
+                tenant_id="aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110",
+                brand="conaugh_mckenna",
+                intent="commercial",
+                db=self.db,
+            )
+        self.assertNotIn(
+            "kill-switch enforcement unavailable",
+            r.get("reason") or "",
+            f"caller-supplied tenant_id should have skipped the lookup gate: {r}",
+        )
+
+    def test_22_kill_switch_resolves_tenant_records_for_any_entity_type(self):
+        """tenant_records.id is a UUID PK — globally unique across
+        entity_types. The lookup must match regardless of whether the row
+        is a 'lead' / 'application' / 'offer'. Before the fix this filtered
+        entity_type='lead' only, so the shop-out fallback (passing
+        application_id as the lead_id) failed to resolve and blocked.
+
+        Scoped assertion (see test_21) — kill-switch gate must not fire."""
+        # Seed an APPLICATION row (NOT a lead). Pre-fix: filter rejects.
+        # Post-fix: lookup hits, tenant resolves, send proceeds past the
+        # kill-switch gate.
+        self.db.table("tenant_records").rows.append({
+            "id": "app-row-001",
+            "entity_type": "application",
+            "tenant_id": "tenant-from-application-row",
+        })
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                lead_id="app-row-001",
+                brand="conaugh_mckenna",
+                intent="commercial",
+                db=self.db,
+            )
+        self.assertNotIn(
+            "kill-switch enforcement unavailable",
+            r.get("reason") or "",
+            f"lookup should have resolved across entity_types: {r}",
+        )
 
 
 class TestNameUtils(unittest.TestCase):
