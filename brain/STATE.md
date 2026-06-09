@@ -1,8 +1,16 @@
 ---
 tags: [state, ephemeral]
+architecture_version: V6.8.3
 ---
 
 # STATE — Current Operational State
+
+<!-- CANONICAL VERSION: `architecture_version` above is the SINGLE SOURCE OF TRUTH
+     for the empire's architecture version. The five entry points (CLAUDE/GEMINI/
+     ANTIGRAVITY/AGENTS/OPENCODE.md) are version-agnostic and do NOT hardcode it,
+     so a version bump is a one-line edit here. Enforced by
+     scripts/tests/test_entrypoint_parity.py. Released versions live in CHANGELOG.md. -->
+
 
 > Updated 2026-06-06 (system re-engineering pass — tmp/ 6 GB→5 MB, retriever_postedit silent-failure fixed, 3 hygiene crons added, 5 entry points re-synced; see [memory/ACTIVE_TASKS#system-re-engineering-2026-06-06](../memory/ACTIVE_TASKS.md)) | **V6 OPTIMIZATION PROJECT — 100% COMPLETE.** Apex Phases 1-3 shipped 2026-05-10. V6.1 scaffolding mechanism + V6.0.3 polish + V6.0 foundation all intact. Self-audit health: 97/100 (`python scripts/core/self_audit.py`). Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
 >
