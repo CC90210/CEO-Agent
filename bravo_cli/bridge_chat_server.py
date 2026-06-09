@@ -47,6 +47,23 @@ from contextlib import contextmanager
 from pathlib import Path as _Path
 
 
+# Critical Python modules the bridge's chat tools rely on. If ANY of
+# these fail to import at startup, the self-heal below runs
+# `pip install -r requirements.txt`. The list is intentionally short
+# and biased toward third-party packages that don't transitively depend
+# on each other — so a missing one is a strong signal the venv hasn't
+# been kept in sync with requirements.txt at all.
+#
+# Add to this list when a new third-party dep becomes load-bearing for
+# a chat tool. Stdlib modules NEVER belong here.
+_CRITICAL_BRIDGE_DEPS: tuple[str, ...] = (
+    "supabase",   # send_gateway, lead engine, agent_alerts, etc.
+    "requests",   # used by integrations + tool wrappers everywhere
+    "psutil",     # process introspection from bridge_tools
+    "yaml",       # PyYAML — manifest parsing + agent config
+)
+
+
 def _ensure_critical_deps() -> None:
     """Self-heal missing Python deps at bridge startup.
 
@@ -55,32 +72,38 @@ def _ensure_critical_deps() -> None:
     ImportError — the VPS had clearly skipped `pip install -r requirements.txt`
     at some point, and the failure surfaced only when a chat tool was
     invoked (lazy import inside get_supabase()). With this check, the
-    bridge process self-heals on startup: if a critical dep can't be
-    imported, runs `pip install -r requirements.txt` in its own venv.
+    bridge process self-heals on startup: if ANY module in
+    _CRITICAL_BRIDGE_DEPS can't be imported, runs `pip install -r
+    requirements.txt` in its own venv.
 
-    Idempotent — when all deps are present, this is a tiny cheap import
-    test that adds <1ms to startup. The heavy path only runs on a fresh
-    VPS clone OR after a new dep is added to requirements.txt.
+    Idempotent — when all deps are present, this is a few cheap import
+    tests that add <1ms to startup. The heavy install path only runs
+    on a fresh VPS clone or after requirements.txt has new pins the
+    venv hasn't picked up yet.
 
     Note: pip install runs in the same Python (`sys.executable`) the
     bridge is using, so installs land in the venv that the bridge's
     subprocesses also pick up (now that _enriched_path puts the venv
     bin dir first — same 2026-06-10 commit).
     """
-    try:
-        import supabase  # noqa: F401
+    import importlib
+    missing: list[str] = []
+    for mod in _CRITICAL_BRIDGE_DEPS:
+        try:
+            importlib.import_module(mod)
+        except ImportError:
+            missing.append(mod)
+    if not missing:
         return
-    except ImportError:
-        pass
     req = _Path(__file__).resolve().parent.parent / "requirements.txt"
     if not req.is_file():
         print(
-            f"[ensure_deps] requirements.txt missing at {req} — can't self-heal",
+            f"[ensure_deps] missing modules {missing} but requirements.txt not at {req} — can't self-heal",
             file=sys.stderr,
         )
         return
     print(
-        f"[ensure_deps] supabase import failed; running pip install -r {req}",
+        f"[ensure_deps] missing modules {missing}; running pip install -r {req}",
         file=sys.stderr,
     )
     try:
