@@ -4,7 +4,7 @@ Started 2026-06-09 · Bravo @ fleet scope · Brief: [MISSION_2026-06-09_FLEET_V2
 
 ## Phase checklist
 - [x] **P0** — Fleet Preflight (locate/clone repos, bundles, gh auth) ✅
-- [ ] **P1** — CEO-Agent residual PII, content-keyed 🔴 (GATE: CC adjudicates → GO PHASE 1)
+- [x] **P1** — CEO-Agent residual PII, content-keyed 🔴 ✅ (CC: GO PHASE 1, all real)
 - [ ] **P2** — Build empire-harness (core)
 - [ ] **P3** — CEO-Agent adopts core (dogfood)
 - [ ] **P4** — Sibling adoption Wave A (SunBiz→CFO→CMO→hermes→Aura)
@@ -36,5 +36,13 @@ Started 2026-06-09 · Bravo @ fleet scope · Brief: [MISSION_2026-06-09_FLEET_V2
 ### P0 — Fleet Preflight ✅ DONE
 gh authed; 17 repos located (kli-hub JIT); fresh CEO bundle; dirty repos noted for their phase.
 
-### P1 — CEO-Agent residual PII (content-keyed)
-GATED — candidate list built (`/c/Users/User/fleet_pii_candidates.txt`, local/uncommitted): 10 lead emails + 15 names. Awaiting CC adjudication + GO PHASE 1.
+### P1 — CEO-Agent residual PII (content-keyed) ✅ DONE
+- CC adjudicated: "GO PHASE 1", no keepers → all 25 strings (10 lead emails + 15 names) purged.
+- Leakage check: 0 strings in live code (no test breakage). HEAD `execution_log.json` scrubbed (13 names → `[redacted-lead]`, committed d73736f→rewritten).
+- History rewrite (mirror): `filter-repo --replace-text + --replace-message` (25 strings → `[REDACTED]`) + `--invert-paths docs/***REMOVED***_ROI_Analysis.md`. Force-pushed all branches+tags (main `d73736f1→25970d19`).
+- **Authoritative verification (fresh origin clone):** branches+tags = **0** for all 25 strings. ✓
+- **Residual = pull-refs only:** 116 hits in `refs/pull/*` + binary `SESSION_LOG.md` blobs (`filter-repo --replace-text` skips binary). Git can't rewrite these → **CC: GitHub Support purge OR private repo** (now stronger — PR refs carry pre-V2 PII).
+- CSV resolved: `git rm --cached data/email_suppressions.csv` (runtime file, on disk) + `data/email_suppressions.example.csv` shipped + gitignored. casl_compliance loads + suppresses OK.
+- `scripts/pii_sweep.py` built + tested (branches-vs-pull-refs aware) → moves to empire-harness P2.
+- Working files (PII) deleted; mirrors deleted. Commits `d73736f`, `2c301a41`.
+- _Local-repo note: stale pre-rewrite local branches/tags remain (harmless; origin + fresh clones clean). Mac/VPS re-sync needed (2nd rewrite this week)._
