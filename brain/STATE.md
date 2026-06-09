@@ -1,6 +1,6 @@
 ---
 tags: [state, ephemeral]
-architecture_version: V6.8.3
+architecture_version: V6.9.0
 last_updated: 2026-06-09
 freshness_threshold_days: 30
 verified: 2026-06-09

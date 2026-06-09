@@ -15,8 +15,8 @@ Started: 2026-06-09 · Agent: Bravo (Opus 4.8) · Brief: [MISSION_2026-06-09_AUD
 - [x] **Phase 7** — Wiki-Link Integrity 🟡 ✅
 - [x] **Phase 8** — Hygiene + LOCKSTEP Discipline Block 🟡 ✅
 - [x] **Phase 9** — Brain Freshness Sweep 🟡 ✅
-- [ ] **Phase 10** — send_gateway Decomposition 🟡 (OPTIONAL)
-- [ ] **Final** — Full verification, ship, retrospective, CC report
+- [~] **Phase 10** — send_gateway Decomposition 🟡 (OPTIONAL) — **DEFERRED per brief** (fresh session; plan in Fable handoff)
+- [x] **Final** — Full verification, 6.9.0 ship, retrospective, Codex audit, Fable handoff ✅
 
 ## Recorded state (filled during Phase 0)
 
@@ -40,6 +40,17 @@ Started: 2026-06-09 · Agent: Bravo (Opus 4.8) · Brief: [MISSION_2026-06-09_AUD
 - **[deferred] CSV-absent resilience patch** in `casl_compliance.py` + gitignoring the runtime CSV (brief step 6) — skipped in Phase 1 (CSV has no real-lead PII; CC narrowed scope). Candidate to fold into Phase 2.
 - **Bundle `../BEA_backup_20260609_1504.bundle` contains OLD PII history** — it's the rollback safety net; keep it private, delete when comfortable the rewrite is final.
 - **[minor, deferred] Reorg-import consistency:** ~6 scripts (`autonomous_agent.py`, `booking_engine.py`, `funnel_nurture.py`, `outreach_engine.py`, `contract_generator/generator.py`) use the bare `from send_gateway import` (the same form that had silently broken `email_doctor`). They work in production (their daemon runtime has `scripts/integrations/` on the path), so NOT broken — but for robustness they should use `from integrations.send_gateway import`. Found during Phase 2 self-review; not fixed (out of scope, low risk, working today).
+
+## Phase log
+
+### Final — verification + ship ✅ DONE (V6.9.0)
+- **Full battery:** `pytest -q` (root) now runs after the `--import-mode=importlib` fix → **422 passed, 5 failed** (all pre-existing/documented: 4 send_gateway offline-RPC, 1 bridge windowless-flags). `email_doctor --skip-network` 8/8. `scan_secrets` clean (1422 files). `check_brain_freshness` 0 stale. `--emit-docs` → no diff (fresh). README stat synced (97→99 scripts). `goldstorm` present = CC's test addr (correct; real-lead emails = 0 confirmed Phase 1).
+- **Shipped 6.9.0:** CHANGELOG [6.9.0] + `STATE.md:architecture_version V6.9.0` (parity stayed green = true 1-file bump).
+- **Retrospective:** `memory/RETROSPECTIVE_2026-06-09_audit_remediation.md`.
+- **Fable handoff:** `plans/HANDOFF_FABLE_2026-06-09.md` (turnkey; replication playbook for Maven/Atlas/SunBiz).
+
+### Phase 10 — send_gateway Decomposition ⏸ DEFERRED
+Per brief: a 163KB money-path refactor belongs in its own session ~a day after the rest is stable. NOT started. Ready-to-run plan + baseline (`pytest test_send_gateway.py` pass count) in the Fable handoff.
 
 ## Phase log
 

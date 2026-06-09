@@ -14,6 +14,42 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 
 ## [Unreleased]
 
+## [6.9.0] — 2026-06-09
+
+V6.9.0 — **Audit Remediation.** A 10-phase pass against an external architecture +
+security audit (commit fa47807-era, full 853-commit history scanned). The through-line
+is **harness reliability** — structural fixes that make *any* model (including
+lower-tier OpenCode/Gemini) more accurate, and that the sibling agents (Maven/Atlas/
+SunBiz) can replicate. See `plans/MISSION_2026-06-09_PROGRESS.md` and
+`memory/RETROSPECTIVE_2026-06-09_audit_remediation.md`.
+
+- **Security — PII purge:** rewrote all GitHub history to remove 11 real third-party
+  lead emails + 5 lead-data files (scope corrected with CC mid-flight — `goldstorm`
+  is CC's *test* address, not prospect data). Branches + tags clean; residual lives
+  only in GitHub PR refs (CC action: GitHub Support purge / private).
+- **Security — outbound compliance:** `dashboard_email_consumer.py` now applies CASL
+  suppression + footer + List-Unsubscribe at send time (it bypassed `send_gateway`);
+  `email_doctor.py` check #5 is structural (recursive smtplib/smtp_send allowlist) and
+  its broken post-reorg import paths were fixed (restored 7 silently-failing checks).
+- **Security — guards enforce:** `secret_guard` + `exec_guard` → `enforce`, `state_guard`
+  → `report` (was off), set in tracked `.claude/settings.json`; documented in
+  `SECURITY_MODEL.md` §9–10.
+- **Reliability — version single-sourced:** `brain/STATE.md:architecture_version` is the
+  sole version; entry points are version-agnostic; `test_entrypoint_parity.py` enforces
+  it + the byte-identical `LOCKSTEP:tool_discipline` block across all 5 entry points.
+- **Reliability — generated routing docs:** `build_capability_graph.py --emit-docs`
+  regenerates WHEN_TO_USE_SKILLS / brain·memory INDEX from the graph;
+  `test_generated_docs_fresh.py` makes staleness a build failure.
+- **Reliability — wiki-link integrity:** 125 dangling links → 0; `test_wiki_links.py`.
+- **Reliability — migration ledger:** `database/100_schema_migrations_ledger.sql` +
+  `apply_migration.py --status/--backfill-ledger` + checksum guard.
+- **Reliability — brain freshness:** every brain doc dated; `check_brain_freshness.py`.
+- **Reliability — pytest runnable from root:** `--import-mode=importlib` fixed a
+  dual-`tests`-package collision that made `pytest -q` fail collection entirely
+  (now 422 passing).
+- **Hygiene:** 12 deploy prompts `brain/` → `docs/deploy/`; removed root forensic log +
+  empty `app/`; `.gitignore` deduped + mojibake fixed.
+
 ## [6.8.3] — 2026-05-21
 
 V6.8.3 — Production hardening pass. Built the missing reliability,

@@ -25,7 +25,11 @@ packages = []
 [tool.pytest.ini_options]
 testpaths = ["scripts", "tests"]
 python_files = ["test_*.py"]
-addopts = "--tb=short"
+# importlib mode imports each test module by its unique path. Required because
+# scripts/tests/ and tests/ both have __init__.py (two packages named `tests`),
+# which under the default prepend mode made `pytest -q` from the repo root fail
+# collection with "No module named 'tests.test_*'" (audit Phase 9, 2026-06-09).
+addopts = "--tb=short --import-mode=importlib"
 filterwarnings = [
     "ignore::DeprecationWarning:datetime",
 ]
