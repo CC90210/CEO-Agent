@@ -121,6 +121,7 @@ from casl_compliance import (  # noqa: E402
     build_casl_footer,
     build_casl_footer_html,
     add_list_unsubscribe_headers,
+    to_e164,
 )
 from lib.smtp_send import smtp_send as _smtp_send  # noqa: E402
 
@@ -2418,15 +2419,26 @@ def send(
                     "reason": "sms channel requires to_phone (E.164) and body_text",
                     "lead_id": lead_id, "interaction_id": None,
                     "cooldown_until": None, "daily_count": None}
-        # Light E.164 sanity check — full validation is the provider's
-        # job (they reject bad numbers with a clear error). Catching
-        # the egregious cases here saves a round-trip.
-        normalized_phone = to_phone.strip()
-        if not normalized_phone.startswith("+") or len(normalized_phone) < 8:
+        # E.164 normalization — VPS health audit 2026-06-09 found that
+        # 408/408 SunBiz leads had bare 10-digit phones in lead.data.phone
+        # (the dashboard intake form doesn't enforce E.164). Every SMS
+        # step in sequence_runner was hitting the strict "+1..." check
+        # below and failing as a "permanent" sequence_state error. Two
+        # welcome sequences had been stuck for 152h before the audit.
+        #
+        # Fix: normalize the caller's to_phone to E.164 here, BEFORE the
+        # strict check, so bare 10-digit US/CA numbers and formatted
+        # 11-digit "1-763-421-8229" patterns are both accepted and sent
+        # to the SMS provider in the wire format they require. to_phone
+        # is reassigned so downstream (suppression check, dedup,
+        # provider dispatch) all see the normalized value.
+        e164 = to_e164(to_phone)
+        if not e164:
             return {"status": "error",
-                    "reason": f"sms to_phone must be E.164 starting with '+', got '{to_phone}'",
+                    "reason": f"sms to_phone could not be normalized to E.164 (got '{to_phone}'). Accepts bare 10-digit US/CA, formatted, or +country-code; rejects too-short / too-long / non-numeric.",
                     "lead_id": lead_id, "interaction_id": None,
                     "cooldown_until": None, "daily_count": None}
+        to_phone = e164
 
     # ---- Multi-AI safety killswitch (highest precedence) ----
     # BRAVO_FORCE_DRY_RUN=1 forces dry_run regardless of what the caller
@@ -2449,6 +2461,20 @@ def send(
         return {"status": "error", "reason": f"supabase unavailable: {exc}",
                 "lead_id": lead_id, "interaction_id": None,
                 "cooldown_until": None, "daily_count": None}
+
+    # Snapshot the CALLER-supplied scope BEFORE resolve_lead_id() can
+    # auto-create a leads row from to_email alone. Codex audit 2026-06-09
+    # round-4 [medium]: an internal alert with no lead_id and no tenant_id
+    # would otherwise hit resolve_lead_id, auto-create a leads row, and
+    # then the structural tenant-scope check below would fire on the
+    # auto-created (tenant-less) row and block "kill-switch enforcement
+    # unavailable" — silently breaking system-wide internal email.
+    #
+    # We gate on the caller's ORIGINAL intent: "did the caller pass me
+    # a tenant-scoped identifier?" If yes, enforce. If no, exempt.
+    # Auto-created rows are an internal optimization (interaction ledger
+    # FK target) and must NOT retroactively widen the security scope.
+    caller_supplied_tenant_scope = bool(lead_id or tenant_id)
 
     lead_id = resolve_lead_id(db, to_email, lead_id)
 
@@ -2559,7 +2585,11 @@ def send(
     #   3. Caller-supplied tenant_id that CONTRADICTS the lookup is a hard
     #      block — surface the mismatch loud, never silent.
     resolved_tenant: Optional[str] = None
-    if lead_id or tenant_id:
+    # Use caller_supplied_tenant_scope (snapshot before resolve_lead_id
+    # auto-create) so an internal infrastructure send to a never-seen
+    # email doesn't get a tenant-scope gate retroactively applied to
+    # an auto-created tenant-less leads row. See Codex round-4 finding.
+    if caller_supplied_tenant_scope:
         lookup_tenant = _resolve_tenant_for_lead(db, lead_id) if lead_id else None
         if tenant_id and lookup_tenant and tenant_id != lookup_tenant:
             return {

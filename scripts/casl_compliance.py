@@ -79,15 +79,65 @@ def _normalize_email(email: str) -> str:
 
 
 def normalize_phone(phone: str | None) -> str:
-    """E.164-friendly normalization.
+    """E.164-friendly normalization for SUPPRESSION-LIST MATCHING.
 
     Strips formatting, drops a leading US/Canada country code, and returns
-    digits only. Empty/None returns an empty string.
+    DIGITS ONLY (e.g. "7634218229"). Empty/None returns an empty string.
+
+    NOTE: this is the canonical comparison form for STOP/DNC matching.
+    For the WIRE format that SMS providers (TextTorrent / Twilio / Kixie)
+    require, use `to_e164()` below.
     """
     digits = "".join(ch for ch in (phone or "") if ch.isdigit())
     if len(digits) == 11 and digits.startswith("1"):
         return digits[1:]
     return digits
+
+
+def to_e164(phone: str | None) -> str | None:
+    """Normalize to E.164 wire format for SMS providers (+1NXXXXXXXXX).
+
+    TextTorrent / Twilio / Kixie all require E.164. SunBiz dashboard
+    captures bare 10-digit phones in lead.data.phone (e.g. "7634218229")
+    and historic imports came in formatted as "(763) 421-8229". Without
+    upstream normalization every SMS send hit the strict E.164 gate in
+    send_gateway and was rejected — discovered 2026-06-09 (VPS health
+    audit): 408/408 SunBiz leads had non-E.164 phones, 2 welcome
+    sequences had been stuck failed for 152h.
+
+    Returns None when the input can't be confidently normalized so the
+    caller fails closed rather than ships to a bad number.
+
+    Accepts:
+      - "+17634218229"            -> "+17634218229"  (already E.164)
+      - "7634218229"              -> "+17634218229"  (10-digit US/CA)
+      - "17634218229"             -> "+17634218229"  (11-digit with leading 1)
+      - "(763) 421-8229"          -> "+17634218229"  (formatted 10-digit)
+      - "1-763-421-8229"          -> "+17634218229"  (formatted 11-digit)
+
+    Rejects (returns None):
+      - "" / None
+      - "+44..."  unknown country code passthrough is risky; require explicit
+      - "12345"   too short
+      - "1234567890123" too long
+    """
+    if not phone:
+        return None
+    raw = phone.strip()
+    if raw.startswith("+"):
+        # Caller-asserted E.164. Trust the country code but strip non-digits
+        # after the +. We don't validate length-per-country — providers
+        # do that and surface clear errors when wrong.
+        digits = "".join(ch for ch in raw[1:] if ch.isdigit())
+        if not digits:
+            return None
+        return "+" + digits
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    if len(digits) == 10:
+        return "+1" + digits
+    if len(digits) == 11 and digits.startswith("1"):
+        return "+" + digits
+    return None
 
 
 # ----------------------------------------------------------------------------

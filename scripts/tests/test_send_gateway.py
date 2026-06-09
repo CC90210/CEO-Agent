@@ -1033,21 +1033,96 @@ class TestSendGateway(unittest.TestCase):
             f"caller-supplied tenant_id should have skipped the lookup gate: {r}",
         )
 
+    def test_23_e164_normalization_helper(self):
+        """VPS health audit 2026-06-09 — every SunBiz SMS was failing on
+        the strict E.164 check because lead.data.phone stores bare 10-digit
+        numbers. New to_e164() helper in casl_compliance.py normalizes
+        before the SMS dispatch. Pin all 5 accept patterns + rejects."""
+        from casl_compliance import to_e164
+        # Accept patterns
+        self.assertEqual(to_e164("7634218229"), "+17634218229")
+        self.assertEqual(to_e164("17634218229"), "+17634218229")
+        self.assertEqual(to_e164("(763) 421-8229"), "+17634218229")
+        self.assertEqual(to_e164("1-763-421-8229"), "+17634218229")
+        self.assertEqual(to_e164("+17634218229"), "+17634218229")
+        # Strip whitespace + dashes inside an already-E.164 string.
+        self.assertEqual(to_e164(" +1 763 421 8229 "), "+17634218229")
+        # Reject patterns (returns None — caller fails closed)
+        self.assertIsNone(to_e164(""))
+        self.assertIsNone(to_e164(None))
+        self.assertIsNone(to_e164("12345"))  # too short
+        self.assertIsNone(to_e164("1234567890123"))  # too long for US/CA bare
+        self.assertIsNone(to_e164("abc"))  # no digits
+        self.assertIsNone(to_e164("+"))  # plus with no digits
+
+    def test_23b_sms_send_passes_e164_gate_with_bare_10_digit_phone(self):
+        """The production breakage VPS health audit caught: a sequence
+        step calling send(channel='sms', to_phone='7634218229', ...)
+        used to be rejected with 'sms to_phone must be E.164'. After
+        the patch, the bare 10-digit number is normalized to
+        '+17634218229' BEFORE the strict check, so the send proceeds
+        past this gate (downstream gates like SMS TCPA timezone check
+        may still apply — that's not what this test is about).
+
+        Scoped assertion: the rejection reason MUST NOT be about E.164
+        format anymore. Any other reason (timezone, suppression, etc.)
+        means the patch did its job."""
+        with mock.patch.object(self.sg, "should_suppress_phone", return_value=False):
+            r = self.sg.send(
+                channel="sms",
+                agent_source="test_harness",
+                to_phone="7634218229",  # bare 10-digit — the VPS-found pattern
+                body_text="Hi from SunBiz.",
+                brand="conaugh_mckenna",
+                intent="commercial",
+                tenant_id="00000000-0000-0000-0000-000000000fix",
+                db=self.db,
+            )
+        reason = (r.get("reason") or "").lower()
+        self.assertNotIn("must be e.164", reason, r)
+        self.assertNotIn("could not be normalized to e.164", reason, r)
+
+    def test_23c_sms_send_rejects_unnormalizable_phone(self):
+        """A garbage phone (too short / too long / no digits) must still
+        fail closed — the patch is liberal in accept but conservative
+        in reject. Better to drop one SMS than send to a bad number."""
+        with mock.patch.object(self.sg, "should_suppress_phone", return_value=False):
+            r = self.sg.send(
+                channel="sms",
+                agent_source="test_harness",
+                to_phone="12345",  # too short, can't normalize
+                body_text="Hi.",
+                brand="conaugh_mckenna",
+                intent="commercial",
+                tenant_id="00000000-0000-0000-0000-000000000fix",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "error", r)
+        self.assertIn("could not be normalized to E.164", r["reason"])
+
     def test_22f_truly_unscoped_internal_send_bypasses_gates(self):
         """The exempt path is now structural, not intent-based. A send
-        with NO lead_id AND NO tenant_id is genuinely cross-tenant
-        infrastructure (system-wide health alert, daemon ping, etc.)
-        and intentionally skips the tenant-scope gates — there's
-        nothing tenant-scoped to enforce.
+        with NO caller-supplied lead_id AND NO tenant_id is genuinely
+        cross-tenant infrastructure (system-wide health alert, daemon
+        ping, etc.) and intentionally skips the tenant-scope gates —
+        there's nothing tenant-scoped to enforce.
 
-        This test pins the intended exemption. If a future "tighten the
-        gate" pass tries to fire kill-switch even on unscoped sends, it
-        breaks here and forces the change to be deliberate."""
+        Codex audit 2026-06-09 round-4 [medium] caught a subtle bug
+        in the round-3 fix: resolve_lead_id() auto-creates a tenant-less
+        leads row from to_email when the caller passes no lead_id, and
+        the original `if lead_id or tenant_id:` check fired on the
+        auto-created row — silently blocking internal infrastructure
+        email. The round-4 fix snapshots caller_supplied_tenant_scope
+        BEFORE resolve_lead_id so auto-creation doesn't widen scope.
+
+        Uses a non-reserved domain (oasisai.work) to actually exercise
+        the auto-create path — example.com would bounce at the RFC 2606
+        reserved-domain gate before reaching kill-switch."""
         with self._patch_smtp_ok(), self._patch_suppress(False):
             r = self.sg.send(
                 channel="email",
                 agent_source="test_harness",
-                to_email="ops@example.com",
+                to_email="ops@oasisai.work",  # non-reserved; triggers auto-create
                 subject="health alert",
                 body_text="all green",
                 # No lead_id, no tenant_id — genuinely cross-tenant.
@@ -1055,9 +1130,7 @@ class TestSendGateway(unittest.TestCase):
                 brand="conaugh_mckenna",
                 db=self.db,
             )
-        # Must NOT be blocked by the tenant-scope gates. May or may not
-        # be 'sent' depending on other downstream gates, but the reason
-        # must NOT be tenant-related.
+        # Must NOT be blocked by the tenant-scope gates.
         reason = (r.get("reason") or "").lower()
         self.assertNotIn("tenant_id mismatch", reason, r)
         self.assertNotIn("kill-switch enforcement unavailable", reason, r)
