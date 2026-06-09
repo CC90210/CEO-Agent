@@ -333,7 +333,13 @@ def build_casl_footer(
     the cc-funnel unsubscribe endpoint can auto-add it to the suppression list.
     """
     business_name = business_name or os.environ.get("CASL_BUSINESS_NAME", DEFAULT_BUSINESS_NAME)
-    business_address = business_address or os.environ.get("CASL_BUSINESS_ADDRESS", DEFAULT_BUSINESS_ADDRESS)
+    # 2026-06-08: business_address can now be explicitly empty (per-brand
+    # decision). When empty, the address line is omitted entirely rather
+    # than rendering "Address:" with a blank value or falling through to
+    # the OASIS default. CC's call for SunBiz; documented legal-risk note
+    # in send_gateway.BRAND_IDENTITY["sunbiz"].
+    if business_address is None:
+        business_address = os.environ.get("CASL_BUSINESS_ADDRESS", DEFAULT_BUSINESS_ADDRESS)
     sender_name = sender_name or os.environ.get("CASL_SENDER_NAME", DEFAULT_SENDER_NAME)
 
     # 2026-04-27: dropped the visible "reply STOP" line at CC's direction —
@@ -341,12 +347,19 @@ def build_casl_footer(
     # cold B2B outreach. Opt-out still works via the List-Unsubscribe header
     # (Gmail/Outlook native one-click button → unsubscribe@oasisai.work →
     # email_engine.check-inbox auto-suppresses). Visible footer retains
-    # sender name, business name, and physical address per CASL s. 6(2)(a-b).
-    footer = (
-        "\n\n---\n"
-        f"{sender_name} — {business_name}\n"
-        f"{business_address}\n"
-    )
+    # sender name, business name, and physical address per CASL s. 6(2)(a-b)
+    # WHEN provided; empty address suppresses just the address line.
+    if business_address and business_address.strip():
+        footer = (
+            "\n\n---\n"
+            f"{sender_name} — {business_name}\n"
+            f"{business_address}\n"
+        )
+    else:
+        footer = (
+            "\n\n---\n"
+            f"{sender_name} — {business_name}\n"
+        )
     return footer
 
 
@@ -359,16 +372,23 @@ def build_casl_footer_html(
 ) -> str:
     """HTML version of the CASL footer for multipart emails."""
     business_name = business_name or os.environ.get("CASL_BUSINESS_NAME", DEFAULT_BUSINESS_NAME)
-    business_address = business_address or os.environ.get("CASL_BUSINESS_ADDRESS", DEFAULT_BUSINESS_ADDRESS)
+    # Same empty-address handling as the text variant — None falls through
+    # to env / default, but explicit "" suppresses the address row.
+    if business_address is None:
+        business_address = os.environ.get("CASL_BUSINESS_ADDRESS", DEFAULT_BUSINESS_ADDRESS)
     sender_name = sender_name or os.environ.get("CASL_SENDER_NAME", DEFAULT_SENDER_NAME)
 
     from html import escape
 
+    address_row = (
+        f'<br/>{escape(business_address)}'
+        if business_address and business_address.strip()
+        else ''
+    )
     return (
         '<hr style="margin-top:24px;border:none;border-top:1px solid #ddd"/>'
         '<div style="font-size:11px;color:#888;font-family:sans-serif;line-height:1.5">'
-        f'{escape(sender_name)} — {escape(business_name)}<br/>'
-        f'{escape(business_address)}'
+        f'{escape(sender_name)} — {escape(business_name)}{address_row}'
         '</div>'
     )
 

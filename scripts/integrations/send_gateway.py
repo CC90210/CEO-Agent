@@ -265,21 +265,31 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
         "business_name": "Sun Biz Funding",
         # 2026-06-08: confirmed via the dashboard sidebar — the operator on
         # submissions@sunbizfunding.com is Ezra. Sign-off line on every
-        # SunBiz email reads "— Ezra". One TODO resolved without further
-        # operator input needed.
+        # SunBiz email reads "— Ezra".
         "sender_name": "Ezra",
-        # business_address is still placeholder. Required for CAN-SPAM
-        # legal compliance on commercial email — PLACEHOLDER_BUSINESS_ADDRESSES
-        # below blocks sends until this is replaced with the real legal
-        # mailing address. Operator (CC) needs to provide.
-        "business_address": "Sun Biz Funding",  # TODO: replace with legal mailing address
+        # 2026-06-08: CC's explicit decision — SunBiz emails ship without
+        # a physical address in the footer. Legal-risk note: CAN-SPAM (US)
+        # and CASL (Canada) both require a real mailing address in
+        # commercial email; flying without one creates real exposure if a
+        # recipient complains. Acknowledged by operator. The empty value
+        # is also intentionally absent from PLACEHOLDER_BUSINESS_ADDRESSES
+        # below so the gate doesn't block these sends.
+        "business_address": "",
         "from_display": "Sun Biz Funding",
+        # Explicit flag so the footer builder knows to omit the address
+        # line entirely (rather than rendering "Address:" with nothing
+        # after it). Read by casl_compliance.build_casl_footer.
+        "suppress_business_address": True,
     },
 }
 
 DEFAULT_BRAND = "oasis"
+# Brands listed here cannot send commercial email until business_address is
+# replaced with a real legal mailing address (CAN-SPAM / CASL requirement).
+# Brands that explicitly opt out via brand['suppress_business_address']=True
+# are NOT in this set even when their address is empty — that's the SunBiz
+# escape hatch (CC's explicit decision 2026-06-08).
 PLACEHOLDER_BUSINESS_ADDRESSES: frozenset[str] = frozenset({
-    "",
     "Sun Biz Funding",
 })
 RESERVATION_WINDOW_MINUTES = 30
