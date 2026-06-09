@@ -293,6 +293,13 @@ def detect_codex_cli() -> dict:
     return {"status": "unconfigured"}
 
 
+def detect_gemini_cli() -> dict:
+    ok, line = _which_version("gemini", ["--version"])
+    if ok:
+        return {"status": "healthy", "metadata": {"path": shutil.which("gemini"), "version": line}}
+    return {"status": "unconfigured", "last_error": "gemini CLI not on PATH"}
+
+
 def detect_pm2_daemons() -> dict[str, dict]:
     """Snapshot the operator's PM2 process table — surfaces background
     workers (sequence-runner, event-router, claude-bridge,
@@ -383,6 +390,7 @@ def collect_services() -> dict[str, dict]:
         "playwright": detect_playwright(),
         "claude_code_cli": detect_claude_code_cli(),
         "codex_cli": detect_codex_cli(),
+        "gemini_cli": detect_gemini_cli(),
     }
     services.update(detect_repo_clones())
     # PM2 daemon snapshot — populates the dashboard's Background Workers

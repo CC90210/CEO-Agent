@@ -194,6 +194,13 @@ apps.push({
     env: {
         PYTHONIOENCODING: "utf-8",
         PYTHONUNBUFFERED: "1",
+        // 2026-06-09: this VPS runs as root. Claude Code refuses
+        // --dangerously-skip-permissions as root unless IS_SANDBOX=1, and the
+        // Gemini CLI refuses an untrusted workspace unless this trust flag is
+        // set. The bridge spawns claude/gemini/codex subprocesses that inherit
+        // this env, so set it here for durability (survives redeploy/reboot).
+        IS_SANDBOX: "1",
+        GEMINI_CLI_TRUST_WORKSPACE: "true",
     },
     log_date_format: "YYYY-MM-DD HH:mm:ss",
     error_file: "tmp/pm2-claude-bridge-error.log",
