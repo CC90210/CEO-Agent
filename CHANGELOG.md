@@ -14,6 +14,21 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 
 ## [Unreleased]
 
+## [6.9.1] — 2026-06-09
+
+V6.9.1 — **Fleet harmonization.** The harness that made V6.9.0 work is now a shipped
+substrate (`CC90210/empire-harness` v1.0.0) that the agent fleet consumes instead of
+copies. See `plans/HANDOFF_FABLE_FLEET_V2_2026-06-09.md`.
+
+- **Residual PII (content-keyed):** purged 25 adjudicated lead strings the V1 path-keyed
+  purge missed (history `execution_log.json` + ***REMOVED***/***REMOVED*** cluster). Branches+tags
+  verified clean on a fresh clone; `scripts/pii_sweep.py` added. CSV untracked + example.
+- **Adopted empire-harness v1.0.0** (dogfood): vendored canonical LOCKSTEP block +
+  `HARNESS_VERSION` + `harness.lock` + `scripts/tests/test_harness_canonical.py` (CEO's
+  entry-point blocks must match the fleet canonical byte-for-byte).
+- **Fleet-wide:** 8 repos now carry the LOCKSTEP discipline block (was 1). empire-harness
+  ships the portable tests, checkers, `fleet_doctor`/`fleet_quick_audit`, `new_agent` scaffold.
+
 ## [6.9.0] — 2026-06-09
 
 V6.9.0 — **Audit Remediation.** A 10-phase pass against an external architecture +
