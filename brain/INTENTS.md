@@ -3,9 +3,10 @@ name: INTENTS
 description: Verb-by-verb playbook. For each kind of operator request, the exact sequence the agent should run.
 mutability: SEMI-MUTABLE
 tags: [brain, agent-only, playbook]
-last_updated: 2026-05-14
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # INTENTS — Verb-by-Verb Playbook
 
 > Reached from `brain/AGENT_ROUTER.md` when an intent needs more than a one-line "read this file" answer.

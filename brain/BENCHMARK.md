@@ -1,7 +1,9 @@
 ---
 tags: [benchmark, sentience, performance, self-assessment]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # 🧠 BRAVO BENCHMARK — Agentic Maturity Assessment
 
 > Rigorous self-assessment of Bravo's capabilities, measured against a defined agentic maturity framework. Re-run quarterly or after major architecture changes. Complements the live `python scripts/core/self_audit.py` (structural health) with a behavioral/capability score.

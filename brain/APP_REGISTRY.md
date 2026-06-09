@@ -1,7 +1,9 @@
 ---
 tags: [apps, routing]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # APP REGISTRY — External Codebase Routing
 
 > When CC mentions an app by name or alias, `cd` to its LOCAL PATH before making any code changes.

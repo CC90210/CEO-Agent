@@ -1,10 +1,10 @@
 ---
 name: V68_AGENT_OS_PATTERNS
 description: V6.8 propagation contract — vocabulary layer (CONTEXT.md), ADR layer (docs/adr/), skill-invocation discipline (disable_model_invocation / argument_hint), skill lifecycle directories (in-progress/, _archive/), distribution manifest (.claude-plugin/plugin.json). What every CC agent (Bravo, Maven, Atlas, Hermes) must inherit and what each adapts per domain.
-last_updated: 2026-05-16
+last_updated: 2026-06-09
 freshness_threshold_days: 365
+verified: 2026-06-09
 ---
-
 # V6.8 — Agent-OS Vocabulary Layer
 
 > Adopted 2026-05-16. Source audit: [mattpocock/skills](https://github.com/mattpocock/skills) cross-referenced against the Bravo V6.7 substrate.

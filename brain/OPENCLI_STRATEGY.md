@@ -1,7 +1,9 @@
 ---
 tags: [strategy, opencli, lead-gen]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # OpenCLI Strategic Integration
 
 > **Inventory:** OpenCLI v1.1.1 — 46 platforms, 244 built-in commands + 6 external CLIs

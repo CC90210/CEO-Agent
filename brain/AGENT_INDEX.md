@@ -1,7 +1,9 @@
 ---
 tags: [index, agents, hub, graph]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # Agent Index — The 4-Agent Graph Hub
 
 > The central hub connecting Bravo, Atlas, Maven, and Aura. Open this file in Obsidian to see the full agent graph. Every agent doc in every repo should eventually link back here.

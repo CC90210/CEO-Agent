@@ -1,7 +1,9 @@
 ---
 tags: [brain, ceo, operating-system]
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
-
 # CEO Operating System — Bravo V5.5
 
 > The complete operating framework for running CC's business empire autonomously.

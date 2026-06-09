@@ -1,7 +1,9 @@
 ---
 tags: [protocol, governance]
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
-
 # BRAVO — Interaction Protocol V1.0
 
 > Every interaction shapes the agent. Every action is logged. Every mistake becomes a lesson. Every session leaves the system smarter than before.

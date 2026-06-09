@@ -1,7 +1,9 @@
 ---
 tags: [c-suite, protocol, awareness]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # CROSS-AGENT AWARENESS — How the 4 Agents Stay in Sync
 
 > The 4-agent operating system (Bravo + Atlas + Maven + Aura) only works if each agent knows what the others are doing. This document defines the awareness protocol.

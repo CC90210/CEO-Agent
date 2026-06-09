@@ -1,9 +1,9 @@
 ---
 tags: [orchestration, contract, multi-agent, autonomy]
-last_updated: 2026-05-03
+last_updated: 2026-06-09
 freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # AGENT ORCHESTRATION — Master Multi-Agent Contract
 
 > Canonical contract for how Bravo, Atlas, Maven, AURA, Hermes, and Codex coordinate. **Read this before designing any cross-agent flow.** Atlas's `brain/AGENT_ORCHESTRATION.md` and Maven's `brain/RESPONSIBILITY_BOUNDARIES.md` are the per-agent views; this is the single source of truth.

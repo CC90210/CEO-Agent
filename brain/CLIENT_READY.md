@@ -2,8 +2,10 @@
 tags: [readiness, cloning, productization, honest]
 owner: CC (Conaugh McKenna)
 purpose: The single honest checklist that gates whether Bravo's operating system is ready to be cloned and sold to OASIS AI agency clients.
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # CLIENT_READY — Can We Ship This to a Client Yet?
 
 > **The rule:** You cannot sell a system you have not proven on yourself. This file is the audit.

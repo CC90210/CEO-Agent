@@ -1,8 +1,10 @@
 ---
 tags: [state, ephemeral]
 architecture_version: V6.8.3
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # STATE — Current Operational State
 
 <!-- CANONICAL VERSION: `architecture_version` above is the SINGLE SOURCE OF TRUTH

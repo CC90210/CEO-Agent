@@ -1,7 +1,9 @@
 ---
 tags: [operating-manual, how-to, c-suite, life]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # HOW TO USE THE 4-AGENT SYSTEM — CC's Operating Manual
 
 > One document that answers: **"Which agent do I ask when?"**

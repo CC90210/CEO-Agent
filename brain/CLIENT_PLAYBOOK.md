@@ -1,7 +1,9 @@
 ---
 tags: [client-facing, playbook, meeting, security, positioning, shareable]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # 🎯 CLIENT PLAYBOOK — What CC Does, How He's Different, How to Run a Meeting
 
 > Operational reference for CC in client/prospect conversations. Not social media content — this is what you actually say in a meeting, a pitch, or a discovery call. Shareable PDF/Gist when needed.

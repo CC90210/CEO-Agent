@@ -1,7 +1,9 @@
 ---
 tags: [agents, orchestration]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # AGENTS — Subagent Registry & Orchestration Protocol
 
 > **PURPOSE:** Single source of truth for all specialized subagents. Every AI interface (Claude, Gemini, Antigravity) references this file to determine delegation strategy.

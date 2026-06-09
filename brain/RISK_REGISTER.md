@@ -1,7 +1,9 @@
 ---
 tags: [brain, risk, register]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # Risk Register — Business Empire
 
 > Live register of all identified business risks. Reviewed weekly (revenue risks) and quarterly (all risks).

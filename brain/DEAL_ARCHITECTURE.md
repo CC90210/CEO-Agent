@@ -1,7 +1,9 @@
 ---
 tags: [sales, deals, partners, canonical]
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
-
 # DEAL ARCHITECTURE — OASIS AI (V1.0, 2026-04-30)
 
 > CC's restructured deal framework. Replaces old "implementation + retainer" hard-pitch flow with a value-quantified, free-trial-anchored model that makes saying yes a no-brainer. Strategic partners get equity-grade rev share; casual referrers get clean commissions.

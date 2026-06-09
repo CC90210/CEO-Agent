@@ -5,8 +5,10 @@ type: reference
 tags: [catalog, repos, tools, sharing, infrastructure]
 created: 2026-04-21
 updated: 2026-04-21
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # 🧰 TOOL SHED — CC's GitHub Repository Catalog
 
 > A curated inventory of every repo that powers CC's empire, organized so it's useful as both an internal reference AND a shareable asset for clients, prospects, and Skool members.

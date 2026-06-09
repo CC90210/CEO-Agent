@@ -3,8 +3,10 @@ title: Data Taxonomy — Pantry / Prep Table / Plate
 mutability: GOVERNED
 purpose: Single source of truth for what data lives where, how it's aggregated, and which consumers read which views. The audit target for the silver-platter skill.
 related: brain/AGENTIC_OS_REFERENCE.md (§3 — the principle), brain/CAPABILITIES.md (tool inventory)
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
-
 # Data Taxonomy
 
 Three tiers, one rule per tier: **Pantry is raw. Prep Table is deterministic Python (no LLM). Plate is what agents consume.**

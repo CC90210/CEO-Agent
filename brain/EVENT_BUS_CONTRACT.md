@@ -1,9 +1,9 @@
 ---
 tags: [v6, event-bus, cross-agent, contract]
-last_updated: 2026-05-11
+last_updated: 2026-06-09
 freshness_threshold_days: 14
+verified: 2026-06-09
 ---
-
 # EVENT BUS CONTRACT — V6 BUILD 3
 
 > Canonical registry of cross-agent event types + the operational state of the LISTEN/NOTIFY substrate. When a producer emits an event that's not in this file, add it here before merging. When a subscriber filters on an event type, this file is the source of truth for the schema it can expect.

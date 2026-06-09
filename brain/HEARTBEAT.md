@@ -1,7 +1,9 @@
 ---
 tags: [heartbeat, monitoring]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # HEARTBEAT — Proactive Autonomous Operations (V5.5 Enhanced)
 
 > Unlike a cron job that fires blindly, the heartbeat exercises judgment.

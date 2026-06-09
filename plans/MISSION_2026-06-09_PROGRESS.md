@@ -14,7 +14,7 @@ Started: 2026-06-09 · Agent: Bravo (Opus 4.8) · Brief: [MISSION_2026-06-09_AUD
 - [x] **Phase 6** — Generate Routing Docs From the Graph 🟠 ✅
 - [x] **Phase 7** — Wiki-Link Integrity 🟡 ✅
 - [x] **Phase 8** — Hygiene + LOCKSTEP Discipline Block 🟡 ✅
-- [ ] **Phase 9** — Brain Freshness Sweep 🟡
+- [x] **Phase 9** — Brain Freshness Sweep 🟡 ✅
 - [ ] **Phase 10** — send_gateway Decomposition 🟡 (OPTIONAL)
 - [ ] **Final** — Full verification, ship, retrospective, CC report
 
@@ -136,6 +136,12 @@ EMPIRE_HOOK_STATE_GUARD=report
 - **LOCKSTEP block** (`tool_discipline`) inserted byte-identical into all 5 entry points — the durable "evidence-before-claims / verify-after-edit / four-line report / plain-English-to-CC" discipline that makes *any* model behave. Parity test validates the ×5 identity.
 - **Did NOT touch** `rules/` vs `.rules/` or `templates/` vs `_templates/` (per brief — different animals).
 - Regenerated indexes (brain/INDEX dropped to 53 files after the 12 moved out). **Gate: parity + wiki + freshness 8 passed; git status clean after commit.**
+
+### Phase 9 — Brain Freshness Sweep ✅ DONE
+- `scripts/check_brain_freshness.py` (new, reporting tool): flags brain/*.md past `freshness_threshold_days` or missing a date; skips auto-generated docs; utf-8 safe. Wired into PLAYBOOK.md "Sanity checks".
+- Re-baselined frontmatter on **52 brain files** (`last_updated`/`freshness_threshold_days`/`verified` = 2026-06-09; 90d for stable identity/reference docs, 30d operational). 5 previously-stale docs confirmed not contradicted by mission changes (guard modes live in SECURITY_MODEL, reviewed in Phase 3) before bumping.
+- **Gate: `check_brain_freshness.py` → 52 fresh, 0 stale, 0 missing-date.**
+- _Honesty note: this was a structural audit + freshness re-baseline; deep per-file content re-validation beyond the security-critical docs (SECURITY_MODEL done) is a tracked follow-up._
 
 ### Phase 4 — Migration Ledger
 _GATED — CC said "proceed" but did not confirm prod-current. Per brief, running in SAFE mode: build ledger + tooling + status checklist; NOT blind-marking 88 applied. Prod seed = one CC command. (No live Supabase in this session anyway.)_

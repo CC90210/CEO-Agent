@@ -1,7 +1,9 @@
 ---
 tags: [rag, memory, infrastructure, obsidian]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # RAG System — How Memory Works Across the 4 Agents
 
 > What "remembering" means in this architecture, where each layer lives, and how Obsidian fits in.

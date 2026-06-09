@@ -1,7 +1,9 @@
 ---
 tags: [prompts, self-improvement, agents, delegation]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # AGENT SELF-IMPROVEMENT PROMPTS
 
 > Unique prompts CC pastes into each agent (Atlas, Maven, Aura) when opening their IDE. Each prompt briefs the agent on what Bravo built for the ecosystem, tells it specifically how to self-diagnose + level up using the new `self-improvement-protocol/` skill, and focuses it on its unique gap-audit findings.

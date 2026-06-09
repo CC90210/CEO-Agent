@@ -1,7 +1,9 @@
 ---
 tags: [orchestration, governance, routing, critical, delegation]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # ORCHESTRATION — Capability Governance & Routing Integrity
 
 > This document exists because of two critical failures: (1) the agent tried to use an MCP connector for Gmail instead of the CLI tool built for that purpose, and (2) the agent treated "delegate to a sub-agent" as if file count alone was the deciding variable, missing risk and blast radius. Both must never happen again.

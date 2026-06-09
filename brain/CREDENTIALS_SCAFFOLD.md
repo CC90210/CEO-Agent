@@ -1,8 +1,10 @@
 ---
 tags: [credentials, setup, cloning, security]
 purpose: Documentation of every credential Bravo needs. Source-of-truth for `.env.agents` contents on any new machine or client clone. NEVER contains real values.
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # CREDENTIALS SCAFFOLD
 
 > This file documents every key Bravo needs to run production. Real values live ONLY in `.env.agents` (gitignored). Do NOT write secrets here — this file is committed.

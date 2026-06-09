@@ -1,7 +1,9 @@
 ---
 tags: [product, verticals, lead-management, marketing-research, pricing]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # PRODUCT VERTICALS -- Business in a Box Research Reference
 
 > Companion to [[brain/PRODUCT_ARCHITECTURE]]. Research layer for the product: canonical agent knowledge, vertical pack contents, lead management best practice, marketing research methodology, and product pricing.

@@ -1,7 +1,9 @@
 ---
 tags: [reference, tools, routing]
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
-
 # QUICK REFERENCE — Complete Tool Routing
 
 > CLAUDE.md Rule 2 points here. When CC asks for ANYTHING, find the right tool below.

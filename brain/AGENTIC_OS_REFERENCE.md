@@ -7,8 +7,10 @@ version: V6.7 (slots into V6.0/Phase-2 → V6.5 → V6.6 → V6.7 lineage; see C
 mutability: GOVERNED
 purpose: Single source of logical truth for how every CC agent (Bravo, Maven, Atlas, Hermes, future) should be structured. Practice may diverge — logic should not.
 applies_to: Business-Empire-Agent (Bravo), CMO-Agent (Maven), CFO-Agent (Atlas), hermes (Hermes), all future client agents forged via skills/agent-forge
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
-
 # Agentic OS Reference
 
 This is the **logic spec**. Every CC agent — Bravo here, Maven at CMO-Agent, Atlas at trading-agent, Hermes at hermes, and every future client/empire agent — should be mappable to this. Implementation can differ per-agent; the mental model cannot.

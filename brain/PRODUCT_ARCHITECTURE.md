@@ -1,7 +1,9 @@
 ---
 tags: [product, architecture, business-in-a-box, clonable]
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
-
 # PRODUCT ARCHITECTURE — Business in a Box
 
 > How CC's 4-agent C-Suite becomes a distributable product: every solo founder clones the repos, customizes a thin personalization layer, and has a working CEO/CFO/CMO (+ optional Life agent) in under 60 minutes.

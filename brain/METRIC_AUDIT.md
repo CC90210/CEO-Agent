@@ -1,8 +1,9 @@
 ---
 tags: [audit, metrics, dashboard, transparency]
-last_updated: 2026-05-07
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # Dashboard Metric Audit
 
 > Every number on every page, traced to its source. CC's frustration was "feels like a facade." This is the verdict on each metric: ✅ real & shipping correct value, ⚠️ real source but issue, ❌ fake / placeholder / not wired.

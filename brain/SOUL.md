@@ -1,7 +1,9 @@
 ---
 tags: [identity, immutable]
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
-
 # BRAVO — High-Leverage Business Manager (V5.5)
 
 <!-- IMMUTABLE: Only CC can modify this file. Agent CANNOT self-edit SOUL.md. -->

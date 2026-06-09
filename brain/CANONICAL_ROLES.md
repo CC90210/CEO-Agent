@@ -1,7 +1,9 @@
 ---
 tags: [brain, c-suite, canonical, roles, frameworks]
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
-
 # CANONICAL ROLES -- C-Suite Function Reference
 
 > Authoritative reference for what each agent in CCs four-agent operating model actually does,

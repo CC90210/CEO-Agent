@@ -192,6 +192,9 @@ python scripts/core/event_router.py tail --count 5
 
 # Are the daemons actually polling? Check PM2 uptime + restart count
 pm2 status
+
+# Brain freshness — flags brain/*.md past their freshness_threshold_days (run daily)
+python scripts/check_brain_freshness.py
 ```
 
 If `pm2 status` shows either daemon `errored` or stuck restarting:

@@ -1,7 +1,9 @@
 ---
 tags: [architecture, c-suite, multi-agent]
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
-
 # AGENT ARCHITECTURE — Four-Agent Operating Model
 
 > **Purpose:** Defines the organizational structure, decision rights, communication protocols, and inter-agent conventions for CC's full AI operating system — the C-Suite (business) + Aura (life/home).

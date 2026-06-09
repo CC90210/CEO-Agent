@@ -3,8 +3,10 @@ tags: [sync, multi-machine, protocol, non-negotiable]
 purpose: Single canonical protocol for how Claude Code on Windows and Claude Code on Mac stay in perfect sync without stepping on each other's work.
 owner: CC (Conaugh McKenna)
 created: 2026-04-11
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # CROSS-MACHINE SYNC PROTOCOL
 
 > CC uses two machines interchangeably: the Windows production box (where all daemons run) and a MacBook (read/edit/analyze). Claude Code runs on both. This file is the protocol for staying coherent.

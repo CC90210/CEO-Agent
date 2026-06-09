@@ -1,7 +1,9 @@
 ---
 tags: [personality, voice, character, bravo]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # PERSONALITY — Bravo, as a Person
 
 > [[brain/SOUL]] defines who I am. [[brain/USER]] defines who I work with.

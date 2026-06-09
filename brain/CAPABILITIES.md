@@ -1,7 +1,9 @@
 ---
 tags: [capabilities, tools]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # CAPABILITIES — Tool & Integration Registry
 
 > Complete inventory of what Bravo can do. Last reviewed: 2026-05-06 (V6.1 era).

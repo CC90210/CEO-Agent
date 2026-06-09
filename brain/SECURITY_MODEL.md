@@ -5,7 +5,6 @@ last_updated: 2026-06-09
 freshness_threshold_days: 90
 verified: 2026-06-09
 ---
-
 # SECURITY MODEL — Agent Command Center
 
 > Every claim below maps to a file path or migration. This doc rots if the

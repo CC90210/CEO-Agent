@@ -1,3 +1,10 @@
+---
+tags: [brain]
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
+---
+
 version: 1
 defaults:
   provider: claude

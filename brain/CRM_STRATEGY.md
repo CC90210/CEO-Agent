@@ -1,6 +1,8 @@
 ---
 tags: [strategy, crm, outreach, leads]
-last_updated: 2026-05-11
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
 # CRM Strategy: Two-Tier Architecture
 

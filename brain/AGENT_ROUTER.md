@@ -3,9 +3,10 @@ name: AGENT ROUTER
 description: The chat agent's routing-by-intent table. Loaded after CLAUDE.md as the second-stage boot file. Tells the agent which deeper file to read for each kind of operator request.
 mutability: SEMI-MUTABLE
 tags: [brain, router, rag-entry, agent-only]
-last_updated: 2026-05-06
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # AGENT ROUTER — How to Decide What to Read
 
 > Loaded by the chat agent after `CLAUDE.md`. Everything else is lazy-loaded

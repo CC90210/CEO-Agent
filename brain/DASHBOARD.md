@@ -5,8 +5,10 @@ tags:
 aliases:
   - Home
   - HQ
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # Command Center
 
 > **North Star:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30 — gives 31 days to rebuild from $371 baseline)

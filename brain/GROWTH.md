@@ -1,7 +1,9 @@
 ---
 tags: [growth, evolution]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # GROWTH — Learning & Capability Evolution (V5.5 Voyager-Enhanced)
 
 > Tracks the agent's journey from a script to a business empire.

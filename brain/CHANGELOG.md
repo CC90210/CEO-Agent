@@ -1,7 +1,9 @@
 ---
 tags: [changelog, audit]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # BRAVO — Self-Modification Changelog
 
 > Every change the agent makes to its own files is recorded here.

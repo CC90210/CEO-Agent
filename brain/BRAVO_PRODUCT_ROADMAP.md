@@ -1,8 +1,10 @@
 ---
 tags: [product, roadmap, vision]
 created: 2026-04-22
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # Bravo Product Roadmap
 
 > Where Bravo is going — the path from "CC's internal command center" to **the best AI operating system on the market for solo founders and small teams**.

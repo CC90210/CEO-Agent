@@ -3,8 +3,10 @@ title: Setup Wizard 2.0 — Spec
 date: 2026-05-15
 phase: 8 (of SunBiz CRM build)
 status: SPEC — implementation deferred to after SunBiz beta
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
-
 # Setup Wizard 2.0
 
 ## Context

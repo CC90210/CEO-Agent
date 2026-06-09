@@ -1,7 +1,9 @@
 ---
 tags: [brain, okrs, strategy, quarterly]
+last_updated: 2026-06-09
+freshness_threshold_days: 30
+verified: 2026-06-09
 ---
-
 # OKRs — Q2 2026 (April - June)
 
 > Set: 2026-03-28 | Review: Weekly (confidence scores) | Grade: End of June
