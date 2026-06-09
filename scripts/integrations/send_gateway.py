@@ -2531,9 +2531,16 @@ def send(
                     "cooldown_until": None, "daily_count": None}
 
     # ---- Tenant resolution + mismatch + kill-switch -----------------------
-    # These ALWAYS run for any tenant-scoped send (commercial or transactional).
-    # Only "internal" intent (cross-tenant infrastructure: alerts, daemon
-    # pings) is exempt because it has no tenant scope.
+    # These ALWAYS run whenever the call carries a tenant-scoped identifier
+    # (lead_id OR tenant_id), regardless of intent. Codex audit 2026-06-09
+    # round-3 [high]: the round-2 fix exempted intent="internal" from these
+    # gates, but `intent` is caller-controlled input. A direct Python caller
+    # could pass intent="internal" with a paused tenant's lead_id and a
+    # different tenant_id and bypass the mismatch + kill-switch entirely.
+    #
+    # The exempt path is now structural, not intent-based: if neither
+    # lead_id nor tenant_id was supplied, there's nothing to resolve and
+    # the panic state is genuinely cross-tenant — skip. Otherwise, enforce.
     #
     # Codex audit 2026-06-08 finding #1: lead_id given without a resolvable
     # tenant blocks the kill-switch from firing — fail-closed.
@@ -2543,8 +2550,7 @@ def send(
     # Codex audit 2026-06-09 round-2 [high]: previously this whole block lived
     # inside `if intent not in {"internal", "transactional"}:`, so a caller
     # could pass `intent="transactional"` with a mismatched tenant_id and
-    # skip the mismatch + kill-switch checks entirely. Now ONLY cooldown/cap
-    # are intent-gated below; resolution + mismatch + kill-switch are not.
+    # skip the mismatch + kill-switch checks entirely.
     #
     # Resolution order (safe):
     #   1. DB lookup is the source of truth.
@@ -2552,7 +2558,8 @@ def send(
     #      lookup, or (b) the lookup returned nothing (mid-migration edge).
     #   3. Caller-supplied tenant_id that CONTRADICTS the lookup is a hard
     #      block — surface the mismatch loud, never silent.
-    if intent != "internal":
+    resolved_tenant: Optional[str] = None
+    if lead_id or tenant_id:
         lookup_tenant = _resolve_tenant_for_lead(db, lead_id) if lead_id else None
         if tenant_id and lookup_tenant and tenant_id != lookup_tenant:
             return {

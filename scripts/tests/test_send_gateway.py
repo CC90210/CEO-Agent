@@ -1033,6 +1033,38 @@ class TestSendGateway(unittest.TestCase):
             f"caller-supplied tenant_id should have skipped the lookup gate: {r}",
         )
 
+    def test_22e_kill_switch_runs_for_internal_intent_when_tenant_scoped(self):
+        """Codex audit 2026-06-09 round-3 [high]: intent='internal' is
+        caller-controlled input. The round-2 fix exempted internal from
+        the mismatch + kill-switch checks entirely. A direct Python caller
+        could pass intent='internal' with a paused tenant's lead_id and
+        a different tenant_id and slip past every tenant-scope gate.
+
+        After round-3: the gates run whenever lead_id OR tenant_id is
+        present, regardless of intent. Only structurally cross-tenant
+        sends (no lead_id, no tenant_id, intent='internal') are exempt."""
+        self.db.table("tenant_records").rows.append({
+            "id": "rec-tenant-e",
+            "entity_type": "lead",
+            "tenant_id": "TENANT-E-PAUSED",
+        })
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                lead_id="rec-tenant-e",
+                tenant_id="TENANT-F-UNPAUSED",
+                # The bypass attempt: intent='internal'
+                intent="internal",
+                brand="conaugh_mckenna",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked", r)
+        self.assertIn("tenant_id mismatch", r["reason"])
+
     def test_22c_kill_switch_runs_for_transactional_intent(self):
         """Codex audit 2026-06-09 round-2 [high]: a caller could pass
         intent='transactional' with a mismatched tenant_id to skip the
