@@ -1047,6 +1047,102 @@ class TestSendGateway(unittest.TestCase):
             f"caller-supplied tenant_id should have skipped the lookup gate: {r}",
         )
 
+    def test_22l_send_blocks_when_resolve_lead_id_refuses(self):
+        """Codex audit 2026-06-09 round-8 [critical]: resolve_lead_id
+        returning None from a refusal (cross-tenant ambiguity / tenant_records
+        owns email) is NOT enough. send() previously let that None fall
+        through — caller_supplied_tenant_scope was false AND lead_id was
+        None, so enforce_tenant_gates collapsed to false and the send
+        proceeded UNSCOPED. The fix: when send() did an email-based
+        resolution attempt and got None back, block the send hard."""
+        # tenant_records owns merchant@example.com under SunBiz
+        self.db.table("tenant_records").rows.append({
+            "id": "sunbiz-tr-lead-22l",
+            "entity_type": "lead",
+            "tenant_id": "SUNBIZ-TENANT",
+            "data": {"email": "merchant22l@example.com"},
+        })
+        # Unscoped caller: no lead_id, no tenant_id, but to_email present.
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="merchant22l@example.com",
+                subject="hi",
+                body_text="hi",
+                brand="conaugh_mckenna",
+                intent="commercial",
+                db=self.db,
+            )
+        # MUST be blocked at send() level, not silently proceed unscoped.
+        self.assertEqual(r["status"], "blocked", r)
+        self.assertIn("lead resolution refused", r["reason"])
+
+    def test_22m_resolve_lead_id_scoped_reuses_tenant_records_id(self):
+        """Codex audit 2026-06-09 round-8 [high]: the scoped path
+        previously checked only legacy `leads` and would auto-create a
+        DUPLICATE row when tenant_records already had the lead.
+        Round-8: the scoped path checks tenant_records FIRST and reuses
+        the existing id."""
+        self.db.table("tenant_records").rows.append({
+            "id": "sunbiz-tr-lead-22m",
+            "entity_type": "lead",
+            "tenant_id": "SUNBIZ-TENANT",
+            "data": {"email": "merchant22m@example.com"},
+        })
+        from integrations.send_gateway import resolve_lead_id
+        # Scoped caller asks for the same email under the same tenant.
+        resolved = resolve_lead_id(
+            self.db,
+            "merchant22m@example.com",
+            None,
+            tenant_id="SUNBIZ-TENANT",
+        )
+        self.assertEqual(
+            resolved,
+            "sunbiz-tr-lead-22m",
+            "scoped resolve_lead_id MUST reuse the existing tenant_records id, not auto-create a duplicate in legacy leads",
+        )
+
+    def test_22n_tenant_records_lookup_failure_blocks_unscoped(self):
+        """Codex audit 2026-06-09 round-8 [high]: previously the
+        tenant_records cross-check used a try/except that set tr_rows=[]
+        on failure, falling through to legacy leads auto-create. In a
+        multi-tenant context that's the exact bypass we're closing.
+        Round-8: lookup failure returns None so send() blocks."""
+        # Inject a failure mode by monkeypatching the contains() filter
+        # via a subclass that raises.
+        from integrations.send_gateway import resolve_lead_id
+        original_table = self.db.table
+
+        def patched_table(name):
+            t = original_table(name)
+            if name == "tenant_records":
+                original_select = t.select
+
+                def boom_select(*a, **kw):
+                    s = original_select(*a, **kw)
+                    orig_contains = s.contains
+
+                    def boom(*ca, **ckw):
+                        raise RuntimeError("simulated jsonb-contains unavailable")
+                    s.contains = boom
+                    return s
+                t.select = boom_select
+            return t
+
+        self.db.table = patched_table  # type: ignore[method-assign]
+        try:
+            # Unscoped, an email that does NOT exist anywhere.
+            resolved = resolve_lead_id(self.db, "fresh22n@example.com", None)
+        finally:
+            self.db.table = original_table  # type: ignore[method-assign]
+        self.assertIsNone(
+            resolved,
+            "tenant_records cross-check failure MUST fail closed (return None) "
+            "to prevent bypass via degraded jsonb-contains support",
+        )
+
     def test_22k_resolve_lead_id_blocks_when_tenant_records_owns_email(self):
         """Codex audit 2026-06-09 round-7 [high] follow-up: round-7's
         ambiguity guard checked only the legacy `leads` table. SunBiz and

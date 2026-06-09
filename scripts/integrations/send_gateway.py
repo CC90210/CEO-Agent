@@ -548,6 +548,44 @@ def resolve_lead_id(
     norm = to_email.strip().lower()
     try:
         if tenant_id:
+            # Codex audit 2026-06-09 round-8 [high]: check tenant_records
+            # FIRST. SunBiz + modern multi-tenant clients write leads to
+            # tenant_records (entity_type='lead'), not to the legacy leads
+            # table. Without this lookup the scoped path would create a
+            # DUPLICATE lead_id in legacy leads for the same merchant,
+            # corrupting lineage and bypassing lead_data gates,
+            # reply-since-last-outbound checks, and cooldown history
+            # already attached to the tenant_records row.
+            try:
+                tr_existing = (
+                    db.table("tenant_records")
+                    .select("id")
+                    .eq("entity_type", "lead")
+                    .eq("tenant_id", tenant_id)
+                    .contains("data", {"email": norm})
+                    .limit(1)
+                    .execute()
+                )
+                if tr_existing.data:
+                    return tr_existing.data[0]["id"]
+            except Exception as exc:  # noqa: BLE001
+                # Mirrors the unscoped path's fail-closed posture — if we
+                # can't verify tenant_records ownership for the SCOPED
+                # caller either, refuse rather than create a possible
+                # duplicate. The kill-switch gate in send() then catches it.
+                print(
+                    f"[send_gateway] scoped tenant_records lookup failed; "
+                    f"refusing scoped resolve to avoid duplicate lead: {exc}",
+                    file=sys.stderr,
+                )
+                _slog.warn(
+                    "resolve_lead_id_scoped_tr_check_failed",
+                    email_hash=hashlib.sha256(norm.encode()).hexdigest()[:12],
+                    tenant_id=tenant_id,
+                    error_type=type(exc).__name__,
+                )
+                return None
+            # Fall through to the legacy leads table.
             existing = (
                 db.table("leads")
                 .select("id")
@@ -591,15 +629,25 @@ def resolve_lead_id(
             )
             tr_rows = list(tr_matches.data or [])
         except Exception as exc:  # noqa: BLE001
-            # Some Supabase clients / staging envs don't support .contains()
-            # on jsonb. Fail open here (tenant_records cross-check unavailable)
-            # rather than block all unscoped sends — the legacy-leads-table
-            # ambiguity check below still runs.
+            # Codex audit 2026-06-09 round-8 [high]: previously we fell
+            # open here (tr_rows = []) which let an unscoped caller still
+            # auto-create a tenantless leads row in the same situations
+            # we'd otherwise block. In any multi-tenant context, that's
+            # the exact bypass we're trying to prevent. Fail closed
+            # instead — return None so send() blocks. The cost is a
+            # blocked send in a degraded staging env, which is the
+            # correct trade-off.
             print(
-                f"[send_gateway] tenant_records cross-check warning: {exc}",
+                f"[send_gateway] tenant_records cross-check failed; refusing "
+                f"unscoped resolve to avoid cross-tenant leak: {exc}",
                 file=sys.stderr,
             )
-            tr_rows = []
+            _slog.warn(
+                "resolve_lead_id_tenant_records_check_failed",
+                email_hash=hashlib.sha256(norm.encode()).hexdigest()[:12],
+                error_type=type(exc).__name__,
+            )
+            return None
         tr_distinct_tenants = {r.get("tenant_id") for r in tr_rows if r.get("tenant_id")}
         if tr_distinct_tenants:
             # The email is owned by ONE OR MORE tenant_records tenants. An
@@ -2634,7 +2682,33 @@ def send(
     # auto-create to the correct tenant (Codex round-6 [high]). When
     # tenant_id is None, the function falls through to the unscoped
     # legacy path and refuses to resolve cross-tenant ambiguity.
+    #
+    # Codex audit 2026-06-09 round-8 [critical]: a None return from
+    # resolve_lead_id when we ASKED it to look up an email is a refusal
+    # (cross-tenant ambiguity / tenant_records owns it). The previous
+    # code let that None fall through — enforce_tenant_gates collapsed
+    # to false and the send proceeded UNSCOPED. We must hard-block.
+    #
+    # Track whether we were doing an email lookup BEFORE the call so we
+    # can distinguish "no email/no lead_id to resolve" (legitimate
+    # internal-infra send) from "we asked for resolution and got refused"
+    # (must block).
+    was_email_resolution_attempt = bool(to_email and not lead_id)
     lead_id = resolve_lead_id(db, to_email, lead_id, tenant_id=tenant_id)
+    if was_email_resolution_attempt and lead_id is None and intent != "internal":
+        return {
+            "status": "blocked",
+            "reason": (
+                "lead resolution refused: caller did not supply tenant_id "
+                "and the email is owned by one or more tenants in "
+                "tenant_records or has cross-tenant ambiguity in leads. "
+                "Caller must supply tenant_id explicitly."
+            ),
+            "lead_id": None,
+            "interaction_id": None,
+            "cooldown_until": None,
+            "daily_count": None,
+        }
 
     # ---- SMS STOP / DNC suppression ----
     # STOP is a channel-level opt-out. Once a phone is on the local DNC CSV,
