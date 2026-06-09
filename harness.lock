@@ -1,0 +1,7 @@
+{
+  "harness_version": "1.0.0",
+  "source": "CC90210/empire-harness",
+  "files": {
+    "brain/_canonical/LOCKSTEP_tool_discipline.md": "f452b86a32a808dc8b745d8c8be82afb3c70e2363e7c2aef6de567dbb95479ed"
+  }
+}
