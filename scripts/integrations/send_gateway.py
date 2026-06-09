@@ -3649,6 +3649,16 @@ def main() -> None:
     sub = p.add_subparsers(dest="command")
 
     ps = sub.add_parser("send", help="Send an outbound message")
+    # Belt-and-suspenders: --json is also accepted on the send subparser so
+    # both orderings work — `send_gateway.py --json send ...` AND
+    # `send_gateway.py send ... --json`. The bridge_tools.py call sites
+    # historically built argv with --json at the end, which argparse
+    # rejected when --json lived only on the main parser. The bridge sites
+    # have been fixed, but accepting both positions defends against the
+    # next caller making the same mistake. dest matches the main parser's
+    # --json so the consumer code at line ~3700 reads args.output_json
+    # uniformly regardless of which position was used.
+    ps.add_argument("--json", dest="output_json", action="store_true")
     ps.add_argument("--channel", required=True, choices=sorted(KNOWN_CHANNELS))
     ps.add_argument("--agent-source", dest="agent_source", required=True)
     ps.add_argument("--to", default=None, help="Recipient email (for email channel)")

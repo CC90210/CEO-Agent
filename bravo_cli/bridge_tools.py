@@ -1038,14 +1038,19 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
             failures.append({"thread_id": thread["id"], "reason": "missing_recipient"})
             continue
 
+        # Same --json placement fix as _tool_send_email / _tool_send_sms
+        # above. send_gateway.py defines --json on the main parser
+        # (line 3648), NOT on the `send` subparser, so it must appear
+        # BEFORE `send` in argv. Argparse rejects otherwise with
+        # "unrecognized arguments: --json" (exit 2). Without this the
+        # bridge's shop-out-batch tool fails on every dispatched thread.
         send_args = [
-            "scripts/integrations/send_gateway.py", "send",
+            "scripts/integrations/send_gateway.py", "--json", "send",
             "--channel", "email",
             "--agent-source", "manual_cc",
             "--to", recipient,
             "--subject", subject,
             "--body", body,
-            "--json",
         ]
         if lead_id:
             send_args.extend(["--lead-id", str(lead_id)])
