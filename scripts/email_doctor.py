@@ -33,6 +33,23 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
+# ---------------------------------------------------------------------------
+# SMTP / smtp_send allowlist  (check #5 — structural, audit Phase 2 2026-06-09)
+# ---------------------------------------------------------------------------
+# check_no_smtp_bypass() flags ANY file under scripts/ (recursively) that
+# imports raw `smtplib` OR the `lib.smtp_send` chokepoint without being listed
+# here. Importing a raw transport is how a send path skips suppression + CASL
+# (exactly the gap this audit found in dashboard_email_consumer). Each entry is
+# allowed for a stated reason; a new importer not on this list FAILS the doctor.
+SMTP_ALLOWLIST: dict[str, str] = {
+    "smtp_send.py": "the chokepoint wrapper — wraps smtplib; single SMTP source of truth",
+    "send_gateway.py": "canonical gateway — enforces suppression + CASL + cooldown before send",
+    "google_tool.py": "the gateway's underlying Gmail/SMTP transport",
+    "dashboard_email_consumer.py": "drawer-queue daemon — applies suppression + CASL at send time (Phase 2 fix)",
+    "email_engine.py": "deprecated wrapper (raises on call); allowlisted if still present",
+    "email_doctor.py": "this diagnostic — contains the detector regex but never sends",
+}
+
 
 def _ok(name: str, detail: str = "") -> dict[str, Any]:
     return {"check": name, "ok": True, "detail": detail}
@@ -47,7 +64,7 @@ def check_gateway_responds() -> dict[str, Any]:
     bad-input call. We deliberately use an invalid channel so we don't
     touch SMTP / Supabase even by accident."""
     try:
-        from send_gateway import send as gateway_send  # type: ignore
+        from integrations.send_gateway import send as gateway_send  # type: ignore
     except Exception as exc:  # noqa: BLE001
         return _fail("gateway-import", f"could not import send_gateway: {exc}")
 
@@ -83,7 +100,7 @@ def check_force_dry_run_flips() -> dict[str, Any]:
     try:
         # Reimport in case load_env caches: send_gateway reads env at call time
         # via load_env(), so this will pick up the new value.
-        from send_gateway import send as gateway_send  # type: ignore
+        from integrations.send_gateway import send as gateway_send  # type: ignore
         result = gateway_send(
             channel="email",
             agent_source="email_doctor",
@@ -128,44 +145,56 @@ def check_subcommand_dryrun_flag(script: str, subcmd: list[str]) -> dict[str, An
 
 
 def check_no_smtp_bypass() -> dict[str, Any]:
-    """Spot-check that no business engine imports smtplib directly.
+    """Structural check: no file under scripts/ may import raw `smtplib` OR the
+    `lib.smtp_send` chokepoint unless it is on SMTP_ALLOWLIST (defined at the
+    top of this module, each entry justified).
 
-    Allowed importers: send_gateway (the gateway itself), test_send_gateway
-    (the test harness), google_tool (the gateway's underlying transport),
-    email_engine (deprecated wrapper that raises RuntimeError on call),
-    and email_doctor (this script — it greps for the import string but
-    does not actually import smtplib).
-    Anything else importing smtplib is a potential bypass.
+    Upgraded 2026-06-09 (audit Phase 2): the old check only matched `smtplib`
+    and only globbed top-level scripts/, so it missed BOTH the integrations/
+    subdir AND any path importing `lib.smtp_send` (the chokepoint) — which is
+    exactly how dashboard_email_consumer sent without suppression/CASL for
+    weeks. Now it recurses and matches both import forms.
+
+    Skipped: __pycache__, _archive/ (retired), tests/ (test harnesses don't
+    send in production), and underscore-prefixed scratch files.
     """
     import re
 
-    allowed = {"send_gateway.py", "test_send_gateway.py", "google_tool.py",
-               "email_engine.py", "email_doctor.py"}
-    # Match real imports at the start of a logical line, not the literal
-    # string when it appears inside another string / comment / regex.
-    # Anchored on "^\s*" + (import|from) prevents the doctor's own
-    # detector from self-flagging.
-    pattern = re.compile(r"^\s*(?:import\s+smtplib|from\s+smtplib\b)",
-                         re.MULTILINE)
+    # Raw smtplib OR the smtp_send chokepoint, in any import form, anchored at
+    # line start so the detector regex inside this very file can't self-match.
+    pattern = re.compile(
+        r"^\s*(?:import\s+smtplib|from\s+smtplib\b"
+        r"|from\s+(?:lib\.)?smtp_send\s+import|import\s+(?:lib\.)?smtp_send)",
+        re.MULTILINE,
+    )
     bad: list[str] = []
-    for py in SCRIPTS.glob("*.py"):
-        if py.name in allowed:
+    scanned = 0
+    for py in SCRIPTS.rglob("*.py"):
+        parts = set(py.parts)
+        if "__pycache__" in parts or "_archive" in parts or "tests" in parts:
             continue
         if py.name.startswith("_"):
-            # underscore-prefixed = scratch / one-off. We don't enforce on
-            # these but we count them and report.
+            continue
+        if py.name in SMTP_ALLOWLIST:
             continue
         try:
             text = py.read_text(encoding="utf-8", errors="replace")
         except Exception:
             continue
+        scanned += 1
         if pattern.search(text):
-            bad.append(py.name)
+            bad.append(str(py.relative_to(ROOT)).replace("\\", "/"))
     if bad:
-        return _fail("no-smtp-bypass",
-                     f"non-allowlisted scripts import smtplib: {bad}")
-    return _ok("no-smtp-bypass",
-               f"only {sorted(allowed)} import smtplib (as expected)")
+        return _fail(
+            "no-smtp-bypass",
+            f"non-allowlisted files import smtplib/smtp_send (potential CASL "
+            f"bypass — must route through send_gateway or apply suppression+CASL): {sorted(bad)}",
+        )
+    return _ok(
+        "no-smtp-bypass",
+        f"only allowlisted files import smtplib/smtp_send "
+        f"({sorted(SMTP_ALLOWLIST)}); {scanned} other scripts clean",
+    )
 
 
 def check_template_render() -> dict[str, Any]:
@@ -196,15 +225,15 @@ CHECKS = [
     ("gateway responds", check_gateway_responds),
     ("force-dry-run killswitch", check_force_dry_run_flips),
     ("email_engine send --dry-run", lambda: check_subcommand_dryrun_flag(
-        "email_engine.py", ["send"])),
+        "integrations/email_engine.py", ["send"])),
     ("email_engine send-template --dry-run", lambda: check_subcommand_dryrun_flag(
-        "email_engine.py", ["send-template"])),
+        "integrations/email_engine.py", ["send-template"])),
     ("email_engine sequence run --dry-run", lambda: check_subcommand_dryrun_flag(
-        "email_engine.py", ["sequence", "run"])),
+        "integrations/email_engine.py", ["sequence", "run"])),
     ("outreach_engine send --dry-run", lambda: check_subcommand_dryrun_flag(
         "outreach_engine.py", ["send"])),
     ("send_gateway send --dry-run", lambda: check_subcommand_dryrun_flag(
-        "send_gateway.py", ["send"])),
+        "integrations/send_gateway.py", ["send"])),
     ("no smtp bypass", check_no_smtp_bypass),
     ("templates render clean", check_template_render),
 ]

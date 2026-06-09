@@ -7,7 +7,7 @@ Started: 2026-06-09 · Agent: Bravo (Opus 4.8) · Brief: [MISSION_2026-06-09_AUD
 
 - [x] **Phase 0** — Preflight & Backup (no approval) ✅
 - [x] **Phase 1** — PII History Purge 🔴 (GATE: GO PHASE 1) ✅ (scope corrected by CC: real leads only)
-- [ ] **Phase 2** — Dashboard Email Compliance 🟠
+- [x] **Phase 2** — Dashboard Email Compliance 🟠 ✅
 - [ ] **Phase 3** — Guard Enforcement 🟠
 - [ ] **Phase 4** — Migration Ledger 🟠 (GATE: GO PHASE 4 — prod is current)
 - [ ] **Phase 5** — Version Single-Sourcing + Entry-Point Parity Test 🟠
@@ -71,5 +71,21 @@ Started: 2026-06-09 · Agent: Bravo (Opus 4.8) · Brief: [MISSION_2026-06-09_AUD
 
 **Follow-ups (deferred, optional):** CSV-absent resilience patch in `casl_compliance.py` + gitignoring the runtime CSV (brief step 6) — deferred since CSV has no real-lead PII and CC narrowed scope. Consider folding into Phase 2.
 
-### Phase 2 — Dashboard Email Compliance
+### Phase 2 — Dashboard Email Compliance ✅ DONE
+**Changed:**
+- `scripts/dashboard_email_consumer.py` — added CASL compliance at send time: suppression gate (`should_suppress`, commercial-only, matching gateway), CASL footer (text+HTML, idempotent) + List-Unsubscribe headers for non-internal sends, intent classification (`metadata.intent`, default commercial, mirrors `send_gateway.VALID_INTENTS`). New `suppressed` status + `BRAVO_DASHBOARD_EMAIL_SUPPRESSED` event. `_send_one` now returns `'sent'|'failed'|'suppressed'`; tick/drain tally suppressed.
+- `scripts/email_doctor.py` — check #5 (`no-smtp-bypass`) rewritten structural: detects BOTH `smtplib` and `lib.smtp_send`, recurses all of scripts/, explicit documented `SMTP_ALLOWLIST`. **Bonus mechanical fix:** corrected stale post-reorg paths (`send_gateway`/`email_engine` moved to `integrations/` in May; doctor never re-pointed) — restored 7 checks that had been silently failing import.
+- `scripts/tests/test_dashboard_email_consumer_compliance.py` — new, 8 tests (footer per-intent, idempotency, suppression gating, transactional-skips-suppression, unknown-intent→commercial). Transport fully mocked.
+
+**Proof:**
+- `pytest test_dashboard_email_consumer_compliance.py` → **8/8 pass**.
+- `email_doctor.py --skip-network` → **8/8 OK** ("safety surface intact"). Full run: 8/9 (template-render needs live Supabase env — env dependency, not code; green in CC's prod env).
+- check #5 green: "only allowlisted files import smtplib/smtp_send; 183 other scripts clean."
+
+**Pre-existing (NOT Phase 2 regressions — verified on untouched files):**
+- `test_send_gateway.py`: 4 failures (test_05, test_05b, test_17, test_19) — depend on Supabase RPC `reserve_send_slot` unavailable offline. File untouched by me (last commit e7c49ad, pre-mission). Reproduces with my edits stashed.
+
+**Resolved-already:** the Phase-1-deferred "CSV-absent resilience patch" is ALREADY implemented in `casl_compliance.should_suppress` (line 307 returns False / falls through when CSV absent; line 318-321 fails closed only on read error). No patch needed.
+
+### Phase 3 — Guard Enforcement
 _pending._
