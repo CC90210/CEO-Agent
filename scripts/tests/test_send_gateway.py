@@ -1033,6 +1033,35 @@ class TestSendGateway(unittest.TestCase):
             f"caller-supplied tenant_id should have skipped the lookup gate: {r}",
         )
 
+    def test_22f_truly_unscoped_internal_send_bypasses_gates(self):
+        """The exempt path is now structural, not intent-based. A send
+        with NO lead_id AND NO tenant_id is genuinely cross-tenant
+        infrastructure (system-wide health alert, daemon ping, etc.)
+        and intentionally skips the tenant-scope gates — there's
+        nothing tenant-scoped to enforce.
+
+        This test pins the intended exemption. If a future "tighten the
+        gate" pass tries to fire kill-switch even on unscoped sends, it
+        breaks here and forces the change to be deliberate."""
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="ops@example.com",
+                subject="health alert",
+                body_text="all green",
+                # No lead_id, no tenant_id — genuinely cross-tenant.
+                intent="internal",
+                brand="conaugh_mckenna",
+                db=self.db,
+            )
+        # Must NOT be blocked by the tenant-scope gates. May or may not
+        # be 'sent' depending on other downstream gates, but the reason
+        # must NOT be tenant-related.
+        reason = (r.get("reason") or "").lower()
+        self.assertNotIn("tenant_id mismatch", reason, r)
+        self.assertNotIn("kill-switch enforcement unavailable", reason, r)
+
     def test_22e_kill_switch_runs_for_internal_intent_when_tenant_scoped(self):
         """Codex audit 2026-06-09 round-3 [high]: intent='internal' is
         caller-controlled input. The round-2 fix exempted internal from
