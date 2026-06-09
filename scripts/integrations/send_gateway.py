@@ -1389,24 +1389,36 @@ def _touch_lead_last_contact(db: Any, lead_id: Optional[str], action_type: str) 
 
 
 def _resolve_tenant_for_lead(db: Any, lead_id: Optional[str]) -> Optional[str]:
-    """Look up the tenant for a lead. Codex audit 2026-06-08 caught that the
-    OLD impl only checked the legacy `leads` table — but SunBiz writes every
-    lead to `tenant_records` (entity_type='lead'), so resolved_tenant came
-    back None and the kill_switch / operating_mode gates silently skipped
-    every SunBiz drip. Now: check tenant_records FIRST, fall back to the
-    legacy leads table second, return None only if truly nowhere.
+    """Look up the tenant for a record id. Codex audit 2026-06-08 caught that
+    the OLD impl only checked the legacy `leads` table — but SunBiz writes
+    every lead to `tenant_records` (entity_type='lead'), so resolved_tenant
+    came back None and the kill_switch / operating_mode gates silently
+    skipped every SunBiz drip.
+
+    Shopping-out 2026-06-08 caught a second variant: the previous fix added
+    a `.eq('entity_type', 'lead')` filter, which then made application_id /
+    offer_id passes fail-closed the same way. The shop-out sender passes
+    application_id as lead_id when the application's app_data.lead_id is
+    missing, and so EVERY shopping-out tick blocked at the kill-switch gate.
+    Drop the entity_type filter — tenant_records.id is a UUID primary key,
+    globally unique across entity_types, so a row match is a row match.
+
+    Callers should also pass tenant_id explicitly to send() when they
+    already know it (shop_out_sender, sequence_runner) — see the gate at
+    the call site, which now prefers caller-supplied tenant_id over this
+    lookup. This function remains as defense-in-depth for callers that
+    only have a record id.
 
     Returns the tenant UUID string when found, None on miss.
     """
     if not lead_id:
         return None
-    # Primary: tenant_records (SunBiz + every modern tenant)
+    # Primary: tenant_records (SunBiz + every modern tenant) — any entity_type
     try:
         r = (
             db.table("tenant_records")
             .select("tenant_id")
             .eq("id", lead_id)
-            .eq("entity_type", "lead")
             .limit(1)
             .execute()
         )
@@ -2520,12 +2532,22 @@ def send(
 
     # ---- Gate 2 + 3: cooldown + daily cap (skipped for internal/transactional) ----
     if intent not in {"internal", "transactional"}:
-        # Resolve tenant_id from lead so kill switches + operating mode gates
-        # fire correctly. Codex audit 2026-06-08 (finding #1): commercial
-        # sends with a lead_id MUST have a resolvable tenant — otherwise the
-        # operator's panic controls are silently bypassed. Fail closed when
-        # we have a lead_id but no tenant.
-        resolved_tenant = _resolve_tenant_for_lead(db, lead_id) if lead_id else None
+        # Resolve tenant_id so kill switches + operating mode gates fire
+        # correctly. Codex audit 2026-06-08 (finding #1): commercial sends
+        # with a lead_id MUST have a resolvable tenant — otherwise the
+        # operator's panic controls are silently bypassed.
+        #
+        # Resolution order:
+        #   1. Caller-supplied tenant_id kwarg. Daemons like shop_out_sender
+        #      and sequence_runner already know the tenant from the row
+        #      they're processing — trust them; a DB lookup adds latency and
+        #      can still fail-closed on edge cases (e.g. an application_id
+        #      passed as lead_id).
+        #   2. _resolve_tenant_for_lead DB lookup (defense in depth).
+        # Fail closed only if BOTH yield nothing AND we have a lead_id.
+        resolved_tenant = tenant_id or (
+            _resolve_tenant_for_lead(db, lead_id) if lead_id else None
+        )
         if lead_id and not resolved_tenant:
             return {
                 "status": "blocked",

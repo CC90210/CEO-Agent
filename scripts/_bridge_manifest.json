@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-08T16:22:06.614997+00:00",
+  "generated_at_iso": "2026-06-09T02:25:19.666251+00:00",
   "script_count": 93,
-  "entry_count": 243,
+  "entry_count": 244,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1843,6 +1843,14 @@
       "subcmd": "tail",
       "mutating": false,
       "help": "shop_out_sender.py \u2014 Phase 6.3-bis + migration 069 (2026-05-25). \u2014 subcommand: tail"
+    },
+    {
+      "key": "shop_out_sender_retry_errors",
+      "path": "scripts/shop_out_sender.py",
+      "root": "sunbiz",
+      "subcmd": "retry-errors",
+      "mutating": false,
+      "help": "shop_out_sender.py \u2014 Phase 6.3-bis + migration 069 (2026-05-25). \u2014 subcommand: retry-errors"
     },
     {
       "key": "sms_engine_send",
