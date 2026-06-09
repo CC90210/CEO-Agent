@@ -206,9 +206,23 @@ def which_cli(name: str) -> Optional[str]:
 
 def enriched_path(found_bin: Optional[str] = None) -> str:
     """Build a PATH suitable for spawning a CLI's children. Layers:
-    parent dir of the resolved binary, curated search dirs, login-shell
-    PATH, current os.environ PATH. De-duped, in priority order."""
+    parent dir of sys.executable (so subprocess `python3` resolves to the
+    same venv python the bridge is running — without this, claude's
+    `bash python3 send_gateway.py` picks up system python on the VPS
+    and ImportErrors on packages the bridge's venv has), parent dir of
+    the resolved binary, curated search dirs, login-shell PATH, current
+    os.environ PATH. De-duped, in priority order.
+
+    The sys.executable prepend was added 2026-06-10 after Solara on the
+    SunBiz VPS failed to send email — claude subprocess shelled to
+    /usr/bin/python3, which had no `supabase` package, even though the
+    bridge's venv at /srv/sunbiz/ceo-agent/.venv had it installed.
+    """
+    import sys
     parts: list[str] = []
+    py_bin_dir = os.path.dirname(sys.executable)
+    if py_bin_dir:
+        parts.append(py_bin_dir)
     if found_bin:
         parts.append(os.path.dirname(found_bin))
     if os.name != "nt":

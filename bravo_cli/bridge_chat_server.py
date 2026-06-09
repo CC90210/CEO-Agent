@@ -44,6 +44,69 @@ import sys
 import threading
 import tempfile
 from contextlib import contextmanager
+from pathlib import Path as _Path
+
+
+def _ensure_critical_deps() -> None:
+    """Self-heal missing Python deps at bridge startup.
+
+    Why this exists: 2026-06-10, Solara on the SunBiz VPS failed to send
+    an email because `from supabase import create_client` raised
+    ImportError — the VPS had clearly skipped `pip install -r requirements.txt`
+    at some point, and the failure surfaced only when a chat tool was
+    invoked (lazy import inside get_supabase()). With this check, the
+    bridge process self-heals on startup: if a critical dep can't be
+    imported, runs `pip install -r requirements.txt` in its own venv.
+
+    Idempotent — when all deps are present, this is a tiny cheap import
+    test that adds <1ms to startup. The heavy path only runs on a fresh
+    VPS clone OR after a new dep is added to requirements.txt.
+
+    Note: pip install runs in the same Python (`sys.executable`) the
+    bridge is using, so installs land in the venv that the bridge's
+    subprocesses also pick up (now that _enriched_path puts the venv
+    bin dir first — same 2026-06-10 commit).
+    """
+    try:
+        import supabase  # noqa: F401
+        return
+    except ImportError:
+        pass
+    req = _Path(__file__).resolve().parent.parent / "requirements.txt"
+    if not req.is_file():
+        print(
+            f"[ensure_deps] requirements.txt missing at {req} — can't self-heal",
+            file=sys.stderr,
+        )
+        return
+    print(
+        f"[ensure_deps] supabase import failed; running pip install -r {req}",
+        file=sys.stderr,
+    )
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "-r",
+                str(req),
+                "--quiet",
+                "--disable-pip-version-check",
+            ],
+            check=True,
+            timeout=180,
+        )
+        print("[ensure_deps] install completed", file=sys.stderr)
+    except Exception as e:
+        # Don't crash the bridge — even partial deps are better than the
+        # bridge refusing to start. Tool calls that need the missing
+        # module will surface clear errors at invocation time.
+        print(f"[ensure_deps] pip install failed: {e}", file=sys.stderr)
+
+
+_ensure_critical_deps()
 
 # Windows console-suppression — see bravo_cli/_subprocess_helpers.
 from ._subprocess_helpers import (
@@ -2542,11 +2605,18 @@ class _ChatHandler(BaseHTTPRequestHandler):
         return found or None
 
     def _enriched_path(self, found_bin: str | None) -> str:
-        # Build the PATH passed to subprocesses. Order: parent of the
+        # Build the PATH passed to subprocesses. Order: dir of sys.executable
+        # FIRST (so subprocess `python3` resolves to the same venv python
+        # the bridge runs, not /usr/bin/python3 — the 2026-06-10 SunBiz
+        # send_gateway ImportError was claude's bash subprocess picking up
+        # system python which had no `supabase` package), parent of the
         # resolved binary (so its sibling helpers like `gemini-utils`
         # resolve), then the curated Mac/Linux dirs, then the login-shell
         # PATH if we have it, then whatever was already in os.environ.
         parts: list[str] = []
+        py_bin_dir = os.path.dirname(sys.executable)
+        if py_bin_dir:
+            parts.append(py_bin_dir)
         if found_bin:
             parts.append(os.path.dirname(found_bin))
         if os.name != "nt":
