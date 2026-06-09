@@ -2357,11 +2357,18 @@ def send(
     # map. Copy the brand dict so the module-level map stays untouched, and
     # leave any unset override so other brands keep their built-in identity.
     brand_cfg = dict(BRAND_IDENTITY[brand])
+    # If a brand explicitly opts out of a business_address (e.g. SunBiz —
+    # suppress_business_address: True), a stale CASL_BUSINESS_ADDRESS env
+    # var on a host must NOT silently reintroduce one. Same logic applies
+    # if a future brand opts out of sender/business identity overrides.
+    _suppress_addr = brand_cfg.get("suppress_business_address") is True
     for _field, _env_key in (
         ("sender_name", "CASL_SENDER_NAME"),
         ("business_name", "CASL_BUSINESS_NAME"),
         ("business_address", "CASL_BUSINESS_ADDRESS"),
     ):
+        if _field == "business_address" and _suppress_addr:
+            continue
         _override = (env.get(_env_key) or "").strip()
         if _override:
             brand_cfg[_field] = _override
