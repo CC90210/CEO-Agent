@@ -3539,10 +3539,23 @@ def _print_json(obj: Any) -> None:
 
 
 def _cmd_send(args) -> int:
+    # Channel-aware --to routing. For email channel, --to populates
+    # to_email (default). For SMS channel, EITHER --to-phone (explicit)
+    # OR --to (legacy callers, e.g. bridge_tools.py pre-2026-06-09)
+    # populates to_phone. Belt-and-suspenders so both invocation
+    # patterns work; VPS agent flagged the bridge case 2026-06-09.
+    channel = (args.channel or "").lower()
+    if channel == "sms":
+        to_email = None
+        to_phone = args.to_phone or args.to
+    else:
+        to_email = args.to
+        to_phone = args.to_phone  # in case a caller wants both, but normally None for email
     result = send(
         channel=args.channel,
         agent_source=args.agent_source,
-        to_email=args.to,
+        to_email=to_email,
+        to_phone=to_phone,
         cc_email=args.cc,
         lead_id=args.lead_id,
         subject=args.subject,
@@ -3662,6 +3675,15 @@ def main() -> None:
     ps.add_argument("--channel", required=True, choices=sorted(KNOWN_CHANNELS))
     ps.add_argument("--agent-source", dest="agent_source", required=True)
     ps.add_argument("--to", default=None, help="Recipient email (for email channel)")
+    # --to-phone is the SMS analogue. Without this, --channel sms --to <e164>
+    # would leave to_phone=None at the gateway (CLI's --to is email-only)
+    # and the SMS would error "sms channel requires to_phone (E.164) and
+    # body_text". VPS agent surfaced this 2026-06-09 in the chat send_sms
+    # tool path. Belt-and-suspenders: if a caller passes BOTH --to and
+    # --channel sms, we route --to to to_phone in the consumer block at
+    # line ~3700, so existing scripts that don't know about --to-phone
+    # continue to work.
+    ps.add_argument("--to-phone", dest="to_phone", default=None, help="Recipient phone in E.164 (for sms channel)")
     ps.add_argument("--cc", default=None, help="CC recipient email(s), comma-separated")
     ps.add_argument("--lead-id", dest="lead_id", default=None)
     ps.add_argument("--subject", default=None)

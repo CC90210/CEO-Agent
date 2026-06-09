@@ -389,6 +389,16 @@ def _tool_send_email(payload: dict) -> dict:
         "--subject", subject,
         "--body", body,
     ]
+    # Forward the brand from payload. Without this the CLI defaults to
+    # the OASIS brand (send_gateway.py DEFAULT_BRAND), so a SunBiz / Helios
+    # email sent via this tool would ship under the wrong identity AND hit
+    # OASIS's body_html requirement gate. VPS agent surfaced this 2026-06-09.
+    brand = str(payload.get("brand") or "").strip().lower()
+    if brand:
+        args.extend(["--brand", brand])
+    intent = str(payload.get("intent") or "").strip().lower()
+    if intent:
+        args.extend(["--intent", intent])
     lead_id = payload.get("lead_id")
     if isinstance(lead_id, str) and lead_id.strip():
         args.extend(["--lead-id", lead_id.strip()])
@@ -420,13 +430,25 @@ def _tool_send_sms(payload: dict) -> dict:
         return _err("missing 'body'")
     # Same --json placement fix as _tool_send_email above.
     # send_gateway.py defines --json on the main parser, not on send.
+    # send_gateway CLI's --to is bound to to_email (only). For SMS we
+    # need to_phone — pass --to-phone explicitly. VPS agent surfaced
+    # this 2026-06-09: previously --channel sms --to <phone> left
+    # to_phone=None at the gateway and the send errored "sms channel
+    # requires to_phone (E.164) and body_text".
     args = [
         "scripts/integrations/send_gateway.py", "--json", "send",
         "--channel", "sms",
         "--agent-source", "manual_cc",
-        "--to", to_num,
+        "--to-phone", to_num,
         "--body", body,
     ]
+    # Forward brand + intent (same gap as send_email above).
+    brand = str(payload.get("brand") or "").strip().lower()
+    if brand:
+        args.extend(["--brand", brand])
+    intent = str(payload.get("intent") or "").strip().lower()
+    if intent:
+        args.extend(["--intent", intent])
     lead_id = payload.get("lead_id")
     if isinstance(lead_id, str) and lead_id.strip():
         args.extend(["--lead-id", lead_id.strip()])
@@ -1048,6 +1070,10 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
             "scripts/integrations/send_gateway.py", "--json", "send",
             "--channel", "email",
             "--agent-source", "manual_cc",
+            "--brand", "sunbiz",  # shop-out is SunBiz-tenant-scoped — hardcode the
+                                   # brand so we never silently default to OASIS.
+                                   # Same brand-forwarding fix as _tool_send_email,
+                                   # but the tool itself is SunBiz-only by design.
             "--to", recipient,
             "--subject", subject,
             "--body", body,
