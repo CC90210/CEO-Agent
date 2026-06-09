@@ -284,12 +284,13 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
 }
 
 DEFAULT_BRAND = "oasis"
-# Brands listed here cannot send commercial email until business_address is
-# replaced with a real legal mailing address (CAN-SPAM / CASL requirement).
-# Brands that explicitly opt out via brand['suppress_business_address']=True
-# are NOT in this set even when their address is empty — that's the SunBiz
-# escape hatch (CC's explicit decision 2026-06-08).
+# Brand business_address values that block commercial sends as placeholder /
+# misconfigured. Empty string is in the set so a brand silently set to ""
+# without the explicit suppress_business_address opt-out doesn't accidentally
+# ship address-less email. SunBiz bypasses via the suppress flag — see the
+# gate at the `_BLOCK_PLACEHOLDER_ADDR` site below.
 PLACEHOLDER_BUSINESS_ADDRESSES: frozenset[str] = frozenset({
+    "",
     "Sun Biz Funding",
 })
 RESERVATION_WINDOW_MINUTES = 30
@@ -2364,7 +2365,17 @@ def send(
         _override = (env.get(_env_key) or "").strip()
         if _override:
             brand_cfg[_field] = _override
-    if intent != "internal" and brand_cfg.get("business_address", "").strip() in PLACEHOLDER_BUSINESS_ADDRESSES:
+    # Placeholder-address block. Order matters:
+    #   1. Internal sends never need a footer address — short-circuit.
+    #   2. Brand explicitly opted out (suppress_business_address: True) —
+    #      CC's SunBiz decision; takes the legal-risk acknowledgment from
+    #      BRAND_IDENTITY's comment block. Bypass the gate.
+    #   3. Otherwise: if the address is empty/placeholder, block.
+    if (
+        intent != "internal"
+        and not brand_cfg.get("suppress_business_address")
+        and brand_cfg.get("business_address", "").strip() in PLACEHOLDER_BUSINESS_ADDRESSES
+    ):
         return {"status": "error",
                 "reason": f"brand '{brand}' is missing a confirmed physical business_address",
                 "lead_id": lead_id, "interaction_id": None,
