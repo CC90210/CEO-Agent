@@ -156,8 +156,10 @@ blobs/
 # SENSITIVE DATA (lead info, outreach history)
 # =============================================
 memory/LEAD_TRACKER.csv
-memory/outreach_archive/
-# Hub file is allowlisted so the graph stays connected (no PII in INDEX.md)
+memory/outreach_archive/*
+# Hub file is allowlisted so the graph stays connected (no PII in INDEX.md).
+# Use /* (ignore contents) not / (ignore dir) so this negation actually works —
+# git cannot re-include a file whose parent directory is ignored.
 !memory/outreach_archive/INDEX.md
 
 # =============================================
