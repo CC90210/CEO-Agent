@@ -1033,6 +1033,33 @@ class TestSendGateway(unittest.TestCase):
             f"caller-supplied tenant_id should have skipped the lookup gate: {r}",
         )
 
+    def test_22j_resolve_lead_id_blocks_tenantless_plus_tenant_collision(self):
+        """Codex audit 2026-06-09 round-7 [high]: the round-6 ambiguity
+        guard counted only NON-NULL tenant_ids. If the email matched a
+        legacy tenantless row PLUS a tenant-bound row, the guard saw
+        distinct_tenants={TENANT-A} (size 1) and committed to rows[0] —
+        which could be the tenantless row. post_resolve_tenant would
+        then return None and the kill-switch gate would skip enforcement.
+
+        After round-7: tenantless + tenant-bound mix is ambiguous, refuse
+        to commit, return None. The kill-switch gate's safety property
+        (fail-closed when neither caller-supplied nor lookup yields a
+        tenant) is what then catches the send."""
+        # Seed a tenantless legacy row + a tenant-bound row for the same email.
+        self.db.table("leads").rows.append({
+            "id": "legacy-tenantless-lead",
+            "email": "collision@example.com",
+            "tenant_id": None,
+        })
+        self.db.table("leads").rows.append({
+            "id": "tenant-bound-lead",
+            "email": "collision@example.com",
+            "tenant_id": "TENANT-A",
+        })
+        from integrations.send_gateway import resolve_lead_id
+        resolved = resolve_lead_id(self.db, "collision@example.com", None)
+        self.assertIsNone(resolved, "tenantless + tenant-bound collision must refuse to commit")
+
     def test_22h_resolve_lead_id_tenant_scoped_when_supplied(self):
         """Codex audit 2026-06-09 round-6 [high]: resolve_lead_id's unscoped
         email lookup is a multi-tenant correctness bug. With tenant A and

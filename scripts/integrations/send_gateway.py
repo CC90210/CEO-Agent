@@ -524,12 +524,22 @@ def resolve_lead_id(
       1. Do the unscoped lookup as before, but use case-insensitive matching
          (`ilike` on normalized lowercase) so a mixed-case stored email
          doesn't cause a phantom auto-create.
-      2. If multiple tenants share the email, return None and let the
-         kill-switch gate fail-closed. The caller must supply tenant_id
-         explicitly to disambiguate.
+      2. If multiple tenants share the email — or a tenantless legacy row
+         coexists with a tenant-bound row (round-7 fix) — return None and
+         let the kill-switch gate fail-closed. The caller must supply
+         tenant_id explicitly to disambiguate.
 
     Email normalization is lowercase + strip — same canonical form on both
     write and read.
+
+    KNOWN RACE (Codex audit 2026-06-09 round-7 [high]): check-then-insert
+    in the tenant-scoped path can race under concurrent first-touch sends
+    to the same NEW address — both observe "no row", both INSERT, the
+    reservation RPC then locks per-lead_id and lets both ship. Today's
+    SunBiz volume makes this collision near-zero; multi-tenant scale will
+    re-expose it. Tracked as docs/adr/0008-leads-tenant-email-unique-constraint.md
+    — fix is a partial UNIQUE INDEX on (tenant_id, lower(email)) + atomic
+    upsert, gated on CC's reconciliation decision for any existing duplicates.
     """
     if lead_id:
         return lead_id
@@ -569,27 +579,39 @@ def resolve_lead_id(
             .execute()
         )
         rows = list(matches.data or [])
-        distinct_tenants = {r.get("tenant_id") for r in rows if r.get("tenant_id")}
+        # Codex audit 2026-06-09 round-7 [high]: the previous check counted
+        # only NON-NULL tenant_ids. If the email matched a legacy tenantless
+        # row PLUS a tenant-bound row, distinct_tenants = {TENANT-A} (size 1)
+        # and the code committed to rows[0] — which might be the tenantless
+        # row, then post_resolve_tenant returns None and the send is treated
+        # as unscoped, BYPASSING tenant kill-switch enforcement.
+        # Treat any mix of NULL and non-NULL tenant contexts as ambiguous.
+        non_null_tenants = {r.get("tenant_id") for r in rows if r.get("tenant_id")}
+        has_tenantless = any(not r.get("tenant_id") for r in rows)
         if len(rows) == 1:
             return rows[0]["id"]
-        if len(rows) > 1 and len(distinct_tenants) > 1:
-            # Ambiguous cross-tenant — caller must disambiguate.
+        ambiguous = (
+            len(non_null_tenants) > 1  # multiple distinct tenants
+            or (has_tenantless and len(non_null_tenants) >= 1)  # tenantless + tenant mix
+        )
+        if len(rows) > 1 and ambiguous:
             print(
                 f"[send_gateway] resolve_lead_id ambiguous: {len(rows)} leads "
-                f"across {len(distinct_tenants)} tenants for {norm!r}; "
-                "caller must supply tenant_id",
+                f"({len(non_null_tenants)} tenants, tenantless={has_tenantless}) "
+                f"for {norm!r}; caller must supply tenant_id",
                 file=sys.stderr,
             )
             _slog.warn(
                 "resolve_lead_id_ambiguous",
                 email_hash=hashlib.sha256(norm.encode()).hexdigest()[:12],
                 row_count=len(rows),
-                tenant_count=len(distinct_tenants),
+                tenant_count=len(non_null_tenants),
+                has_tenantless=has_tenantless,
             )
             return None
         if len(rows) > 1:
-            # Multiple rows but same tenant — return the first, same as
-            # before. Possible if there's a duplicate at the DB layer.
+            # Multiple rows but same tenant context — return the first, same
+            # as before. Possible if there's a duplicate at the DB layer.
             return rows[0]["id"]
         # No existing row — auto-create tenantless (legacy / OASIS-personal).
         now = datetime.now(timezone.utc).isoformat()
