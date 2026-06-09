@@ -60,10 +60,7 @@ from ._claude_auth import build_claude_spawn_env
 # process spawned in /srv/sunbiz/sunbiz-agent reads CLAUDE.md as the
 # system prompt and the operator sees Helios respond as Solara. See
 # agent_roots.claude_identity_overlay for the discrimination logic.
-try:
-    from .agent_roots import claude_identity_overlay
-except ImportError:  # pragma: no cover — fallback for direct-script invocation
-    from agent_roots import claude_identity_overlay  # type: ignore
+from .agent_roots import claude_identity_overlay
 
 
 _POOL_LOCK = threading.RLock()
