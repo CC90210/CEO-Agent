@@ -1,7 +1,9 @@
 ---
 tags: [security, architecture, multi-tenant, encryption, hmac, rls, canonical]
 purpose: Single canonical doc explaining how the Agent Command Center secures multi-tenant data, authenticates bridge daemons, and isolates per-client identity. The answer to "is this military-grade?" is in this file.
-last_updated: 2026-05-09
+last_updated: 2026-06-09
+freshness_threshold_days: 90
+verified: 2026-06-09
 ---
 
 # SECURITY MODEL — Agent Command Center
@@ -263,6 +265,55 @@ grep -n "timingSafeEqual" oasis-command-center:app/api/auth/pair/route.ts
 python scripts/integrations/supabase_tool.py select bridge_pairings --columns "machine_fingerprint" --limit 5
 # Then attempt a duplicate insert via the Python client — should fail with code 23505
 ```
+
+---
+
+## 9. Agent-side execution guards (V6 PreToolUse hooks)
+
+Three Python hooks gate every tool call an AI makes in this repo. They are
+wired in `.claude/settings.local.json` under `PreToolUse` and read their mode
+from `EMPIRE_HOOK_*` env vars (`enforce` | `report` | `off`) via
+`scripts/lib/hook_runtime.mode_from_env`. Audit trails: `state/<guard>.log` (JSONL).
+
+| Guard | File | Blocks | **Mode (2026-06-09)** |
+|---|---|---|---|
+| **secret_guard** | `scripts/state/secret_guard.py` | Read/Edit/Write on `.env*`, `*.pem`, `*.key`, `*.p12/.pfx`, `credentials.json`, `secrets/`; Bash that cat/grep/cp/exfils them | **enforce** |
+| **exec_guard** | `scripts/state/exec_guard.py` | `DROP/TRUNCATE`, `DELETE` w/o `WHERE`, `ALTER … DROP`, `rm -rf /`, `git push --force` to main, `git reset --hard <ref>`, `git clean -fdx`, fork bombs, `dd` to disks (hard blocklist + sqlglot AST) | **enforce** |
+| **state_guard** | `scripts/state/state_guard.py` | Edits / shell-redirects to auto-generated mirrors (`memory/SESSION_LOG.md`) | **report** |
+
+**Mode rationale (audit Phase 3, 2026-06-09):**
+- `secret_guard` → **enforce**: secret access should always be gated. This is the
+  agent-layer mitigation for the §5 "read `.env.agents`" risk — the LLM itself
+  can no longer read or copy secret files; it must go through a CLI wrapper that
+  loads the secret in-process and returns sanitized JSON. (Host compromise by a
+  human with shell access remains out of scope per §5.)
+- `exec_guard` → **enforce**: the 14-day would-block count was 0 (no false
+  positives in the soak window — last guard activity 2026-05-22), so enforce ships
+  with no known legitimate command being blocked.
+- `state_guard` → **report** (up from `off`): logs would-be clobbers of the
+  auto-generated SESSION_LOG mirror without blocking yet; promote to `enforce`
+  after a soak once `EMPIRE_V6_MODE=on` is the steady state.
+
+**Where modes live:** authoritative for the Claude Code runtime in
+`.claude/settings.local.json` (`env` block). Other runtimes (VPS daemons,
+`bridge_chat_server`) read the same `EMPIRE_HOOK_*` keys from `.env.agents`
+(operator-maintained — the LLM can't write `.env*`, by design of secret_guard).
+
+**The block IS the protection** — there is no override/approval-queue path
+(deleted 2026-05-22 per CC). A blocked agent picks a different approach; it does
+not get to request a human to approve the dangerous command.
+
+## 10. Outbound email compliance is enforced at every send surface (Phase 2)
+
+CASL suppression + footer + List-Unsubscribe headers are applied by
+`scripts/integrations/send_gateway.py` (the canonical chokepoint) AND, as of
+2026-06-09, by `scripts/dashboard_email_consumer.py` (the drawer-queue daemon,
+which sends via `lib.smtp_send` directly, bypassing the gateway). Both now gate
+commercial sends on `casl_compliance.should_suppress` and stamp the CASL footer
+for non-internal intents. `scripts/email_doctor.py` check #5 structurally fails
+the build if any new file under `scripts/` imports `smtplib`/`lib.smtp_send`
+without being on its allowlist — so a future send path can't silently skip
+compliance again.
 
 ---
 

@@ -1,4 +1,10 @@
 {
+  "env": {
+    "_comment": "V6 guard enforcement modes (audit Phase 3, 2026-06-09). Read by scripts/state/{secret,exec,state}_guard.py via EMPIRE_HOOK_* (enforce|report|off). Tracked here so all machines inherit; VPS daemons also read these keys from .env.agents.",
+    "EMPIRE_HOOK_SECRET_GUARD": "enforce",
+    "EMPIRE_HOOK_EXEC_GUARD": "enforce",
+    "EMPIRE_HOOK_STATE_GUARD": "report"
+  },
   "hooks": {
     "PreToolUse": [
       {
