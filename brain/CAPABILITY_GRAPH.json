@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-28T20:50:36.086909+00:00",
+  "generated_at": "2026-06-09T20:55:41.263992+00:00",
   "totals": {
     "skills": 149,
-    "scripts": 95,
+    "scripts": 99,
     "agents": 21,
-    "mcp_servers": 0,
+    "mcp_servers": 9,
     "workflows": 35,
-    "nodes_total": 300,
+    "nodes_total": 313,
     "edges_total": 39,
     "drift_count": 0
   },
@@ -4928,6 +4928,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:enrich_oasis_leads",
+      "kind": "script",
+      "name": "enrich_oasis_leads",
+      "path": "scripts/enrich_oasis_leads.py",
+      "description": "enrich_oasis_leads.py \u2014 fill missing phone + first name on OASIS leads.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:ensure_cockpit",
       "kind": "script",
       "name": "ensure_cockpit",
@@ -5188,6 +5198,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:pause_controller",
+      "kind": "script",
+      "name": "pause_controller",
+      "path": "scripts/pause_controller.py",
+      "description": "pause_controller.py \u2014 operator kill switches + operating mode toggles for the SunBiz outbound infrastructure.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:personalize",
       "kind": "script",
       "name": "personalize",
@@ -5223,6 +5243,16 @@
       "name": "provision_client_tenant",
       "path": "scripts/provision_client_tenant.py",
       "description": "Provision a client tenant in Supabase: create the auth user with email pre-confirmed, then create/patch a tenant + user_profile using the same brand-hint provisioning logic as the dashboard's /api/auth/provision route (lib/client-provisioning.ts).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:provision_secrets",
+      "kind": "script",
+      "name": "provision_secrets",
+      "path": "scripts/provision_secrets.py",
+      "description": "provision_secrets.py \u2014 materialize a tenant's integration secrets onto this host.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5413,6 +5443,16 @@
       "name": "seed_profile",
       "path": "scripts/seed_profile.py",
       "description": "seed_profile.py \u2014 seed (or update) the OASIS Command Center operator profile.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:set_secret",
+      "kind": "script",
+      "name": "set_secret",
+      "path": "scripts/set_secret.py",
+      "description": "set_secret.py \u2014 safely set keys in .env.agents without an editor.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5738,13 +5778,85 @@
       "discovery": "auto-frontmatter"
     },
     {
-      "id": "workflow:INDEX",
-      "kind": "workflow",
-      "name": "INDEX",
-      "path": ".agents/workflows/INDEX.md",
-      "description": "# Workflows Index \u2014 35 Automated Pipelines\n\n> Workflow files define slash-command triggers and step-by-step execution plans.\n> [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OPERATING_SYSTEM]",
+      "id": "mcp:sequential-thinking",
+      "kind": "mcp",
+      "name": "sequential-thinking",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
       "owner": "bravo",
-      "discovery": "auto-frontmatter"
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:playwright",
+      "kind": "mcp",
+      "name": "playwright",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:context7",
+      "kind": "mcp",
+      "name": "context7",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:memory",
+      "kind": "mcp",
+      "name": "memory",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:github",
+      "kind": "mcp",
+      "name": "github",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:firecrawl",
+      "kind": "mcp",
+      "name": "firecrawl",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:obsidian",
+      "kind": "mcp",
+      "name": "obsidian",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:filesystem",
+      "kind": "mcp",
+      "name": "filesystem",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:knowledge-graph",
+      "kind": "mcp",
+      "name": "knowledge-graph",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
     },
     {
       "id": "workflow:browser-harness",
@@ -5878,6 +5990,15 @@
       "name": "hyperthink",
       "path": ".agents/workflows/hyperthink.md",
       "description": "Fire the Hyperthink maximum-depth reasoning protocol \u2014 structured 7-phase loop for architectural, irreversible, or multi-hypothesis problems.",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:INDEX",
+      "kind": "workflow",
+      "name": "INDEX",
+      "path": ".agents/workflows/INDEX.md",
+      "description": "# Workflows Index \u2014 35 Automated Pipelines\n\n> Workflow files define slash-command triggers and step-by-step execution plans.\n> [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OPERATING_SYSTEM]",
       "owner": "bravo",
       "discovery": "auto-frontmatter"
     },

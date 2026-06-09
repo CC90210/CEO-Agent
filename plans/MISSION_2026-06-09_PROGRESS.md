@@ -10,8 +10,8 @@ Started: 2026-06-09 · Agent: Bravo (Opus 4.8) · Brief: [MISSION_2026-06-09_AUD
 - [x] **Phase 2** — Dashboard Email Compliance 🟠 ✅
 - [x] **Phase 3** — Guard Enforcement 🟠 ✅
 - [ ] **Phase 4** — Migration Ledger 🟠 (GATE: GO PHASE 4 — prod is current)
-- [ ] **Phase 5** — Version Single-Sourcing + Entry-Point Parity Test 🟠
-- [ ] **Phase 6** — Generate Routing Docs From the Graph 🟠
+- [x] **Phase 5** — Version Single-Sourcing + Entry-Point Parity Test 🟠 ✅
+- [x] **Phase 6** — Generate Routing Docs From the Graph 🟠 ✅
 - [ ] **Phase 7** — Wiki-Link Integrity 🟡
 - [ ] **Phase 8** — Hygiene + LOCKSTEP Discipline Block 🟡
 - [ ] **Phase 9** — Brain Freshness Sweep 🟡
@@ -39,6 +39,7 @@ Started: 2026-06-09 · Agent: Bravo (Opus 4.8) · Brief: [MISSION_2026-06-09_AUD
 - **[CC action — Phase 1 residual] GitHub PR-ref retention:** branches + tags are fully purged (a normal `git clone` is clean), but the 11 real-lead emails persist in GitHub's internal `refs/pull/*` (PRs #1–22), which `git push` cannot rewrite. To fully eliminate: (a) **GitHub Support** request to purge/GC unreachable commits (the belt-and-suspenders the brief named — most thorough), or (b) make the repo **private** (instantly removes public access to PR refs), or (c) accept it — PR refs are not in default clones; only an explicit `git fetch origin refs/pull/N/head` reaches them (low real-world risk; the data is business `info@` addresses). Recommend (a).
 - **[deferred] CSV-absent resilience patch** in `casl_compliance.py` + gitignoring the runtime CSV (brief step 6) — skipped in Phase 1 (CSV has no real-lead PII; CC narrowed scope). Candidate to fold into Phase 2.
 - **Bundle `../BEA_backup_20260609_1504.bundle` contains OLD PII history** — it's the rollback safety net; keep it private, delete when comfortable the rewrite is final.
+- **[minor, deferred] Reorg-import consistency:** ~6 scripts (`autonomous_agent.py`, `booking_engine.py`, `funnel_nurture.py`, `outreach_engine.py`, `contract_generator/generator.py`) use the bare `from send_gateway import` (the same form that had silently broken `email_doctor`). They work in production (their daemon runtime has `scripts/integrations/` on the path), so NOT broken — but for robustness they should use `from integrations.send_gateway import`. Found during Phase 2 self-review; not fixed (out of scope, low risk, working today).
 
 ## Phase log
 
@@ -108,5 +109,16 @@ EMPIRE_HOOK_STATE_GUARD=report
 ```
 (The tracked `.claude/settings.json` env block already covers every machine running Claude Code from this repo; the `.env.agents` lines cover non-Claude-Code agent runtimes on the VPS.)
 
+### Phase 5 — Version Single-Sourcing ✅ DONE
+- `brain/STATE.md` frontmatter `architecture_version: V6.8.3` = single source. Entry-point H1 titles de-versioned (CLAUDE/GEMINI/ANTIGRAVITY); ANTIGRAVITY stale "(synced 2026-05-10)" stamp removed (title + §ref); CLAUDE.md:5 model line → model-agnostic ("you are Bravo regardless of which model powers this CLI turn").
+- **Design note / brief deviation:** brief's "each entry point contains the exact version string" conflicts with its "Final bump = 1 file." Resolved toward the GOAL: entry points are version-AGNOSTIC + point to STATE.md; the parity test forbids a hardcoded `Vx.y` in any H1. Final bump is now genuinely 1 line in STATE.md.
+- `scripts/tests/test_entrypoint_parity.py` (new): 5 exist + version-agnostic + each references CONTEXT.md + LOCKSTEP blocks byte-identical. **5/5 pass.** V6.0 in CLAUDE.md 12→11 (rest are historical V6.0-era arch refs, kept).
+- Commit `bf9de18`.
+
+### Phase 6 — Generate Routing Docs From the Graph ✅ DONE
+- `build_capability_graph.py --emit-docs` (new mode, iterates to a fixed point so it's idempotent) regenerates: `brain/WHEN_TO_USE_SKILLS.md` (149 skills), `brain/INDEX.md` (65 tracked brain files, categorized), `memory/INDEX.md` (13 tracked, gitignored local files omitted for fresh-clone cleanliness). `memory/MEMORY_INDEX.md` → 3-line pointer to INDEX.md (kept for inbound wiki-links). All carry a no-hand-edit GENERATED header; deterministic (no timestamps).
+- Rebuilt `brain/CAPABILITY_GRAPH.json` (313 nodes / 149 skills / 99 scripts / 21 agents / 9 MCP / 35 workflows); `--check` clean.
+- `scripts/tests/test_generated_docs_fresh.py` (new): regenerates + diffs vs disk → staleness is now a test failure forever. **green** (+ skill-count≥149 guard).
+
 ### Phase 4 — Migration Ledger
-_GATED — awaiting "GO PHASE 4 — prod is current" from CC._
+_GATED — CC said "proceed" but did not confirm prod-current. Per brief, running in SAFE mode: build ledger + tooling + status checklist; NOT blind-marking 88 applied. Prod seed = one CC command. (No live Supabase in this session anyway.)_
