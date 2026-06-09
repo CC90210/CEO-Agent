@@ -242,3 +242,6 @@ e2e-screenshots/
 *.der
 # Stray browser-download artifact — has shown up empty in the repo root
 download.html
+
+# Runtime CASL stop-list — local only; ship the example header instead (audit V2 P1)
+data/email_suppressions.csv

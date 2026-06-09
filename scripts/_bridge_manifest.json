@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-09T21:18:05.843406+00:00",
-  "script_count": 95,
-  "entry_count": 246,
+  "generated_at_iso": "2026-06-09T22:23:20.794790+00:00",
+  "script_count": 96,
+  "entry_count": 247,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1075,6 +1075,14 @@
       "subcmd": "audit",
       "mutating": false,
       "help": "Bravo V6.0 \u2014 PII Scrubber \u2014 subcommand: audit"
+    },
+    {
+      "key": "pii_sweep",
+      "path": "scripts/pii_sweep.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Content-keyed PII sweep (audit V2). Sweep a repo by OPERATOR-ADJUDICATED"
     },
     {
       "key": "proposal_generator_create",
