@@ -55,7 +55,10 @@ memory/codex_integration.md
 memory/content-strategy.md
 memory/content_pipeline_vision.md
 memory/singlekey_research.md
-APPS_CONTEXT/
+# Use /* (ignore contents) not / (ignore dir) so the README negation works —
+# git can't re-include a file whose parent directory is ignored.
+APPS_CONTEXT/*
+!APPS_CONTEXT/README.md
 brain/USER_PROFILE.md
 brain/CLIENT_*.md
 data/snapshots/

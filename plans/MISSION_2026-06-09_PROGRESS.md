@@ -12,7 +12,7 @@ Started: 2026-06-09 · Agent: Bravo (Opus 4.8) · Brief: [MISSION_2026-06-09_AUD
 - [ ] **Phase 4** — Migration Ledger 🟠 (GATE: GO PHASE 4 — prod is current)
 - [x] **Phase 5** — Version Single-Sourcing + Entry-Point Parity Test 🟠 ✅
 - [x] **Phase 6** — Generate Routing Docs From the Graph 🟠 ✅
-- [ ] **Phase 7** — Wiki-Link Integrity 🟡
+- [x] **Phase 7** — Wiki-Link Integrity 🟡 ✅
 - [ ] **Phase 8** — Hygiene + LOCKSTEP Discipline Block 🟡
 - [ ] **Phase 9** — Brain Freshness Sweep 🟡
 - [ ] **Phase 10** — send_gateway Decomposition 🟡 (OPTIONAL)
@@ -119,6 +119,14 @@ EMPIRE_HOOK_STATE_GUARD=report
 - `build_capability_graph.py --emit-docs` (new mode, iterates to a fixed point so it's idempotent) regenerates: `brain/WHEN_TO_USE_SKILLS.md` (149 skills), `brain/INDEX.md` (65 tracked brain files, categorized), `memory/INDEX.md` (13 tracked, gitignored local files omitted for fresh-clone cleanliness). `memory/MEMORY_INDEX.md` → 3-line pointer to INDEX.md (kept for inbound wiki-links). All carry a no-hand-edit GENERATED header; deterministic (no timestamps).
 - Rebuilt `brain/CAPABILITY_GRAPH.json` (313 nodes / 149 skills / 99 scripts / 21 agents / 9 MCP / 35 workflows); `--check` clean.
 - `scripts/tests/test_generated_docs_fresh.py` (new): regenerates + diffs vs disk → staleness is now a test failure forever. **green** (+ skill-count≥149 guard).
+
+### Phase 7 — Wiki-Link Integrity ✅ DONE
+- Broken count: **125 → 0** (the brief's "88" was a subset; my checker scanned all tracked .md).
+- `scripts/tests/test_wiki_links.py` (new): resolves `[[target]]` via tracked file (path/basename/stem/dir/`.py`), tracked `.template.md`, cross-repo (`../` or `(sibling repo)`), or documented local-only store (`memory/`, `APPS_CONTEXT/`, `runtime/`, `data/`); **skips links inside code fences / inline-code** (the skill-authoring docs literally show `[[wiki-link]]` as syntax examples — those are not live links). Deterministic (same result fresh-clone or operator machine).
+- Shipped stubs (schema + 1 illustrative example, zero real data): `memory/PATTERNS.template.md`, `memory/MISTAKES.template.md`, `memory/DECISIONS.template.md` → resolve the 66 `[[memory/PATTERNS|MISTAKES|DECISIONS]]` links in a fresh clone.
+- `APPS_CONTEXT/README.md` (documents local-only store) + `.gitignore` fix `APPS_CONTEXT/` → `APPS_CONTEXT/*` so the `!README.md` negation works (same parent-ignored gotcha as outreach_archive).
+- Fixed 2 genuinely-stale links (removed): `brain/CLIENT_PLAYBOOK.md` → `[[brain/AGENT_GAP_AUDIT]]` (file never existed), `media/INDEX.md` → `[[media/.../BRAND_GUIDE]]` (no brand-guide doc exists).
+- Regenerated indexes (memory/INDEX now lists the 3 templates); freshness + parity still green.
 
 ### Phase 4 — Migration Ledger
 _GATED — CC said "proceed" but did not confirm prod-current. Per brief, running in SAFE mode: build ledger + tooling + status checklist; NOT blind-marking 88 applied. Prod seed = one CC command. (No live Supabase in this session anyway.)_

@@ -2,15 +2,18 @@
 
 # Memory Index
 
-Auto-generated index of tracked `memory/*.md` — **13 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `memory/*.md` — **16 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Files
 - [ACTIVE_TASKS.template.md](ACTIVE_TASKS.template.md) — ACTIVE TASKS — {{ preferred_name }}
+- [DECISIONS.template.md](DECISIONS.template.md) — DECISIONS — {{ preferred_name }}
 - [DISCOVERY_PLAYBOOK.md](DISCOVERY_PLAYBOOK.md) — UNIVERSAL DISCOVERY PLAYBOOK: OASIS AI SOLUTIONS
 - [INDEX.md](INDEX.md) — Memory Index
 - [LONG_TERM.md](LONG_TERM.md) — LONG-TERM MEMORY — High-Confidence Persistent Facts
 - [MEMORY_INDEX.md](MEMORY_INDEX.md) — Memory Index — moved
+- [MISTAKES.template.md](MISTAKES.template.md) — MISTAKES — {{ preferred_name }}
 - [OPERATIONAL_STATE.md](OPERATIONAL_STATE.md) — OPERATIONAL STATE — Live Infrastructure & Known Issues
+- [PATTERNS.template.md](PATTERNS.template.md) — PATTERNS — {{ preferred_name }}
 - [PERSONAS.md](PERSONAS.md) — PERSONAS — Role-Flavored Workflow Aliases
 - [PROPOSED_CHANGES.md](PROPOSED_CHANGES.md) — BRAVO — Proposed Changes Queue
 - [RETROSPECTIVE_2026-05-14_rearchitecture.md](RETROSPECTIVE_2026-05-14_rearchitecture.md) — OASIS Rearchitecture — End-of-Phases Retrospective
