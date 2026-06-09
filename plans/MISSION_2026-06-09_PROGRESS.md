@@ -9,7 +9,7 @@ Started: 2026-06-09 · Agent: Bravo (Opus 4.8) · Brief: [MISSION_2026-06-09_AUD
 - [x] **Phase 1** — PII History Purge 🔴 (GATE: GO PHASE 1) ✅ (scope corrected by CC: real leads only)
 - [x] **Phase 2** — Dashboard Email Compliance 🟠 ✅
 - [x] **Phase 3** — Guard Enforcement 🟠 ✅
-- [ ] **Phase 4** — Migration Ledger 🟠 (GATE: GO PHASE 4 — prod is current)
+- [x] **Phase 4** — Migration Ledger 🟠 ✅ (code + tooling shipped; prod seed = 1 CC command)
 - [x] **Phase 5** — Version Single-Sourcing + Entry-Point Parity Test 🟠 ✅
 - [x] **Phase 6** — Generate Routing Docs From the Graph 🟠 ✅
 - [x] **Phase 7** — Wiki-Link Integrity 🟡 ✅
@@ -143,5 +143,16 @@ EMPIRE_HOOK_STATE_GUARD=report
 - **Gate: `check_brain_freshness.py` → 52 fresh, 0 stale, 0 missing-date.**
 - _Honesty note: this was a structural audit + freshness re-baseline; deep per-file content re-validation beyond the security-critical docs (SECURITY_MODEL done) is a tracked follow-up._
 
-### Phase 4 — Migration Ledger
-_GATED — CC said "proceed" but did not confirm prod-current. Per brief, running in SAFE mode: build ledger + tooling + status checklist; NOT blind-marking 88 applied. Prod seed = one CC command. (No live Supabase in this session anyway.)_
+### Phase 4 — Migration Ledger ✅ DONE (safe mode — no blind backfill)
+**Why safe mode:** CC said "proceed" but did not confirm prod-current, and this session has no live Supabase. So I built the ledger + tooling and left the prod seed as a one-command CC step (no destructive assumption that 88 are applied).
+- `database/100_schema_migrations_ledger.sql` — idempotent `public.schema_migrations` (filename PK + sha256 + applied_at + applied_by); RLS enabled + `service_role FOR ALL` (matches 094); guarded CREATE POLICY (re-run safe).
+- `scripts/apply_migration.py` extended: **pre-apply** ledger checksum check (refuses a CHANGED re-apply unless `--force`); **post-apply** ledger upsert; **`--status`** (database/*.sql vs ledger, graceful offline); **`--backfill-ledger`** (the prod-current seed). CLI contract intact (migration_file now optional only for the ledger-only commands).
+- `database/MIGRATION_NOTES.md` — appended ordering rules (lexicographic; dup prefixes 030/031/037/057 historical & harmless; never renumber an applied migration; new ≥ 101) + the one-time prod-seed command.
+- **Proof:** compiles; `--status` (offline) → "89 migration files on disk, applied-state unknown" (88 + ledger); `--dry-run` on the ledger SQL surfaces the RLS gate. **Gate "89 applied, 0 pending" requires the prod seed** (CC step below).
+
+**CC seed command (run ONCE, only after confirming prod has every migration applied):**
+```
+python scripts/apply_migration.py database/100_schema_migrations_ledger.sql --allow-rls
+python scripts/apply_migration.py --backfill-ledger
+python scripts/apply_migration.py --status      # expect: 89 applied, 0 pending
+```

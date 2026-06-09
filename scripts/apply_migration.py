@@ -25,6 +25,7 @@ Safety:
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -33,6 +34,8 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MIGRATIONS_DIR = PROJECT_ROOT / "database"
+LEDGER_TABLE = "schema_migrations"
 
 PROJECTS = {
     "bravo": {
@@ -204,11 +207,108 @@ def run_query_via_management_api(
         return False, f"Unexpected error: {e}"
 
 
+# ── Migration ledger (audit Phase 4, 2026-06-09) ─────────────────────────────
+# A per-file applied ledger (public.schema_migrations) so no migration is ever
+# blindly re-run. Read/write via the service-role PostgREST client (bypasses RLS).
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _ledger_client(env: dict[str, str]):
+    """Service-role Supabase client, or None if unavailable."""
+    url = env.get("BRAVO_SUPABASE_URL", "")
+    key = env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY", "")
+    if not url or not key:
+        return None
+    try:
+        from supabase import create_client
+        return create_client(url, key)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _ledger_fetch(env: dict[str, str]):
+    """Return {filename: sha256} from the ledger, or None if unreachable / table
+    not seeded yet (so callers can degrade gracefully offline)."""
+    client = _ledger_client(env)
+    if client is None:
+        return None
+    try:
+        res = client.table(LEDGER_TABLE).select("filename,sha256").execute()
+        return {r["filename"]: r.get("sha256", "") for r in (res.data or [])}
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _ledger_upsert(env: dict[str, str], rows: list[dict]) -> tuple[bool, str]:
+    client = _ledger_client(env)
+    if client is None:
+        return False, "no service-role client (BRAVO_SUPABASE_URL / SERVICE_ROLE_KEY missing)"
+    try:
+        client.table(LEDGER_TABLE).upsert(rows, on_conflict="filename").execute()
+        return True, f"upserted {len(rows)} ledger row(s)"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"ledger upsert failed: {exc}"
+
+
+def _disk_migrations() -> list[Path]:
+    return sorted(MIGRATIONS_DIR.glob("*.sql"), key=lambda p: p.name)
+
+
+def cmd_status(env: dict[str, str], output_json: bool) -> int:
+    files = _disk_migrations()
+    ledger = _ledger_fetch(env)
+    names = [p.name for p in files]
+    if ledger is None:
+        msg = {
+            "status": "ledger_unreachable",
+            "disk_migrations": len(names),
+            "note": ("Ledger table not reachable (no DB access this session, or "
+                     "100_schema_migrations_ledger.sql not applied + backfilled yet). "
+                     "See database/MIGRATION_NOTES.md for the one-time prod seed."),
+        }
+        print(json.dumps(msg, indent=2) if output_json else
+              f"[status] ledger unreachable — {len(names)} migration files on disk, "
+              f"applied-state unknown.\n{msg['note']}")
+        return 1
+    applied = [n for n in names if n in ledger]
+    pending = [n for n in names if n not in ledger]
+    orphan = [f for f in ledger if f not in set(names)]
+    if output_json:
+        print(json.dumps({"applied": len(applied), "pending": pending, "orphan": orphan}, indent=2))
+    else:
+        print(f"[status] {len(applied)} applied, {len(pending)} pending, {len(orphan)} orphan(s)")
+        for n in pending:
+            print(f"  PENDING {n}")
+        for n in orphan:
+            print(f"  ORPHAN  {n} (in ledger, not on disk)")
+        if not pending and not orphan:
+            print("  All on-disk migrations are recorded applied. [OK]")
+    return 0 if not pending and not orphan else 1
+
+
+def cmd_backfill_ledger(env: dict[str, str], output_json: bool) -> int:
+    files = _disk_migrations()
+    rows = [{"filename": p.name, "sha256": _sha256(p.read_text(encoding="utf-8")),
+             "applied_by": "mission-remediation-backfill"} for p in files]
+    ok, body = _ledger_upsert(env, rows)
+    out = {"status": "backfilled" if ok else "failed", "count": len(rows), "detail": body}
+    print(json.dumps(out, indent=2) if output_json else f"[backfill] {out['status']}: {body}")
+    return 0 if ok else 1
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Apply a SQL migration to a Bravo Supabase project"
     )
-    parser.add_argument("migration_file", help="Path to .sql file")
+    parser.add_argument("migration_file", nargs="?", help="Path to .sql file")
+    parser.add_argument("--status", action="store_true",
+                        help="Compare database/*.sql to the schema_migrations ledger (applied vs pending)")
+    parser.add_argument("--backfill-ledger", dest="backfill_ledger", action="store_true",
+                        help="Record every on-disk migration as already-applied. Run ONCE, only when prod is current.")
+    parser.add_argument("--force", action="store_true",
+                        help="Apply even if the ledger has this filename with a different checksum")
     parser.add_argument(
         "--project",
         default="bravo",
@@ -240,6 +340,16 @@ def main() -> None:
              "authed user per brain/ORCHESTRATION.md verification contract.",
     )
     args = parser.parse_args()
+
+    # Ledger-only commands — no migration file required.
+    if args.status or args.backfill_ledger:
+        env = load_env()
+        if args.status:
+            sys.exit(cmd_status(env, args.output_json))
+        sys.exit(cmd_backfill_ledger(env, args.output_json))
+
+    if not args.migration_file:
+        parser.error("migration_file is required (or use --status / --backfill-ledger)")
 
     mig_path = Path(args.migration_file).resolve()
     if not mig_path.exists():
@@ -333,6 +443,22 @@ def main() -> None:
             print("[dry-run] no SQL sent")
         return
 
+    # --- Ledger pre-check (audit Phase 4): refuse a CHANGED re-apply unless --force ---
+    file_sha = _sha256(sql)
+    _ledger = _ledger_fetch(env)
+    if _ledger is not None and mig_path.name in _ledger:
+        if _ledger[mig_path.name] == file_sha:
+            print(f"[ledger] {mig_path.name} already applied with identical checksum "
+                  "(re-applying — ensure it is idempotent).", file=sys.stderr)
+        elif not args.force:
+            print(f"ABORTED: {mig_path.name} is in the ledger with a DIFFERENT checksum — "
+                  "its content changed since it was applied. Re-running a changed (possibly "
+                  "non-idempotent) migration can corrupt data. Pass --force only if certain.",
+                  file=sys.stderr)
+            sys.exit(4)
+        else:
+            print(f"[ledger] --force: re-applying changed {mig_path.name}.", file=sys.stderr)
+
     print(f"Applying migration to {args.project} ({project_ref})...")
 
     # Preferred path: exec_sql RPC via service-role key (never expires).
@@ -368,6 +494,13 @@ def main() -> None:
         "method": method,
         "response": body[:4000],
     }
+
+    # --- Ledger post-write (audit Phase 4): record the applied file + checksum ---
+    if ok:
+        lok, lmsg = _ledger_upsert(env, [{
+            "filename": mig_path.name, "sha256": file_sha, "applied_by": "apply_migration",
+        }])
+        result["ledger"] = lmsg if lok else f"WARN ledger not updated: {lmsg}"
 
     if args.output_json:
         print(json.dumps(result, indent=2))

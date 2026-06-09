@@ -34,6 +34,38 @@ Two pairs of migrations share a numeric prefix:
 
 **Going forward:** When picking the next prefix, run `ls database/*.sql | sort -t_ -k1 -n | tail -1` to see the actual last one applied, not just `git status`. The next slot is the value after that, **not** 047.
 
+## Applied ledger — `100_schema_migrations_ledger.sql` (audit Phase 4, 2026-06-09)
+
+The "production tracks by filename" claim above used to be a convention with **no
+enforcement**. It's now a real table: `public.schema_migrations` (`filename` PK +
+`sha256` + `applied_at` + `applied_by`). `scripts/apply_migration.py`:
+
+- **Before apply:** if the filename is in the ledger with a *different* checksum,
+  it refuses unless `--force` (stops a silent re-run of a changed, possibly
+  non-idempotent, backfill — there are ~12 such backfills in `database/`).
+- **After apply:** upserts the `(filename, sha256)` row.
+- **`--status`:** diffs `database/*.sql` vs ledger → applied vs pending.
+- **`--backfill-ledger`:** marks every on-disk migration applied
+  (`applied_by='mission-remediation-backfill'`). Run ONCE, only when prod is
+  confirmed current.
+
+**Full duplicate-prefix set (superset of the 030/031 noted above):** `030`, `031`,
+`037`, `057` each appear twice. All historical, all applied, **never renumber** —
+the ledger keys on exact filename, so a rename = a re-apply.
+
+**Ordering rule:** lexicographic by filename. New migrations start at the next free
+integer **≥ 101** (the ledger is `100`).
+
+### Seeding the ledger on production (one-time, operator)
+
+Only after confirming prod has every migration applied:
+
+```bash
+python scripts/apply_migration.py database/100_schema_migrations_ledger.sql --allow-rls
+python scripts/apply_migration.py --backfill-ledger
+python scripts/apply_migration.py --status      # expect: 89 applied, 0 pending
+```
+
 ## Cross-references
 
 - [[infra/README]] — deployment-side migration application steps
