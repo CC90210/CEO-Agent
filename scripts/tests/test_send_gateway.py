@@ -1033,6 +1033,35 @@ class TestSendGateway(unittest.TestCase):
             f"caller-supplied tenant_id should have skipped the lookup gate: {r}",
         )
 
+    def test_22b_kill_switch_blocks_caller_tenant_mismatch(self):
+        """Codex audit 2026-06-09 [critical]: when both the DB lookup AND
+        the caller supply a tenant_id and they DISAGREE, the gate MUST
+        refuse the send. Otherwise a hostile/buggy caller could defeat a
+        paused tenant's kill-switch by passing the paused tenant's lead_id
+        with an unpaused tenant's tenant_id as the kwarg."""
+        # Seed a record that belongs to tenant-A.
+        self.db.table("tenant_records").rows.append({
+            "id": "rec-tenant-a",
+            "entity_type": "application",
+            "tenant_id": "TENANT-A-PAUSED",
+        })
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                lead_id="rec-tenant-a",
+                # Caller TRIES to point at a different unpaused tenant.
+                tenant_id="TENANT-B-UNPAUSED",
+                brand="conaugh_mckenna",
+                intent="commercial",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked", r)
+        self.assertIn("tenant_id mismatch", r["reason"])
+
     def test_22_kill_switch_resolves_tenant_records_for_any_entity_type(self):
         """tenant_records.id is a UUID PK — globally unique across
         entity_types. The lookup must match regardless of whether the row

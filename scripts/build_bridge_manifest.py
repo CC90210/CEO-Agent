@@ -95,7 +95,7 @@ MUTATING_VERBS_RE = re.compile(
     r"(?:^|_|-)(send|insert|update|delete|post|create|run|execute|apply|"
     r"migrate|publish|approve|revoke|reset|drop|truncate|rotate|book|cancel|"
     r"open|close|enqueue|complete|fire|trigger|refresh|sync|push|deploy|"
-    r"add|remove|disable|enable|set|seed|grant)(?:_|$|-)",
+    r"add|remove|disable|enable|set|seed|grant|retry)(?:_|$|-)",
     re.IGNORECASE,
 )
 

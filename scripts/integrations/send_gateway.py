@@ -2533,21 +2533,44 @@ def send(
     # ---- Gate 2 + 3: cooldown + daily cap (skipped for internal/transactional) ----
     if intent not in {"internal", "transactional"}:
         # Resolve tenant_id so kill switches + operating mode gates fire
-        # correctly. Codex audit 2026-06-08 (finding #1): commercial sends
+        # correctly. Codex audit 2026-06-08 finding #1: commercial sends
         # with a lead_id MUST have a resolvable tenant — otherwise the
         # operator's panic controls are silently bypassed.
         #
-        # Resolution order:
-        #   1. Caller-supplied tenant_id kwarg. Daemons like shop_out_sender
-        #      and sequence_runner already know the tenant from the row
-        #      they're processing — trust them; a DB lookup adds latency and
-        #      can still fail-closed on edge cases (e.g. an application_id
-        #      passed as lead_id).
-        #   2. _resolve_tenant_for_lead DB lookup (defense in depth).
-        # Fail closed only if BOTH yield nothing AND we have a lead_id.
-        resolved_tenant = tenant_id or (
-            _resolve_tenant_for_lead(db, lead_id) if lead_id else None
-        )
+        # Codex audit 2026-06-09 [critical]: blindly trusting the
+        # caller-supplied tenant_id let a buggy or hostile caller defeat
+        # the kill switch by passing a lead_id from a PAUSED tenant with
+        # a tenant_id from an UNPAUSED tenant. The cap/kill_switch check
+        # would then run against the wrong tenant.
+        #
+        # Resolution order (safe):
+        #   1. DB lookup is the source of truth.
+        #   2. Caller-supplied tenant_id is ACCEPTED only when:
+        #      a) The lookup also resolved AND the two match — caller is
+        #         consistent with reality; we honor it.
+        #      b) The lookup returned nothing — caller is the only source
+        #         (covers edge cases where the row isn't in tenant_records
+        #         yet). Bounded trust: this path is only reachable from
+        #         internal trusted daemons.
+        #   3. Caller-supplied tenant_id that CONTRADICTS the lookup is
+        #      a hard block — surface the mismatch loud, never silent.
+        lookup_tenant = _resolve_tenant_for_lead(db, lead_id) if lead_id else None
+        if tenant_id and lookup_tenant and tenant_id != lookup_tenant:
+            return {
+                "status": "blocked",
+                "reason": (
+                    "tenant_id mismatch: caller-supplied tenant_id "
+                    f"{tenant_id!r} does not match lead's tenant of "
+                    f"record {lookup_tenant!r}. Refusing to send."
+                ),
+                "lead_id": lead_id,
+                "interaction_id": None,
+                "cooldown_until": None,
+                "daily_count": None,
+            }
+        # Prefer the DB-resolved tenant when present (source of truth).
+        # Fall back to caller-supplied only when the DB has no info.
+        resolved_tenant = lookup_tenant or tenant_id
         if lead_id and not resolved_tenant:
             return {
                 "status": "blocked",
