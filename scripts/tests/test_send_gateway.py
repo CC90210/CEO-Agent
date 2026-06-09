@@ -1033,6 +1033,54 @@ class TestSendGateway(unittest.TestCase):
             f"caller-supplied tenant_id should have skipped the lookup gate: {r}",
         )
 
+    def test_22c_kill_switch_runs_for_transactional_intent(self):
+        """Codex audit 2026-06-09 round-2 [high]: a caller could pass
+        intent='transactional' with a mismatched tenant_id to skip the
+        kill-switch and mismatch checks entirely. After the fix, the
+        mismatch block runs for transactional too. Internal is the only
+        intent that bypasses (true cross-tenant infrastructure)."""
+        self.db.table("tenant_records").rows.append({
+            "id": "rec-tenant-c",
+            "entity_type": "lead",
+            "tenant_id": "TENANT-C-PAUSED",
+        })
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                lead_id="rec-tenant-c",
+                tenant_id="TENANT-D-UNPAUSED",
+                # The bypass attempt: intent='transactional'
+                intent="transactional",
+                brand="conaugh_mckenna",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked", r)
+        self.assertIn("tenant_id mismatch", r["reason"])
+
+    def test_22d_kill_switch_resolution_runs_for_transactional_intent(self):
+        """Companion to 22c: when the caller supplies only lead_id (no
+        tenant_id) and the lookup misses, transactional intent must also
+        fail-closed on 'kill-switch enforcement unavailable' — not silently
+        skip the resolution like the round-1 fix did."""
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                lead_id="never-existed-anywhere",
+                intent="transactional",
+                brand="conaugh_mckenna",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked", r)
+        self.assertIn("kill-switch enforcement unavailable", r["reason"])
+
     def test_22b_kill_switch_blocks_caller_tenant_mismatch(self):
         """Codex audit 2026-06-09 [critical]: when both the DB lookup AND
         the caller supply a tenant_id and they DISAGREE, the gate MUST

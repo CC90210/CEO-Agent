@@ -2530,30 +2530,29 @@ def send(
                     "lead_id": lead_id, "interaction_id": None,
                     "cooldown_until": None, "daily_count": None}
 
-    # ---- Gate 2 + 3: cooldown + daily cap (skipped for internal/transactional) ----
-    if intent not in {"internal", "transactional"}:
-        # Resolve tenant_id so kill switches + operating mode gates fire
-        # correctly. Codex audit 2026-06-08 finding #1: commercial sends
-        # with a lead_id MUST have a resolvable tenant — otherwise the
-        # operator's panic controls are silently bypassed.
-        #
-        # Codex audit 2026-06-09 [critical]: blindly trusting the
-        # caller-supplied tenant_id let a buggy or hostile caller defeat
-        # the kill switch by passing a lead_id from a PAUSED tenant with
-        # a tenant_id from an UNPAUSED tenant. The cap/kill_switch check
-        # would then run against the wrong tenant.
-        #
-        # Resolution order (safe):
-        #   1. DB lookup is the source of truth.
-        #   2. Caller-supplied tenant_id is ACCEPTED only when:
-        #      a) The lookup also resolved AND the two match — caller is
-        #         consistent with reality; we honor it.
-        #      b) The lookup returned nothing — caller is the only source
-        #         (covers edge cases where the row isn't in tenant_records
-        #         yet). Bounded trust: this path is only reachable from
-        #         internal trusted daemons.
-        #   3. Caller-supplied tenant_id that CONTRADICTS the lookup is
-        #      a hard block — surface the mismatch loud, never silent.
+    # ---- Tenant resolution + mismatch + kill-switch -----------------------
+    # These ALWAYS run for any tenant-scoped send (commercial or transactional).
+    # Only "internal" intent (cross-tenant infrastructure: alerts, daemon
+    # pings) is exempt because it has no tenant scope.
+    #
+    # Codex audit 2026-06-08 finding #1: lead_id given without a resolvable
+    # tenant blocks the kill-switch from firing — fail-closed.
+    # Codex audit 2026-06-09 round-1 [critical]: blindly trusting the
+    # caller-supplied tenant_id let a hostile caller defeat the kill switch
+    # by passing a paused tenant's lead_id with an unpaused tenant_id.
+    # Codex audit 2026-06-09 round-2 [high]: previously this whole block lived
+    # inside `if intent not in {"internal", "transactional"}:`, so a caller
+    # could pass `intent="transactional"` with a mismatched tenant_id and
+    # skip the mismatch + kill-switch checks entirely. Now ONLY cooldown/cap
+    # are intent-gated below; resolution + mismatch + kill-switch are not.
+    #
+    # Resolution order (safe):
+    #   1. DB lookup is the source of truth.
+    #   2. Caller-supplied tenant_id is honored only when (a) it matches the
+    #      lookup, or (b) the lookup returned nothing (mid-migration edge).
+    #   3. Caller-supplied tenant_id that CONTRADICTS the lookup is a hard
+    #      block — surface the mismatch loud, never silent.
+    if intent != "internal":
         lookup_tenant = _resolve_tenant_for_lead(db, lead_id) if lead_id else None
         if tenant_id and lookup_tenant and tenant_id != lookup_tenant:
             return {
@@ -2574,12 +2573,65 @@ def send(
         if lead_id and not resolved_tenant:
             return {
                 "status": "blocked",
-                "reason": "commercial send blocked: lead_id given but tenant could not be resolved (kill-switch enforcement unavailable)",
+                "reason": "send blocked: lead_id given but tenant could not be resolved (kill-switch enforcement unavailable)",
                 "lead_id": lead_id,
                 "interaction_id": None,
                 "cooldown_until": None,
                 "daily_count": None,
             }
+
+        # Kill-switch + operating-mode pre-check — runs for transactional too
+        # (booking confirmations etc. ARE tenant-scoped; a paused operator
+        # shouldn't see them ship). Independent from can_act() because
+        # can_act() is intent-gated for cooldown/cap, but the panic switch
+        # is never gated. can_act() will recompute the same check for
+        # commercial — that duplication is fine; correctness > one DB read.
+        if resolved_tenant:
+            try:
+                from pause_controller import (  # type: ignore
+                    check_kill_switches as _check_kill_switches,
+                    check_operating_mode as _check_operating_mode,
+                )
+                _ks_reason = _check_kill_switches(db, resolved_tenant, agent_source)
+                if _ks_reason:
+                    return {
+                        "status": "blocked",
+                        "reason": f"kill_switch: {_ks_reason}",
+                        "lead_id": lead_id,
+                        "interaction_id": None,
+                        "cooldown_until": None,
+                        "daily_count": None,
+                    }
+                _mode_reason, _ = _check_operating_mode(db, resolved_tenant, agent_source)
+                if _mode_reason:
+                    return {
+                        "status": "blocked",
+                        "reason": f"operating_mode: {_mode_reason}",
+                        "lead_id": lead_id,
+                        "interaction_id": None,
+                        "cooldown_until": None,
+                        "daily_count": None,
+                    }
+            except ImportError:
+                # pause_controller absent (older deploys, stripped sys.path).
+                # Original gate set still applies via can_act for commercial.
+                pass
+            except Exception as exc:  # noqa: BLE001
+                # Fail-closed: can't read panic state, refuse.
+                return {
+                    "status": "blocked",
+                    "reason": f"kill_switch ledger unavailable: {exc}",
+                    "lead_id": lead_id,
+                    "interaction_id": None,
+                    "cooldown_until": None,
+                    "daily_count": None,
+                }
+
+    # ---- Gate 2 + 3: cooldown + daily cap (skipped for internal/transactional) ----
+    # These remain commercial-only — transactional sends are intentionally
+    # exempt from cooldown windows and daily caps (booking confirmations,
+    # password-resets etc. are time-sensitive). Kill-switch above already ran.
+    if intent not in {"internal", "transactional"}:
         check = can_act(
             lead_id=lead_id,
             channel=channel,
