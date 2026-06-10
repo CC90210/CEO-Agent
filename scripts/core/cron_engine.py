@@ -102,6 +102,20 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # Fleet V3 P6 — quarterly break-glass drill. Walks BREAK_GLASS.md's
+        # preconditions in dry-run (can we stop / revoke / restore?) and reports
+        # drift to Telegram. Changes nothing. 09:00 on the 1st of every 3rd month.
+        # n8n handler for action_type 'break_glass_drill' runs
+        # scripts/break_glass_drill.py --json; until that handler ships, run it
+        # manually. NOT seeded to Supabase until CC reviews (production-scheduling mutation).
+        "name": "Break-Glass Drill (quarterly)",
+        "description": "Dry-run the emergency runbook; report drift between BREAK_GLASS.md and reality.",
+        "schedule": "0 9 1 */3 *",
+        "action_type": "break_glass_drill",
+        "action_config": {"script": "scripts/break_glass_drill.py", "notify_channel": "telegram"},
+        "is_active": True,
+    },
+    {
         # Phase 10.2 — Morning Pow Wow Call. Claude drafts a ~120-word
         # motivational/flirty monologue, ElevenLabs renders it in Aura's
         # voice, Telegram sendVoice ships it as an inline voicemail at

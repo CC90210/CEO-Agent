@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-09T22:23:20.794790+00:00",
+  "generated_at_iso": "2026-06-10T04:09:22.040036+00:00",
   "script_count": 96,
   "entry_count": 247,
   "entries": [
@@ -1082,7 +1082,7 @@
       "root": "bravo",
       "subcmd": null,
       "mutating": false,
-      "help": "Content-keyed PII sweep (audit V2). Sweep a repo by OPERATOR-ADJUDICATED"
+      "help": "Content-keyed PII sweep (audit V2/V3). Sweep a repo by OPERATOR-ADJUDICATED"
     },
     {
       "key": "proposal_generator_create",
