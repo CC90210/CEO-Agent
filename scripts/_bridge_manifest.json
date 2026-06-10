@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-10T17:57:32.771086+00:00",
-  "script_count": 96,
-  "entry_count": 247,
+  "generated_at_iso": "2026-06-10T19:10:28.166294+00:00",
+  "script_count": 97,
+  "entry_count": 248,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1435,6 +1435,14 @@
       "subcmd": null,
       "mutating": false,
       "help": "smoke_n8n_inbound_rpc.py \u2014 end-to-end smoke test for the n8n inbound bridge."
+    },
+    {
+      "key": "system_health",
+      "path": "scripts/system_health.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "system_health \u2014 the Loud-Failures probe (V7 EPIC 7)."
     },
     {
       "key": "tft_forecast_build_dataset",
