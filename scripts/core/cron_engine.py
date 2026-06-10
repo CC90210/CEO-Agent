@@ -129,6 +129,18 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # V7 EPIC 3 — weekly LanceDB compaction. Every PostToolUse edit appends a new
+        # vector-store version with no cleanup (hit 410 versions / 32MB at the 2026-06-10
+        # audit). optimize(cleanup_older_than=2d) compacts fragments + prunes stale versions,
+        # keeping recent ones for safety. Saturdays 03:00 local. NOT seeded until CC reviews.
+        "name": "LanceDB Compaction (weekly)",
+        "description": "Compact the memory vector store; prune stale LanceDB versions (bounds unbounded growth).",
+        "schedule": "0 3 * * 6",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/core/state_compact.py", "args": ["--retain-days", "2", "--json"]},
+        "is_active": True,
+    },
+    {
         # Phase 10.2 — Morning Pow Wow Call. Claude drafts a ~120-word
         # motivational/flirty monologue, ElevenLabs renders it in Aura's
         # voice, Telegram sendVoice ships it as an inline voicemail at
