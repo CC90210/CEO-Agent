@@ -14,6 +14,35 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 
 ## [Unreleased]
 
+## [6.9.2] — 2026-06-09
+
+V6.9.2 — **Evals, adversarial defense & dispositions.** The fleet was proven *disciplined*
+(V6.9.0/.1); this proves it *good* and *defended*, and tidies the repo estate. See
+`plans/MISSION_2026-06-09_V3.md` + `_V3_PROGRESS.md`.
+
+- **Behavioral evals (the capability gate):** `empire-harness` ships `eval_runner.py`
+  (deterministic scorers + baselines, regression = red) + `eval_mine_mistakes.py` +
+  adapter contract + scheduled `evals.yml`. Each agent repo got a suite whose adapter
+  exercises its **real** code in dry-run — **105 real cases across 6 agents, 100% pass**
+  (CEO routing/send-policy/CASL · SunBiz underwriting/templating · CFO tax/money-gate ·
+  CMO anti-slop/compliance · hermes EDI parse · AURA voice security-gate). MISTAKES.md
+  mined into a 26-case `needs-model` regression backlog (honest, not fake-passed).
+- **Injection red-team:** `redteam/corpus.jsonl` (24 payloads, surface×technique +
+  benign twins) + `redteam_runner.py` assert zero unauthorized *effects* via each repo's
+  real guards. Found **2 genuine exec_guard gaps** (`rm -rf ~/`, `curl|bash`) → hardened
+  (re-run 0 breaches). Shipped the **`LOCKSTEP:untrusted_content`** provenance block to all
+  5 entry points + `provenance.wrap_untrusted`. Finding reported: the guards depend on the
+  hook runner putting `scripts/` on PYTHONPATH (production works; not self-sufficient).
+- **empire-harness v1.1.0:** secret-scanner **confidence tiers** (test/template/fake → LOW,
+  never hidden; fleet HIGH=0) + hardened `pii_sweep` (string #N) + **lock-driven
+  `harness_sync`** (product-safe adaptive init). Fleet re-stamped 8 repos to v1.1.0 in ~20s.
+- **Dispositions (CC ledger D1–D4):** command-center → **private**; oasis-ai-platform +
+  6 dormants → **archived**; 2 keepers hardened; **PropFlow adopted** (LOCKSTEP-in-9).
+- **Receipt-scrub PII:** the V2 changelog had reprinted 2 purged surnames — hardened
+  `pii_sweep` + scrubbed + rewrote history (fresh clone clean). New standing law:
+  redaction tooling/paperwork must never emit the strings it redacts.
+- **Break-glass:** `BREAK_GLASS.md` 10-minute runbook + quarterly drill (0 drift).
+
 ## [6.9.1] — 2026-06-09
 
 V6.9.1 — **Fleet harmonization.** The harness that made V6.9.0 work is now a shipped

@@ -19,9 +19,9 @@ Adjudication lists → gitignored local file; reports reference `string #N`; eve
 - [x] **P3** — Instrument polish → empire-harness v1.1.0 (scanner tiers + hardened pii_sweep) + fleet upgrade drill ✅
 - [x] **P4** — Behavioral eval harness (evals/ framework + 6 seed suites + mistake mine + CI) — CENTERPIECE ✅
 - [x] **P5** — Injection red-team (redteam/ corpus + runner + defenses) ✅
-- [ ] **P6** — Break-glass runbook (BREAK_GLASS.md + quarterly drill)
-- [ ] **P7** — V2.1 deferred (bridge flags + imports + reserve_send_slot mock → CEO pytest green offline)
-- [ ] **FINAL** — ship v1.1.0 + CEO 6.9.2 + FLEET.md + capability scorecard + red-team table + CC actions
+- [x] **P6** — Break-glass runbook (BREAK_GLASS.md + quarterly drill) ✅
+- [x] **P7** — P7.1 done (bridge flags); P7.2/P7.3 send_gateway → V3.1 (concurrent session, Rule 10) ✅
+- [x] **FINAL** — ship v1.1.0 + CEO 6.9.2 + FLEET.md + capability scorecard + red-team table + CC actions ✅
 
 ## Repo paths (evidence — verified 2026-06-09)
 | Repo | Path | Role this mission |
@@ -46,6 +46,15 @@ Adjudication lists → gitignored local file; reports reference `string #N`; eve
 | gritly | C:/Users/User/APPS/gritly | P2 keep + minimal harden |
 
 ## Phase log
+
+### P6 — Break-glass ✅ DONE (2026-06-09)
+- `empire-harness/docs/BREAK_GLASS.md` — 10-minute emergency runbook: STOP (pm2 stop all per machine + bridge_lock release) → REVOKE (Stripe→Google→Supabase service_role→Telegram, blast-radius order) → RESTORE (bundles in `state/.v3_backup_dir`, verify-then-restore). Plus where-things-live (secrets/backups/adjudication/state-db/guard-logs) + what-runs-where map. Plain-English; passes the "fire + 10 min" test. Commit `63905b7`.
+- `scripts/break_glass_drill.py` — dry-run drift check (8 preconditions: pm2, credential wrappers, .env.agents, backup bundles + verify, state DB, guard logs, doc reachable). **Verified: OK, 0 drift.** Quarterly cron `break_glass_drill` added to `cron_engine.py SEED_JOBS` (`0 9 1 */3 *`) — **NOT seeded to Supabase (CC reviews; n8n handler for the action_type is the open automation path).** Commit `e8f131ad`.
+
+### P7 — V2.1 deferred ✅ DONE-with-deferral (2026-06-09)
+- **P7.1 (shipped):** windowless flags on all 5 `bravo_cli` subprocess.run sites (bridge_chat_server ×4 + warm_claude_pool ×1 — the heartbeat test scans the whole package and caught the 5th I'd have missed). `test_bridge_heartbeat_silence` **green (3/3)**; bridge parses. No bridge running → safe edit. Commit `ef2b4b1d`.
+- **P7.2/P7.3 (deferred to V3.1, Rule 10):** a **concurrent Bravo session owns send_gateway right now** (its commits `4eea4baf`+`fc24c43e` landed on top of mine) — editing send_gateway imports / its tests would collide. **Brief premise also stale (verified live):** test_send_gateway is **2 failed / 89 passed** (not 4), **no `reserve_send_slot`** reference exists; the 2 failures are network-boundary (`cooldown_ledger` + `advisory_lock` tests hit a real Supabase write-back → http_400 offline), needing a mock or `@pytest.mark.live`. Do in V3.1 once the send_gateway session lands. **send_gateway decomposition still excluded (its own session).**
+- **Gate honesty:** "CEO pytest fully green offline" is NOT met — 2 send_gateway tests fail on the network boundary (deferred, not broken-by-me).
 
 ### P4 — Behavioral eval harness ✅ DONE (2026-06-09) — CENTERPIECE
 - **Framework** (empire-harness): `tools/eval_runner.py` (scorers: exact/set_match/regex/numeric_tolerance/decision/rubric; baselines + regression-red), `tools/eval_mine_mistakes.py`, `evals/README.md` (adapter contract), `ci/evals.yml` (scheduled, not per-push). Commit `b091fe3`.
