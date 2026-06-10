@@ -71,6 +71,7 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | OKRs / strategy | `brain/OKRs.md` | `brain/CEO_OPERATING_SYSTEM.md` |
 | Risk / what could go wrong | `brain/RISK_REGISTER.md` | — |
 | When to use which skill | `brain/WHEN_TO_USE_SKILLS.md` | `skills/<name>/SKILL.md` |
+| **Resolve a skill by intent (live, preferred)** | run `python scripts/capability_query.py resolve "<intent>"` — semantic router over `brain/CAPABILITY_GRAPH.json`; gws-* CLI-refs are excluded so real skills win | `brain/WHEN_TO_USE_SKILLS.md` |
 | Specific intent verb | `brain/INTENTS.md` | — |
 | What you may write / mutate | `brain/EXECUTION_RULES.md` | — |
 | App-specific work (PropFlow, OASIS, etc.) | `brain/APP_REGISTRY.md` | `APPS_CONTEXT/<app>_CLAUDE.md` |

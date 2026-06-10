@@ -254,84 +254,9 @@ C-Suite coordination via `data/pulse/*.json` (poll-based) and `agent_events` tab
 
 ---
 
-## V6.0 Architecture (synced 2026-05-10 — see CLAUDE.md for canonical version)
+## Architecture (V6.0–V6.8)
 
-Four pillars added 2026-05-10. All gated by `EMPIRE_V6_MODE` env var (off/shadow/on).
-
-- **State** — `state/empire_state.db` (SQLite/WAL) is the source of truth for heartbeats, session_log, active_task. Single writer: `python scripts/state/state_manager.py {heartbeat,log,task,export,status}`. `state_sync.py` dispatches based on `EMPIRE_V6_MODE`. Markdown mirrors auto-regenerate via `state_manager.py export`. Do NOT hand-edit `memory/SESSION_LOG.md` between AUTO-GENERATED-BEGIN/END markers.
-- **Retrieval** — `python scripts/core/memory_retriever.py query "<question>"` returns ranked snippets with file:line refs from 2,700+ chunks across memory/skills/brain in <10ms. Use this BEFORE whole-file Read for "have we hit this before?" / "what's the SOP for X?" queries.
-- **Sandbox** — `scripts/state/exec_guard.py` blocks destructive Bash patterns (DROP, DELETE-without-WHERE, ALTER DROP COLUMN, rm -rf /, force-push to main, git reset --hard <ref>, fork bombs). `scripts/state/state_guard.py` blocks edits on auto-generated state mirror files.
-- **Secrets** — `.env.agents` is NOT LLM-readable. `scripts/state/secret_guard.py` blocks Read on `.env*`/`*.pem`/`*.key`/`credentials.json` and Bash commands that exfiltrate them. Use CLI wrappers (`python scripts/<service>_tool.py <verb> --json`) — they load via `scripts/lib/secret_loader.py` and return only sanitized JSON.
-
-Hook modes (env vars in `.env.agents`):
-- `EMPIRE_HOOK_SECRET_GUARD` (default `report`) → flip to `enforce` for hard-block.
-- `EMPIRE_HOOK_EXEC_GUARD` (default `report`) → flip to `enforce` after 14-day false-positive soak.
-- `EMPIRE_HOOK_STATE_GUARD` (default `off`) → flip to `enforce` after `EMPIRE_V6_MODE=on` cutover.
-
-Audit logs: `state/{secret_guard,exec_guard,state_guard,secret_access}.log` (jsonl). Drift check: `python scripts/state/state_manager.py export --check` exits 1 if mirrors are stale.
-
----
-
-*Last synced with CLAUDE.md / GEMINI.md / ANTIGRAVITY.md / OPENCODE.md: 2026-05-10 (V6 Apex — Optimization Phase closed).*
-
-**Phase 2 (productized deployment, 2026-05-10):** turnkey local + cloud deployment via `infra/docker-compose.{local,cloud}.yml`. Wizard adds `step_environment` + `step_v6_init` (boots state DB, FTS5 index, scoped env files `.env.agents.{core,webhook,dashboard}`). Command Center adds `/system-health` and `/playbook/onboarding`. Cloud → `enforce` for all guards; local → `shadow` mode. Full registry: brain/CAPABILITIES.md "V6.0 Phase 2 — Productized Deployment".
-
-## V6 Apex (2026-05-10 — V6 Optimization Phase closed)
-
-The four pillars above ship the local-side state + retrieval + guards. **V6 Ascension** (BUILDs 1–5) wired the cross-agent substrate; **V6 Apex** (Phases 1–3) made it operator-facing.
-
-- **Cross-agent event bus (Ascension BUILD 3):** Postgres `agent_events` substrate with raw psycopg LISTEN/NOTIFY for sub-100ms wake-up + `claim_events()` (`FOR UPDATE SKIP LOCKED`) for atomic dequeue. Producers: `state_manager.append_session_log` → `BRAVO_SESSION_LOG_APPENDED`, `pulse_publish.cmd_refresh` → `BRAVO_PULSE_REFRESHED`, `bridge_chat_server._v6_log_chat_interaction` → `BRAVO_CHAT_INTERACTION`, `send_gateway._emit_outbound_sent` → `BRAVO_OUTBOUND_SENT`. Idempotency via unique `idempotency_key` index; offline fallback to `tmp/events_offline.jsonl`. Substrate spec: `brain/EVENT_BUS_CONTRACT.md`.
-- **Hybrid semantic memory (Ascension BUILD 2):** FTS5 lexical (BM25) + LanceDB cosine (fastembed ONNX MiniLM-L6-v2, 384-dim, no PyTorch dep) fused via Reciprocal Rank Fusion (k=60). Same `memory_retriever.py query "..."` entry point — the hybrid is transparent. LanceDB store: `state/memory_lance/`.
-- **~~Dashboard-driven override approvals (Apex Phase 2)~~** — DELETED 2026-05-22 per CC. The block in `exec_guard` is still in place (refuses DROP TABLE / rm -rf / git push --force), but no longer creates approval-request rows in `exec_overrides` or surfaces an Approve/Deny page. The block IS the protection; the agent picks a different approach when blocked.
-- **Cross-agent event feed (Apex Phase 3):** `scripts/core/event_router.py loop` is a cursor-based, lossless on-host tail (`state/event_router.cursor` + `state/event_router.log`). The dashboard `/feed` page is the cloud-side view of the same stream; a 5-second `router.refresh()` client island keeps it live without websocket dependencies. Single-machine — multi-host arbitration is `bridge_lock.py`'s contract.
-- **State-health fallback (Apex Phase 1):** `app/api/state-health/route.ts` in the [oasis-command-center](https://github.com/CC90210/oasis-command-center) repo is two-tier: state-api passthrough preferred (local + Cloud Compose), Supabase mirror fallback on Vercel where `state-api:8500` is not routable. Response carries `source: "state-api" | "supabase-mirror"`; the header tags the path so operators see which side served the payload.
-
-Daemons that should run 24/7 on CC's machine (see PLAYBOOK.md for full ops):
-```bash
-pm2 start scripts/core/event_router.py            --name event-router      --interpreter python -- loop --interval 3
-pm2 save
-```
-
-V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by June 18).
-
-## Multi-Machine Bridge Arbitration (V6.5)
-
-`scripts/bridge_lock.py` is the shared multi-machine arbiter for Telegram (and future Discord/Slack) bridges. Lockfile at `~/.oasis/bridge_locks/<agent>.json` holds host+pid+heartbeat. Each bridge calls `acquire` at startup (exits 1 if another host has fresh heartbeat <60s old; PM2 backs off + retries), `heartbeat` every 15s, `release` on shutdown. CLI: `python scripts/bridge_lock.py {acquire|heartbeat|release|status} --agent bravo --json`. Replaces the old "go dormant on 409" path that left bridges silently broken for days.
-
-## Capability Graph (V6.6)
-
-`brain/CAPABILITY_GRAPH.json` is the canonical machine-readable registry of every skill, script, agent, MCP server, and workflow in this repo. Three scripts maintain it:
-
-- `scripts/build_capability_graph.py` — auto-discovers capabilities from frontmatter + docstrings + MCP configs. Run after adding any new file in skills/, scripts/, agents/, or .agents/workflows/.
-- `scripts/capability_query.py` — runtime resolver. `resolve "send outreach email"` returns top-N matching skills by trigger overlap. Use this at decision time instead of grepping markdown.
-- `scripts/register.py` — one-command "add new capability" wizard. `register.py skill <name> --description "..." --triggers "..."` scaffolds the file with proper frontmatter, rebuilds the graph, runs self_audit, prints next-steps. Ends the 6-step add-a-skill ritual.
-
-## Agentic OS Orchestration (V6.7, 2026-05-14)
-
-Closes the highest-leverage gaps from `brain/AGENTIC_OS_REFERENCE.md` §10 — the canonical 5-layer agentic-OS logic spec all CC agents (Bravo, Maven, Atlas, Hermes, future client agents) must be mappable to.
-
-- **Hooks become orchestration (not just guards):** `.claude/settings.local.json` adds `SessionStart` → `scripts/hooks/session_start.py`, `PreCompact` → `scripts/hooks/pre_compact.py`, `UserPromptSubmit` → `scripts/hooks/user_prompt_submit.py` (tiered T1/T2/T3 `memory_retriever` snippet injection), `PreToolUse Bash` → `scripts/hooks/anti_pattern_hook.py`. `scripts/hooks/rotate_logs.py` runs from `SessionStart` (12h idempotency, gzips `state/*.log` >5MB).
-- **Pantry / Prep Table / Plate data tier:** `brain/DATA_TAXONOMY.md` is the canonical manifest. Snapshots: `scripts/snapshots/briefing_snapshot.py` (daily 06:00), `scripts/snapshots/leads_snapshot.py` (Sat 22:00), `scripts/snapshots/client_alerts_snapshot.py` (daily 07:00). Outputs land in `state/snapshots/latest_*.json`. Three jobs registered in `cron_engine.py SEED_JOBS` with `action_type=snapshot_run`.
-- **Three new canonical skills:** `skills/silver-platter/` (per-agent data-readiness audit), `skills/integrations-sync/` (idempotent refresh patterns), `skills/memory-journaling/` (structured DECISIONS / PATTERNS / MISTAKES logging).
-- **Six new INTENTS playbooks** in `brain/INTENTS.md`: generate CEO briefing, draft proposal/SOW, score a lead, log a decision, sync an external data source, publish to social.
-
-Source provenance: `brain/AGENTIC_OS_REFERENCE.md`. All four sibling agents (Bravo, Maven at `~/CMO-Agent`, Atlas at `~/APPS/CFO-Agent`, Hermes at `~/APPS/hermes`) carry the same V6.7 logic anchor — implementation differs per-agent, taxonomy and skill set is shared.
-
-## Agent-OS Vocabulary Layer (V6.8, 2026-05-16)
-
-Closes the discoverability + governance gap. V6.0–V6.7 built the substrate; V6.8 makes it self-documenting and externally distributable. Full propagation contract: [brain/V68_AGENT_OS_PATTERNS.md](brain/V68_AGENT_OS_PATTERNS.md).
-
-- **[CONTEXT.md](CONTEXT.md) at project root** — canonical empire vocabulary glossary. All five sibling entry points reference it as boot item #5. Indexed by `memory_retriever.py` (new `context` scope).
-- **[docs/adr/](docs/adr/) — Architectural Decision Records** — numbered, dated, frontmatter-tagged. Scaffold new ones with `python scripts/register.py adr-new <slug>`. Distinct from `memory/DECISIONS.md` — ADRs are architectural and persistent.
-- **Skill frontmatter conventions** — three new keys honored across the graph + resolver:
-  - `disable_model_invocation: true` — skill never auto-loads via semantic match; fires ONLY on explicit `/command`.
-  - `argument_hint: "<question>"` — surfaces invocation prompt at runtime.
-  - `requires: [env:KEY, daemon:NAME, state:PATH]` — declares hard dependencies per ADR-0001. Enforced by `python scripts/capability_query.py check-deps <node_id>`.
-- **Skill lifecycle directories** — `skills/_archive/` (retired) and `skills/in-progress/` (staging). Both excluded from `build_capability_graph.py` (`SKIP_SKILL_DIRS`) and `.claude-plugin/plugin.json`.
-- **[.claude-plugin/plugin.json](.claude-plugin/plugin.json)** — distribution manifest. 47 universally-useful skills listed for `npx skills@latest add` consumption.
-- **[skills/skill-creator/SKILL.md](skills/skill-creator/SKILL.md)** — opens with a 4-step "Before drafting any new skill" checklist enforcing CONTEXT.md consult + hard/soft dep classification per ADR-0001 + invocation-discipline decision + scaffold via `register.py skill`.
-
-**V6.8.1 (2026-05-16):** Promoted V6.8 to load-bearing substrate. `user_prompt_submit.py` auto-injects CONTEXT.md definitions on every prompt that mentions a glossary term. `capability_query.py check-deps` enforces ADR-0001 `requires:` declarations. `register.py skill` wizard emits V6.8 frontmatter by default.
+Full history + substrate detail (state DB · retrieval · guards · event bus · capability graph · agentic-OS hooks · vocabulary layer): **brain/V6_ARCHITECTURE.md** — read on architecture/redesign turns. Operationally: resolve a skill with `python scripts/capability_query.py resolve "<intent>"` (router over `brain/CAPABILITY_GRAPH.json`); guard modes in **Safety & Hooks** above; state via `python scripts/state/state_sync.py`.
 
 ## Inventory (synced 2026-06-06)
 
