@@ -15,7 +15,7 @@ Adjudication lists → gitignored local file; reports reference `string #N`; eve
 ## Phase checklist
 - [x] **P0** — Preflight (status table, bundle backups, guard check, gh auth) ✅
 - [x] **P1** — Receipt scrub: harden pii_sweep + scrub 3 HEAD files + mini-rewrite 🔴 ✅ (CC: GO PHASE 1)
-- [ ] **P2** — Dispositions: command-center private · oasis-ai archive · 6 archives · 2 keepers · PropFlow wave-B
+- [x] **P2** — Dispositions: command-center private · oasis-ai archive · 6 archives · 2 keepers · PropFlow wave-B ✅
 - [ ] **P3** — Instrument polish → empire-harness v1.1.0 (scanner tiers + hardened pii_sweep) + fleet upgrade drill
 - [ ] **P4** — Behavioral eval harness (evals/ framework + 6 seed suites + mistake mine + CI) — CENTERPIECE
 - [ ] **P5** — Injection red-team (redteam/ corpus + runner + defenses)
@@ -46,6 +46,15 @@ Adjudication lists → gitignored local file; reports reference `string #N`; eve
 | gritly | C:/Users/User/APPS/gritly | P2 keep + minimal harden |
 
 ## Phase log
+
+### P2 — Dispositions ✅ DONE (2026-06-09)
+- **D1 command-center → PRIVATE:** `gh repo edit --visibility private` verified PRIVATE. **CC action: 1 Vercel redeploy to confirm build.**
+- **D2 oasis-ai-platform → ARCHIVED:** README banner (superseded + Supabase decommissioned) committed `c285769`, then `gh repo archive` (isArchived=true). `vercel.json` WIP left untouched (CC's). **CC optional: delete dead Supabase project.**
+- **D4 6 archived** (banner → push-verified-on-origin → seal): tiktik `492d008`, shopify-ad-engine `16568a5`, cc-funnel `893433e`, ig-setter-pro `105542e`, grapevinecottage `38a8aeb`, kli-hub `a534232` (+ prisma/dev.db* untracked). All `isArchived=true`, origin top = banner, ahead=0 before seal. Secret pre-check: all clean except kli README example `postgres://user:pass@host` (template false-positive, not real).
+- **D4 2 keepers minimal-harden** (NOT archived): nostalgic-requests `eedc25d`, gritly `c3b0734` — README status line; gitignore sound (only `.env.example` tracked, no real secrets).
+- **PropFlow wave-B adopted v1.0.0:** LOCKSTEP into CLAUDE.md + vendored `.harness/` canonical + harness.lock + **adaptive** `tests/test_harness_canonical.py` (scopes to existing entry points — 4 tests green) + CI. Commit `d93c71c` (propflow.pro Vercel-safe committer). **Fleet now LOCKSTEP-in-9.**
+- **Instrument gap found (→ P3):** both fleet drift tests (CEO + empire-harness) hardcode 5 entry points; `harness_sync` MANIFEST syncs the agent-shaped parity test — neither fits a 1-entry-point product. PropFlow got the new adaptive test; P3 promotes it fleet-wide + makes harness_sync product-safe.
+- **FLEET.md** updated (empire-harness `0bf133d`); fleet_doctor proves 9 adopters on v1.0.0, LOCK+CI green.
 
 ### P0 — Preflight ✅ DONE (2026-06-09)
 - **All 18 target repos located + on disk.** Status table captured (branches: CEO/empire-harness/SunBiz/CMO/hermes/AURA/cmd-center/oasis-ai/realestate/shopify/ig-setter/grapevine/kli/nostalgic = main · CFO/tiktik/cc-funnel/gritly = master).
