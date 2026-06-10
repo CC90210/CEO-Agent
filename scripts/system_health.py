@@ -182,24 +182,42 @@ def check_pm2_paths():
 
 
 # ── 5. path-drift detector ──────────────────────────────────────────────────
+# Catches BOTH reference shapes that caused the V6→V7 incidents:
+#   (a) string literal           "scripts/core/memory_retriever.py"
+#   (b) segmented Path build      REPO_ROOT / "scripts" / "state" / "state_manager.py"
+# (b) is the incident-#1/#3 class — a hardcoded internal script path behind an .exists()
+# guard that silently became always-False after the file moved into a subpackage.
+_LITERAL_RE = re.compile(r'["\'](scripts/[A-Za-z0-9_./-]+\.py)["\']')
+_SEGMENT_RE = re.compile(r'["\']scripts["\']\s*(?:/\s*["\'][A-Za-z0-9_.-]+["\']\s*)+')
+_SEG_TOKEN = re.compile(r'["\']([A-Za-z0-9_.-]+)["\']')
+
+
+def _drift_refs(text):
+    """Yield every repo-relative scripts/*.py path referenced in source (both shapes)."""
+    for m in _LITERAL_RE.findall(text):
+        yield m
+    for chunk in _SEGMENT_RE.findall(text):
+        segs = _SEG_TOKEN.findall(chunk)  # ['scripts', 'state', 'state_manager.py']
+        if segs and segs[-1].endswith(".py"):
+            yield "/".join(segs)
+
+
 def check_path_drift():
     drift = []
-    ref_re = re.compile(r'["\'](scripts/[A-Za-z0-9_./-]+\.py)["\']')
     for f in _py_files("scripts", "bravo_cli"):
         try:
             text = f.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             continue
-        for m in ref_re.findall(text):
-            if _is_example(m):
+        for ref in _drift_refs(text):
+            if _is_example(ref):
                 continue  # docstring sample (scripts/foo.py etc.), not a real dependency
-            target = PROJECT_ROOT / m
-            if not target.exists():
-                drift.append(f"{f.relative_to(PROJECT_ROOT)} → {m}")
+            if not (PROJECT_ROOT / ref).exists():
+                drift.append(f"{f.relative_to(PROJECT_ROOT)} → {ref}")
     drift = sorted(set(drift))
     if drift:
         return _result("path-drift", RED, f"{len(drift)} unresolved scripts/*.py reference(s)", drift[:20])
-    return _result("path-drift", GREEN, "every scripts/*.py reference in code resolves")
+    return _result("path-drift", GREEN, "every scripts/*.py reference in code resolves (literal + segmented)")
 
 
 # ── 6. raw subprocess sweep (informational) ─────────────────────────────────

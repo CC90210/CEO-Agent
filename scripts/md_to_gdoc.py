@@ -32,7 +32,7 @@ except ImportError:
     sys.exit(2)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-GOOGLE_TOOL = REPO_ROOT / "scripts" / "google_tool.py"
+GOOGLE_TOOL = REPO_ROOT / "scripts" / "integrations" / "google_tool.py"
 
 CSS = """
 <style>

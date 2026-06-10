@@ -122,7 +122,7 @@ def check_cron() -> dict[str, Any]:
     """Run cron_engine.py list and parse active vs inactive."""
     try:
         result = subprocess.run(
-            [sys.executable, str(REPO_ROOT / "scripts" / "cron_engine.py"), "list"],
+            [sys.executable, str(REPO_ROOT / "scripts" / "core" / "cron_engine.py"), "list"],
             capture_output=True,
             text=True,
             timeout=15,
@@ -166,7 +166,7 @@ def check_memory_staleness() -> dict[str, Any]:
     """Run memory_aging.py stale --days 7 --json and summarize."""
     try:
         result = subprocess.run(
-            [sys.executable, str(REPO_ROOT / "scripts" / "memory_aging.py"), "stale", "--days", "7", "--json"],
+            [sys.executable, str(REPO_ROOT / "scripts" / "core" / "memory_aging.py"), "stale", "--days", "7", "--json"],
             capture_output=True,
             text=True,
             timeout=15,

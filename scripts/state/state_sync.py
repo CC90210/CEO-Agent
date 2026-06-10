@@ -175,7 +175,7 @@ def sync_mem0(note: str):
     """Add observation to semantic memory via mem0_tool.py."""
     python = sys.executable
     result = subprocess.run(
-        [python, str(PROJECT_ROOT / "scripts" / "mem0_tool.py"), "add",
+        [python, str(PROJECT_ROOT / "scripts" / "integrations" / "mem0_tool.py"), "add",
          f"[state_sync] {note}", "--user", "bravo"],
         capture_output=True, text=True, cwd=str(PROJECT_ROOT), timeout=30
     , creationflags=WINDOWLESS_FLAGS)

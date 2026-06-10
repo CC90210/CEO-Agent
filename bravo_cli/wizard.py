@@ -2438,7 +2438,7 @@ def step_v6_init(profile: str, step_num: int, total: int) -> None:
         print(f"  {GREEN(OK)} Hooks: secret={CYAN(secret_mode)} exec={CYAN(exec_mode)} state={CYAN(state_mode)}")
 
     # Bootstrap the DBs.
-    sm_script = REPO_ROOT / "scripts" / "state_manager.py"
+    sm_script = REPO_ROOT / "scripts" / "state" / "state_manager.py"
     if sm_script.exists():
         if profile != "sunbiz":
             print(f"  {DIM('Initializing')} {CYAN('state/empire_state.db')}{DIM('...')}")

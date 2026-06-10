@@ -890,7 +890,7 @@ def _call_provider(
 # Best-effort + fire-and-forget. State logging never blocks or breaks chat.
 
 _V6_REPO_ROOT = Path(__file__).resolve().parents[1]
-_V6_STATE_MANAGER = _V6_REPO_ROOT / "scripts" / "state_manager.py"
+_V6_STATE_MANAGER = _V6_REPO_ROOT / "scripts" / "state" / "state_manager.py"
 
 
 def _role_fingerprint(disallowed_tools: list[str] | None) -> str:

@@ -78,7 +78,7 @@ def audit_agent(name: str, root: Path) -> AgentReport:
         report.skip_reason = f"repo missing at {root}"
         return report
 
-    audit_script = root / "scripts" / "self_audit.py"
+    audit_script = root / "scripts" / "core" / "self_audit.py"
     if not audit_script.exists():
         report.skipped = True
         report.skip_reason = "no self_audit.py in scripts/"
@@ -137,7 +137,7 @@ def autofix_drift(root: Path) -> str | None:
 
 def archive_stale_memory(root: Path) -> str | None:
     """Move stale memory entries to archives. Pure script call, no LLM."""
-    aging = root / "scripts" / "memory_aging.py"
+    aging = root / "scripts" / "core" / "memory_aging.py"
     if not aging.exists():
         return None
     rc, out, err = _run(
@@ -157,7 +157,7 @@ def archive_stale_memory(root: Path) -> str | None:
 
 
 def scan_memory_staleness(root: Path, days: int = 7) -> tuple[int, str | None]:
-    aging = root / "scripts" / "memory_aging.py"
+    aging = root / "scripts" / "core" / "memory_aging.py"
     if not aging.exists():
         return 0, None
     rc, out, err = _run(
