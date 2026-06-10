@@ -120,6 +120,7 @@ def _ensure_critical_deps() -> None:
             ],
             check=True,
             timeout=180,
+            creationflags=_WINDOWLESS_FLAGS,
         )
         print("[ensure_deps] install completed", file=sys.stderr)
     except Exception as e:
@@ -2303,6 +2304,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                             timeout=2,
                             env=env,
                             check=False,
+                            creationflags=_WINDOWLESS_FLAGS,
                         )
                         ver = ((proc.stdout or proc.stderr) or "").strip().splitlines()
                         if ver:
@@ -2570,6 +2572,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 text=True,
                 timeout=1.5,
                 check=False,
+                creationflags=_WINDOWLESS_FLAGS,
             )
             path = (proc.stdout or "").strip().splitlines()
             if path and path[0] and os.path.exists(path[0]):
@@ -2593,6 +2596,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 text=True,
                 timeout=1.5,
                 check=False,
+                creationflags=_WINDOWLESS_FLAGS,
             )
             full = (proc.stdout or "").strip().splitlines()
             self._login_shell_path = full[0] if full else ""

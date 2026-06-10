@@ -169,6 +169,7 @@ def _resolve_claude_bin() -> Optional[str]:
             text=True,
             timeout=1.5,
             check=False,
+            creationflags=WINDOWLESS_FLAGS,
         )
         lines = (proc.stdout or "").strip().splitlines()
         if lines and lines[0] and os.path.exists(lines[0]):
