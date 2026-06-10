@@ -248,7 +248,7 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 
 ## V6.0 Architecture (2026-05-10 — transactional state + retrieval + guards)
 
-> Live behind `EMPIRE_V6_MODE` (off/shadow/on). See [CLAUDE.md](../CLAUDE.md) "V6.0 Architecture" for the canonical spec.
+> Live behind `EMPIRE_V6_MODE` (off/shadow/on). See [brain/V6_ARCHITECTURE.md](V6_ARCHITECTURE.md) "V6.0 Architecture" for the canonical spec (moved out of CLAUDE.md 2026-06-10).
 
 | Component | Path | Purpose | CLI |
 |-----------|------|---------|-----|

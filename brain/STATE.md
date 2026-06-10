@@ -18,7 +18,7 @@ verified: 2026-06-09
 >
 > **V6 Apex (2026-05-10 — closes the V6 architecture epic):**
 >   - **Phase 1** — `/api/state-health` two-tier read path: state-api passthrough preferred, Supabase mirror fallback for Vercel. The page renders a `via state-api` / `via supabase-mirror` tag so operators see which side served the payload.
->   - **Phase 2** — ~~Dashboard-driven override approvals~~ **DELETED 2026-05-22 per CC.** The `exec_guard` block on destructive operations (DROP TABLE / rm -rf / git push --force) stands — the block IS the protection. No approval-request rows, no `/overrides` page. When blocked, the agent picks a different approach. (See CLAUDE.md "V6 Apex" note for the canonical removal rationale.)
+>   - **Phase 2** — ~~Dashboard-driven override approvals~~ **DELETED 2026-05-22 per CC.** The `exec_guard` block on destructive operations (DROP TABLE / rm -rf / git push --force) stands — the block IS the protection. No approval-request rows, no `/overrides` page. When blocked, the agent picks a different approach. (See brain/V6_ARCHITECTURE.md "V6 Apex" for the canonical removal rationale.)
 >   - **Phase 3** — Cross-agent event feed. `scripts/core/event_router.py loop` is a cursor-based, lossless observability tail; `state/event_router.log` carries the on-host audit projection. `/feed` page is the cloud-side view of the same `agent_events` stream with 5s `router.refresh()` (no websockets).
 >
 > Bravo is officially out of the architecture phase. The next epic is business execution: $5K Net MRR by June 18, 2026 (deadline extended 2026-05-18 from May 30 after primary retainer ended — gives 31 days to rebuild $4,629 from $371 baseline).

@@ -3,7 +3,7 @@ title: Agentic OS — Canonical Cross-Reference (V6.7 anchor)
 source: YouTube video "Build your agentic OS better than 99% of people" (https://www.youtube.com/watch?v=-WCNwxz3uoM)
 transcript: docs/references/agentic-os-99pct-transcript.txt
 captured: 2026-05-14
-version: V6.7 (slots into V6.0/Phase-2 → V6.5 → V6.6 → V6.7 lineage; see CLAUDE.md "Agentic OS Orchestration (V6.7)")
+version: V6.7 (slots into V6.0/Phase-2 → V6.5 → V6.6 → V6.7 lineage; see brain/V6_ARCHITECTURE.md "Agentic OS Orchestration (V6.7)")
 mutability: GOVERNED
 purpose: Single source of logical truth for how every CC agent (Bravo, Maven, Atlas, Hermes, future) should be structured. Practice may diverge — logic should not.
 applies_to: Business-Empire-Agent (Bravo), CMO-Agent (Maven), CFO-Agent (Atlas), hermes (Hermes), all future client agents forged via skills/agent-forge

@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **53 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **55 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -16,6 +16,7 @@ Auto-generated index of tracked `brain/*.md` — **53 files**. Each file's first
 - [HOW_TO_USE_THE_4_AGENTS.md](HOW_TO_USE_THE_4_AGENTS.md) — HOW TO USE THE 4-AGENT SYSTEM — CC's Operating Manual
 - [INTERACTION_PROTOCOL.md](INTERACTION_PROTOCOL.md) — BRAVO — Interaction Protocol V1.0
 - [ORCHESTRATION.md](ORCHESTRATION.md) — ORCHESTRATION — Capability Governance & Routing Integrity
+- [ORCHESTRATION_DECISION_TABLE.md](ORCHESTRATION_DECISION_TABLE.md) — ORCHESTRATION — Decision Table (read this first)
 - [SECURITY_MODEL.md](SECURITY_MODEL.md) — SECURITY MODEL — Agent Command Center
 - [SOUL.md](SOUL.md) — BRAVO — High-Leverage Business Manager (V5.5)
 - [STATE.md](STATE.md) — STATE — Current Operational State
@@ -57,6 +58,7 @@ Auto-generated index of tracked `brain/*.md` — **53 files**. Each file's first
 - [SETUP_WIZARD_2_SPEC.md](SETUP_WIZARD_2_SPEC.md) — Setup Wizard 2.0
 - [SHARED_DB.md](SHARED_DB.md) — Shared DB
 - [TOOL_SHED.md](TOOL_SHED.md) — 🧰 TOOL SHED — CC's GitHub Repository Catalog
+- [V6_ARCHITECTURE.md](V6_ARCHITECTURE.md) — V6 Architecture — Canonical History (V6.0 → V6.8)
 
 ## Routing & capability map
 - [AGENT_INDEX.md](AGENT_INDEX.md) — Agent Index — The 4-Agent Graph Hub
