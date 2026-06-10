@@ -39,6 +39,12 @@ HARD_BLOCKS: list[tuple[str, re.Pattern]] = [
     ("xargs-rm",           re.compile(r"\bxargs\b(?:\s+-[a-zA-Z0-9-]+(?:\s+\S+)?)*\s+rm\b", re.IGNORECASE)),
     ("rm-etc",             re.compile(r"\brm\s+(-[a-zA-Z]+\s+)?/etc(?:/|\s|$)")),
     ("rm-windows-system",  re.compile(r"\brm\s+(-[a-zA-Z]+\s+)?(?:/c/Windows|C:\\Windows)", re.IGNORECASE)),
+    # rm -rf of the home dir (~ or $HOME) — red-team override-email-21 (2026-06-09)
+    # found `rm -rf ~/` slipped past rm-rf-root (which anchors on a literal `/`).
+    ("rm-rf-home",         re.compile(r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+(?:~|\$HOME)(?:/|\s|$)")),
+    # fetch-and-execute: curl/wget piped into a shell/interpreter — red-team
+    # toolbait-email-07 (2026-06-09) found `curl … | bash` runs arbitrary remote code.
+    ("curl-pipe-shell",    re.compile(r"\b(?:curl|wget)\b[^|]*\|\s*(?:sudo\s+)?(?:bash|sh|zsh|dash|python3?|node|perl|ruby)\b", re.IGNORECASE)),
     ("rm-env-agents",      re.compile(r"\brm\s+(-[a-zA-Z]+\s+)?\.env\.agents\b")),
     ("rm-state-db",        re.compile(r"\brm\s+(-[a-zA-Z]+\s+)?state/empire_state\.db\b")),
     ("drop-database",      re.compile(r"\bDROP\s+(TABLE|DATABASE|SCHEMA|INDEX|VIEW)\b", re.IGNORECASE)),
