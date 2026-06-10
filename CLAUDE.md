@@ -179,7 +179,7 @@ Full history + substrate detail (state DB · retrieval · guards · event bus ·
 
 ## Sub-Agent Orchestration
 
-17 agents + Codex executor — full registry and decision matrix: brain/AGENTS.md. Master multi-agent contract (pulse protocol, veto authority, agent inbox, headless mode): brain/AGENT_ORCHESTRATION.md. Task routing, anti-drift, SPARC, permissions, background workers: see `skills/[skill]/SKILL.md` on demand.
+**Scannable first stop: brain/ORCHESTRATION_DECISION_TABLE.md** — who handles a task, when to delegate (Codex/Maven/Atlas/Aura/Hermes), when the Validator MUST run, who approves money/sends. Drill into the deep docs only when a row needs detail: full registry + risk matrix in brain/AGENTS.md; master contract (pulse, veto, inbox, headless) in brain/AGENT_ORCHESTRATION.md. The Validator gate auto-reminds via the `SubagentStop` hook when a sub-agent leaves changed files. Task routing, anti-drift, SPARC, permissions, background workers: `skills/[skill]/SKILL.md` on demand.
 
 ## Skills (on-demand — load SKILL.md when needed, not at boot)
 
