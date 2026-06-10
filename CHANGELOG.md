@@ -14,6 +14,35 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 
 ## [Unreleased]
 
+## [7.0.0] — 2026-06-10
+
+V7.0 — **Reliability & Observability foundation.** CC lifted the $5K freeze to harden the OS
+to elite-grade. A 5-agent audit + GitHub/arXiv research sweep grounded a turnkey pass that
+makes silent failures *loud*, bounds unbounded state, gates routing accuracy, and brings the
+fleet to security parity. The structural file-reorg (original EPIC 1) is deferred to V7.1 —
+lower value, and unsafe under a live concurrent session. See `docs/V7_OPTIMIZATION_PLAN.md`.
+
+- **Loud Failures (EPIC 7):** `scripts/system_health.py` — 7 probes (cron-script/hook/MCP
+  existence, PM2 stale-`pm_exec_path` audit, **path-drift detector covering the segmented
+  `Path/"scripts"/"X.py"` construction**, raw-subprocess + silent-except sweeps) + weekly cron.
+  **Found + fixed 8 LIVE path-drift silent-failures** — wizard + bridge_chat_server state-DB
+  bootstrap was dead behind always-False `.exists()` guards (fresh-install DB never initialized;
+  VPS chat session-log silently dropped); state_sync mem0, md_to_gdoc, fleet_health,
+  agent_self_improvement all referenced moved files. EPIC 7B: breadcrumbs on revenue_engine's
+  silent $0-MRR-on-DB-error + event_bus ack/fail swallows. EPIC 7A: bravo_sleep windowless flags;
+  subprocess audit 15→5 (exempt confirmed false-positives so a real one is unmissable).
+- **State hygiene (EPIC 3):** `scripts/core/state_compact.py` — LanceDB 410→1 versions,
+  30.7→7.5 MB reclaimed; weekly compaction cron. (Bounds the unbounded PostToolUse re-index growth.)
+- **Routing-accuracy gate:** `test_routing_accuracy.py` — golden regression + capability-floor
+  tiers (Anthropic eval-graduation pattern), CI-gated against gws-*-pollution-class regressions.
+- **state_manager tests:** the zero-tested DB single-writer / source-of-truth now has 4 round-trip
+  tests (heartbeat/session-log-dedup/task).
+- **Fleet parity:** the `LOCKSTEP:untrusted_content` prompt-injection block (which had silently
+  never propagated past CEO) shipped to all 3 siblings (CMO/CFO/SunBiz); system_health +
+  state_compact promoted into the harness scaffold for new client agents.
+- **V7.1 roadmap** captured from the research sweep (stuck-loop detector, outcome-state
+  verification, semantic tool pre-filter, temporal memory index, causal-chain tracing).
+
 ## [6.9.2] — 2026-06-09
 
 V6.9.2 — **Evals, adversarial defense & dispositions.** The fleet was proven *disciplined*

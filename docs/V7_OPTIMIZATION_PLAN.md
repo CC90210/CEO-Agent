@@ -8,11 +8,58 @@
 
 ---
 
-## ⛔ STATUS: FROZEN until $5K MRR hit (target 2026-06-18, 12 days out as of 2026-06-06)
+## ✅ STATUS: V7.0 RELIABILITY FOUNDATION SHIPPED (Fable, 2026-06-10) — freeze lifted by CC
 
-Per CC's 2026-06-06 decision, V7 structural work is paused while the team executes the $5K Net MRR goal. Resume after the deadline.
+CC lifted the $5K freeze 2026-06-10 to harden the OS to "most-elite-on-the-market." A deep
+audit + GitHub/AI-OS research sweep (5-agent workflow) grounded a turnkey reliability pass.
+**This session shipped the V7 reliability & observability foundation (EPIC 7 + EPIC 3 + research
+adoption); the EPIC 1 mass-reorg is DEFERRED — see below.**
 
-### Revised execution rules (CC 2026-06-06):
+### What shipped 2026-06-10 (V7.0):
+- **EPIC 7 (Loud Failures) — built.** `scripts/system_health.py` (7 probes: cron-script/hook/MCP
+  existence, **PM2 stale `pm_exec_path` audit** (incident-#4 class), **path-drift detector** that
+  catches the segmented `Path/"scripts"/"X.py"` construction (incident-#1/#3 class), raw-subprocess
+  + silent-except sweeps) + a weekly `Loud Failures Probe` cron. **It found + I fixed 8 LIVE
+  path-drift silent-failures** (wizard/bridge state-DB bootstrap dead, state_sync mem0 no-op,
+  md_to_gdoc, fleet_health, agent_self_improvement all pointing at moved files). EPIC 7B: loud
+  breadcrumbs on revenue_engine's $0-MRR-on-DB-failure blind spot + event_bus ack/fail swallows.
+  EPIC 7A: bravo_sleep daemon windowless flags + audit-trustworthiness (15→5 violations).
+- **EPIC 3 (state hygiene) — LanceDB compaction shipped.** `scripts/core/state_compact.py` ran
+  410→1 versions / 30.7→7.5 MB; weekly compaction cron added.
+- **Routing accuracy gate** (research pattern): `test_routing_accuracy.py` — golden regression +
+  capability-floor tiers, CI-gated.
+- **state_manager tests** (the zero-tested DB source-of-truth): 4 round-trip tests.
+- **Fleet:** propagated the `LOCKSTEP:untrusted_content` prompt-injection block to all 3 siblings
+  (CMO/CFO/SunBiz — it had silently never reached them); promoted system_health + state_compact
+  into the harness scaffold so new agents inherit them.
+
+### Stale assumptions in the original plan — CORRECTED by the 2026-06-10 audit:
+- EPIC 1: do NOT use backward-compat shims (CC 2026-06-06) — surgical move of ~50 canonical scripts.
+- EPIC 4 "dead dirs" are mostly WRONG: `supabase/` holds live CLI state, `templates/` is the
+  20-file client-harness scaffold, `bravo_cli/` is the LIVE bridge runtime, `Untitled.canvas` is
+  already gone. Only genuine dead: 3 `__pycache__` dirs under `scripts/_archive/`.
+- EPIC 6 (backup/health/preflight): **mostly already built in V6.8.3** (backup_db.py,
+  health_aggregator.py, verify_deploy.py, security_audit.py). Remaining: ROLLBACK.md + preflight.py.
+- EPIC 2 claim "context_builder zero-tested" is WRONG (it has 5 tests in test_send_gateway.py).
+
+### EPIC 1 (scripts reorg) — DEFERRED to V7.1, deliberately:
+A concurrent Bravo session was actively shipping the send/email/bridge stack during this pass —
+a mass file-move under a live session guarantees collisions. AND the EPIC-7 path-drift detector
+now GUARDS the moved-file class (the bug the reorg most risks), so the reorg is far safer to do
+later in a quiet window. EPIC 1 is the lowest-value / highest-risk epic; reliability came first.
+
+### V7.1+ ROADMAP (research-backed, from the 2026-06-10 GitHub/arXiv sweep):
+High-value gaps the architecture doesn't yet address (all additive, no new deps): **stuck-loop
+detector** on the agent's own action stream (OpenHands V1); **outcome-state verification** on cron
+ops (transcript-vs-outcome split); **semantic tool pre-filter** in user_prompt_submit (AWS pattern,
+60-80% skill-context token cut); **temporal memory index** (SwiftMem, 3-5× recency queries);
+**causal-chain trace** (`parent_event_id`); **cooldown-gated bridge restart** (the Maven 512-restart
+class); **session-checkpoint persistence**. Plus: promote capability_query routing-fix to CMO/CFO
+resolvers, back-fill decision-table/V6_ARCHITECTURE to siblings, secret_loader+apply_migration tests.
+
+---
+
+### Original execution rules (CC 2026-06-06, pre-Fable):
 1. **EPIC 1 reorg shape:** surgical move of the ~50 canonical scripts only, **no backward-compat shims**, single-PR import audit. Long-tail utilities (one-off scripts, CLIs, codemods) stay at `scripts/` root. Cleaner end-state than 187 files + 187 shims.
 2. **Test location:** `scripts/tests/` is canonical (not `tests/` at repo root as originally drafted). Today's 11-file move to `scripts/tests/` stays. EPIC 2's `testpaths` and CI workflow examples below should reference `scripts/tests/`.
 3. **EPIC 7 added** ("Loud Failures"): codifies the silent-failure pattern fixes from 2026-06-06. See bottom of this doc.
