@@ -818,18 +818,15 @@ _STATE_TIMEZONE: dict[str, str] = {
 }
 
 # Channel-specific send windows in lead LOCAL time. TCPA hard rule for SMS
-# (8am-9pm); B2B email reply rates peak 9am-6pm weekdays. Outside these
-# windows we refuse the send and the caller can reschedule.
+# (8am-9pm). Email is NOT gated — the prior 9am-6pm window was etiquette,
+# not compliance, and it blocked legitimate operator-initiated shop-out
+# sends (removed 2026-06-09 per CC). _check_send_window short-circuits
+# email and never consults this dict for that channel.
 SEND_WINDOWS: dict[str, dict[str, Any]] = {
     "sms": {
         "earliest_hour": 8,
         "latest_hour": 21,  # 9pm
         "weekdays_only": False,  # TCPA permits weekend SMS in the window
-    },
-    "email": {
-        "earliest_hour": 9,
-        "latest_hour": 18,  # 6pm
-        "weekdays_only": True,
     },
     "instagram": {
         "earliest_hour": 9,
@@ -843,6 +840,11 @@ SEND_WINDOWS: dict[str, dict[str, Any]] = {
         "latest_hour": 23,
         "weekdays_only": False,
     },
+    # Email is intentionally absent — see top-of-dict comment. The
+    # _check_send_window function returns None for channel='email'
+    # before consulting this dict, so re-adding an entry here would NOT
+    # re-enable the gate without also reverting the early-return in
+    # _check_send_window. Both pieces document the removal.
     # Telegram + skool are internal / community channels — no window enforcement.
 }
 
