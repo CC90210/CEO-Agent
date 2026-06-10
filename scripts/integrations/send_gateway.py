@@ -3086,7 +3086,18 @@ def send(
         if cc_emails:
             full_metadata["cc_email"] = cc_emails
 
-        if intent == "commercial" and _env_bool(env, "DRAFT_CRITIC_ENABLED", True):
+        # Draft critic — HYGIENE. Quality gate for commercial sends, but
+        # operator-typed content has already been operator-approved by
+        # the act of clicking Send in the dashboard / typing in chat.
+        # Critic still fires for cold-outreach commercial paths
+        # (outreach_engine, cold_outreach_runner, etc.) where AI-drafted
+        # bodies need a sanity gate.
+        critic_should_fire = (
+            intent == "commercial"
+            and _env_bool(env, "DRAFT_CRITIC_ENABLED", True)
+            and not _is_operator_initiated(agent_source)
+        )
+        if critic_should_fire:
             # Fail-closed quality gate. Non-ship verdicts block. The only
             # optional fail-open path is an explicit operator env override for
             # critic unavailability, never for a real rejection.
