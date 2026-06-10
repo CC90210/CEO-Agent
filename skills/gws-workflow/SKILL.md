@@ -1,5 +1,6 @@
 ---
 name: gws-workflow
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Workflow: Cross-service productivity workflows."
 metadata:

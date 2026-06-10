@@ -1,5 +1,6 @@
 ---
 name: gws-people
+disable-model-invocation: true
 version: 1.0.0
 description: "Google People: Manage contacts and profiles."
 metadata:

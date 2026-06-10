@@ -1,5 +1,6 @@
 ---
 name: gws-keep
+disable-model-invocation: true
 version: 1.0.0
 description: "Manage Google Keep notes."
 metadata:

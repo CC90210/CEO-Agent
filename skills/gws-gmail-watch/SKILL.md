@@ -1,5 +1,6 @@
 ---
 name: gws-gmail-watch
+disable-model-invocation: true
 version: 1.0.0
 description: "Gmail: Watch for new emails and stream them as NDJSON."
 metadata:

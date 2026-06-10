@@ -1,5 +1,6 @@
 ---
 name: gws-sheets-append
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Sheets: Append a row to a spreadsheet."
 metadata:

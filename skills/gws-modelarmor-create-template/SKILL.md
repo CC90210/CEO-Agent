@@ -1,5 +1,6 @@
 ---
 name: gws-modelarmor-create-template
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Model Armor: Create a new Model Armor template."
 metadata:

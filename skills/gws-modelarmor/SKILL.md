@@ -1,5 +1,6 @@
 ---
 name: gws-modelarmor
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Model Armor: Filter user-generated content for safety."
 metadata:

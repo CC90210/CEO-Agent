@@ -1,5 +1,6 @@
 ---
 name: gws-workflow-meeting-prep
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Workflow: Prepare for your next meeting: agenda, attendees, and linked docs."
 metadata:

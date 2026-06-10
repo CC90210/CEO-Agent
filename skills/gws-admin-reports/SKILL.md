@@ -1,5 +1,6 @@
 ---
 name: gws-admin-reports
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Workspace Admin SDK: Audit logs and usage reports."
 metadata:

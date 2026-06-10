@@ -1,5 +1,6 @@
 ---
 name: gws-docs-write
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Docs: Append text to a document."
 metadata:

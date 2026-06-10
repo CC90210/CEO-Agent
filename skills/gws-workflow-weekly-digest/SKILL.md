@@ -1,5 +1,6 @@
 ---
 name: gws-workflow-weekly-digest
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Workflow: Weekly summary: this week's meetings + unread email count."
 metadata:

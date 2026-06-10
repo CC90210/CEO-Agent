@@ -1,5 +1,6 @@
 ---
 name: gws-gmail-triage
+disable-model-invocation: true
 version: 1.0.0
 description: "Gmail: Show unread inbox summary (sender, subject, date)."
 metadata:

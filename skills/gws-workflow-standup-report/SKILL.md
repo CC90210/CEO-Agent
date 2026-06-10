@@ -1,5 +1,6 @@
 ---
 name: gws-workflow-standup-report
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Workflow: Today's meetings + open tasks as a standup summary."
 metadata:

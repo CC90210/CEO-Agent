@@ -1,0 +1,4 @@
+suite: routing
+surface: offline
+source: synthetic
+note: RED-now: memory-journaling wins (semantic; needs Phase 4)

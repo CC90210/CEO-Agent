@@ -1,5 +1,6 @@
 ---
 name: gws-chat
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Chat: Manage Chat spaces and messages."
 metadata:

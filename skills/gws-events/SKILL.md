@@ -1,5 +1,6 @@
 ---
 name: gws-events
+disable-model-invocation: true
 version: 1.0.0
 description: "Subscribe to Google Workspace events."
 metadata:

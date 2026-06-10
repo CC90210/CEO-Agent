@@ -1,5 +1,6 @@
 ---
 name: gws-meet
+disable-model-invocation: true
 version: 1.0.0
 description: "Manage Google Meet conferences."
 metadata:

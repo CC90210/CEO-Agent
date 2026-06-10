@@ -189,27 +189,27 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **149 active skills**. Eac
 - **Triggers:** google workspace recipes, use google workspace recipes, run google workspace recipes
 - **Path:** `skills/google-workspace-recipes/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-admin-reports
+## gws-admin-reports — _explicit `/command` only_
 - **Use when:** Google Workspace Admin SDK: Audit logs and usage reports.
 - **Triggers:** gws admin reports, use gws admin reports, run gws admin reports, google workspace admin sdk: audit logs and usage reports
 - **Path:** `skills/gws-admin-reports/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-calendar
+## gws-calendar — _explicit `/command` only_
 - **Use when:** Google Calendar: Manage calendars and events.
 - **Triggers:** gws calendar, use gws calendar, run gws calendar, google calendar: manage calendars and events
 - **Path:** `skills/gws-calendar/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-calendar-agenda
+## gws-calendar-agenda — _explicit `/command` only_
 - **Use when:** Google Calendar: Show upcoming events across all calendars.
 - **Triggers:** gws calendar agenda, use gws calendar agenda, run gws calendar agenda, google calendar: show upcoming events across all calendars
 - **Path:** `skills/gws-calendar-agenda/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-calendar-insert
+## gws-calendar-insert — _explicit `/command` only_
 - **Use when:** Google Calendar: Create a new event.
 - **Triggers:** gws calendar insert, use gws calendar insert, run gws calendar insert, google calendar: create a new event
 - **Path:** `skills/gws-calendar-insert/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-chat
+## gws-chat — _explicit `/command` only_
 - **Use when:** Google Chat: Manage Chat spaces and messages.
 - **Triggers:** gws chat, use gws chat, run gws chat, google chat: manage chat spaces and messages
 - **Path:** `skills/gws-chat/SKILL.md` · tier `specialized` · risk `low`
@@ -219,62 +219,62 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **149 active skills**. Eac
 - **Triggers:** gws chat send, use gws chat send, run gws chat send, google chat: send a message to a space
 - **Path:** `skills/gws-chat-send/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-classroom
+## gws-classroom — _explicit `/command` only_
 - **Use when:** Google Classroom: Manage classes, rosters, and coursework.
 - **Triggers:** gws classroom, use gws classroom, run gws classroom, google classroom: manage classes
 - **Path:** `skills/gws-classroom/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-docs
+## gws-docs — _explicit `/command` only_
 - **Use when:** Read and write Google Docs.
 - **Triggers:** gws docs, use gws docs, run gws docs, read and write google docs
 - **Path:** `skills/gws-docs/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-docs-write
+## gws-docs-write — _explicit `/command` only_
 - **Use when:** Google Docs: Append text to a document.
 - **Triggers:** gws docs write, use gws docs write, run gws docs write, google docs: append text to a document
 - **Path:** `skills/gws-docs-write/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-drive
+## gws-drive — _explicit `/command` only_
 - **Use when:** Google Drive: Manage files, folders, and shared drives.
 - **Triggers:** gws drive, use gws drive, run gws drive, google drive: manage files
 - **Path:** `skills/gws-drive/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-drive-upload
+## gws-drive-upload — _explicit `/command` only_
 - **Use when:** Google Drive: Upload a file with automatic metadata.
 - **Triggers:** gws drive upload, use gws drive upload, run gws drive upload, google drive: upload a file with automatic metadata
 - **Path:** `skills/gws-drive-upload/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-events
+## gws-events — _explicit `/command` only_
 - **Use when:** Subscribe to Google Workspace events.
 - **Triggers:** gws events, use gws events, run gws events, subscribe to google workspace events
 - **Path:** `skills/gws-events/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-events-renew
+## gws-events-renew — _explicit `/command` only_
 - **Use when:** Google Workspace Events: Renew/reactivate Workspace Events subscriptions.
 - **Triggers:** gws events renew, use gws events renew, run gws events renew
 - **Path:** `skills/gws-events-renew/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-events-subscribe
+## gws-events-subscribe — _explicit `/command` only_
 - **Use when:** Google Workspace Events: Subscribe to Workspace events and stream them as NDJSON.
 - **Triggers:** gws events subscribe, use gws events subscribe, run gws events subscribe
 - **Path:** `skills/gws-events-subscribe/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-forms
+## gws-forms — _explicit `/command` only_
 - **Use when:** Read and write Google Forms.
 - **Triggers:** gws forms, use gws forms, run gws forms, read and write google forms
 - **Path:** `skills/gws-forms/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail
+## gws-gmail — _explicit `/command` only_
 - **Use when:** Gmail: Send, read, and manage email.
 - **Triggers:** gws gmail, use gws gmail, run gws gmail, gmail: send
 - **Path:** `skills/gws-gmail/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail-forward
+## gws-gmail-forward — _explicit `/command` only_
 - **Use when:** Gmail: Forward a message to new recipients.
 - **Triggers:** gws gmail forward, use gws gmail forward, run gws gmail forward, gmail: forward a message to new recipients
 - **Path:** `skills/gws-gmail-forward/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail-read
+## gws-gmail-read — _explicit `/command` only_
 - **Use when:** Gmail: Read a message and extract its body or headers.
 - **Triggers:** gws gmail read, use gws gmail read, run gws gmail read, gmail: read a message and extract its body or headers
 - **Path:** `skills/gws-gmail-read/SKILL.md` · tier `specialized` · risk `low`
@@ -294,107 +294,107 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **149 active skills**. Eac
 - **Triggers:** gws gmail send, use gws gmail send, run gws gmail send, gmail: send an email
 - **Path:** `skills/gws-gmail-send/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail-triage
+## gws-gmail-triage — _explicit `/command` only_
 - **Use when:** Gmail: Show unread inbox summary (sender, subject, date).
 - **Triggers:** gws gmail triage, use gws gmail triage, run gws gmail triage, gmail: show unread inbox summary (sender
 - **Path:** `skills/gws-gmail-triage/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail-watch
+## gws-gmail-watch — _explicit `/command` only_
 - **Use when:** Gmail: Watch for new emails and stream them as NDJSON.
 - **Triggers:** gws gmail watch, use gws gmail watch, run gws gmail watch, gmail: watch for new emails and stream them as ndjson
 - **Path:** `skills/gws-gmail-watch/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-keep
+## gws-keep — _explicit `/command` only_
 - **Use when:** Manage Google Keep notes.
 - **Triggers:** gws keep, use gws keep, run gws keep, manage google keep notes
 - **Path:** `skills/gws-keep/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-meet
+## gws-meet — _explicit `/command` only_
 - **Use when:** Manage Google Meet conferences.
 - **Triggers:** gws meet, use gws meet, run gws meet, manage google meet conferences
 - **Path:** `skills/gws-meet/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-modelarmor
+## gws-modelarmor — _explicit `/command` only_
 - **Use when:** Google Model Armor: Filter user-generated content for safety.
 - **Triggers:** gws modelarmor, use gws modelarmor, run gws modelarmor, google model armor: filter user-generated content for safety
 - **Path:** `skills/gws-modelarmor/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-modelarmor-create-template
+## gws-modelarmor-create-template — _explicit `/command` only_
 - **Use when:** Google Model Armor: Create a new Model Armor template.
 - **Triggers:** gws modelarmor create template, use gws modelarmor create template, run gws modelarmor create template, google model armor: create a new model armor template
 - **Path:** `skills/gws-modelarmor-create-template/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-modelarmor-sanitize-prompt
+## gws-modelarmor-sanitize-prompt — _explicit `/command` only_
 - **Use when:** Google Model Armor: Sanitize a user prompt through a Model Armor template.
 - **Triggers:** gws modelarmor sanitize prompt, use gws modelarmor sanitize prompt, run gws modelarmor sanitize prompt
 - **Path:** `skills/gws-modelarmor-sanitize-prompt/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-modelarmor-sanitize-response
+## gws-modelarmor-sanitize-response — _explicit `/command` only_
 - **Use when:** Google Model Armor: Sanitize a model response through a Model Armor template.
 - **Triggers:** gws modelarmor sanitize response, use gws modelarmor sanitize response, run gws modelarmor sanitize response
 - **Path:** `skills/gws-modelarmor-sanitize-response/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-people
+## gws-people — _explicit `/command` only_
 - **Use when:** Google People: Manage contacts and profiles.
 - **Triggers:** gws people, use gws people, run gws people, google people: manage contacts and profiles
 - **Path:** `skills/gws-people/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-shared
+## gws-shared — _explicit `/command` only_
 - **Use when:** gws CLI: Shared patterns for authentication, global flags, and output formatting.
 - **Triggers:** gws shared, use gws shared, run gws shared, gws cli: shared patterns for authentication
 - **Path:** `skills/gws-shared/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-sheets
+## gws-sheets — _explicit `/command` only_
 - **Use when:** Google Sheets: Read and write spreadsheets.
 - **Triggers:** gws sheets, use gws sheets, run gws sheets, google sheets: read and write spreadsheets
 - **Path:** `skills/gws-sheets/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-sheets-append
+## gws-sheets-append — _explicit `/command` only_
 - **Use when:** Google Sheets: Append a row to a spreadsheet.
 - **Triggers:** gws sheets append, use gws sheets append, run gws sheets append, google sheets: append a row to a spreadsheet
 - **Path:** `skills/gws-sheets-append/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-sheets-read
+## gws-sheets-read — _explicit `/command` only_
 - **Use when:** Google Sheets: Read values from a spreadsheet.
 - **Triggers:** gws sheets read, use gws sheets read, run gws sheets read, google sheets: read values from a spreadsheet
 - **Path:** `skills/gws-sheets-read/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-slides
+## gws-slides — _explicit `/command` only_
 - **Use when:** Google Slides: Read and write presentations.
 - **Triggers:** gws slides, use gws slides, run gws slides, google slides: read and write presentations
 - **Path:** `skills/gws-slides/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-tasks
+## gws-tasks — _explicit `/command` only_
 - **Use when:** Google Tasks: Manage task lists and tasks.
 - **Triggers:** gws tasks, use gws tasks, run gws tasks, google tasks: manage task lists and tasks
 - **Path:** `skills/gws-tasks/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow
+## gws-workflow — _explicit `/command` only_
 - **Use when:** Google Workflow: Cross-service productivity workflows.
 - **Triggers:** gws workflow, use gws workflow, run gws workflow, google workflow: cross-service productivity workflows
 - **Path:** `skills/gws-workflow/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow-email-to-task
+## gws-workflow-email-to-task — _explicit `/command` only_
 - **Use when:** Google Workflow: Convert a Gmail message into a Google Tasks entry.
 - **Triggers:** gws workflow email to task, use gws workflow email to task, run gws workflow email to task
 - **Path:** `skills/gws-workflow-email-to-task/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow-file-announce
+## gws-workflow-file-announce — _explicit `/command` only_
 - **Use when:** Google Workflow: Announce a Drive file in a Chat space.
 - **Triggers:** gws workflow file announce, use gws workflow file announce, run gws workflow file announce, google workflow: announce a drive file in a chat space
 - **Path:** `skills/gws-workflow-file-announce/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow-meeting-prep
+## gws-workflow-meeting-prep — _explicit `/command` only_
 - **Use when:** Google Workflow: Prepare for your next meeting: agenda, attendees, and linked docs.
 - **Triggers:** gws workflow meeting prep, use gws workflow meeting prep, run gws workflow meeting prep, google workflow: prepare for your next meeting: agenda
 - **Path:** `skills/gws-workflow-meeting-prep/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow-standup-report
+## gws-workflow-standup-report — _explicit `/command` only_
 - **Use when:** Google Workflow: Today's meetings + open tasks as a standup summary.
 - **Triggers:** gws workflow standup report, use gws workflow standup report, run gws workflow standup report
 - **Path:** `skills/gws-workflow-standup-report/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow-weekly-digest
+## gws-workflow-weekly-digest — _explicit `/command` only_
 - **Use when:** Google Workflow: Weekly summary: this week's meetings + unread email count.
 - **Triggers:** gws workflow weekly digest, use gws workflow weekly digest, run gws workflow weekly digest
 - **Path:** `skills/gws-workflow-weekly-digest/SKILL.md` · tier `specialized` · risk `low`

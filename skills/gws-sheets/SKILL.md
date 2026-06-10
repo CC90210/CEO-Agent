@@ -1,5 +1,6 @@
 ---
 name: gws-sheets
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Sheets: Read and write spreadsheets."
 metadata:

@@ -1,5 +1,6 @@
 ---
 name: gws-workflow-email-to-task
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Workflow: Convert a Gmail message into a Google Tasks entry."
 metadata:

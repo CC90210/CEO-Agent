@@ -1,5 +1,6 @@
 ---
 name: gws-calendar-insert
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Calendar: Create a new event."
 metadata:

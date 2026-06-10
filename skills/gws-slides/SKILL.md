@@ -1,5 +1,6 @@
 ---
 name: gws-slides
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Slides: Read and write presentations."
 metadata:

@@ -1,5 +1,6 @@
 ---
 name: gws-drive
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Drive: Manage files, folders, and shared drives."
 metadata:

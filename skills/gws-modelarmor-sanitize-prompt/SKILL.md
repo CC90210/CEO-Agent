@@ -1,5 +1,6 @@
 ---
 name: gws-modelarmor-sanitize-prompt
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Model Armor: Sanitize a user prompt through a Model Armor template."
 metadata:

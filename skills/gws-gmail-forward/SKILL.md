@@ -1,5 +1,6 @@
 ---
 name: gws-gmail-forward
+disable-model-invocation: true
 version: 1.0.0
 description: "Gmail: Forward a message to new recipients."
 metadata:

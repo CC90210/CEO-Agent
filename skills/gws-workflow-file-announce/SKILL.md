@@ -1,5 +1,6 @@
 ---
 name: gws-workflow-file-announce
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Workflow: Announce a Drive file in a Chat space."
 metadata:

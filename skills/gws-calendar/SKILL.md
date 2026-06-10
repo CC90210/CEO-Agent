@@ -1,5 +1,6 @@
 ---
 name: gws-calendar
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Calendar: Manage calendars and events."
 metadata:

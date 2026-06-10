@@ -1,5 +1,6 @@
 ---
 name: gws-forms
+disable-model-invocation: true
 version: 1.0.0
 description: "Read and write Google Forms."
 metadata:

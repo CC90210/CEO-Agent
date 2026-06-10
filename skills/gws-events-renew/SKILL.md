@@ -1,5 +1,6 @@
 ---
 name: gws-events-renew
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Workspace Events: Renew/reactivate Workspace Events subscriptions."
 metadata:

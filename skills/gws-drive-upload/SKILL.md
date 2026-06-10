@@ -1,5 +1,6 @@
 ---
 name: gws-drive-upload
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Drive: Upload a file with automatic metadata."
 metadata:

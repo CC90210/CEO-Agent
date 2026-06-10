@@ -1,5 +1,6 @@
 ---
 name: gws-calendar-agenda
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Calendar: Show upcoming events across all calendars."
 metadata:

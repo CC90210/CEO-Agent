@@ -1,5 +1,6 @@
 ---
 name: gws-classroom
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Classroom: Manage classes, rosters, and coursework."
 metadata:

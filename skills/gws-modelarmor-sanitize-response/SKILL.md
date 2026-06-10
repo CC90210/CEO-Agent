@@ -1,5 +1,6 @@
 ---
 name: gws-modelarmor-sanitize-response
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Model Armor: Sanitize a model response through a Model Armor template."
 metadata:

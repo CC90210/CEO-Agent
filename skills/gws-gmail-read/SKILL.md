@@ -1,5 +1,6 @@
 ---
 name: gws-gmail-read
+disable-model-invocation: true
 version: 1.0.0
 description: "Gmail: Read a message and extract its body or headers."
 metadata:

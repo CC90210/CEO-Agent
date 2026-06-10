@@ -1,5 +1,6 @@
 ---
 name: gws-docs
+disable-model-invocation: true
 version: 1.0.0
 description: "Read and write Google Docs."
 metadata:

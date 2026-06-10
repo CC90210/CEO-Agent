@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-06-09T20:55:41.263992+00:00",
+  "generated_at": "2026-06-10T17:44:54.856351+00:00",
   "totals": {
     "skills": 149,
-    "scripts": 99,
+    "scripts": 102,
     "agents": 21,
     "mcp_servers": 9,
     "workflows": 35,
-    "nodes_total": 313,
+    "nodes_total": 316,
     "edges_total": 39,
     "drift_count": 0
   },
@@ -1184,7 +1184,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1212,7 +1212,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1240,7 +1240,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1268,7 +1268,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1296,7 +1296,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1352,7 +1352,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1380,7 +1380,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1408,7 +1408,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1436,7 +1436,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1464,7 +1464,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1492,7 +1492,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1519,7 +1519,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1546,7 +1546,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1574,7 +1574,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1602,7 +1602,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1630,7 +1630,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1658,7 +1658,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1769,7 +1769,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1797,7 +1797,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1825,7 +1825,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1853,7 +1853,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1881,7 +1881,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1909,7 +1909,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1936,7 +1936,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1963,7 +1963,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -1991,7 +1991,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2019,7 +2019,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2047,7 +2047,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2075,7 +2075,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2103,7 +2103,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2131,7 +2131,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2159,7 +2159,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2187,7 +2187,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2214,7 +2214,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2242,7 +2242,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2270,7 +2270,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2297,7 +2297,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2324,7 +2324,7 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "disable_model_invocation": false,
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -4678,6 +4678,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:break_glass_drill",
+      "kind": "script",
+      "name": "break_glass_drill",
+      "path": "scripts/break_glass_drill.py",
+      "description": "break_glass_drill \u2014 quarterly dry-run of the emergency runbook.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:bridge_lock",
       "kind": "script",
       "name": "bridge_lock",
@@ -4753,6 +4763,16 @@
       "name": "ceo_dashboard",
       "path": "scripts/ceo_dashboard.py",
       "description": "CEO Dashboard \u2014 Unified KPI Aggregator Aggregates revenue, pipeline, content, and client health into a single digest. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:check_brain_freshness",
+      "kind": "script",
+      "name": "check_brain_freshness",
+      "path": "scripts/check_brain_freshness.py",
+      "description": "Brain freshness checker (audit Phase 9).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5223,6 +5243,16 @@
       "name": "pii_scrubber",
       "path": "scripts/pii_scrubber.py",
       "description": "Bravo V6.0 \u2014 PII Scrubber",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:pii_sweep",
+      "kind": "script",
+      "name": "pii_sweep",
+      "path": "scripts/pii_sweep.py",
+      "description": "Content-keyed PII sweep (audit V2/V3). Sweep a repo by OPERATOR-ADJUDICATED strings \u2014 never by paths alone (the path-keyed-purge lesson: path-keyed purges miss content that leaked wider into prose, changelogs, and tooling).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"

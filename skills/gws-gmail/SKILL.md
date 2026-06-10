@@ -1,5 +1,6 @@
 ---
 name: gws-gmail
+disable-model-invocation: true
 version: 1.0.0
 description: "Gmail: Send, read, and manage email."
 metadata:

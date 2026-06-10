@@ -1,5 +1,6 @@
 ---
 name: gws-events-subscribe
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Workspace Events: Subscribe to Workspace events and stream them as NDJSON."
 metadata:

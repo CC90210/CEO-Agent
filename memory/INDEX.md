@@ -2,7 +2,7 @@
 
 # Memory Index
 
-Auto-generated index of tracked `memory/*.md` — **16 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `memory/*.md` — **17 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Files
 - [ACTIVE_TASKS.template.md](ACTIVE_TASKS.template.md) — ACTIVE TASKS — {{ preferred_name }}
@@ -17,6 +17,7 @@ Auto-generated index of tracked `memory/*.md` — **16 files**. Each file's firs
 - [PERSONAS.md](PERSONAS.md) — PERSONAS — Role-Flavored Workflow Aliases
 - [PROPOSED_CHANGES.md](PROPOSED_CHANGES.md) — BRAVO — Proposed Changes Queue
 - [RETROSPECTIVE_2026-05-14_rearchitecture.md](RETROSPECTIVE_2026-05-14_rearchitecture.md) — OASIS Rearchitecture — End-of-Phases Retrospective
+- [RETROSPECTIVE_2026-06-09_audit_remediation.md](RETROSPECTIVE_2026-06-09_audit_remediation.md) — Retrospective — Audit Remediation V1 (2026-06-09, V6.9.0)
 - [SELF_REFLECTIONS.md](SELF_REFLECTIONS.md) — SELF-REFLECTIONS — Agent Self-Assessment Log
 - [SESSION_LOG.template.md](SESSION_LOG.template.md) — SESSION LOG — {{ preferred_name }}
 - [SOP_LIBRARY.md](SOP_LIBRARY.md) — SOP LIBRARY — Standard Operating Procedures (V5.5 Enhanced)

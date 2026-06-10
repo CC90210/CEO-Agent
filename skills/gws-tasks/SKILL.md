@@ -1,5 +1,6 @@
 ---
 name: gws-tasks
+disable-model-invocation: true
 version: 1.0.0
 description: "Google Tasks: Manage task lists and tasks."
 metadata:
