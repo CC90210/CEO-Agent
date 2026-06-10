@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-10
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Brain upgrade (CEO-first): P1 disabled 38 leaking gws-* CLI-refs (router de-noised, default-on win); P2 slimmed 5 entry points -340 lines → brain/V6_ARCHITECTURE.md; P3 orchestration decision table + Validator SubagentStop auto-gate; P4 hybrid semantic router flag-gated OFF (soak; 2/6→4/6 on, needs fusion tuning); P0 routing_nl correctness evals. empire-harness scaffold propagation done. Per-sibling rollout = follow-up.
+- **Result:** V7.0 reliability foundation shipped (Fable, freeze lifted): EPIC7 loud-failures (system_health + 8 live path-drift bugs fixed + breadcrumbs), EPIC3 LanceDB 410→1, routing-accuracy gate, state_manager tests, fleet untrusted_content → 3 siblings, system_health/state_compact → harness scaffold. CEO→V7.0.0. EPIC1 reorg + V7.1 research roadmap deferred.
 
 *Last updated: 2026-06-10*
 
