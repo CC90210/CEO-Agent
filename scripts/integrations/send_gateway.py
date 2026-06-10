@@ -3661,6 +3661,7 @@ def _cmd_send(args) -> int:
         to_phone=to_phone,
         cc_email=args.cc,
         lead_id=args.lead_id,
+        tenant_id=args.tenant_id,
         subject=args.subject,
         body_text=args.body,
         body_html=args.body_html,
@@ -3795,6 +3796,18 @@ def main() -> None:
     ps.add_argument("--brand", default=DEFAULT_BRAND, choices=sorted(BRAND_IDENTITY.keys()))
     ps.add_argument("--intent", default="commercial", choices=sorted(VALID_INTENTS))
     ps.add_argument("--cooldown", type=int, default=None, help="Override cooldown hours")
+    ps.add_argument(
+        "--tenant-id",
+        dest="tenant_id",
+        default=None,
+        help=(
+            "Explicit tenant_id for cross-tenant disambiguation. Required when "
+            "the recipient email is already owned by a lead in tenant_records "
+            "or has cross-tenant ambiguity in leads — the lead-resolution gate "
+            "fails closed without it. SunBiz tenant id: "
+            "aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110."
+        ),
+    )
     ps.add_argument("--dry-run", dest="dry_run", action="store_true")
 
     pc = sub.add_parser("can-act", help="Check if a send is allowed")
