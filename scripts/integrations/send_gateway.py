@@ -3689,6 +3689,8 @@ def _cmd_can_act(args) -> int:
         to_email=args.to,
         cooldown_hours=args.cooldown,
         db=db,
+        tenant_id=args.tenant_id,
+        agent_source=args.agent_source,
     )
     if args.output_json:
         _print_json(r)
@@ -3815,6 +3817,30 @@ def main() -> None:
     pc.add_argument("--channel", required=True, choices=sorted(KNOWN_CHANNELS))
     pc.add_argument("--to", default=None)
     pc.add_argument("--cooldown", type=int, default=None)
+    pc.add_argument(
+        "--tenant-id",
+        dest="tenant_id",
+        default=None,
+        help=(
+            "Explicit tenant_id for cross-tenant disambiguation — same "
+            "purpose as on the `send` subcommand. Lead-resolution via "
+            "email fails closed when tenant_id is absent and the email "
+            "is owned by multiple tenants. SunBiz tenant id: "
+            "aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110."
+        ),
+    )
+    pc.add_argument(
+        "--agent-source",
+        dest="agent_source",
+        default="manual_cc",
+        help=(
+            "Caller identification — same set as the `send` subcommand. "
+            "Operator-initiated sources (manual_cc / dashboard_drawer / "
+            "shop_out_send_batch / solara / helios / bravo) bypass the "
+            "hygiene gates in can_act() so the report reflects what an "
+            "operator-initiated send would actually see."
+        ),
+    )
 
     ph = sub.add_parser("history", help="Recent interactions for a lead")
     ph.add_argument("--lead-id", dest="lead_id", required=True)
