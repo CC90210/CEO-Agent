@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-10
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** V3 COMPLETE: evals (105 real cases 100% across 6 agents) + injection red-team (found+fixed 2 exec_guard gaps, 0 breaches, shipped LOCKSTEP:untrusted_content) + empire-harness v1.1.0 (scanner tiers, fleet re-stamp) + dispositions (cmd-center private, 7 archived, PropFlow adopted) + break-glass. CEO->V6.9.2. P7.2/3 send_gateway deferred to V3.1 (concurrent session).
+- **Result:** Brain upgrade (CEO-first): P1 disabled 38 leaking gws-* CLI-refs (router de-noised, default-on win); P2 slimmed 5 entry points -340 lines → brain/V6_ARCHITECTURE.md; P3 orchestration decision table + Validator SubagentStop auto-gate; P4 hybrid semantic router flag-gated OFF (soak; 2/6→4/6 on, needs fusion tuning); P0 routing_nl correctness evals. empire-harness scaffold propagation done. Per-sibling rollout = follow-up.
 
 *Last updated: 2026-06-10*
 
