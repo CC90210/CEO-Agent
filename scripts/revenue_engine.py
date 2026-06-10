@@ -286,8 +286,10 @@ def _pipeline_stats(db) -> dict:
                 "avg_deal_size": float(row.get("avg_deal_size") or 0),
                 "month": row.get("month", ""),
             }
-    except Exception:
-        pass
+    except Exception as e:
+        # Loud failure (V7 EPIC 7B): a DB outage / auth-expiry / RLS misconfig must NOT be
+        # indistinguishable from a genuinely-empty pipeline. Breadcrumb, then return zeros.
+        print(f"[revenue_engine] pipeline query failed (zeros below may mask a real DB error): {e}", file=sys.stderr)
     return {"pipeline": 0.0, "leads": 0, "conversion_rate": 0.0, "avg_deal_size": 0.0, "month": ""}
 
 
@@ -309,8 +311,8 @@ def _last_payment(db) -> dict:
                 "client": row.get("client_name", "unknown"),
                 "date": (row.get("created_at") or "")[:10],
             }
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[revenue_engine] last-payment query failed ($0 below may mask a real DB error): {e}", file=sys.stderr)
     return {"amount": 0.0, "client": "-", "date": "-"}
 
 

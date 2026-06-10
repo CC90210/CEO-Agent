@@ -221,8 +221,8 @@ async def _consume_claimed_rows(client, agent: str, rows: list, handlers: dict[s
         if not handler:
             try:
                 client.rpc("ack_event", {"p_event_id": event["id"], "p_agent": agent}).execute()
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"[event_bus] ack_event failed for {event.get('id')} (will reprocess on timeout): {exc}", file=sys.stderr)
             continue
         try:
             ok = await handler(event)
@@ -239,8 +239,8 @@ async def _consume_claimed_rows(client, agent: str, rows: list, handlers: dict[s
                     "p_event_id": event["id"], "p_agent": agent,
                     "p_error": str(exc)[:500],
                 }).execute()
-            except Exception:
-                pass
+            except Exception as exc2:
+                print(f"[event_bus] fail_event RPC failed for {event.get('id')} (will reprocess on timeout): {exc2}", file=sys.stderr)
 
 
 async def _subscribe_via_listen(
