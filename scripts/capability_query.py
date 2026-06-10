@@ -47,6 +47,16 @@ from typing import Any, Optional
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 GRAPH_PATH = PROJECT_ROOT / "brain" / "CAPABILITY_GRAPH.json"
 DAEMON_FRESHNESS_SEC = 120  # PID file must have been touched within 2 minutes
+RRF_K = 60  # Reciprocal Rank Fusion constant (matches memory_retriever)
+
+
+def _rrf(rankings: list[list[str]], k: int = RRF_K) -> dict[str, float]:
+    """Reciprocal Rank Fusion over ranked node-id lists → {node_id: score}."""
+    scores: dict[str, float] = {}
+    for ranking in rankings:
+        for rank, nid in enumerate(ranking, start=1):
+            scores[nid] = scores.get(nid, 0.0) + 1.0 / (k + rank)
+    return scores
 
 
 class Graph:
@@ -83,11 +93,17 @@ class Graph:
 
     def resolve_intent(self, intent: str, kind: str = "skill", limit: int = 5,
                        include_disabled: bool = False, include_archived: bool = False) -> list[dict[str, Any]]:
-        """Score every node by trigger overlap + description token match.
+        """Resolve an intent to top-N skills.
 
-        Skips skills with `disable-model-invocation: true` (auto-generated CLI references
-        that pollute trigger resolution) and `archived: <date>` (superseded skills not yet
-        physically removed) unless explicitly opted in via include_disabled / include_archived.
+        Lexical (default): trigger/name/description word-overlap. Skips
+        `disable-model-invocation: true` (auto-gen CLI refs) and `archived:` skills
+        unless opted in. This is the offline-deterministic path (CI/evals rely on it).
+
+        Hybrid (env `EMPIRE_ROUTER_SEMANTIC`): `off` (default) = lexical only;
+        `shadow` = compute the lexical+semantic RRF fusion, log divergence, but RETURN
+        lexical (behavior unchanged during soak); `on` = return the fused ranking. The
+        semantic leg reuses the LanceDB skill index via `core.memory_retriever.query`
+        and degrades silently to lexical if unavailable.
         """
         words = set(re.findall(r"\w+", intent.lower()))
         if not words:
@@ -115,7 +131,67 @@ class Graph:
             if score > 0:
                 scored.append((score, n))
         scored.sort(key=lambda x: x[0], reverse=True)
-        return [{"score": round(s, 2), **n} for s, n in scored[:limit]]
+        pool = max(limit, 20)  # keep a deeper pool so fusion can reorder
+        lexical = [{"score": round(s, 2), **n} for s, n in scored[:pool]]
+
+        mode = os.environ.get("EMPIRE_ROUTER_SEMANTIC", "off").strip().lower()
+        if mode not in ("on", "shadow") or kind != "skill":
+            return lexical[:limit]
+
+        sem_ids = self._semantic_skill_ids(intent, pool, include_disabled, include_archived)
+        if not sem_ids:
+            return lexical[:limit]  # semantic unavailable → lexical (deterministic fallback)
+
+        lex_ids = [n["id"] for n in lexical]
+        fused_scores = _rrf([lex_ids, sem_ids])
+        fused_ids = sorted(fused_scores, key=lambda i: fused_scores[i], reverse=True)
+        fused = [{"score": round(fused_scores[i] * 1000, 1), **self._by_id[i]}
+                 for i in fused_ids if i in self._by_id][:limit]
+
+        if mode == "shadow":
+            self._log_shadow(intent, lex_ids[:limit], [n["id"] for n in fused])
+            return lexical[:limit]
+        return fused
+
+    def _semantic_skill_ids(self, intent: str, limit: int,
+                            include_disabled: bool, include_archived: bool) -> list[str]:
+        """Ranked skill node-ids from the LanceDB semantic index (best-effort, offline-safe)."""
+        try:
+            scripts_dir = str(PROJECT_ROOT / "scripts")
+            if scripts_dir not in sys.path:
+                sys.path.insert(0, scripts_dir)
+            from core.memory_retriever import query as _mq  # noqa: E402
+            hits = _mq(intent, limit=limit, kind="skill", mode="semantic")
+        except Exception:
+            return []
+        ids: list[str] = []
+        for h in hits:
+            m = re.match(r"skills/([^/]+)/SKILL\.md$", str(h.get("source", "")))
+            if not m:
+                continue
+            nid = "skill:" + m.group(1)
+            node = self._by_id.get(nid)
+            if not node:
+                continue
+            if not include_disabled and node.get("disable_model_invocation"):
+                continue
+            if not include_archived and node.get("archived"):
+                continue
+            if nid not in ids:
+                ids.append(nid)
+        return ids
+
+    def _log_shadow(self, intent: str, lex_top: list[str], fused_top: list[str]) -> None:
+        try:
+            p = PROJECT_ROOT / "state" / "router_shadow.jsonl"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with p.open("a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "intent": intent[:120], "lexical": lex_top, "fused": fused_top,
+                    "diverged": lex_top[:1] != fused_top[:1],
+                }) + "\n")
+        except Exception:
+            pass
 
     def dependencies(self, node_id: str) -> dict[str, list[dict[str, Any]]]:
         """What does this node use / require / call?"""
