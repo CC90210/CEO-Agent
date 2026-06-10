@@ -33,7 +33,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 # Add the repo's scripts/ to sys.path so we can import the canonical
 # subprocess helper. bridge_tools runs from bravo_cli/ (sibling of
@@ -317,11 +317,26 @@ def _tool_bash(payload: dict) -> dict:
 # Script wrappers — shell out to existing Python tools
 # ──────────────────────────────────────────────────────────────────
 
-def _run_script(args: list[str], timeout_s: int = SCRIPT_TIMEOUT_S) -> dict:
+def _run_script(
+    args: list[str],
+    timeout_s: int = SCRIPT_TIMEOUT_S,
+    env_overrides: Optional[dict] = None,
+) -> dict:
     """Run a Python tool from the Bravo scripts/ dir and return its
     {output, is_error}. Each underlying tool already supports --json
-    so the model gets structured data, not a TUI."""
+    so the model gets structured data, not a TUI.
+
+    env_overrides (2026-06-10): optional dict layered ON TOP of the
+    inherited os.environ. Used by _tool_shop_out_send_batch to inject
+    per-operator signing identity (BRAVO_FROM_DISPLAY etc.) so each
+    rep's send signs with THEIR name, not the shared default.
+    Backward-compatible — None means "inherit os.environ exactly."
+    """
     bravo = _bravo_root()
+    full_env = None
+    if env_overrides:
+        full_env = os.environ.copy()
+        full_env.update({k: str(v) for k, v in env_overrides.items() if v is not None})
     try:
         proc = safe_run(
             [sys.executable, *args],
@@ -331,6 +346,7 @@ def _run_script(args: list[str], timeout_s: int = SCRIPT_TIMEOUT_S) -> dict:
             encoding="utf-8",
             errors="replace",
             timeout=timeout_s,
+            env=full_env,
         )
     except subprocess.TimeoutExpired:
         return _err(f"script_timeout after {timeout_s}s: {' '.join(args)}")
@@ -986,6 +1002,30 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
     if not application_id:
         return _err("missing 'application_id'")
 
+    # Per-operator signing (2026-06-10). Dashboard resolves the operator
+    # who clicked Send from their session → agents.config.json entry →
+    # passes signer_name / signer_email / signer_phone. We layer these
+    # as env overrides on the send_gateway subprocess so email_template
+    # picks them up via BRAVO_FROM_DISPLAY_SUNBIZ / BRAVO_FROM_EMAIL_SUNBIZ.
+    # Result: Jordan's sends sign "— Jordan"; Alex's sign "— Alex";
+    # Ezra (Matt) signs "— Matt". No-signer-supplied falls back to the
+    # brand default ("SunBiz Submissions").
+    signer_name = str(payload.get("signer_name") or "").strip()
+    signer_email = str(payload.get("signer_email") or "").strip()
+    signer_phone = str(payload.get("signer_phone") or "").strip()
+    signer_env: dict[str, str] = {}
+    if signer_name:
+        signer_env["BRAVO_FROM_DISPLAY_SUNBIZ"] = signer_name
+        signer_env["BRAVO_FROM_DISPLAY"] = signer_name
+    if signer_email:
+        signer_env["BRAVO_FROM_EMAIL_SUNBIZ"] = signer_email
+        signer_env["BRAVO_FROM_EMAIL"] = signer_email
+    # Phone is informational only here; email_template doesn't yet inline
+    # it into the SunBiz signature (follow-up). Stashed in env so a
+    # future template revision can pull it without another wiring pass.
+    if signer_phone:
+        signer_env["BRAVO_FROM_PHONE_SUNBIZ"] = signer_phone
+
     bravo = _bravo_root()
     try:
         from supabase import create_client  # type: ignore
@@ -1091,7 +1131,9 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
         if cc_clean:
             send_args.extend(["--cc", cc_clean])
 
-        send_res = _run_script(send_args)
+        # Pass the per-operator signer env so email_template renders
+        # this rep's name in the signature — not the brand default.
+        send_res = _run_script(send_args, env_overrides=signer_env or None)
         if not send_res.get("ok"):
             failures.append({
                 "thread_id": thread["id"],
