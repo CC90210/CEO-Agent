@@ -953,20 +953,29 @@ def _check_sentinel_pause(lead_data: dict[str, Any], now: datetime) -> Optional[
 
 def _check_send_window(channel: str, lead_data: dict[str, Any],
                        now: datetime) -> Optional[str]:
-    """TCPA + B2B etiquette: refuse SMS outside 8am-9pm local; refuse
-    email outside 9am-6pm weekdays local.
+    """TCPA: refuse SMS outside 8am-9pm local. Email is unconditionally
+    allowed — the prior "9am-6pm B2B etiquette" gate was operator-
+    initiated-hostile and blocked legitimate shop-outs fired after hours.
+
+    Removed 2026-06-09 per CC: lender shop-outs and operator-driven
+    follow-up email regularly fire outside the 9-6 window (early-morning
+    submissions, end-of-day responses, weekend deal-prep). The etiquette
+    gate was not legally required — comment from the prior version
+    explicitly said "B2B email outside the window is etiquette, not
+    legal risk." Etiquette decisions belong to the operator's judgment,
+    not to a hardcoded daemon gate.
+
+    SMS retains the gate because TCPA penalties for off-hours SMS are
+    real and the legal exposure is the merchant's not the operator's.
 
     Timezone resolution (Codex finding #8):
       1. If lead.data.timezone is set: use it
       2. Otherwise, derive from lead.data.state via a state→tz map
-      3. Otherwise:
-           - SMS: FAIL CLOSED (TCPA penalties for off-hours SMS are
-             real; refusing the send and surfacing the gap to the
-             operator is safer than guessing Toronto and waking a
-             California merchant at 5am)
-           - Email: fall back to operator-local (Toronto) since
-             B2B email outside the window is etiquette, not legal risk
+      3. Otherwise SMS fails closed (TCPA), email no longer gated.
     """
+    # Email: no gate. Operator decides when to send.
+    if channel == "email":
+        return None
     window = SEND_WINDOWS.get(channel)
     if window is None:
         return None  # internal / unconfigured channels skip window check
