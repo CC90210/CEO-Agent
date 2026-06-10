@@ -48,7 +48,7 @@ def run() -> dict:
     checks.append(_check("restore: backup dir recorded + populated", bool(bundles),
                          f"{len(bundles)} bundles in {bdir or '(unrecorded)'}"))
     if bundles:
-        v = subprocess.run(["git", "-C", str(REPO), "bundle", "verify", str(bundles[0])],
+        v = subprocess.run(["git", "-C", str(REPO), "bundle", "verify", str(bundles[0])],  # noqa: SUBPROCESS (quarterly/on-demand git read)
                            capture_output=True, text=True)
         checks.append(_check("restore: newest bundle verifies", "complete history" in v.stdout,
                              bundles[0].name))

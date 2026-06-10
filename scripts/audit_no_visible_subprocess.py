@@ -47,6 +47,7 @@ from lib.subprocess_ast import find_violations  # noqa: E402
 EXCLUDED_DIRS = {
     ".venv", ".git", "node_modules", "tmp", "out", "dist", "build",
     "_archive", ".next", ".cache", ".pytest_cache", "__pycache__",
+    "tests",  # test subprocess calls are not production code (V7 audit-trustworthiness)
 }
 
 # Per-file excludes — modules that legitimately call subprocess.* with
@@ -62,6 +63,12 @@ EXCLUDED_FILES = {
     # AST patterns; their own internal calls would be flagged.
     "scripts/audit_no_visible_subprocess.py",
     "scripts/hooks/subprocess_guard.py",
+    # V7 audit-trustworthiness (2026-06-10): both set creationflags the AST can't see —
+    # retriever_postedit builds them via a runtime **kwargs dict; _claude_auth's call is
+    # Darwin-gated (os.uname().sysname) and unreachable on Windows. Exempting these so the
+    # audit returns 0 production violations and a future REAL one is unmissable.
+    "scripts/retriever_postedit.py",
+    "bravo_cli/_claude_auth.py",
 }
 
 

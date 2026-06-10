@@ -39,6 +39,7 @@ import os
 import re
 import sqlite3
 import subprocess
+_WINDOWLESS = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # windowless on Windows (V7 EPIC7A)
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -134,6 +135,7 @@ def _recent_git_log(hours: int) -> str:
             capture_output=True,
             text=True,
             timeout=10,
+            creationflags=_WINDOWLESS,
         )
         out = result.stdout.strip()
         return out if out else "(no commits in window)"
@@ -213,10 +215,10 @@ def _git_commit(target: Path, kind: str, title: str, dry_run: bool) -> None:
         return
     try:
         subprocess.run(["git", "add", str(target.relative_to(PROJECT_ROOT))],
-                       cwd=PROJECT_ROOT, check=True, timeout=10)
+                       cwd=PROJECT_ROOT, check=True, timeout=10, creationflags=_WINDOWLESS)
         msg = f"sleep-agent: log {kind} — {title[:60]}"
         subprocess.run(["git", "commit", "-m", msg, "--no-verify"],
-                       cwd=PROJECT_ROOT, check=True, timeout=15)
+                       cwd=PROJECT_ROOT, check=True, timeout=15, creationflags=_WINDOWLESS)
     except subprocess.SubprocessError as e:
         print(f"[warn] git commit failed for {target.name}: {e}", file=sys.stderr)
 

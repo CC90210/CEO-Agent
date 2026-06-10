@@ -59,7 +59,7 @@ def _pm2(args):
     if os.name == "nt":
         return subprocess.run("pm2 " + " ".join(args), shell=True, capture_output=True,
                               text=True, timeout=15, creationflags=WINDOWLESS_FLAGS)
-    return subprocess.run(["pm2", *args], capture_output=True, text=True, timeout=15)
+    return subprocess.run(["pm2", *args], capture_output=True, text=True, timeout=15)  # noqa: SUBPROCESS (POSIX branch; creationflags is Windows-only)
 
 
 def _result(name, status, detail, items=None):
