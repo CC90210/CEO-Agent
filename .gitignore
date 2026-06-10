@@ -245,3 +245,6 @@ download.html
 
 # Runtime CASL stop-list — local only; ship the example header instead (audit V2 P1)
 data/email_suppressions.csv
+
+# eval run artifacts (regenerated each run)
+evals/reports/

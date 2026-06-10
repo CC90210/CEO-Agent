@@ -1,0 +1,5 @@
+suite: mistakes
+surface: regression
+source: mistake
+title: bravo-scheduler Flashed a Console Window on Every PM2 Restart
+date: 2026-05-16

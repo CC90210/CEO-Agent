@@ -1,0 +1,5 @@
+suite: mistakes
+surface: regression
+source: mistake
+title: Live Stripe Key in Antigravity User MCP Config — 2-Month Plaintext Leak
+date: 2026-05-06

@@ -1,0 +1,5 @@
+suite: mistakes
+surface: regression
+source: mistake
+title: Copy-Link Button Copied the Operator Edit URL
+date: 2026-05-18

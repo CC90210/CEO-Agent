@@ -1,0 +1,5 @@
+suite: mistakes
+surface: regression
+source: mistake
+title: Almost Wired an Auto-Sync That Would Have Reverted CC's MRR from $371 to $3,322
+date: 2026-05-18

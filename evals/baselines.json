@@ -1,0 +1,14 @@
+{
+  "compliance": {
+    "score": 1.0,
+    "tolerance": 0.1
+  },
+  "routing": {
+    "score": 1.0,
+    "tolerance": 0.1
+  },
+  "send_policy": {
+    "score": 1.0,
+    "tolerance": 0.1
+  }
+}

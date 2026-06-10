@@ -1,0 +1,5 @@
+suite: mistakes
+surface: regression
+source: mistake
+title: Daily Outreach Batch — Broken Cron Pinged CC for 39 Days
+date: 2026-05-16

@@ -1,0 +1,5 @@
+suite: mistakes
+surface: regression
+source: mistake
+title: Leaked Bash Background Tasks Spammed Console Popups Every 8s
+date: 2026-05-09

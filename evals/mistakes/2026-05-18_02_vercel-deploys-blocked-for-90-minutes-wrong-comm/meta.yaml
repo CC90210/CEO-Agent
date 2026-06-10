@@ -1,0 +1,5 @@
+suite: mistakes
+surface: regression
+source: mistake
+title: Vercel Deploys Blocked for 90 Minutes — Wrong Committer Identity After Repo Extr
+date: 2026-05-18

@@ -1,0 +1,1 @@
+{"scorer": "rubric", "field": "verdict", "expected": "prevention-honored", "note": "wire to a deterministic check that would have caught this mistake; until then = needs-model"}

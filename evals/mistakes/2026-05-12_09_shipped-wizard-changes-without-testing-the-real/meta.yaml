@@ -1,0 +1,5 @@
+suite: mistakes
+surface: regression
+source: mistake
+title: Shipped Wizard Changes Without Testing the Real `curl | bash` Mac Path
+date: 2026-05-12
