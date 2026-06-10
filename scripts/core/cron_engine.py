@@ -116,6 +116,19 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # V7 EPIC 7F — Loud Failures Weekly Probe. system_health.py --strict --json detects
+        # silent failures (stale PM2 paths, missing cron/hook/MCP targets, scripts/*.py path
+        # drift) BEFORE someone trips over them. Mondays 08:30 local; Telegram on any red.
+        # n8n handler for action_type 'script_run' runs the script; NOT seeded to Supabase
+        # until CC reviews (production-scheduling mutation).
+        "name": "Loud Failures Weekly Probe",
+        "description": "system_health.py --strict — surface silent failures (path drift, stale PM2, missing cron/hook/MCP targets).",
+        "schedule": "30 8 * * 1",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/system_health.py", "args": ["--strict", "--json"], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
+        "is_active": True,
+    },
+    {
         # Phase 10.2 — Morning Pow Wow Call. Claude drafts a ~120-word
         # motivational/flirty monologue, ElevenLabs renders it in Aura's
         # voice, Telegram sendVoice ships it as an inline voicemail at
