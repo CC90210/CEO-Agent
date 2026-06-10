@@ -248,6 +248,23 @@ def _website(brand: Optional[str] = None) -> str:
     )
 
 
+def _from_phone(brand: Optional[str] = None) -> str:
+    """Operator's phone number for the signature line. Empty string =
+    omit the phone line entirely (Adon spec §6: 'If signer.phone is
+    empty, omit that line'). Per-brand env override, then generic env
+    fallback, else empty.
+
+    Wired 2026-06-10 so the bridge tool's BRAVO_FROM_PHONE_SUNBIZ env
+    override (set from the per-operator signing payload) actually
+    reaches the rendered signature instead of vanishing."""
+    brand_key = (brand or "oasis").upper().replace("-", "_")
+    return (
+        os.environ.get(f"BRAVO_FROM_PHONE_{brand_key}")
+        or os.environ.get("BRAVO_FROM_PHONE")
+        or ""
+    ).strip()
+
+
 def render_branded_html(
     body: str,
     *,
@@ -289,6 +306,10 @@ def render_branded_html(
     sig = _html.escape(_signature_block(brand))
     site = _html.escape(_website(brand))
     booking = _booking_link()
+    # Phone — empty string skips the entire signature phone line
+    # (Adon spec §6 rule: "If signer.phone is empty, omit that line").
+    phone_raw = _from_phone(brand)
+    phone_safe = _html.escape(phone_raw) if phone_raw else ""
 
     # Primary-color alpha tints — used throughout for brand consistency.
     p_alpha_18 = _hex_to_rgba(p_primary, 0.18)
@@ -429,7 +450,13 @@ def render_branded_html(
         + f'<tr><td style="padding:28px 32px 24px 32px;border-top:1px solid rgba(0,0,0,0.06)">\n'
         f'<div style="font-size:14px;color:{p_fg};font-weight:600">— {name}</div>\n'
         f'<div style="font-size:12px;color:{p_fg_muted};margin-top:2px">{sig}</div>\n'
-        f'<div style="font-size:11px;color:{p_fg_dim};margin-top:14px">'
+        # Phone — rendered ONLY when present. Empty string skips the
+        # whole row, matching Adon spec §6 "omit that line entirely".
+        + (
+            f'<div style="font-size:12px;color:{p_fg_muted};margin-top:2px">{phone_safe}</div>\n'
+            if phone_safe else ""
+        )
+        + f'<div style="font-size:11px;color:{p_fg_dim};margin-top:14px">'
         f'<a href="{site}" style="color:{p_primary};text-decoration:none">{site}</a>'
         f'</div>\n'
         f"</td></tr>\n"
@@ -494,8 +521,12 @@ def render_branded_plaintext(body: str, *, brand: Optional[str] = None) -> str:
     name = _from_display(brand)
     sig = _signature_block(brand)
     site = _website(brand)
+    phone = _from_phone(brand)
     booking = _booking_link()
-    parts = [body.strip(), "", f"— {name}", sig, site]
+    parts = [body.strip(), "", f"— {name}", sig]
+    if phone:
+        parts.append(phone)
+    parts.append(site)
     if booking:
         parts.append(f"Book a call: {booking}")
     return "\n".join(parts) + "\n"
