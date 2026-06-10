@@ -226,7 +226,46 @@ KNOWN_AGENT_SOURCES: frozenset[str] = frozenset({
     "scheduler",
     "test_harness",
     "cold_outreach_runner",  # SunBiz blast scheduler daemon (cold_outreach_runner.DAEMON_NAME)
+    "dashboard_drawer",      # lead-drawer "Send Email" composer
+    "shop_out_send_batch",   # bridge tool that fires shop-out runs
+    "solara",                # chat-driven email from Solara (SunBiz ops)
+    "helios",                # chat-driven email from Helios (SunBiz sales)
+    "bravo",                 # chat-driven email from Bravo
 })
+
+# 2026-06-09 root-cause fix: send_gateway has many hygiene gates designed
+# for COLD OUTREACH (cooldown windows, daily caps, reply-since-last,
+# bounce circuit, send window, etc.) that fire on OPERATOR-INITIATED B2B
+# email and block legitimate sends. Lender shop-outs, dashboard drawer
+# composes, chat-driven follow-ups — all operator-typed, operator-
+# approved B2B transactional email — should NOT be blocked by gates
+# designed to keep cold-outreach hygiene honest.
+#
+# Sources in this set bypass ALL hygiene gates. They still respect
+# COMPLIANCE gates that are non-negotiable: kill switch, suppression
+# (CASL unsubscribes + reserved domains), manual pause (operator
+# explicitly paused a lead), empty recipient, concurrent send.
+#
+# Cold-outreach sources (outreach_engine, cold_outreach_runner,
+# funnel_nurture, scheduler) stay subject to every gate — that's where
+# the hygiene matters.
+OPERATOR_INITIATED_SOURCES: frozenset[str] = frozenset({
+    "manual_cc",
+    "dashboard_drawer",
+    "shop_out_send_batch",
+    "solara",
+    "helios",
+    "bravo",
+})
+
+
+def _is_operator_initiated(agent_source: str) -> bool:
+    """True if the send is operator-typed/operator-approved B2B
+    transactional email. Such sends bypass hygiene gates (cooldown,
+    caps, reply-since-last, etc.) but still pass compliance gates
+    (kill switch, CASL suppression, manual pause, empty recipient).
+    """
+    return (agent_source or "").strip().lower() in OPERATOR_INITIATED_SOURCES
 
 # Canonical channel tags.
 KNOWN_CHANNELS: frozenset[str] = frozenset(DEFAULT_COOLDOWNS.keys())
@@ -1233,6 +1272,11 @@ def can_act(
     db = db if db is not None else get_supabase()
     now = datetime.now(timezone.utc)
     channel = channel.lower()
+    # 2026-06-09: classify operator-initiated B2B sends. Each hygiene
+    # gate below short-circuits when this is True. Compliance gates
+    # (kill switch, suppression, manual pause, empty recipient,
+    # concurrent send) ignore the classification.
+    operator_initiated = _is_operator_initiated(agent_source)
 
     env = load_env()
     # Effective caps start at the static defaults; operating mode below
@@ -1256,24 +1300,27 @@ def can_act(
         "bounce_rate": 0.0,
     }
 
-    # Gate 1: bounce-rate circuit breaker.
-    try:
-        bounce_stats = _get_bounce_window_stats(db, last_n_hours=24)
-        result["bounce_rate"] = bounce_stats["rate"]
-        bounce_threshold = _env_ratio(env, "BOUNCE_RATE_THRESHOLD", 0.03)
-        if bounce_stats["total"] >= bounce_stats["minimum_sample"] and bounce_stats["rate"] > bounce_threshold:
-            result.update(
-                allowed=False,
-                reason=(
-                    "bounce-rate circuit breaker active: "
-                    f"{bounce_stats['failed']}/{bounce_stats['total']} "
-                    f"({bounce_stats['rate']:.1%}) over the last 24h"
-                ),
-            )
+    # Gate 1: bounce-rate circuit breaker. HYGIENE — operator-initiated
+    # sends bypass; cold outreach still gates so a bad-list event doesn't
+    # cook the sender reputation.
+    if not operator_initiated:
+        try:
+            bounce_stats = _get_bounce_window_stats(db, last_n_hours=24)
+            result["bounce_rate"] = bounce_stats["rate"]
+            bounce_threshold = _env_ratio(env, "BOUNCE_RATE_THRESHOLD", 0.03)
+            if bounce_stats["total"] >= bounce_stats["minimum_sample"] and bounce_stats["rate"] > bounce_threshold:
+                result.update(
+                    allowed=False,
+                    reason=(
+                        "bounce-rate circuit breaker active: "
+                        f"{bounce_stats['failed']}/{bounce_stats['total']} "
+                        f"({bounce_stats['rate']:.1%}) over the last 24h"
+                    ),
+                )
+                return result
+        except Exception as exc:  # noqa: BLE001
+            result.update(allowed=False, reason=f"bounce-rate check failed: {exc}")
             return result
-    except Exception as exc:  # noqa: BLE001
-        result.update(allowed=False, reason=f"bounce-rate check failed: {exc}")
-        return result
 
     # Gate 0a-0b (Phase 1 finalization, Adon brief §4.9 + §9 — 2026-06-08):
     # operator kill switches + operating mode. These fire BEFORE any other
@@ -1337,26 +1384,36 @@ def can_act(
         result.update(allowed=False, reason=reason_manual)
         return result
 
-    reason_sentinel = _check_sentinel_pause(lead_data, now)
-    if reason_sentinel:
-        result.update(allowed=False, reason=reason_sentinel)
-        return result
+    # Sentinel pause — HYGIENE (automated sentiment-based hold). Operator
+    # override allowed; operator sees the sentiment signal in the UI and
+    # decides whether the send is appropriate.
+    if not operator_initiated:
+        reason_sentinel = _check_sentinel_pause(lead_data, now)
+        if reason_sentinel:
+            result.update(allowed=False, reason=reason_sentinel)
+            return result
 
-    reason_window = _check_send_window(channel, lead_data, now)
-    if reason_window:
-        result.update(allowed=False, reason=reason_window)
-        return result
+    # Send window — already removed for email channel in _check_send_window;
+    # SMS keeps the TCPA gate. Operator-initiated bypass here covers SMS too:
+    # an operator manually texting a lender after hours is on the operator,
+    # not on the gateway (TCPA penalties land on the operator anyway).
+    if not operator_initiated:
+        reason_window = _check_send_window(channel, lead_data, now)
+        if reason_window:
+            result.update(allowed=False, reason=reason_window)
+            return result
 
-    # Gate 2: empty email (commercial intent will catch suppression separately).
+    # Gate 2: empty email — COMPLIANCE / SAFETY (never bypass).
     if to_email is not None and not (to_email or "").strip():
         result.update(allowed=False, reason="empty recipient")
         return result
 
     # Gates 2b-2c (Phase 1): reply-since-last-outbound + 90-min inter-touch
-    # gap. Both run one cheap DB query against lead_interactions. Inserted
-    # BEFORE per-channel cooldown so an inbound reply or recent cross-channel
-    # touch short-circuits the heavier cooldown ledger scan.
-    if lead_id:
+    # gap. Both run one cheap DB query against lead_interactions. HYGIENE
+    # for automated nurture flows; operator bypasses both because a
+    # lender reply on Deal A shouldn't block sending Deal B and operator
+    # judgment > 90-min gap.
+    if lead_id and not operator_initiated:
         reason_reply = _check_reply_since_last_outbound(db, lead_id)
         if reason_reply:
             result.update(allowed=False, reason=reason_reply)
@@ -1367,7 +1424,13 @@ def can_act(
             result.update(allowed=False, reason=reason_gap)
             return result
 
-    # Gate 3: active cooldown on this lead+channel.
+    # Gate 3: active cooldown on this lead+channel. The QUERY runs
+    # always (we still want the concurrent-send "reserving" race guard
+    # to fire for operators — that's a correctness protection, not
+    # hygiene). The cooldown TIMING math (the block below that compares
+    # cooldown_until / implied window against now) is operator-bypassed:
+    # a lender's reply on Deal A shouldn't block sending Deal B's
+    # different submission.
     if lead_id:
         last = None
         try:
@@ -1427,6 +1490,21 @@ def can_act(
                 if cooldown_hours is not None
                 else DEFAULT_COOLDOWNS.get(channel, 0)
             )
+            # Cooldown TIMING is hygiene — operator bypasses, cold paths
+            # respect. Surface the cooldown_until value either way so the
+            # UI can render "would have been gated until X" for awareness
+            # without actually blocking.
+        if rows and last and operator_initiated:
+            # Reporting only: expose cooldown_until + last_action_at so
+            # the caller sees the prior touch state but DO NOT block.
+            cu_raw_report = last.get("cooldown_until")
+            if cu_raw_report:
+                try:
+                    cu_report = datetime.fromisoformat(cu_raw_report.replace("Z", "+00:00"))
+                    result["cooldown_until"] = cu_report.isoformat()
+                except (ValueError, TypeError):
+                    pass
+        elif rows and last:
             if cu_raw and effective_window > 0:
                 try:
                     cu = datetime.fromisoformat(cu_raw.replace("Z", "+00:00"))
@@ -1467,31 +1545,34 @@ def can_act(
                 except (ValueError, TypeError):
                     pass
 
-    # Gate 3b: hourly cap. Uses effective_hourly_cap so operating mode
-    # multipliers actually enforce (Codex finding #4).
+    # Gate 3b: hourly cap. HYGIENE — operator bypass (B2B transactional
+    # sends shouldn't be rate-limited by a quota designed for cold-
+    # outreach reputation hygiene). Cold paths still respect.
+    # We still POPULATE result["hourly_count"] for reporting either way.
     if effective_hourly_cap is not None:
         try:
             count = _count_window(db, channel, now - timedelta(hours=1))
             result["hourly_count"] = count
-            if count >= effective_hourly_cap:
+            if not operator_initiated and count >= effective_hourly_cap:
                 result.update(
                     allowed=False,
                     reason=f"hourly cap hit: {count}/{effective_hourly_cap} {channel} actions in the last hour",
                 )
                 return result
         except Exception as exc:  # noqa: BLE001
+            # Ledger failure is treated as compliance — even operator
+            # bypasses don't ship into the dark.
             result.update(allowed=False, reason=f"hourly cap ledger unavailable: {exc}")
             return result
 
-    # Gate 4: daily cap. Uses effective_daily_cap so operating mode
-    # multipliers actually enforce (Codex finding #4).
+    # Gate 4: daily cap. HYGIENE — operator bypass for same reason.
     if effective_daily_cap is not None:
         try:
             day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             count = _count_window(db, channel, day_start)
             result["daily_count"] = count
             _maybe_notify_daily_cap_threshold(channel, count, effective_daily_cap)
-            if count >= effective_daily_cap:
+            if not operator_initiated and count >= effective_daily_cap:
                 result.update(
                     allowed=False,
                     reason=f"daily cap hit: {count}/{effective_daily_cap} {channel} actions today",
@@ -1509,11 +1590,11 @@ def can_act(
             )
             return result
 
-    # Gate 5: domain cap.
+    # Gate 5: domain cap. HYGIENE — operator bypass.
     domain_check = can_act_domain(db=db, to_email=to_email, channel=channel)
     result["domain_count"] = domain_check.get("count", 0)
     result["domain_cap"] = domain_check.get("cap")
-    if not domain_check["allowed"]:
+    if not operator_initiated and not domain_check["allowed"]:
         result.update(allowed=False, reason=domain_check["reason"])
         return result
 
