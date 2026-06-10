@@ -3218,21 +3218,27 @@ def send(
                 if body_html:
                     # Templates pass formatted HTML content (e.g.
                     # `<p>Hi {{name}}</p>`). Wrap that fragment in
-                    # the shell so the body retains its formatting
-                    # but inherits the OASIS chrome.
+                    # the brand-aware shell so the body retains its
+                    # formatting but inherits the correct chrome.
                     body_html = render_branded_html_fragment(
                         body_html,
                         subject=subject,
                         show_booking=False,
+                        brand=brand,
                     )
                 else:
                     # Plaintext-only path (cold outreach, agent
                     # one-off sends, internal verification mails):
-                    # wrap the text body so it ships branded.
+                    # wrap the text body so it ships brand-correct.
+                    # 2026-06-10 fix: brand was previously ignored,
+                    # so every SunBiz send shipped under the OASIS
+                    # shell. CC caught it after the goldstorm2003
+                    # probe arrived branded OASIS.
                     body_html = render_branded_html(
                         body_text or "",
                         subject=subject,
                         show_booking=False,
+                        brand=brand,
                     )
             except Exception:
                 # Template missing or borked — keep whatever the
