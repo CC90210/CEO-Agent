@@ -361,6 +361,42 @@ def _run_script(
     return _ok(proc.stdout.strip() or "(no output)")
 
 
+def _signer_env_overrides(payload: dict) -> dict[str, str]:
+    """Per-operator signing env layer — shared by every bridge tool that
+    spawns send_gateway. The dashboard resolves the operator who clicked
+    Send → their agents.config.json entry → passes signer_name /
+    signer_email / signer_phone in the tool payload. This helper turns
+    that into the env_overrides dict _run_script applies on top of
+    os.environ.
+
+    Result: email_template's _from_display / _from_email / _from_phone
+    helpers pick up the brand-specific BRAVO_FROM_*_SUNBIZ env vars and
+    the signature renders the rep's identity instead of the brand
+    default ("SunBiz Submissions"). Empty payload signer_* fields →
+    empty dict → _run_script falls through to plain os.environ
+    inheritance → brand default identity.
+
+    Centralized 2026-06-10 so shop_out_send_batch + send_email +
+    send_sms all use the same shape. Adding a new bridge tool that
+    needs per-operator signing is now one helper call instead of three
+    blocks of duplicate env-mapping code.
+    """
+    signer_name = str(payload.get("signer_name") or "").strip()
+    signer_email = str(payload.get("signer_email") or "").strip()
+    signer_phone = str(payload.get("signer_phone") or "").strip()
+    env: dict[str, str] = {}
+    if signer_name:
+        env["BRAVO_FROM_DISPLAY_SUNBIZ"] = signer_name
+        env["BRAVO_FROM_DISPLAY"] = signer_name
+    if signer_email:
+        env["BRAVO_FROM_EMAIL_SUNBIZ"] = signer_email
+        env["BRAVO_FROM_EMAIL"] = signer_email
+    if signer_phone:
+        env["BRAVO_FROM_PHONE_SUNBIZ"] = signer_phone
+        env["BRAVO_FROM_PHONE"] = signer_phone
+    return env
+
+
 def _tool_send_email(payload: dict) -> dict:
     """{to: str, subject: str, body: str, lead_id?: str, cc?: str|list} → send_gateway.
 
@@ -425,7 +461,13 @@ def _tool_send_email(payload: dict) -> dict:
     cc_clean = normalize_cc(payload.get("cc"))
     if cc_clean:
         args.extend(["--cc", cc_clean])
-    return _run_script(args)
+    # Per-operator signing — same shape as shop_out_send_batch. When
+    # the dashboard /api/leads/[id]/email route passes signer_* fields,
+    # this rep's name/email/phone get layered onto the send_gateway
+    # subprocess env so the rendered signature is theirs, not the
+    # shared "SunBiz Submissions" identity.
+    signer_env = _signer_env_overrides(payload)
+    return _run_script(args, env_overrides=signer_env or None)
 
 
 def _tool_send_sms(payload: dict) -> dict:
@@ -468,7 +510,13 @@ def _tool_send_sms(payload: dict) -> dict:
     lead_id = payload.get("lead_id")
     if isinstance(lead_id, str) and lead_id.strip():
         args.extend(["--lead-id", lead_id.strip()])
-    return _run_script(args)
+    # Per-operator signing — SMS templates don't currently render the
+    # signer's name in the body (most SunBiz SMS are short and the
+    # operator signs inline), but the BRAVO_FROM_* env vars flow into
+    # send_gateway's audit ledger so the per-rep attribution is preserved
+    # for compliance / cooldown / future SMS-signature support.
+    signer_env = _signer_env_overrides(payload)
+    return _run_script(args, env_overrides=signer_env or None)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -1002,29 +1050,13 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
     if not application_id:
         return _err("missing 'application_id'")
 
-    # Per-operator signing (2026-06-10). Dashboard resolves the operator
-    # who clicked Send from their session → agents.config.json entry →
-    # passes signer_name / signer_email / signer_phone. We layer these
-    # as env overrides on the send_gateway subprocess so email_template
-    # picks them up via BRAVO_FROM_DISPLAY_SUNBIZ / BRAVO_FROM_EMAIL_SUNBIZ.
-    # Result: Jordan's sends sign "— Jordan"; Alex's sign "— Alex";
-    # Ezra (Matt) signs "— Matt". No-signer-supplied falls back to the
-    # brand default ("SunBiz Submissions").
-    signer_name = str(payload.get("signer_name") or "").strip()
-    signer_email = str(payload.get("signer_email") or "").strip()
-    signer_phone = str(payload.get("signer_phone") or "").strip()
-    signer_env: dict[str, str] = {}
-    if signer_name:
-        signer_env["BRAVO_FROM_DISPLAY_SUNBIZ"] = signer_name
-        signer_env["BRAVO_FROM_DISPLAY"] = signer_name
-    if signer_email:
-        signer_env["BRAVO_FROM_EMAIL_SUNBIZ"] = signer_email
-        signer_env["BRAVO_FROM_EMAIL"] = signer_email
-    # Phone is informational only here; email_template doesn't yet inline
-    # it into the SunBiz signature (follow-up). Stashed in env so a
-    # future template revision can pull it without another wiring pass.
-    if signer_phone:
-        signer_env["BRAVO_FROM_PHONE_SUNBIZ"] = signer_phone
+    # Per-operator signing — same helper used by _tool_send_email /
+    # _tool_send_sms (2026-06-10 consolidation). Dashboard's
+    # /api/applications/[id]/shop-out route resolves operator →
+    # agents.config.json entry → passes signer_* fields. Email shell
+    # picks up BRAVO_FROM_*_SUNBIZ via email_template (commit f4c70c83
+    # added phone-line rendering).
+    signer_env = _signer_env_overrides(payload)
 
     bravo = _bravo_root()
     try:
