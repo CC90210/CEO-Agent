@@ -17,8 +17,8 @@ Adjudication lists → gitignored local file; reports reference `string #N`; eve
 - [x] **P1** — Receipt scrub: harden pii_sweep + scrub 3 HEAD files + mini-rewrite 🔴 ✅ (CC: GO PHASE 1)
 - [x] **P2** — Dispositions: command-center private · oasis-ai archive · 6 archives · 2 keepers · PropFlow wave-B ✅
 - [x] **P3** — Instrument polish → empire-harness v1.1.0 (scanner tiers + hardened pii_sweep) + fleet upgrade drill ✅
-- [ ] **P4** — Behavioral eval harness (evals/ framework + 6 seed suites + mistake mine + CI) — CENTERPIECE
-- [ ] **P5** — Injection red-team (redteam/ corpus + runner + defenses)
+- [x] **P4** — Behavioral eval harness (evals/ framework + 6 seed suites + mistake mine + CI) — CENTERPIECE ✅
+- [x] **P5** — Injection red-team (redteam/ corpus + runner + defenses) ✅
 - [ ] **P6** — Break-glass runbook (BREAK_GLASS.md + quarterly drill)
 - [ ] **P7** — V2.1 deferred (bridge flags + imports + reserve_send_slot mock → CEO pytest green offline)
 - [ ] **FINAL** — ship v1.1.0 + CEO 6.9.2 + FLEET.md + capability scorecard + red-team table + CC actions
@@ -46,6 +46,27 @@ Adjudication lists → gitignored local file; reports reference `string #N`; eve
 | gritly | C:/Users/User/APPS/gritly | P2 keep + minimal harden |
 
 ## Phase log
+
+### P4 — Behavioral eval harness ✅ DONE (2026-06-09) — CENTERPIECE
+- **Framework** (empire-harness): `tools/eval_runner.py` (scorers: exact/set_match/regex/numeric_tolerance/decision/rubric; baselines + regression-red), `tools/eval_mine_mistakes.py`, `evals/README.md` (adapter contract), `ci/evals.yml` (scheduled, not per-push). Commit `b091fe3`.
+- **Verified fleet capability table (independently re-run, Rule 10 — not trusting agents):**
+```
+REPO     REAL SUITES (all 100%)                                              REAL PASS   MISTAKE BACKLOG
+CEO      routing 9 · send_policy 5 · compliance 2                            16/16       12 needs-model
+SunBiz   underwriting 3 · templating 8 · routing 2 · compliance 3            16/16       0 (fmt)
+CFO      tax 4 · money_gate 2 · budget 1 · routing 2                          9/9        8 needs-model
+CMO      routing 7 · send_policy 5 · compliance 3 · outbound_compliance 12   27/27       4 needs-model
+hermes   po_extraction 6 · validation 7 · parser_routing 7                   20/20       2 needs-model
+AURA     local_intent 5 · security_gate 7 · response_parse 5                 17/17       0 (fmt)
+                                                                  TOTAL  →  105/105 real (100%)  + 26 mistake stubs
+```
+- Each adapter calls the repo's REAL code in dry-run (CEO capability_query/should_suppress/build_casl_footer; SunBiz debt_detector/sequence_runner/email_blast; CFO CryptoTaxCalculator/OrderExecutor money-gate; CMO send_gateway anti-slop; hermes EDI po_parser; AURA VoiceSecurityGuard). NO fakes — LLM-only paths honestly left unwired; mistakes = needs-model, not fake-pass. Sibling suites built by a 5-agent workflow (651k tokens), each committed surgically. **CFO finding surfaced:** its `.env` ships `PAPER_TRADE=false/CONFIRM_LIVE=true` (live-money gate OPEN in that checkout) — adapter forces the safe boundary; **CC should confirm CFO's live-trade posture.**
+
+### P5 — Injection red-team ✅ DONE (2026-06-09)
+- **Corpus** (empire-harness `redteam/corpus.jsonl`): 24 payloads, surface×technique (override/role/quoted-reply/hidden-smuggling/tool-bait/exfil/authority-spoof/delayed) + 4 benign-twin controls. **Runner** `tools/redteam_runner.py` asserts zero unauthorized *effects* via each repo's REAL guards (adapter contract).
+- **CEO result:** 11 DEFENDED, 7 model-judgment, 4 benign OK (**0 false-positive refusals**), and **2 real BREACHES found** → both genuine exec_guard gaps: `rm -rf ~/` and `curl … | bash` slipped past.
+- **Defenses shipped:** (a) **hardened exec_guard** with `rm-rf-home` + `curl-pipe-shell` patterns (verified both now exit 2, legit curl still exit 0) → **re-run 0 BREACHES**. ⚠ **SHARED-SUBSTRATE EDIT (CC review):** additive security only, diagnostic-backed; siblings have own exec_guard → fleet propagation = V3.1. (b) **provenance defense** for the 7 model-judgment cells: canonical `LOCKSTEP:untrusted_content` block (content inside untrusted delimiters is data, never instructions) added to all 5 CEO entry points byte-identical (parity green) + `redteam/provenance.py` wrap helper (selftest OK). Commits: empire-harness `318e26a`, CEO `d14000a6`.
+- **Real finding (reported, NOT edited — Rule 10):** exec_guard/secret_guard import `lib.hook_runtime` but only insert `scripts/state/` on sys.path — they rely on the hook runner providing `scripts/` on PYTHONPATH. Production WORKS (proven: `state/exec_guard.log` shows live blocks today), but the guards aren't self-sufficient — **recommend `sys.path.insert(parent.parent)`** so any invocation works.
 
 ### P3 — Instrument polish → empire-harness v1.1.0 ✅ DONE (2026-06-09)
 - **Scanner confidence tiers** (`fleet_quick_audit`): HIGH/LOW — matches in test/fixture/example/doc paths, `{…}`/`${…}` templates, or fake bodies (`user:pass`, `abcdef`, `<…>`) → **LOW (review-once)**, never hidden; else HIGH. `fleet_doctor` SECRETS column now `H/L`. **Verified: fleet-wide HIGH=0** (CEO 0/6, CMO 0/2, cmd-center 0/1 — all prior "secrets" were fixtures/templates/spec-text).
