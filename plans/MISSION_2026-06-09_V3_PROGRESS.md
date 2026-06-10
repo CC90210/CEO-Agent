@@ -16,7 +16,7 @@ Adjudication lists → gitignored local file; reports reference `string #N`; eve
 - [x] **P0** — Preflight (status table, bundle backups, guard check, gh auth) ✅
 - [x] **P1** — Receipt scrub: harden pii_sweep + scrub 3 HEAD files + mini-rewrite 🔴 ✅ (CC: GO PHASE 1)
 - [x] **P2** — Dispositions: command-center private · oasis-ai archive · 6 archives · 2 keepers · PropFlow wave-B ✅
-- [ ] **P3** — Instrument polish → empire-harness v1.1.0 (scanner tiers + hardened pii_sweep) + fleet upgrade drill
+- [x] **P3** — Instrument polish → empire-harness v1.1.0 (scanner tiers + hardened pii_sweep) + fleet upgrade drill ✅
 - [ ] **P4** — Behavioral eval harness (evals/ framework + 6 seed suites + mistake mine + CI) — CENTERPIECE
 - [ ] **P5** — Injection red-team (redteam/ corpus + runner + defenses)
 - [ ] **P6** — Break-glass runbook (BREAK_GLASS.md + quarterly drill)
@@ -46,6 +46,14 @@ Adjudication lists → gitignored local file; reports reference `string #N`; eve
 | gritly | C:/Users/User/APPS/gritly | P2 keep + minimal harden |
 
 ## Phase log
+
+### P3 — Instrument polish → empire-harness v1.1.0 ✅ DONE (2026-06-09)
+- **Scanner confidence tiers** (`fleet_quick_audit`): HIGH/LOW — matches in test/fixture/example/doc paths, `{…}`/`${…}` templates, or fake bodies (`user:pass`, `abcdef`, `<…>`) → **LOW (review-once)**, never hidden; else HIGH. `fleet_doctor` SECRETS column now `H/L`. **Verified: fleet-wide HIGH=0** (CEO 0/6, CMO 0/2, cmd-center 0/1 — all prior "secrets" were fixtures/templates/spec-text).
+- **pii_sweep hardened** (string #N + gitignored adjudication) folded into `empire-harness/tools/` + `tests/test_pii_sweep_self.py` (standing law self-test, 2 green, 0 redacted strings in source). **Standing law** added to README.
+- **harness_sync rewritten** — lock-driven re-stamp (path-agnostic: re-vendors whatever each repo's lock pins, CEO brain/_canonical OR sibling .harness/) + **product-safe adaptive init** (vendors block + writes universal adaptive drift test that scopes to existing entry points). Selftest 5/5.
+- **empire-harness v1.1.0** committed + tagged `584ad2f`, pushed.
+- **Fleet-upgrade drill** (the product mechanism): re-stamped all 8 adopters → v1.1.0, each drift test green, ~**20s total** (12s+8s for 8 repos). Commits: CEO 3b6ff6f0 · SunBiz 0fd8b36 · CFO 5d5aebe · CMO ab6e30b · hermes 26be2ab · AURA ed5c297 · cmd-center 79dfb9b · PropFlow e019b41.
+- **Gate:** fleet_doctor → 9 repos on v1.1.0, LOCK+CI yes, SECRETS HIGH=0.
 
 ### P2 — Dispositions ✅ DONE (2026-06-09)
 - **D1 command-center → PRIVATE:** `gh repo edit --visibility private` verified PRIVATE. **CC action: 1 Vercel redeploy to confirm build.**
