@@ -52,7 +52,7 @@ gh authed; 17 repos located (kli-hub JIT); fresh CEO bundle; dirty repos noted f
 ### P1 — CEO-Agent residual PII (content-keyed) ✅ DONE
 - CC adjudicated: "GO PHASE 1", no keepers → all 25 strings (10 lead emails + 15 names) purged.
 - Leakage check: 0 strings in live code (no test breakage). HEAD `execution_log.json` scrubbed (13 names → `[redacted-lead]`, committed d73736f→rewritten).
-- History rewrite (mirror): `filter-repo --replace-text + --replace-message` (25 strings → `[REDACTED]`) + `--invert-paths docs/***REMOVED***_ROI_Analysis.md`. Force-pushed all branches+tags (main `d73736f1→25970d19`).
+- History rewrite (mirror): `filter-repo --replace-text + --replace-message` (25 strings → `[REDACTED]`) + `--invert-paths docs/[adjudicated-lead]_ROI_Analysis.md`. Force-pushed all branches+tags (main `d73736f1→25970d19`).
 - **Authoritative verification (fresh origin clone):** branches+tags = **0** for all 25 strings. ✓
 - **Residual = pull-refs only:** 116 hits in `refs/pull/*` + binary `SESSION_LOG.md` blobs (`filter-repo --replace-text` skips binary). Git can't rewrite these → **CC: GitHub Support purge OR private repo** (now stronger — PR refs carry pre-V2 PII).
 - CSV resolved: `git rm --cached data/email_suppressions.csv` (runtime file, on disk) + `data/email_suppressions.example.csv` shipped + gitignored. casl_compliance loads + suppresses OK.

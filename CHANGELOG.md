@@ -21,7 +21,7 @@ substrate (`CC90210/empire-harness` v1.0.0) that the agent fleet consumes instea
 copies. See `plans/HANDOFF_FABLE_FLEET_V2_2026-06-09.md`.
 
 - **Residual PII (content-keyed):** purged 25 adjudicated lead strings the V1 path-keyed
-  purge missed (history `execution_log.json` + ***REMOVED***/***REMOVED*** cluster). Branches+tags
+  purge missed (history `execution_log.json` + the adjudicated lead-name cluster (see local adjudication file)). Branches+tags
   verified clean on a fresh clone; `scripts/pii_sweep.py` added. CSV untracked + example.
 - **Adopted empire-harness v1.0.0** (dogfood): vendored canonical LOCKSTEP block +
   `HARNESS_VERSION` + `harness.lock` + `scripts/tests/test_harness_canonical.py` (CEO's
