@@ -228,6 +228,7 @@ KNOWN_AGENT_SOURCES: frozenset[str] = frozenset({
     "cold_outreach_runner",  # SunBiz blast scheduler daemon (cold_outreach_runner.DAEMON_NAME)
     "dashboard_drawer",      # lead-drawer "Send Email" composer
     "shop_out_send_batch",   # bridge tool that fires shop-out runs
+    "shop_out",              # scripts/outbound/shop_out.py — the actual sender script
     "solara",                # chat-driven email from Solara (SunBiz ops)
     "helios",                # chat-driven email from Helios (SunBiz sales)
     "bravo",                 # chat-driven email from Bravo
@@ -252,7 +253,8 @@ KNOWN_AGENT_SOURCES: frozenset[str] = frozenset({
 OPERATOR_INITIATED_SOURCES: frozenset[str] = frozenset({
     "manual_cc",
     "dashboard_drawer",
-    "shop_out_send_batch",
+    "shop_out_send_batch",   # bridge-tool name (what _tool_shop_out_send_batch passes)
+    "shop_out",              # scripts/outbound/shop_out.py — direct call path (defense in depth)
     "solara",
     "helios",
     "bravo",
