@@ -493,7 +493,16 @@ class WarmClaudeProcess:
                 # frees the lock so other turns don't pile up behind
                 # a hung claude.
                 deadline = time.time() + max_seconds
-                inactivity_window = 90  # seconds with no event = wedged
+                # 600s matches the cold path's WATCHDOG_TIMEOUT_SEC and the
+                # dashboard's SSE_INACTIVITY_TIMEOUT_MS — all three layers
+                # now agree on what "actually wedged" means. 90s killed any
+                # legitimate FOREGROUND tool call >90s (claude emits no
+                # stream events while a synchronous Bash/tool runs): a 130s
+                # sleep died at 97s elapsed in the 2026-06-11 probe, and
+                # real underwriting steps (statement vision parse ~2min)
+                # hit the same wall. The wall-clock budget (max_seconds)
+                # still bounds the whole turn.
+                inactivity_window = 600  # seconds with no event = wedged
                 last_event_at = time.time()
                 while True:
                     now = time.time()
