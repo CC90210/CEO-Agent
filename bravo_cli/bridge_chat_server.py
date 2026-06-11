@@ -2193,7 +2193,18 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
             return on_event
 
-        ok = wp.send_turn(prompt_text, make_on_event(), max_seconds=300)
+        # Wall-clock budget per turn. Bumped from 300 (5 min) to 1800
+        # (30 min) 2026-06-11 after CC reported the warm process being
+        # killed mid-stream during legitimate long ops (Solara doing
+        # find-application → underwrite → analyze sequence, which takes
+        # ~10 min: vision parsing alone is 2 min, multi-step reasoning
+        # + bash exploration adds 5+ min). The inactivity_window inside
+        # send_turn (90s — kills truly silent hangs) is the real safety
+        # net; the wall-clock here is just a hard upper bound so a single
+        # misbehaving turn can't pin the warm process forever and starve
+        # the next turn waiting for the per-process lock.
+        turn_started_at = time.time()
+        ok = wp.send_turn(prompt_text, make_on_event(), max_seconds=1800)
         if ok:
             return True
 
@@ -2245,13 +2256,31 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 # as "warm did not handle this turn, try cold."
                 return False
             # Partial stream — close it with a real error so the user
-            # sees what happened instead of a silent done.
+            # sees what happened instead of a silent done. Distinguish
+            # the two real failure modes here:
+            #   - exit_code is None: process is still ALIVE; send_turn
+            #     hit the wall-clock deadline or inactivity window.
+            #     "died mid-stream" was misleading.
+            #   - exit_code is an int: process actually crashed/exited
+            #     (OOM, signal, claude internal error). Show the code.
+            elapsed_min = max(0, int((time.time() - turn_started_at) / 60))
+            if exit_code is None:
+                message = (
+                    f"Claude turn was killed after {elapsed_min} min — either the wall-clock "
+                    f"budget elapsed (per-turn cap) or the stream went silent for >90s "
+                    f"(inactivity guard). For very long operations, break the task into "
+                    f"smaller steps and use the terminal directly. Click Retry to spawn a "
+                    f"fresh process and continue from a checkpoint."
+                )
+            else:
+                message = (
+                    f"The warm Claude process exited unexpectedly with code {exit_code} after "
+                    f"{elapsed_min} min. Most common causes: OOM kill, hook crash, or claude "
+                    f"internal error. Click Retry to spawn a fresh process."
+                )
             emit("error", {
                 "code": "warm_pool_aborted",
-                "message": (
-                    f"The warm Claude process died mid-stream (exit {exit_code}). "
-                    "Click Retry to spawn a fresh process."
-                ),
+                "message": message,
             })
             emit("done", {"warm_aborted": True})
             return True
