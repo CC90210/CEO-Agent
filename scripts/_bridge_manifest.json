@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-11T17:35:10.897867+00:00",
-  "script_count": 98,
-  "entry_count": 249,
+  "generated_at_iso": "2026-06-11T17:58:37.105771+00:00",
+  "script_count": 99,
+  "entry_count": 250,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -829,6 +829,14 @@
       "help": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling."
     },
     {
+      "key": "migrate_lender_industry_restrictions_key",
+      "path": "scripts/migrate_lender_industry_restrictions_key.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "migrate_lender_industry_restrictions_key.py \u2014 one-shot key rename across lender rows."
+    },
+    {
       "key": "migrate_subprocess_calls",
       "path": "scripts/migrate_subprocess_calls.py",
       "root": "bravo",
@@ -1354,7 +1362,7 @@
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
-      "help": "seed_sunbiz_application_form_fields.py \u2014 add SOP \u00a74 inputs to SunBiz application form."
+      "help": "seed_sunbiz_application_form_fields.py \u2014 add SOP \u00a74 inputs to SunBiz intake forms."
     },
     {
       "key": "skill_metrics_track",

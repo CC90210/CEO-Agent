@@ -1,4 +1,4 @@
-"""seed_sunbiz_application_form_fields.py — add SOP §4 inputs to SunBiz application form.
+"""seed_sunbiz_application_form_fields.py — add SOP §4 inputs to SunBiz intake forms.
 
 Adon MCA SOP §4 (2026-06-11) requires the application to collect:
   - business_state  (ISO 2-letter; feeds lender.restricted_states filter)
@@ -9,21 +9,24 @@ because ApplicationProfile.merchant_state and .industry stay undefined —
 the scorer emits "info: missing_<field>" warnings instead of refusing
 to suggest restricted lenders.
 
-This script idempotently patches the SunBiz application form_template's
-JSONB schema. Safe to re-run (skips fields that already exist; logs what
-it added vs skipped). Adon / CC / VPS agent runs:
+2026-06-11 rewrite per VPS-agent discovery: the SunBiz intake forms live
+in the `forms` table (not `tenant_records` form_template — that table is
+empty for SunBiz). The shape is steps[i].fields[] where each step has
+key/label and fields is an array of {name, type, label, required, ...}.
+Per lib/forms/types.ts the renderer supports type:"select" with
+options:[{value,label}]. This script idempotently patches every ENABLED
+SunBiz form's steps[0].fields to include business_state + industry as
+required select fields. Safe to re-run.
+
+Vocabulary list expanded 2026-06-11 to cover the off-vocabulary slugs the
+migration discovered on Maison Capital Group + Olympus Lending lender
+rows ("auto", "transportation", "staffing", "childcare") — so a straight
+copy of legacy data into restricted_industries doesn't need re-mapping.
+
+VPS / Adon / CC runs:
 
     python3 scripts/seed_sunbiz_application_form_fields.py [--dry-run]
-
-Dry-run prints the diff without writing.
-
-The form_template entity lives in tenant_records, scoped to the SunBiz
-tenant. We resolve the right row by:
-  1. entity_type='form_template'
-  2. tenant_id=aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110 (SunBiz)
-  3. data.slug ILIKE '%application%'  OR  data.is_default_application=true
-
-If multiple match, the script lists them and asks the operator to pick.
+    python3 scripts/seed_sunbiz_application_form_fields.py --id <FORM_ID>
 """
 
 from __future__ import annotations
@@ -39,8 +42,6 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 SUNBIZ_TENANT_ID = "aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110"
 
-# US states — short list for the dropdown. The full 50-state set is in
-# every form library; this is the SunBiz operator-friendly set.
 US_STATES = [
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI",
     "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN",
@@ -49,24 +50,24 @@ US_STATES = [
     "WV", "WI", "WY",
 ]
 
-# SunBiz industry list — common MCA verticals. Lowercase slugs match the
-# format match-fitness expects (industries are .toLowerCase()'d at compare).
-# Adon can extend via the manifest editor after the seed.
+# SunBiz industry slugs. Expanded 2026-06-11 to include "auto",
+# "transportation", "staffing", "childcare" so legacy lender data (Maison
+# Capital Group, Olympus Lending) maps 1:1 without re-mapping. Adon can
+# trim / extend via the manifest editor after the seed.
 SUNBIZ_INDUSTRIES = [
-    "restaurant", "retail", "ecommerce", "trucking", "construction",
-    "auto_repair", "auto_sales", "beauty_salon", "barbershop", "spa",
-    "medical_practice", "dental_practice", "veterinary", "fitness_gym",
-    "professional_services", "law_firm", "accounting", "real_estate",
-    "wholesale", "manufacturing", "agriculture", "landscaping", "cleaning",
-    "moving_storage", "hospitality_hotel", "bar_nightclub",
+    "restaurant", "retail", "ecommerce", "trucking", "transportation",
+    "construction", "auto", "auto_repair", "auto_sales", "beauty_salon",
+    "barbershop", "spa", "medical_practice", "dental_practice", "veterinary",
+    "fitness_gym", "professional_services", "law_firm", "accounting",
+    "real_estate", "wholesale", "manufacturing", "agriculture", "landscaping",
+    "cleaning", "moving_storage", "hospitality_hotel", "bar_nightclub",
     "convenience_store", "gas_station", "liquor_store", "pharmacy",
-    "cannabis", "other",
+    "cannabis", "staffing", "childcare", "other",
 ]
 
 
 def _supabase():
-    """Service-role client via scripts/lib/secret_loader.py — same pattern
-    as supabase_tool.py + every other daemon. Loads .env.agents."""
+    """Service-role client via scripts/lib/secret_loader.py."""
     from lib.secret_loader import load_env  # type: ignore
     env = load_env()
     url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
@@ -77,176 +78,170 @@ def _supabase():
     return create_client(url, key)
 
 
-def _resolve_form_template(sb) -> dict:
-    """Find the SunBiz application form_template. Lists candidates if
-    multiple match and exits non-zero asking for explicit ID."""
-    rows = (
-        sb.table("tenant_records")
-        .select("id, data")
+def _list_enabled_sunbiz_forms(sb) -> list[dict]:
+    """All SunBiz forms with enabled=True. Schema per lib/forms/types.ts:
+    {id, slug, name, steps[], enabled, operating_mode, ...}.
+    """
+    res = (
+        sb.table("forms")
+        .select("id, slug, name, steps, enabled, operating_mode")
         .eq("tenant_id", SUNBIZ_TENANT_ID)
-        .eq("entity_type", "form_template")
+        .eq("enabled", True)
         .execute()
     )
-    candidates = []
-    for row in rows.data or []:
-        d = row.get("data") or {}
-        slug = str(d.get("slug") or "").lower()
-        name = str(d.get("name") or "").lower()
-        is_default = bool(d.get("is_default_application"))
-        if "application" in slug or "application" in name or is_default:
-            candidates.append({"id": row["id"], "data": d})
-
-    if not candidates:
-        print("ERROR: no SunBiz form_template matched 'application' criteria.", file=sys.stderr)
-        print("List all form_templates for SunBiz to debug:", file=sys.stderr)
-        for row in rows.data or []:
-            d = row.get("data") or {}
-            print(f"  id={row['id']} slug={d.get('slug')!r} name={d.get('name')!r}", file=sys.stderr)
-        sys.exit(2)
-
-    if len(candidates) == 1:
-        return candidates[0]
-
-    print("Multiple application form_templates matched — pick one:", file=sys.stderr)
-    for i, c in enumerate(candidates):
-        d = c["data"]
-        print(f"  [{i+1}] id={c['id']} slug={d.get('slug')!r} name={d.get('name')!r}", file=sys.stderr)
-    choice = input("Enter number (or Ctrl-C to abort): ").strip()
-    try:
-        idx = int(choice) - 1
-        return candidates[idx]
-    except (ValueError, IndexError):
-        print("Invalid choice.", file=sys.stderr)
-        sys.exit(2)
+    return res.data or []
 
 
-def _add_field_if_missing(fields: list[dict], spec: dict, log: list[str]) -> bool:
-    """Append spec to fields if no entry shares its name. Mutates fields
-    in place. Returns True if added."""
+def _step_for_basic_fields(steps: list) -> tuple[int, dict] | None:
+    """Pick the step whose `key` matches 'basic' / 'business' / 'about' /
+    'contact'. Falls back to steps[0] when no semantic match exists —
+    the business name + monthly revenue typically live there. Returns
+    (index, step_obj) or None when steps is malformed.
+    """
+    if not isinstance(steps, list) or not steps:
+        return None
+    semantic_keys = {"basic", "business", "about", "contact", "company"}
+    for i, step in enumerate(steps):
+        if not isinstance(step, dict):
+            continue
+        key = str(step.get("key") or "").strip().lower()
+        if key in semantic_keys:
+            return i, step
+    if isinstance(steps[0], dict):
+        return 0, steps[0]
+    return None
+
+
+def _add_field_if_missing(fields: list, spec: dict, log: list[str]) -> bool:
     name = spec["name"]
     for f in fields:
         if isinstance(f, dict) and f.get("name") == name:
-            log.append(f"  SKIP   {name}  (already present)")
+            log.append(f"    SKIP   {name}  (already present)")
             return False
     fields.append(spec)
-    log.append(f"  ADD    {name}  ({spec.get('type','?')})")
+    log.append(f"    ADD    {name}  ({spec.get('type','?')})")
     return True
 
 
-def _patch_form_data(data: dict, log: list[str]) -> dict:
-    """Return a deep-copied dict with business_state + industry added to
-    the schema's field list."""
-    new_data = copy.deepcopy(data)
-
-    # The field list may live at data.schema.fields OR data.fields
-    # depending on which form-template shape the dashboard wrote.
-    schema = new_data.get("schema")
-    if isinstance(schema, dict) and isinstance(schema.get("fields"), list):
-        fields = schema["fields"]
-    elif isinstance(new_data.get("fields"), list):
-        fields = new_data["fields"]
-    else:
-        log.append("  WARN  no fields list found — synthesizing schema.fields")
-        if not isinstance(schema, dict):
-            new_data["schema"] = schema = {}
-        schema["fields"] = []
-        fields = schema["fields"]
+def _patch_form_steps(steps: list, log: list[str]) -> list:
+    """Add business_state + industry to the basic-info step of the form.
+    Field shape matches lib/forms/types.ts: select fields use type='select'
+    + options:[{value,label}]."""
+    new_steps = copy.deepcopy(steps)
+    target = _step_for_basic_fields(new_steps)
+    if target is None:
+        log.append("    WARN  steps is empty/malformed — cannot patch")
+        return new_steps
+    idx, step = target
+    log.append(f"    Targeting steps[{idx}] (key={step.get('key')!r}, label={step.get('label')!r})")
+    if not isinstance(step.get("fields"), list):
+        log.append("    WARN  steps[i].fields is not a list — refusing to overwrite")
+        return new_steps
 
     _add_field_if_missing(
-        fields,
+        step["fields"],
         {
             "name": "business_state",
-            "type": "enum",
+            "type": "select",
             "label": "Business State",
             "required": True,
-            "enum_values": US_STATES,
-            "help_text": (
-                "SOP §4: feeds lender.restricted_states filter — pre-blocks "
-                "lenders that don't fund this state"
-            ),
+            "options": [{"value": s, "label": s} for s in US_STATES],
+            "help_text": "Feeds lender restricted-states pre-filter.",
         },
         log,
     )
 
     _add_field_if_missing(
-        fields,
+        step["fields"],
         {
             "name": "industry",
-            "type": "enum",
+            "type": "select",
             "label": "Industry",
             "required": True,
-            "enum_values": SUNBIZ_INDUSTRIES,
-            "help_text": (
-                "SOP §4: feeds lender.restricted_industries filter — "
-                "pre-blocks lenders that don't fund this industry"
-            ),
+            "options": [{"value": v, "label": v.replace("_", " ").title()} for v in SUNBIZ_INDUSTRIES],
+            "help_text": "Feeds lender restricted-industries pre-filter.",
         },
         log,
     )
 
-    return new_data
+    new_steps[idx] = step
+    return new_steps
 
 
 def main() -> int:
     p = argparse.ArgumentParser(prog="seed_sunbiz_application_form_fields")
     p.add_argument("--dry-run", action="store_true", help="Print diff without writing")
-    p.add_argument("--id", help="Skip auto-resolution; patch this form_template id")
+    p.add_argument("--id", help="Patch only this form id (skips list)")
     args = p.parse_args()
 
     sb = _supabase()
 
+    forms: list[dict]
     if args.id:
         row = (
-            sb.table("tenant_records")
-            .select("id, data")
+            sb.table("forms")
+            .select("id, slug, name, steps, enabled, operating_mode")
             .eq("id", args.id)
             .eq("tenant_id", SUNBIZ_TENANT_ID)
-            .eq("entity_type", "form_template")
             .maybe_single()
             .execute()
         )
         if not row.data:
-            print(f"ERROR: form_template {args.id} not found in SunBiz tenant.", file=sys.stderr)
+            print(f"ERROR: form {args.id} not found in SunBiz tenant.", file=sys.stderr)
             return 2
-        target = {"id": row.data["id"], "data": row.data["data"] or {}}
+        forms = [row.data]
     else:
-        target = _resolve_form_template(sb)
+        forms = _list_enabled_sunbiz_forms(sb)
+        if not forms:
+            print("ERROR: no enabled SunBiz forms found.", file=sys.stderr)
+            return 2
 
-    print(f"\nPatching SunBiz application form_template id={target['id']}")
-    print(f"  slug={target['data'].get('slug')!r}  name={target['data'].get('name')!r}\n")
+    print(f"\nFound {len(forms)} enabled SunBiz form(s) to patch:\n")
+    summary_changed = 0
+    summary_unchanged = 0
+    plans: list[tuple[dict, list, list[str]]] = []
 
-    log: list[str] = []
-    patched = _patch_form_data(target["data"], log)
+    for form in forms:
+        form_id = form["id"]
+        slug = form.get("slug")
+        name = form.get("name")
+        print(f"Form {form_id}  slug={slug!r}  name={name!r}")
+        log: list[str] = []
+        steps = form.get("steps") or []
+        new_steps = _patch_form_steps(steps, log)
+        for line in log:
+            print(line)
+        if new_steps == steps:
+            summary_unchanged += 1
+            print("    (no changes)\n")
+        else:
+            summary_changed += 1
+            plans.append((form, new_steps, log))
+            print()
 
-    print("Changes:")
-    for line in log:
-        print(line)
+    print(f"Summary: {summary_changed} form(s) would be patched, {summary_unchanged} unchanged.\n")
 
-    if patched == target["data"]:
-        print("\nNo changes — both fields already present. Exiting.")
+    if not plans:
+        print("Nothing to write. Done.")
         return 0
 
     if args.dry_run:
-        print("\n--dry-run set, NOT writing.")
+        print("--dry-run set, NOT writing.")
         return 0
 
-    print("\nApplying patch...")
-    result = (
-        sb.table("tenant_records")
-        .update({"data": patched})
-        .eq("id", target["id"])
-        .execute()
-    )
-    if not result.data:
-        print("ERROR: update returned no data — check tenant_records row state.", file=sys.stderr)
-        return 1
-
+    print("Applying patches...")
+    for form, new_steps, _ in plans:
+        result = (
+            sb.table("forms")
+            .update({"steps": new_steps})
+            .eq("id", form["id"])
+            .execute()
+        )
+        if not result.data:
+            print(f"ERROR: update on form {form['id']} returned no data", file=sys.stderr)
+            return 1
+        print(f"  patched {form['id']}")
     print("Done.")
-    print(
-        "\nNext: the dashboard /forms editor will pick up the new fields on "
-        "next load. Existing in-flight applications keep their old shape; "
-        "only new submissions enforce the required business_state + industry.",
-    )
     return 0
 
 
