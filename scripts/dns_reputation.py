@@ -51,8 +51,12 @@ def _run_nslookup(name: str, record_type: str) -> dict[str, Any]:
         if not cleaned:
             continue
         lower = cleaned.lower()
-        if lower.startswith("text ="):
-            records.append(cleaned.split("=", 1)[1].strip().strip('"'))
+        # Ubuntu nslookup prints TXT answers as `<name>\ttext = "..."` —
+        # the line starts with the queried name, not with "text =", so
+        # match anywhere in the line and slice past the marker.
+        if "text =" in lower:
+            idx = lower.find("text =")
+            records.append(cleaned[idx + len("text ="):].strip().strip('"'))
         elif "nameserver =" in lower:
             records.append(cleaned.split("=", 1)[1].strip())
         elif "mail exchanger =" in lower:
@@ -114,7 +118,13 @@ def check_sender_reputation(domain: str) -> dict[str, Any]:
         "spf": {
             "present": bool(spf_records),
             "records": spf_records,
-            "error": spf_lookup.get("error") if not spf_records else None,
+            # RFC 7208 §3.2: more than one v=spf1 record is a permerror —
+            # receivers treat it as SPF failure even though "SPF exists".
+            "valid": len(spf_records) == 1,
+            "error": spf_lookup.get("error") if not spf_records else (
+                f"{len(spf_records)} v=spf1 records published — RFC 7208 permerror; "
+                "merge into a single record" if len(spf_records) > 1 else None
+            ),
         },
         "dmarc": {
             "present": bool(dmarc_records),
@@ -134,6 +144,7 @@ def check_sender_reputation(domain: str) -> dict[str, Any]:
         },
         "summary": {
             "spf_present": bool(spf_records),
+            "spf_valid": len(spf_records) == 1,
             "dmarc_present": bool(dmarc_records),
             "dkim_present": bool(dkim_records),
         },

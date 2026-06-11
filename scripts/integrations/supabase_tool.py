@@ -235,46 +235,32 @@ def cmd_query(client, args):
             print(f"[supabase_tool] WARN dangerous_raw_sql_executed: {sql[:120]}",
                   file=sys.stderr)
 
-    # Try using a query_sql RPC function first
+    # Raw SQL needs the query_sql RPC. There is deliberately NO fallback:
+    # the previous behaviour silently degraded to `SELECT * FROM <table>
+    # LIMIT 100`, dropping every WHERE clause — on a multi-tenant database
+    # that returned other tenants' rows and made any downstream id list
+    # untrustworthy (bit the VPS agent on 2026-06-11). Fail loudly instead.
     try:
         result = client.rpc("query_sql", {"sql_query": sql}).execute()
         print(json.dumps(result.data, indent=2))
         return
-    except Exception:
-        pass
-    
-    # If no RPC function, try fetching from a table directly
-    # Parse simple SELECT statements
-    if sql.strip().upper().startswith("SELECT"):
-        # Try to extract table name for simple queries
-        import re
-        match = re.search(r'FROM\s+(\w+)', sql, re.IGNORECASE)
-        if match:
-            table = match.group(1)
-            try:
-                # Try a simple select with limit
-                limit_match = re.search(r'LIMIT\s+(\d+)', sql, re.IGNORECASE)
-                limit = int(limit_match.group(1)) if limit_match else 100
-                
-                result = client.table(table).select("*").limit(limit).execute()
-                print(json.dumps(result.data, indent=2, default=str))
-                return
-            except Exception as e:
-                print(f"PostgREST query failed: {e}", file=sys.stderr)
-    
-    print("NOTE: Raw SQL requires an RPC function. Create one in Supabase:")
-    print("""
-  CREATE OR REPLACE FUNCTION query_sql(sql_query text)
-  RETURNS json AS $$
-  DECLARE result json;
-  BEGIN
-    EXECUTE sql_query INTO result;
-    RETURN result;
-  END;
-  $$ LANGUAGE plpgsql SECURITY DEFINER;
-    """)
-    print(f"\nFor simple queries, try table operations directly:")
-    print(f"  python scripts/integrations/supabase_tool.py select <table_name> [--limit 10]")
+    except Exception as exc:
+        print(
+            "ERROR: raw SQL requires the query_sql RPC, which this project "
+            f"does not expose (rpc failed: {exc}).\n"
+            "Refusing to approximate the query — a filterless fallback would "
+            "silently drop your WHERE clause on a multi-tenant database.\n"
+            "Use the structured commands instead:\n"
+            "  select <table> --columns ... --eq '{\"tenant_id\": \"...\"}'\n"
+            "or create the RPC in Supabase:\n"
+            "  CREATE OR REPLACE FUNCTION query_sql(sql_query text)\n"
+            "  RETURNS json AS $$\n"
+            "  DECLARE result json;\n"
+            "  BEGIN EXECUTE sql_query INTO result; RETURN result; END;\n"
+            "  $$ LANGUAGE plpgsql SECURITY DEFINER;",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
 
 @retry(_RETRY)
