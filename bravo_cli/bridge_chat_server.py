@@ -107,6 +107,18 @@ def _ensure_critical_deps() -> None:
         file=sys.stderr,
     )
     try:
+        # ensure_deps must NOT reference _WINDOWLESS_FLAGS — the import
+        # that defines it lives BELOW _ensure_critical_deps() (intentionally:
+        # _subprocess_helpers itself may depend on a missing module).
+        # Use platform-conditional creationflags inline. On Linux the
+        # creationflags arg is ignored anyway (subprocess.run accepts 0).
+        windowless = 0
+        if sys.platform == "win32":
+            # subprocess.CREATE_NO_WINDOW is 0x08000000 on Windows. Defined
+            # here rather than imported so this function stays self-contained
+            # and the auto-pip-install path works even when
+            # _subprocess_helpers can't be imported (psutil missing).
+            windowless = 0x08000000
         subprocess.run(
             [
                 sys.executable,
@@ -120,7 +132,7 @@ def _ensure_critical_deps() -> None:
             ],
             check=True,
             timeout=180,
-            creationflags=_WINDOWLESS_FLAGS,
+            creationflags=windowless,
         )
         print("[ensure_deps] install completed", file=sys.stderr)
     except Exception as e:
