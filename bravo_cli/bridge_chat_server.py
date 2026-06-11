@@ -2150,27 +2150,15 @@ class _ChatHandler(BaseHTTPRequestHandler):
                             or (isinstance(result_text, str) and not result_text.strip())
                         )
                         if is_empty_result:
-                            # Warm path — the long-lived claude process owns
-                            # its own stderr stream, so we don't have direct
-                            # access to recent lines here. Pull the last N
-                            # bytes from the warm process's stderr log file
-                            # so the dashboard still shows the actual hook
-                            # error without an SSH round-trip. Best-effort.
+                            # Warm path — use the same recent_stderr() API
+                            # the other call sites use (lines 1353, 2221).
+                            # The WarmPool keeps a rolling stderr buffer
+                            # for this exact purpose; no need for file I/O.
                             warm_stderr_tail = ""
                             try:
-                                if wp is not None and getattr(wp, "stderr_log_path", None):
-                                    p = Path(str(wp.stderr_log_path))
-                                    if p.is_file():
-                                        # Last 1500 bytes — enough for one
-                                        # hook traceback without bloating
-                                        # the SSE payload.
-                                        sz = p.stat().st_size
-                                        with p.open("rb") as fh:
-                                            if sz > 1500:
-                                                fh.seek(sz - 1500)
-                                            warm_stderr_tail = _redact_secrets(
-                                                fh.read().decode("utf-8", errors="replace").strip()
-                                            )
+                                if wp is not None:
+                                    raw = wp.recent_stderr() or ""
+                                    warm_stderr_tail = _redact_secrets(str(raw).strip())[-1500:]
                             except Exception:
                                 warm_stderr_tail = ""
                             detail = (
