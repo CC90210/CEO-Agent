@@ -1382,10 +1382,18 @@ class _ChatHandler(BaseHTTPRequestHandler):
             self._json(400, {"ok": False, "error": "invalid_json"})
             return
         tool_name = str(payload.get("tool_name") or "").strip()
-        tool_input = payload.get("input") or {}
+        tool_input = payload.get("input")
         if not tool_name:
             self._json(400, {"ok": False, "error": "missing_tool_name"})
             return
+        if tool_input is None:
+            # Flat-payload fallback — the dashboard's shop-out Send +
+            # lender-thread Retry routes (and ops curl calls) pass tool
+            # args at the top level ({tool_name, application_id, ...})
+            # rather than nested under "input". Without this, those
+            # callers reach the tool with an empty input dict and every
+            # Send dies with "missing 'application_id'".
+            tool_input = {k: v for k, v in payload.items() if k != "tool_name"}
         if not isinstance(tool_input, dict):
             self._json(400, {"ok": False, "error": "input_must_be_object"})
             return
