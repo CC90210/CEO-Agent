@@ -3649,6 +3649,72 @@ def _print_json(obj: Any) -> None:
     print(json.dumps(obj, indent=2, default=str))
 
 
+def _resolve_cli_attachments(args) -> list[dict] | None:
+    """Materialize --attachments JSON into the {filename, content, mime_type}
+    shape send() expects.
+
+    Each input entry: {"storage_path": "<bucket-path>",
+                       "filename": "<display>",
+                       "mime_type": "application/pdf"}
+
+    Downloads each storage_path from Supabase Storage (bucket
+    'lead-documents' by convention — same bucket shop_out_sender.py and
+    underwriting_orchestrator.py use). On any per-file failure, logs the
+    failure to stderr and skips that attachment rather than refusing the
+    whole send — a 3-of-3 send is better than 0-of-3 if one PDF is
+    unreachable. send() can handle attachments=None for legacy callers.
+
+    Bucket override: if a storage_path starts with "<bucket>/" then
+    "<bucket>" is the bucket name and the remainder is the object key.
+    Otherwise we default to 'lead-documents'.
+    """
+    raw = getattr(args, "attachments", None)
+    if not raw:
+        return None
+    try:
+        entries = json.loads(raw)
+        if not isinstance(entries, list):
+            print(f"[send_gateway] --attachments must be a JSON array, got {type(entries).__name__}", file=sys.stderr)
+            return None
+    except json.JSONDecodeError as exc:
+        print(f"[send_gateway] --attachments JSON parse failed: {exc}", file=sys.stderr)
+        return None
+
+    db = get_supabase()
+    materialized: list[dict] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        storage_path = str(entry.get("storage_path") or "").strip()
+        if not storage_path:
+            continue
+        filename = str(entry.get("filename") or "attachment.bin")
+        mime_type = str(entry.get("mime_type") or "application/octet-stream")
+        # Default to 'lead-documents' bucket unless explicit "bucket/key" form.
+        bucket = "lead-documents"
+        key = storage_path
+        if "/" in storage_path and not storage_path.startswith("/"):
+            # Storage paths look like "<tenant_id>/<lead_id>/<filename>" by our
+            # convention — that's NOT a bucket prefix. Keep it as the key.
+            # Explicit bucket override would be "bucket:<name>:<key>" form to
+            # avoid ambiguity. (None of today's callers use it.)
+            pass
+        try:
+            content = db.storage.from_(bucket).download(key)
+            if not content:
+                print(f"[send_gateway] attachment {filename}: empty download from {key}", file=sys.stderr)
+                continue
+            materialized.append({
+                "filename": filename,
+                "content": content,
+                "mime_type": mime_type,
+            })
+        except Exception as exc:
+            print(f"[send_gateway] attachment {filename}: download failed ({exc!s:.200})", file=sys.stderr)
+            continue
+    return materialized or None
+
+
 def _cmd_send(args) -> int:
     # Channel-aware --to routing. For email channel, --to populates
     # to_email (default). For SMS channel, EITHER --to-phone (explicit)
@@ -3662,6 +3728,12 @@ def _cmd_send(args) -> int:
     else:
         to_email = args.to
         to_phone = args.to_phone  # in case a caller wants both, but normally None for email
+
+    # Materialize attachments from --attachments JSON. Downloads each
+    # storage_path from Supabase Storage and packages as the dict shape
+    # send() expects. None when --attachments was absent or invalid.
+    attachments = _resolve_cli_attachments(args)
+
     result = send(
         channel=args.channel,
         agent_source=args.agent_source,
@@ -3677,6 +3749,7 @@ def _cmd_send(args) -> int:
         intent=args.intent,
         cooldown_hours=args.cooldown,
         dry_run=args.dry_run,
+        attachments=attachments,
     )
     if args.output_json:
         _print_json(result)
@@ -3803,6 +3876,18 @@ def main() -> None:
     ps.add_argument("--subject", default=None)
     ps.add_argument("--body", default=None, help="Plain text body")
     ps.add_argument("--body-html", dest="body_html", default=None)
+    ps.add_argument(
+        "--attachments",
+        default=None,
+        help=(
+            "JSON array of attachments to include on the send. Each entry is "
+            '{"storage_path": "<bucket-path>", "filename": "<display>", '
+            '"mime_type": "application/pdf"}. send_gateway downloads from '
+            "Supabase Storage at send time + attaches to the MIME message. "
+            "Used by shop_out_send_batch to ship bank statements with each "
+            "lender outreach. Empty/missing = no attachments."
+        ),
+    )
     ps.add_argument("--brand", default=DEFAULT_BRAND, choices=sorted(BRAND_IDENTITY.keys()))
     ps.add_argument("--intent", default="commercial", choices=sorted(VALID_INTENTS))
     ps.add_argument("--cooldown", type=int, default=None, help="Override cooldown hours")

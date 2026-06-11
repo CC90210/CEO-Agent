@@ -93,6 +93,11 @@ BRAND_CONFIG: dict[str, dict[str, object]] = {
             "header_top": "#001F54",
             # SunBiz-only gold accent on the wordmark.
             "gold": "#D4A843",
+            # Tagline color — overrides the default primary on dark headers.
+            # SunBiz header is navy (#001F54); the electric-green primary
+            # was illegible at 11px against navy (CC test 2026-06-11).
+            # Gold matches the BIZ wordmark accent and reads cleanly.
+            "tagline": "#D4A843",
         },
         "default_from_display": "SunBiz Submissions",
         "default_from_email": "submissions@sunbizfunding.com",
@@ -400,9 +405,13 @@ def render_branded_html(
         f'<div style="font-weight:800;font-size:18px;letter-spacing:0.32em;'
         f'text-transform:uppercase">{wordmark_html}</div>'
         f'</td></tr><tr>'
-        # Tagline
+        # Tagline — use brand-specified tagline color when present,
+        # else fall back to primary. Critical for legibility on dark
+        # header bands: electric-green primary on SunBiz navy was
+        # unreadable until brand_palette["tagline"] = gold landed.
         f'<td align="center" style="padding:0 28px 26px 28px">'
-        f'<div style="font-size:11px;letter-spacing:0.18em;color:{p_primary};'
+        f'<div style="font-size:11px;letter-spacing:0.18em;color:'
+        f'{palette.get("tagline", p_primary)};'
         f'text-transform:uppercase;font-weight:600">'
         f'{_html.escape(brand_tagline)}</div>'
         f'</td></tr></table>\n'

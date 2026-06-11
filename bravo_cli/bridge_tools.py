@@ -1107,7 +1107,7 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
     # body_template, exactly as shop_out_sender.py reads them.
     threads = (
         sb.table("application_lender_threads")
-        .select("id, lender_id, subject, body_template, owner_phone, status, cc_emails")
+        .select("id, lender_id, subject, body_template, owner_phone, status, cc_emails, attachments")
         .eq("application_id", application_id)
         .eq("tenant_id", tenant_id)
         .eq("status", "pending")
@@ -1216,6 +1216,17 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
         cc_clean = normalize_cc(thread.get("cc_emails"))
         if cc_clean:
             send_args.extend(["--cc", cc_clean])
+
+        # Bank statements + signed application — SOP §3 mandates these on
+        # every shop-out email; funders can't underwrite without them.
+        # thread.attachments is the JSONB column the dashboard /shop-out
+        # route persisted at queue time (already tenant-scoped). send_gateway
+        # downloads each storage_path from Supabase Storage and packages as
+        # MIME at send time. Was the explicit gap previously documented in
+        # _tool_shop_out_send_batch's docstring — now closed.
+        thread_attachments = thread.get("attachments") or []
+        if thread_attachments:
+            send_args.extend(["--attachments", json.dumps(thread_attachments)])
 
         # Pass the per-operator signer env so email_template renders
         # this rep's name in the signature — not the brand default.
