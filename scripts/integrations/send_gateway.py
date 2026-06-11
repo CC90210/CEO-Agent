@@ -3649,24 +3649,40 @@ def _print_json(obj: Any) -> None:
     print(json.dumps(obj, indent=2, default=str))
 
 
+_ATTACHMENT_BUCKET = "lead-documents"
+
+
 def _resolve_cli_attachments(args) -> list[dict] | None:
-    """Materialize --attachments JSON into the {filename, content, mime_type}
-    shape send() expects.
+    """Materialize --attachments JSON into the {filename, content, content_type}
+    shape send() expects (per the send() docstring at line 2252).
 
     Each input entry: {"storage_path": "<bucket-path>",
                        "filename": "<display>",
                        "mime_type": "application/pdf"}
 
     Downloads each storage_path from Supabase Storage (bucket
-    'lead-documents' by convention — same bucket shop_out_sender.py and
-    underwriting_orchestrator.py use). On any per-file failure, logs the
-    failure to stderr and skips that attachment rather than refusing the
-    whole send — a 3-of-3 send is better than 0-of-3 if one PDF is
-    unreachable. send() can handle attachments=None for legacy callers.
+    'lead-documents' — canonical per LEAD_DOC_BUCKET in
+    oasis-command-center/lib/lead-documents.ts + STORAGE_BUCKET in
+    SunBiz-Agent/scripts/shop_out_sender.py). Same normalization
+    shop_out_sender's _download_attachment uses:
 
-    Bucket override: if a storage_path starts with "<bucket>/" then
-    "<bucket>" is the bucket name and the remainder is the object key.
-    Otherwise we default to 'lead-documents'.
+      1. Strip "lead-documents/" prefix if present (the dashboard may
+         persist either form).
+      2. Validate the first path segment matches --tenant-id — confused-
+         deputy defense. Without this gate, a malicious payload could
+         download any tenant's documents by referencing their storage
+         path. The dashboard's /api/applications/[id]/shop-out route
+         already enforces this on the request side, but the bridge tool
+         could be reached through other paths, so we enforce it again
+         here at the storage boundary.
+      3. Drop entries with "..", absolute paths, or empty segments.
+
+    Per-file failure logs to stderr and skips that file — a 3-of-3 send
+    is better than 0-of-3 if one PDF is unreachable. send() handles
+    attachments=None for legacy callers.
+
+    The DICT KEY for the MIME type is 'content_type' (NOT 'mime_type') to
+    match send()'s expected shape per its docstring.
     """
     raw = getattr(args, "attachments", None)
     if not raw:
@@ -3680,34 +3696,51 @@ def _resolve_cli_attachments(args) -> list[dict] | None:
         print(f"[send_gateway] --attachments JSON parse failed: {exc}", file=sys.stderr)
         return None
 
+    tenant_id = (getattr(args, "tenant_id", None) or "").strip()
     db = get_supabase()
     materialized: list[dict] = []
     for entry in entries:
         if not isinstance(entry, dict):
             continue
-        storage_path = str(entry.get("storage_path") or "").strip()
-        if not storage_path:
+        raw_path = str(entry.get("storage_path") or "").strip()
+        if not raw_path:
             continue
         filename = str(entry.get("filename") or "attachment.bin")
-        mime_type = str(entry.get("mime_type") or "application/octet-stream")
-        # Default to 'lead-documents' bucket unless explicit "bucket/key" form.
-        bucket = "lead-documents"
-        key = storage_path
-        if "/" in storage_path and not storage_path.startswith("/"):
-            # Storage paths look like "<tenant_id>/<lead_id>/<filename>" by our
-            # convention — that's NOT a bucket prefix. Keep it as the key.
-            # Explicit bucket override would be "bucket:<name>:<key>" form to
-            # avoid ambiguity. (None of today's callers use it.)
-            pass
+        # Caller may send 'mime_type' (legacy / dashboard payload) or
+        # 'content_type' (send() native). Accept either; forward as
+        # 'content_type' to match send()'s contract.
+        content_type = str(
+            entry.get("content_type") or entry.get("mime_type") or "application/octet-stream"
+        )
+
+        # Same normalization shop_out_sender uses (bucket-prefix strip,
+        # tenant-prefix enforcement, traversal-token reject).
+        path = raw_path.replace("\\", "/").strip().lstrip("/")
+        if path.startswith(f"{_ATTACHMENT_BUCKET}/"):
+            path = path[len(_ATTACHMENT_BUCKET) + 1:]
+        parts = [p for p in path.split("/") if p]
+        if not parts or ".." in parts:
+            print(f"[send_gateway] attachment {filename}: rejected malformed path", file=sys.stderr)
+            continue
+        # Confused-deputy: when --tenant-id is provided, require the first
+        # path segment to match. shop_out_sender enforces this; we mirror.
+        if tenant_id and parts[0] != tenant_id:
+            print(
+                f"[send_gateway] attachment {filename}: storage_path tenant prefix "
+                f"{parts[0]} != caller tenant {tenant_id}; rejected",
+                file=sys.stderr,
+            )
+            continue
+        key = "/".join(parts)
         try:
-            content = db.storage.from_(bucket).download(key)
-            if not content:
-                print(f"[send_gateway] attachment {filename}: empty download from {key}", file=sys.stderr)
+            content = db.storage.from_(_ATTACHMENT_BUCKET).download(key)
+            if not isinstance(content, (bytes, bytearray)) or not content:
+                print(f"[send_gateway] attachment {filename}: empty/non-bytes download from {key}", file=sys.stderr)
                 continue
             materialized.append({
                 "filename": filename,
-                "content": content,
-                "mime_type": mime_type,
+                "content": bytes(content),
+                "content_type": content_type,
             })
         except Exception as exc:
             print(f"[send_gateway] attachment {filename}: download failed ({exc!s:.200})", file=sys.stderr)
