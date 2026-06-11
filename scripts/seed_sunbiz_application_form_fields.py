@@ -80,11 +80,11 @@ def _supabase():
 
 def _list_enabled_sunbiz_forms(sb) -> list[dict]:
     """All SunBiz forms with enabled=True. Schema per lib/forms/types.ts:
-    {id, slug, name, steps[], enabled, operating_mode, ...}.
+    {id, slug, name, steps[], enabled, ...}.
     """
     res = (
         sb.table("forms")
-        .select("id, slug, name, steps, enabled, operating_mode")
+        .select("id, slug, name, steps, enabled")
         .eq("tenant_id", SUNBIZ_TENANT_ID)
         .eq("enabled", True)
         .execute()
