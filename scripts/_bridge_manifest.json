@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-11T17:58:37.105771+00:00",
-  "script_count": 99,
-  "entry_count": 250,
+  "generated_at_iso": "2026-06-11T19:36:20.281459+00:00",
+  "script_count": 100,
+  "entry_count": 251,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1523,6 +1523,14 @@
       "subcmd": null,
       "mutating": false,
       "help": "Wire OASIS outreach templates in the Bravo Supabase project."
+    },
+    {
+      "key": "adon_seed_lender_constraints",
+      "path": "scripts/adon_seed_lender_constraints.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": true,
+      "help": "SunBiz \u2014 interactive seeder for lender restricted_states + restricted_industries"
     },
     {
       "key": "api_server",

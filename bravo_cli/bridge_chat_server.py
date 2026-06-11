@@ -2150,14 +2150,42 @@ class _ChatHandler(BaseHTTPRequestHandler):
                             or (isinstance(result_text, str) and not result_text.strip())
                         )
                         if is_empty_result:
+                            # Warm path — the long-lived claude process owns
+                            # its own stderr stream, so we don't have direct
+                            # access to recent lines here. Pull the last N
+                            # bytes from the warm process's stderr log file
+                            # so the dashboard still shows the actual hook
+                            # error without an SSH round-trip. Best-effort.
+                            warm_stderr_tail = ""
+                            try:
+                                if wp is not None and getattr(wp, "stderr_log_path", None):
+                                    p = Path(str(wp.stderr_log_path))
+                                    if p.is_file():
+                                        # Last 1500 bytes — enough for one
+                                        # hook traceback without bloating
+                                        # the SSE payload.
+                                        sz = p.stat().st_size
+                                        with p.open("rb") as fh:
+                                            if sz > 1500:
+                                                fh.seek(sz - 1500)
+                                            warm_stderr_tail = _redact_secrets(
+                                                fh.read().decode("utf-8", errors="replace").strip()
+                                            )
+                            except Exception:
+                                warm_stderr_tail = ""
+                            detail = (
+                                "Claude Code completed successfully but returned no content. "
+                                "Most common cause: a SessionStart hook errored. "
+                                "Switch to Cloud mode in the meantime to bypass the local CLI."
+                            )
+                            if warm_stderr_tail:
+                                detail += (
+                                    "\n\n--- claude stderr (last 1500 chars) ---\n"
+                                    + warm_stderr_tail
+                                )
                             emit("error", {
                                 "message": "claude_returned_empty_response",
-                                "detail": (
-                                    "Claude Code completed successfully but returned no content. "
-                                    "Most common cause: a SessionStart hook errored. Check "
-                                    "`pm2 logs claude-bridge --err --lines 50`. Switch to Cloud "
-                                    "mode in the meantime to bypass the local CLI."
-                                ),
+                                "detail": detail,
                             })
                     emit("done", {
                         "stop_reason": ev.get("stop_reason"),
@@ -3291,18 +3319,35 @@ class _ChatHandler(BaseHTTPRequestHandler):
                             or (isinstance(result_text, str) and not result_text.strip())
                         )
                         if is_empty_result:
+                            # Drain whatever the failing hook printed to
+                            # stderr — that's the actual root cause the
+                            # operator needs to see WITHOUT SSHing. The
+                            # drainer runs in a thread so we briefly join
+                            # to flush the pipe, then snapshot. 2-second
+                            # cap so a misbehaving drainer can't hold up
+                            # the SSE stream.
+                            stderr_thread.join(timeout=2)
+                            empty_stderr_tail = _redact_secrets(
+                                "".join(stderr_chunks).strip()
+                            )[-1500:]
+                            detail = (
+                                "Claude Code completed successfully but returned no content "
+                                "(output_tokens=0, no text blocks emitted). Most common cause: "
+                                "a SessionStart hook errored before the assistant turn ran. "
+                                "If you recently changed .claude/settings.local.json hooks, "
+                                "verify they run standalone with "
+                                "`echo '{\"hook_event_name\":\"SessionStart\"}' | python <hook_script>`. "
+                                "Switch the chat to Cloud mode in the meantime to bypass the local CLI."
+                            )
+                            if empty_stderr_tail:
+                                detail += (
+                                    "\n\n--- claude stderr (last 1500 chars) ---\n"
+                                    + empty_stderr_tail
+                                )
                             emit("error", {
                                 "message": "claude_returned_empty_response",
-                                "detail": (
-                                    "Claude Code completed successfully but returned no content "
-                                    "(output_tokens=0, no text blocks emitted). Most common cause: "
-                                    "a SessionStart hook errored before the assistant turn ran. "
-                                    "Check `pm2 logs claude-bridge --err --lines 50` for hook "
-                                    "exit codes. If you recently changed .claude/settings.local.json "
-                                    "hooks, verify they run standalone with "
-                                    "`echo '{\"hook_event_name\":\"SessionStart\"}' | python <hook_script>`. "
-                                    "Switch the chat to Cloud mode in the meantime to bypass the local CLI."
-                                ),
+                                "detail": detail,
+                                "log_path": str(stderr_log_path),
                             })
                     emit("done", {
                         "stop_reason": ev.get("stop_reason"),
