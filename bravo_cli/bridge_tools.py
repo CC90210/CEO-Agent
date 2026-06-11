@@ -388,6 +388,13 @@ def _signer_env_overrides(payload: dict) -> dict[str, str]:
     if signer_name:
         env["BRAVO_FROM_DISPLAY_SUNBIZ"] = signer_name
         env["BRAVO_FROM_DISPLAY"] = signer_name
+        # CASL footer identity follows the signer too — otherwise an
+        # email signed "— Jordan" ends with "Ezra — Sun Biz Funding"
+        # (brand default), which reads like a mistake to the lender.
+        # send_gateway's brand resolver honors CASL_SENDER_NAME from
+        # process env when .env.agents doesn't pin it (verified absent
+        # 2026-06-11).
+        env["CASL_SENDER_NAME"] = signer_name
     if signer_email:
         env["BRAVO_FROM_EMAIL_SUNBIZ"] = signer_email
         env["BRAVO_FROM_EMAIL"] = signer_email
@@ -428,13 +435,13 @@ def _tool_send_email(payload: dict) -> dict:
         return _err("missing 'subject'")
     if not body:
         return _err("missing 'body'")
-    # send_gateway.py defines --json as a TOP-LEVEL flag on the main
-    # parser BEFORE the subparser (send_gateway.py:3648). Argparse
-    # rejects --json when it appears after the `send` subcommand.
-    # VPS agent surfaced this 2026-06-09; cost: chat-driven send_email
-    # tool exits 2 with "unrecognized arguments: --json".
+    # --json must come AFTER `send`: the subcommand defines its own
+    # --json with the same dest, and argparse lets the subparser default
+    # (False) clobber a pre-subcommand flag — output silently degrades
+    # to the human-readable status line. (2026-06-11; reverses the
+    # 2026-06-09 note that predated the subparser flag.)
     args = [
-        "scripts/integrations/send_gateway.py", "--json", "send",
+        "scripts/integrations/send_gateway.py", "send", "--json",
         "--channel", "email",
         "--agent-source", "manual_cc",
         "--to", to_addr,
@@ -486,15 +493,14 @@ def _tool_send_sms(payload: dict) -> dict:
         return _err("missing 'to' phone number")
     if not body:
         return _err("missing 'body'")
-    # Same --json placement fix as _tool_send_email above.
-    # send_gateway.py defines --json on the main parser, not on send.
+    # Same --json-after-`send` placement as _tool_send_email above.
     # send_gateway CLI's --to is bound to to_email (only). For SMS we
     # need to_phone — pass --to-phone explicitly. VPS agent surfaced
     # this 2026-06-09: previously --channel sms --to <phone> left
     # to_phone=None at the gateway and the send errored "sms channel
     # requires to_phone (E.164) and body_text".
     args = [
-        "scripts/integrations/send_gateway.py", "--json", "send",
+        "scripts/integrations/send_gateway.py", "send", "--json",
         "--channel", "sms",
         "--agent-source", "manual_cc",
         "--to-phone", to_num,
@@ -1077,24 +1083,31 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
     except Exception as e:
         return _err(f"supabase init failed: {e}")
 
-    # Fetch the application + its pending threads.
+    # Fetch the application + its pending threads. maybe_single()
+    # returns None (not a response object) on zero rows — guard the
+    # object, not just .data (same supabase-py quirk fixed in
+    # bridge_tool_underwriting_run 2026-06-11).
     app_row = (
         sb.table("tenant_records")
         .select("id, tenant_id, data")
         .eq("id", application_id)
         .eq("entity_type", "application")
-        .maybeSingle()
+        .maybe_single()
         .execute()
     )
-    if not app_row.data:
+    if not app_row or not app_row.data:
         return _err(f"application_id {application_id} not found in tenant_records")
     tenant_id = app_row.data.get("tenant_id")
     app_data = app_row.data.get("data") or {}
     lead_id = app_data.get("lead_id")
 
+    # Real schema (migration 069) — there is no recipient_email/body/data
+    # column on application_lender_threads. The recipient lives on the
+    # LENDER record (tenant_records data.contact) and the body on
+    # body_template, exactly as shop_out_sender.py reads them.
     threads = (
         sb.table("application_lender_threads")
-        .select("id, lender_id, subject, body, recipient_email, status, data, cc_emails")
+        .select("id, lender_id, subject, body_template, owner_phone, status, cc_emails")
         .eq("application_id", application_id)
         .eq("tenant_id", tenant_id)
         .eq("status", "pending")
@@ -1116,30 +1129,66 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
     now_iso = datetime.now(timezone.utc).isoformat()
 
     for thread in pending_rows:
-        recipient = thread.get("recipient_email")
+        # Atomic claim — flip pending→sending so the shop_out_sender
+        # cron (every minute, same pending rows) can't dispatch the same
+        # thread concurrently and double-email the lender. Only proceed
+        # if WE won the flip.
+        claim = (
+            sb.table("application_lender_threads")
+            .update({"status": "sending", "updated_at": now_iso})
+            .eq("id", thread["id"])
+            .eq("status", "pending")
+            .execute()
+        )
+        if not claim.data:
+            failures.append({"thread_id": thread["id"], "reason": "claimed_by_other_sender"})
+            failed_count += 1
+            continue
+
+        # Recipient — lender record's data.contact (same resolution as
+        # shop_out_sender._load_lender).
+        lender_row = (
+            sb.table("tenant_records")
+            .select("id, data")
+            .eq("tenant_id", tenant_id)
+            .eq("entity_type", "lender")
+            .eq("id", thread.get("lender_id"))
+            .maybe_single()
+            .execute()
+        )
+        lender_data = (lender_row.data or {}).get("data") or {} if lender_row else {}
+        recipient = lender_data.get("contact")
         subject = thread.get("subject") or "Funding application from SunBiz Funding"
-        body = thread.get("body") or ""
-        if not recipient:
-            # Pre-existing recipient-missing rows were inserted at
-            # status='error' upstream, but defensive — if any pending
-            # row lacks a recipient, mark error and skip dispatch.
+        body = thread.get("body_template")
+        if not isinstance(body, str) or not body.strip():
+            body = (
+                f"Hi {lender_data.get('name') or 'team'},\n\n"
+                "Please find our funding submission for your review.\n\n"
+                "— SunBiz Funding"
+            )
+        # {{owner_phone}} / {{owner.phone}} tokens — same substitution
+        # shop_out_sender applies (migration 069 assigned-rep phone).
+        owner_phone = (thread.get("owner_phone") or "").strip() or "[no owner phone configured]"
+        for _ph in ("{{owner_phone}}", "{{owner.phone}}"):
+            body = body.replace(_ph, owner_phone)
+
+        if not isinstance(recipient, str) or "@" not in recipient:
             sb.table("application_lender_threads").update({
                 "status": "error",
-                "last_response_summary": "missing recipient_email",
+                "last_response_summary": "lender has no contact email",
                 "updated_at": now_iso,
             }).eq("id", thread["id"]).execute()
             failed_count += 1
             failures.append({"thread_id": thread["id"], "reason": "missing_recipient"})
             continue
 
-        # Same --json placement fix as _tool_send_email / _tool_send_sms
-        # above. send_gateway.py defines --json on the main parser
-        # (line 3648), NOT on the `send` subparser, so it must appear
-        # BEFORE `send` in argv. Argparse rejects otherwise with
-        # "unrecognized arguments: --json" (exit 2). Without this the
-        # bridge's shop-out-batch tool fails on every dispatched thread.
+        # --json placement: send_gateway defines --json on BOTH the main
+        # parser and the `send` subparser (same dest). Argparse lets the
+        # subparser's default CLOBBER a pre-subcommand flag, so
+        # `--json send` silently prints the human-readable line instead
+        # of JSON. It must appear AFTER `send`.
         send_args = [
-            "scripts/integrations/send_gateway.py", "--json", "send",
+            "scripts/integrations/send_gateway.py", "send", "--json",
             "--channel", "email",
             "--agent-source", "manual_cc",
             "--brand", "sunbiz",  # shop-out is SunBiz-tenant-scoped — hardcode the
@@ -1149,6 +1198,11 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
             "--to", recipient,
             "--subject", subject,
             "--body", body,
+            # Explicit tenant — send_gateway's cross-tenant gate fails
+            # CLOSED without it ("caller did not supply tenant_id"),
+            # blocking every shop-out dispatch. Same trust-the-thread-row
+            # rationale as shop_out_sender.py's send call.
+            "--tenant-id", str(tenant_id),
         ]
         if lead_id:
             send_args.extend(["--lead-id", str(lead_id)])
@@ -1166,15 +1220,18 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
         # Pass the per-operator signer env so email_template renders
         # this rep's name in the signature — not the brand default.
         send_res = _run_script(send_args, env_overrides=signer_env or None)
-        if not send_res.get("ok"):
+        # _run_script returns the _ok/_err envelope: {output, is_error}.
+        # (There is no "ok"/"content" key — branching on those marked
+        # every send failed, including successful ones.)
+        if send_res.get("is_error"):
             failures.append({
                 "thread_id": thread["id"],
                 "lender_id": thread.get("lender_id"),
-                "reason": f"send_gateway failed: {send_res.get('content','')[:300]}",
+                "reason": f"send_gateway failed: {str(send_res.get('output') or '')[:300]}",
             })
             sb.table("application_lender_threads").update({
                 "status": "error",
-                "last_response_summary": (send_res.get("content") or "send_gateway failed")[:500],
+                "last_response_summary": (str(send_res.get("output") or "") or "send_gateway failed")[:500],
                 "updated_at": now_iso,
             }).eq("id", thread["id"]).execute()
             failed_count += 1
@@ -1184,13 +1241,17 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
         # gmail_thread_id (or twilio message_sid for SMS channels) is
         # in the result.message_id field.
         try:
-            sg = json.loads(send_res.get("content", "{}"))
+            sg = json.loads(str(send_res.get("output") or "{}"))
             status = sg.get("status")
             if status == "sent":
+                # SMTP sends carry no provider thread id — send() returns
+                # only interaction_id. Store it as send_interaction_id so
+                # shop_out_sender's dedup recognizes this thread as sent.
                 gmail_thread_id = sg.get("gmail_thread_id") or sg.get("message_id") or None
                 sb.table("application_lender_threads").update({
                     "status": "sent",
                     "gmail_thread_id": gmail_thread_id,
+                    "send_interaction_id": sg.get("interaction_id"),
                     "sent_at": now_iso,
                     "updated_at": now_iso,
                 }).eq("id", thread["id"]).execute()
@@ -1206,8 +1267,13 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
                 failed_count += 1
                 failures.append({"thread_id": thread["id"], "reason": f"suppressed: {sg.get('reason','')}"})
             elif status == "blocked":
-                # Cooldown — leave as pending so a future re-run picks
-                # it up after cooldown_until.
+                # Cooldown — release our 'sending' claim back to pending
+                # so a future re-run (or the cron) picks it up after
+                # cooldown_until.
+                sb.table("application_lender_threads").update({
+                    "status": "pending",
+                    "updated_at": now_iso,
+                }).eq("id", thread["id"]).execute()
                 failures.append({
                     "thread_id": thread["id"],
                     "reason": f"cooldown until {sg.get('cooldown_until','?')}",
