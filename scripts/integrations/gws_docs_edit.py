@@ -80,9 +80,13 @@ def gws(*args: str) -> dict:
     cmd = [*_GWS, *args, "--format", "json"]
     # Force UTF-8 — Windows defaults subprocess decoding to cp1252 which
     # blows up on em dashes / bullets / smart quotes common in real docs.
+    # creationflags + startupinfo: gws is a .cmd shim on Windows; without
+    # both flags the bridge sees a console pop on every doc edit.
+    from lib.subprocess_helpers import WINDOWLESS_FLAGS, windowless_startupinfo
     proc = subprocess.run(
         cmd, capture_output=True, text=True,
         encoding="utf-8", errors="replace",
+        creationflags=WINDOWLESS_FLAGS, startupinfo=windowless_startupinfo(),
     )
     if proc.returncode != 0:
         raise RuntimeError(

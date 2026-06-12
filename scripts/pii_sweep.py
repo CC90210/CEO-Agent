@@ -42,7 +42,13 @@ DEFAULT_STRINGS = "state/pii_adjudication.txt"  # gitignored; local-only
 
 
 def git(repo, args):
-    return subprocess.run(["git", "-C", repo] + args, capture_output=True, text=True, errors="ignore").stdout
+    # Windows console-suppression — pii_sweep is interactive but also
+    # called from PR-time hooks; either way no console flicker desired.
+    from lib.subprocess_helpers import WINDOWLESS_FLAGS, windowless_startupinfo
+    return subprocess.run(
+        ["git", "-C", repo] + args, capture_output=True, text=True, errors="ignore",
+        creationflags=WINDOWLESS_FLAGS, startupinfo=windowless_startupinfo(),
+    ).stdout
 
 
 def nlines(s):
@@ -114,10 +120,22 @@ def cmd_rewrite(repo, strings):
         for s in strings:
             fh.write(s + "\n")
     print(f"[rewrite] mirror={mirror} origin={url}  ({len(strings)} strings)")
-    subprocess.run(["rm", "-rf", mirror])
-    subprocess.run(["git", "clone", "--mirror", url, mirror])
-    r = subprocess.run(["git", "-C", mirror, "filter-repo", "--replace-text", repl,
-                        "--replace-message", repl, "--force"])
+    # Local import — pii_sweep is sometimes invoked in environments
+    # without lib/ on sys.path; the git() helper already imported above.
+    from lib.subprocess_helpers import WINDOWLESS_FLAGS, windowless_startupinfo
+    subprocess.run(
+        ["rm", "-rf", mirror],
+        creationflags=WINDOWLESS_FLAGS, startupinfo=windowless_startupinfo(),
+    )
+    subprocess.run(
+        ["git", "clone", "--mirror", url, mirror],
+        creationflags=WINDOWLESS_FLAGS, startupinfo=windowless_startupinfo(),
+    )
+    r = subprocess.run(
+        ["git", "-C", mirror, "filter-repo", "--replace-text", repl,
+         "--replace-message", repl, "--force"],
+        creationflags=WINDOWLESS_FLAGS, startupinfo=windowless_startupinfo(),
+    )
     os.unlink(repl)
     if r.returncode != 0:
         print("ERROR: filter-repo failed; mirror left for inspection.", file=sys.stderr)

@@ -452,11 +452,16 @@ def _tracked_md(subdir: str) -> list[Path]:
     """Tracked *.md files DIRECTLY under <subdir>/ (portable: excludes gitignored
     local-only files like memory/MISTAKES.md so the index is clean in a fresh clone)."""
     import subprocess
+    from lib.subprocess_helpers import WINDOWLESS_FLAGS, windowless_startupinfo
     base = PROJECT_ROOT / subdir
     try:
+        # creationflags + startupinfo — capability graph builds run from
+        # the cron daemon; without windowless flags the git ls-files spawn
+        # flashed a conhost window on every rebuild.
         out = subprocess.run(
             ["git", "-C", str(PROJECT_ROOT), "ls-files", subdir],
             capture_output=True, text=True, encoding="utf-8", errors="ignore",
+            creationflags=WINDOWLESS_FLAGS, startupinfo=windowless_startupinfo(),
         ).stdout
         result = []
         for line in out.splitlines():
