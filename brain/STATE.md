@@ -1,9 +1,10 @@
 ---
-tags: [state, ephemeral]
+tags: [state, ephemeral, fable-5]
 architecture_version: V7.0.0
-last_updated: 2026-06-10
+last_updated: 2026-06-12
 freshness_threshold_days: 30
-verified: 2026-06-09
+verified: 2026-06-12
+model_standard: fable-5
 ---
 # STATE — Current Operational State
 
@@ -29,14 +30,20 @@ verified: 2026-06-09
 
 ## Operational Status
 
+> [!success] SunBiz finalization sprint complete — 2026-06-12
+> Multi-session sprint shipped the SunBiz operator portal at Adon's MCA SOP spec end-to-end. Adon Saturday demo is greenlit. Full retrospective: [[memory/RETROSPECTIVE_2026-06-12_sunbiz_finalization]]. Bridge reliability chain solid browser → Vercel → tunnel → VPS → Claude CLI (30-min warm-pool wall-clock, 600s inactivity, Vercel Fluid 800s). Zero subprocess-popup zombies (audit: 227 files, 0 violations). 552 MB disk reclaimed.
+
+> [!info] Model standard — Fable 5 (2026-06-12)
+> Top-tier reasoning + general agent loop = `claude-fable-5`. Heavy code = `claude-opus-4-8`. General = `claude-sonnet-4-6`. Cheap classification = `claude-haiku-4-5-20251001`. Vision (statement_parser) = Sonnet 4.6. Canonical source: `scripts/lib/model_registry.py`. Per-tier routing rationale: [[memory/LONG_TERM]] Architecture Facts.
+
 | Dimension | Level | Notes |
 |-----------|-------|-------|
 | **Version** | V6 Apex (P1+P2+P3) | V6 Optimization Project 100% complete (2026-05-10). Architecture phase closed. |
-| **Position**| PIVOTING | Primary retainer ENDED 2026-05-18. SunBiz salary opportunity pending confirmation. |
-| **Confidence** | 0.65 | Core automations production-grade but revenue base collapsed. Must land SunBiz salary + diversify ASAP. |
-| **Focus Area** | **REVENUE RECOVERY + SUNBIZ SALARY** | primary retainer ended. SunBiz salary is the primary near-term revenue play. Outreach for new OASIS clients remains critical. |
-| **Energy** | PIVOTING / DETERMINED | Major client shift. CC handling it well — already has SunBiz lined up as replacement. Strategy session with Atlas + Bravo scheduled. |
-| **Memory Health** | GOOD | Files current. Knowledge wiki seeded. mem0 live. |
+| **Position**| EXECUTING | SunBiz portal turnkey for Adon demo. Saturday delivery confirmed. SunBiz salary confirmation pending — operator portal proof gives Adon the artefact to sell. |
+| **Confidence** | 0.75 | Core automations production-grade. SunBiz delivered at spec. Revenue lift pending Adon's signed-deal flow. |
+| **Focus Area** | **SUNBIZ DEMO + ONGOING CLIENT WORK** | Adon Saturday demo greenlit. Continued OASIS outreach for diversification. |
+| **Energy** | EXECUTING / FOCUSED | Long sprint closed cleanly. Bridge surface as reliable as terminal. Codebase hygiene reset (552 MB, 0 subprocess violations). |
+| **Memory Health** | GOOD | Files current. Latest retro 2026-06-12. Long-term re-verified 2026-06-12. |
 
 > **Ephemeral state lives in `memory/OPERATIONAL_STATE.md`** (split out 2026-05-07 per Architecture Certification finding C5). That file carries Active Infrastructure, Known Issues, Last Heartbeat — under a 7-day freshness gate. Read it for live ops; this file is for stable identity / North Star / capability architecture.
 
