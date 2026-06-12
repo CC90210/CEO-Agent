@@ -81,13 +81,26 @@ def gws(*args: str) -> dict:
     # Force UTF-8 — Windows defaults subprocess decoding to cp1252 which
     # blows up on em dashes / bullets / smart quotes common in real docs.
     # creationflags + startupinfo: gws is a .cmd shim on Windows; without
-    # both flags the bridge sees a console pop on every doc edit.
-    from lib.subprocess_helpers import WINDOWLESS_FLAGS, windowless_startupinfo
-    proc = subprocess.run(
-        cmd, capture_output=True, text=True,
-        encoding="utf-8", errors="replace",
-        creationflags=WINDOWLESS_FLAGS, startupinfo=windowless_startupinfo(),
-    )
+    # both flags daemon-spawned callers (PM2, scheduler, n8n) see a
+    # console pop on every doc edit. Import via sys.path patch so the
+    # script works both standalone and as a module.
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    try:
+        from lib.subprocess_helpers import WINDOWLESS_FLAGS, windowless_startupinfo
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True,
+            encoding="utf-8", errors="replace",
+            creationflags=WINDOWLESS_FLAGS,
+            startupinfo=windowless_startupinfo(),
+        )
+    except ImportError:
+        # Fallback for callers running outside the empire scripts/ tree.
+        # CREATE_NO_WINDOW = 0x08000000 (per Windows docs).
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True,
+            encoding="utf-8", errors="replace",
+            creationflags=0x08000000 if sys.platform == "win32" else 0,
+        )
     if proc.returncode != 0:
         raise RuntimeError(
             f"gws {' '.join(args[:3])} failed (exit {proc.returncode}):\n"
@@ -111,12 +124,69 @@ def get_doc(doc_id: str) -> dict:
     )
 
 
+_CMD_LINE_SAFE_BYTES = 6000  # Windows cmd.exe max is ~8191; leave headroom.
+
+
 def batch_update(doc_id: str, requests: list[dict]) -> dict:
-    return gws(
-        "docs", "documents", "batchUpdate",
-        "--params", json.dumps({"documentId": doc_id}),
-        "--json", json.dumps({"requests": requests}),
-    )
+    """Run a batchUpdate. Auto-chunks long inserts to dodge the Windows
+    cmd.exe ~8KB command-line limit (which manifests as the cryptic
+    'The command line is too long.' error).
+
+    Chunking strategy: if the serialized requests body exceeds
+    _CMD_LINE_SAFE_BYTES, we split insertText requests into smaller
+    pieces (each <= 4KB of text) and replay them in order. Other
+    request types are passed through unchanged — if a single one is
+    still too big the caller gets the original CLI error.
+    """
+    body = {"requests": requests}
+    if len(json.dumps(body)) <= _CMD_LINE_SAFE_BYTES:
+        return gws(
+            "docs", "documents", "batchUpdate",
+            "--params", json.dumps({"documentId": doc_id}),
+            "--json", json.dumps(body),
+        )
+    # Split into single-request batches; further split insertText
+    # bodies into ~4KB chunks at line boundaries.
+    last_reply: dict = {}
+    for req in requests:
+        ins = req.get("insertText")
+        if not ins or len(ins.get("text", "")) < 4000:
+            last_reply = gws(
+                "docs", "documents", "batchUpdate",
+                "--params", json.dumps({"documentId": doc_id}),
+                "--json", json.dumps({"requests": [req]}),
+            )
+            continue
+        # Chunk a big insertText
+        text = ins["text"]
+        index = ins["location"]["index"]
+        pieces: list[str] = []
+        buf = ""
+        for line in text.split("\n"):
+            candidate = buf + line + "\n"
+            if len(candidate) > 4000 and buf:
+                pieces.append(buf)
+                buf = line + "\n"
+            else:
+                buf = candidate
+        if buf:
+            pieces.append(buf)
+        # Insert pieces in order. Each subsequent piece goes at
+        # index + sum(len(previous pieces)) so the final layout
+        # matches the original single insertText.
+        offset = 0
+        for piece in pieces:
+            last_reply = gws(
+                "docs", "documents", "batchUpdate",
+                "--params", json.dumps({"documentId": doc_id}),
+                "--json", json.dumps({"requests": [
+                    {"insertText": {
+                        "location": {"index": index + offset}, "text": piece
+                    }}
+                ]}),
+            )
+            offset += len(piece)
+    return last_reply
 
 
 # ───────────────────────────────────────────────────────────────────
@@ -148,7 +218,26 @@ def find_section_range(
     `endIndex` is the start of the paragraph containing end_marker, OR
     if end_marker is None or not found, the end of the body (minus 1
     to avoid the final structural newline).
+
+    IMPORTANT: markers MUST be single-line substrings. Each paragraph
+    in the Docs API is its own element — a multi-line marker like
+    "═══ rule\\n2. SECTION" can never match a single paragraph and
+    will silently fall through to end-of-body, eating everything in
+    between. We hard-error on \\n in markers to prevent that.
     """
+    if "\n" in start_marker:
+        raise RuntimeError(
+            "start_marker must be a single-line substring; got newline. "
+            "Each Google Docs paragraph is one element — multi-line "
+            "markers cannot match."
+        )
+    if end_marker is not None and "\n" in end_marker:
+        raise RuntimeError(
+            "end_marker must be a single-line substring; got newline. "
+            "Use the unique single line that comes AFTER the section "
+            "you want to replace (e.g., the header line of the next "
+            "section, not the divider above it)."
+        )
     content = doc.get("body", {}).get("content", [])
     start_idx: int | None = None
     end_idx: int | None = None
@@ -162,6 +251,15 @@ def find_section_range(
             break
     if start_idx is None:
         raise RuntimeError(f"start_marker not found: {start_marker!r}")
+    if end_marker is not None and end_idx is None:
+        # Explicit end marker given but not found — refuse to fall back
+        # to end-of-body. Calling code probably has a typo or stale
+        # marker and would otherwise silently delete the rest of the doc.
+        raise RuntimeError(
+            f"end_marker not found: {end_marker!r}. Refusing to "
+            f"silently delete to end-of-body. Pass --end-marker '' or "
+            f"omit it if you really do want end-of-body."
+        )
     if end_idx is None:
         last = content[-1]
         end_idx = last.get("endIndex", start_idx + 1) - 1
