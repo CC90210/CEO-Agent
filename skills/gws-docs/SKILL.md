@@ -25,6 +25,7 @@ gws docs <resource> <method> [flags]
 | Command | Description |
 |---------|-------------|
 | [`+write`](../gws-docs-write/SKILL.md) | Append text to a document |
+| [`+edit`](../gws-docs-edit/SKILL.md) | In-place editor: find/replace, replace-section between markers, append, overwrite. Wraps `documents.batchUpdate`. Use for revising existing docs without spawning new files. |
 
 ## API Resources
 

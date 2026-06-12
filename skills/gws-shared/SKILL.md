@@ -90,7 +90,7 @@ Service hubs (load these when working with the service generally):
 Per-action skills (load only when invoking the specific operation):
 - Gmail: [[skills/gws-gmail-send/SKILL.md]] · [[skills/gws-gmail-read/SKILL.md]] · [[skills/gws-gmail-reply/SKILL.md]] · [[skills/gws-gmail-reply-all/SKILL.md]] · [[skills/gws-gmail-forward/SKILL.md]] · [[skills/gws-gmail-triage/SKILL.md]] · [[skills/gws-gmail-watch/SKILL.md]]
 - Calendar: [[skills/gws-calendar-insert/SKILL.md]] · [[skills/gws-calendar-agenda/SKILL.md]]
-- Drive / Docs / Sheets: [[skills/gws-drive-upload/SKILL.md]] · [[skills/gws-docs-write/SKILL.md]] · [[skills/gws-sheets-read/SKILL.md]] · [[skills/gws-sheets-append/SKILL.md]]
+- Drive / Docs / Sheets: [[skills/gws-drive-upload/SKILL.md]] · [[skills/gws-docs-write/SKILL.md]] · [[skills/gws-docs-edit/SKILL.md]] · [[skills/gws-sheets-read/SKILL.md]] · [[skills/gws-sheets-append/SKILL.md]]
 - Chat: [[skills/gws-chat-send/SKILL.md]]
 - Events: [[skills/gws-events-subscribe/SKILL.md]] · [[skills/gws-events-renew/SKILL.md]]
 - Model Armor: [[skills/gws-modelarmor-create-template/SKILL.md]] · [[skills/gws-modelarmor-sanitize-prompt/SKILL.md]] · [[skills/gws-modelarmor-sanitize-response/SKILL.md]]
