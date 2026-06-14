@@ -39,17 +39,42 @@ from pathlib import Path
 # ───────────────────────────────────────────────────────────────────
 
 def _resolve_gws() -> list[str]:
-    """Locate the gws CLI binary.
+    """Locate the gws CLI and return an argv prefix that runs it.
 
-    On Windows the npm-installed gws ships as a sh script + .cmd shim.
-    Python subprocess won't pick the .cmd up from `which gws`, so we
-    look explicitly and fall back to the shim form `cmd /c gws`.
+    CRITICAL on Windows: the npm-installed `gws` is a `.cmd` shim that
+    wraps `node run-gws.js %*`. Invoking the .cmd via subprocess routes
+    through cmd.exe, which RE-PARSES the argv and interprets shell
+    metacharacters (`>`, `<`, `|`, `&`, `^`) even when they're inside a
+    JSON string in a single argv element. That silently corrupts any
+    doc content containing those characters — e.g. a ">>" callout or a
+    "<=" — producing cryptic errors like "The specified path is invalid"
+    (cmd saw `>` as a redirect). Fix: bypass the shim and call
+    `node run-gws.js` directly (subprocess list form, shell=False),
+    which passes argv to node untouched.
+
+    Resolution order:
+      1. GWS_BIN env override (treated as a single executable).
+      2. node + the run-gws.js the .cmd shim wraps (preferred — no cmd.exe).
+      3. The .cmd / bare shim (last resort; metachar bug applies).
     """
-    # Honor explicit env override
+    # 1. Explicit override
     env_path = os.environ.get("GWS_BIN")
     if env_path and Path(env_path).exists():
         return [env_path]
-    # Try common npm-global locations on Windows
+
+    # 2. Preferred: node + run-gws.js (skips cmd.exe entirely)
+    node = shutil.which("node")
+    npm_roots = [
+        Path(os.environ.get("APPDATA", "")) / "npm",
+        Path.home() / "AppData" / "Roaming" / "npm",
+    ]
+    if node:
+        for root in npm_roots:
+            entry = root / "node_modules" / "@googleworkspace" / "cli" / "run-gws.js"
+            if entry.exists():
+                return [node, str(entry)]
+
+    # 3. Fall back to the shim (metachar corruption possible)
     candidates = [
         Path(os.environ.get("APPDATA", "")) / "npm" / "gws.cmd",
         Path(os.environ.get("APPDATA", "")) / "npm" / "gws",
@@ -58,7 +83,6 @@ def _resolve_gws() -> list[str]:
     for c in candidates:
         if c.exists():
             return [str(c)]
-    # Fall back to PATH lookup
     found = shutil.which("gws") or shutil.which("gws.cmd")
     if found:
         return [found]
