@@ -60,7 +60,7 @@
   "dependencies": {
     "@google/genai": "^1.43.0",
     "@notionhq/client": "^5.11.0",
-    "@remotion/cli": "^4.0.431",
+    "@remotion/cli": "^4.0.477",
     "@remotion/renderer": "^4.0.431",
     "@supabase/supabase-js": "^2.98.0",
     "dotenv": "^17.3.1",
