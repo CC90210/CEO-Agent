@@ -20,7 +20,7 @@ supabase==2.28.2
 # deploy is live). Comment out if you want a minimal local dev install.
 fastapi==0.118.0
 uvicorn[standard]==0.32.0
-python-multipart==0.0.27
+python-multipart==0.0.31
 # openai: needs >=1.90.0 for mem0ai 2.0.0b2 compatibility. Upper bound on
 # 3.x as a safety net — the SDK has never had a major breaking change
 # in the 1.x → 2.x line for our usage (text-embedding-3-small, chat.completions),
