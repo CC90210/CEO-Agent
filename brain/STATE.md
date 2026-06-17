@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz Automations parity + coherence (shipped 91feca7 + DB). Background Workers panel now renders for SunBiz operator showing the 7 live VPS daemons + health (read-only; control needs server->VPS-bridge proxy = delegated). Status board made HONEST per 3-agent audit: Application Document Parser + Underwriting Pipeline + Renewal Reminder flipped planned->live (all verified running via crons/daemons); Email Offer Scanner + Browser Offer Extractor stay planned. Agent split fixed: Follow-up Generator + Cold Outreach Runner reassigned solara->helios (DB live; cron_registry.py seed = VPS task) so Helios has automations (2 crons + the drips). Drips audited: 7 live + reachable, Inquiry Welcomer(hot_lead) paused = the one gap. tsc+build green. VPS prompt next: bridge URL+bearer for control proxy, exec-tool pm2 confirm, cron_registry agent_key edit.
+- **Result:** SunBiz automations: rewired VPS worker control to authorizeBridgeRequest (zero new env), de-Telegram'd cron/module/intro copy (8 cron descriptions + 3 live DB rows), unified GET/POST control eligibility + fixed stale-heartbeat recovery-button deadlock per Codex audit. oasis-command-center a5aa19e + 753bba3 on main. tsc+build green.
 
 *Last updated: 2026-06-17*
 
