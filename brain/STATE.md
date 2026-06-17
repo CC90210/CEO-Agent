@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Agent-CC on handoff email: Codex found HIGH (stale assigned_agent_name could CC wrong rep / leak merchant PII). Fixed b4d7ad0: unified resolveAssignedAgent — assigned_to (auth_user_id) authoritative for signature+CC, cached name never a CC source, unassigned→no CC. Verified live: Jordan/Alex/Ezra resolve correctly. 9 dashboard commits (a5aa19e..b4d7ad0). Final re-verify running.
+- **Result:** VERIFIED SHIP (b4d7ad0): agent-CC stale-name HIGH closed, no regression, Codex final verdict ship. SunBiz handoff email automation complete: sends step2+step3 links on interest-form submit, CCs the assigned rep (assigned_to-authoritative), suppression-gated, non-blocking, VPS-proven. 9 dashboard commits a5aa19e..b4d7ad0 all build-green.
 
 *Last updated: 2026-06-17*
 
