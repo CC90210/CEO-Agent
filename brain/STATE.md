@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz overhaul COMPLETE + Codex audit fully closed (oasis-command-center 2d89c4a..bb31fd4, 11 commits). HIGH reused-lead downgrade: fixed+verified. HIGH PII leak: closed via key+value+serialized scrub (verified vs Codex's example cases — signed-app URLs/SSN/EIN redacted, revenue survives). Mediums (inbound attribution, actor precedence, tenant guard, name canon): closed. All tsc+build+test:sunbiz green. OPEN: ghost/declined reactivation policy = CC decision (opted_out must not auto-reset — compliance). Standing: VPS daemon-align prompt (delivered), incognito test, deferred manifest-enum dropdown.
+- **Result:** SunBiz onboarding-readiness: LIVE first-try test PASSED (oasisai.work form submit → lead at intent_inquiry_submitted, ZERO premature application, handoff email status=sent via after()+bridge; test lead cleaned up). Shipped 9121419: reactivation policy (ghost/declined resurface, default/opted_out preserved) extracted to lib/forms/stage-transition.ts + 15-case test + stage tones. B.1 manifest enum = NO action (no tenant_manifests DB row; code seed SUN_SEED already patched + served — Rule 10 verified). tsc+test:sunbiz(16)+build green. Codex reviewing reactivation guard.
 
 *Last updated: 2026-06-17*
 
