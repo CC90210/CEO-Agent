@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** VERIFIED SHIP (b4d7ad0): agent-CC stale-name HIGH closed, no regression, Codex final verdict ship. SunBiz handoff email automation complete: sends step2+step3 links on interest-form submit, CCs the assigned rep (assigned_to-authoritative), suppression-gated, non-blocking, VPS-proven. 9 dashboard commits a5aa19e..b4d7ad0 all build-green.
+- **Result:** SunBiz overhaul shipped (oasis-command-center 2d89c4a..50d6af2): lead-first lifecycle (intent_inquiry_submitted first stage, no premature application, live forms-row patched), universal lead drawer on all clicks, settings chrome removed, Today's Focus ranks fresh inquiries, actor-filtered Activity Log (Ezra/Jordan/Alex/Helios/Solara from 5 unioned sources incl cron agent_key). All tsc+build green. Codex audit running. Deferred: manifest-enum dropdown polish + VPS daemon alignment to intent_inquiry_submitted.
 
 *Last updated: 2026-06-17*
 
