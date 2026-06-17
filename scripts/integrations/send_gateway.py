@@ -1733,6 +1733,18 @@ def _resolve_tenant_for_lead(db: Any, lead_id: Optional[str]) -> Optional[str]:
     return None
 
 
+def _direction_for_action(action_type: Optional[str]) -> str:
+    """Map an action_type to a lead_interactions.direction value. Sends are
+    outbound; replies/received are inbound. Historically these rows were
+    written with direction=NULL, forcing the dashboard's Conversations view
+    to guess from the subject — stamp it at write time so the data is correct.
+    """
+    a = (action_type or "").lower()
+    if a.endswith("_reply") or a.endswith("_received") or a.endswith("_inbound"):
+        return "inbound"
+    return "outbound"
+
+
 def _writethrough_outbound_log(
     *,
     lead_id: Optional[str],
@@ -1906,6 +1918,8 @@ def reserve_send_slot(
         "created_at": now.isoformat(),
         "subject": (subject or "")[:500],
         "content": (content_preview or "")[:1000],
+        "content_preview": (content_preview or "")[:1000],
+        "direction": "outbound",
         "agent_source": agent_source,
         "metadata": reservation_metadata,
     }
@@ -1972,6 +1986,8 @@ def finalize_reserved_action(
         "type": action_type,
         "subject": (subject or "")[:500],
         "content": (content_preview or "")[:1000],
+        "content_preview": (content_preview or "")[:1000],
+        "direction": _direction_for_action(action_type),
         "agent_source": agent_source,
         "metadata": final_metadata,
     }
@@ -2049,6 +2065,7 @@ def log_action(
         "type": action_type,
         "channel": channel,
         "created_at": now.isoformat(),
+        "direction": _direction_for_action(action_type),
     }
     if lead_id:
         row["lead_id"] = lead_id
@@ -2056,6 +2073,7 @@ def log_action(
         row["subject"] = subject[:500]
     if content_preview:
         row["content"] = content_preview[:1000]
+        row["content_preview"] = content_preview[:1000]
     if metadata:
         row["metadata"] = metadata
     if agent_source:
