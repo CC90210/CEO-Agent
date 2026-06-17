@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz overhaul shipped (oasis-command-center 2d89c4a..50d6af2): lead-first lifecycle (intent_inquiry_submitted first stage, no premature application, live forms-row patched), universal lead drawer on all clicks, settings chrome removed, Today's Focus ranks fresh inquiries, actor-filtered Activity Log (Ezra/Jordan/Alex/Helios/Solara from 5 unioned sources incl cron agent_key). All tsc+build green. Codex audit running. Deferred: manifest-enum dropdown polish + VPS daemon alignment to intent_inquiry_submitted.
+- **Result:** SunBiz overhaul + Codex remediation done (oasis-command-center 2d89c4a..691d62c, 10 commits). HIGH reused-lead downgrade fixed+verified (forward-only guard). Activity-feed mediums fixed: PII redaction (safeDetail masks signed-app URLs + KYC), inbound-not-agent attribution, actor_user_id precedence, correlation_id tenant guard, name canonicalization. All tsc+build+test:sunbiz green. OPEN POLICY Q for CC: ghost/declined lead re-submitting interest form stays at terminal stage (forward-only) — reactivation policy is CC's call (opted_out = compliance, must NOT auto-reset).
 
 *Last updated: 2026-06-17*
 
