@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Shipped ZCODE.md 6th entry point (GLM-5/ZCode CLI) wired into all 6 registries + parity/canonical/docs/wiki/routing gates green; corrected stale inventory counts; dual independent audit (workflow+Codex) caught & fixed 5 registry gaps + index-freshness trap; rewrote inherited aspirational retrospective to match live repo.
+- **Result:** Shipped SunBiz e-signature (signature_pad) + auto-generated application PDF (pdf-lib) closed-loop filing to lead DOCS as Final Application Form + dashboard-first login landing for sun/suga members; Codex audit (tenant-scope merge + fixture PII) addressed; oasis-command-center ef5fcf3 pushed to main
 
 *Last updated: 2026-06-17*
 
