@@ -60,11 +60,11 @@
   "dependencies": {
     "@google/genai": "^1.43.0",
     "@notionhq/client": "^5.11.0",
-    "@remotion/cli": "^4.0.431",
-    "@remotion/renderer": "^4.0.431",
+    "@remotion/cli": "^4.0.479",
+    "@remotion/renderer": "^4.0.479",
     "@supabase/supabase-js": "^2.98.0",
     "dotenv": "^17.3.1",
-    "@slack/bolt": "^3.22.0",
+    "@slack/bolt": "^4.7.3",
     "discord.js": "^14.16.0",
     "node-telegram-bot-api": "^0.67.0",
     "nodemailer": "^8.0.1",
@@ -78,6 +78,6 @@
     "uuid": "^14.0.0",
     "fast-uri": "^3.1.2",
     "request": "npm:@cypress/request@^3.0.8",
-    "ws": "^8.20.1"
+    "ws": "^8.21.0"
   }
 }
