@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Suppression gate closed (6a40e52): fail-closed on lookup error + LIKE-wildcard escape. All Codex findings on the SunBiz handoff-email automation resolved (HIGH suppression, MEDIUM blocking via after(), refactor clean). 6 commits shipped to oasis-command-center main; tsc+build green throughout.
+- **Result:** FINALIZED 2026-06-17: VPS verified GREEN (worker-control restart + handoff send_email end-to-end, IMAP-confirmed). Playbook updated to match (handoff email auto-on-submit, not the Paused Inquiry Welcomer drip; worker Start/Stop/Restart for owner/admin). 7 dashboard commits (a5aa19e..0bb9e73). Inquiry Welcomer drip confirmed DISABLED = no double-send. Open for tomorrow: merge VPS branch bravo/cron-helios-reassign; From display 'Sun Biz Funding'->'SunBiz Funding' brand-config; optional prune test lead + migrate resume email.
 
 *Last updated: 2026-06-17*
 
