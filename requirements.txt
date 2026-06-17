@@ -1,7 +1,7 @@
 anthropic==0.85.0
 beautifulsoup4==4.14.3
 click==8.3.1
-cryptography==46.0.7
+cryptography==48.0.1
 firecrawl-py==4.22.0
 mem0ai==2.0.0b2
 numpy==2.4.2
