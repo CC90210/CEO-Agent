@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz automations: rewired VPS worker control to authorizeBridgeRequest (zero new env), de-Telegram'd cron/module/intro copy (8 cron descriptions + 3 live DB rows), unified GET/POST control eligibility + fixed stale-heartbeat recovery-button deadlock per Codex audit. oasis-command-center a5aa19e + 753bba3 on main. tsc+build green.
+- **Result:** Suppression gate closed (6a40e52): fail-closed on lookup error + LIKE-wildcard escape. All Codex findings on the SunBiz handoff-email automation resolved (HIGH suppression, MEDIUM blocking via after(), refactor clean). 6 commits shipped to oasis-command-center main; tsc+build green throughout.
 
 *Last updated: 2026-06-17*
 
