@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-06-10T17:44:54.856351+00:00",
+  "generated_at": "2026-06-17T18:49:07.450508+00:00",
   "totals": {
-    "skills": 149,
-    "scripts": 102,
+    "skills": 150,
+    "scripts": 105,
     "agents": 21,
     "mcp_servers": 9,
     "workflows": 35,
-    "nodes_total": 316,
-    "edges_total": 39,
+    "nodes_total": 320,
+    "edges_total": 40,
     "drift_count": 0
   },
   "nodes": [
@@ -1381,6 +1381,37 @@
       "tags": [],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-docs-edit",
+      "kind": "skill",
+      "name": "gws-docs-edit",
+      "path": "skills/gws-docs-edit/SKILL.md",
+      "description": "Edit an existing Google Doc in place \u2014 find/replace, replace a section between markers, append, or overwrite. Higher-level wrapper around the gws CLI's docs.documents.batchUpdate. Use when you previously created a Google Doc (or know its ID) and need to revise it without spinning",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "gws docs edit",
+        "edit google doc",
+        "update google doc",
+        "replace text in google doc",
+        "replace section in google doc",
+        "append to google doc",
+        "overwrite google doc"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": false,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -4942,7 +4973,7 @@
       "kind": "script",
       "name": "email_template",
       "path": "scripts/email_template.py",
-      "description": "email_template.py \u2014 single canonical OASIS AI branded HTML email.",
+      "description": "email_template.py \u2014 brand-aware HTML email shell.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5103,6 +5134,16 @@
       "name": "md_to_gdoc",
       "path": "scripts/md_to_gdoc.py",
       "description": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:migrate_lender_industry_restrictions_key",
+      "kind": "script",
+      "name": "migrate_lender_industry_restrictions_key",
+      "path": "scripts/migrate_lender_industry_restrictions_key.py",
+      "description": "migrate_lender_industry_restrictions_key.py \u2014 one-shot key rename across lender rows.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5478,6 +5519,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:seed_sunbiz_application_form_fields",
+      "kind": "script",
+      "name": "seed_sunbiz_application_form_fields",
+      "path": "scripts/seed_sunbiz_application_form_fields.py",
+      "description": "seed_sunbiz_application_form_fields.py \u2014 add SOP \u00a74 inputs to SunBiz intake forms.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:set_secret",
       "kind": "script",
       "name": "set_secret",
@@ -5533,6 +5584,16 @@
       "name": "smoke_n8n_inbound_rpc",
       "path": "scripts/smoke_n8n_inbound_rpc.py",
       "description": "smoke_n8n_inbound_rpc.py \u2014 end-to-end smoke test for the n8n inbound bridge.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:system_health",
+      "kind": "script",
+      "name": "system_health",
+      "path": "scripts/system_health.py",
+      "description": "system_health \u2014 the Loud-Failures probe (V7 EPIC 7).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6317,6 +6378,11 @@
     },
     {
       "from": "skill:google-workspace-recipes",
+      "to": "skill:gws-shared",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:gws-docs-edit",
       "to": "skill:gws-shared",
       "kind": "requires"
     },

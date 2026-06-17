@@ -190,7 +190,7 @@ def check_entry_point_consistency() -> dict[str, Any]:
         "Agent-OS Vocabulary Layer",         # V6.8
     )
     missing: dict[str, list[str]] = {}
-    for entry in ("CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md"):
+    for entry in ("CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md", "ZCODE.md"):
         path = PROJECT_ROOT / entry
         if not path.exists():
             missing[entry] = ["FILE_MISSING"]

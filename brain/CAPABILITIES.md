@@ -29,7 +29,7 @@ verified: 2026-06-09
 
 ### OpenCode (big-pickle — Bravo, same identity)
 - **Identity:** Full **Bravo** — CC's Lead Architect. Same persona, voice, capabilities as Claude-powered Bravo.
-- **Access:** Full read/write to all 148 active skills in `skills/`, all 114 top-level Python CLI tools in `scripts/` (215 total inc. subpackages), all brain/ and memory/ files, all subagent definitions.
+- **Access:** Full read/write to all 150 active skills in `skills/`, all 105 top-level Python CLI tools in `scripts/` (238 total inc. subpackages), all brain/ and memory/ files, all subagent definitions.
 - **Entry Point:** `AGENTS.md` (shared with Codex/Cursor/Windsurf). Identity routing at lines 13-15.
 - **MCP Servers:** Same 9 servers as Claude Code (Playwright, Context7, Memory, Sequential Thinking, GitHub, Firecrawl, Obsidian, Filesystem, Knowledge Graph) when available via OpenCode.
 - **Tool routing:** Same CLI-first rules — `scripts/integrations/send_gateway.py`, `scripts/integrations/supabase_tool.py`, `scripts/integrations/stripe_tool.py`, `scripts/integrations/google_tool.py`, `scripts/integrations/n8n_tool.py`.

@@ -21,6 +21,7 @@ SYNC_MAP = [
     ("ANTIGRAVITY.md", "ANTIGRAVITY.md"),
     ("AGENTS.md", "AGENTS.md"),
     ("OPENCODE.md", "OPENCODE.md"),
+    ("ZCODE.md", "ZCODE.md"),
 ]
 
 

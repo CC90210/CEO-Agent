@@ -328,8 +328,14 @@ Multi-agent tasks use drift detection. See `skills/anti-drift/SKILL.md` and `.ag
 4. **Reflections** → Log failures to `memory/SELF_REFLECTIONS.md` using Reflexion framework.
 
 ## AI Entry Points
+
+Six lockstep entry points — same Bravo identity, runtime-specific routing only (CLAUDE.md Rule 4 keeps them in sync):
+- [[CLAUDE]] — Claude Code CLI entry point (Lead Architect; primary refactor/debug/architecture chassis)
 - [[GEMINI]] — Gemini CLI entry point (Bravo Inference Engine)
 - [[ANTIGRAVITY]] — Antigravity IDE entry point (Bravo Infantry / Architect Hybrid)
+- [[AGENTS]] — AGENTS.md-convention chassis (Codex CLI / Cursor / Windsurf / Aider)
+- [[OPENCODE]] — OpenCode terminal entry point (model-swap chassis, added 2026-05-03)
+- [[ZCODE]] — ZCode local CLI entry point (GLM-5 Turbo runtime from `.zcode/`, CLI-only tool surface, added 2026-06-17)
 - [[.gemini/rules/GEMINI]] — Gemini-specific rules copy
 - [[.gemini/rules/ANTIGRAVITY]] — Antigravity-specific rules copy
 

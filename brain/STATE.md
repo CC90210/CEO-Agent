@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz READY for testing+onboarding. All Codex findings closed (HIGH downgrade/PII/fail-open + final visibility MEDIUM = 7136878). Deploy state verified: GitHub clean+pushed (7136878); Vercel 1ee6b47 confirmed LIVE on oasisai.work (Ready, deploy age=commit age), 7136878 auto-deploying; Supabase forms-row patched + 0 test residue. Form→inquiry→email PROVEN first-try via live prod test. 12 commits 2d89c4a..7136878, all tsc+test:sunbiz(16)+build green.
+- **Result:** Shipped ZCODE.md 6th entry point (GLM-5/ZCode CLI) wired into all 6 registries + parity/canonical/docs/wiki/routing gates green; corrected stale inventory counts; dual independent audit (workflow+Codex) caught & fixed 5 registry gaps + index-freshness trap; rewrote inherited aspirational retrospective to match live repo.
 
 *Last updated: 2026-06-17*
 

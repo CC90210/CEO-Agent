@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **149 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## agent-forge
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -228,6 +228,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **149 active skills**. Eac
 - **Use when:** Read and write Google Docs.
 - **Triggers:** gws docs, use gws docs, run gws docs, read and write google docs
 - **Path:** `skills/gws-docs/SKILL.md` · tier `specialized` · risk `low`
+
+## gws-docs-edit
+- **Use when:** Edit an existing Google Doc in place — find/replace, replace a section between markers, append, or overwrite. Higher-level wrapper around the gws CLI's docs.documents.batchUpdate. Use when you previously created a Google Doc (or know its ID) and need to revise it without spinning
+- **Triggers:** gws docs edit, edit google doc, update google doc, replace text in google doc, replace section in google doc, append to google doc, overwrite google doc
+- **Path:** `skills/gws-docs-edit/SKILL.md` · tier `specialized` · risk `low`
 
 ## gws-docs-write — _explicit `/command` only_
 - **Use when:** Google Docs: Append text to a document.

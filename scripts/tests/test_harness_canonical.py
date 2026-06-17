@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-KNOWN = ["CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md", "OPENCODE.md"]
+KNOWN = ["CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md", "OPENCODE.md", "ZCODE.md"]
 LOCK = ROOT / "harness.lock"
 _FILE_RE = re.compile(r"LOCKSTEP_([A-Za-z0-9_]+)\.md$")
 

@@ -7,7 +7,7 @@
 > **OpenCode running big-pickle:** You are also **Bravo** — CC's Lead Architect, full identity, full read/write access to all skills, scripts, brain/, memory/, and state files. Same persona, voice, and capabilities as Claude-powered Bravo.
 > Primary: Complex multi-file refactoring, debugging, architecture, system evolution.
 >
-> Lockstep siblings — same Bravo identity, runtime-specific routing only: [GEMINI.md](GEMINI.md) (Gemini CLI) · [ANTIGRAVITY.md](ANTIGRAVITY.md) (Antigravity IDE) · [AGENTS.md](AGENTS.md) (Codex / Cursor / Windsurf / Aider) · [OPENCODE.md](OPENCODE.md) (OpenCode terminal, added 2026-05-03). Edit one → sync the rest per Rule 4.
+> Lockstep siblings — same Bravo identity, runtime-specific routing only: [GEMINI.md](GEMINI.md) (Gemini CLI) · [ANTIGRAVITY.md](ANTIGRAVITY.md) (Antigravity IDE) · [AGENTS.md](AGENTS.md) (Codex / Cursor / Windsurf / Aider) · [OPENCODE.md](OPENCODE.md) (OpenCode terminal, added 2026-05-03) · [ZCODE.md](ZCODE.md) (ZCode / GLM-5 local CLI, added 2026-06-17). Edit one → sync the rest per Rule 4.
 
 <!-- LOCKSTEP:tool_discipline -->
 ## Tool & Verification Discipline (non-negotiable)
@@ -42,12 +42,12 @@ Default to the lighter path. The cost of an over-eager file-read on a casual mes
 1. **`brain/AGENT_ROUTER.md`** — routing-by-intent table. Read on the first OPERATIONAL turn that needs routing — never on a "wsp."
 2. **`brain/EXECUTION_RULES.md`** — the iron law (self-execute, never tell CC to run commands, confirm after every mutation). Read once per session, at the moment you're about to act.
 3. **`brain/INTENTS.md`** — verb-by-verb playbooks (send-email, apply-migration, push-to-prod, etc). Read when an intent matches.
-4. **`brain/WHEN_TO_USE_SKILLS.md`** — trigger map for the 148 active skills. Read when an operator request might match a skill.
+4. **`brain/WHEN_TO_USE_SKILLS.md`** — trigger map for the 150 active skills. Read when an operator request might match a skill.
 5. **`CONTEXT.md`** — canonical empire vocabulary (OASIS, PropFlow, tenant, drip sequence, Pulse, etc). Read when a domain term needs to be canonicalized or a new term is about to enter the codebase. See [docs/adr/0002-context-md-canonical-vocabulary.md](docs/adr/0002-context-md-canonical-vocabulary.md).
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are no longer auto-loaded — they're per-intent reads now. The router tells you when.
 
-**HARD RULE — no `@`-imports in this file or any sibling entry point.** Every `@filename` syntax in CLAUDE.md / GEMINI.md / ANTIGRAVITY.md / AGENTS.md / OPENCODE.md auto-loads the referenced file (recursively, up to 5 hops) into the system prompt on EVERY cold spawn. Pre-fix this used to inflate boot context to ~51k tokens (1,924 lines across 10 files) for "yo wsp." Reference paths as bare strings (write `brain/SOUL.md`, never the AT-prefixed form) — the agent reads them on demand per Triage. If you find yourself wanting to add an `@`-import, you're wrong. Stop. Add a Read instruction to the Triage matrix instead.
+**HARD RULE — no `@`-imports in this file or any sibling entry point.** Every `@filename` syntax in CLAUDE.md / GEMINI.md / ANTIGRAVITY.md / AGENTS.md / OPENCODE.md / ZCODE.md auto-loads the referenced file (recursively, up to 5 hops) into the system prompt on EVERY cold spawn. Pre-fix this used to inflate boot context to ~51k tokens (1,924 lines across 10 files) for "yo wsp." Reference paths as bare strings (write `brain/SOUL.md`, never the AT-prefixed form) — the agent reads them on demand per Triage. If you find yourself wanting to add an `@`-import, you're wrong. Stop. Add a Read instruction to the Triage matrix instead.
 
 Fix obvious issues without asking. Answer questions in 1-5 sentences, then act. Never tell CC what you're going to do — just do it. Think 3 steps ahead. CC's time is the bottleneck — multiply it. "make this a post" → run the full content pipeline. Backend task → delegate to Codex.
 
@@ -101,7 +101,7 @@ All credentials in `.env.agents`. NEVER hardcode secrets. See skills/security-pr
 
 ### RULE 4: Cross-file sync
 
-Changing ANY config/entry point → update ALL files that reference it: MCP configs (`.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`, **`%APPDATA%\Antigravity\User\mcp.json`** — the IDE-native user MCP config, outside this repo, easy to forget; was the source of the 2026-05-06 plaintext-Stripe-key leak), entry points (`CLAUDE.md`, `GEMINI.md`, `ANTIGRAVITY.md`, `AGENTS.md`, `OPENCODE.md`, `telegram_agent.js`, `bravo_cli/bridge_chat_server.py:_system_prompt_for`), RAG-router files (`brain/AGENT_ROUTER.md`, `brain/INTENTS.md`, `brain/WHEN_TO_USE_SKILLS.md`, `brain/EXECUTION_RULES.md`), docs (`brain/CAPABILITIES.md`, `brain/AGENTS.md`). **Authoritative MCP-config registry:** `scripts/audit_mcp_secrets.py` `MCP_CONFIG_PATHS` — if a config path isn't listed there, it isn't being audited. Add new MCP entry points there before shipping.
+Changing ANY config/entry point → update ALL files that reference it: MCP configs (`.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`, **`%APPDATA%\Antigravity\User\mcp.json`** — the IDE-native user MCP config, outside this repo, easy to forget; was the source of the 2026-05-06 plaintext-Stripe-key leak), entry points (`CLAUDE.md`, `GEMINI.md`, `ANTIGRAVITY.md`, `AGENTS.md`, `OPENCODE.md`, `ZCODE.md`, `telegram_agent.js`, `bravo_cli/bridge_chat_server.py:_system_prompt_for`), RAG-router files (`brain/AGENT_ROUTER.md`, `brain/INTENTS.md`, `brain/WHEN_TO_USE_SKILLS.md`, `brain/EXECUTION_RULES.md`), docs (`brain/CAPABILITIES.md`, `brain/AGENTS.md`). **Authoritative MCP-config registry:** `scripts/audit_mcp_secrets.py` `MCP_CONFIG_PATHS` — if a config path isn't listed there, it isn't being audited. Add new MCP entry points there before shipping.
 
 ### RULE 5: Verification
 
@@ -208,14 +208,14 @@ Working MCPs: Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/USER]] | [[brain/APP_REGISTRY]]
 - [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[brain/QUICK_REFERENCE]]
 
-## Inventory (synced 2026-06-06)
+## Inventory (synced 2026-06-17)
 
-- **Skills:** 149 active (11 archived in `skills/_archive/`) — graph-registered with frontmatter
-- **Python scripts:** 115 top-level under `scripts/` (218 total inc. subpackages, excluding `_archive/` and `__pycache__/`). 2 one-shot reconciliation scripts archived to `scripts/_archive/experimental/` 2026-06-06.
+- **Skills:** 150 active (10 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 105 top-level production CLI tools under `scripts/` (238 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
 - **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
 - **Subagents:** 8 in `.claude/agents/`
 - **Workflows:** 35 in `.agents/workflows/`
-- **Cron jobs:** 20 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
+- **Cron jobs:** 23 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
 - **MRR Goal:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)
 
 <!-- LOCKSTEP:untrusted_content -->

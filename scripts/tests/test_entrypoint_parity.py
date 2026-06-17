@@ -1,10 +1,10 @@
 """Entry-point parity + version single-sourcing test (audit Phase 5).
 
-The five entry points (CLAUDE/GEMINI/ANTIGRAVITY/AGENTS/OPENCODE.md) wake every
-agent — regardless of model — into the same identity, state, and mission. This
-test makes drift between them a build failure:
+The six entry points (CLAUDE/GEMINI/ANTIGRAVITY/AGENTS/OPENCODE/ZCODE.md) wake
+every agent — regardless of model — into the same identity, state, and mission.
+This test makes drift between them a build failure:
 
-  1. All five exist.
+  1. All entry points exist.
   2. The architecture version is single-sourced in brain/STATE.md
      (`architecture_version`) — so a bump is a one-line edit there, and the
      entry points stay version-agnostic (no hardcoded "Vx.y" in their H1).
@@ -24,7 +24,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-ENTRY_POINTS = ["CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md", "OPENCODE.md"]
+ENTRY_POINTS = ["CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md", "OPENCODE.md", "ZCODE.md"]
 STATE = ROOT / "brain" / "STATE.md"
 
 LOCKSTEP_RE = re.compile(
@@ -41,7 +41,7 @@ def _read(name: str) -> str:
 
 class TestEntrypointParity(unittest.TestCase):
 
-    def test_all_five_exist(self):
+    def test_all_entry_points_exist(self):
         for name in ENTRY_POINTS:
             self.assertTrue((ROOT / name).is_file(), f"missing entry point: {name}")
 

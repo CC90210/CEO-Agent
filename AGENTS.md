@@ -2,7 +2,7 @@
 
 > You are an **AI coding agent** that just opened the `Business-Empire-Agent` repository via a tool that follows the `AGENTS.md` convention — **OpenCode**, OpenAI Codex CLI, Cursor, Windsurf, Aider, or similar.
 >
-> **This file keeps you in lockstep with [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md), [ANTIGRAVITY.md](ANTIGRAVITY.md), and [OPENCODE.md](OPENCODE.md).** All five entry points reference the same `brain/` and `memory/` directories — so every agent that opens this repo wakes up with the same identity, the same state, and the same mission. If you edit this file, sync the other four.
+> **This file keeps you in lockstep with [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md), [ANTIGRAVITY.md](ANTIGRAVITY.md), [OPENCODE.md](OPENCODE.md), and [ZCODE.md](ZCODE.md).** All six entry points reference the same `brain/` and `memory/` directories — so every agent that opens this repo wakes up with the same identity, the same state, and the same mission. If you edit this file, sync the other five.
 
 <!-- LOCKSTEP:tool_discipline -->
 ## Tool & Verification Discipline (non-negotiable)
@@ -61,7 +61,7 @@ When the message is OPERATIONAL:
 1. `brain/AGENT_ROUTER.md` — the routing-by-intent table. Tells you which deeper file to read for each kind of request. ~200 lines.
 2. `brain/EXECUTION_RULES.md` — the iron law (self-execute, never tell CC to run commands you can run yourself, confirm after every mutation).
 3. `brain/INTENTS.md` — verb-by-verb playbooks (send-email, apply-migration, push-to-prod, etc). Read when an intent matches.
-4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 148 active skills.
+4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 150 active skills.
 5. `CONTEXT.md` — canonical empire vocabulary. Read when a domain term needs disambiguation (tenant, drip sequence, Pulse, OASIS Outbound, etc). See `docs/adr/0002-context-md-canonical-vocabulary.md`.
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are now per-intent reads — the router decides when. Don't auto-load.
@@ -117,7 +117,7 @@ Your only job is to answer CC's question. 1-5 sentences for simple queries. Do N
 
 ### RULE 2: TOOL ROUTING — CLI TOOLS FIRST
 
-The `scripts/` directory contains 114 top-level production CLI tools (215 scripts total inc. subpackages) that read `.env.agents` and never break. These are the primary execution layer. Some canonical ones:
+The `scripts/` directory contains 105 top-level production CLI tools (238 scripts total inc. subpackages) that read `.env.agents` and never break. These are the primary execution layer. Some canonical ones:
 
 | Need | Tool |
 |---|---|
@@ -145,7 +145,7 @@ All credentials live in `.env.agents` (gitignored). **Never** hardcode secrets. 
 ### RULE 4: CROSS-FILE SYNC
 
 Changing any config or entry point → update ALL files that reference it:
-- **Entry points:** [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md), [ANTIGRAVITY.md](ANTIGRAVITY.md), [OPENCODE.md](OPENCODE.md), AGENTS.md (this file), [telegram_agent.js](telegram_agent.js)
+- **Entry points:** [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md), [ANTIGRAVITY.md](ANTIGRAVITY.md), [OPENCODE.md](OPENCODE.md), [ZCODE.md](ZCODE.md), AGENTS.md (this file), [telegram_agent.js](telegram_agent.js)
 - **MCP configs:** `.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`, and the Antigravity IDE user-level config at `%APPDATA%/Antigravity/User/mcp.json` (easy to forget - was the source of the 2026-05-06 plaintext-Stripe-key leak). Authoritative registry: `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths scanned). `.env.agents` holds credentials only - NEVER edit it as an MCP config.
 - **Docs:** [brain/CAPABILITIES.md](brain/CAPABILITIES.md), [brain/QUICK_REFERENCE.md](brain/QUICK_REFERENCE.md), [brain/ORCHESTRATION.md](brain/ORCHESTRATION.md)
 
@@ -258,14 +258,14 @@ C-Suite coordination via `data/pulse/*.json` (poll-based) and `agent_events` tab
 
 Full history + substrate detail (state DB · retrieval · guards · event bus · capability graph · agentic-OS hooks · vocabulary layer): **brain/V6_ARCHITECTURE.md** — read on architecture/redesign turns. Operationally: resolve a skill with `python scripts/capability_query.py resolve "<intent>"` (router over `brain/CAPABILITY_GRAPH.json`); guard modes in **Safety & Hooks** above; state via `python scripts/state/state_sync.py`.
 
-## Inventory (synced 2026-06-06)
+## Inventory (synced 2026-06-17)
 
-- **Skills:** 149 active (11 archived in `skills/_archive/`) — graph-registered with frontmatter
-- **Python scripts:** 115 top-level under `scripts/` (218 total inc. subpackages, excluding `_archive/` and `__pycache__/`). 2 one-shot reconciliation scripts archived to `scripts/_archive/experimental/` 2026-06-06.
+- **Skills:** 150 active (10 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 105 top-level production CLI tools under `scripts/` (238 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
 - **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
 - **Subagents:** 8 in `.claude/agents/`
 - **Workflows:** 35 in `.agents/workflows/`
-- **Cron jobs:** 20 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
+- **Cron jobs:** 23 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
 - **MRR Goal:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)
 
 <!-- LOCKSTEP:untrusted_content -->

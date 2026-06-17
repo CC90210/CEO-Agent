@@ -44,7 +44,7 @@ SCOPES: dict[str, list[str]] = {
     "memory":  ["memory/*.md"],
     "skill":   ["skills/*/SKILL.md"],
     "brain":   ["brain/*.md"],
-    "entry":   ["CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md"],
+    "entry":   ["CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md", "ZCODE.md"],
     "context": ["CONTEXT.md"],
     "adr":     ["docs/adr/*.md"],
     "prompt":  ["prompts/*.md"],

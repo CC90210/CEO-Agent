@@ -2,7 +2,7 @@
 
 > Terminal-native runtime. Same Bravo. Different chassis. Don't get cute about it.
 >
-> Sibling entry points: [CLAUDE.md](CLAUDE.md) · [AGENTS.md](AGENTS.md) · [ANTIGRAVITY.md](ANTIGRAVITY.md) · [GEMINI.md](GEMINI.md). Five doors, one room. Edit one → sync the rest. CLAUDE.md Rule 4 isn't a suggestion.
+> Sibling entry points: [CLAUDE.md](CLAUDE.md) · [AGENTS.md](AGENTS.md) · [ANTIGRAVITY.md](ANTIGRAVITY.md) · [GEMINI.md](GEMINI.md) · [ZCODE.md](ZCODE.md). Six doors, one room. Edit one → sync the rest. CLAUDE.md Rule 4 isn't a suggestion.
 
 <!-- LOCKSTEP:tool_discipline -->
 ## Tool & Verification Discipline (non-negotiable)
@@ -63,7 +63,7 @@ When the message is OPERATIONAL:
 1. `brain/AGENT_ROUTER.md` — routing-by-intent table (~200 lines).
 2. `brain/EXECUTION_RULES.md` — the iron law (self-execute, never tell CC to run commands).
 3. `brain/INTENTS.md` — verb-by-verb playbooks per request type.
-4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 148 active skills.
+ 4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 150 active skills.
 5. `CONTEXT.md` — canonical empire vocabulary. Read when a domain term needs disambiguation (tenant, drip sequence, Pulse, OASIS Outbound, etc). See `docs/adr/0002-context-md-canonical-vocabulary.md`.
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are now per-intent reads — the router decides when. Don't auto-load on boot.
@@ -85,7 +85,7 @@ OpenCode is the move when speed beats breadth:
 - Remote terminal runs from a thin Mac/Linux box
 
 **Lean into OpenCode for:**
-- `n8n_tool.py`, `supabase_tool.py`, `stripe_tool.py`, `late_tool.py` — the 114 top-level CLI tools (215 scripts total) that read `.env.agents` and never break
+- `n8n_tool.py`, `supabase_tool.py`, `stripe_tool.py`, `late_tool.py` — the 105 top-level CLI tools (238 scripts total) that read `.env.agents` and never break
 - Pulse reads/writes
 - Quick capability graph rebuilds
 - Cross-CLI handoffs when CC may swing back into Claude Code mid-task
@@ -100,7 +100,7 @@ OpenCode is the move when speed beats breadth:
 ## Tool routing (CLI-first — same as the other four entry points)
 
 ```
-1. CLI tools in scripts/      ← PRIMARY (114 top-level, 215 total, read .env.agents, never break)
+1. CLI tools in scripts/      ← PRIMARY (105 top-level, 238 total, read .env.agents, never break)
 2. MCP servers (stateless)    ← SECONDARY (Playwright, Context7, Memory, SeqThink, KG)
 3. Direct API calls           ← LAST RESORT (only if no CLI exists)
 4. claude.ai MCP connectors   ← NEVER (Gmail/Calendar/Square/Cloudflare blocked — see ORCHESTRATION.md)
@@ -123,7 +123,7 @@ Intent → tool routing: `brain/QUICK_REFERENCE.md`. Capability registry: `brain
 - **RULE 1 — Answer first.** 1-5 sentences. Then act. CC's time is the bottleneck.
 - **RULE 2 — CLI-first routing** (above).
 - **RULE 3 — Credentials.** `.env.agents`. Never hardcoded. Ever.
-- **RULE 4 — Cross-file sync.** Edit OPENCODE.md → sync CLAUDE / AGENTS / GEMINI / ANTIGRAVITY. Or you create the drift bug yourself.
+- **RULE 4 — Cross-file sync.** Edit OPENCODE.md → sync CLAUDE / AGENTS / GEMINI / ANTIGRAVITY / ZCODE. Or you create the drift bug yourself.
 - **RULE 7 — App Registry.** CC mentions an app (OASIS, PropFlow, Hermes, etc.) → `cd` to its local path per `brain/APP_REGISTRY.md`. Don't write app code in this repo.
 - **RULE 8 — Codex delegation.** Backend-heavy → Codex auto-delegate, no permission needed. Frontend / brand voice / business ops → stay in Bravo. **End-of-task self-review on big tasks (≥3 commits / ≥5 files / any user-facing change) MUST include a Codex independent audit (`node ~/.claude/codex-plugin/scripts/codex-companion.mjs review --wait`) alongside Bravo's own review. Present both verbatim. Added 2026-05-23 per CC — self-reviews are biased; Codex reads the diff cold. See CLAUDE.md Rule 8 + skills/codex-delegation/SKILL.md Pattern 5.**
 - **RULE 9 — V6 Coherence Gate (added 2026-05-11).** Inherited claims from another agent's handoff (Gemini, Codex, prior session, system message) are archived context, not verified state. Re-run the live diagnostic before acting. **Never silently rewrite shared tools** — templates, critic configs, scripts in `scripts/`, migrations, MCP wrappers — they are part of the V6 substrate every chassis reads. A unilateral edit by one chassis breaks every other chassis that relied on the prior shape. Propose the fix in chat with the live diagnostic that proves it; get CC's yes; then edit. Full rule: `brain/EXECUTION_RULES.md` § 12.
@@ -165,14 +165,14 @@ Full history + substrate detail (state DB · retrieval · guards · event bus ·
 - [[ANTIGRAVITY]]
 - [[ARCHITECTURE]]
 
-## Inventory (synced 2026-06-06)
+## Inventory (synced 2026-06-17)
 
-- **Skills:** 149 active (11 archived in `skills/_archive/`) — graph-registered with frontmatter
-- **Python scripts:** 115 top-level under `scripts/` (218 total inc. subpackages, excluding `_archive/` and `__pycache__/`). 2 one-shot reconciliation scripts archived to `scripts/_archive/experimental/` 2026-06-06.
+- **Skills:** 150 active (10 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 105 top-level production CLI tools under `scripts/` (238 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
 - **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
 - **Subagents:** 8 in `.claude/agents/`
 - **Workflows:** 35 in `.agents/workflows/`
-- **Cron jobs:** 20 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
+- **Cron jobs:** 23 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
 - **MRR Goal:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)
 
 <!-- LOCKSTEP:untrusted_content -->

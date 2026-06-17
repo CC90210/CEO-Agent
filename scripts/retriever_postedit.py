@@ -18,7 +18,7 @@ from lib.hook_runtime import PROJECT_ROOT, read_hook_input  # noqa: E402
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 INDEXED_DIRS = ("memory", "skills", "brain")
-ENTRY_FILES = {"CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md"}
+ENTRY_FILES = {"CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md", "ZCODE.md"}
 
 
 def _is_indexed(path_str: str | None) -> bool:
