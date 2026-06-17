@@ -147,11 +147,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-06-10
+- **Date:** 2026-06-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** V7.0 reliability foundation shipped (Fable, freeze lifted): EPIC7 loud-failures (system_health + 8 live path-drift bugs fixed + breadcrumbs), EPIC3 LanceDB 410→1, routing-accuracy gate, state_manager tests, fleet untrusted_content → 3 siblings, system_health/state_compact → harness scaffold. CEO→V7.0.0. EPIC1 reorg + V7.1 research roadmap deferred.
+- **Result:** SunBiz Automations parity + coherence (shipped 91feca7 + DB). Background Workers panel now renders for SunBiz operator showing the 7 live VPS daemons + health (read-only; control needs server->VPS-bridge proxy = delegated). Status board made HONEST per 3-agent audit: Application Document Parser + Underwriting Pipeline + Renewal Reminder flipped planned->live (all verified running via crons/daemons); Email Offer Scanner + Browser Offer Extractor stay planned. Agent split fixed: Follow-up Generator + Cold Outreach Runner reassigned solara->helios (DB live; cron_registry.py seed = VPS task) so Helios has automations (2 crons + the drips). Drips audited: 7 live + reachable, Inquiry Welcomer(hot_lead) paused = the one gap. tsc+build green. VPS prompt next: bridge URL+bearer for control proxy, exec-tool pm2 confirm, cron_registry agent_key edit.
 
-*Last updated: 2026-06-10*
+*Last updated: 2026-06-17*
 
 ## Manifest
 
