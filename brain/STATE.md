@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz onboarding-ready (oasis-command-center 1ee6b47). Codex HIGH (stage guard fail-open → CASL risk on opted_out) FIXED: fail-closed on read-error/exception/unknown-stage; +2 tests (17 total). Form→inquiry→email VERIFIED working first-try via live prod test. Reactivation policy shipped (ghost/declined resurface, default/opted_out preserved). Manifest enum = non-issue (code seed served, already patched). tsc+test:sunbiz+build green. Optional remaining: stale-comment cleanup, reconciliation cron (after() proven reliable so not needed).
+- **Result:** SunBiz READY for testing+onboarding. All Codex findings closed (HIGH downgrade/PII/fail-open + final visibility MEDIUM = 7136878). Deploy state verified: GitHub clean+pushed (7136878); Vercel 1ee6b47 confirmed LIVE on oasisai.work (Ready, deploy age=commit age), 7136878 auto-deploying; Supabase forms-row patched + 0 test residue. Form→inquiry→email PROVEN first-try via live prod test. 12 commits 2d89c4a..7136878, all tsc+test:sunbiz(16)+build green.
 
 *Last updated: 2026-06-17*
 
