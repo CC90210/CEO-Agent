@@ -300,29 +300,23 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
     # Sun Biz Funding — first client tenant. Added 2026-05-25 so
     # outbound shop-out emails to lender contacts ship with the SunBiz
     # CASL footer instead of leaking the OASIS / Collingwood address.
-    # Operator: Ezra at Submissions@sunbizfunding.com. sender_name +
-    # business_address pending operator confirmation. The gateway fails
-    # closed for external SunBiz sends until this becomes a confirmed
-    # physical mailing address.
+    # Operator: Ezra at Submissions@sunbizfunding.com.
     "sunbiz": {
         "business_name": "Sun Biz Funding",
         # 2026-06-08: confirmed via the dashboard sidebar — the operator on
         # submissions@sunbizfunding.com is Ezra. Sign-off line on every
         # SunBiz email reads "— Ezra".
         "sender_name": "Ezra",
-        # 2026-06-08: CC's explicit decision — SunBiz emails ship without
-        # a physical address in the footer. Legal-risk note: CAN-SPAM (US)
-        # and CASL (Canada) both require a real mailing address in
-        # commercial email; flying without one creates real exposure if a
-        # recipient complains. Acknowledged by operator. The empty value
-        # is also intentionally absent from PLACEHOLDER_BUSINESS_ADDRESSES
-        # below so the gate doesn't block these sends.
-        "business_address": "",
+        # 2026-06-17: CC provided SunBiz's physical mailing address, closing
+        # the prior CAN-SPAM (US) / CASL (Canada) exposure — commercial email
+        # now ships a real address in the footer. (Replaces the 2026-06-08
+        # address-less stopgap CC had accepted as a known risk.) The value is
+        # not in PLACEHOLDER_BUSINESS_ADDRESSES, so the placeholder gate passes.
+        "business_address": "221 W Hallandale Beach Blvd, Suite 518, Hallandale, FL 33009",
         "from_display": "Sun Biz Funding",
-        # Explicit flag so the footer builder knows to omit the address
-        # line entirely (rather than rendering "Address:" with nothing
-        # after it). Read by casl_compliance.build_casl_footer.
-        "suppress_business_address": True,
+        # Address is confirmed, so the footer builder renders it (was True
+        # while the address was pending). Read by casl_compliance.build_casl_footer.
+        "suppress_business_address": False,
     },
 }
 
