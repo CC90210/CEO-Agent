@@ -1,0 +1,8 @@
+[Unit]
+Description=Run the SunBiz liveness pager every 5 minutes
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+[Install]
+WantedBy=timers.target
