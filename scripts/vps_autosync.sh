@@ -12,12 +12,22 @@
 #   - dirty (uncommitted edits)   -> skip + WARN (never discard local changes)
 #   - ahead only (unpushed)       -> skip + WARN (surface for push; never lost)
 #   - diverged (ahead AND behind) -> skip + ERROR (manual reconcile)
-#   - behind only + clean         -> git pull --ff-only, then pm2 reload ONLY the
-#                                    daemons whose cwd is under this repo (zero-
-#                                    downtime), then run its doctor if present.
+#   - behind only + clean         -> ff-only pull -> PRE-DEPLOY GATE -> pm2 reload
+#                                    (this repo's daemons only) -> post-deploy
+#                                    health probe (informational).
 #
-# --ff-only is the load-bearing guard: it can only fast-forward, never merge or
-# overwrite, so a diverged repo is refused, not clobbered.
+# Safety latches:
+#   - --ff-only: can only fast-forward, never merge/overwrite a diverged repo.
+#   - PRE-DEPLOY GATE: byte-compiles the .py files CHANGED by the pull before any
+#     reload; if a changed file doesn't compile, the pull is ROLLED BACK
+#     (git reset --hard to the pre-pull SHA) and the daemons keep running the
+#     last-good code. Gating only the CHANGED files means a pre-existing
+#     un-compilable file elsewhere can't block deploys (no false positives), and
+#     it never imports/runs code (no env/runtime false positives).
+#   - post-deploy health probe is INFORMATIONAL ONLY: the doctors mark
+#     not-yet-provisioned channels (e.g. SMS) as failures, so the verdict is
+#     noisy by design — it is logged, never used to auto-revert (rollback is
+#     driven solely by the deterministic compile gate above).
 #
 # Idempotent, single-instance (flock), logs to $LOG. Exits non-zero only on a
 # HARD failure so `systemctl status vps_autosync` / the daily diagnostic surface
@@ -43,6 +53,53 @@ if ! flock -n 9; then
 fi
 
 had_error=0
+
+# Pre-deploy gate: byte-compile the .py files this pull CHANGED. Returns non-zero
+# if any changed file fails to compile (syntax error) — the caller then rolls the
+# pull back before reloading daemons. Scoped to changed files so unrelated
+# pre-existing breakage can't block deploys; compile-only so there are no
+# env/runtime false positives.
+predeploy_gate() {
+  local dir="$1" name="$2" prior="$3"
+  command -v python3 >/dev/null 2>&1 || { log "[$name] gate: python3 unavailable — skipped"; return 0; }
+  local changed
+  changed="$(git -C "$dir" diff --name-only "$prior"..HEAD -- '*.py' 2>/dev/null || true)"
+  if [ -z "$changed" ]; then
+    log "[$name] gate: no changed .py files — OK"; return 0
+  fi
+  local f rc=0 n=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    [ -f "$dir/$f" ] || continue   # skip deleted/renamed-away files
+    n=$((n + 1))
+    if ! python3 -m py_compile "$dir/$f" >/dev/null 2>&1; then
+      log "[$name] gate FAIL: $f does not compile"; rc=1
+    fi
+  done <<< "$changed"
+  [ "$rc" = 0 ] && log "[$name] pre-deploy gate OK (compiled $n changed .py)"
+  return "$rc"
+}
+
+# Post-deploy health probe — INFORMATIONAL ONLY (never triggers rollback). Calls
+# the repo's health script with NO flags (the universal-safe invocation; every
+# probe sets its exit code by health), so it can't break on a flag mismatch.
+post_deploy_health() {
+  local dir="$1" name="$2"
+  command -v python3 >/dev/null 2>&1 || return 0
+  local probe=""
+  if [ -f "$dir/scripts/doctor.py" ]; then probe="$dir/scripts/doctor.py"
+  elif [ -f "$dir/scripts/state/health_aggregator.py" ]; then probe="$dir/scripts/state/health_aggregator.py"
+  elif [ -f "$dir/scripts/system_health.py" ]; then probe="$dir/scripts/system_health.py"
+  fi
+  if [ -z "$probe" ]; then
+    log "[$name] post-deploy health: no probe in repo (skipped)"; return 0
+  fi
+  if python3 "$probe" >/dev/null 2>&1; then
+    log "[$name] post-deploy health: OK ($(basename "$probe"))"
+  else
+    log "[$name] post-deploy health: WARN ($(basename "$probe") exit non-zero — informational; review if unexpected)"
+  fi
+}
 
 reload_repo_daemons() {
   # Reload only the PM2 apps whose working dir lives under this repo, derived
@@ -115,25 +172,30 @@ sync_repo() {
     log "[$name] WARN ahead $ahead unpushed commit(s) — NOT pulling; push these to origin so they're backed up"; return
   fi
 
-  # behind only + clean → fast-forward.
+  # behind only + clean → fast-forward. PRIOR_SHA is the pre-pull HEAD so the
+  # gate can deterministically roll back to last-good.
+  local prior_sha="$local_head"
   log "[$name] behind $behind — ff-only ${local_head:0:8}..${remote_head:0:8}"
   if [ "$DRY" = "1" ]; then
-    log "[$name] DRY would git pull --ff-only"; return
+    log "[$name] DRY would git pull --ff-only + gate + reload"; return
   fi
   if ! git -C "$dir" pull --ff-only --quiet origin "$BRANCH"; then
     log "[$name] ERROR ff-only pull failed"; had_error=1; return
   fi
 
-  reload_repo_daemons "$dir" "$name"
-
-  # Best-effort post-deploy health check if the repo ships a doctor.
-  local doctor
-  for doctor in "$dir/scripts/doctor.py" "$dir/doctor.py"; do
-    if [ -f "$doctor" ]; then
-      if python3 "$doctor" --quiet >/dev/null 2>&1; then log "[$name] doctor OK"; else log "[$name] WARN doctor reported issues"; fi
-      break
+  # PRE-DEPLOY GATE — compile the changed .py before touching live daemons.
+  if ! predeploy_gate "$dir" "$name" "$prior_sha"; then
+    log "[$name] ERROR pre-deploy gate FAILED — rolling back to ${prior_sha:0:8} (daemons untouched)"
+    if git -C "$dir" reset --hard "$prior_sha" >/dev/null 2>&1; then
+      log "[$name] rolled back to ${prior_sha:0:8}"
+    else
+      log "[$name] ERROR rollback FAILED — MANUAL INTERVENTION NEEDED (repo at ${remote_head:0:8})"
     fi
-  done
+    had_error=1; return
+  fi
+
+  reload_repo_daemons "$dir" "$name"
+  post_deploy_health "$dir" "$name"
   log "[$name] deployed @ ${remote_head:0:8}"
 }
 
