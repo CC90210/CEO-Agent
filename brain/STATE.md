@@ -147,11 +147,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-06-17
+- **Date:** 2026-06-18
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Shipped SunBiz e-signature (signature_pad) + auto-generated application PDF (pdf-lib) closed-loop filing to lead DOCS as Final Application Form + dashboard-first login landing for sun/suga members; Codex audit (tenant-scope merge + fixture PII) addressed; oasis-command-center ef5fcf3 pushed to main
+- **Result:** Merged cc-funnel into oasis-command-center: native show_if conditional-field engine + tenant-aware form submit + OASIS funnel seeded at /f/oasis-ai-cc/start + Telegram/Claude-email notifications. Codex adversarial review (4 findings) all fixed. Live e2e passed. Pushed to main. Pending CC: Vercel env (Telegram/Gmail) + cc-funnel decommission.
 
-*Last updated: 2026-06-17*
+*Last updated: 2026-06-18*
 
 ## Manifest
 
