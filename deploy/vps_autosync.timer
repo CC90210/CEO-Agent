@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the SunBiz VPS auto-sync every 15 minutes
+
+[Timer]
+# First run 3 min after boot, then every 15 min. Persistent catches up a missed
+# run if the box was down at the scheduled time.
+OnBootSec=3min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
