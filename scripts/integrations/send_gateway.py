@@ -916,7 +916,8 @@ def _lead_data_blob(db: Any, lead_id: Optional[str]) -> dict[str, Any]:
 
 
 def _check_suppression(to_email: Optional[str], lead_data: dict[str, Any],
-                       intent: str = "commercial") -> Optional[str]:
+                       intent: str = "commercial",
+                       tenant_id: Optional[str] = None) -> Optional[str]:
     """Surface CASL suppression / opt-out in can_act. The legacy path
     enforced this inside send() only; surfacing here lets the scheduler
     see WHY a lead is uncontactable before queuing the next touch. Returns
@@ -938,7 +939,14 @@ def _check_suppression(to_email: Optional[str], lead_data: dict[str, Any],
         return "lead opted out (data.opted_out=true)"
     if intent == "commercial" and to_email and to_email.strip():
         try:
-            if should_suppress(to_email.strip().lower()):
+            # Pass tenant_id so the suppression read matches global (tenant_id
+            # IS NULL) OR same-tenant rows — the latter are what /api/unsubscribe
+            # writes (web opt-outs). Without it, tenant-scoped unsubscribes leak
+            # through. Brand is intentionally NOT narrowed: /api/unsubscribe
+            # stores a display label (e.g. "SunBiz") that differs from the
+            # send brand KEY ("sunbiz"), so brand-filtering would re-miss the
+            # very rows we're trying to honor. tenant_id scoping is sufficient.
+            if should_suppress(to_email.strip().lower(), tenant_id=tenant_id):
                 return f"suppressed address: {to_email.strip().lower()}"
         except Exception:  # noqa: BLE001
             # should_suppress failing means the suppression table query
@@ -1370,7 +1378,7 @@ def can_act(
     # and reused across all four gates.
     lead_data = _lead_data_blob(db, lead_id) if lead_id else {}
 
-    reason_suppression = _check_suppression(to_email, lead_data, intent=intent)
+    reason_suppression = _check_suppression(to_email, lead_data, intent=intent, tenant_id=tenant_id)
     if reason_suppression:
         result.update(allowed=False, reason=reason_suppression)
         return result
@@ -2827,7 +2835,10 @@ def send(
                 "cooldown_until": None, "daily_count": None}
 
     # ---- Gate 1: commercial suppression ----
-    if intent == "commercial" and to_email and should_suppress(to_email):
+    # tenant_id scopes the read to global OR same-tenant suppressions (the
+    # /api/unsubscribe web opt-outs carry a tenant_id). Brand left unscoped on
+    # purpose — see _check_suppression for the label/key mismatch rationale.
+    if intent == "commercial" and to_email and should_suppress(to_email, tenant_id=tenant_id):
         return {"status": "suppressed",
                 "reason": f"{to_email} is on CASL suppression list",
                 "lead_id": lead_id, "interaction_id": None,
