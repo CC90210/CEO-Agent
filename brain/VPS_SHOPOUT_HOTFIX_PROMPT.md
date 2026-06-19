@@ -1,14 +1,19 @@
 # VPS Shop-Out Hotfix — paste this whole block into the Claude Code session running ON the SunBiz VPS
 
 > **For CC:** copy everything inside the fenced block below into the Claude Code chat that is already
-> running on the SunBiz VPS (the session at `/srv/sunbiz`). Do **not** SSH from Windows. Fill in the
-> one `<FILL_IN>` (the new Gmail App Password) when the agent asks for it — or paste it inline first.
+> running on the SunBiz VPS (the session at `/srv/sunbiz`). Do **not** SSH from Windows.
 >
-> **Why:** Ezra shopped out a deal and every lender thread errored — half `draft_critic rejected`,
-> half `SMTP authentication failed — rotate GMAIL_APP_PASSWORD`. Root cause (verified in the local
-> repo): the `shop_out_sender.py` cron sends lender submissions through the **cold-outreach** path
-> (non-operator `agent_source` + `intent=commercial`), so the draft critic blocks them; and the Gmail
-> App Password for `submissions@sunbizfunding.com` is dead. This prompt fixes both — permanently.
+> **Two root causes:**
+> 1. **Dead Gmail App Password (the auth_failed wall).** Ezra changed the submissions@sunbizfunding.com
+>    Google **account** password last night. Google **revokes all app passwords when the account
+>    password changes** — so the app password the VPS used is now invalid, which is why every shop-out
+>    send today returns `auth_failed`. **FIX (CC):** generate a NEW app password at
+>    https://myaccount.google.com/apppasswords (needs 2-step verification on that Google account), then
+>    paste it where the VPS agent asks (the `<FILL_IN>` in Phase 3). This is NOT an "API credits" issue —
+>    these sends are SMTP, which has no API quota; a quota problem would say "limit exceeded," not auth.
+> 2. **draft_critic blocking lender submissions.** The `shop_out_sender.py` cron sends them through the
+>    **cold-outreach** path (non-operator `agent_source`), so the critic rejects them. Fixed below by
+>    making the cron operator-initiated (agent_source only; intent stays commercial so CASL still applies).
 
 ---
 
@@ -65,12 +70,14 @@ PHASE 2 — FIX THE CRON (only after Phase 1 confirms the diagnosis):
    batch from double-sending the same lender.
 9. Keep changes surgical. Do not rewrite the file. Show me the diff before saving.
 
-PHASE 3 — ROTATE THE CREDENTIAL:
-10. CC has generated a fresh Google App Password for submissions@sunbizfunding.com. Set it in the
+PHASE 3 — SET THE NEW GMAIL APP PASSWORD:
+10. The submissions@sunbizfunding.com Google account password was changed last night, which revoked the
+    old app password — that's the auth_failed wall. CC has generated a NEW app password. Set it in the
     SunBiz .env.agents (the file the SunBiz daemons load — reuse CEO-Agent's .env.agents if that's the
-    shared one). New value: <FILL_IN>
-    Do this by editing the env file directly on the VPS; never paste the password into chat output or a
-    log. Confirm the var is set by re-running the auth probe from step 5 (expect ok now).
+    shared one) as GMAIL_APP_PASSWORD (16 chars, spaces removed). New value: <FILL_IN>
+    Edit the env file directly on the VPS; never paste the password into chat output or a log. Then
+    re-run the auth probe from step 5 — it must return OK now. (If GMAIL_USER also needs to be
+    submissions@sunbizfunding.com, confirm it matches.)
 
 PHASE 4 — RESTART + VERIFY:
 11. Restart the affected daemons (pm2 restart the SunBiz shop-out sender + bridge as needed). Confirm
@@ -85,7 +92,7 @@ PHASE 4 — RESTART + VERIFY:
 
 PHASE 5 — REPORT:
 14. Append a dated entry to /srv/sunbiz/diagnostic.log and report back here in plain English:
-    - Changed: files + the exact agent_source/intent now used, and that the credential was rotated.
+    - Changed: files + the exact agent_source/intent now used, and the auth-probe result (no rotation).
     - Proof: the test-inbox receipt + the 'sent' row + the idempotency re-run result (paste the actual
       output, not a summary).
     - Anything still broken or any finding that contradicted the hypothesis.
