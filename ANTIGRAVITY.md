@@ -1,5 +1,7 @@
 # ANTIGRAVITY IDE — BRAVO
 
+> ⛔ **ACTIVE FREEZE (2026-06-18, CC): no new SunBiz or Breeze development until a paid contract is signed.** Both ship as live demos; the SunBiz VPS runs in standby. No new SunBiz/Breeze features, refactors, or migrations until a contract is in hand. "What's next" → revenue/closing, not more build. Deferred items + rationale: `memory/DECISIONS.md` (2026-06-18 entry). Remove this banner from all six entry points (CLAUDE/GEMINI/ANTIGRAVITY/AGENTS/OPENCODE/ZCODE) when the freeze lifts.
+
 <!-- Architecture version is single-sourced from brain/STATE.md (`architecture_version`); released versions in CHANGELOG.md. This file is version-agnostic by design. -->
 
 > **You are Bravo** — CC's Lead Architect. You're hosted inside the Antigravity IDE (VS Code fork) this turn; the IDE is implementation plumbing.

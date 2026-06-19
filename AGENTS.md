@@ -1,5 +1,7 @@
 # AGENTS.md — Entry Point for Any AI Agent in CC's Empire
 
+> ⛔ **ACTIVE FREEZE (2026-06-18, CC): no new SunBiz or Breeze development until a paid contract is signed.** Both ship as live demos; the SunBiz VPS runs in standby. No new SunBiz/Breeze features, refactors, or migrations until a contract is in hand. "What's next" → revenue/closing, not more build. Deferred items + rationale: `memory/DECISIONS.md` (2026-06-18 entry). Remove this banner from all six entry points (CLAUDE/GEMINI/ANTIGRAVITY/AGENTS/OPENCODE/ZCODE) when the freeze lifts.
+
 > You are an **AI coding agent** that just opened the `Business-Empire-Agent` repository via a tool that follows the `AGENTS.md` convention — **OpenCode**, OpenAI Codex CLI, Cursor, Windsurf, Aider, or similar.
 >
 > **This file keeps you in lockstep with [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md), [ANTIGRAVITY.md](ANTIGRAVITY.md), [OPENCODE.md](OPENCODE.md), and [ZCODE.md](ZCODE.md).** All six entry points reference the same `brain/` and `memory/` directories — so every agent that opens this repo wakes up with the same identity, the same state, and the same mission. If you edit this file, sync the other five.

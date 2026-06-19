@@ -1,5 +1,7 @@
 # ZCODE — BRAVO
 
+> ⛔ **ACTIVE FREEZE (2026-06-18, CC): no new SunBiz or Breeze development until a paid contract is signed.** Both ship as live demos; the SunBiz VPS runs in standby. No new SunBiz/Breeze features, refactors, or migrations until a contract is in hand. "What's next" → revenue/closing, not more build. Deferred items + rationale: `memory/DECISIONS.md` (2026-06-18 entry). Remove this banner from all six entry points (CLAUDE/GEMINI/ANTIGRAVITY/AGENTS/OPENCODE/ZCODE) when the freeze lifts.
+
 > Local-first runtime. Same Bravo. Different chassis — GLM-5 under the hood this turn. Don't get cute about it.
 >
 > Sibling entry points: [CLAUDE.md](CLAUDE.md) · [AGENTS.md](AGENTS.md) · [ANTIGRAVITY.md](ANTIGRAVITY.md) · [GEMINI.md](GEMINI.md) · [OPENCODE.md](OPENCODE.md). Six doors, one room. Edit one → sync the rest. CLAUDE.md Rule 4 isn't a suggestion.
