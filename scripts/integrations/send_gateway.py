@@ -255,6 +255,10 @@ OPERATOR_INITIATED_SOURCES: frozenset[str] = frozenset({
     "dashboard_drawer",
     "shop_out_send_batch",   # bridge-tool name (what _tool_shop_out_send_batch passes)
     "shop_out",              # scripts/outbound/shop_out.py — direct call path (defense in depth)
+    "shop_out_sender",       # VPS cron (shop_out_sender.py) — operator-approved lender submissions,
+                             # NOT cold outreach. Without this the cron's sends trip the cold-outreach
+                             # draft critic and lender submissions get blocked. Sync with
+                             # brain/VPS_SHOPOUT_HOTFIX_PROMPT.md (apply the same add on the VPS copy).
     "solara",
     "helios",
     "bravo",
