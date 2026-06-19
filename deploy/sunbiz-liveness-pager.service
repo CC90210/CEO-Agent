@@ -1,0 +1,11 @@
+[Unit]
+Description=SunBiz VPS liveness pager (daemons/tunnel/bridge/heartbeat)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Environment=OPS_LOG=/srv/sunbiz/backups/ops.log
+ExecStart=/srv/sunbiz/ceo-agent/scripts/ops/liveness_pager.sh
+Nice=5
+TimeoutStartSec=120

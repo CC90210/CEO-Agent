@@ -1,0 +1,12 @@
+[Unit]
+Description=SunBiz encrypted secrets backup (.env.agents)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Environment=OPS_LOG=/srv/sunbiz/backups/ops.log
+ExecStart=/srv/sunbiz/ceo-agent/scripts/ops/env_backup.sh
+Nice=10
+TimeoutStartSec=300

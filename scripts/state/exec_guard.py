@@ -18,7 +18,9 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# scripts/ (parent of state/) must be on the path for `import lib.hook_runtime`.
+# Was .parent (state/ itself) → ModuleNotFoundError → hook crashed fail-OPEN.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.hook_runtime import (  # noqa: E402
     log_jsonl,
     mode_from_env,

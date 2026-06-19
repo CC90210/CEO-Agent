@@ -28,17 +28,40 @@ from typing import Any
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SIBLING_REPOS = {
-    "bravo": REPO_ROOT,
-    "atlas": REPO_ROOT.parent / "APPS" / "CFO-Agent",
-    "maven": REPO_ROOT.parent / "CMO-Agent",
-    "aura": REPO_ROOT.parent / "AURA",
-    "hermes": REPO_ROOT.parent / "hermes",
+
+# Sibling repos live under ~/APPS/ on the canonical Windows rig but flat under
+# ~/ on the Mac travel rig (e.g. ~/CFO-Agent, ~/Aura-Home-Agent). Probe both
+# layouts so the fleet rollup doesn't false-flag a present repo as MISSING.
+_REPO_CANDIDATES: dict[str, list[Path]] = {
+    "bravo": [REPO_ROOT],
+    "atlas": [
+        REPO_ROOT.parent / "CFO-Agent",
+        REPO_ROOT.parent / "APPS" / "CFO-Agent",
+        Path.home() / "CFO-Agent",
+        Path.home() / "APPS" / "CFO-Agent",
+    ],
+    "maven": [REPO_ROOT.parent / "CMO-Agent", Path.home() / "CMO-Agent"],
+    "aura": [
+        REPO_ROOT.parent / "Aura-Home-Agent",
+        REPO_ROOT.parent / "AURA",
+        Path.home() / "Aura-Home-Agent",
+        Path.home() / "AURA",
+    ],
+    "hermes": [REPO_ROOT.parent / "hermes", Path.home() / "hermes"],
 }
+
+
+def _resolve_repo(agent: str) -> Path:
+    """First existing candidate path for `agent`, else the canonical default."""
+    candidates = _REPO_CANDIDATES.get(agent, [REPO_ROOT])
+    return next((p for p in candidates if p.exists()), candidates[0])
+
+
+SIBLING_REPOS = {agent: _resolve_repo(agent) for agent in _REPO_CANDIDATES}
 PULSE_PATHS = {
-    "bravo": REPO_ROOT / "data" / "pulse" / "ceo_pulse.json",
-    "atlas": REPO_ROOT.parent / "APPS" / "CFO-Agent" / "data" / "pulse" / "cfo_pulse.json",
-    "maven": REPO_ROOT.parent / "CMO-Agent" / "data" / "pulse" / "cmo_pulse.json",
+    "bravo": SIBLING_REPOS["bravo"] / "data" / "pulse" / "ceo_pulse.json",
+    "atlas": SIBLING_REPOS["atlas"] / "data" / "pulse" / "cfo_pulse.json",
+    "maven": SIBLING_REPOS["maven"] / "data" / "pulse" / "cmo_pulse.json",
 }
 INBOX_DIR = REPO_ROOT / "tmp" / "agent_inbox"
 

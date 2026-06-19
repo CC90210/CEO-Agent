@@ -1,0 +1,14 @@
+[Unit]
+Description=SunBiz VPS auto-sync (guarded git ff-only deploy of the daemon repos)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Runs as the user that owns /srv/sunbiz and has pm2 on PATH (the same user the
+# SunBiz PM2 daemons run under). Replace <SUNBIZ_USER> before installing.
+User=<SUNBIZ_USER>
+ExecStart=/srv/sunbiz/ceo-agent/scripts/vps_autosync.sh
+# Hardening: the script only touches /srv/sunbiz + /tmp + the pm2 socket.
+Nice=10
+TimeoutStartSec=600

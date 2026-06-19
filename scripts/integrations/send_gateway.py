@@ -300,29 +300,23 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
     # Sun Biz Funding — first client tenant. Added 2026-05-25 so
     # outbound shop-out emails to lender contacts ship with the SunBiz
     # CASL footer instead of leaking the OASIS / Collingwood address.
-    # Operator: Ezra at Submissions@sunbizfunding.com. sender_name +
-    # business_address pending operator confirmation. The gateway fails
-    # closed for external SunBiz sends until this becomes a confirmed
-    # physical mailing address.
+    # Operator: Ezra at Submissions@sunbizfunding.com.
     "sunbiz": {
         "business_name": "Sun Biz Funding",
         # 2026-06-08: confirmed via the dashboard sidebar — the operator on
         # submissions@sunbizfunding.com is Ezra. Sign-off line on every
         # SunBiz email reads "— Ezra".
         "sender_name": "Ezra",
-        # 2026-06-08: CC's explicit decision — SunBiz emails ship without
-        # a physical address in the footer. Legal-risk note: CAN-SPAM (US)
-        # and CASL (Canada) both require a real mailing address in
-        # commercial email; flying without one creates real exposure if a
-        # recipient complains. Acknowledged by operator. The empty value
-        # is also intentionally absent from PLACEHOLDER_BUSINESS_ADDRESSES
-        # below so the gate doesn't block these sends.
-        "business_address": "",
+        # 2026-06-17: CC provided SunBiz's physical mailing address, closing
+        # the prior CAN-SPAM (US) / CASL (Canada) exposure — commercial email
+        # now ships a real address in the footer. (Replaces the 2026-06-08
+        # address-less stopgap CC had accepted as a known risk.) The value is
+        # not in PLACEHOLDER_BUSINESS_ADDRESSES, so the placeholder gate passes.
+        "business_address": "221 W Hallandale Beach Blvd, Suite 518, Hallandale, FL 33009",
         "from_display": "Sun Biz Funding",
-        # Explicit flag so the footer builder knows to omit the address
-        # line entirely (rather than rendering "Address:" with nothing
-        # after it). Read by casl_compliance.build_casl_footer.
-        "suppress_business_address": True,
+        # Address is confirmed, so the footer builder renders it (was True
+        # while the address was pending). Read by casl_compliance.build_casl_footer.
+        "suppress_business_address": False,
     },
 }
 
@@ -922,7 +916,8 @@ def _lead_data_blob(db: Any, lead_id: Optional[str]) -> dict[str, Any]:
 
 
 def _check_suppression(to_email: Optional[str], lead_data: dict[str, Any],
-                       intent: str = "commercial") -> Optional[str]:
+                       intent: str = "commercial",
+                       tenant_id: Optional[str] = None) -> Optional[str]:
     """Surface CASL suppression / opt-out in can_act. The legacy path
     enforced this inside send() only; surfacing here lets the scheduler
     see WHY a lead is uncontactable before queuing the next touch. Returns
@@ -944,7 +939,14 @@ def _check_suppression(to_email: Optional[str], lead_data: dict[str, Any],
         return "lead opted out (data.opted_out=true)"
     if intent == "commercial" and to_email and to_email.strip():
         try:
-            if should_suppress(to_email.strip().lower()):
+            # Pass tenant_id so the suppression read matches global (tenant_id
+            # IS NULL) OR same-tenant rows — the latter are what /api/unsubscribe
+            # writes (web opt-outs). Without it, tenant-scoped unsubscribes leak
+            # through. Brand is intentionally NOT narrowed: /api/unsubscribe
+            # stores a display label (e.g. "SunBiz") that differs from the
+            # send brand KEY ("sunbiz"), so brand-filtering would re-miss the
+            # very rows we're trying to honor. tenant_id scoping is sufficient.
+            if should_suppress(to_email.strip().lower(), tenant_id=tenant_id):
                 return f"suppressed address: {to_email.strip().lower()}"
         except Exception:  # noqa: BLE001
             # should_suppress failing means the suppression table query
@@ -1376,7 +1378,7 @@ def can_act(
     # and reused across all four gates.
     lead_data = _lead_data_blob(db, lead_id) if lead_id else {}
 
-    reason_suppression = _check_suppression(to_email, lead_data, intent=intent)
+    reason_suppression = _check_suppression(to_email, lead_data, intent=intent, tenant_id=tenant_id)
     if reason_suppression:
         result.update(allowed=False, reason=reason_suppression)
         return result
@@ -1733,6 +1735,18 @@ def _resolve_tenant_for_lead(db: Any, lead_id: Optional[str]) -> Optional[str]:
     return None
 
 
+def _direction_for_action(action_type: Optional[str]) -> str:
+    """Map an action_type to a lead_interactions.direction value. Sends are
+    outbound; replies/received are inbound. Historically these rows were
+    written with direction=NULL, forcing the dashboard's Conversations view
+    to guess from the subject — stamp it at write time so the data is correct.
+    """
+    a = (action_type or "").lower()
+    if a.endswith("_reply") or a.endswith("_received") or a.endswith("_inbound"):
+        return "inbound"
+    return "outbound"
+
+
 def _writethrough_outbound_log(
     *,
     lead_id: Optional[str],
@@ -1906,6 +1920,8 @@ def reserve_send_slot(
         "created_at": now.isoformat(),
         "subject": (subject or "")[:500],
         "content": (content_preview or "")[:1000],
+        "content_preview": (content_preview or "")[:1000],
+        "direction": "outbound",
         "agent_source": agent_source,
         "metadata": reservation_metadata,
     }
@@ -1972,6 +1988,8 @@ def finalize_reserved_action(
         "type": action_type,
         "subject": (subject or "")[:500],
         "content": (content_preview or "")[:1000],
+        "content_preview": (content_preview or "")[:1000],
+        "direction": _direction_for_action(action_type),
         "agent_source": agent_source,
         "metadata": final_metadata,
     }
@@ -2049,6 +2067,7 @@ def log_action(
         "type": action_type,
         "channel": channel,
         "created_at": now.isoformat(),
+        "direction": _direction_for_action(action_type),
     }
     if lead_id:
         row["lead_id"] = lead_id
@@ -2056,6 +2075,7 @@ def log_action(
         row["subject"] = subject[:500]
     if content_preview:
         row["content"] = content_preview[:1000]
+        row["content_preview"] = content_preview[:1000]
     if metadata:
         row["metadata"] = metadata
     if agent_source:
@@ -2815,7 +2835,10 @@ def send(
                 "cooldown_until": None, "daily_count": None}
 
     # ---- Gate 1: commercial suppression ----
-    if intent == "commercial" and to_email and should_suppress(to_email):
+    # tenant_id scopes the read to global OR same-tenant suppressions (the
+    # /api/unsubscribe web opt-outs carry a tenant_id). Brand left unscoped on
+    # purpose — see _check_suppression for the label/key mismatch rationale.
+    if intent == "commercial" and to_email and should_suppress(to_email, tenant_id=tenant_id):
         return {"status": "suppressed",
                 "reason": f"{to_email} is on CASL suppression list",
                 "lead_id": lead_id, "interaction_id": None,

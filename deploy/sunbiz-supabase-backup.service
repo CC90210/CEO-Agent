@@ -1,0 +1,12 @@
+[Unit]
+Description=SunBiz Supabase logical backup (tenant-scoped export + verify)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Environment=OPS_LOG=/srv/sunbiz/backups/ops.log
+ExecStart=/srv/sunbiz/ceo-agent/scripts/ops/supabase_backup.sh
+Nice=10
+TimeoutStartSec=1800

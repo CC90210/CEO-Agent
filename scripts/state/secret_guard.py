@@ -20,7 +20,11 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Put scripts/ (the parent of state/) on the path so `import lib.hook_runtime`
+# resolves. The previous .parent pointed at state/ itself, so the import raised
+# ModuleNotFoundError and the hook exited non-zero — fail-OPEN (the guard never
+# enforced or even logged). scripts/ = state/'s parent = __file__.parent.parent.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.hook_runtime import (  # noqa: E402
     log_jsonl,
     mode_from_env,
