@@ -1190,17 +1190,17 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
         send_args = [
             "scripts/integrations/send_gateway.py", "send", "--json",
             "--channel", "email",
+            # agent_source="manual_cc" is operator-initiated, which is what
+            # bypasses the cold-outreach draft critic (critic_should_fire gates on
+            # `not _is_operator_initiated(agent_source)`). Intent is deliberately
+            # left at the CLI default of "commercial" so the CASL suppression gate
+            # (send_gateway.py "Gate 1: commercial suppression", which fires only
+            # when intent=="commercial") still applies to lender submissions — a
+            # funder on the opt-out list must never be emailed. Do NOT pass
+            # --intent transactional here: it would silently disable that
+            # compliance gate without changing critic behavior (Codex audit
+            # 2026-06-19 [critical]).
             "--agent-source", "manual_cc",
-            # Lender shop-out is operator-approved transactional B2B mail, NOT
-            # cold outreach. agent_source="manual_cc" already bypasses the
-            # cold-outreach draft critic, but intent defaults to "commercial"
-            # (send_gateway CLI default) which still trips the commercial-only
-            # gates (suppression-on-commercial, oasis nurture guard, and the
-            # critic if the source set ever drifts). Pin transactional so the
-            # whole lender-submission path is unambiguously off the cold-outreach
-            # rails. Mirrors scripts/outbound/shop_out.py (intent="transactional")
-            # and the VPS shop_out_sender.py hotfix (brain/VPS_SHOPOUT_HOTFIX_PROMPT.md).
-            "--intent", "transactional",
             "--brand", "sunbiz",  # shop-out is SunBiz-tenant-scoped — hardcode the
                                    # brand so we never silently default to OASIS.
                                    # Same brand-forwarding fix as _tool_send_email,

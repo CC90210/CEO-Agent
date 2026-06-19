@@ -46,14 +46,19 @@ PHASE 1 — DIAGNOSE LIVE (read-only; report findings before editing):
    before proceeding.
 
 PHASE 2 — FIX THE CRON (only after Phase 1 confirms the diagnosis):
-7. Make shop_out_sender.py send lender submissions as operator-approved transactional B2B mail:
-   - pass intent="transactional" on every shop-out send, AND
-   - pass an agent_source that is in OPERATOR_INITIATED_SOURCES. Preferred: add a dedicated
-     "shop_out_sender" entry to the OPERATOR_INITIATED_SOURCES frozenset in the VPS send_gateway.py,
-     and have the cron pass agent_source="shop_out_sender". (This matches the same change being made in
-     the Business-Empire-Agent ancestor copy.) Either way the result must be: critic_should_fire ==
-     False for shop-out, while CASL suppression / kill-switch / manual-pause / empty-recipient gates
-     still apply.
+7. Make shop_out_sender.py send lender submissions as OPERATOR-INITIATED so they bypass the
+   cold-outreach draft critic, WITHOUT disabling any compliance gate:
+   - Fix the agent_source ONLY. Add a dedicated "shop_out_sender" entry to the
+     OPERATOR_INITIATED_SOURCES frozenset in the VPS send_gateway.py, and have the cron pass
+     agent_source="shop_out_sender" (matches the change already made in the Business-Empire-Agent
+     ancestor copy). That alone makes critic_should_fire == False — the critic gate keys on
+     `not _is_operator_initiated(agent_source)`.
+   - DO NOT change intent. Leave it at the default "commercial". The CASL suppression gate
+     ("Gate 1: commercial suppression") fires ONLY when intent=="commercial", so switching to
+     transactional would silently stop honoring lender opt-outs. Operator-initiated already bypasses
+     the HYGIENE gates (cooldown / cap / reply-since-last) by design; the COMPLIANCE gates (CASL
+     suppression, kill-switch, manual-pause, empty-recipient) must stay active. (Codex audit
+     2026-06-19 flagged the intent change as a critical compliance regression — do not reintroduce it.)
 8. If Phase 1 showed the cron does NOT honor the pending->sending atomic claim, add it: UPDATE the row
    to 'sending' WHERE id=? AND status='pending' and only proceed if exactly one row was updated;
    otherwise log "claimed_by_other_sender" and skip. This is what stops the cron and the dashboard
@@ -95,6 +100,8 @@ Surgical edits only; show diffs before saving.
 
 The dashboard half of this hotfix lands in `oasis-command-center` (Vercel), independent of the VPS:
 clean human-readable thread errors, a first-class per-row **Retry** + "Retry all failed", and a
-business-name fallback so the subject is never "New Deal ()". The defense-in-depth `--intent
-transactional` flag is also added to the `_tool_shop_out_send_batch` bridge tool ancestor in this repo
-(`bravo_cli/bridge_tools.py`) — the VPS copy gets the equivalent via Phase 2 above.
+business-name fallback so the subject is never "New Deal ()". The send-pipeline critic fix is purely
+the operator-initiated `agent_source` (`shop_out_sender` added to `OPERATOR_INITIATED_SOURCES` in the
+ancestor `bravo_cli`/`send_gateway.py`); intent stays `commercial` everywhere so CASL suppression keeps
+applying to lender submissions (a Codex audit caught an earlier intent=transactional attempt as a
+compliance regression).
