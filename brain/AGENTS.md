@@ -226,7 +226,7 @@ Per STATE.md "Content Studio | MOVED TO MAVEN", the `content-creator`, `social-p
 - **Purpose:** CC's CFO — tax strategy (CRA T1/T2125/T5013), accounting, stock research, wealth management, compliance, international tax planning.
 - **Capabilities:** 16 skill playbooks, 8 CFO modules (tax, advisor, budget, wealth, accounting, compliance, international, planning), 10 research modules, 59 tax docs (~80K lines), live Telegram bot (PM2).
 - **Pulse:** `data/pulse/cfo_pulse.json` — read by Bravo + Maven (CMO) for spend gates and runway checks.
-- **Relationship to Bravo:** CC is Visionary CEO. Bravo is CC's CTO/Integrator (business ops, revenue, clients, infrastructure). Atlas is CFO (capital, tax, research, compliance). All three share CC context but do NOT modify each other's files. Atlas READs from Business-Empire-Agent. Bravo READs from CFO-Agent.
+- **Relationship to Bravo:** CC is Visionary founder. Bravo is CC's right hand — CEO/COO/CTO in one (strategy, business ops, revenue, clients, operations, infrastructure, code). Atlas is CFO (capital, tax, research, compliance). All three share CC context but do NOT modify each other's files. Atlas READs from Business-Empire-Agent. Bravo READs from CFO-Agent.
 - **Relationship to Maven:** Atlas has veto power on any spend decision. Maven (CMO) checks `cfo_pulse.json` spend gate before committing ad budget.
 - **Routing rule:** Any question about taxes, crypto gains, budgeting, FIRE, registered accounts (TFSA/RRSP/FHSA), stock research, compliance, or financial strategy → defer to Atlas or reference its docs.
 - **Key files:** `brain/USER.md` (CC profile), `brain/CAPABILITIES.md` (auto-generated), `finance/tax.py` (calculator), `research/stock_picker.py` (10-layer research)
@@ -245,9 +245,20 @@ Per STATE.md "Content Studio | MOVED TO MAVEN", the `content-creator`, `social-p
 - **Key files:** `brain/SOUL.md` (identity), `brain/CAPABILITIES.md` (tool inventory), `brain/STATE.md` (campaign status)
 - **Receives from Bravo (migration):** content-engine, email-marketing, funnel-management, brand-guidelines, growth-engine, competitive-intelligence, elite-video-production, lead-management, linkedin-outreach, persona-content-creator skills + ../CMO-Agent/content-studio/
 
+### External: Lex (Legal / Counsel — Separate Project, added 2026-06-18)
+- **Model Tier:** Opus (separate project, own CLAUDE.md / AGENTS.md)
+- **Project:** `C:\Users\User\APPS\Lex-Agent`
+- **GitHub:** CC90210/Lex-Agent (private)
+- **Purpose:** CC's in-house counsel — contract drafting, inbound-agreement review, redlines, legal-risk triage. The first **vertical product agent** (sold to tenants, multi-tenant from day one). Sales/SDR + Customer-Support agents are next on the roadmap.
+- **Capabilities:** skills `contract-draft`, `contract-review`, `clause-library`; seed contract templates (mutual NDA, SOW); multi-tenant schema (`database/migrations/0001_lex_core.sql` — RLS, security_invoker views, SECURITY DEFINER status RPC).
+- **Compliance (NON-NEGOTIABLE):** Lex is **not a licensed attorney** and **never gives legal advice** — information + drafting only, attorney review before execution, explicit governing law, standard disclaimer on every output. Gate lives in `Lex-Agent/brain/COMPLIANCE.md`.
+- **Product surface:** OASIS Command Center fleet (registry slug `lex`); cloud-knowledge tools resolve per-slug to the Lex-Agent repo.
+- **Relationship to Bravo:** Bravo orchestrates and sets priorities; Lex owns legal/contract matters. Route any contract drafting/review or legal-risk question to Lex.
+- **Pulse:** `data/pulse/lex_pulse.json` (create on first session).
+
 ## V6.0 Cross-Agent Contract (added 2026-05-10)
 
-When a sibling agent (Atlas, Maven, Aura, Hermes) reads from this repo, the V6.0 substrate changes nothing about WHERE to read — but adds new fields they can use if they want.
+When a sibling agent (Atlas, Maven, Aura, Hermes, Lex) reads from this repo, the V6.0 substrate changes nothing about WHERE to read — but adds new fields they can use if they want.
 
 **Sibling read paths — UNCHANGED:**
 
@@ -330,7 +341,7 @@ Multi-agent tasks use drift detection. See `skills/anti-drift/SKILL.md` and `.ag
 ## AI Entry Points
 
 Six lockstep entry points — same Bravo identity, runtime-specific routing only (CLAUDE.md Rule 4 keeps them in sync):
-- [[CLAUDE]] — Claude Code CLI entry point (Lead Architect; primary refactor/debug/architecture chassis)
+- [[CLAUDE]] — Claude Code CLI entry point (CEO/COO/CTO; primary strategy/ops/refactor/debug/architecture chassis)
 - [[GEMINI]] — Gemini CLI entry point (Bravo Inference Engine)
 - [[ANTIGRAVITY]] — Antigravity IDE entry point (Bravo Infantry / Architect Hybrid)
 - [[AGENTS]] — AGENTS.md-convention chassis (Codex CLI / Cursor / Windsurf / Aider)

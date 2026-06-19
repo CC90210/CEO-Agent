@@ -12,7 +12,7 @@ verified: 2026-06-09
 
 | Agent | Repo | Role | Primary persona | Always-on cron? |
 |-------|------|------|-----------------|-----------------|
-| **Bravo** | `Business-Empire-Agent/` | CEO — orchestration, clients, revenue, code | Lead Architect | ✅ 14 jobs (8 active) |
+| **Bravo** | `Business-Empire-Agent/` | CEO/COO/CTO — strategy, orchestration, operations, clients, revenue, code | Right hand · second brain | ✅ 14 jobs (8 active) |
 | **Atlas** | `APPS/CFO-Agent/` | CFO — tax, accounting, research, wealth aggregation | Senior PM + CPA | ⚠️ 0 jobs registered |
 | **Maven** | `CMO-Agent/` | CMO — content, ads, brand, distribution | Marketing strategist | ⚠️ 0 jobs registered |
 | **AURA** | `AURA/` | Smart-home + voice — apartment ambient intelligence | Calm, brief, ambient | n/a (Home Assistant handles its own automations) |

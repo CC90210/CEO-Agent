@@ -217,7 +217,7 @@ def main():
     parser.add_argument(
         "--agent",
         default=os.environ.get("STATE_SYNC_AGENT", "bravo"),
-        choices=["bravo", "atlas", "maven", "hermes", "codex", "aura"],
+        choices=["bravo", "atlas", "maven", "hermes", "codex", "aura", "lex"],
         help="Agent to mark live in agent_state_snapshot (default: bravo)",
     )
     parser.add_argument(

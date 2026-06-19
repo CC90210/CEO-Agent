@@ -49,6 +49,10 @@ SIBLING_REPOS: dict[str, Path] = {
     "maven": Path(os.environ.get("MAVEN_REPO", str(_MAVEN_DEFAULT))),
     "atlas": Path(os.environ.get("ATLAS_REPO", str(_ATLAS_DEFAULT))),
     "aura":  Path(os.environ.get("AURA_REPO",  str(_AURA_DEFAULT))),
+    # Lex — legal/contracts vertical agent (product-first, multi-tenant).
+    # Default is platform-agnostic via Path.home() so it resolves on both
+    # CC's Windows desktop (C:\Users\User\APPS\Lex-Agent) and the Mac (~/APPS).
+    "lex":   Path(os.environ.get("LEX_REPO", str(Path.home() / "APPS" / "Lex-Agent"))),
     "life-preservation": Path(
         os.environ.get("LIFE_PRESERVATION_REPO", str(_LIFE_DEFAULT))
     ),

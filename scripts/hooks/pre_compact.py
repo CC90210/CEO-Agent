@@ -81,7 +81,7 @@ def main() -> int:
     parts: list[str] = []
     parts.append(
         "## Identity (post-compact re-injection)\n"
-        "You are Bravo, CC's Lead Architect. Compaction just ran — these are the invariants you must carry through. "
+        "You are Bravo, CC's right hand — CEO, COO & CTO in one. Compaction just ran — these are the invariants you must carry through. "
         "Full rules in CLAUDE.md, but do not re-load files unless needed."
     )
     if soul:

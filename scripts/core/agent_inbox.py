@@ -42,7 +42,7 @@ INBOX_DIR = INBOX_ROOT / "inbox"
 READ_DIR = INBOX_ROOT / "read"
 
 VALID_PRIORITIES = {"low", "normal", "high", "urgent"}
-KNOWN_AGENTS = {"bravo", "atlas", "maven", "aura", "codex", "cc", "sunbiz", "suga_sean", "broadcast"}
+KNOWN_AGENTS = {"bravo", "atlas", "maven", "aura", "lex", "codex", "cc", "sunbiz", "suga_sean", "broadcast"}
 
 # Cross-repo routing — when this script posts `--to maven`, the message
 # must land in MAVEN's inbox dir, not the sender's. Each agent reads

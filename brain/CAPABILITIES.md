@@ -18,7 +18,7 @@ verified: 2026-06-09
 
 ## MCP Servers (By Interface)
 
-### Claude Code (Opus 4.6 — Lead Architect)
+### Claude Code (Opus 4.6 — Bravo: CEO/COO/CTO)
 | Server | Purpose | Key Tools |
 |--------|---------|-----------|
 | **Playwright** | Browser automation, ALL web research, scraping, testing | navigate, snapshot, click, type, evaluate |
@@ -28,7 +28,7 @@ verified: 2026-06-09
 | **Knowledge Graph** | Obsidian vault as graph — PageRank, communities, semantic search, path-finding | kg_search, kg_node, kg_central, kg_bridges, kg_paths, kg_communities, kg_index |
 
 ### OpenCode (big-pickle — Bravo, same identity)
-- **Identity:** Full **Bravo** — CC's Lead Architect. Same persona, voice, capabilities as Claude-powered Bravo.
+- **Identity:** Full **Bravo** — CC's right hand: CEO, COO, and CTO in one. Same persona, voice, capabilities as Claude-powered Bravo.
 - **Access:** Full read/write to all 150 active skills in `skills/`, all 105 top-level Python CLI tools in `scripts/` (238 total inc. subpackages), all brain/ and memory/ files, all subagent definitions.
 - **Entry Point:** `AGENTS.md` (shared with Codex/Cursor/Windsurf). Identity routing at lines 13-15.
 - **MCP Servers:** Same 9 servers as Claude Code (Playwright, Context7, Memory, Sequential Thinking, GitHub, Firecrawl, Obsidian, Filesystem, Knowledge Graph) when available via OpenCode.
@@ -520,7 +520,7 @@ Four entry files at the repo root — one per AI tooling surface. Every agent th
 
 | File | Read by | Role of the agent |
 |---|---|---|
-| [CLAUDE.md](../CLAUDE.md) | Claude Code CLI | Bravo — Lead Architect, business ops, memory writes |
+| [CLAUDE.md](../CLAUDE.md) | Claude Code CLI | Bravo — CEO/COO/CTO (right hand), business ops, memory writes |
 | [GEMINI.md](../GEMINI.md) | Gemini CLI | Fast diagnostics, heartbeat, fallback execution |
 | [ANTIGRAVITY.md](../ANTIGRAVITY.md) | Antigravity IDE (VS Code native) | Infantry / Architect hybrid, primary IDE agent |
 | [AGENTS.md](../AGENTS.md) | **Codex CLI + Codex IDE extension, Cursor, Windsurf** | **Backend executor in the dual-AI pattern** |

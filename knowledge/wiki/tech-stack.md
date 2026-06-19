@@ -29,7 +29,7 @@ confidence: 0.90
 
 | Model | Provider | Role |
 |-------|---------|------|
-| Claude Opus/Sonnet 4.6 | Anthropic | Bravo (Lead Architect), Skool engine, content pipeline |
+| Claude Opus/Sonnet 4.6 | Anthropic | Bravo (CEO/COO/CTO), Skool engine, content pipeline |
 | Gemini 1.5 Pro/Flash | Google | Gemini CLI — diagnostics, fast inference, fallback |
 | GPT-4o / GPT-OSS 120B | OpenAI | Codex (backend executor, code review) |
 | Codex (external AI) | OpenAI | Dual-AI backend executor via codex-companion.mjs |

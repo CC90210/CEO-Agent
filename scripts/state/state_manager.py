@@ -56,7 +56,7 @@ ACTIVE_TASKS_MD = PROJECT_ROOT / "memory" / "ACTIVE_TASKS.md"
 SESSION_LOG_AUTO_BEGIN = "<!-- AUTO-GENERATED-BEGIN: state_manager.py — do not edit between markers -->"
 SESSION_LOG_AUTO_END = "<!-- AUTO-GENERATED-END -->"
 
-VALID_AGENTS = {"bravo", "codex", "atlas", "maven", "hermes", "aura", "cc", "sunbiz", "suga_sean"}
+VALID_AGENTS = {"bravo", "codex", "atlas", "maven", "hermes", "aura", "lex", "cc", "sunbiz", "suga_sean"}
 VALID_BUCKETS = {"TODAY", "P0", "P1", "P2", "WARM_LEADS", "ARCHIVE"}
 VALID_STATUSES = {"open", "done", "blocked", "archived"}
 

@@ -423,7 +423,7 @@ CC's message:`;
         if (tier === 0) {
             const csuite = this._loadCSuiteSnapshot();
             const reach = this._loadLocalSiblingPaths();
-            return `You are Bravo (CEO agent), CC's Lead Architect on his ${MACHINE_NAME}. Full CLI access. Be direct.
+            return `You are Bravo (CEO agent), CC's right hand — CEO, COO & CTO in one — on his ${MACHINE_NAME}. Full CLI access. Be direct.
 
 ${csuite}
 
@@ -448,7 +448,7 @@ CC says:`;
         const context = this._loadContext(tier);
         const csuite = this._loadCSuiteSnapshot();
         const reach = this._loadLocalSiblingPaths();
-        return `You are BRAVO V5.5 (CEO agent), CC's Lead Architect running via Telegram bridge on ${MACHINE_NAME}.
+        return `You are BRAVO V5.5 (CEO agent), CC's right hand — CEO, COO & CTO in one — running via Telegram bridge on ${MACHINE_NAME}.
 You have full access to the Business-Empire-Agent project at ${REPO_ROOT}.
 Platform: ${IS_MAC ? 'macOS' : 'Windows 11'} — Machine: ${MACHINE_NAME}
 

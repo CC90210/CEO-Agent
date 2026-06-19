@@ -40,7 +40,7 @@ import os as _os
 for _k, _v in _env.items():
     _os.environ.setdefault(_k, str(_v))
 
-VALID_AGENTS = {"bravo", "atlas", "maven", "hermes", "codex", "aura", "sunbiz", "suga_sean"}
+VALID_AGENTS = {"bravo", "atlas", "maven", "hermes", "codex", "aura", "lex", "sunbiz", "suga_sean"}
 
 
 def _client():

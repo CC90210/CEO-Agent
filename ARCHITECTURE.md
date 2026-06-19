@@ -189,7 +189,7 @@ The core insight that shaped every design decision: **one person cannot be every
 
 ```
 CC
- ├── Claude Code (Opus 4.6)       → Lead Architect — complex reasoning, code, debugging
+ ├── Claude Code (Opus 4.6)       → Bravo: CEO/COO/CTO — strategy, ops, code, debugging
  ├── Gemini CLI                   → Fast diagnostics, heartbeat, audits, fallback execution
  └── Antigravity IDE              → Local native agent — multi-model, workflow execution
       └── Telegram Bridge         → Remote execution via mobile — routes to Gemini/Claude CLI

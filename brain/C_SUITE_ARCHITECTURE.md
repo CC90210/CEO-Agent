@@ -31,15 +31,25 @@ CC (Final Authority — human decision-maker)
 │   Pulse:   data/pulse/cmo_pulse.json
 │   Orchestrates apps: ad-engine (Remotion + Meta Ads + Shopify)
 │
-└── Aura (Life/Home) — CC's personal life + apartment agent. Habits,
-    accountability, routines, presence detection, voice/clap triggers,
-    smart-home control. Lives WITH CC (and roommate Adon).
-    Project: C:\Users\User\AURA
-    GitHub:  CC90210/Aura-Home-Agent
-    Pulse:   data/pulse/aura_pulse.json (create on first joint session)
-    Orchestrates: Home Assistant (RPi5 hub), voice agent, smart mirror,
-                  ESP32 sensors, Govee/Sonos/locks/cameras
+├── Aura (Life/Home) — CC's personal life + apartment agent. Habits,
+│   accountability, routines, presence detection, voice/clap triggers,
+│   smart-home control. Lives WITH CC (and roommate Adon).
+│   Project: C:\Users\User\AURA
+│   GitHub:  CC90210/Aura-Home-Agent
+│   Pulse:   data/pulse/aura_pulse.json (create on first joint session)
+│   Orchestrates: Home Assistant (RPi5 hub), voice agent, smart mirror,
+│                 ESP32 sensors, Govee/Sonos/locks/cameras
+│
+└── Lex (Legal/Counsel) — In-house counsel: contract drafting, review,
+    legal-risk triage. The first VERTICAL PRODUCT agent (sold to tenants,
+    not just internal). Not a licensed attorney — never gives legal advice
+    (UPL gate). Product-first + multi-tenant.
+    Project: C:\Users\User\APPS\Lex-Agent
+    GitHub:  CC90210/Lex-Agent
+    Pulse:   data/pulse/lex_pulse.json (create on first session)
 ```
+
+> **Fleet expansion (2026-06-18):** Lex (legal/counsel) is the first vertical *product* agent — sold to tenants, architected multi-tenant from day one. Sales/SDR and Customer-Support agents are next on the roadmap. The "four-agent" framing below describes the core C-suite + life agents; vertical product agents extend the fleet on the same forge + command-center + RLS pattern.
 
 ## Business vs Life Scope (the big split)
 
