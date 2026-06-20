@@ -33,6 +33,16 @@ CONTEXT (claims to verify, not to act on blindly):
   the critic rejects lender submissions ("New Deal (...) — app + statements attached") as cold
   outreach. AND GMAIL_APP_PASSWORD is expired.
 
+PHASE 0 — PULL LATEST FIRST (the operator-initiated fix is already shipped to the repos):
+0a. Check your current branch is correct, then pull both SunBiz repos so you have the shipped code:
+    `cd /srv/sunbiz/ceo-agent && git status && git pull --ff-only` (this carries the send_gateway.py
+    change that adds "shop_out_sender" to OPERATOR_INITIATED_SOURCES), then
+    `cd /srv/sunbiz/sunbiz-agent && git status && git pull --ff-only`.
+0b. If a pull is NOT fast-forward (local edits on the VPS), STOP and report what's diverged before
+    forcing anything — do not discard VPS-local changes blindly.
+0c. After pulling, Phase 2 may already be satisfied by the shipped code — Phase 1 will tell you. The one
+    thing a pull canNOT fix is the dead Gmail app password (Phase 3) — that's the only guaranteed manual step.
+
 PHASE 1 — DIAGNOSE LIVE (read-only; report findings before editing):
 1. Locate the cron: `find /srv/sunbiz -name shop_out_sender.py -not -path '*/node_modules/*'`.
 2. In shop_out_sender.py, find every call into send_gateway (gateway_send/send/subprocess). Report the
@@ -50,7 +60,10 @@ PHASE 1 — DIAGNOSE LIVE (read-only; report findings before editing):
    probe result. If any finding contradicts the hypothesis above, say so and propose the corrected fix
    before proceeding.
 
-PHASE 2 — FIX THE CRON (only after Phase 1 confirms the diagnosis):
+PHASE 2 — FIX THE CRON (only if Phase 1 shows the pulled code does NOT already have it):
+   NOTE: after Phase 0's pull, the send_gateway.py frozenset likely ALREADY contains "shop_out_sender"
+   and the cron may already pass that agent_source. If Phase 1 confirms both are present, Phase 2 is a
+   no-op — skip to Phase 3. Only apply the edits below if something is still missing.
 7. Make shop_out_sender.py send lender submissions as OPERATOR-INITIATED so they bypass the
    cold-outreach draft critic, WITHOUT disabling any compliance gate:
    - Fix the agent_source ONLY. Add a dedicated "shop_out_sender" entry to the
