@@ -36,7 +36,7 @@ pm2 start scripts/core/event_router.py            --name event-router      --int
 pm2 save
 ```
 
-V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by June 18).
+V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR ACHIEVED 2026-06-20; next target $10K USD Net MRR by Sept 30, 2026).
 ## Multi-Machine Bridge Arbitration (V6.5)
 
 `scripts/bridge_lock.py` is the shared multi-machine arbiter for Telegram (and future Discord/Slack) bridges. Lockfile at `~/.oasis/bridge_locks/<agent>.json` holds host+pid+heartbeat. Each bridge calls `acquire` at startup (exits 1 if another host has fresh heartbeat <60s old; PM2 backs off + retries), `heartbeat` every 15s, `release` on shutdown. CLI: `python scripts/bridge_lock.py {acquire|heartbeat|release|status} --agent bravo --json`. Replaces the old "go dormant on 409" path that left bridges silently broken for days.

@@ -27,8 +27,8 @@ from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 # Constants
 # ---------------------------------------------------------------------------
 
-MRR_GOAL_USD = 5000.0
-MRR_TARGET_DATE = datetime.date(2026, 6, 18)  # North Star per CLAUDE.md WHY section (extended 2026-05-18 from May 30)
+MRR_GOAL_USD = 10000.0
+MRR_TARGET_DATE = datetime.date(2026, 9, 30)  # North Star per CLAUDE.md WHY section ($5K achieved 2026-06-20 — BreezeAdvance deal; target reset to $10K)
 STRIPE_API = "https://api.stripe.com/v1"
 STRIPE_VERSION = "2025-01-27.acacia"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent

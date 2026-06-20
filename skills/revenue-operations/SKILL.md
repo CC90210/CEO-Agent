@@ -1,6 +1,6 @@
 ---
 name: revenue-operations
-description: Track MRR, log revenue events, run forecasts, and monitor progress toward the $5,000 USD Net MRR goal using revenue_engine.py. Combines Stripe subscription data with manual entries in Supabase.
+description: Track MRR, log revenue events, run forecasts, and monitor progress toward the $10,000 USD Net MRR goal using revenue_engine.py. Combines Stripe subscription data with manual entries in Supabase.
 triggers: [revenue, MRR, forecast, Stripe, income, goal, monthly, clients, financial]
 tier: standard
 dependencies: []
@@ -10,7 +10,7 @@ dependencies: []
 
 ## Overview
 
-`revenue_engine.py` is the single source of truth for CC's business revenue. It syncs Stripe subscription data and accepts manual entries for retainers, one-off projects, and consulting. Every dollar in and out runs through this system. The north star is $5,000 USD Net MRR by June 18, 2026.
+`revenue_engine.py` is the single source of truth for CC's business revenue. It syncs Stripe subscription data and accepts manual entries for retainers, one-off projects, and consulting. Every dollar in and out runs through this system. The north star is $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20 — BreezeAdvance deal).
 
 ---
 
@@ -51,7 +51,7 @@ Current state (March 2026): ~$2,691 USD Net MRR. Gap to goal: ~$2,309. That is 5
 python scripts/revenue_engine.py goal
 ```
 
-This outputs: current MRR, gap to $5,000 USD, months remaining to June 18, 2026, and the required monthly growth rate to hit the goal.
+This outputs: current MRR, gap to $10,000 USD, months remaining to September 30, 2026, and the required monthly growth rate to hit the goal.
 
 Run `goal` at the start of every week. If the required growth rate is above 15%, the pipeline work is behind — escalate lead outreach immediately.
 

@@ -3422,7 +3422,7 @@
       "kind": "skill",
       "name": "revenue-operations",
       "path": "skills/revenue-operations/SKILL.md",
-      "description": "Track MRR, log revenue events, run forecasts, and monitor progress toward the $5,000 USD Net MRR goal using revenue_engine.py. Combines Stripe subscription data with manual entries in Supabase.",
+      "description": "Track MRR, log revenue events, run forecasts, and monitor progress toward the $10,000 USD Net MRR goal using revenue_engine.py. Combines Stripe subscription data with manual entries in Supabase.",
       "tier": "standard",
       "owner": "bravo",
       "risk": "low",

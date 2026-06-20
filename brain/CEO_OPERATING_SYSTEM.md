@@ -12,7 +12,7 @@ verified: 2026-06-09
 ## The CEO's 7 Domains
 
 ### 1. Revenue & Growth
-**Goal:** Hit $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)
+**Goal:** Hit $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20 — BreezeAdvance deal)
 
 | Function | Tool | Command |
 |----------|------|---------|

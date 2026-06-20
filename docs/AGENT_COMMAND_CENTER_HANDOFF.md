@@ -112,7 +112,7 @@ This is the load-bearing architectural choice. Read this section twice.
 - Tasks board for the agent C-suite
 - Reasoning tab — operator clicks an action → fires straight to Telegram → Bravo replies in chat
 
-**North Star:** $5,000 USD Net MRR by 2026-06-18. Tracked in `brain/STATE.md`.
+**North Star:** $10,000 USD Net MRR by 2026-09-30 ($5K achieved 2026-06-20 — BreezeAdvance deal). Tracked in `brain/STATE.md`.
 
 ---
 
@@ -431,7 +431,7 @@ If you have limited context budget, read these in this order:
 
 ## Contact + decision authority
 
-**Operator:** CC (CC90210). Sole decision-maker. North star: $5K Net MRR by 2026-06-18. Communication is Telegram + in-dashboard chat.
+**Operator:** CC (CC90210). Sole decision-maker. North star: $10K USD Net MRR by 2026-09-30 ($5K achieved 2026-06-20). Communication is Telegram + in-dashboard chat.
 
 **External AI working on the new repo:** This handoff document is for you. If you need to reach the human operator with a question, surface it as text — the agent reading this doc will route it to CC. Don't assume you can make architecture decisions independently — propose, get a yes, then build.
 

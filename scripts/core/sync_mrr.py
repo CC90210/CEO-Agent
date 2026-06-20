@@ -49,7 +49,7 @@ def sync(operator_email: str, *, dry_run: bool, as_json: bool) -> dict:
 
     profile_q = (
         db.table("user_profiles")
-        .select("id,tenant_id,mrr_current_usd")
+        .select("id,tenant_id,mrr_current_usd,mrr_target_usd")
         .eq("email", operator_email)
         .limit(1)
         .execute()
@@ -68,7 +68,7 @@ def sync(operator_email: str, *, dry_run: bool, as_json: bool) -> dict:
         "tenant_id": tenant_id,
         "snapshot_date": today,
         "mrr_usd": total,
-        "target_usd": 5000,
+        "target_usd": float(profile.get("mrr_target_usd") or 10000),
         "source": "sync_mrr",
         "metadata": {
             "stripe_mrr": mrr["stripe_mrr"],

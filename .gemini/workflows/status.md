@@ -25,7 +25,7 @@ Use `/status` for a fast overview without loading full context.
 4. Report to CC in this format:
    ```
    ## Status — [date]
-   **North Star:** $X / $5,000 USD Net MRR
+   **North Star:** $X / $10,000 USD Net MRR
    **Active Tasks:** [count] — [top 3 tasks]
    **MCP Health:** [X/6 servers responding]
    **Known Issues:** [any blockers]

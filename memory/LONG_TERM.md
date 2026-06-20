@@ -35,6 +35,7 @@ freshness_threshold_days: 90
 | Fact | Confidence | Source | Last Verified |
 |------|-----------|--------|---------------|
 | OASIS AI Solutions at ~$3,322 USD/mo Net MRR ($180 Stripe + $191 base + $2,500 primary-retainer flat + $451 primary-retainer 15% rev share on $3,007 community MRR). Target: $5K USD by June 18, 2026. Live: `python scripts/revenue_engine.py mrr --json` | 0.95 | brain/STATE.md current | 2026-05-06 |
+| **BreezeAdvance deal closed 2026-06-20 (David + Adon): $8K trial month ($4K up front + $4K month-end on delivery) → $10K/mo recurring (Breeze + SunBiz, $5K each). CC net $5,600 trial (70/30) → $6,000/mo recurring (60/40). $5K North Star ACHIEVED; new target $10K USD Net MRR by Sept 30, 2026.** Supersedes the 2026-05-06 row above (primary retainer ended 2026-05-18). | 0.95 | brain/STATE.md + Telegram deal screenshots | 2026-06-20 |
 | CC's partner Adon handles content + client relations. Owns 50% of PropFlow only. CC owns 100% of OASIS AI. | 0.90 | brain/USER.md | 2026-05-06 |
 | PropFlow is pre-revenue, in active development | 0.85 | brain/USER.md current | 2026-05-06 |
 | CC works weekends at Nicky's Donuts | 0.90 | brain/USER.md | 2026-05-06 |

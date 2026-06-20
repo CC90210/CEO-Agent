@@ -208,8 +208,8 @@ Percentages are vs Month 1 revenue for that cohort.
 | May 2026 | $X | $X | $X |
 | Jun 2026 | $X | $X | $X |
 
-North star: $5,000 MRR by June 18, 2026
-Gap: $2,018 ÷ $1,000 avg deal = 2 new clients needed minimum
+North star: $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20)
+Gap: $4,000 (from $6,000 contracted) ÷ $1,000 avg deal = ~4 new clients needed
 ```
 
 ### Price Change Model

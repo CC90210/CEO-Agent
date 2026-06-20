@@ -30,7 +30,7 @@ Create `/CONTEXT.md` at repo root as the canonical empire glossary. Scope:
 6. **V6 architecture** (V6 mode, Pantry/Prep/Plate, Guards, Capability graph, Memory retriever)
 7. **Skill / agent vocabulary** (Skill, tiers, status lifecycle, hard/soft dependencies, disable_model_invocation, argument_hint)
 8. **Browser / scraping** (Research fetch, Browser ladder, CloakBrowser)
-9. **North Star** ($5K Net MRR by June 18, 2026 — extended 2026-05-18 from May 30)
+9. **North Star** ($10K USD Net MRR by September 30, 2026 — $5K achieved 2026-06-20)
 
 Entries are **≤2 lines each**. CONTEXT.md is a glossary, not a manual. Operational detail belongs in the skill / brain / memory file linked from the entry.
 

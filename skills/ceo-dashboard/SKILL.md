@@ -11,7 +11,7 @@ triggers: ["ceo dashboard", "use ceo dashboard", "run ceo dashboard", "unified k
 
 Five numbers every morning. One digest every week. No vanity metrics, no noise.
 
-CC's business is $5,000 Net MRR by June 18, 2026. Every KPI in this skill is chosen because it either predicts that number or explains why it moved.
+CC's business target is $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20 via the BreezeAdvance deal). Every KPI in this skill is chosen because it either predicts that number or explains why it moved.
 
 **Snapshot (preferred):** Read `state/snapshots/latest_briefing.json` first. Rebuilt daily 06:00 UTC by `scripts/snapshots/briefing_snapshot.py`. If `ts` is <24h old, every section in this skill can be answered from it without a single subprocess call.
 **Live tool (fallback):** `python scripts/ceo_dashboard.py briefing` — pulls Stripe, Supabase, and memory files. Use only when snapshot is stale or errored.
@@ -26,7 +26,7 @@ These are the only 5 numbers CC needs to see before starting his day.
 ```
 NORTH STAR SNAPSHOT — [Date]
 ──────────────────────────────────────────────────────
-1. Net MRR:        $[X] / $5,000 target  ([X]% — [Y] days to deadline)
+1. Net MRR:        $[X] / $10,000 target  ([X]% — [Y] days to deadline)
    [████████░░] [X]%
    Trend: [↑ +$X vs last month / → flat / ↓ -$X vs last month]
 
@@ -70,7 +70,7 @@ Client / Source          | MRR       | Type         | Since
 [App name — Stripe subs] | $[X]      | Subscription | [Date]
 ───────────────────────────────────────────────────────
 TOTAL NET MRR:           | $[X]
-Target:                  | $5,000
+Target:                  | $10,000
 Gap:                     | $[X] (~[N] new clients at $[avg deal size])
 ```
 

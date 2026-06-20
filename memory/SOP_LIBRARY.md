@@ -157,7 +157,7 @@ freshness_threshold_days: 180
 **Prerequisites:** Stripe CLI tool, revenue_engine.py, ACTIVE_TASKS.md
 **Steps:**
 1. Pull current MRR: `python scripts/revenue_engine.py mrr --json`
-2. Compare against $5,000 USD target — calculate gap and pace
+2. Compare against $10,000 USD target — calculate gap and pace
 3. Check revenue concentration (% from top client)
 4. Flag if concentration >80% (CRITICAL) or >60% (HIGH risk)
 5. Review pipeline: how many leads at each stage?
@@ -211,7 +211,7 @@ freshness_threshold_days: 180
 **Steps:**
 1. Run `python scripts/integrations/stripe_tool.py balance` — check current balance
 2. Run `python scripts/revenue_engine.py dashboard` — pull MRR breakdown
-3. Compare current MRR vs target ($5,000 USD by June 18, 2026)
+3. Compare current MRR vs target ($10,000 USD by September 30, 2026)
 4. Calculate gap and required weekly growth rate
 5. Check pipeline: how many leads in proposal/negotiation stage?
 6. IF gap > $1,000: flag as CRITICAL, recommend specific outreach actions

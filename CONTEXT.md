@@ -115,7 +115,7 @@ Vocabulary for the merchant-funding domain. Captured 2026-06-08 with David's pro
 
 ## North Star
 
-- **$5K Net MRR by June 18, 2026** — The single business metric Bravo optimizes for. Extended 2026-05-18 from the original May 30 deadline after primary retainer ended; new deadline gives 31 days to rebuild from $371 baseline. Breeze (licensing to multiple funders) is a potential MRR accelerator post-demo.
+- **$10K USD Net MRR by September 30, 2026** — The single business metric Bravo optimizes for. The prior $5K target was **ACHIEVED 2026-06-20** via the BreezeAdvance deal (David + Adon — $6,000/mo net recurring), then reset to a 2× milestone. "Net MRR" = CC's take-home after the Adon split, not gross client billing.
 
 ---
 

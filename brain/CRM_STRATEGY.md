@@ -22,7 +22,7 @@ To maintain system integrity and focus on high-conversion leads, we distinguish 
 
 ---
 
-**Note:** This distinction prevents our primary business management systems from being cluttered with cold/unresponsive data while allowing for high-volume top-of-funnel activity. Anchored to the [[brain/STATE]] of $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30).
+**Note:** This distinction prevents our primary business management systems from being cluttered with cold/unresponsive data while allowing for high-volume top-of-funnel activity. Anchored to the [[brain/STATE]] of $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20).
 
 ## Related
 - [[brain/STATE]] — current MRR + pipeline state

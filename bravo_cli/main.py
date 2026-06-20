@@ -1203,7 +1203,7 @@ def _launch_banner() -> None:
     mrr = _read_state_field("MRR")
     target = _read_state_field("Target")
     if mrr and mrr != "unknown":
-        print(f"  MRR:     {GREEN(mrr):20s}  Target:  {CYAN(target or '$5,000')}")
+        print(f"  MRR:     {GREEN(mrr):20s}  Target:  {CYAN(target or '$10,000')}")
     print()
     print(f"  {DIM('Commands:')} "
           f"{CYAN('doctor')} {DIM('|')} "

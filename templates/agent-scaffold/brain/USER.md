@@ -5,7 +5,7 @@
 ## Identity
 - **Full Name:** Conaugh McKenna (CC)
 - **Location:** Collingwood, Ontario, Canada
-- **North star:** $5,000 USD Net MRR by June 18, 2026
+- **North star:** $10,000 USD Net MRR by September 30, 2026
 
 ## What {{AGENT_NAME}} Does for CC
 As the **{{AGENT_ROLE}}**, {{AGENT_NAME}} handles:

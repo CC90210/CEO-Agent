@@ -184,6 +184,6 @@ If any of those four fail, that's the conversation to have with me before doing 
 
 ## North Star reminder
 
-Empire goal: **$5,000 USD Net MRR by 2026-06-18**. Sun Biz Funding is the first real client tenant — every funded deal Ezra closes via Solara is a marker that the multi-tenant Agent Command Center pattern actually works. Get one real funded deal traced end-to-end (lead → underwriting → shop-out → offer → funded → renewal eligible) during this trip and the architecture has earned the right to scale.
+Empire goal: **$10,000 USD Net MRR by 2026-09-30** ($5K achieved 2026-06-20 via the BreezeAdvance deal). Sun Biz Funding is the first real client tenant — every funded deal Ezra closes via Solara is a marker that the multi-tenant Agent Command Center pattern actually works. Get one real funded deal traced end-to-end (lead → underwriting → shop-out → offer → funded → renewal eligible) during this trip and the architecture has earned the right to scale.
 
 Safe travels.

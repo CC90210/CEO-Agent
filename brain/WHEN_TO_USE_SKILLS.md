@@ -565,7 +565,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 - **Path:** `skills/retro/SKILL.md` · tier `specialized` · risk `low`
 
 ## revenue-operations
-- **Use when:** Track MRR, log revenue events, run forecasts, and monitor progress toward the $5,000 USD Net MRR goal using revenue_engine.py. Combines Stripe subscription data with manual entries in Supabase.
+- **Use when:** Track MRR, log revenue events, run forecasts, and monitor progress toward the $10,000 USD Net MRR goal using revenue_engine.py. Combines Stripe subscription data with manual entries in Supabase.
 - **Triggers:** revenue, MRR, forecast, Stripe, income, goal, monthly, clients, financial
 - **Path:** `skills/revenue-operations/SKILL.md` · tier `standard` · risk `low`
 

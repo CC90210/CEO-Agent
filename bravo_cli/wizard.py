@@ -466,8 +466,8 @@ PROFILE_QUESTIONS: dict[str, list[dict]] = {
     "bravo": [
         {"key": "BRAVO_NORTH_STAR_METRIC", "prompt": "North-star metric",
          "type": "choice", "choices": ["MRR", "ARR", "Revenue", "Users", "Other"], "default": "MRR"},
-        {"key": "BRAVO_TARGET",      "prompt": "Target (e.g., $5,000 MRR by 2026-05-15)",
-         "type": "text", "default": "$5,000 MRR"},
+        {"key": "BRAVO_TARGET",      "prompt": "Target (e.g., $10,000 MRR by 2026-09-30)",
+         "type": "text", "default": "$10,000 MRR"},
         {"key": "BRAVO_TIMEZONE",    "prompt": "Timezone (e.g., America/Toronto)",
          "type": "text", "default": "America/Toronto"},
         {"key": "BRAVO_WORKING_HOURS", "prompt": "Working hours (e.g., 09:00-18:00)",

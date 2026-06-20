@@ -30,7 +30,7 @@ python scripts/revenue_engine.py history --months 3 --json
 
 Calculate:
 - MRR growth rate (MoM and QoQ)
-- Gap to $5,000 target and days remaining
+- Gap to $10,000 target and days remaining
 - Revenue vs expenses (net profit this quarter)
 - Any one-time revenue vs recurring revenue split
 

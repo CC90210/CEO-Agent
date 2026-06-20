@@ -15,7 +15,7 @@ confidence: 0.92
 
 ## North Star
 
-**$5,000 USD Net MRR by June 18, 2026.**
+**$10,000 USD Net MRR by September 30, 2026.** ($5K goal ACHIEVED 2026-06-20 via the BreezeAdvance deal — $6,000/mo net recurring.)
 
 Previous milestone: $1,000 USD Net MRR by March 31, 2026 — achieved at $2,691 USD (+169% surplus).
 Current Net MRR: ~$2,982 USD/mo.
@@ -102,7 +102,8 @@ Cold outreach (NEPQ-style) as secondary source.
 |------|---------|
 | March 31, 2026 | $2,691 (milestone achieved) |
 | April 6, 2026 | $2,982 |
-| Target June 18, 2026 | $5,000 |
+| June 20, 2026 (BreezeAdvance) | $6,000 — $5K target ACHIEVED |
+| Target Sept 30, 2026 | $10,000 |
 
 ## Sources
 - `brain/STATE.md` — current MRR, gap analysis, risk flags

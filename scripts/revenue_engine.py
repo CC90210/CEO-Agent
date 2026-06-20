@@ -26,7 +26,7 @@ from pathlib import Path
 
 # -- Constants -----------------------------------------------------------------
 
-MRR_GOAL_USD = 5000.0
+MRR_GOAL_USD = 10000.0
 STRIPE_API = "https://api.stripe.com/v1"
 
 # Stripe events we care about for sync
@@ -763,11 +763,11 @@ def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
     filled = int(pct / 100 * 30)
     bar = "#" * filled + "-" * (30 - filled)
 
-    # North Star deadline per CLAUDE.md WHY section: $5K Net MRR by June 18, 2026.
-    # (Extended 2026-05-18 from May 30 after primary retainer ended.) Was May 15
-    # in earlier versions — the canonical date is the only thing this comment
-    # needs to track; update the date below to match brain/STATE.md.
-    DEADLINE = datetime.date(2026, 6, 18)
+    # North Star per CLAUDE.md WHY section: $10K Net MRR by September 30, 2026.
+    # ($5K achieved 2026-06-20 — BreezeAdvance deal; target reset to $10K.) The
+    # canonical date is the only thing this comment needs to track; update the
+    # date below to match brain/STATE.md.
+    DEADLINE = datetime.date(2026, 9, 30)
     result = {
         "current_mrr": current,
         "goal": MRR_GOAL_USD,
@@ -779,7 +779,7 @@ def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
     if getattr(args, "output_json", False):
         return result
 
-    print("=== $5,000 MRR Goal - OASIS AI Solutions ===\n")
+    print("=== $10,000 MRR Goal - OASIS AI Solutions ===\n")
     print(f"  Progress:  [{bar}]  {pct:.1f}%")
     print(f"  Current:   ${current:,.2f}")
     print(f"  Goal:      ${MRR_GOAL_USD:,.0f}")
@@ -856,7 +856,7 @@ Examples:
 
     sub.add_parser("forecast", parents=[parent], help="Project MRR trajectory toward goal")
     sub.add_parser("clients", parents=[parent], help="List active clients with monthly amounts")
-    sub.add_parser("goal", parents=[parent], help="Show $5,000 MRR goal progress")
+    sub.add_parser("goal", parents=[parent], help="Show $10,000 MRR goal progress")
 
     return parser
 

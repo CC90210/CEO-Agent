@@ -7,7 +7,7 @@ verified: 2026-06-09
 # OpenCLI Strategic Integration
 
 > **Inventory:** OpenCLI v1.1.1 — 46 platforms, 244 built-in commands + 6 external CLIs
-> **Scope:** Map each relevant adapter to CC's business north star ($5,000 USD Net MRR by June 18, 2026 — extended 2026-05-18 from May 30)
+> **Scope:** Map each relevant adapter to CC's business north star ($10,000 USD Net MRR by September 30, 2026 — $5K achieved 2026-06-20)
 > **Format:** Platforms organized by impact tier + specific use cases + command examples
 
 ---

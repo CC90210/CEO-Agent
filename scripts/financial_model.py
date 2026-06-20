@@ -38,8 +38,8 @@ DEFAULT_CHURN_RATE = 0.01    # ~1%/mo (conservative floor)
 DEFAULT_GROSS_MARGIN = 0.94  # 94%
 DEFAULT_CAC = 250.0          # opportunity cost estimate (no paid ads)
 DEFAULT_CASH_ON_HAND = 5000.0  # conservative estimate — CC to update
-MRR_TARGET = 5000.0
-TARGET_DATE = "2026-06-18"
+MRR_TARGET = 10000.0
+TARGET_DATE = "2026-09-30"
 
 DEFAULT_CLIENT_REVENUE = {
     "Stripe": 180.0,

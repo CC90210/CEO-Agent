@@ -72,7 +72,7 @@ EXECUTIVE SUMMARY
 Biggest open risk or action item needing attention today.]
 
 NORTH STAR
-  Net MRR:        $[X] / $5,000  ([X]%) — [X] days to target [↑↓→]
+  Net MRR:        $[X] / $10,000  ([X]%) — [X] days to target [↑↓→]
   Pipeline:        $[X] potential ([N] warm leads) [↑↓→]
   Client Health:   [X]/100 avg ([N] at risk) [↑↓→]
   Cash Position:   $[X] Stripe + bank (manual) [↑↓→]

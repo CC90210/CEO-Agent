@@ -17,7 +17,7 @@ user-invocable: true
    - **Last session:** When, which agent, what was done (1-2 sentences)
    - **Active tasks:** List in-progress and blocked items
    - **Recently completed:** Last 3-5 completed items
-   - **North star progress:** Current MRR vs $5K target
+   - **North star progress:** Current MRR vs $10K target
 
 3. Keep to under 10 lines. No walls of text.
 

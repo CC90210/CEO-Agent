@@ -41,7 +41,7 @@ The canonical profile lives at `brain/operator.profile.json`:
       "primary_email":   "conaugh@oasisai.work",
       "website":         "https://oasisai.work",
       "booking_link":    "https://calendar.app.google/...",
-      "north_star":      "$5,000 USD Net MRR by 2026-05-15",
+      "north_star":      "$10,000 USD Net MRR by September 30, 2026",
       "industry":        "agency",
       "primary_metric":  "MRR",
       "daily_work":      "Sales calls, content, partner ops.",
