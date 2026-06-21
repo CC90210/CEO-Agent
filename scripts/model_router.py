@@ -86,6 +86,11 @@ PROVIDER_SPECS: dict[str, dict[str, Any]] = {
         "models": ["ollama/*"],
         "pricing": {},
     },
+    "glm": {
+        "env_var": "GLM_API_KEY",
+        "models": ["glm-5.2", "glm-5.2-turbo"],
+        "pricing": {"glm-5.2": (2.0, 8.0), "glm-5.2-turbo": (0.5, 2.0)},
+    },
 }
 
 TASK_TYPE_PREFERENCES: dict[str, list[tuple[str, str]]] = {
@@ -98,6 +103,7 @@ TASK_TYPE_PREFERENCES: dict[str, list[tuple[str, str]]] = {
     "analysis": [
         ("claude", "claude-opus-4-7"),
         ("openai", "gpt-5.4"),
+        ("glm", "glm-5.2"),
         ("deepseek", "deepseek-reasoner"),
     ],
     "fast": [
@@ -348,6 +354,14 @@ def call(messages: list[dict], agent: str | None = None, model: str | None = Non
         text, tokens_in, tokens_out = payload["text"], payload["tokens_in"], payload["tokens_out"]
     elif provider == "deepseek":
         payload = _openai_like(provider, chosen_model, os.environ["DEEPSEEK_API_KEY"], "https://api.deepseek.com/v1", messages, max_tokens)
+        text, tokens_in, tokens_out = payload["text"], payload["tokens_in"], payload["tokens_out"]
+    elif provider == "glm":
+        # Zhipu/BigModel GLM exposes an OpenAI-compatible chat-completions API.
+        # Without this branch, glm was selectable via resolve()/switch but call()
+        # fell through to "Unknown provider" (Codex P2, 2026-06-21). Base URL is
+        # env-overridable (bigmodel.cn vs z.ai) so an endpoint change is config.
+        glm_base = os.environ.get("GLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4")
+        payload = _openai_like(provider, chosen_model, os.environ["GLM_API_KEY"], glm_base, messages, max_tokens)
         text, tokens_in, tokens_out = payload["text"], payload["tokens_in"], payload["tokens_out"]
     elif provider == "local":
         endpoint = os.environ["LOCAL_LLM_ENDPOINT"].rstrip("/")
