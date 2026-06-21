@@ -3,6 +3,7 @@ name: daily-planner
 description: Structured daily plan for CC — content creation priorities, scheduled tasks, and revenue-moving actions. Generated each morning.
 tags: [skill, ceo, planning, daily]
 triggers: ["daily planner", "use daily planner", "run daily planner", "structured daily plan for cc \u2014 content creation priorities"]
+tier: core
 ---
 
 # Daily Planner — CC's Morning Operating System
@@ -137,6 +138,17 @@ CC should never wonder "what should I be doing right now?" The planner answers t
 **CC creates. Bravo operates. Atlas manages capital.**
 
 Three agents, one empire.
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[skills/ceo-briefing/SKILL.md]] | [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]

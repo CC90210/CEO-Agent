@@ -3,6 +3,7 @@ name: computer-control
 description: Full desktop autonomy via Telegram — 60+ commands for app control, windows, browser, files, mouse, audio, power. Routes to macOS AppleScript or Windows PowerShell based on platform. Triggered by natural-language intent ("open Chrome", "take a screenshot", "lock my computer").
 tags: [skill]
 triggers: ["computer control", "use computer control", "run computer control"]
+tier: standard
 ---
 
 # Computer Control V2.1 — Full Desktop Autonomy (60+ Commands)
@@ -252,6 +253,17 @@ pip install pyautogui pyperclip pywin32 pillow pycaw plyer mss
 - CC + Bravo: ~45 min (~100x leverage)
 - File operations and network commands work as-is (Python stdlib)
 - Main work: window management (pywin32), input simulation (pyautogui), system toggles (PowerShell/Registry)
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[brain/CAPABILITIES]] | [[brain/AGENTS]]

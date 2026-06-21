@@ -275,6 +275,17 @@ This is the concrete roadmap from current state to empire, specific to CC's situ
 
 ---
 
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
+
 ## Obsidian Links
 - [[skills/financial-modeling/SKILL.md]] | [[skills/strategic-planning/SKILL.md]] | [[brain/CAPABILITIES]]
 - [[skills/investor-communications/SKILL.md]] | [[brain/USER]] | [[brain/STATE]]

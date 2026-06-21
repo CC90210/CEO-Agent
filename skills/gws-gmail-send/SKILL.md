@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws gmail +send --help"
 triggers: ["gws gmail send", "use gws gmail send", "run gws gmail send", "gmail: send an email"]
+tier: specialized
 ---
 
 # gmail +send

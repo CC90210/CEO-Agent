@@ -7,6 +7,7 @@ description: >
   Skip when: single-agent inline work, trivial tasks.
 tags: [security, orchestration, agents]
 triggers: ["agent permissions", "use agent permissions", "run agent permissions"]
+tier: standard
 ---
 
 # Agent Permissions — Claims-Based Access Control
@@ -109,6 +110,17 @@ All permission settings are in `.agents/config.toml`:
 - `[permissions.agents]` — Per-agent permission levels
 - `[permissions.scopes]` — Per-agent file glob restrictions
 - `[permissions.blocked]` — Universal blocked patterns
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[skills/task-routing/SKILL.md]]

@@ -3,6 +3,7 @@ name: crisis-response
 description: Structured crisis response protocols for business emergencies — P0 through P3 classification, pre-built response plans, and communication templates
 tags: [skill, crisis, response, ceo]
 triggers: ["crisis response", "use crisis response", "run crisis response"]
+tier: standard
 ---
 
 # Crisis Response — Emergency Protocols
@@ -102,6 +103,17 @@ When things go wrong, speed and clarity matter more than perfection. This skill 
 **Resolution:** [What fixed it]
 **Prevention:** [What will prevent recurrence]
 ```
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[skills/risk-management/SKILL.md]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/CAPABILITIES]]

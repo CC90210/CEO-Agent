@@ -2,6 +2,7 @@
 name: agent-runtime-packaging
 description: "Build and maintain product-grade agent infrastructure: onboarding diagnostics, runtime home, packaging, skill lifecycle, tool manifests, and agent scaffolds."
 triggers: ["agent runtime packaging", "use agent runtime packaging", "run agent runtime packaging"]
+tier: specialized
 ---
 
 # Agent Runtime Packaging

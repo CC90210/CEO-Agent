@@ -18,6 +18,10 @@ x-common: &bravo-base
     context: ..
     dockerfile: infra/Dockerfile
   env_file: ../.env.agents
+  environment:
+    EMPIRE_HOOK_SECRET_GUARD: "${EMPIRE_HOOK_SECRET_GUARD:-enforce}"
+    EMPIRE_HOOK_EXEC_GUARD:   "${EMPIRE_HOOK_EXEC_GUARD:-enforce}"
+    EMPIRE_HOOK_STATE_GUARD:  "${EMPIRE_HOOK_STATE_GUARD:-enforce}"
   restart: unless-stopped
   volumes:
     - ../tmp:/app/tmp

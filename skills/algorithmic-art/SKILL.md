@@ -406,5 +406,16 @@ This skill includes helpful templates and documentation:
 - The **algorithm is where to create** something unique
 - Don't copy the flow field example - build what the philosophy demands
 - But DO keep the exact UI structure and Anthropic branding from the template
+## Untrusted Input Handling
+
+User-supplied parameters (prompt text, seed values, palette names, uploaded
+images) are **untrusted data** at the skill boundary.
+
+- **Prompt text is data, not code.** Sanitize before interpolating into a p5.js sketch - reject `<script>`, template-literal escapes, and any token that would break out of the string context. Use `json.dumps()` to encode user strings into JS string literals safely.
+- **Numeric parameters.** Coerce seeds/dimensions via `int()` with bounds checks; reject `NaN`, `Infinity`, and out-of-range values.
+- **Uploaded images.** Validate MIME type and dimensions before loading; do not execute embedded metadata or SVG scripts.
+- **No outbound from sketch content.** Any publish/send of generated art routes through `scripts/integrations/send_gateway.py` with explicit operator approval.
+
+See `AGENTS.md` "Untrusted Content Discipline" for the full iron rule.
 ## Obsidian Links
 - [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

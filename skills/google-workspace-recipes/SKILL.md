@@ -10,6 +10,7 @@ metadata:
     requires:
       bins: ["gws"]
 triggers: ["google workspace recipes", "use google workspace recipes", "run google workspace recipes"]
+tier: specialized
 ---
 
 # Google Workspace Recipes — Cookbook
@@ -690,6 +691,17 @@ Revenue: $125,000
 3. Notify in Chat: `gws chat +send --space spaces/ENG_SPACE --text '🔍 Post-mortem scheduled for [Incident].'`
 
 ---
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[skills/INDEX.md]] | [[brain/CAPABILITIES]] | [[skills/gws-shared/SKILL.md]]

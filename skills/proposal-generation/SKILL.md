@@ -3,6 +3,7 @@ name: proposal-generation
 description: Generate proposals, SOWs, and NDAs for OASIS AI Solutions. Covers discovery proposals, retainer proposals, and project-based SOWs with Good/Better/Best pricing tiers. Uses proposal_generator.py.
 tags: [skill, proposal-generation, sales, client]
 triggers: ["proposal generation", "use proposal generation", "run proposal generation", "generate proposals"]
+tier: specialized
 ---
 
 # Proposal Generation — OASIS AI Solutions

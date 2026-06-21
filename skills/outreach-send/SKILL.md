@@ -3,6 +3,7 @@ name: outreach-send
 description: Send OASIS cold/follow-up outreach emails with branded HTML, booking link, geo-rapport, and full deliverability protection. Use whenever CC says "send outreach", "email these leads", "follow up with X", or any first/second-touch sales email to a lead in the CRM. Works identically from Claude Code, OpenCode, Codex, Gemini, and Antigravity.
 triggers: ["outreach send", "use outreach send", "run outreach send", "send oasis cold/follow-up outreach emails with branded html"]
 argument_hint: "Which lead(s)? (lead UUID, email address, or filter like 'all warm cold-2 days')"
+tier: specialized
 ---
 
 # Outreach Send — Canonical Workflow

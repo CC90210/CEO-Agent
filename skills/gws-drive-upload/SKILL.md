@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws drive +upload --help"
 triggers: ["gws drive upload", "use gws drive upload", "run gws drive upload", "google drive: upload a file with automatic metadata"]
+tier: specialized
 ---
 
 # drive +upload

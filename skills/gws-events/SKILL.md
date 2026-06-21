@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws events --help"
 triggers: ["gws events", "use gws events", "run gws events", "subscribe to google workspace events"]
+tier: specialized
 ---
 
 # events (v1)

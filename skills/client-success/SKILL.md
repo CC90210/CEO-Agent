@@ -3,6 +3,7 @@ name: client-success
 description: Client health scoring, churn prediction, retention playbooks, NPS framework, and expansion signals. Keeps OASIS AI clients healthy, growing, and referring.
 tags: [skill, client-success, retention]
 triggers: ["client success", "use client success", "run client success", "client health scoring"]
+tier: specialized
 ---
 
 # Client Success — Health Scoring and Retention System
@@ -425,6 +426,17 @@ Run quarterly. Answer three questions:
 3. What is the LTV:CAC ratio? (Target: ≥5:1, exceptional ≥10:1)
 
 ---
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[brain/CAPABILITIES]]

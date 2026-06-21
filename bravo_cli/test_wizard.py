@@ -193,12 +193,12 @@ class TestSecretsMask(unittest.TestCase):
 
     def test_long_value_fixed_length_mask(self):
         # Stripe live keys are ~250+ chars. Mask must not leak that.
-        short = self.mask("sk-ant-1234567890abcdef")
+        short = self.mask("sk-test-FAKE1234567890abcdef")
         very_long = self.mask("sk-live-" + "x" * 500 + "tail")
         # Both should be exactly first4 + 8 stars + last4 = 16 chars
         self.assertEqual(len(short), 16)
         self.assertEqual(len(very_long), 16)
-        self.assertTrue(short.startswith("sk-a"))
+        self.assertTrue(short.startswith("sk-t"))
         self.assertTrue(very_long.startswith("sk-l"))
         self.assertTrue(very_long.endswith("tail"))
         self.assertIn("********", very_long)

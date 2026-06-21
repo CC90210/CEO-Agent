@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws sheets +read --help"
 triggers: ["gws sheets read", "use gws sheets read", "run gws sheets read", "google sheets: read values from a spreadsheet"]
+tier: specialized
 ---
 
 # sheets +read

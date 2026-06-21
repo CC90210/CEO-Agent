@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws chat +send --help"
 triggers: ["gws chat send", "use gws chat send", "run gws chat send", "google chat: send a message to a space"]
+tier: specialized
 ---
 
 # chat +send

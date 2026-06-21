@@ -375,6 +375,17 @@ Partnerships without exit terms create the worst outcomes: zombie relationships 
 
 ---
 
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
+
 ## Obsidian Links
 - [[skills/investor-materials/SKILL.md]] | [[skills/financial-modeling/SKILL.md]] | [[brain/CAPABILITIES]]
 - [[skills/strategic-planning/SKILL.md]] | [[brain/STATE]] | [[memory/SESSION_LOG]]

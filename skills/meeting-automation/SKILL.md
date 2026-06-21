@@ -3,6 +3,7 @@ name: meeting-automation
 description: Pre-meeting briefs, meeting type templates, post-meeting capture protocol, follow-up cadence, and calendar intelligence. Turns every meeting into a documented, actionable event.
 tags: [skill, meetings, automation, follow-up, calendar]
 triggers: ["meeting automation", "use meeting automation", "run meeting automation", "pre-meeting briefs"]
+tier: specialized
 ---
 
 # Meeting Automation — Prep, Capture, Follow-Up System
@@ -404,6 +405,17 @@ This is the highest-value habit to build — capture while context is hot.
 - **Session log** → append to `memory/SESSION_LOG.md`
 - **Client health** → cross-reference `skills/client-success/SKILL.md`
 - **Calendar access** → `gws calendar events list --params '{"calendarId":"primary","singleEvents":true,"orderBy":"startTime","timeMin":"[now]","timeMax":"[+24h]"}'`
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[brain/CAPABILITIES]]

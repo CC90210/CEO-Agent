@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws gmail +triage --help"
 triggers: ["gws gmail triage", "use gws gmail triage", "run gws gmail triage", "gmail: show unread inbox summary (sender"]
+tier: specialized
 ---
 
 # gmail +triage

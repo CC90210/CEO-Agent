@@ -3,6 +3,7 @@ name: ceo-dashboard
 description: Unified KPI framework — North Star metrics, revenue dashboard, pipeline dashboard, operations dashboard, content dashboard, client health dashboard, and the weekly CEO digest template. Powers the /briefing command output format.
 tags: [skill, ceo, dashboard, kpi, revenue, pipeline]
 triggers: ["ceo dashboard", "use ceo dashboard", "run ceo dashboard", "unified kpi framework \u2014 north star metrics"]
+tier: specialized
 ---
 
 # CEO Dashboard — Unified KPI Framework
@@ -400,6 +401,17 @@ TODAY'S #1 PRIORITY
 - **Client health** → `python scripts/client_health.py report --json`
 - **Content** → `python ../CMO-Agent/scripts/late_tool.py posts --status published` (owned by Maven)
 - **Atlas CFO snapshot** → `C:\Users\User\APPS\trading-agent\brain\STATE.md` (read-only)
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]

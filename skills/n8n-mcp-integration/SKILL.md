@@ -182,6 +182,17 @@ These don't require the build flow — call them directly:
 
 The SDK flow is the n8n team's official answer to those failure modes. Use it.
 
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
+
 ## Obsidian Links
 - [[skills/n8n-patterns]] | [[skills/INDEX.md]] | [[brain/CAPABILITIES]]
 - [[agents/workflow-builder]] | [[memory/SESSION_LOG]]

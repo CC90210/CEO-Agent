@@ -9,6 +9,7 @@ description: >
 tags: [development, planning, methodology]
 triggers: ["sparc methodology", "use sparc methodology", "run sparc methodology"]
 disable_model_invocation: true
+tier: specialized
 ---
 
 # SPARC Methodology — Structured Development Phases

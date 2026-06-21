@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws workflow +standup-report --help"
 triggers: ["gws workflow standup report", "use gws workflow standup report", "run gws workflow standup report"]
+tier: specialized
 ---
 
 # workflow +standup-report

@@ -3,6 +3,7 @@ name: strategic-planning
 description: CEO-level strategic planning framework — OKRs, annual strategy, scenario modeling, decision frameworks, QBR and weekly review templates
 tags: [skill, strategy, planning, okr, ceo]
 triggers: ["strategic planning", "use strategic planning", "run strategic planning", "ceo-level strategic planning framework \u2014 okrs"]
+tier: specialized
 ---
 
 # Strategic Planning
@@ -613,6 +614,17 @@ Before considering a pivot, answer these 4 questions:
 6. **Full pivot** — new direction (maximum disruption — rare and expensive)
 
 ---
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]

@@ -24,6 +24,8 @@ on:
       - "requirements.txt"
       - "scripts/core/scheduler.py"
       - "telegram_agent.js"
+      - "coordination_agent.js"
+      - "ecosystem.config.js"
       - ".github/workflows/deploy-vps.yml"
   workflow_dispatch: {}
 
@@ -46,6 +48,17 @@ jobs:
           pip install -r requirements.txt
       - name: Run tests
         run: python -m pytest tests/ scripts/ -q --ignore=scripts/test_send_gateway.py --ignore=scripts/test_csuite_pulse_flow.py
+      - name: Security Audit - Dependencies
+        run: |
+          pip install pip-audit
+          # Blocking gate: any known CVE in a pinned dependency fails the build
+          # (requirements.txt is clean as of 2026-06-21 — all 11 prior CVEs fixed).
+          pip-audit -r requirements.txt
+      - name: Security Audit - Skills
+        # 'scan' subcommand is required — a bare invocation just prints help and
+        # exits 0 (a no-op gate). 'scan' exits 1 only on CRITICAL_FINDINGS
+        # (hardcoded_credential / missing_outbound_gate), which must block deploy.
+        run: python scripts/skill_spector.py scan
       - name: Self audit
         run: python scripts/core/self_audit.py
         continue-on-error: true

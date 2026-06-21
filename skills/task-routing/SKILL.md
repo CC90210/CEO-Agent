@@ -8,6 +8,7 @@ description: >
   names the agent to use.
 tags: [orchestration, routing, agents]
 triggers: ["task routing", "use task routing", "run task routing"]
+tier: core
 ---
 
 # Task Routing — Complexity-Based Agent Assignment
@@ -145,6 +146,17 @@ When routing to multiple agents (COMPLEX+):
 - Each agent checks in at the checkpoint interval defined in `.agents/config.toml` [anti_drift]
 - If an agent touches files outside its assigned scope, the drift detector flags it
 - See `skills/anti-drift/SKILL.md` for the full protocol
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/BRAIN_LOOP]] | [[brain/CAPABILITIES]]

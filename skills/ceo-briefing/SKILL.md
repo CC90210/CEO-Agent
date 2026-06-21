@@ -3,6 +3,7 @@ name: ceo-briefing
 description: Executive morning briefing — revenue, pipeline, clients, Atlas financial snapshot, blocked items, and today's #1 priority
 tags: [skill, ceo, revenue, briefing]
 triggers: ["ceo briefing", "use ceo briefing", "run ceo briefing", "executive morning briefing \u2014 revenue"]
+tier: standard
 ---
 
 # CEO Morning Briefing

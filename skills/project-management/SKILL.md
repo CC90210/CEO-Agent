@@ -3,6 +3,7 @@ name: project-management
 description: Lightweight project management for OASIS client engagements. Project definition, 5-phase structure, milestone tracking, status reporting, scope management, multi-project dashboard, and retrospective template.
 tags: [skill, project-management, clients, oasis, delivery]
 triggers: ["project management", "use project management", "run project management", "lightweight project management for oasis client engagements"]
+tier: standard
 ---
 
 # Project Management — Lightweight Client Delivery Framework

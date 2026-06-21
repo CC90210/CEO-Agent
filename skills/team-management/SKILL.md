@@ -3,6 +3,7 @@ name: team-management
 description: Hiring framework, contractor onboarding, 1:1 templates, performance reviews, delegation (RACI), capacity planning, communication protocols, and offboarding. Scales CC from solo to small team without losing operational quality.
 tags: [skill, team, management, hiring]
 triggers: ["team management", "use team management", "run team management", "hiring framework"]
+tier: standard
 ---
 
 # Team Management — Solo to Small Team Framework
@@ -520,6 +521,17 @@ Ask these on the final call (5-10 min max):
 - **Onboarding tasks** → add to `memory/ACTIVE_TASKS.md`
 - **New team member** → trigger workflow `.agents/workflows/onboard-team-member.md`
 - **Capacity data** → update `brain/STATE.md` (team section)
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[brain/USER]] | [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]

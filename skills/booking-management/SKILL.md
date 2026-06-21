@@ -96,5 +96,16 @@ Meeting notes on `complete` are stored against the booking record. Pull them bac
 - **email_engine.py** — confirmation and reminder emails are sent via email_engine; pass `--lead-id` to keep the interaction log accurate
 - **revenue_engine.py** — meetings that close into retainers should be logged: `revenue_engine.py log-revenue` the day the contract is confirmed
 
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
+
 ## Obsidian Links
 - [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

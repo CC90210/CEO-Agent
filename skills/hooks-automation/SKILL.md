@@ -7,6 +7,7 @@ description: >
   adding new automation triggers. Skip when: hooks are already working correctly.
 tags: [automation, hooks, orchestration]
 triggers: ["hooks automation", "use hooks automation", "run hooks automation"]
+tier: core
 ---
 
 # Hooks Automation — Intelligent Operation Lifecycle
@@ -180,6 +181,17 @@ Hook settings in `.agents/config.toml`:
 - `[hooks.pre]` — Which pre-operation hooks are enabled
 - `[hooks.post]` — Which post-operation hooks are enabled
 - `[hooks.learning]` — Learning trigger settings
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[brain/CAPABILITIES]] | [[skills/task-routing/SKILL.md]]

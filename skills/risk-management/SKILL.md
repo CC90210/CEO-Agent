@@ -3,6 +3,7 @@ name: risk-management
 description: Business risk identification, assessment, monitoring, and mitigation for CC's empire — revenue concentration, operational, financial, reputation, legal, and technology risk
 tags: [skill, risk, management, ceo]
 triggers: ["risk management", "use risk management", "run risk management", "business risk identification"]
+tier: standard
 ---
 
 # Risk Management — Business Continuity & Threat Monitoring
@@ -141,6 +142,17 @@ Since the primary retainer represents 94% of revenue, this scenario gets its own
 4. Week 3-4: Close 2-3 clients at $500-$1,000/mo each
 5. Month 2-3: Rebuild to $5K MRR diversified across 8-10 clients
 6. Post-mortem: Analyze what happened, update risk management, never exceed 40% concentration again
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[brain/CEO_OPERATING_SYSTEM]] | [[brain/STATE]] | [[brain/CAPABILITIES]]

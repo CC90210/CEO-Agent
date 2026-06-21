@@ -109,5 +109,16 @@ If you find yourself building JSON by hand, stop and re-read [[skills/n8n-mcp-in
 - [ ] Monitoring/alerting is in place
 - [ ] Workflow has a Start sticky note: purpose, trigger, owner
 
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
+
 ## Obsidian Links
 - [[skills/n8n-mcp-integration]] | [[brain/CAPABILITIES]] | [[skills/INDEX.md]] | [[brain/DASHBOARD]]

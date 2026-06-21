@@ -9,6 +9,7 @@ metadata:
     requires:
       bins: ["gws"]
 triggers: ["gws shared", "use gws shared", "run gws shared", "gws cli: shared patterns for authentication"]
+tier: specialized
 ---
 
 # gws — Shared Reference

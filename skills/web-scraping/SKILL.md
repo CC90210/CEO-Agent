@@ -4,6 +4,7 @@ description: Web scraping and structured data extraction. Activate when CC needs
 tags: [skill, scraping, data-extraction, research, browser-harness, cloak-browser]
 triggers: ["web scraping", "use web scraping", "run web scraping", "web scraping and structured data extraction"]
 last_updated: 2026-05-15
+tier: specialized
 ---
 
 # Web Scraping — Firecrawl, CloakBrowser, Playwright, and Browser Harness

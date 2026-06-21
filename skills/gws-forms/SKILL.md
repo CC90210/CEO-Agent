@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws forms --help"
 triggers: ["gws forms", "use gws forms", "run gws forms", "read and write google forms"]
+tier: specialized
 ---
 
 # forms (v1)
@@ -45,6 +46,17 @@ gws schema forms.<resource>.<method>
 
 Use `gws schema` output to build your `--params` and `--json` flags.
 
+
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
 - [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

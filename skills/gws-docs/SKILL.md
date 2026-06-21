@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws docs --help"
 triggers: ["gws docs", "use gws docs", "run gws docs", "read and write google docs"]
+tier: specialized
 ---
 
 # docs (v1)

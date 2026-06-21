@@ -3,6 +3,7 @@ name: knowledge-graph
 description: Query the Obsidian vault as a live knowledge graph — PageRank, community detection, semantic search, path-finding, and vault writes via MCP.
 tags: [skill, mcp, knowledge, obsidian, graph, search]
 triggers: ["knowledge graph", "use knowledge graph", "run knowledge graph"]
+tier: standard
 ---
 
 # Knowledge Graph — Vault as Queryable Graph

@@ -7,6 +7,7 @@ description: >
   worker failures, adding new automated tasks. Skip when: workers are running correctly.
 tags: [automation, workers, system-health]
 triggers: ["background workers", "use background workers", "run background workers"]
+tier: standard
 ---
 
 # Background Workers — Automated System Maintenance

@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws workflow +email-to-task --help"
 triggers: ["gws workflow email to task", "use gws workflow email to task", "run gws workflow email to task"]
+tier: specialized
 ---
 
 # workflow +email-to-task

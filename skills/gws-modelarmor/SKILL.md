@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws modelarmor --help"
 triggers: ["gws modelarmor", "use gws modelarmor", "run gws modelarmor", "google model armor: filter user-generated content for safety"]
+tier: specialized
 ---
 
 # modelarmor (v1)

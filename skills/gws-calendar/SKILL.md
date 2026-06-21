@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws calendar --help"
 triggers: ["gws calendar", "use gws calendar", "run gws calendar", "google calendar: manage calendars and events"]
+tier: specialized
 ---
 
 # calendar (v3)

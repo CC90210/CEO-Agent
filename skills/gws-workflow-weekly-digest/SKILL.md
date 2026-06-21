@@ -10,6 +10,7 @@ metadata:
       bins: ["gws"]
     cliHelp: "gws workflow +weekly-digest --help"
 triggers: ["gws workflow weekly digest", "use gws workflow weekly digest", "run gws workflow weekly digest"]
+tier: specialized
 ---
 
 # workflow +weekly-digest

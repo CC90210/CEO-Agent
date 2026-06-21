@@ -3,6 +3,7 @@ name: agent-teams
 description: Spawn and coordinate Claude Code Agent Teams (experimental) — parallel subagents for complex multi-domain tasks
 tags: [skill, orchestration, agent-teams]
 triggers: ["agent teams", "use agent teams", "run agent teams"]
+tier: standard
 ---
 
 # Agent Teams — Parallel Subagent Coordination

@@ -3,6 +3,7 @@ name: email-safety
 description: Mandatory contract for sending email/outreach from any AI (Claude, Gemini, Antigravity, Codex). Read this before invoking any send command. Disable-model-invocation false — ANY model that sends mail must read this first.
 disable-model-invocation: false
 triggers: ["email safety", "use email safety", "run email safety"]
+tier: specialized
 ---
 
 # Email Safety — One Rulebook for Every AI

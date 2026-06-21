@@ -191,5 +191,16 @@ Credential-dependent services use CLI tools that read `.env.agents` directly.
 | Playwright "browser in use" | Already open | Not an error — reuse existing session |
 | MCP server hangs | Server crash on init | Restart terminal |
 
+
+## Outbound Gate Compliance
+
+> **All outbound communications** (emails, notifications, messages) referenced in this skill
+> MUST be routed through `scripts/integrations/send_gateway.py`. Direct `smtplib` or raw
+> SMTP calls are architecturally prohibited (V5.6 chokepoint rule). Use:
+> ```bash
+> python scripts/integrations/send_gateway.py send --channel email --to <email> --subject "..." --body "..." --lead-id <uuid>
+> ```
+> See [[skills/send-gateway/SKILL.md]] for the full contract.
+
 ## Obsidian Links
 - [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

@@ -3,6 +3,7 @@ name: send-gateway
 description: The single outbound chokepoint for every autonomous action Bravo performs on behalf of CC. Enforces CASL compliance, cooldown windows, daily caps, and cross-engine idempotency architecturally — callers cannot bypass it.
 disable-model-invocation: true
 triggers: ["send gateway", "use send gateway", "run send gateway"]
+tier: core
 ---
 
 # Send Gateway — the only outbound path

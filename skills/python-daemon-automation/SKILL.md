@@ -3,6 +3,7 @@ name: python-daemon-automation
 description: Build, deploy, and manage Python background daemons on Windows — includes 5-step redeploy protocol, watchdog patterns, zombie process detection, and kill switches
 tags: [skill, automation, python, daemon, windows]
 triggers: ["python daemon automation", "use python daemon automation", "run python daemon automation"]
+tier: standard
 ---
 
 # Python Daemon Automation — Windows Background Process Management

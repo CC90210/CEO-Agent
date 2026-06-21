@@ -2,6 +2,7 @@
 name: browser-harness
 description: Use Browser Harness for direct Chrome/Edge browser control, browser diagnostics, and durable domain-skill learning while preserving Bravo's business safety gates.
 triggers: ["browser harness", "use browser harness", "run browser harness", "use browser harness for direct chrome/edge browser control"]
+tier: standard
 ---
 
 # Browser Harness
