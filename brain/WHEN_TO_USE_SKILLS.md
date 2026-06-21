@@ -17,7 +17,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## agent-permissions
 - **Use when:** >
 - **Triggers:** agent permissions, use agent permissions, run agent permissions
-- **Path:** `skills/agent-permissions/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/agent-permissions/SKILL.md` · tier `standard` · risk `low`
 
 ## agent-runtime-packaging
 - **Use when:** Build and maintain product-grade agent infrastructure: onboarding diagnostics, runtime home, packaging, skill lifecycle, tool manifests, and agent scaffolds.
@@ -27,7 +27,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## agent-teams
 - **Use when:** Spawn and coordinate Claude Code Agent Teams (experimental) — parallel subagents for complex multi-domain tasks
 - **Triggers:** agent teams, use agent teams, run agent teams
-- **Path:** `skills/agent-teams/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/agent-teams/SKILL.md` · tier `standard` · risk `low`
 
 ## ai-integration
 - **Use when:** Use this skill whenever the user mentions AI integration, LLM usage, prompting, adding AI to a workflow, or configuring AI models. This covers all patterns, best practices, and node configurations for AI.
@@ -42,7 +42,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## anti-drift
 - **Use when:** >
 - **Triggers:** anti drift, use anti drift, run anti drift
-- **Path:** `skills/anti-drift/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/anti-drift/SKILL.md` · tier `standard` · risk `low`
 
 ## auto-generated — _explicit `/command` only_
 - **Use when:** Container for skills synthesized at runtime by skill_synthesizer.py. Each child directory is a [NEW] skill with its own SKILL.md + metrics.json. Promoted to skills/<slug>/ after 3 successful uses (skill_metrics.py promote).
@@ -52,7 +52,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## background-workers
 - **Use when:** >
 - **Triggers:** background workers, use background workers, run background workers
-- **Path:** `skills/background-workers/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/background-workers/SKILL.md` · tier `standard` · risk `low`
 
 ## booking-management
 - **Use when:** Manage discovery call scheduling using booking_engine.py — a self-hosted Cal.com replacement backed by Supabase. Covers opening slots, booking leads, sending reminders, and completing meetings.
@@ -72,7 +72,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## browser-harness
 - **Use when:** Use Browser Harness for direct Chrome/Edge browser control, browser diagnostics, and durable domain-skill learning while preserving Bravo's business safety gates.
 - **Triggers:** browser harness, use browser harness, run browser harness, use browser harness for direct chrome/edge browser control
-- **Path:** `skills/browser-harness/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/browser-harness/SKILL.md` · tier `standard` · risk `low`
 
 ## canvas-design
 - **Use when:** Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the user asks to create a poster, piece of art, design, or other static piece. Create original visual designs, never copying existing artists' work to avoid copyright vi
@@ -82,7 +82,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## ceo-briefing
 - **Use when:** Executive morning briefing — revenue, pipeline, clients, Atlas financial snapshot, blocked items, and today's #1 priority
 - **Triggers:** ceo briefing, use ceo briefing, run ceo briefing, executive morning briefing \u2014 revenue
-- **Path:** `skills/ceo-briefing/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/ceo-briefing/SKILL.md` · tier `standard` · risk `low`
 
 ## ceo-dashboard
 - **Use when:** Unified KPI framework — North Star metrics, revenue dashboard, pipeline dashboard, operations dashboard, content dashboard, client health dashboard, and the weekly CEO digest template. Powers the /briefing command output format.
@@ -112,27 +112,27 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## codex-delegation
 - **Use when:** Intelligent routing between Bravo and Codex — decides when to delegate tasks to Codex vs handle internally
 - **Triggers:** codex delegation, use codex delegation, run codex delegation
-- **Path:** `skills/codex-delegation/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/codex-delegation/SKILL.md` · tier `core` · risk `low`
 
 ## computer-control
 - **Use when:** Full desktop autonomy via Telegram — 60+ commands for app control, windows, browser, files, mouse, audio, power. Routes to macOS AppleScript or Windows PowerShell based on platform. Triggered by natural-language intent ("open Chrome", "take a screenshot", "lock my computer").
 - **Triggers:** computer control, use computer control, run computer control
-- **Path:** `skills/computer-control/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/computer-control/SKILL.md` · tier `standard` · risk `low`
 
 ## context-optimization
 - **Use when:** Tiered context loading, transcript compaction, cost tracking, and memory aging — inspired by Claude Code's internal harness architecture.
 - **Triggers:** context optimization, use context optimization, run context optimization, tiered context loading
-- **Path:** `skills/context-optimization/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/context-optimization/SKILL.md` · tier `standard` · risk `low`
 
 ## crisis-response
 - **Use when:** Structured crisis response protocols for business emergencies — P0 through P3 classification, pre-built response plans, and communication templates
 - **Triggers:** crisis response, use crisis response, run crisis response
-- **Path:** `skills/crisis-response/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/crisis-response/SKILL.md` · tier `standard` · risk `low`
 
 ## daily-planner
 - **Use when:** Structured daily plan for CC — content creation priorities, scheduled tasks, and revenue-moving actions. Generated each morning.
 - **Triggers:** daily planner, use daily planner, run daily planner, structured daily plan for cc \u2014 content creation priorities
-- **Path:** `skills/daily-planner/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/daily-planner/SKILL.md` · tier `core` · risk `low`
 
 ## dispatching-parallel-agents
 - **Use when:** Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies
@@ -412,7 +412,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## hooks-automation
 - **Use when:** >
 - **Triggers:** hooks automation, use hooks automation, run hooks automation
-- **Path:** `skills/hooks-automation/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/hooks-automation/SKILL.md` · tier `core` · risk `low`
 
 ## hyperthink — _explicit `/command` only_
 - **Use when:** Maximum-depth reasoning protocol. Wraps Claude Code's native ultrathink (31,999 thinking tokens) with a structured multi-hypothesis framework. Fires on architectural decisions, multi-root-cause debugging, or expensive-to-reverse choices.
@@ -447,7 +447,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## knowledge-graph
 - **Use when:** Query the Obsidian vault as a live knowledge graph — PageRank, community detection, semantic search, path-finding, and vault writes via MCP.
 - **Triggers:** knowledge graph, use knowledge graph, run knowledge graph
-- **Path:** `skills/knowledge-graph/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/knowledge-graph/SKILL.md` · tier `standard` · risk `low`
 
 ## knowledge-management
 - **Use when:** Use this skill whenever the user wants to capture, organize, retrieve, or maintain business intelligence. Covers PARA implementation, information capture protocols, progressive summarization, retrieval frameworks, freshness scoring, template library management, and weekly mainten
@@ -482,7 +482,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## memory-compression
 - **Use when:** claude-mem plugin — automatic cross-session memory compression and injection via SQLite + semantic search. Captures tool usage, compresses observations, and injects relevant context at session start.
 - **Triggers:** memory compression, use memory compression, run memory compression
-- **Path:** `skills/memory-compression/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/memory-compression/SKILL.md` · tier `standard` · risk `low`
 
 ## memory-journaling
 - **Use when:** Structured decision and pattern logging. Guides the agent through writing high-quality entries to memory/DECISIONS.md, memory/PATTERNS.md, or memory/MISTAKES.md with proper frontmatter, cross-links, and version tags.
@@ -532,7 +532,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## project-management
 - **Use when:** Lightweight project management for OASIS client engagements. Project definition, 5-phase structure, milestone tracking, status reporting, scope management, multi-project dashboard, and retrospective template.
 - **Triggers:** project management, use project management, run project management, lightweight project management for oasis client engagements
-- **Path:** `skills/project-management/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/project-management/SKILL.md` · tier `standard` · risk `low`
 
 ## proposal-generation
 - **Use when:** Generate proposals, SOWs, and NDAs for OASIS AI Solutions. Covers discovery proposals, retainer proposals, and project-based SOWs with Good/Better/Best pricing tiers. Uses proposal_generator.py.
@@ -542,7 +542,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## python-daemon-automation
 - **Use when:** Build, deploy, and manage Python background daemons on Windows — includes 5-step redeploy protocol, watchdog patterns, zombie process detection, and kill switches
 - **Triggers:** python daemon automation, use python daemon automation, run python daemon automation
-- **Path:** `skills/python-daemon-automation/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/python-daemon-automation/SKILL.md` · tier `standard` · risk `low`
 
 ## receiving-code-review
 - **Use when:** Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation
@@ -572,7 +572,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## risk-management
 - **Use when:** Business risk identification, assessment, monitoring, and mitigation for CC's empire — revenue concentration, operational, financial, reputation, legal, and technology risk
 - **Triggers:** risk management, use risk management, run risk management, business risk identification
-- **Path:** `skills/risk-management/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/risk-management/SKILL.md` · tier `standard` · risk `low`
 
 ## sales-closing
 - **Use when:** Tactical closing, objection handling, and negotiation for OASIS AI retainer deals and coaching clients. Extends sales-methodology (NEPQ) into the final 20% of the deal cycle where money actually moves.
@@ -617,7 +617,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## send-gateway — _explicit `/command` only_
 - **Use when:** The single outbound chokepoint for every autonomous action Bravo performs on behalf of CC. Enforces CASL compliance, cooldown windows, daily caps, and cross-engine idempotency architecturally — callers cannot bypass it.
 - **Triggers:** send gateway, use send gateway, run send gateway
-- **Path:** `skills/send-gateway/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/send-gateway/SKILL.md` · tier `core` · risk `low`
 
 ## sequential-reasoning
 - **Use when:** Enhanced multi-step reasoning protocol for complex problems. Combines Sequential Thinking MCP with structured analysis frameworks. Use for architecture decisions, root cause analysis, strategic planning, and multi-variable optimization.
@@ -682,12 +682,12 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## task-routing
 - **Use when:** >
 - **Triggers:** task routing, use task routing, run task routing
-- **Path:** `skills/task-routing/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/task-routing/SKILL.md` · tier `core` · risk `low`
 
 ## team-management
 - **Use when:** Hiring framework, contractor onboarding, 1:1 templates, performance reviews, delegation (RACI), capacity planning, communication protocols, and offboarding. Scales CC from solo to small team without losing operational quality.
 - **Triggers:** team management, use team management, run team management, hiring framework
-- **Path:** `skills/team-management/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/team-management/SKILL.md` · tier `standard` · risk `low`
 
 ## telegram-demo-workflows
 - **Use when:** 5 verified, rehearsed Telegram → MacBook demo workflows for filming content. Each is designed to work 100% of the time, look visually impressive on camera, and be completable in under 60 seconds. Use these when filming "AI takes over my computer" content.
@@ -722,7 +722,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 ## verticals
 - **Use when:** Namespace for vertical-specific playbooks (agency, coaching, creator, ecommerce, local-service, saas). Load the matching sub-skill when CC onboards a client in a given vertical — each one will ship lead-gen, pricing, and delivery SOPs tailored to that vertical's economics.
 - **Triggers:** verticals, use verticals, run verticals, namespace for vertical-specific playbooks (agency
-- **Path:** `skills/verticals/SKILL.md` · tier `specialized` · risk `low`
+- **Path:** `skills/verticals/SKILL.md` · tier `standard` · risk `low`
 
 ## web-artifacts-builder
 - **Use when:** Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX ar

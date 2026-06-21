@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **55 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -25,9 +25,11 @@ Auto-generated index of tracked `brain/*.md` — **55 files**. Each file's first
 
 ## Deploy & multi-machine
 - [CROSS_MACHINE_SYNC.md](CROSS_MACHINE_SYNC.md) — CROSS-MACHINE SYNC PROTOCOL
+- [VPS_SHOPOUT_HOTFIX_PROMPT.md](VPS_SHOPOUT_HOTFIX_PROMPT.md) — VPS Shop-Out Hotfix — paste this whole block into the Claude Code session running ON the SunBiz VPS
 
 ## Prompts & playbooks
 - [CLIENT_PLAYBOOK.md](CLIENT_PLAYBOOK.md) — 🎯 CLIENT PLAYBOOK — What CC Does, How He's Different, How to Run a Meeting
+- [GLM_SYSTEM_PROMPT.md](GLM_SYSTEM_PROMPT.md) — GLM 5.2 System Prompt — ZCode Chassis
 
 ## Reference & architecture
 - [APP_REGISTRY.md](APP_REGISTRY.md) — APP REGISTRY — External Codebase Routing

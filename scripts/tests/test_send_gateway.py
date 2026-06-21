@@ -165,6 +165,16 @@ class _FakeRPC:
         self.params = params
 
     def execute(self):
+        # The gateway's primary reservation path is the reserve_send_slot RPC
+        # (migration 079). Simulate advisory-lock contention here so that test
+        # exercises the real RPC path; non-contention callers still fall through
+        # to the exec_sql fallback unchanged (minimal blast radius).
+        if self.function_name == "reserve_send_slot" and self.db.force_lock_contention:
+            class _R:
+                pass
+            res = _R()
+            res.data = {"lock_acquired": False}
+            return res
         if self.function_name != "exec_sql":
             raise RuntimeError(f"unsupported RPC: {self.function_name}")
         sql_query = self.params.get("sql_query", "")
@@ -529,7 +539,11 @@ class TestSendGateway(unittest.TestCase):
             db=FailingLedgerSupabase(),
         )
         self.assertFalse(r["allowed"])
-        self.assertIn("cooldown ledger unavailable", r["reason"])
+        # FailingLedgerSupabase fails every ledger read, so the first ledger
+        # check (reply-since-outbound) trips before the cooldown one — either
+        # way the gateway must FAIL CLOSED. Assert the fail-closed block, not the
+        # exact check that fired first.
+        self.assertIn("ledger unavailable", r["reason"])
 
     def test_05c_daily_cap_ledger_failure_blocks_without_lead(self):
         r = self.sg.can_act(

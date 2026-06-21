@@ -112,6 +112,14 @@ def _verify_one(path: Path) -> dict[str, Any]:
     """`PRAGMA integrity_check` on a backup file."""
     if not path.exists():
         return {"status": "missing", "file": str(path)}
+    # A valid SQLite database is at least 100 bytes (the file header alone is
+    # exactly 100 bytes). Reject anything smaller deterministically — sqlite's
+    # PRAGMA integrity_check can behave inconsistently across platforms on a
+    # truncated/empty file (e.g. treat it as a fresh empty db -> "ok"), which
+    # would let a corrupt backup pass verification.
+    if path.stat().st_size < 100:
+        return {"status": "corrupt", "file": str(path),
+                "error": f"file too small to be a sqlite db ({path.stat().st_size} bytes)"}
     try:
         conn = sqlite3.connect(str(path))
         try:

@@ -32,7 +32,12 @@ def test_collect_stats_returns_realistic_numbers():
     assert s["scripts"] >= 50, f"scripts suspiciously low: {s['scripts']}"
     assert s["sub_agents"] >= 5, f"sub_agents suspiciously low: {s['sub_agents']}"
     assert s["workflows"] >= 5, f"workflows suspiciously low: {s['workflows']}"
-    assert s["mcp_servers"] >= 1, f"mcp_servers suspiciously low: {s['mcp_servers']}"
+    # .claude/mcp.json is gitignored (per-machine), so it's absent on a fresh CI
+    # checkout — only enforce the floor when the config is actually present.
+    if urs.MCP_CONFIG.exists():
+        assert s["mcp_servers"] >= 1, f"mcp_servers suspiciously low: {s['mcp_servers']}"
+    else:
+        assert s["mcp_servers"] >= 0
 
 
 def test_readme_is_in_sync_with_disk_at_this_commit():
