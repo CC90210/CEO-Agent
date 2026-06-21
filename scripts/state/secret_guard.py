@@ -111,7 +111,7 @@ REASON_EXEC = (
 
 
 def main() -> int:
-    mode = mode_from_env("EMPIRE_HOOK_SECRET_GUARD", default="report")
+    mode = mode_from_env("EMPIRE_HOOK_SECRET_GUARD", default="enforce")
     if mode == "off":
         return 0
 

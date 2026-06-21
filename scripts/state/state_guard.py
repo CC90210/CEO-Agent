@@ -114,7 +114,7 @@ def _bash_targets_protected(cmd: str) -> str | None:
 
 
 def main() -> int:
-    mode = mode_from_env("EMPIRE_HOOK_STATE_GUARD", default="off")
+    mode = mode_from_env("EMPIRE_HOOK_STATE_GUARD", default="report")
     if mode == "off":
         return 0
 

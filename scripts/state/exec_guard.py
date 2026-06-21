@@ -166,7 +166,7 @@ def _evaluate(cmd: str) -> tuple[str, str | None, str | None]:
 
 
 def main() -> int:
-    mode = mode_from_env("EMPIRE_HOOK_EXEC_GUARD", default="report")
+    mode = mode_from_env("EMPIRE_HOOK_EXEC_GUARD", default="enforce")
     if mode == "off":
         return 0
 

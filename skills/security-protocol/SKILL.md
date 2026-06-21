@@ -17,6 +17,7 @@ dependencies: []
 3. **No new file types that hold raw secrets.** Files like `.long_lived_token.txt`, `credentials.json`, `service_account.json` should never exist inside a repo. If a tool needs such a file, put it outside the repo and reference it by path in `.env.agents`.
 4. **MCP configs absorb from env.** When generating configuration files for new MCP servers, the server init process must read keys from `.env.agents` or local shell env vars — never paste tokens into JSON configs.
 5. **`.env.agents` is gitignored everywhere.** The repo root `.gitignore` in every agent must include `.env` + `.env.*` with only `.env.agents.template` whitelisted.
+6. **Untrusted spawns are text-only.** Any bridge/daemon that spawns a model in response to NON-operator input (a group peer, an inbound webhook, scraped content) MUST run that spawn with **no filesystem/exec/network tools** (`--disallowedTools` for Read/Grep/Glob/Bash/Edit/Write/WebFetch/…), a **secret-stripped env**, and a **sandboxed cwd** — not merely a read-only allowlist. A `Read`/`Grep` allowlist still reaches `.env.agents` by absolute path and exfiltrates it. Only operator-gated spawns (CC's Telegram id / an identity-gated `/chat`) get file tools. Reference: `coordination_agent.js` `UNTRUSTED_DENY_TOOLS`.
 
 ## Detection — Run Before Every Push
 
