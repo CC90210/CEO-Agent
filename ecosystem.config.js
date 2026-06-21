@@ -102,6 +102,18 @@ const PYTHONW = IS_WIN
 // Mac has nvm node v24+, Windows has whatever the user installed.
 const NODE = 'node';
 
+// Presence check for a non-empty key in .env.agents WITHOUT echoing its value.
+// Used to gate the coordination bridge so it isn't crash-looped by PM2 before
+// CC has provisioned the dedicated bot token.
+const fs = require('fs');
+function envKeyPresent(key) {
+    try {
+        const txt = fs.readFileSync(path.join(PROJECT_ROOT, '.env.agents'), 'utf8');
+        const re = new RegExp('^' + key + '=\\s*\\S', 'm');
+        return re.test(txt);
+    } catch (_) { return false; }
+}
+
 const apps = [];
 
 // ============================================================================
@@ -161,6 +173,45 @@ apps.push({
     merge_logs: true,
     max_size: "10M",
 });
+
+// ============================================================================
+// bravo-coord — OASIS coordination bridge (agent↔agent + boardroom group)
+// ============================================================================
+//
+// Separate group-scoped Telegram bridge for the shared OASIS group
+// (CC + Adon + Bravo + APEX). DISTINCT bot token (CC_AGENT_BOT_TOKEN) — the
+// process refuses to start if the token is missing or equals the DM token, so
+// it never 409s with bravo-telegram. Only registered here when the token is
+// present in .env.agents (avoids a PM2 crash-loop before CC provisions it).
+//
+// Same multi-machine rule as bravo-telegram: one instance at a time, arbitrated
+// via scripts/bridge_lock.py with agent name 'bravo-coord' (distinct lock, so
+// it never collides with the DM bridge's 'bravo' lock). Windows is the always-on
+// default. Agent↔agent state lives in the agent_activity table (bravo Supabase).
+//
+// Registered when EITHER: CC_AGENT_BOT_TOKEN is set (FULL two-way mode), or
+// COORD_ENABLE is set (TABLE-ONLY mode — agent↔agent via the table, posting
+// through the existing DM bot; no dedicated bot / no new credential).
+if (envKeyPresent('CC_AGENT_BOT_TOKEN') || envKeyPresent('COORD_ENABLE')) {
+    apps.push({
+        name: "bravo-coord",
+        script: "coordination_agent.js",
+        interpreter: NODE,
+        cwd: PROJECT_ROOT,
+        watch: false,
+        autorestart: true,
+        max_restarts: 10,
+        restart_delay: 45000,   // exceed Telegram's 30s long-poll to avoid 409 loops
+        kill_timeout: 10000,
+        windowsHide: true,
+        env: { NODE_ENV: "production" },
+        log_date_format: "YYYY-MM-DD HH:mm:ss",
+        error_file: "tmp/pm2-coord-error.log",
+        out_file: "tmp/pm2-coord-out.log",
+        merge_logs: true,
+        max_size: "10M",
+    });
+}
 
 // ============================================================================
 // claude-bridge — localhost:9100 chat HTTP server (giggly-reef Phase 2)

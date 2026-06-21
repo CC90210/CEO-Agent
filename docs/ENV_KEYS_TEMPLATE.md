@@ -74,9 +74,27 @@ For client deployments (deploying Hermes / a sibling agent for someone else), co
 
 | Variable | Notes |
 |----------|-------|
-| `TELEGRAM_BOT_TOKEN` | From @BotFather |
+| `TELEGRAM_BOT_TOKEN` | Bravo's DM bot (@Bravo_2003bot), from @BotFather |
+| `TELEGRAM_ALLOWED_USERS` | Comma-separated Telegram user IDs allowed to use the DM bot (CC's id). Also used as CC's id by the coordination bridge. |
 | `DISCORD_TOKEN` | Optional, future bridge |
 | `SLACK_BOT_TOKEN` | Optional, future bridge |
+
+### OASIS coordination bridge (`coordination_agent.js` — agent↔agent + boardroom group)
+
+| Variable | Notes |
+|----------|-------|
+| `CC_AGENT_BOT_TOKEN` | For **FULL two-way** mode (Bravo answers CC/Adon live in the group): a DEDICATED BotFather bot, Group Privacy **OFF**, MUST differ from `TELEGRAM_BOT_TOKEN` (two pollers on one token → 409). **Omit it** to run **table-only** mode (agent↔agent via the table, posting through the existing DM bot — zero new credential). |
+| `COORD_ENABLE` | Set `true` to register `bravo-coord` in PM2 for **table-only** mode (no dedicated bot needed). Ignored when `CC_AGENT_BOT_TOKEN` is set (which auto-registers FULL mode). |
+| `COORD_GROUP_CHAT_ID` | OASIS group chat id. Default `-5165125484`. |
+| `CC_TELEGRAM_USER_ID` | **Required for the gate.** CC's Telegram user id. The bridge does NOT fall back to `TELEGRAM_ALLOWED_USERS` (that var auto-registers, so it can't be trusted for operator authority). Unset → gate fails closed: everyone is untrusted and CC's approvals are rejected. |
+| `ADON_TELEGRAM_USER_ID` | Optional — labels Adon's messages (else learned passively as a non-CC human). |
+| `COORD_AUTONOMY` | `converse_gate` (default) \| `full` \| `readonly`. Gate posture for non-CC-triggered mutations. |
+| `COORD_REPLY_MODE` | `cc_directed` (default) \| `addressed` \| `cc_all` \| `all`. When Bravo replies in the group. |
+| `COORD_TABLE_AUTORESPOND` | `true` (default) — spawn a coordinated response to actionable APEX `agent_activity` rows. |
+| `COORD_AGENT_KEY` / `COORD_AGENT_LABEL` | Table identity `cc-agent` (APEX contract) / group label `BRAVO`. |
+| `COORD_PEER_KEYS` | Other agents to read in the table. Default `apex`. |
+
+> The agent↔agent channel is the `agent_activity` table on the **bravo** Supabase project (service-role only, RLS forced). APEX (Adon's agent) authenticates with the same `BRAVO_SUPABASE_SERVICE_ROLE_KEY`. See `database/102_agent_activity.sql` and `scripts/integrations/agent_activity.py`.
 
 ## Deployment / infra
 

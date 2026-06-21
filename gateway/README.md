@@ -123,6 +123,39 @@ defaults (custom Python venv, alternate CLI install location, etc.). Add to
 
 All five env vars are optional. The defaults work on CC's standard Windows + Mac layouts.
 
+## OASIS Coordination Bridge (`coordination_agent.js`) — separate process
+
+NOT part of this gateway. The OASIS coordination bridge is a **standalone**
+top-level process (`coordination_agent.js`, PM2 name `bravo-coord`) that wires
+Bravo into the shared **OASIS group** (`-5165125484`) with CC, Adon, and APEX
+(Adon's agent, `@KnutRPEbot`). It is deliberately decoupled from the DM bridge.
+
+Two channels (Telegram bots cannot see each other, so this split is mandatory):
+
+| Channel | Direction | Mechanism |
+|---|---|---|
+| OASIS Telegram group | human ↔ agent | `coordination_agent.js` polls `CC_AGENT_BOT_TOKEN`; CC + Adon's messages drive Bravo; Bravo posts replies/status |
+| `agent_activity` table | agent ↔ agent | `scripts/integrations/agent_activity.py` on the **bravo** Supabase (service-role, RLS forced). The ONLY APEX→Bravo path. |
+
+Hard rules baked in:
+- **Dedicated token.** `CC_AGENT_BOT_TOKEN` ≠ `TELEGRAM_BOT_TOKEN`; the process refuses to start otherwise (two pollers on one token → 409 / message loss).
+- **Humans direct, agents coordinate.** A peer's `agent_activity` status row never auto-triggers a mutation.
+- **Gated hands** (`COORD_AUTONOMY=converse_gate`, default): converse/read/analyse/draft/post-status freely; any mutation triggered by anyone other than CC spawns in plan mode and pauses for CC's one-tap approval in the group. CC-triggered work runs with `acceptEdits`.
+
+Operate it:
+```bash
+# Post Bravo's status to the table + mirror to the group:
+python scripts/integrations/agent_activity.py post --status start \
+  --task "Batch 3" --files app/x.tsx --branch cc/batch-3 --mirror
+# See what APEX is doing / has claimed before touching shared files:
+python scripts/integrations/agent_activity.py peers --hours 6
+python scripts/integrations/agent_activity.py claims --hours 6
+# Start the bridge (after CC_AGENT_BOT_TOKEN is in .env.agents):
+pm2 start ecosystem.config.js --only bravo-coord
+```
+Env keys: see `docs/ENV_KEYS_TEMPLATE.md` → "OASIS coordination bridge".
+Schema: `database/102_agent_activity.sql`.
+
 ## Obsidian Links
 - [[brain/AGENTS]] — routing rules source
 - [[brain/CAPABILITIES]] — full tool inventory
