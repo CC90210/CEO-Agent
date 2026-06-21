@@ -37,9 +37,37 @@ ROOT = Path(__file__).resolve().parent.parent
 README = ROOT / "README.md"
 MCP_CONFIG = ROOT / ".claude" / "mcp.json"
 
+_TRACKED: set[str] | None = None
+
+
+def _tracked() -> set[str]:
+    """Set of git-tracked paths (forward-slash, relative to ROOT). Counting only
+    tracked files makes the stats reproducible: identical on every machine and on
+    a fresh CI checkout, and immune to a concurrent session's untracked WIP or a
+    gitignored per-machine config. Empty set (git unavailable) -> count everything."""
+    global _TRACKED
+    if _TRACKED is None:
+        import subprocess
+        try:
+            out = subprocess.run(
+                ["git", "-C", str(ROOT), "ls-files"],
+                capture_output=True, text=True, check=True,
+            ).stdout
+            _TRACKED = {ln.strip() for ln in out.splitlines() if ln.strip()}
+        except Exception:
+            _TRACKED = set()
+    return _TRACKED
+
+
+def _is_tracked(p: Path) -> bool:
+    t = _tracked()
+    if not t:
+        return True  # non-git env: fall back to counting the working tree
+    return str(p.relative_to(ROOT)).replace("\\", "/") in t
+
 
 def count_skills() -> int:
-    return len(list((ROOT / "skills").glob("*/SKILL.md")))
+    return sum(1 for p in (ROOT / "skills").glob("*/SKILL.md") if _is_tracked(p))
 
 
 def count_scripts() -> int:
@@ -51,6 +79,8 @@ def count_scripts() -> int:
         if name.startswith("_"):
             continue
         if name.startswith("test_") or name == "conftest.py":
+            continue
+        if not _is_tracked(p):
             continue
         out += 1
     return out
@@ -66,6 +96,8 @@ def count_sub_agents() -> int:
         for p in d.glob("*.md"):
             if p.name.upper() == "INDEX.MD":
                 continue
+            if not _is_tracked(p):
+                continue
             out += 1
     return out
 
@@ -74,7 +106,7 @@ def count_workflows() -> int:
     d = ROOT / ".agents" / "workflows"
     if not d.is_dir():
         return 0
-    return sum(1 for p in d.glob("*.md") if not p.name.startswith("_"))
+    return sum(1 for p in d.glob("*.md") if not p.name.startswith("_") and _is_tracked(p))
 
 
 def count_mcp_servers() -> int:
