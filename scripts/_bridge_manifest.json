@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-11T19:36:20.281459+00:00",
-  "script_count": 100,
-  "entry_count": 251,
+  "generated_at_iso": "2026-06-21T03:50:37.532018+00:00",
+  "script_count": 102,
+  "entry_count": 259,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -675,6 +675,46 @@
       "subcmd": "evaluate",
       "mutating": false,
       "help": "GNN Skill Router -- graph-based next-skill prediction over the Obsidian vault. \u2014 subcommand: evaluate"
+    },
+    {
+      "key": "harness_plugin_list",
+      "path": "scripts/harness_plugin.py",
+      "root": "bravo",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation. \u2014 subcommand: list"
+    },
+    {
+      "key": "harness_plugin_capabilities",
+      "path": "scripts/harness_plugin.py",
+      "root": "bravo",
+      "subcmd": "capabilities",
+      "mutating": false,
+      "help": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation. \u2014 subcommand: capabilities"
+    },
+    {
+      "key": "harness_plugin_health",
+      "path": "scripts/harness_plugin.py",
+      "root": "bravo",
+      "subcmd": "health",
+      "mutating": false,
+      "help": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation. \u2014 subcommand: health"
+    },
+    {
+      "key": "harness_plugin_handoff",
+      "path": "scripts/harness_plugin.py",
+      "root": "bravo",
+      "subcmd": "handoff",
+      "mutating": false,
+      "help": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation. \u2014 subcommand: handoff"
+    },
+    {
+      "key": "harness_plugin_resolve",
+      "path": "scripts/harness_plugin.py",
+      "root": "bravo",
+      "subcmd": "resolve",
+      "mutating": false,
+      "help": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation. \u2014 subcommand: resolve"
     },
     {
       "key": "inbound_classifier_classify",
@@ -1395,6 +1435,30 @@
       "subcmd": "report",
       "mutating": false,
       "help": "Skill Metrics \u2014 usage tracking and promotion for auto-generated skills. \u2014 subcommand: report"
+    },
+    {
+      "key": "skill_spector_scan",
+      "path": "scripts/skill_spector.py",
+      "root": "bravo",
+      "subcmd": "scan",
+      "mutating": false,
+      "help": "SkillSpector \u2014 skill vulnerability scanner inspired by NVIDIA's SkillSpector. \u2014 subcommand: scan"
+    },
+    {
+      "key": "skill_spector_audit",
+      "path": "scripts/skill_spector.py",
+      "root": "bravo",
+      "subcmd": "audit",
+      "mutating": false,
+      "help": "SkillSpector \u2014 skill vulnerability scanner inspired by NVIDIA's SkillSpector. \u2014 subcommand: audit"
+    },
+    {
+      "key": "skill_spector_summary",
+      "path": "scripts/skill_spector.py",
+      "root": "bravo",
+      "subcmd": "summary",
+      "mutating": false,
+      "help": "SkillSpector \u2014 skill vulnerability scanner inspired by NVIDIA's SkillSpector. \u2014 subcommand: summary"
     },
     {
       "key": "skill_synthesizer_scan",
