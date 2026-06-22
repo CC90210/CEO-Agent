@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-22
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz v2 complete: form rebrand LIVE (light/green/gold), UI level-up + Codex re-review (4 findings fixed incl. removed self-serving rating markup + qualified hero claims) pushed to sunbiz-funding main (f9ae86b, awaiting Vercel spend-cap unblock). VPS bridge system message delivered. Memory synced.
+- **Result:** FIXED Vercel block (root cause was commit author agent@oasisai.work, NOT a spend cap — my misdiagnosis; CC caught it). Re-authored sunbiz-funding + command-center to CC90210 (noreply); pushed CC-authored commit bbc32af → deploy READY in 17s; production verified serving all v2 + hardening + Codex fixes (405 on /api/contact GET, Compare/Reviews live, qualified hero). Rewrote VPS prompt as explicit task. Memory corrected.
 
 *Last updated: 2026-06-22*
 
