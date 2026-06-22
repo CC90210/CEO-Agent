@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-22
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz Funding v2: shipped UI level-up (reviews/compare/animated metrics/sticky bar) to sunbiz-funding; rebranded the public form UI to the light website look (white/green/gold + logo) in oasis-command-center + reseeded all 4 SunBiz forms branding (verified LIVE on oasisai.work); wrote VPS bridge system message (brain/VPS_SUNBIZ_BRIDGE_PROMPT.md). Vercel hardening deploy blocked by team spend cap (needs CC unblock). Codex re-review running.
+- **Result:** SunBiz v2 complete: form rebrand LIVE (light/green/gold), UI level-up + Codex re-review (4 findings fixed incl. removed self-serving rating markup + qualified hero claims) pushed to sunbiz-funding main (f9ae86b, awaiting Vercel spend-cap unblock). VPS bridge system message delivered. Memory synced.
 
 *Last updated: 2026-06-22*
 
