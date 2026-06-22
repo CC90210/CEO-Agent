@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-22
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Built + shipped SunBiz Funding marketing website (new repo CC90210/sunbiz-funding, Next.js 16/Tailwind v4) rebuilding sunbizfunding.com from GoDaddy WordPress; brand-faithful (green #175637/gold #f1c036/Poppins); Apply/Get-Funded CTAs deep-link into existing command-center /f/submissions/* forms and the contact form proxies into the SunBiz lead pipeline; LIVE at sunbiz-funding.vercel.app; registered in APP_REGISTRY.
+- **Result:** SunBiz Funding v2: shipped UI level-up (reviews/compare/animated metrics/sticky bar) to sunbiz-funding; rebranded the public form UI to the light website look (white/green/gold + logo) in oasis-command-center + reseeded all 4 SunBiz forms branding (verified LIVE on oasisai.work); wrote VPS bridge system message (brain/VPS_SUNBIZ_BRIDGE_PROMPT.md). Vercel hardening deploy blocked by team spend cap (needs CC unblock). Codex re-review running.
 
 *Last updated: 2026-06-22*
 
