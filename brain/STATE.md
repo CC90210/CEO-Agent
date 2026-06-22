@@ -39,7 +39,7 @@ model_standard: fable-5
 | Dimension | Level | Notes |
 |-----------|-------|-------|
 | **Version** | V6 Apex (P1+P2+P3) | V6 Optimization Project 100% complete (2026-05-10). Architecture phase closed. |
-| **Position**| EXECUTING — PAID | BreezeAdvance deal CLOSED 2026-06-20 (David + Adon): $8K trial month → $10K/mo recurring (Breeze + SunBiz). Freeze lifted. Top priority: deliver the trial-month report that converts to recurring. |
+| **Position**| EXECUTING — PAID | BreezeAdvance deal CLOSED 2026-06-20 (David + Adon): $8K trial month → $10K/mo recurring (Breeze + SunBiz). SunBiz/Breeze development is OPEN (paying client). Top priority: deliver the trial-month report that converts to recurring. |
 | **Confidence** | 0.75 | Core automations production-grade. SunBiz delivered at spec. Revenue lift pending Adon's signed-deal flow. |
 | **Focus Area** | **SUNBIZ DEMO + ONGOING CLIENT WORK** | Adon Saturday demo greenlit. Continued OASIS outreach for diversification. |
 | **Energy** | EXECUTING / FOCUSED | Long sprint closed cleanly. Bridge surface as reliable as terminal. Codebase hygiene reset (552 MB, 0 subprocess violations). |
@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-22
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Hero fixed (friendly photo now visible, not a green block) + Trustpilot star overlap fixed — LIVE (deploy bb49486 Ready). Analyzed VPS agent run: pipeline GREEN (live send from submissions@ verified + 3 prod form_intake_next_steps); it found a real welcome-seq SMS-step defect (non-E.164 phones). Wrote VPS Task 2 prompt: close form-submit self-test via anonymous_init + greenlit the SMS normalize+skip fix.
+- **Result:** SunBiz application PDF fixed + demoed: made the generated application form FORM-DRIVEN (mapApplicationFieldsFromSteps lists every six-step question + answer, real-form layout) — was a hardcoded map leaving fields blank. Wired both gen paths (form-submit + from-record). Shipped oasis cd92237. DEMO: created lead 'DEMO - Northwind Builders LLC' (3cf7ea47) in SunBiz pipeline with the filled PDF in the drawer DOCS Application slot — verified renders + opens via signed URL. Codex audit running.
 
 *Last updated: 2026-06-22*
 

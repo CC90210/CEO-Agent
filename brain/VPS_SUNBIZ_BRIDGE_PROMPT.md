@@ -18,8 +18,8 @@ report results. You have full authority to run read-only checks and to send ONE 
 mailbox you control. Any production mutation beyond that, confirm with CC first.
 
 CONTEXT YOU NEED:
-- The SunBiz dev standby from 2026-06-19 is LIFTED (paid contract signed 2026-06-20) — CC is
-  actively directing this work. Proceed; do not pause for the old freeze.
+- SunBiz/Breeze are paid client work (contract signed 2026-06-20; Bravo on salary) — CC is
+  actively directing this work. Proceed freely; development is fully OPEN with no restriction.
 - A new public marketing site is LIVE (sunbiz-funding.vercel.app; DNS cuts over to
   sunbizfunding.com later). It has NO lead backend — its "Apply / Get Funded / Quote / Contact"
   actions all feed the EXISTING command-center forms at oasisai.work:
