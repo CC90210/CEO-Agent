@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-22
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** FIXED Vercel block (root cause was commit author agent@oasisai.work, NOT a spend cap — my misdiagnosis; CC caught it). Re-authored sunbiz-funding + command-center to CC90210 (noreply); pushed CC-authored commit bbc32af → deploy READY in 17s; production verified serving all v2 + hardening + Codex fixes (405 on /api/contact GET, Compare/Reviews live, qualified hero). Rewrote VPS prompt as explicit task. Memory corrected.
+- **Result:** Hero fixed (friendly photo now visible, not a green block) + Trustpilot star overlap fixed — LIVE (deploy bb49486 Ready). Analyzed VPS agent run: pipeline GREEN (live send from submissions@ verified + 3 prod form_intake_next_steps); it found a real welcome-seq SMS-step defect (non-E.164 phones). Wrote VPS Task 2 prompt: close form-submit self-test via anonymous_init + greenlit the SMS normalize+skip fix.
 
 *Last updated: 2026-06-22*
 
