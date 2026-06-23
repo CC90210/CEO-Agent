@@ -304,13 +304,13 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
     # Sun Biz Funding — first client tenant. Added 2026-05-25 so
     # outbound shop-out emails to lender contacts ship with the SunBiz
     # CASL footer instead of leaking the OASIS / Collingwood address.
-    # Operator: Ezra at Submissions@sunbizfunding.com.
+    # Operator: Matt at Submissions@sunbizfunding.com.
     "sunbiz": {
         "business_name": "Sun Biz Funding",
         # 2026-06-08: confirmed via the dashboard sidebar — the operator on
-        # submissions@sunbizfunding.com is Ezra. Sign-off line on every
-        # SunBiz email reads "— Ezra".
-        "sender_name": "Ezra",
+        # submissions@sunbizfunding.com is Matt. Sign-off line on every
+        # SunBiz email reads "— Matt".
+        "sender_name": "Matt",
         # 2026-06-17: CC provided SunBiz's physical mailing address, closing
         # the prior CAN-SPAM (US) / CASL (Canada) exposure — commercial email
         # now ships a real address in the footer. (Replaces the 2026-06-08
