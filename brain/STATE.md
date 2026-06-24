@@ -147,11 +147,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-06-22
+- **Date:** 2026-06-24
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz application PDF fixed + demoed: made the generated application form FORM-DRIVEN (mapApplicationFieldsFromSteps lists every six-step question + answer, real-form layout) — was a hardcoded map leaving fields blank. Wired both gen paths (form-submit + from-record). Shipped oasis cd92237. DEMO: created lead 'DEMO - Northwind Builders LLC' (3cf7ea47) in SunBiz pipeline with the filled PDF in the drawer DOCS Application slot — verified renders + opens via signed URL. Codex audit running.
+- **Result:** Lead sheet 100% functional. Workbook had been restructured mid-enrichment (split into Leads-Sheet31=dialable + Sheet1=raw/skip-trace), which disconnected ~240 found phones from their rows. Re-applied my full enrichment (cloak SERP->Haiku, 1038 phones/420 emails on the 2037) to Leads-Sheet31 by business-name match, fill-blanks-only: now 1036 leads at 100% phone + 40% email (413), added Email col G. Verified correctly mapped (8 spot-checks match). Sheet1 = ~1004 leads with no findable phone = skip-trace list. Hardened email validation (rejects [email protected] obfuscation). Command-center A+B shipped (698802e, prod build EXIT=0); upload P0 + FICO handed to Codex.
 
-*Last updated: 2026-06-22*
+*Last updated: 2026-06-24*
 
 ## Manifest
 

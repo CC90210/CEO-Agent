@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-21T03:50:37.532018+00:00",
-  "script_count": 102,
-  "entry_count": 259,
+  "generated_at_iso": "2026-06-24T15:26:47.315547+00:00",
+  "script_count": 103,
+  "entry_count": 260,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -523,6 +523,14 @@
       "subcmd": "run",
       "mutating": true,
       "help": "enrich_oasis_leads.py \u2014 fill missing phone + first name on OASIS leads. \u2014 subcommand: run"
+    },
+    {
+      "key": "enrich_sheet_inplace",
+      "path": "scripts/enrich_sheet_inplace.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "enrich_sheet_inplace.py \u2014 enrich CC's live 'Leads - Sheet31' in place."
     },
     {
       "key": "financial_model_unit_economics",

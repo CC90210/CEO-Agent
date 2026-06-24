@@ -76,6 +76,13 @@ PROJECTS = {
         "url_key": "NOSTALGIC_SUPABASE_URL",
         "key_key": "NOSTALGIC_SUPABASE_SERVICE_ROLE_KEY",
         "description": "Nostalgic Requests"
+    },
+    "breeze": {
+        # NOTE: keys in .env.agents are saved with the "Breeze_" prefix (mixed
+        # case), not "BREEZE_". Env var names are case-sensitive.
+        "url_key": "Breeze_SUPABASE_URL",
+        "key_key": "Breeze_SUPABASE_SERVICE_ROLE_KEY",
+        "description": "CredPort / Breeze — MCA merchant portal (separate trust boundary)"
     }
 }
 
