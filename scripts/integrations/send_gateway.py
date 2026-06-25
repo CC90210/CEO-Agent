@@ -2606,6 +2606,14 @@ def send(
     body_html: Optional[str] = None,
     brand: str = DEFAULT_BRAND,
     intent: str = "commercial",
+    # Per-send override (Ezra 2026-06-24): force the physical mailing address
+    # OUT of the CASL footer for THIS send, regardless of the brand default.
+    # None = use the brand's own suppress_business_address setting (current
+    # behavior for every existing caller). True = omit the address line (keeps
+    # the sender/business name). Used by shop-out funder submissions — B2B
+    # lender packets where the street address is noise. Cold-outreach passes
+    # nothing, so its CAN-SPAM address is unaffected.
+    suppress_business_address: Optional[bool] = None,
     cooldown_hours: Optional[int] = None,
     metadata: Optional[dict] = None,
     ics_content: Optional[str] = None,
@@ -2690,6 +2698,14 @@ def send(
     # map. Copy the brand dict so the module-level map stays untouched, and
     # leave any unset override so other brands keep their built-in identity.
     brand_cfg = dict(BRAND_IDENTITY[brand])
+    # Per-send address suppression (Ezra 2026-06-24). When the caller forces it
+    # (shop-out funder submissions), blank the address and flip the brand's
+    # suppress flag for THIS send only: "" is what build_casl_footer treats as
+    # "omit the address line" (keeps "{sender} — {business}"), and the True flag
+    # keeps the env-override loop + placeholder gate below from reintroducing one.
+    if suppress_business_address is True:
+        brand_cfg["business_address"] = ""
+        brand_cfg["suppress_business_address"] = True
     # If a brand explicitly opts out of a business_address (e.g. SunBiz —
     # suppress_business_address: True), a stale CASL_BUSINESS_ADDRESS env
     # var on a host must NOT silently reintroduce one. Same logic applies

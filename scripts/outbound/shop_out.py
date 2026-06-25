@@ -350,6 +350,10 @@ def cmd_send(args: argparse.Namespace) -> dict[str, Any]:
             body_html=body_html,
             brand="sunbiz",
             intent="transactional",
+            # Ezra 2026-06-24: shop-out emails go to FUNDERS (B2B lender
+            # submissions), not consumer prospects — drop the physical mailing
+            # address from the footer. Cold-outreach keeps its CAN-SPAM address.
+            suppress_business_address=True,
             metadata={
                 "shop_out_round_id": round_id,
                 "shop_out_round_number": round_number,
