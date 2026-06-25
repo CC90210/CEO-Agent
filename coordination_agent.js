@@ -243,6 +243,23 @@ const isChatter = (text) => {
     return words.length < 3; // emoji / "lol" / short reactions
 };
 
+// CC should never feel ignored in the group — but a 1-word "yo" doesn't warrant a
+// full (slow, costly) Claude spawn. A cheap canned ack keeps Bravo present for
+// CC's chatter while the real CLI harness stays reserved for substantive
+// messages. (CC 2026-06-25: "Bravo didn't respond to yo — not good.")
+const CC_ACKS = [
+    'Here, CC — what do you need?',
+    'Yo. Standing by.',
+    "👋 Reading you. What's up?",
+    'Present. Point me at it.',
+];
+const ccChatterAck = (text) => {
+    const t = (text || '').trim().toLowerCase();
+    if (/\b(thanks|thank you|ty|nice|good job|great|perfect|love it|lgtm)\b/.test(t)) return '🤝';
+    return CC_ACKS[Date.now() % CC_ACKS.length];
+};
+let lastCcAck = 0;
+
 const shouldRespond = (speaker, msg) => {
     if (speaker === 'bot') return false;                 // never react to bots (incl. APEX/itself)
     if (isAddressed(msg)) return true;                   // explicit @mention/reply always wins
@@ -432,7 +449,19 @@ bot.on('message', async (msg) => {
 
         if (speaker === 'partner' && !ADON_ID) log(`[INFO] Unrecognised human ${who} (${msg.from.id}). Set ADON_TELEGRAM_USER_ID to label them.`);
 
-        if (!shouldRespond(speaker, msg)) { log(`[SKIP] ${speaker}/${who}: "${text.slice(0, 60)}"`); return; }
+        if (!shouldRespond(speaker, msg)) {
+            // CC's casual chatter ("yo", emoji) gets a cheap instant ack so he's
+            // never left hanging — but NOT a Claude spawn (reserved for substance).
+            // Throttled so repeated chatter can't spam; everyone else stays skipped.
+            if (speaker === 'cc' && !busy && (Date.now() - lastCcAck > 20000)) {
+                lastCcAck = Date.now();
+                await sendGroup(ccChatterAck(text)).catch(() => {});
+                log(`[ACK] cc chatter: "${text.slice(0, 40)}"`);
+            } else {
+                log(`[SKIP] ${speaker}/${who}: "${text.slice(0, 60)}"`);
+            }
+            return;
+        }
 
         if (busy) {
             log('[BUSY] dropping concurrent trigger');
