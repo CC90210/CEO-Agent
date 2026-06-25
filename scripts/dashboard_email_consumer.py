@@ -165,7 +165,12 @@ def _fetch_queued(sb, *, limit: int = 25) -> list[dict]:
             )
             .eq("channel", "email")
             .eq("direction", "outbound")
-            .eq("agent_source", "dashboard_drawer")
+            # Drain BOTH the single drawer-queued emails and the bulk-action-bar
+            # queued emails (2026-06-25). Both are operator-queued dashboard
+            # emails the daemon must send; only the agent_source tag differs
+            # (kept distinct for timeline/attribution). Without dashboard_bulk_email
+            # here, bulk emails would queue forever and never send.
+            .in_("agent_source", ["dashboard_drawer", "dashboard_bulk_email"])
             .eq("type", "email_queued")
             .order("created_at", desc=False)
             .limit(limit)
