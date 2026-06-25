@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-24T15:26:47.315547+00:00",
-  "script_count": 103,
-  "entry_count": 260,
+  "generated_at_iso": "2026-06-25T03:16:27.113711+00:00",
+  "script_count": 104,
+  "entry_count": 261,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -395,6 +395,14 @@
       "subcmd": "delete",
       "mutating": true,
       "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: delete"
+    },
+    {
+      "key": "consolidate_mca_phone_sheet",
+      "path": "scripts/consolidate_mca_phone_sheet.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Consolidate CC's 2026-06-24 MCA lead phone sheet."
     },
     {
       "key": "cost_audit",

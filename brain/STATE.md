@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-24
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Lead sheet 100% functional. Workbook had been restructured mid-enrichment (split into Leads-Sheet31=dialable + Sheet1=raw/skip-trace), which disconnected ~240 found phones from their rows. Re-applied my full enrichment (cloak SERP->Haiku, 1038 phones/420 emails on the 2037) to Leads-Sheet31 by business-name match, fill-blanks-only: now 1036 leads at 100% phone + 40% email (413), added Email col G. Verified correctly mapped (8 spot-checks match). Sheet1 = ~1004 leads with no findable phone = skip-trace list. Hardened email validation (rejects [email protected] obfuscation). Command-center A+B shipped (698802e, prod build EXIT=0); upload P0 + FICO handed to Codex.
+- **Result:** CredPort launch-readiness audit (41-agent workflow): GO, zero P0s, 66 working items, 33 confirmed P1-P3. Fixed the must-fix + all top P1s and deployed (commits ed5319e + 3adbb22 -> main): after() for post-response side effects (sign-link/funded emails + CRM events + snapshot so serverless can't drop them); credential-cache staleness (Plaid+SMTP keys now include secret); merchant 404 dead-ends -> empty states; getSession React cache() latency; inbound CRM webhook contract surfaced in Settings; login double-submit guard. Stress test green. ENV-ONLY for CC: confirm PLAID_ENV=production in Vercel + global Plaid creds == David's Plaid app (webhook verify uses global getPlaid). Deferred P2/P3 polish: orphaned advance-detail link, bank-page staleness gate, mobile nav, dark-mode alert banners, advance-create field validation.
 
 *Last updated: 2026-06-24*
 
