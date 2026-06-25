@@ -147,11 +147,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-06-24
+- **Date:** 2026-06-25
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** CredPort launch-readiness audit (41-agent workflow): GO, zero P0s, 66 working items, 33 confirmed P1-P3. Fixed the must-fix + all top P1s and deployed (commits ed5319e + 3adbb22 -> main): after() for post-response side effects (sign-link/funded emails + CRM events + snapshot so serverless can't drop them); credential-cache staleness (Plaid+SMTP keys now include secret); merchant 404 dead-ends -> empty states; getSession React cache() latency; inbound CRM webhook contract surfaced in Settings; login double-submit guard. Stress test green. ENV-ONLY for CC: confirm PLAID_ENV=production in Vercel + global Plaid creds == David's Plaid app (webhook verify uses global getPlaid). Deferred P2/P3 polish: orphaned advance-detail link, bank-page staleness gate, mobile nav, dark-mode alert banners, advance-create field validation.
+- **Result:** CredPort embedded AI chat (Phase 0) shipped: full-page chat both portals, funder-brand merchant support + funder ops agent, audit-logged agent mutations. Live on main pending ANTHROPIC_API_KEY in Vercel.
 
-*Last updated: 2026-06-24*
+*Last updated: 2026-06-25*
 
 ## Manifest
 
