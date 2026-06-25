@@ -325,6 +325,30 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
 }
 
 DEFAULT_BRAND = "oasis"
+
+# ---- Address-suppression allowlist (legal compliance) -----------------------
+# The per-send `suppress_business_address` flag is a CASL/CAN-SPAM bypass: it
+# removes the physical mailing address from the footer. That is lawful ONLY for
+# B2B messages that aren't commercial electronic messages to consumers — today
+# just shop-out funder submissions. So suppression is FAIL-CLOSED: it is honored
+# only when the calling agent_source is on this allowlist. Any other caller's
+# flag is ignored (the address stays) so a careless/future caller can never
+# strip the legal address from a consumer commercial email. (Codex audit
+# 2026-06-25.) Add a source here ONLY with a documented B2B rationale.
+ADDRESS_SUPPRESS_ALLOWED_SOURCES: frozenset[str] = frozenset({"shop_out"})
+
+
+def _address_suppression_allowed(
+    suppress_flag: Optional[bool], agent_source: str
+) -> bool:
+    """True only when an explicit address-suppression request comes from an
+    allowlisted (B2B) agent_source. Pure + side-effect-free so the legal
+    invariant is unit-testable without a live send."""
+    return suppress_flag is True and (
+        (agent_source or "").strip().lower() in ADDRESS_SUPPRESS_ALLOWED_SOURCES
+    )
+
+
 # Brand business_address values that block commercial sends as placeholder /
 # misconfigured. Empty string is in the set so a brand silently set to ""
 # without the explicit suppress_business_address opt-out doesn't accidentally
@@ -2698,14 +2722,27 @@ def send(
     # map. Copy the brand dict so the module-level map stays untouched, and
     # leave any unset override so other brands keep their built-in identity.
     brand_cfg = dict(BRAND_IDENTITY[brand])
-    # Per-send address suppression (Ezra 2026-06-24). When the caller forces it
-    # (shop-out funder submissions), blank the address and flip the brand's
-    # suppress flag for THIS send only: "" is what build_casl_footer treats as
-    # "omit the address line" (keeps "{sender} — {business}"), and the True flag
-    # keeps the env-override loop + placeholder gate below from reintroducing one.
-    if suppress_business_address is True:
+    # Per-send address suppression (Ezra 2026-06-24; guarded per Codex 2026-06-25).
+    # Honored ONLY for allowlisted B2B sources (shop-out funder submissions) — a
+    # fail-closed legal guard so the CASL/CAN-SPAM address can't be stripped from
+    # a consumer commercial email by any other caller. When allowed, blank the
+    # address and flip the brand's suppress flag for THIS send only: "" is what
+    # build_casl_footer treats as "omit the address line" (keeps
+    # "{sender} — {business}"), and the True flag keeps the env-override loop +
+    # placeholder gate below from reintroducing one.
+    if _address_suppression_allowed(suppress_business_address, agent_source):
         brand_cfg["business_address"] = ""
         brand_cfg["suppress_business_address"] = True
+    elif suppress_business_address is True:
+        # Flag requested by a non-allowlisted source — IGNORE it (keep the legal
+        # address) and log so the misuse is visible rather than silently
+        # bypassing CASL/CAN-SPAM.
+        print(
+            f"[send_gateway] suppress_business_address ignored for agent_source="
+            f"'{agent_source}' (not in {sorted(ADDRESS_SUPPRESS_ALLOWED_SOURCES)}) "
+            "— physical address retained for CASL/CAN-SPAM compliance.",
+            file=sys.stderr,
+        )
     # If a brand explicitly opts out of a business_address (e.g. SunBiz —
     # suppress_business_address: True), a stale CASL_BUSINESS_ADDRESS env
     # var on a host must NOT silently reintroduce one. Same logic applies
