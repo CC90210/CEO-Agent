@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-06-25
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** CredPort embedded AI chat (Phase 0) shipped: full-page chat both portals, funder-brand merchant support + funder ops agent, audit-logged agent mutations. Live on main pending ANTHROPIC_API_KEY in Vercel.
+- **Result:** CredPort social login: added SocialAuthButtons (Google+Apple via Supabase signInWithOAuth) to /login + /funder-login, reusing existing /auth/callback (exchangeCodeForSession). Shipped+deployed 1782b06, buttons VERIFIED rendering live. Gave CC click-by-click Supabase+Google Cloud Console setup guide (callback https://xugwrhvaoihyidtdgwkq.supabase.co/auth/v1/callback, Site URL+Redirect allowlist for breeze-portal-mu.vercel.app). Apple = bigger setup (Apple Dev acct), deferred. Funder signup social = follow-up (needs tenant-creation).
 
 *Last updated: 2026-06-25*
 
