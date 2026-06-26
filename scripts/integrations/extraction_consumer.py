@@ -335,6 +335,13 @@ def process_job(sb, env: dict[str, str], job: dict) -> str:
     status = job.get("status")
     attempts = int(job.get("attempts") or 0)
 
+    # Stale `applying` (the dashboard claimed the job atomically, then crashed
+    # before marking it applied). The callback CAS excludes `applying`, so reset
+    # it to `extracted` here; the next tick re-POSTs and the callback can re-claim.
+    if status == "applying":
+        _set_status(sb, job_id, status="extracted")
+        return "reset_stale_applying"
+
     # Re-POST path: extraction already succeeded, only the callback is pending.
     if status == "extracted" and isinstance(job.get("result_json"), dict):
         rj = job["result_json"]
@@ -423,13 +430,14 @@ def _fetch_jobs(sb, limit: int = 10) -> list[dict]:
         out.extend(q.data or [])
     except Exception as e:  # noqa: BLE001
         print(f"[extraction_consumer] fetch queued failed: {e}", file=sys.stderr)
-    # Stale processing/extracted recovery (a crashed tick / failed callback).
+    # Stale processing/extracted/applying recovery (a crashed tick / failed
+    # callback / crashed apply). `applying` is reset to `extracted` in process_job.
     cutoff = datetime.now(timezone.utc).timestamp() - STALE_PROCESSING_MIN * 60
     try:
         s = (
             sb.table("document_extraction_jobs")
             .select(cols)
-            .in_("status", ["processing", "extracted"])
+            .in_("status", ["processing", "extracted", "applying"])
             .order("updated_at", desc=False)
             .limit(limit)
             .execute()
