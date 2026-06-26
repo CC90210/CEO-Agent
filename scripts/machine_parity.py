@@ -320,12 +320,20 @@ def self_test_hooks() -> list[tuple[str, bool, str]]:
         script = next((t for t in toks if t.endswith(".py")), None)
         if not script:
             continue
-        spath = Path(script) if Path(script).is_absolute() else (REPO_ROOT / _normalize_script(script))
+        spath = Path(script)
+        name = spath.name
+        # Same shell-safety gate as check_hooks: an unquoted spaced path splits into
+        # a relative fragment, so the stored command would break in the shell.
+        if not spath.is_absolute():
+            if script in seen:
+                continue
+            seen.add(script)
+            results.append((f"{event}:{name}", False, "unsafe/relative path (unquoted spaces?)"))
+            continue
         key = str(spath)
         if key in seen:
             continue
         seen.add(key)
-        name = spath.name
         if not spath.exists():  # a missing script is a FAILURE, not a silent pass
             results.append((f"{event}:{name}", False, "script not found"))
             continue
@@ -375,8 +383,7 @@ def check_hooks() -> tuple[str, bool, str, str]:
         if extra:
             bits.append(f"{len(extra)} unexpected")
         return ("hooks", False, f"{len(expected & actual)}/{len(expected)} hooks match template; " + ", ".join(bits), "run --fix")
-    # Wiring matches; confirm each local command's interpreter + script resolve on THIS machine.
-    root = _root_as_posix()
+    # Wiring matches; confirm each local command is shell-safe + resolvable on THIS machine.
     for _ev, cmd in _iter_commands(local.get("hooks", {})):
         toks = _split(cmd)
         if not toks:
@@ -388,13 +395,19 @@ def check_hooks() -> tuple[str, bool, str, str]:
         elif not _which(interp_name):
             return ("hooks", False, f"interpreter not on PATH: {interp_name}", "run --fix")
         sidx = next((i for i, t in enumerate(toks) if t.endswith(".py")), None)
-        if sidx is not None:
-            sp = Path(toks[sidx])
-            if not sp.is_absolute():
-                sp = Path(root) / _normalize_script(toks[sidx])
-            if not sp.exists():
-                return ("hooks", False, f"hook script not found: {Path(toks[sidx]).name}", "run --fix")
-    return ("hooks", True, f"{len(expected)} hooks match template (scripts+matchers), interpreter valid", "")
+        if sidx is None:
+            return ("hooks", False, "hook command has no script token", "run --fix")
+        sp = Path(toks[sidx])
+        # Validate the STORED command is shell-safe, not just reconstructable. A
+        # properly-quoted absolute path shlex-splits to ONE absolute token; an
+        # unquoted path with spaces (e.g. macOS "iCloud Drive") splits into a
+        # relative fragment here, so the command breaks in the shell and the guard
+        # goes inactive. Reject anything that isn't a real absolute file.
+        if not sp.is_absolute():
+            return ("hooks", False, f"unsafe hook path (unquoted spaces?): ...{toks[sidx][-40:]}", "run --fix")
+        if not sp.exists():
+            return ("hooks", False, f"hook script not found: {sp.name}", "run --fix")
+    return ("hooks", True, f"{len(expected)} hooks match template (scripts+matchers), shell-safe", "")
 
 
 def check_python_deps() -> tuple[str, bool, str, str]:
