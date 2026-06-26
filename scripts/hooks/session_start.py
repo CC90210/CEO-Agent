@@ -21,6 +21,7 @@ Wired in .claude/settings.local.json SessionStart matcher.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -35,6 +36,24 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 STATE_DIR = PROJECT_ROOT / "state"
 LOG_PATH = STATE_DIR / "session_start.log"
 TIMEOUT_SEC = 3
+
+
+def _resolve_py() -> str:
+    """Console python with the repo's deps. Prefer the venv (system python may lack
+    them); avoid windowless pythonw (unreliable stdout capture). On macOS bare
+    `python` often doesn't exist — using the venv python3 keeps SessionStart working."""
+    venv = PROJECT_ROOT / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python3")
+    if venv.exists():
+        return str(venv)
+    exe = sys.executable or ""
+    if exe and Path(exe).name.lower().startswith("pythonw"):
+        sib = Path(exe).with_name(Path(exe).name.lower().replace("pythonw", "python"))
+        if sib.exists():
+            return str(sib)
+    return exe or ("python" if os.name == "nt" else "python3")
+
+
+PY = _resolve_py()
 
 
 def _log(payload: dict) -> None:
@@ -65,7 +84,7 @@ def _run(cmd: list[str], timeout: int = TIMEOUT_SEC) -> str | None:
 
 
 def _state_summary() -> str:
-    raw = _run(["python", "scripts/state/state_manager.py", "status"])
+    raw = _run([PY, "scripts/state/state_manager.py", "status"])
     if not raw:
         return ""
     lines = raw.splitlines()[:12]
@@ -73,7 +92,7 @@ def _state_summary() -> str:
 
 
 def _inbox_summary() -> str:
-    raw = _run(["python", "scripts/core/agent_inbox.py", "list", "--to", "bravo", "--json"])
+    raw = _run([PY, "scripts/core/agent_inbox.py", "list", "--to", "bravo", "--json"])
     if not raw:
         return ""
     try:
@@ -96,11 +115,11 @@ def _inbox_summary() -> str:
 
 def _rotate_logs_if_needed() -> None:
     """Fire-and-forget. rotate_logs.py is idempotent (12h stamp) and silent if no rotation."""
-    _run(["python", "scripts/hooks/rotate_logs.py"], timeout=5)
+    _run([PY, "scripts/hooks/rotate_logs.py"], timeout=5)
 
 
 def _staleness_summary() -> str:
-    raw = _run(["python", "scripts/core/memory_aging.py", "stale", "--days", "7", "--json"])
+    raw = _run([PY, "scripts/core/memory_aging.py", "stale", "--days", "7", "--json"])
     if not raw:
         return ""
     try:
@@ -111,6 +130,17 @@ def _staleness_summary() -> str:
     if not items:
         return "(no stale entries)"
     return f"{len(items)} memory files stale (>7 days). Run `memory_aging.py stale` for details."
+
+
+def _parity_summary() -> str:
+    """Self-announce machine-parity drift at boot (the 'automatic after pull' net).
+
+    Runs the cheap --fast subset (hooks + global config, pure file reads). Prints
+    one line iff this machine is NOT at parity, e.g. a fresh clone with no hooks
+    installed. Fail-open: any error → silent.
+    """
+    raw = _run([PY, "scripts/machine_parity.py", "--check", "--fast", "--quiet"], timeout=5)
+    return raw or ""
 
 
 def _event_router_freshness() -> str:
@@ -148,8 +178,11 @@ def main() -> int:
     inbox = _inbox_summary()
     stale = _staleness_summary()
     router_idle = _event_router_freshness()
+    parity = _parity_summary()
 
     parts: list[str] = []
+    if parity:
+        parts.append(f"## Machine Parity\n{parity}")
     if state:
         parts.append(f"## Current State\n```\n{state}\n```")
     if inbox:

@@ -7,6 +7,13 @@ last_updated: 2026-04-11
 
 # MAC SYNC PROMPT — Paste into Mac Claude Code
 
+> **⚠️ SUPERSEDED (2026-06-26) for capability parity.** This prompt covers env/credentials/data
+> sync only — it predates the V6 agentic substrate (hooks, Codex, plugins, self-improvement loop)
+> and its env-delta below is from the V2.1 era (MRR $3,322, skool/scheduler). For full
+> **agentic parity** on a new machine, use **`docs/deploy/MACHINE_PARITY_BOOTSTRAP.md`** +
+> `python3 scripts/machine_parity.py --fix`. The credential/env-audit steps here remain useful as a
+> reference; treat the specific numbers/commits as historical.
+
 > CC: open Claude Code on your MacBook inside `~/APPS/Business-Empire-Agent` (or wherever the repo lives on Mac) and paste the block below verbatim.
 >
 > If the repo isn't cloned on Mac yet, run this first in Terminal:

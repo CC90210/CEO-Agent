@@ -33,7 +33,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+# Put scripts/ on the path so `import lib.*` resolves (lib lives at scripts/lib/).
+# The previous .parent.parent.parent pointed at the repo root → ModuleNotFoundError →
+# the hook failed OPEN (never enforced or logged). Mirrors the secret_guard.py fix.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.hook_runtime import (  # noqa: E402
     log_jsonl,
     mode_from_env,

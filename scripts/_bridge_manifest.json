@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-25T03:16:27.113711+00:00",
-  "script_count": 104,
-  "entry_count": 261,
+  "generated_at_iso": "2026-06-26T04:32:55.200938+00:00",
+  "script_count": 105,
+  "entry_count": 262,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -835,6 +835,14 @@
       "subcmd": "funnel",
       "mutating": false,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: funnel"
+    },
+    {
+      "key": "machine_parity",
+      "path": "scripts/machine_parity.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "machine_parity.py \u2014 bring any machine to full agentic parity, reproducibly."
     },
     {
       "key": "maml_onboard_build_tasks",

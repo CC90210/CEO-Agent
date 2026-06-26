@@ -19,7 +19,10 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Put scripts/ (the parent of state/) on the path so `import lib.hook_runtime`
+# resolves. The previous .parent pointed at state/ itself → ModuleNotFoundError →
+# the hook failed OPEN (never enforced or logged). Mirrors the secret_guard.py fix.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.hook_runtime import (  # noqa: E402
     PROJECT_ROOT,
     log_jsonl,
