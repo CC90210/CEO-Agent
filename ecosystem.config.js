@@ -380,4 +380,49 @@ if (IS_WIN) {
     });
 }
 
+// ============================================================================
+// extraction-consumer — SunBiz document-extraction daemon — VPS (LINUX) ONLY
+// ============================================================================
+//
+// Drains document_extraction_jobs: reads dropped applications with the Claude
+// Code CLI on CC's SUBSCRIPTION (OAuth, not the metered API), then POSTs the
+// fields + signature box back to the dashboard (HMAC) at
+// /api/internal/apply-extraction. Moves the per-application vision cost off the
+// API onto the flat-rate subscription. Falls back to the API only on a quota cap.
+//
+// LINUX-ONLY (like bravo-scheduler is Windows-only): exactly ONE consumer must
+// own the queue. The VPS is the right home — it's always-on (independent of CC's
+// laptop) and already hosts the subscription `claude` CLI (claude-bridge). Two
+// daemons polling the same 'queued' rows would double-process (the processing
+// claim isn't a row lock). For Windows dev, run it by hand:
+//   python scripts/integrations/extraction_consumer.py once
+// Prereq: `claude setup-token` on the VPS so ~/.claude holds the subscription
+// OAuth (else extractions fall to the metered API). Verify: `... doctor`.
+if (IS_LINUX) {
+    apps.push({
+        name: "extraction-consumer",
+        script: "scripts/integrations/extraction_consumer.py",
+        args: ["loop", "--interval", "8"],
+        interpreter: PYTHON,
+        cwd: PROJECT_ROOT,
+        watch: false,
+        autorestart: true,
+        max_restarts: 20,
+        restart_delay: 10000,
+        windowsHide: true,
+        env: {
+            PYTHONIOENCODING: "utf-8",
+            PYTHONUNBUFFERED: "1",
+            // The spawned `claude` inherits this; the VPS runs as root and Claude
+            // Code refuses non-interactive runs as root without it.
+            IS_SANDBOX: "1",
+        },
+        log_date_format: "YYYY-MM-DD HH:mm:ss",
+        error_file: "tmp/pm2-extraction-consumer-error.log",
+        out_file: "tmp/pm2-extraction-consumer-out.log",
+        merge_logs: true,
+        max_size: "10M",
+    });
+}
+
 module.exports = { apps };
