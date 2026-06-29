@@ -352,16 +352,23 @@ apps.push({
 // sends via smtplib SMTP_SSL, and updates metadata.status to 'sent' or
 // 'failed' so the drawer's timeline reflects the outcome.
 //
-// Was originally registered via manual `pm2 start` with `python` interpreter
-// (not pythonw), which popped a visible console window. Fixed 2026-05-19
-// to use PYTHONW. Now also declared here so ecosystem.config.js boots it
-// on `pm2 start ecosystem.config.js`.
-if (IS_WIN) {
+// VPS (LINUX) ONLY as of 2026-06-29 (was Windows-only). Same rule as
+// extraction-consumer below: exactly ONE consumer must own the email queue, and
+// the VPS is the right home — always-on (independent of CC's laptop) and already
+// holds the shared submissions@ Gmail creds send_gateway uses for shop-out.
+// Windows-only gating meant queued lead-emails never drained whenever CC's PC was
+// off — the 2026-06-29 "Send Email doesn't work" report (21 rows stuck at
+// metadata.status='queued', recipients never delivered). The synchronous
+// auto-trigger in /api/leads/[id]/email still fires instantly for owner/admin;
+// this daemon is the safety net that drains everything else (member roles, bridge
+// hiccups). For Windows dev, run by hand:
+//   python scripts/dashboard_email_consumer.py once
+if (IS_LINUX) {
     apps.push({
         name: "dashboard-email-consumer",
         script: "scripts/dashboard_email_consumer.py",
         args: ["loop", "--interval", "10"],
-        interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
+        interpreter: PYTHON,  // Linux python (Windows used PYTHONW for no-console)
         cwd: PROJECT_ROOT,
         watch: false,
         autorestart: true,
