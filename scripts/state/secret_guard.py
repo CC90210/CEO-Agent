@@ -63,11 +63,21 @@ EXFIL_TOOLS = re.compile(
     r"\b(cat|less|more|head|tail|grep|awk|sed|tac|xxd|hexdump|od|base64|"
     r"strings|nl|tr|cut|sort|uniq|wc|file|stat|tee|sha256sum|md5sum|"
     r"python|python3|py|node|deno|ruby|perl|powershell|pwsh|gc|"
-    r"Get-Content|Select-String|cp|copy|mv|move|rsync|scp|sftp|curl|wget)\b",
+    r"Get-Content|Select-String|cp|copy|mv|move|rsync|scp|sftp|curl|wget|"
+    # PowerShell exfil cmdlets (the PowerShell tool is now routed here too):
+    r"Invoke-WebRequest|Invoke-RestMethod|iwr|irm|Out-File|Set-Content|"
+    r"Add-Content|Copy-Item|Move-Item|Export-Csv|ConvertTo-Json|Format-Hex)\b",
     re.IGNORECASE,
 )
 
-HEREDOC_RE = re.compile(r"<<\s*[A-Za-z_]+\s+.*\.env\.agents", re.DOTALL)
+# Bash heredoc (<<EOF … .env.agents) AND PowerShell here-strings (@'…'@ / @"…"@)
+# that embed a secret path. GAP-7: the bash-only form let a PowerShell
+# here-string pipe a secret out undetected.
+HEREDOC_RE = re.compile(
+    r"<<\s*[A-Za-z_]+\s+.*\.env(?:\.[\w-]+)*"
+    r"|@[\"'][\s\S]*?\.env(?:\.[\w-]+)*[\s\S]*?[\"']@",
+    re.DOTALL | re.IGNORECASE,
+)
 
 
 def _path_is_secret(path: str | None) -> bool:
@@ -137,17 +147,35 @@ def main() -> int:
             reason = REASON_READ.format(path=path) + (
                 "\n(Edit on a secret file is also blocked — they are immutable to the agent.)"
             )
-    elif tool_name == "Bash":
-        cmd = tool_input.get("command", "")
+    elif tool_name in ("Bash", "PowerShell"):
+        # PowerShell was previously unguarded (audit GAP-1): a Get-Content on
+        # .env.agents piped to Invoke-WebRequest would exfiltrate secrets with
+        # no gate. The PowerShell tool's field is `command` (fall back to
+        # `script`).
+        cmd = tool_input.get("command", "") or tool_input.get("script", "")
         is_exfil, matched = _command_is_secret_exfil(cmd)
         if is_exfil:
             target = matched
             reason = REASON_EXEC.format(path=matched)
+    elif tool_name in ("Grep", "Glob"):
+        # GAP-5: only the Read tool was path-filtered, so Grep/Glob could read a
+        # secret file by pointing `path` straight at it (e.g. Grep pattern=STRIPE
+        # path=.env.agents surfaces the secret in matching lines). Block when the
+        # path targets a secret. (Grep on a *directory* is mitigated separately:
+        # ripgrep respects .gitignore, and .env* is gitignored.)
+        path = tool_input.get("path")
+        if _path_is_secret(path):
+            target = path
+            reason = REASON_READ.format(path=path)
 
     if not reason:
         return 0
 
-    cmd_for_log = tool_input.get("command") if tool_name == "Bash" else target
+    cmd_for_log = (
+        (tool_input.get("command") or tool_input.get("script"))
+        if tool_name in ("Bash", "PowerShell")
+        else target
+    )
 
     if mode == "enforce":
         log_jsonl(LOG_PATH, {"decision": "blocked", "target": target, "command": (cmd_for_log or "")[:500]})

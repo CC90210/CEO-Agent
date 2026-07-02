@@ -61,9 +61,28 @@ HARD_BLOCKS: list[tuple[str, re.Pattern]] = [
     ("git-force-main",     re.compile(r"\bgit\s+push\s+(?:-f\b|--force(?!-with-lease)\b)[^|;]*\b(main|master|production|prod)\b")),
     ("git-reset-hard-ref", re.compile(r"\bgit\s+reset\s+--hard\s+(?!HEAD\s*$)(?!HEAD\b\s*$)\S+")),
     ("git-clean-fdx",      re.compile(r"\bgit\s+clean\s+-[a-zA-Z]*[fdx]")),
+    # Reverting uncommitted work silently destroys another process's changes
+    # with no undo. 2026-07-02 incident: a read-only agent ran
+    # `git checkout <files> && rm -rf <untracked dir>` to "clean" the tree.
+    # These block the revert forms while leaving branch switches
+    # (`git checkout main`, `git checkout -b feat/x`, `git checkout <sha>`) allowed.
+    ("git-restore-worktree", re.compile(r"\bgit\s+restore\b(?![^|;&]*--staged\b)")),
+    ("git-checkout-pathspec", re.compile(r"\bgit\s+checkout\b[^|;&]*?(?:\s--\s|\s--$|\s\.(?:\s|$))")),
+    ("git-checkout-file",     re.compile(r"\bgit\s+checkout\b(?!\s+-[bB]\b)[^|;&]*?\s[^\s]*/[^\s]*\.[A-Za-z0-9]+")),
+    ("git-stash-destroy",     re.compile(r"\bgit\s+stash\s+(?:drop|clear)\b")),
+    # rm -rf of a relative directory that is NOT a known-safe build/cache/tmp
+    # target — catches the incident's `rm -rf bugzil.la/` (untracked work).
+    ("rm-rf-untracked-dir",   re.compile(r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+(?!(?:\./)?(?:tmp|node_modules|__pycache__|\.next|\.turbo|dist|build|out|\.cache|coverage|\.pytest_cache)[\s/])[\w.\-]+/")),
     ("env-overwrite",      re.compile(r">\s*\.env\.agents\b")),
     ("fork-bomb",          re.compile(r":\s*\(\s*\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:")),
     ("dd-disk-overwrite", re.compile(r"\bdd\s+if=/dev/(zero|random|urandom)\s+of=/(?:dev/)?\w+")),
+    # ── PowerShell destructive forms (the PowerShell tool is guarded too; see
+    #    main() tool_name handling + settings.local.json). Harmlessly inert
+    #    against bash strings. ──
+    ("ps-remove-recurse",  re.compile(r"\bRemove-Item\b[^|;&\n]*\s-(?:Recurse|r)\b", re.IGNORECASE)),
+    ("ps-rmdir-recurse",   re.compile(r"\b(?:rmdir|rd)\b[^|;&\n]*\s/s\b", re.IGNORECASE)),
+    ("ps-clear-content-env", re.compile(r"\bClear-Content\b[^|;&\n]*\.env", re.IGNORECASE)),
+    ("git-force-main-ps",  re.compile(r"\bgit\s+push\s+(?:-f\b|--force(?!-with-lease)\b)[^\n]*\b(main|master|production|prod)\b", re.IGNORECASE)),
 ]
 
 IRREVERSIBLE_PATTERNS: list[tuple[str, re.Pattern]] = [
@@ -73,6 +92,11 @@ IRREVERSIBLE_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("supabase-migration",      re.compile(r"\bsupabase\s+(db\s+)?(push|reset|apply_migration)\b")),
     ("n8n-publish",             re.compile(r"\bn8n_tool\.py\s+publish_workflow\b")),
     ("prod-keyword",            re.compile(r"\b(prod|production|live)\b.*\b(deploy|push|publish|migrate)\b")),
+    # SQL loaded from a file bypasses the inline-SQL AST check (the guard can't
+    # read the file). Log it as irreversible for the audit trail rather than
+    # hard-blocking (that would break legit migration application). Audit gap
+    # GAP-4, 2026-07-02.
+    ("sql-from-file",           re.compile(r"\b(?:psql|sqlite3|supabase_tool\.py\s+execute-sql)\b[^|;&]*(?:--file\b|--file=|\s-f\s|<\s*\S+\.sql)", re.IGNORECASE)),
 ]
 
 READ_ONLY_VERBS = {"list", "get", "search", "query", "status", "show", "describe",
@@ -174,9 +198,13 @@ def main() -> int:
     if not payload:
         return 0
 
-    if payload.get("tool_name") != "Bash":
+    # Guard both the Bash tool and the Windows PowerShell tool. PowerShell was
+    # entirely unguarded (audit GAP-1, CRITICAL) — it could run
+    # `Remove-Item -Recurse` / `git push --force` / secret exfil with no gate.
+    if payload.get("tool_name") not in ("Bash", "PowerShell"):
         return 0
-    cmd = payload.get("tool_input", {}).get("command", "")
+    tool_input = payload.get("tool_input", {}) or {}
+    cmd = tool_input.get("command", "") or tool_input.get("script", "")
     if not cmd:
         return 0
 
