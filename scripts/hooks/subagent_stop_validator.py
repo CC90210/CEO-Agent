@@ -38,21 +38,27 @@ GIT_BASELINE_PATH = PROJECT_ROOT / "state" / "session_git_baseline.json"
 IGNORE_SUFFIXES = (".png", ".jpeg", ".jpg", ".log", ".jsonl")
 
 
-def _baseline_paths() -> set[str]:
-    """Paths already dirty at session start (written by scripts/hooks/session_start.py).
+def _baseline_map() -> dict[str, str]:
+    """path -> 2-char porcelain status code, as of session start (written by
+    scripts/hooks/session_start.py).
 
-    Files in this set were NOT changed by any sub-agent this session — they were
-    dirty before the session began. Excluding them is what stops the gate from
-    nagging about pre-existing working-tree state (the 2026-07-02 incident, where
-    that false nag pressured a read-only agent into a destructive `git checkout ..
-    && rm -rf` cleanup). Missing/unreadable baseline → empty set → fall back to
-    reporting all dirty files (still advisory, never destructive)."""
+    A file is "this session's work" if it is NOT in this map OR its status code
+    changed since boot. Excluding same-status pre-existing dirt is what stops the
+    gate from nagging about a tree that was already dirty (the 2026-07-02 incident,
+    where that false nag pressured a read-only agent into a destructive
+    `git checkout .. && rm -rf` cleanup). Tracking the status code (not just the
+    path) also catches a sub-agent editing an already-dirty file into a new state
+    (Codex audit P2). Missing/unreadable baseline → empty map → report all dirty
+    files (still advisory, never destructive)."""
     try:
         with GIT_BASELINE_PATH.open("r", encoding="utf-8") as fh:
             data = json.load(fh)
-        return set(data.get("dirty_paths", []))
+        if isinstance(data.get("dirty"), dict):
+            return data["dirty"]
+        # back-compat: old baselines stored only a path list (unknown codes)
+        return {p: "" for p in data.get("dirty_paths", [])}
     except Exception:
-        return set()
+        return {}
 
 
 def _changed_files() -> list[str]:
@@ -63,14 +69,18 @@ def _changed_files() -> list[str]:
         )
     except Exception:
         return []
-    baseline = _baseline_paths()
+    baseline = _baseline_map()
     files = []
     for ln in r.stdout.splitlines():
+        code = ln[:2]
         path = ln[3:].strip().strip('"')
         if not path or path.lower().endswith(IGNORE_SUFFIXES):
             continue
-        if path in baseline:
-            continue  # dirty before the session began — not this session's work
+        # New path, OR same path at a different status than baseline = changed
+        # this session. Same path at same status (or legacy baseline with an
+        # unknown "" code) = pre-existing → skip.
+        if path in baseline and baseline[path] in (code, ""):
+            continue
         files.append(path)
     return files
 

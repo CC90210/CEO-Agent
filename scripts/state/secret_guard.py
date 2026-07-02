@@ -62,8 +62,8 @@ SECRET_PATH_RE = re.compile(
 EXFIL_TOOLS = re.compile(
     r"\b(cat|less|more|head|tail|grep|awk|sed|tac|xxd|hexdump|od|base64|"
     r"strings|nl|tr|cut|sort|uniq|wc|file|stat|tee|sha256sum|md5sum|"
-    r"python|python3|py|node|deno|ruby|perl|powershell|pwsh|gc|"
-    r"Get-Content|Select-String|cp|copy|mv|move|rsync|scp|sftp|curl|wget|"
+    r"python|python3|py|node|deno|ruby|perl|powershell|pwsh|gc|type|"
+    r"Get-Content|Get-Item|Select-String|sls|cp|copy|mv|move|rsync|scp|sftp|curl|wget|"
     # PowerShell exfil cmdlets (the PowerShell tool is now routed here too):
     r"Invoke-WebRequest|Invoke-RestMethod|iwr|irm|Out-File|Set-Content|"
     r"Add-Content|Copy-Item|Move-Item|Export-Csv|ConvertTo-Json|Format-Hex)\b",

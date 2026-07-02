@@ -66,13 +66,21 @@ HARD_BLOCKS: list[tuple[str, re.Pattern]] = [
     # `git checkout <files> && rm -rf <untracked dir>` to "clean" the tree.
     # These block the revert forms while leaving branch switches
     # (`git checkout main`, `git checkout -b feat/x`, `git checkout <sha>`) allowed.
-    ("git-restore-worktree", re.compile(r"\bgit\s+restore\b(?![^|;&]*--staged\b)")),
+    # `git restore` discards the working tree. Only `--staged` WITHOUT `--worktree`
+    # is safe (unstage-only). Codex audit: the old single pattern allowed
+    # `git restore --staged --worktree file` because --staged was present.
+    ("git-restore-default",   re.compile(r"\bgit\s+restore\b(?![^|;&]*--staged\b)")),   # no --staged → worktree discard
+    ("git-restore-worktree",  re.compile(r"\bgit\s+restore\b[^|;&]*--worktree\b")),      # explicit --worktree even with --staged
     ("git-checkout-pathspec", re.compile(r"\bgit\s+checkout\b[^|;&]*?(?:\s--\s|\s--$|\s\.(?:\s|$))")),
-    ("git-checkout-file",     re.compile(r"\bgit\s+checkout\b(?!\s+-[bB]\b)[^|;&]*?\s[^\s]*/[^\s]*\.[A-Za-z0-9]+")),
+    # File revert via `git checkout [HEAD] <file>`. Codex audit: top-level files
+    # have no slash, so require a filename EXTENSION (alpha, so version tags like
+    # v1.2 aren't caught) instead of a slash. Branch switches (no .ext) stay allowed.
+    ("git-checkout-file",     re.compile(r"\bgit\s+checkout\b(?!\s+-[bB]\b)[^|;&]*?\s(?:HEAD\s+|HEAD~\d+\s+)?\S*\.[A-Za-z][A-Za-z0-9]*(?:\s|$)")),
     ("git-stash-destroy",     re.compile(r"\bgit\s+stash\s+(?:drop|clear)\b")),
     # rm -rf of a relative directory that is NOT a known-safe build/cache/tmp
     # target — catches the incident's `rm -rf bugzil.la/` (untracked work).
-    ("rm-rf-untracked-dir",   re.compile(r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+(?!(?:\./)?(?:tmp|node_modules|__pycache__|\.next|\.turbo|dist|build|out|\.cache|coverage|\.pytest_cache)[\s/])[\w.\-]+/")),
+    # Codex audit: accept BOTH flag orders (-rf and -fr).
+    ("rm-rf-untracked-dir",   re.compile(r"\brm\s+-(?:[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*)\s+(?!(?:\./)?(?:tmp|node_modules|__pycache__|\.next|\.turbo|dist|build|out|\.cache|coverage|\.pytest_cache)[\s/])[\w.\-]+/")),
     ("env-overwrite",      re.compile(r">\s*\.env\.agents\b")),
     ("fork-bomb",          re.compile(r":\s*\(\s*\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:")),
     ("dd-disk-overwrite", re.compile(r"\bdd\s+if=/dev/(zero|random|urandom)\s+of=/(?:dev/)?\w+")),
@@ -80,6 +88,9 @@ HARD_BLOCKS: list[tuple[str, re.Pattern]] = [
     #    main() tool_name handling + settings.local.json). Harmlessly inert
     #    against bash strings. ──
     ("ps-remove-recurse",  re.compile(r"\bRemove-Item\b[^|;&\n]*\s-(?:Recurse|r)\b", re.IGNORECASE)),
+    # PowerShell aliases for Remove-Item (rm/rmdir/del/ri/erase) with -Recurse.
+    # Codex audit: `rm -Recurse foo` / `rmdir -Recurse foo` missed Remove-Item.
+    ("ps-rm-recurse-alias", re.compile(r"\b(?:rm|rmdir|del|ri|erase)\b[^|;&\n]*\s-Recurse\b", re.IGNORECASE)),
     ("ps-rmdir-recurse",   re.compile(r"\b(?:rmdir|rd)\b[^|;&\n]*\s/s\b", re.IGNORECASE)),
     ("ps-clear-content-env", re.compile(r"\bClear-Content\b[^|;&\n]*\.env", re.IGNORECASE)),
     ("git-force-main-ps",  re.compile(r"\bgit\s+push\s+(?:-f\b|--force(?!-with-lease)\b)[^\n]*\b(main|master|production|prod)\b", re.IGNORECASE)),

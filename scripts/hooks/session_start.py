@@ -179,18 +179,24 @@ def _write_git_baseline() -> None:
     falls back to reporting all dirty files (advisory only, never destructive).
     """
     raw = _run(["git", "status", "--porcelain"], timeout=5)
-    paths = []
+    # Map path -> 2-char porcelain status code. The validator gate flags a file
+    # if it's new OR its status changed vs this baseline — so a sub-agent editing
+    # a file that was ALREADY dirty at boot (status transition) is still caught,
+    # while pre-existing dirt at the same status is ignored (Codex audit P2).
+    dirty = {}
     if raw:
         for ln in raw.splitlines():
+            code = ln[:2]
             p = ln[3:].strip().strip('"')
             if p:
-                paths.append(p)
+                dirty[p] = code
     try:
         STATE_DIR.mkdir(exist_ok=True)
         with GIT_BASELINE_PATH.open("w", encoding="utf-8") as f:
             json.dump({
                 "ts": datetime.now(timezone.utc).isoformat(),
-                "dirty_paths": sorted(set(paths)),
+                "dirty": dirty,
+                "dirty_paths": sorted(dirty),  # back-compat
             }, f)
     except Exception:
         pass

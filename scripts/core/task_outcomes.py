@@ -64,17 +64,6 @@ def _ts_of(row: dict) -> str:
     return str(row.get("ts") or row.get("timestamp") or "")
 
 
-def _since(rows, days: int | None):
-    if not days:
-        return list(rows)
-    # ISO timestamps sort lexicographically; compute the cutoff without wall-clock
-    # imports the guards don't share. We approximate by keeping rows whose ts is
-    # among the most recent — but without "now" we can't subtract days portably,
-    # so --days filters by the DB table (which stores explicit dates) and leaves
-    # guard-log aggregation cumulative. Callers wanting a window use --json + slice.
-    return list(rows)
-
-
 def _ensure_table(conn: sqlite3.Connection) -> None:
     conn.execute(
         """CREATE TABLE IF NOT EXISTS task_outcomes (
@@ -136,7 +125,19 @@ def _verdict_stats(days: int | None) -> dict:
         return {"total": 0, "good": 0, "bad": 0, "by_verdict": {}}
     try:
         _ensure_table(conn)
-        rows = conn.execute("SELECT verdict, COUNT(*) FROM task_outcomes GROUP BY verdict").fetchall()
+        if days:
+            # Codex audit: --days must actually window the query, else a 7-day
+            # dashboard silently reports lifetime success. created_at is stored
+            # as datetime('now') so SQLite can filter it directly.
+            rows = conn.execute(
+                "SELECT verdict, COUNT(*) FROM task_outcomes "
+                "WHERE created_at >= datetime('now', ?) GROUP BY verdict",
+                (f"-{int(days)} days",),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT verdict, COUNT(*) FROM task_outcomes GROUP BY verdict"
+            ).fetchall()
     except sqlite3.Error:
         rows = []
     finally:
