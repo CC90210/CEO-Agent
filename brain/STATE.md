@@ -147,11 +147,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-06-26
+- **Date:** 2026-07-01
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** MacBook 100% sync 2026-06-26 — cloned breeze-portal(feat/credport-redesign)+sunbiz-funding+breezeadvance-website+Lex-Agent+empire-harness+OASIS-Vanguard. All 11 empire repos present+current on Mac flat ~/ layout. Only missing env key: COORD_GROUP_CHAT_ID (Telegram group).
+- **Result:** SunBiz automation liveness FIXED: sunbiz-sequence-runner (+ lender-classifier + cold-outreach-runner) were ungated + only ever started on CC's now-off Windows PC -> ran nowhere -> 0 autonomous sequence sends ever. IS_LINUX-gated them (SunBiz-Agent c04cbde) so the always-on VPS owns them (single instance). Backlog safe: 0 overdue scheduled rows (95 future, 686 terminal). REMAINING: deploy on VPS (git pull + pm2 start the 3 daemons + save) since SSH host is guarded from here. viewed_application sequence = 30m SMS + 24h email on entry; extend for longer lingering follow-ups is a follow-up.
 
-*Last updated: 2026-06-26*
+*Last updated: 2026-07-01*
 
 ## Manifest
 
