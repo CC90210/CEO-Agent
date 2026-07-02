@@ -148,8 +148,8 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 ## Last Heartbeat
 
 - **Date:** 2026-07-02
-- **Agent:** BRAVO via Claude Code
-- **Result:** Reverse sync MacBook->desktop: pulled breeze-portal(+51 to main), oasis-command-center(45), SunBiz-Agent(26), CEO-Agent(1); all 26 active repos 0/0 clean; flagged bravo-repo landmine + CEO-Agent dup. (Restored 2026-07-02: this heartbeat was reverted by a mis-fired SubagentStop validator gate during a read-only audit — see memory/MISTAKES.md; the gate now uses a session-start baseline.)
+- **Agent:** BRAVO via Claude Code (claude-fable-5)
+- **Result:** Harness rehab: Fable 5 lead-tier adoption + full security lockdown (PowerShell/Grep/Glob guards, exec_guard git-revert/rm hardening, state_guard enforce) + Codex GPT-5.5/xhigh review gate + first-pass metric. 6 commits e0cbaa16..9e1bb63c. Codex audit found 5 gaps, all fixed.
 
 *Last updated: 2026-07-02*
 
