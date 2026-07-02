@@ -34,7 +34,25 @@ except Exception:
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_PATH = PROJECT_ROOT / "state" / "validator_pending.jsonl"
+GIT_BASELINE_PATH = PROJECT_ROOT / "state" / "session_git_baseline.json"
 IGNORE_SUFFIXES = (".png", ".jpeg", ".jpg", ".log", ".jsonl")
+
+
+def _baseline_paths() -> set[str]:
+    """Paths already dirty at session start (written by scripts/hooks/session_start.py).
+
+    Files in this set were NOT changed by any sub-agent this session — they were
+    dirty before the session began. Excluding them is what stops the gate from
+    nagging about pre-existing working-tree state (the 2026-07-02 incident, where
+    that false nag pressured a read-only agent into a destructive `git checkout ..
+    && rm -rf` cleanup). Missing/unreadable baseline → empty set → fall back to
+    reporting all dirty files (still advisory, never destructive)."""
+    try:
+        with GIT_BASELINE_PATH.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return set(data.get("dirty_paths", []))
+    except Exception:
+        return set()
 
 
 def _changed_files() -> list[str]:
@@ -45,11 +63,15 @@ def _changed_files() -> list[str]:
         )
     except Exception:
         return []
+    baseline = _baseline_paths()
     files = []
     for ln in r.stdout.splitlines():
         path = ln[3:].strip().strip('"')
-        if path and not path.lower().endswith(IGNORE_SUFFIXES):
-            files.append(path)
+        if not path or path.lower().endswith(IGNORE_SUFFIXES):
+            continue
+        if path in baseline:
+            continue  # dirty before the session began — not this session's work
+        files.append(path)
     return files
 
 
@@ -68,11 +90,15 @@ def main() -> int:
 
     sample = changed[:8]
     reminder = (
-        "⚠ VALIDATOR GATE: a sub-agent just finished and the working tree has "
-        f"{len(changed)} changed file(s) (e.g. {', '.join(sample)}). Per the orchestration "
-        "decision table (brain/ORCHESTRATION_DECISION_TABLE.md §B), spawn the `validator` "
-        "sub-agent (Task tool, subagent_type: validator) to verify the diff against the task's "
-        "success criteria BEFORE surfacing this to CC. Score <70 → re-run, don't surface."
+        "⚠ VALIDATOR GATE: a sub-agent just finished and "
+        f"{len(changed)} file(s) changed DURING this session (e.g. {', '.join(sample)}). Per the "
+        "orchestration decision table (brain/ORCHESTRATION_DECISION_TABLE.md §B), spawn the "
+        "`validator` sub-agent (Task tool, subagent_type: validator) to verify the diff against "
+        "the task's success criteria BEFORE surfacing this to CC. Score <70 → re-run, don't surface. "
+        "This is an ADVISORY reminder, not a blocker: do NOT modify or revert the working tree, "
+        "`git checkout`/`git restore`/`rm` files, or 'clean up' to satisfy this gate — that is "
+        "destructive and out of scope. If you have no Task tool or are a read-only agent, ignore "
+        "this gate entirely and just return your findings."
     )
     try:
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

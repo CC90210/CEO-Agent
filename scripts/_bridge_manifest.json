@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-26T04:32:55.200938+00:00",
-  "script_count": 105,
-  "entry_count": 262,
+  "generated_at_iso": "2026-07-02T03:56:24.346074+00:00",
+  "script_count": 106,
+  "entry_count": 263,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1827,6 +1827,14 @@
       "subcmd": "tail",
       "mutating": false,
       "help": "lender_response_classifier.py \u2014 close the loop on lender shop-out. \u2014 subcommand: tail"
+    },
+    {
+      "key": "mca_lead_scrubber",
+      "path": "scripts/mca_lead_scrubber.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": false,
+      "help": "mca_lead_scrubber.py \u2014 the \"Breeze UW Entry Sheet\" automation."
     },
     {
       "key": "migrate_leads_to_tenant_records",

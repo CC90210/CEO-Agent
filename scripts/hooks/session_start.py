@@ -35,6 +35,7 @@ from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 STATE_DIR = PROJECT_ROOT / "state"
 LOG_PATH = STATE_DIR / "session_start.log"
+GIT_BASELINE_PATH = STATE_DIR / "session_git_baseline.json"
 TIMEOUT_SEC = 3
 
 
@@ -167,12 +168,41 @@ def _event_router_freshness() -> str:
     )
 
 
+def _write_git_baseline() -> None:
+    """Snapshot the paths already dirty at session start.
+
+    The SubagentStop validator gate reads this to distinguish files a sub-agent
+    changed *during* the session from files that were already dirty when the
+    session began. Without it, the gate nags (and once, pressured a read-only
+    agent into destructive `git checkout`/`rm` remediation — 2026-07-02 incident,
+    see memory/MISTAKES.md). Fail-open: any error leaves no baseline and the gate
+    falls back to reporting all dirty files (advisory only, never destructive).
+    """
+    raw = _run(["git", "status", "--porcelain"], timeout=5)
+    paths = []
+    if raw:
+        for ln in raw.splitlines():
+            p = ln[3:].strip().strip('"')
+            if p:
+                paths.append(p)
+    try:
+        STATE_DIR.mkdir(exist_ok=True)
+        with GIT_BASELINE_PATH.open("w", encoding="utf-8") as f:
+            json.dump({
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "dirty_paths": sorted(set(paths)),
+            }, f)
+    except Exception:
+        pass
+
+
 def main() -> int:
     try:
         _ = json.load(sys.stdin) if not sys.stdin.isatty() else {}
     except (json.JSONDecodeError, ValueError):
         pass
 
+    _write_git_baseline()
     _rotate_logs_if_needed()
     state = _state_summary()
     inbox = _inbox_summary()

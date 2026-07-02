@@ -147,11 +147,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-01
-- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz automation liveness FIXED: sunbiz-sequence-runner (+ lender-classifier + cold-outreach-runner) were ungated + only ever started on CC's now-off Windows PC -> ran nowhere -> 0 autonomous sequence sends ever. IS_LINUX-gated them (SunBiz-Agent c04cbde) so the always-on VPS owns them (single instance). Backlog safe: 0 overdue scheduled rows (95 future, 686 terminal). REMAINING: deploy on VPS (git pull + pm2 start the 3 daemons + save) since SSH host is guarded from here. viewed_application sequence = 30m SMS + 24h email on entry; extend for longer lingering follow-ups is a follow-up.
+- **Date:** 2026-07-02
+- **Agent:** BRAVO via Claude Code
+- **Result:** Reverse sync MacBook->desktop: pulled breeze-portal(+51 to main), oasis-command-center(45), SunBiz-Agent(26), CEO-Agent(1); all 26 active repos 0/0 clean; flagged bravo-repo landmine + CEO-Agent dup. (Restored 2026-07-02: this heartbeat was reverted by a mis-fired SubagentStop validator gate during a read-only audit — see memory/MISTAKES.md; the gate now uses a session-start baseline.)
 
-*Last updated: 2026-07-01*
+*Last updated: 2026-07-02*
 
 ## Manifest
 
