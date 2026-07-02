@@ -162,8 +162,8 @@ Recovery: `npm i -g @openai/codex@latest && node "$CLAUDE_PLUGIN_ROOT/scripts/co
 # Delegate a task
 /codex:rescue --background investigate why the API returns 500
 
-# Quick fix with specific model
-/codex:rescue --model spark fix the TypeScript error in api/route.ts
+# Quick fix with a specific model (override the gpt-5.5 default)
+/codex:rescue --model gpt-5.4-mini fix the TypeScript error in api/route.ts
 
 # Check progress
 /codex:status
@@ -239,7 +239,7 @@ Codex tasks can fail for several reasons. Bravo must handle each gracefully:
 ### The 3-Strike Rule
 
 1. **First failure:** Retry with more specific context (inject file contents, narrow scope)
-2. **Second failure:** Switch to a different Codex model (`--model spark` for simpler, `--model gpt-5.4-mini` for faster)
+2. **Second failure:** Switch to a different Codex model (`--model gpt-5.4` one tier down from the gpt-5.5 default, or `--model gpt-5.4-mini` for faster)
 3. **Third failure:** Bravo takes over. Log to `memory/MISTAKES.md` with what Codex struggled with.
 
 **Never retry the same prompt 3 times.** Each retry must change something: more context, narrower scope, different model, or Bravo takes over.

@@ -12,9 +12,9 @@ permission_level: elevated
 
 ## Identity
 
-- **Runtime:** OpenAI Codex CLI v0.118.0 (local binary)
+- **Runtime:** OpenAI Codex CLI v0.142.5 (local binary)
 - **Auth:** CC's ChatGPT subscription (OAuth, stored locally)
-- **Models:** GPT-5.4 (default), GPT-5.4-mini (fast), GPT-5.3-codex-spark (lightweight)
+- **Models:** GPT-5.5 (default, `~/.codex/config.toml` at `xhigh` effort), GPT-5.4 (fallback), GPT-5.4-mini (fast). `spark`→gpt-5.3-codex-spark alias still exists but is a research preview — not a default.
 - **Plugin:** `.claude/plugins/codex/` — full companion runtime with job management
 
 ## When to Delegate to Codex
@@ -87,7 +87,7 @@ Before presenting any Codex output to CC:
 
 ## Failure Recovery Protocol
 1. **First failure:** Retry with more specific context (inject file contents, narrow scope)
-2. **Second failure:** Switch Codex model (`--model spark` for simpler, `--model gpt-5.4-mini` for faster)
+2. **Second failure:** Switch Codex model (`--model gpt-5.4` one tier down, or `--model gpt-5.4-mini` for faster)
 3. **Third failure:** Bravo takes over. Log to `memory/MISTAKES.md` — what Codex struggled with and why.
 
 Pre-flight check before any delegation:
@@ -107,7 +107,7 @@ Escalate to CC when:
 ```
 ## Codex Result: [TASK]
 **Job type:** review / rescue / adversarial-review
-**Model used:** [GPT-5.4 / GPT-5.4-mini / spark]
+**Model used:** [GPT-5.5 / GPT-5.4 / GPT-5.4-mini]
 **Status:** COMPLETE / FAILED
 
 --- Codex Output (verbatim) ---
