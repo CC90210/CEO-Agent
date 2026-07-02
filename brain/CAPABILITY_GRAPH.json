@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-06-17T18:49:07.450508+00:00",
+  "generated_at": "2026-07-02T04:25:11.639040+00:00",
   "totals": {
     "skills": 150,
-    "scripts": 105,
+    "scripts": 112,
     "agents": 21,
     "mcp_servers": 9,
     "workflows": 35,
-    "nodes_total": 320,
-    "edges_total": 40,
+    "nodes_total": 327,
+    "edges_total": 47,
     "drift_count": 0
   },
   "nodes": [
@@ -76,7 +76,7 @@
       "name": "agent-permissions",
       "path": "skills/agent-permissions/SKILL.md",
       "description": ">",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -134,7 +134,7 @@
       "name": "agent-teams",
       "path": "skills/agent-teams/SKILL.md",
       "description": "Spawn and coordinate Claude Code Agent Teams (experimental) \u2014 parallel subagents for complex multi-domain tasks",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -226,7 +226,7 @@
       "name": "anti-drift",
       "path": "skills/anti-drift/SKILL.md",
       "description": ">",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -283,7 +283,7 @@
       "name": "background-workers",
       "path": "skills/background-workers/SKILL.md",
       "description": ">",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -409,7 +409,7 @@
       "name": "browser-harness",
       "path": "skills/browser-harness/SKILL.md",
       "description": "Use Browser Harness for direct Chrome/Edge browser control, browser diagnostics, and durable domain-skill learning while preserving Bravo's business safety gates.",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -468,7 +468,7 @@
       "name": "ceo-briefing",
       "path": "skills/ceo-briefing/SKILL.md",
       "description": "Executive morning briefing \u2014 revenue, pipeline, clients, Atlas financial snapshot, blocked items, and today's #1 priority",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -675,7 +675,7 @@
       "name": "codex-delegation",
       "path": "skills/codex-delegation/SKILL.md",
       "description": "Intelligent routing between Bravo and Codex \u2014 decides when to delegate tasks to Codex vs handle internally",
-      "tier": "specialized",
+      "tier": "core",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -704,7 +704,7 @@
       "name": "computer-control",
       "path": "skills/computer-control/SKILL.md",
       "description": "Full desktop autonomy via Telegram \u2014 60+ commands for app control, windows, browser, files, mouse, audio, power. Routes to macOS AppleScript or Windows PowerShell based on platform. Triggered by natural-language intent (\"open Chrome\", \"take a screenshot\", \"lock my computer\").",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -733,7 +733,7 @@
       "name": "context-optimization",
       "path": "skills/context-optimization/SKILL.md",
       "description": "Tiered context loading, transcript compaction, cost tracking, and memory aging \u2014 inspired by Claude Code's internal harness architecture.",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -765,7 +765,7 @@
       "name": "crisis-response",
       "path": "skills/crisis-response/SKILL.md",
       "description": "Structured crisis response protocols for business emergencies \u2014 P0 through P3 classification, pre-built response plans, and communication templates",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -797,7 +797,7 @@
       "name": "daily-planner",
       "path": "skills/daily-planner/SKILL.md",
       "description": "Structured daily plan for CC \u2014 content creation priorities, scheduled tasks, and revenue-moving actions. Generated each morning.",
-      "tier": "specialized",
+      "tier": "core",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -2402,7 +2402,7 @@
       "name": "hooks-automation",
       "path": "skills/hooks-automation/SKILL.md",
       "description": ">",
-      "tier": "specialized",
+      "tier": "core",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -2641,7 +2641,7 @@
       "name": "knowledge-graph",
       "path": "skills/knowledge-graph/SKILL.md",
       "description": "Query the Obsidian vault as a live knowledge graph \u2014 PageRank, community detection, semantic search, path-finding, and vault writes via MCP.",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -2874,7 +2874,7 @@
       "name": "memory-compression",
       "path": "skills/memory-compression/SKILL.md",
       "description": "claude-mem plugin \u2014 automatic cross-session memory compression and injection via SQLite + semantic search. Captures tool usage, compresses observations, and injects relevant context at session start.",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -3196,7 +3196,7 @@
       "name": "project-management",
       "path": "skills/project-management/SKILL.md",
       "description": "Lightweight project management for OASIS client engagements. Project definition, 5-phase structure, milestone tracking, status reporting, scope management, multi-project dashboard, and retrospective template.",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -3263,7 +3263,7 @@
       "name": "python-daemon-automation",
       "path": "skills/python-daemon-automation/SKILL.md",
       "description": "Build, deploy, and manage Python background daemons on Windows \u2014 includes 5-step redeploy protocol, watchdog patterns, zombie process detection, and kill switches",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -3456,7 +3456,7 @@
       "name": "risk-management",
       "path": "skills/risk-management/SKILL.md",
       "description": "Business risk identification, assessment, monitoring, and mitigation for CC's empire \u2014 revenue concentration, operational, financial, reputation, legal, and technology risk",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -3764,7 +3764,7 @@
       "name": "send-gateway",
       "path": "skills/send-gateway/SKILL.md",
       "description": "The single outbound chokepoint for every autonomous action Bravo performs on behalf of CC. Enforces CASL compliance, cooldown windows, daily caps, and cross-engine idempotency architecturally \u2014 callers cannot bypass it.",
-      "tier": "specialized",
+      "tier": "core",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -4159,7 +4159,7 @@
       "name": "task-routing",
       "path": "skills/task-routing/SKILL.md",
       "description": ">",
-      "tier": "specialized",
+      "tier": "core",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -4190,7 +4190,7 @@
       "name": "team-management",
       "path": "skills/team-management/SKILL.md",
       "description": "Hiring framework, contractor onboarding, 1:1 templates, performance reviews, delegation (RACI), capacity planning, communication protocols, and offboarding. Scales CC from solo to small team without losing operational quality.",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -4404,7 +4404,7 @@
       "name": "verticals",
       "path": "skills/verticals/SKILL.md",
       "description": "Namespace for vertical-specific playbooks (agency, coaching, creator, ecommerce, local-service, saas). Load the matching sub-skill when CC onboards a client in a given vertical \u2014 each one will ship lead-gen, pricing, and delivery SOPs tailored to that vertical's economics.",
-      "tier": "specialized",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
@@ -4869,6 +4869,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:consolidate_mca_phone_sheet",
+      "kind": "script",
+      "name": "consolidate_mca_phone_sheet",
+      "path": "scripts/consolidate_mca_phone_sheet.py",
+      "description": "Consolidate CC's 2026-06-24 MCA lead phone sheet.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:cost_audit",
       "kind": "script",
       "name": "cost_audit",
@@ -4989,6 +4999,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:enrich_sheet_inplace",
+      "kind": "script",
+      "name": "enrich_sheet_inplace",
+      "path": "scripts/enrich_sheet_inplace.py",
+      "description": "enrich_sheet_inplace.py \u2014 enrich CC's live 'Leads - Sheet31' in place.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:ensure_cockpit",
       "kind": "script",
       "name": "ensure_cockpit",
@@ -5079,6 +5099,26 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:harness_plugin",
+      "kind": "script",
+      "name": "harness_plugin",
+      "path": "scripts/harness_plugin.py",
+      "description": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:history_secret_scan",
+      "kind": "script",
+      "name": "history_secret_scan",
+      "path": "scripts/history_secret_scan.py",
+      "description": "Read-only git-history secret scanner (sanitized output only).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:inbound_classifier",
       "kind": "script",
       "name": "inbound_classifier",
@@ -5104,6 +5144,16 @@
       "name": "lead_engine",
       "path": "scripts/lead_engine.py",
       "description": "Lead Engine - OASIS AI CRM CLI Zero-paid-service lead management backed by Supabase (project: bravo). Replaces ManyChat, HubSpot, and every other CRM CC doesn't need to pay for.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:machine_parity",
+      "kind": "script",
+      "name": "machine_parity",
+      "path": "scripts/machine_parity.py",
+      "description": "machine_parity.py \u2014 bring any machine to full agentic parity, reproducibly.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5429,6 +5479,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:run_reseed_sunbiz_forms",
+      "kind": "script",
+      "name": "run_reseed_sunbiz_forms",
+      "path": "scripts/run_reseed_sunbiz_forms.py",
+      "description": "run_reseed_sunbiz_forms.py \u2014 inject Supabase service-role creds and run the oasis-command-center SunBiz form re-seed (scripts/reseed-sunbiz-forms.ts).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:run_sql_via_mgmt_api",
       "kind": "script",
       "name": "run_sql_via_mgmt_api",
@@ -5564,6 +5624,16 @@
       "name": "skill_metrics",
       "path": "scripts/skill_metrics.py",
       "description": "Skill Metrics \u2014 usage tracking and promotion for auto-generated skills.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:skill_spector",
+      "kind": "script",
+      "name": "skill_spector",
+      "path": "scripts/skill_spector.py",
+      "description": "SkillSpector \u2014 skill vulnerability scanner inspired by NVIDIA's SkillSpector.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6384,6 +6454,41 @@
     {
       "from": "skill:gws-docs-edit",
       "to": "skill:gws-shared",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:gws-forms",
+      "to": "skill:send-gateway",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:gws-gmail-forward",
+      "to": "script:inbound_classifier",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:gws-gmail-reply",
+      "to": "script:inbound_classifier",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:gws-gmail-reply-all",
+      "to": "script:inbound_classifier",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:gws-keep",
+      "to": "script:inbound_classifier",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:gws-modelarmor-sanitize-prompt",
+      "to": "skill:send-gateway",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:gws-modelarmor-sanitize-response",
+      "to": "skill:send-gateway",
       "kind": "requires"
     },
     {

@@ -83,7 +83,20 @@
         ]
       },
       {
-        "matcher": "Read",
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{PY}} $CLAUDE_PROJECT_DIR/scripts/state/secret_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "{{PY}} $CLAUDE_PROJECT_DIR/scripts/state/exec_guard.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Grep|Glob",
         "hooks": [
           {
             "type": "command",

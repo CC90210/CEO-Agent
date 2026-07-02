@@ -161,17 +161,18 @@ If the live check **contradicts** the inherited claim, surface the contradiction
 
 ## Safety & Hooks (V6.0)
 
-PreToolUse hooks in `.claude/settings.local.json`:
-- **Bash** → `secret_guard.py` then `exec_guard.py` (chained — both must pass)
-- **Read** → `secret_guard.py`
-- **Edit/Write/MultiEdit/NotebookEdit** → `secret_guard.py` then `state_guard.py`
+PreToolUse hooks in `.claude/settings.local.json` (portable source: `.claude/settings.hooks.template.json`, synced cross-machine via `scripts/machine_parity.py --fix`):
+- **Bash** → `secret_guard.py` then `exec_guard.py` then `anti_pattern_hook.py` (chained — all must pass)
+- **PowerShell** → `secret_guard.py` then `exec_guard.py` (added 2026-07-02 — PowerShell was previously unguarded)
+- **Read | Grep | Glob** → `secret_guard.py` (Grep/Glob path-filtered so they can't read a secret file by pointing `path` at it)
+- **Edit/Write/MultiEdit/NotebookEdit** → `secret_guard.py` then `state_guard.py` then `subprocess_guard.py`
 
-Each guard has three modes via env var (default in parens):
-- `EMPIRE_HOOK_SECRET_GUARD` (report) — flip to `enforce` to hard-block secret leaks
-- `EMPIRE_HOOK_EXEC_GUARD` (report) — flip to `enforce` once 14-day soak shows zero false positives
-- `EMPIRE_HOOK_STATE_GUARD` (off) — flip to `enforce` after V6.0 cutover (`EMPIRE_V6_MODE=on`)
+Guard modes via env var (all **enforce** as of the 2026-07-02 lockdown, set in `.claude/settings.json`):
+- `EMPIRE_HOOK_SECRET_GUARD` = **enforce** — blocks LLM reads/exfil of `.env*`/keys/creds (Read/Grep/Glob/Bash/PowerShell)
+- `EMPIRE_HOOK_EXEC_GUARD` = **enforce** — blocks destructive Bash/PowerShell (rm/DROP/force-push/`git checkout`+`restore`+`stash drop`/`rm -rf` of untracked dirs)
+- `EMPIRE_HOOK_STATE_GUARD` = **enforce** — blocks hand-edits to auto-generated `memory/SESSION_LOG.md` (programmatic `state_sync` writes are unaffected)
 
-All guards write JSONL audit logs to `state/{guard}.log`. SessionStart still runs `audit_mcp_secrets.py --quiet` (11 MCP config paths scanned).
+All guards write JSONL audit logs to `state/{guard}.log` and fail-**closed** in enforce. SessionStart runs `audit_mcp_secrets.py --quiet` (scans all MCP config paths incl. `%APPDATA%\Antigravity\User\mcp.json`) and writes `state/session_git_baseline.json` (the baseline the SubagentStop validator gate diffs against, so it never nags about pre-existing dirt).
 
 ## Architecture (V6.0–V6.8)
 

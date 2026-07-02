@@ -361,10 +361,10 @@ Four pillars added 2026-05-10. All gated by `EMPIRE_V6_MODE` env var (off/shadow
 - **Sandbox** — `scripts/state/exec_guard.py` blocks destructive Bash patterns (DROP, DELETE-without-WHERE, ALTER DROP COLUMN, rm -rf /, force-push to main, git reset --hard <ref>, fork bombs). `scripts/state/state_guard.py` blocks edits on auto-generated state mirror files.
 - **Secrets** — `.env.agents` is NOT LLM-readable. `scripts/state/secret_guard.py` blocks Read on `.env*`/`*.pem`/`*.key`/`credentials.json` and Bash commands that exfiltrate them. Use CLI wrappers (`python scripts/<service>_tool.py <verb> --json`) — they load via `scripts/lib/secret_loader.py` and return only sanitized JSON.
 
-Hook modes (env vars in `.env.agents`):
-- `EMPIRE_HOOK_SECRET_GUARD` (default `report`) → flip to `enforce` for hard-block.
-- `EMPIRE_HOOK_EXEC_GUARD` (default `report`) → flip to `enforce` after 14-day false-positive soak.
-- `EMPIRE_HOOK_STATE_GUARD` (default `off`) → flip to `enforce` after `EMPIRE_V6_MODE=on` cutover.
+Hook modes (set in `.claude/settings.json`) — all **enforce** as of the 2026-07-02 lockdown:
+- `EMPIRE_HOOK_SECRET_GUARD` = **enforce** — now also guards the PowerShell tool + Grep/Glob path args (not just Read/Bash).
+- `EMPIRE_HOOK_EXEC_GUARD` = **enforce** — now also blocks `git checkout`/`git restore`/`git stash drop`, `rm -rf` of untracked repo dirs, and PowerShell `Remove-Item -Recurse`.
+- `EMPIRE_HOOK_STATE_GUARD` = **enforce** — blocks hand-edits to auto-generated `memory/SESSION_LOG.md`.
 
 Audit logs: `state/{secret_guard,exec_guard,state_guard,secret_access}.log` (jsonl). Drift check: `python scripts/state/state_manager.py export --check` exits 1 if mirrors are stale.
 
