@@ -1,8 +1,8 @@
 ---
 tags: [brain]
-last_updated: 2026-06-09
+last_updated: 2026-07-02
 freshness_threshold_days: 90
-verified: 2026-06-09
+verified: 2026-07-02
 ---
 
 version: 1
@@ -15,8 +15,12 @@ defaults:
 agents:
   bravo:
     provider: claude
-    model: claude-sonnet-4-6
-    fallbacks: *id001
+    model: claude-fable-5
+    fallbacks:
+    - provider: claude
+      model: claude-opus-4-8
+    - provider: claude
+      model: claude-sonnet-4-6
   atlas:
     provider: claude
     model: claude-sonnet-4-6

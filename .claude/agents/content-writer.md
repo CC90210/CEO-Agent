@@ -2,7 +2,7 @@
 name: content-writer
 description: Creates platform-optimized content in CC's authentic voice
 tools: Read, Grep, Glob, Write
-model: opus
+model: claude-fable-5
 effort: high
 tags: [agent, content]
 ---

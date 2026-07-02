@@ -49,17 +49,18 @@ CONFIG_PATH = PROJECT_ROOT / "brain" / "MODEL_CONFIG.md"
 PROVIDER_SPECS: dict[str, dict[str, Any]] = {
     "claude": {
         "env_var": "ANTHROPIC_API_KEY",
-        "models": ["claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5"],
+        "models": ["claude-fable-5", "claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"],
         "pricing": {
-            "claude-opus-4-7": (15.0, 75.0),
+            "claude-fable-5": (10.0, 50.0),
+            "claude-opus-4-8": (5.0, 25.0),
             "claude-sonnet-4-6": (3.0, 15.0),
             "claude-haiku-4-5": (1.0, 5.0),
         },
     },
     "openai": {
         "env_var": "OPENAI_API_KEY",
-        "models": ["gpt-5.4", "gpt-5.4-mini"],
-        "pricing": {"gpt-5.4": (5.0, 15.0), "gpt-5.4-mini": (0.6, 2.4)},
+        "models": ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini"],
+        "pricing": {"gpt-5.5": (5.0, 15.0), "gpt-5.4": (5.0, 15.0), "gpt-5.4-mini": (0.6, 2.4)},
     },
     "openrouter": {
         "env_var": "OPENROUTER_API_KEY",
@@ -95,14 +96,14 @@ PROVIDER_SPECS: dict[str, dict[str, Any]] = {
 
 TASK_TYPE_PREFERENCES: dict[str, list[tuple[str, str]]] = {
     "coding": [
-        ("openai", "gpt-5.4"),
-        ("claude", "claude-sonnet-4-6"),
+        ("openai", "gpt-5.5"),
+        ("claude", "claude-opus-4-8"),
         ("deepseek", "deepseek-reasoner"),
         ("groq", "llama-3.3-70b"),
     ],
     "analysis": [
-        ("claude", "claude-opus-4-7"),
-        ("openai", "gpt-5.4"),
+        ("claude", "claude-fable-5"),
+        ("openai", "gpt-5.5"),
         ("glm", "glm-5.2"),
         ("deepseek", "deepseek-reasoner"),
     ],
@@ -134,15 +135,50 @@ def load_env() -> dict[str, str]:
 
 def _default_config() -> dict[str, Any]:
     fallback = [{"provider": "claude", "model": "claude-haiku-4-5"}]
+    # Fable 5 is the lead (Bravo) tier; opus-4-8 is its heavy-code fallback.
+    # Sibling C-suite agents (atlas/maven/aura) and the daemon default stay on
+    # the cheaper sonnet tier per the approved model strategy.
+    bravo_fallback = [
+        {"provider": "claude", "model": "claude-opus-4-8"},
+        {"provider": "claude", "model": "claude-sonnet-4-6"},
+    ]
     return {
         "version": 1,
         "defaults": {"provider": "claude", "model": "claude-sonnet-4-6", "fallbacks": fallback},
         "agents": {
-            name: {"provider": "claude", "model": "claude-sonnet-4-6", "fallbacks": fallback}
-            for name in ("bravo", "atlas", "maven", "aura")
+            "bravo": {"provider": "claude", "model": "claude-fable-5", "fallbacks": bravo_fallback},
+            **{
+                name: {"provider": "claude", "model": "claude-sonnet-4-6", "fallbacks": fallback}
+                for name in ("atlas", "maven", "aura")
+            },
         },
         "task_types": {},
     }
+
+
+def _split_md_wrapper(text: str) -> tuple[str, str, str]:
+    """Split an Obsidian-style .md config into (frontmatter, yaml_body, footer).
+
+    brain/MODEL_CONFIG.md carries a `---...---` YAML frontmatter block (Obsidian
+    Rule 6) and a trailing `## Related` wikilink footer around the actual router
+    YAML. Feeding the whole file to yaml.safe_load raises ComposerError
+    ("expected a single document") because the frontmatter `---` fences read as a
+    second document — which silently broke resolve()/call() once the frontmatter
+    was added. Strip both wrappers so only the router YAML is parsed, and preserve
+    them on write so `switch` doesn't clobber the Obsidian compliance."""
+    frontmatter, footer, body = "", "", text
+    if body.lstrip().startswith("---"):
+        stripped = body.lstrip()
+        end = stripped.find("\n---", 3)
+        if end != -1:
+            nl = stripped.find("\n", end + 1)
+            frontmatter = stripped[: nl + 1] if nl != -1 else stripped
+            body = stripped[nl + 1 :] if nl != -1 else ""
+    idx = body.find("\n## ")
+    if idx != -1:
+        footer = body[idx + 1 :]
+        body = body[:idx]
+    return frontmatter, body, footer
 
 
 def _read_config() -> dict[str, Any]:
@@ -152,7 +188,8 @@ def _read_config() -> dict[str, Any]:
         raise RuntimeError("pyyaml is required for MODEL_CONFIG.md") from exc
     if not CONFIG_PATH.exists():
         CONFIG_PATH.write_text(yaml.safe_dump(_default_config(), sort_keys=False), encoding="utf-8")
-    data = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
+    _, body, _ = _split_md_wrapper(CONFIG_PATH.read_text(encoding="utf-8"))
+    data = yaml.safe_load(body) or {}
     if not isinstance(data, dict):
         raise RuntimeError("brain/MODEL_CONFIG.md must contain a YAML mapping")
     return data
@@ -160,7 +197,12 @@ def _read_config() -> dict[str, Any]:
 
 def _write_config(data: dict[str, Any]) -> None:
     import yaml  # type: ignore
-    CONFIG_PATH.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    frontmatter, footer = "", ""
+    if CONFIG_PATH.exists():
+        frontmatter, _, footer = _split_md_wrapper(CONFIG_PATH.read_text(encoding="utf-8"))
+    yaml_body = yaml.safe_dump(data, sort_keys=False)
+    parts = [p for p in (frontmatter.rstrip("\n"), yaml_body.rstrip("\n"), footer.rstrip("\n")) if p]
+    CONFIG_PATH.write_text("\n\n".join(parts) + "\n", encoding="utf-8")
 
 
 def _local_models(timeout: int = 4) -> list[str]:
@@ -339,6 +381,15 @@ def call(messages: list[dict], agent: str | None = None, model: str | None = Non
         if system_prompt:
             kwargs["system"] = system_prompt
         resp = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]).messages.create(**kwargs)
+        # Fable 5 (and Opus 4.7+) can decline via a safety classifier: HTTP 200 with
+        # stop_reason="refusal" and an empty content array — no exception is raised.
+        # Fail loud (matches the module's "structured errors, no silent half-working
+        # fallbacks" design) so the caller can retry on a fallback candidate instead
+        # of silently receiving "".
+        if getattr(resp, "stop_reason", None) == "refusal":
+            details = getattr(resp, "stop_details", None)
+            cat = getattr(details, "category", None) if details else None
+            raise RuntimeError(f"model {chosen_model} refused (stop_reason=refusal, category={cat})")
         text = "".join(block.text for block in resp.content if hasattr(block, "text")).strip()
         tokens_in = int(getattr(resp.usage, "input_tokens", 0) or 0)
         tokens_out = int(getattr(resp.usage, "output_tokens", 0) or 0)

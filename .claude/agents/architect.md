@@ -2,7 +2,7 @@
 name: architect
 description: System design, database schema, API design, architecture decisions
 tools: Read, Grep, Glob, Bash
-model: opus
+model: claude-fable-5
 effort: max
 isolation: worktree
 tags: [agent, architecture]

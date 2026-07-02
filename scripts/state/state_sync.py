@@ -102,9 +102,19 @@ def get_agent_label(agent_name: str = "bravo") -> str:
             text = config_path.read_text(encoding="utf-8")
             for line in text.splitlines():
                 line = line.strip()
-                if line.startswith("model"):
-                    # e.g. model = "claude-opus-4-6[1m]"
-                    val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                if line.startswith("model") and "=" in line:
+                    # e.g.  model = "claude-fable-5"   # Lead (Bravo)
+                    # Extract the quoted value WITHOUT the trailing inline comment.
+                    # The old code (.strip('"')) left the "# Lead architect ..."
+                    # comment attached, which corrupted the STATE.md Agent line
+                    # (2026-07-02 incident, see memory/MISTAKES.md).
+                    rhs = line.split("=", 1)[1].strip()
+                    if rhs[:1] in ("\"", "'"):
+                        q = rhs[0]
+                        end = rhs.find(q, 1)
+                        val = rhs[1:end] if end != -1 else rhs[1:]
+                    else:
+                        val = rhs.split("#", 1)[0].strip()
                     if val:
                         return f"BRAVO via Claude Code ({val})"
         except Exception:

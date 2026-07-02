@@ -10,10 +10,11 @@
 # Core Settings
 # =============================================================================
 
-# Model configuration — change these when Mythos API access opens
-model = "claude-opus-4-6"              # Lead architect (Bravo)
+# Model configuration — canonical IDs in scripts/lib/model_registry.py (keep in sync)
+model = "claude-fable-5"               # Lead (Bravo) — top-tier Claude 5 / Mythos-class reasoning
+heavy_model = "claude-opus-4-8"        # Heavy code/reasoning workhorse (architect, big refactors)
 fast_model = "claude-sonnet-4-6"       # Daemons, quick tasks (drip runner, lead scoring, briefings)
-extraction_model = "claude-haiku-4-5-20251001"  # Mem0 extraction, low-cost high-volume
+extraction_model = "claude-haiku-4-5"  # Mem0 extraction, low-cost high-volume classify/extract
 
 # Approval policy for agent actions
 # - always: Every action needs CC's approval

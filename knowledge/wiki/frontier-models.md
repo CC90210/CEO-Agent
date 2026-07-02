@@ -108,10 +108,11 @@ When CC is ready, these can migrate to Claude Code Remote Tasks for cloud execut
 ## Model Config (.agents/config.toml)
 
 ```toml
-# Change these when Mythos API access opens — all scripts read from here
-model = "claude-opus-4-6"                          # Lead architect (Bravo)
-fast_model = "claude-sonnet-4-6"                   # Daemons, quick tasks
-extraction_model = "claude-haiku-4-5-20251001"     # Mem0, low-cost high-volume
+# Canonical IDs in scripts/lib/model_registry.py — all scripts read from here
+model = "claude-fable-5"               # Lead (Bravo) — top-tier Claude 5 / Mythos-class
+heavy_model = "claude-opus-4-8"        # Heavy code/reasoning workhorse
+fast_model = "claude-sonnet-4-6"       # Daemons, quick tasks
+extraction_model = "claude-haiku-4-5"  # Mem0, low-cost high-volume
 ```
 
 Scripts that read these: skool_engine.py, ../CMO-Agent/scripts/instagram_engine.py, mem0_tool.py.
