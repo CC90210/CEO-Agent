@@ -34,7 +34,7 @@ model_standard: fable-5
 > Multi-session sprint shipped the SunBiz operator portal at Adon's MCA SOP spec end-to-end. Adon Saturday demo is greenlit. Full retrospective: [[memory/RETROSPECTIVE_2026-06-12_sunbiz_finalization]]. Bridge reliability chain solid browser → Vercel → tunnel → VPS → Claude CLI (30-min warm-pool wall-clock, 600s inactivity, Vercel Fluid 800s). Zero subprocess-popup zombies (audit: 227 files, 0 violations). 552 MB disk reclaimed.
 
 > [!info] Model standard — Fable 5 (2026-06-12)
-> Top-tier reasoning + general agent loop = `claude-fable-5`. Heavy code = `claude-opus-4-8`. General = `claude-sonnet-4-6`. Cheap classification = `claude-haiku-4-5-20251001`. Vision (statement_parser) = Sonnet 4.6. Canonical source: `scripts/lib/model_registry.py`. Per-tier routing rationale: [[memory/LONG_TERM]] Architecture Facts.
+> Top-tier reasoning + general agent loop = `claude-fable-5`. Heavy code = `claude-opus-4-8`. General = `claude-sonnet-4-6`. Cheap classification = `claude-haiku-4-5`. Vision (statement_parser) = Sonnet 4.6. Canonical source: `scripts/lib/model_registry.py`. Per-tier routing rationale: [[memory/LONG_TERM]] Architecture Facts.
 
 | Dimension | Level | Notes |
 |-----------|-------|-------|
