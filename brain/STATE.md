@@ -147,11 +147,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-02
+- **Date:** 2026-07-03
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Harness rehab: Fable 5 lead-tier adoption + full security lockdown (PowerShell/Grep/Glob guards, exec_guard git-revert/rm hardening, state_guard enforce) + Codex GPT-5.5/xhigh review gate + first-pass metric. 6 commits e0cbaa16..9e1bb63c. Codex audit found 5 gaps, all fixed.
+- **Result:** SunBiz UW pipeline: finished extraction fix + Live Subs enricher (SunBiz-Agent 6e2faf4). Found DOB/citizenship/credit + email/phone are NOT on the UW sheet (Codex was chasing them); fixed the real gap = key-mapping (open_mca_positions/avg_monthly_revenue) + Drive noise filter + Ezra notify cap. Verified vs 36 live sheets + dry-run backfill of 12 leads (0 errors). VPS deploy runbook written; awaiting CC paste-to-VPS.
 
-*Last updated: 2026-07-02*
+*Last updated: 2026-07-03*
 
 ## Manifest
 

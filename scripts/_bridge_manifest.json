@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-07-02T04:25:12.285628+00:00",
-  "script_count": 106,
-  "entry_count": 263,
+  "generated_at_iso": "2026-07-03T00:51:37.964984+00:00",
+  "script_count": 107,
+  "entry_count": 264,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -2107,6 +2107,14 @@
       "subcmd": "once",
       "mutating": false,
       "help": "underwriting_orchestrator.py \u2014 automatic underwriting daemon. \u2014 subcommand: once"
+    },
+    {
+      "key": "uw_lead_enricher",
+      "path": "scripts/uw_lead_enricher.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": false,
+      "help": "uw_lead_enricher.py - keep approved Breeze UW leads complete."
     }
   ]
 }
