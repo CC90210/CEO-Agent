@@ -149,7 +149,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-03
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** SunBiz UW pipeline: finished extraction fix + Live Subs enricher (SunBiz-Agent 6e2faf4). Found DOB/citizenship/credit + email/phone are NOT on the UW sheet (Codex was chasing them); fixed the real gap = key-mapping (open_mca_positions/avg_monthly_revenue) + Drive noise filter + Ezra notify cap. Verified vs 36 live sheets + dry-run backfill of 12 leads (0 errors). VPS deploy runbook written; awaiting CC paste-to-VPS.
+- **Result:** Breeze Intelligence Platform phase 1 shipped (breeze-portal 80f14d1): David's AI SOP mapped, migrations 0047-0051 applied+verified live (deal outcomes, plaid_transactions, historical_deals, pgvector KB, deal_memos), Plaid tx sync, AI credit committee on draw queue, historical-deals importer, docs/INTELLIGENCE_PLATFORM.md discovery doc for NY.
 
 *Last updated: 2026-07-03*
 
