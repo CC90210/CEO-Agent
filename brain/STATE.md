@@ -147,11 +147,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-03
+- **Date:** 2026-07-04
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Breeze Intelligence Platform phase 1 COMPLETE: 80f14d1 (build) + f53c0e4 (all 5 Codex adversarial findings fixed) both live on prod (health endpoint reports f53c0e43). Migrations 0047-0051 applied+verified. Awaiting from David: deal sheet, Illion samples, uw criteria, KB docs, Gmail app password. CC decision: ANTHROPIC_API_KEY in Vercel.
+- **Result:** BreezeAdvance mass-onboarding TURNKEY complete: option-2 CSV import + both paths hardened through 7 Codex adversarial rounds (20+ findings fixed, 9 commits, migrations to 0059); scanner-proof invites, self-service link re-request, DB-enforced+advisory-locked cross-role exclusivity (functionally proven live), atomic contact-edit RPC; full E2E proven twice on prod (import->real email->interstitial->password->portal); DB restored to clean launch state; David two-option deck in output/breeze/. Noted follow-up for CC: tighten FOR ALL lender RLS on role tables (defense-in-depth).
 
-*Last updated: 2026-07-03*
+*Last updated: 2026-07-04*
 
 ## Manifest
 
