@@ -248,3 +248,5 @@ data/email_suppressions.csv
 
 # eval run artifacts (regenerated each run)
 evals/reports/
+
+output/
