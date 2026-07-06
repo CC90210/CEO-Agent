@@ -147,11 +147,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-04
+- **Date:** 2026-07-06
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** breeze E2E invite spam fixed: send-side test-recipient guard shipped to breeze-portal prod (2eee895). Reverted an ANTHROPIC_API_KEY push per CC correction — AI/chat is CLI-on-VPS, never API keys; memory rule consolidated (no-api-keys-cli-only). BreezeAdvance onboarding decided invite-only; Plaid production-ready; turnkey punch-list noted for later build.
+- **Result:** SunBiz drip repair EXECUTED: 8 prod sequences' bodies restored (repair_sunbiz_sequence_bodies.py, ALL PASS), Submitted paused, reconcile mirror fixed + guarded (SunBiz-Agent d9f4131+80bba22), dashboard parser accepts body_text/body_html (oasis 93aa7ff+ddeb61a, prod Ready); 85 pending sends fire from 19:07Z today; adversarial review SHIP verdict, findings closed; Codex rate-limited (retry after 3:49PM)
 
-*Last updated: 2026-07-04*
+*Last updated: 2026-07-06*
 
 ## Manifest
 

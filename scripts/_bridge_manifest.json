@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-07-03T00:51:37.964984+00:00",
-  "script_count": 107,
-  "entry_count": 264,
+  "generated_at_iso": "2026-07-06T19:54:40.911704+00:00",
+  "script_count": 108,
+  "entry_count": 265,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1899,6 +1899,14 @@
       "subcmd": "once",
       "mutating": false,
       "help": "renewal_reminder.py \u2014 daily sweep of funded deals approaching renewal window. \u2014 subcommand: once"
+    },
+    {
+      "key": "repair_sunbiz_sequence_bodies",
+      "path": "scripts/repair_sunbiz_sequence_bodies.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": false,
+      "help": "repair_sunbiz_sequence_bodies.py \u2014 one-off repair for the 2026-05-25 seeding"
     },
     {
       "key": "sentinel_loop",
