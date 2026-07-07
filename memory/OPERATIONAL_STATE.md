@@ -21,7 +21,7 @@ freshness_threshold_days: 7
 
 ## PM2 Fleet — verified live 2026-07-07
 
-Reboot-persistent via `pm2 save` (dump.pm2) + Startup-folder `Bravo PM2 Resurrect.vbs` (runs `pm2 resurrect` at logon). Canonical VBS tracked at `scripts/bravo_pm2_resurrect.vbs`.
+Reboot-persistent via `pm2 save` (dump.pm2) + the **`PM2 Resurrect` scheduled task** (Task Scheduler, at-logon) → `scripts/pm2_resurrect_hidden.vbs` → `pm2 resurrect`. This is the single canonical resurrection entry point per `docs/RUNBOOK_PM2_COLD_START.md`. Re-registered 2026-07-07 — the task was missing after the Montreal move, which is why persistence was broken.
 
 | Process | Role | Status |
 |---------|------|--------|
