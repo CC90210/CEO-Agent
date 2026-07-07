@@ -2432,38 +2432,99 @@ def _send_sms_via_provider(
     except ImportError:
         return False, "'requests' package not installed (pip install requests)", {}
 
+    # ── TextTorrent (FIXED 2026-07-07 by APEX; verified live 201 with SunBiz creds;
+    #    reviewed + deployed by Bravo, CC-approved) ────────────────────────────────
+    # OLD (broken): POST {api_url}/messages with a Bearer token 404'd — that route
+    # does not exist. The live-verified path is the two-step /inbox/chat flow the
+    # oasis app + Jordan agent use daily (lib/integrations/texttorrent.ts):
+    #   1. POST /inbox/chat/create {receiver_number(10-digit), sender_id} -> chat_id
+    #      (TT returns a *JSON* 404 "already started a chat" when it exists -> reuse)
+    #   2. POST /inbox/chat {chat_id, to_number, from_number, message}     -> sends
+    # Auth is X-API-SID + X-API-PUBLIC-KEY headers (NOT Bearer), plus optional
+    # X-ACT-AS-USER (plain email) for a sub-account. A sender number is REQUIRED.
+    # DEPLOY NOTE: base reads TEXTTORRENT_API_URL — the VPS env must NOT still hold
+    # the old ".../v1" value or this hits /v1/inbox/chat and fails; use /api/v1.
     if provider == "texttorrent":
-        api_key = (env.get("TEXTTORRENT_API_KEY") or "").strip()
-        if not api_key:
-            return False, "TEXTTORRENT_API_KEY missing — set it in the agents env file", {}
-        api_url = (
-            env.get("TEXTTORRENT_API_URL") or "https://api.texttorrent.com/v1"
-        ).rstrip("/")
-        try:
-            r = _requests.post(
-                f"{api_url}/messages",
-                headers={
-                    "authorization": f"Bearer {api_key}",
-                    "content-type": "application/json",
-                    "user-agent": "oasis-bravo/send-gateway/1.0",
-                },
-                json={"to": to_phone, "message": body_text},
-                timeout=30,
-            )
-        except _requests.RequestException as e:
-            return False, f"network error contacting TT: {e}", {}
-        if r.status_code >= 400:
+        api_sid = (env.get("TEXTTORRENT_API_SID") or "").strip()
+        pub_key = (env.get("TEXTTORRENT_PUBLIC_KEY") or "").strip()
+        if not api_sid or not pub_key:
+            return False, "TEXTTORRENT_API_SID / TEXTTORRENT_PUBLIC_KEY missing in the agents env file", {}
+        base = (env.get("TEXTTORRENT_API_URL") or "https://api.texttorrent.com/api/v1").rstrip("/")
+        # Sender number (sender_id) is required by TT. Env default = the tenant's
+        # SunBiz line; per-rep sending is a follow-up (thread the rep's number here).
+        from_number = (env.get("TEXTTORRENT_FROM_NUMBER") or env.get("TT_FROM_NUMBER") or "").strip()
+        if not from_number:
+            return False, "no TextTorrent sender number — set TEXTTORRENT_FROM_NUMBER (tenant default line) in the agents env file", {}
+        tt_headers = {
+            "X-API-SID": api_sid,
+            "X-API-PUBLIC-KEY": pub_key,
+            "Accept": "application/json",
+            "user-agent": "oasis-bravo/send-gateway/1.0",
+        }
+        act_as = (env.get("TEXTTORRENT_ACT_AS_USER") or env.get("TEXTTORRENT_JORDAN_EMAIL") or "").strip()
+        if act_as:
+            tt_headers["X-ACT-AS-USER"] = act_as  # PLAIN email, not base64 (live-verified)
+
+        _d = re.sub(r"\D", "", to_phone or "")
+        receiver10 = _d[1:] if len(_d) == 11 and _d.startswith("1") else _d
+        if len(receiver10) != 10:
+            return False, f"TT requires a 10-digit US number; got {to_phone!r}", {}
+
+        def _tt(path, payload=None):
             try:
-                err = r.json()
+                if payload is None:
+                    rr = _requests.get(f"{base}{path}", headers=tt_headers, timeout=30)
+                else:
+                    rr = _requests.post(f"{base}{path}", headers={**tt_headers, "content-type": "application/json"},
+                                        json=payload, timeout=30)
+            except _requests.RequestException as e:
+                return None, f"network error contacting TT: {e}"
+            try:
+                jb = rr.json()
             except ValueError:
-                err = r.text[:400]
-            return False, f"TT HTTP {r.status_code}: {err}", {}
-        try:
-            data = r.json()
-        except ValueError:
-            data = {}
+                jb = None
+            return (rr.status_code, jb, rr.text[:300]), None
+
+        # Step 1 — create or find the chat.
+        res, neterr = _tt("/inbox/chat/create", {"receiver_number": receiver10, "sender_id": from_number})
+        if neterr:
+            return False, neterr, {}
+        status1, body1, text1 = res
+        chat_id = ""
+        if isinstance(body1, dict) and isinstance(body1.get("data"), dict) and body1["data"].get("id"):
+            chat_id = str(body1["data"]["id"])
+        if not chat_id:
+            # "already started a chat" (JSON 404) or no id -> scan inbox for the thread.
+            res2, neterr2 = _tt("/inbox?limit=100")
+            if neterr2:
+                return False, neterr2, {}
+            _s2, ibody, _t2 = res2
+            chats = []
+            if isinstance(ibody, dict):
+                dd = ibody.get("data")
+                chats = (dd.get("data") if isinstance(dd, dict) else dd) or []
+            for c in chats if isinstance(chats, list) else []:
+                cd = re.sub(r"\D", "", str((c or {}).get("number", "")))
+                c10 = cd[1:] if len(cd) == 11 and cd.startswith("1") else cd
+                if c10 == receiver10 and (c or {}).get("id") is not None:
+                    chat_id = str(c["id"])
+                    break
+        if not chat_id:
+            # Genuine failure: real (HTML) 404 wrong-endpoint, bad creds, etc.
+            return False, f"TT chat/create failed (HTTP {status1}): {body1 or text1}", {}
+
+        # Step 2 — send on the chat.
+        res3, neterr3 = _tt("/inbox/chat", {
+            "chat_id": chat_id, "to_number": to_phone, "from_number": from_number, "message": body_text,
+        })
+        if neterr3:
+            return False, neterr3, {}
+        status3, body3, text3 = res3
+        if status3 >= 400 or not (isinstance(body3, dict) and body3.get("success")):
+            return False, f"TT send failed (HTTP {status3}): {body3 or text3}", {}
         return True, None, {
-            "provider_message_id": data.get("id") or data.get("message_id"),
+            "provider_message_id": (body3.get("data") or {}).get("message_id"),
+            "tt_chat_id": chat_id,
         }
 
     if provider == "twilio":
