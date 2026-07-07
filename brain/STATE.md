@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Montreal turnkey reset: fleet verified live + reboot-persistent (Startup VBS + pm2 save); fixed scheduler heartbeat gap + busy-spin bug; identity truth (Montreal, dropped stale job); finance purged from Bravo identity/entry/agents surface -> Atlas owns money; refreshed OPERATIONAL_STATE + ACTIVE_TASKS; archived 4 orphan handoffs.
+- **Result:** SunBiz drip/background worker diagnostic complete; handover posted to OASIS coordination bridge row 2c08f54c-fd05-405a-8bc0-d60cc6f697d7. Findings: sequence definitions and VPS heartbeats healthy, but no proven sequence sends; follow_up backlog not enrolled; lead timezone/contact data blocks SMS/email; reconcile tool import broken; next step is dry-run backfill + revive plan after cadence decision.
 
 *Last updated: 2026-07-07*
 
