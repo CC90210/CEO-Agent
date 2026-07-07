@@ -102,7 +102,7 @@ Escalate to Bravo when:
 
 Escalate to CC when:
 - A critical DECISIONS.md entry needs to be revised (decisions have consequences, revisions need CC awareness)
-- Memory files suggest a goal or metric has changed (e.g., MRR target) — verify before updating STATE.md
+- Memory files suggest a goal or metric has changed — verify before updating STATE.md
 
 ## Output Format
 ```

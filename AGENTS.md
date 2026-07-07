@@ -79,7 +79,7 @@ Do **not** dump any file content to the user. Read silently, then answer the act
 - **Project:** Business-Empire-Agent — CC's autonomous AI operations hub
 - **Owner:** Conaugh McKenna (CC) — OASIS AI Solutions, Collingwood ON, Canada
 - **Brands:** OASIS AI Solutions (AI automation agency), PropFlow (real estate SaaS, 50/50 with Adon), Nostalgic Requests (music/DJ SaaS), Conaugh McKenna (personal brand), DJ services, consulting
-- **North Star:** $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20 — BreezeAdvance deal, $6,000/mo net recurring)
+- **North Star:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 - **Stack:** Python 3.12, TypeScript, Next.js 14, Supabase (Postgres), Vercel, Stripe, n8n, Telegram bot bridge
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) — full design rationale, V5.6 outbound chokepoint explained
 
@@ -266,7 +266,7 @@ Full history + substrate detail (state DB · retrieval · guards · event bus ·
 - **Subagents:** 8 in `.claude/agents/`
 - **Workflows:** 35 in `.agents/workflows/`
 - **Cron jobs:** 23 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
-- **MRR Goal:** $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20 — BreezeAdvance deal, $6,000/mo net recurring)
+- **North Star:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 
 ## OASIS Coordination Channel (Bravo ↔ APEX) — added 2026-06-19
 

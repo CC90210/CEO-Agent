@@ -28,7 +28,7 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 
 - **OASIS AI Solutions** — CC's primary B2B brand. AI automation consulting + custom agents for local businesses. Collingwood, ON.
 - **PropFlow** — Tenant-screening + landlord-automation product. CC + Adon 50/50. Has its own Supabase project (separate from empire DB). Bucket-list feature: real-estate portal embed.
-- **CredPort** — The multi-tenant MCA / business-funding software platform (named 2026-06-15; was working-named "Fundrail"): a merchant-facing portal + funder back-office that many funders run on, each under their own branding. A **separate jointly-owned company** — **60% OASIS AI / 40% David**, with OASIS on a $8K/mo USD engagement + a 60/40 split of the 1% platform fee (per the David deal). Has its own Supabase project (trust boundary on merchant financial data). Repo: [CC90210/breeze-portal](https://github.com/CC90210/breeze-portal) (repo name still `breeze-portal`; product brand is CredPort). Platform brand (CredPort) shows on public/landing surfaces; tenant brand (BreezeAdvance etc.) shows inside each funder's portal. MCA domain vocabulary in the "MCA / Lending" section below.
+- **CredPort** — The multi-tenant MCA / business-funding software platform (named 2026-06-15; was working-named "Fundrail"): a merchant-facing portal + funder back-office that many funders run on, each under their own branding. A **separate jointly-owned company** — **60% OASIS AI / 40% David** (equity split). Commercial terms — the monthly engagement fee and the platform-fee split — are owned by **Atlas / CFO**, not tracked here. Has its own Supabase project (trust boundary on merchant financial data). Repo: [CC90210/breeze-portal](https://github.com/CC90210/breeze-portal) (repo name still `breeze-portal`; product brand is CredPort). Platform brand (CredPort) shows on public/landing surfaces; tenant brand (BreezeAdvance etc.) shows inside each funder's portal. MCA domain vocabulary in the "MCA / Lending" section below.
 - **BreezeAdvance** — David's **existing MCA funding company** (breezeadvance.com), NOT the platform. It is the **first funder / first tenant** on CredPort. Do not conflate: "BreezeAdvance" = the funder (keeps its own navy/cyan brand inside its portal); "CredPort" = the separate software platform company. Other funders onboard later as additional tenants with their own logos + brand.
 - **Nostalgic Requests** — Personal/legacy brand. Lower priority than OASIS and PropFlow.
 
@@ -115,7 +115,7 @@ Vocabulary for the merchant-funding domain. Captured 2026-06-08 with David's pro
 
 ## North Star
 
-- **$10K USD Net MRR by September 30, 2026** — The single business metric Bravo optimizes for. The prior $5K target was **ACHIEVED 2026-06-20** via the BreezeAdvance deal (David + Adon — $6,000/mo net recurring), then reset to a 2× milestone. "Net MRR" = CC's take-home after the Adon split, not gross client billing.
+- **North Star (Bravo)** — Multiply CC's time and ship the systems that scale the empire. Bravo does **not** optimize for a dollar metric. All revenue targets, MRR, and deal economics are owned by **Atlas (CFO-Agent)** — route money questions there.
 
 ---
 

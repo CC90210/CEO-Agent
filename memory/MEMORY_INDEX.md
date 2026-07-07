@@ -7,18 +7,18 @@ tags: [memory, index]
 > **Layer 2:** Topic files. Read on-demand: `Read memory/<file>.md`
 > **Layer 3:** Archives. Grep-only: `memory/ARCHIVES/*.md`
 
-> Generated: 2026-06-22 | Files: 8 memory + 8 brain + 7 archives
+> Generated: 2026-07-07 | Files: 8 memory + 8 brain + 7 archives
 
 ## Memory Files (Layer 2 -- load when needed)
 
-- **ACTIVE_TASKS.md** (269L) -- Current tasks, priorities, blocked items
-  - 🎯 NORTH STAR — $10K USD Net MRR by 2026-09-30 ($5K ACHIEVED 2026-06-20 via Breez
+- **ACTIVE_TASKS.md** (275L) -- Current tasks, priorities, blocked items
+  - 🎯 NORTH STAR — Multiply CC's time; keep the fleet + client delivery healthy
+  - 🟢 SunBiz 3-task batch (2026-06-23)
   - 🧹 SYSTEM RE-ENGINEERING (2026-06-06)
-  - 🟢 BREEZE — Merchant portal for David (MCA / lending) — DEMO TARGET 2026-06-13
-- **MISTAKES.md** (374L) -- Past errors, root causes, prevention strategies
-  - Almost Wired an Auto-Sync That Would Have Reverted CC's MRR from $371 to $3,322 
-  - Vercel Deploys Blocked for 90 Minutes — Wrong Committer Identity After Repo Extr
-  - Public-Form Share Infrastructure Shipped Without Adversarial Review — 9 Bugs in 
+- **MISTAKES.md** (410L) -- Past errors, root causes, prevention strategies
+  - Wrote a file into Maven's repo (CMO-Agent) on an analysis-only task (2026-07-02)
+  - SubagentStop Validator Gate Pressured a READ-ONLY Agent Into Destructive `git ch
+  - Two PreToolUse Guards Were Dead on Every Machine — Wrong `sys.path` Insert, Fail
 - **PATTERNS.md** (90L) -- Proven approaches, anti-patterns, validated workflows
   - [P] Substrate-Layer-First Import from AGPL Reference Repos (2026-05-25)
   - [P] One Fact, Many Stores — Pre-Automation Cleanup Audit (2026-05-18)
@@ -39,14 +39,14 @@ tags: [memory, index]
   - SOP-[ID]: [Name]
   - SOP-001: Social Media Content Creation & Publishing
   - SOP-002: Systematic Bug Investigation
-- **SESSION_LOG.md** (1413L) -- Recent session activity (last 10 sessions)
-  - 2026-06-22 — Auto-sync
-  - 2026-06-22 — Auto-sync
-  - 2026-06-22 — Auto-sync
+- **SESSION_LOG.md** (1781L) -- Recent session activity (last 10 sessions)
+  - 2026-07-06 — Auto-sync
+  - 2026-07-06 — Auto-sync
+  - 2026-07-06 — Auto-sync
 
 ## Brain Files (Layer 2 -- load for complex tasks)
 
-- **STATE.md** (182L) -- Current operational state, confidence level, active systems
+- **STATE.md** (175L) -- Current operational state, confidence level, active systems
 - **AGENTS.md** (357L) -- 17 subagents, routing matrix, permissions, Codex integration
 - **CAPABILITIES.md** (837L) -- 180 skills, 30 workflows, 37 scripts, tool registry
 - **BRAIN_LOOP.md** (201L) -- 10-step reasoning protocol, multi-hypothesis, reflexion
@@ -65,4 +65,4 @@ tags: [memory, index]
 - `ARCHIVES/sessions-2026-05.md`
 - `ARCHIVES/WHATSAPP_BRIDGE_SOP.md`
 
-*Index built: 2026-06-22*
+*Index built: 2026-07-07*

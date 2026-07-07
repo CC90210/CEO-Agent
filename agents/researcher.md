@@ -72,7 +72,7 @@ Before delivering any research brief:
 
 ## Escalation Protocol
 Escalate to Bravo when:
-- Research reveals a competitive threat that could affect CC's revenue (>10% MRR impact potential)
+- Research reveals a competitive threat that could materially affect CC's business (significant revenue/pipeline impact)
 - Findings contradict a decision already logged in `memory/DECISIONS.md`
 - Research requires Playwright to access a paywalled site — get CC approval first
 

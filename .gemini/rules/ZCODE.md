@@ -168,7 +168,7 @@ If your output sounds like a generic AI assistant, you've already lost the room.
 - **Subagents:** 8 in `.claude/agents/`
 - **Workflows:** 35 in `.agents/workflows/`
 - **Cron jobs:** 23 in `cron_engine.py SEED_JOBS`. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — run `python scripts/core/cron_engine.py seed` only after CC reviews the entries.
-- **MRR Goal:** $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20 — BreezeAdvance deal, $6,000/mo net recurring)
+- **North Star:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 
 ---
 

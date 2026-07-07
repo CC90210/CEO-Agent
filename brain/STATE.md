@@ -1,9 +1,9 @@
 ---
 tags: [state, ephemeral, fable-5]
 architecture_version: V7.0.0
-last_updated: 2026-06-20
+last_updated: 2026-07-07
 freshness_threshold_days: 30
-verified: 2026-06-20
+verified: 2026-07-07
 model_standard: fable-5
 ---
 # STATE — Current Operational State
@@ -15,14 +15,14 @@ model_standard: fable-5
      scripts/tests/test_entrypoint_parity.py. Released versions live in CHANGELOG.md. -->
 
 
-> Updated 2026-06-06 (system re-engineering pass — tmp/ 6 GB→5 MB, retriever_postedit silent-failure fixed, 3 hygiene crons added, 5 entry points re-synced; see [memory/ACTIVE_TASKS#system-re-engineering-2026-06-06](../memory/ACTIVE_TASKS.md)) | **V6 OPTIMIZATION PROJECT — 100% COMPLETE.** Apex Phases 1-3 shipped 2026-05-10. V6.1 scaffolding mechanism + V6.0.3 polish + V6.0 foundation all intact. Self-audit health: 97/100 (`python scripts/core/self_audit.py`). Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
+> Updated 2026-06-06 (system re-engineering pass — tmp/ 6 GB→5 MB, retriever_postedit silent-failure fixed, 3 hygiene crons added, 5 entry points re-synced; see [memory/ACTIVE_TASKS#system-re-engineering-2026-06-06](../memory/ACTIVE_TASKS.md)) | **V6 OPTIMIZATION PROJECT — 100% COMPLETE.** Apex Phases 1-3 shipped 2026-05-10. V6.1 scaffolding mechanism + V6.0.3 polish + V6.0 foundation all intact. Self-audit health: run `python scripts/core/self_audit.py` for the live score (as of 2026-07-07 the point-losers are graph-hygiene items — orphans / undocumented scripts — not broken links, which are at 0). Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
 >
 > **V6 Apex (2026-05-10 — closes the V6 architecture epic):**
 >   - **Phase 1** — `/api/state-health` two-tier read path: state-api passthrough preferred, Supabase mirror fallback for Vercel. The page renders a `via state-api` / `via supabase-mirror` tag so operators see which side served the payload.
 >   - **Phase 2** — ~~Dashboard-driven override approvals~~ **DELETED 2026-05-22 per CC.** The `exec_guard` block on destructive operations (DROP TABLE / rm -rf / git push --force) stands — the block IS the protection. No approval-request rows, no `/overrides` page. When blocked, the agent picks a different approach. (See brain/V6_ARCHITECTURE.md "V6 Apex" for the canonical removal rationale.)
 >   - **Phase 3** — Cross-agent event feed. `scripts/core/event_router.py loop` is a cursor-based, lossless observability tail; `state/event_router.log` carries the on-host audit projection. `/feed` page is the cloud-side view of the same `agent_events` stream with 5s `router.refresh()` (no websockets).
 >
-> Bravo is officially out of the architecture phase. **The $5K Net MRR North Star was ACHIEVED 2026-06-20** — the BreezeAdvance deal (David + Adon) lands $6,000/mo net recurring. The next epic is execution + scale: **$10,000 USD Net MRR by September 30, 2026.**
+> Bravo is officially out of the architecture phase. The next epic is execution + scale. **Revenue targets / MRR are owned by Atlas (CFO-Agent) — not tracked here.** Bravo's job is to build and run the machine that makes them reachable.
 >
 > **What V6.1 added (fork mechanism, intact):** `brain/operator.profile.json` (gitignored single source of truth), `scripts/personalize.py` (renders `brain/USER.md` + memory templates from `*.template.md` placeholders, skip-on-exists), `scripts/scaffold.py` (token-replaces operator identifiers across tracked files at fork-time, refuses to run on the original operator's repo, `--backup` snapshots first). Wizard `step_finalize` always runs personalize; prompts for scaffold on new operators. `self_audit.check_personalization()` warns when profile missing. CC's working copy is preserved via the safety guard + gitignored personal files.
 >
@@ -39,9 +39,9 @@ model_standard: fable-5
 | Dimension | Level | Notes |
 |-----------|-------|-------|
 | **Version** | V6 Apex (P1+P2+P3) | V6 Optimization Project 100% complete (2026-05-10). Architecture phase closed. |
-| **Position**| EXECUTING — PAID | BreezeAdvance deal CLOSED 2026-06-20 (David + Adon): $8K trial month → $10K/mo recurring (Breeze + SunBiz). SunBiz/Breeze development is OPEN (paying client). Top priority: deliver the trial-month report that converts to recurring. |
-| **Confidence** | 0.75 | Core automations production-grade. SunBiz delivered at spec. Revenue lift pending Adon's signed-deal flow. |
-| **Focus Area** | **SUNBIZ DEMO + ONGOING CLIENT WORK** | Adon Saturday demo greenlit. Continued OASIS outreach for diversification. |
+| **Position**| EXECUTING — PAID CLIENT WORK | SunBiz + Breeze (BreezeAdvance) are active paying-client development. Deal terms and revenue are tracked by Atlas (CFO). Top priority: deliver the client work that keeps them retained. |
+| **Confidence** | 0.80 | Core automations production-grade and verified running (Montreal fleet reset 2026-07-07). SunBiz/Breeze delivered at spec. |
+| **Focus Area** | **HARNESS INTEGRITY + ONGOING CLIENT DELIVERY** | Montreal turnkey reset (2026-07-07): fleet persistence + identity truth. SunBiz / Breeze delivery continues. |
 | **Energy** | EXECUTING / FOCUSED | Long sprint closed cleanly. Bridge surface as reliable as terminal. Codebase hygiene reset (552 MB, 0 subprocess violations). |
 | **Memory Health** | GOOD | Files current. Latest retro 2026-06-12. Long-term re-verified 2026-06-12. |
 
@@ -49,18 +49,11 @@ model_standard: fable-5
 
 ---
 
-## North Star: $10,000 USD Net MRR by September 30, 2026
+## Mission (Bravo)
 
-> Previous goal ($5,000 USD Net MRR by June 18, 2026) — **ACHIEVED 2026-06-20.** The BreezeAdvance deal (David + Adon) lands $6,000/mo net recurring = 120% of the $5K target. Prior milestone ($1,000 by March 31, 2026) also achieved at $2,691 (+169%).
+Build and run CC's empire through AI automation: multiply his time, close every loop, and keep the client-delivery machine and the agent fleet healthy.
 
-**The deal (BreezeAdvance — Breeze + SunBiz, $5K each):**
-1. **Trial month (Month 1):** $8,000 USD = $4,000 up front + $4,000 at month-end (conditional on a delivery report + "seeing the vision"). CC split 70/30 → **CC net $5,600**.
-2. **Recurring (Month 2+):** $10,000 USD/mo. CC split 60/40 → **CC net $6,000/mo** — the new Net MRR baseline.
-3. **Confirmed Net MRR (contracted recurring):** ~$6,000 USD/mo (trial converting). Was ~$371 pre-deal.
-4. **New North Star:** $10,000 USD Net MRR by September 30, 2026 — a 2× milestone; ~$4,000/mo beyond the $6K now locked.
-5. **Strategy:** (a) Deliver the trial-month report that converts BreezeAdvance to recurring. (b) Land ~1 more deal of similar size to clear $10K. (c) Keep no single client >50% of MRR (R-001 concentration lesson).
-6. **Risk:** the ~89% revenue cliff from the primary-retainer loss (2026-05-18) is closed by this deal. BreezeAdvance is now the dominant line — diversification stays a priority, not existential.
-7. **North Star status:** $5K target hit 2 days after the June 18 deadline; goal **superseded 2026-06-20 → $10K USD Net MRR by September 30, 2026.** Contract drafts for Sunday; $4K paid up front.
+> **Finance is not Bravo's domain.** Revenue, MRR, deal terms, cash flow, and targets are owned by **Atlas (CFO-Agent)**. Historical deal records live in Atlas / project memory, not in Bravo's state. When a money question arises, route it to Atlas.
 
 ## Active Infrastructure
 
@@ -93,8 +86,8 @@ Stable structural facts (change rarely, audit on edit):
 - **Supabase tables:** 28 (14 agent + 14 business ops)
 - **MCP servers:** 9 active in Claude Code config (verified via `mcp_configs_in_sync` in self_audit)
 - **Hooks:** 4 active safety/audit hooks in `.claude/settings.local.json`
-- **Cross-machine sync:** Windows (CCPC, 192.168.2.133) production + Mac (Conaughs-MacBook-Air, 192.168.2.196) cold-standby via `ssh cc-mac`
-- **PM2 state:** Windows runs bravo-scheduler + telegram-bot (standalone). Mac has bravo-telegram registered but stopped. Skool daemon archived 2026-05-18 (preserved at `scripts/_archive/skool/` for revival when CC launches their own community).
+- **Cross-machine sync:** Windows (CCPC) production + Mac (Conaughs-MacBook-Air) cold-standby via `ssh cc-mac`. LAN IPs changed with the 2026-07 Montreal move — refresh them in brain/CROSS_MACHINE_SYNC.md before relying on `ssh cc-mac`.
+- **PM2 state (Windows, 24/7):** bravo-scheduler, bravo-telegram, bravo-coord, claude-bridge, claude-bridge-ping, event-router — plus sibling atlas-telegram + maven-telegram. Reboot-persistent via `pm2 save` + Startup-folder `Bravo PM2 Resurrect.vbs` (runs `pm2 resurrect` at logon). Mac = cold-standby. Skool daemon archived 2026-05-18 (`scripts/_archive/skool/`).
 
 ## Context Optimization (2026-03-31)
 
@@ -112,7 +105,7 @@ Stable structural facts (change rarely, audit on edit):
 Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - **Gritly** — Field Service Management SaaS. Next.js 15, Drizzle, Turso, Stripe, Better Auth. Foundation built (auth+onboarding+dashboard+marketing site). Context: [[APPS_CONTEXT/GRITLY_CLAUDE]]
 - **IG Setter Pro** — Instagram DM automation (ManyChat replacement). Next.js 14, Turso, n8n, Claude API. Live at `ig-setter-pro.vercel.app`. Context: [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]]
-- **Primary community-management retainer** — **ENDED 2026-05-18.** Client said the retainer was too expensive at full-time hands; brought a full-time coach on. CC may return as smaller coach later. $1,300 outstanding AR. Skool comment/reply daemon archived 2026-05-18 — see `scripts/_archive/skool/`. Context: [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
+- **Primary community-management retainer** — **ENDED 2026-05-18.** Client said the retainer was too expensive at full-time hands; brought a full-time coach on. CC may return as smaller coach later. (Any outstanding AR is tracked by Atlas / CFO.) Skool comment/reply daemon archived 2026-05-18 — see `scripts/_archive/skool/`. Context: [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
 
 ## Agent Runner Backend (2026-05-05)
 
@@ -147,32 +140,32 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-06
+- **Date:** 2026-07-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** SunBiz drip repair EXECUTED: 8 prod sequences' bodies restored (repair_sunbiz_sequence_bodies.py, ALL PASS), Submitted paused, reconcile mirror fixed + guarded (SunBiz-Agent d9f4131+80bba22), dashboard parser accepts body_text/body_html (oasis 93aa7ff+ddeb61a, prod Ready); 85 pending sends fire from 19:07Z today; adversarial review SHIP verdict, findings closed; Codex rate-limited (retry after 3:49PM)
+- **Result:** Montreal turnkey reset: fleet verified live + reboot-persistent (Startup VBS + pm2 save); fixed scheduler heartbeat gap + busy-spin bug; identity truth (Montreal, dropped stale job); finance purged from Bravo identity/entry/agents surface -> Atlas owns money; refreshed OPERATIONAL_STATE + ACTIVE_TASKS; archived 4 orphan handoffs.
 
-*Last updated: 2026-07-06*
+*Last updated: 2026-07-07*
 
 ## Manifest
 
 <!-- MANIFEST:BEGIN -->
 _Auto-generated by `scripts/catalog_sync.py` — do not edit this block manually._
-_Last synced: 2026-05-21T22:23:37.688699+00:00_
+_Last synced: 2026-07-07T16:02:44.401846+00:00_
 
 | Type | Count |
 |---|---:|
-| Python scripts | 95 |
+| Python scripts | 113 |
 | PowerShell scripts | 10 |
-| Shell scripts | 2 |
-| **Total scripts** | **107** |
-| Skills | 149 (7 destructive) |
+| Shell scripts | 4 |
+| **Total scripts** | **127** |
+| Skills | 150 (45 destructive) |
 | Agents | 21 |
-| Workflows | 33 |
+| Workflows | 34 |
 
 **Scripts by category:**
 
-- Other: 69
-- Communication: 10
+- Other: 88
+- Communication: 11
 - Data & Memory: 9
 - System: 6
 - Content: 5

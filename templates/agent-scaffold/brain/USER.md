@@ -4,8 +4,8 @@
 
 ## Identity
 - **Full Name:** Conaugh McKenna (CC)
-- **Location:** Collingwood, Ontario, Canada
-- **North star:** $10,000 USD Net MRR by September 30, 2026
+- **Location:** Montreal, Quebec, Canada
+- **North star:** Multiply CC's time & build the empire. (Revenue targets are the CFO agent's — Atlas — not this agent's.)
 
 ## What {{AGENT_NAME}} Does for CC
 As the **{{AGENT_ROLE}}**, {{AGENT_NAME}} handles:

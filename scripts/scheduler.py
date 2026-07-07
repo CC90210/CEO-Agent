@@ -1150,6 +1150,22 @@ def initialize_next_run_times(client):
         log(f"  {job['name']} -> next run: {next_run[:19]}")
 
 
+def _scheduler_heartbeat(status: str, focus: str) -> None:
+    """Best-effort agent_state heartbeat so `state_manager status` reflects a
+    live scheduler.
+
+    The scheduler is "the heartbeat of the business agent" (module docstring)
+    but historically never wrote agent_state, so `agent_state.bravo` sat frozen
+    and the fleet looked DEAD while it was actually running (root cause of the
+    2026-07-07 Montreal turnkey-reset misdiagnosis). Observability only — a
+    failure here must NEVER interrupt job execution, hence the blanket guard."""
+    try:
+        from state.state_manager import heartbeat as _hb
+        _hb("bravo", status=status, focus=focus)
+    except Exception:  # noqa: BLE001 — observability must not break the loop
+        pass
+
+
 def main():
     log("=" * 60)
     log("BRAVO SCHEDULER v1.0 - Business Operations Daemon")
@@ -1185,6 +1201,7 @@ def main():
 
     log("Scheduler running. Checking for due jobs every 60 seconds...")
     log("")
+    _scheduler_heartbeat("working", "scheduler started — polling every 60s")
 
     consecutive_errors = 0
     cycles = 0
@@ -1206,6 +1223,21 @@ def main():
                     initialize_next_run_times(client)
                 except Exception as init_exc:
                     log(f"  [warn] periodic init failed: {init_exc}")
+                # Refresh agent_state (~every 5 min) so `state_manager status`
+                # tracks the live scheduler instead of sitting frozen.
+                _scheduler_heartbeat(
+                    "working",
+                    f"live — {cycles} cycles, last ran {jobs_run} job(s)",
+                )
+
+            # Normal-path pacing. Historically the CHECK_INTERVAL sleep lived
+            # ONLY in the error branch below, so the healthy loop busy-spun —
+            # re-querying Supabase cron_jobs thousands of times/hour (CPU looked
+            # ~0% only because each iteration blocked on the network round-trip).
+            # Sleep here so the loop actually polls "every 60 seconds" as the
+            # banner claims, and so the cycles%5 heartbeat lands ~every 5 min.
+            # (Montreal turnkey reset, 2026-07-07.)
+            time.sleep(CHECK_INTERVAL_SECONDS)
         except KeyboardInterrupt:
             log("Shutdown requested. Goodbye.")
             break
