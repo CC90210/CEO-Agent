@@ -110,6 +110,45 @@ def upsert_txt(apex: str, name: str, value: str, ttl: int = 60) -> dict:
 
 
 # ============================================================================
+# Cloudflare Tunnel routing — expose a local VPS service on a public hostname
+# (used to wire agent chat-bridges, e.g. breeze-bridge.oasisai.work -> :3100)
+# ============================================================================
+def list_tunnels(account_id: str) -> list[dict]:
+    """List the account's cloudflared tunnels (id, name, status)."""
+    out = _cf("GET", f"/accounts/{account_id}/cfd_tunnel?is_deleted=false")
+    return out.get("result") or []
+
+
+def get_tunnel_ingress(account_id: str, tunnel_id: str) -> list[dict]:
+    out = _cf("GET", f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations")
+    return (((out.get("result") or {}).get("config")) or {}).get("ingress", [])
+
+
+def add_tunnel_route(account_id: str, tunnel_id: str, hostname: str, service: str) -> list[dict]:
+    """Add `hostname -> service` to a tunnel's ingress, PRESERVING every existing
+    rule and keeping the catch-all last. Idempotent. Returns the new ingress.
+
+    NOTE: a tunnel route also needs a *proxied* CNAME
+    `hostname -> <tunnel_id>.cfargotunnel.com`. This token may be tunnel-scoped
+    without zone access — create that DNS record with a zone-scoped token or in
+    the dashboard.
+    """
+    out = _cf("GET", f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations")
+    config = (out.get("result") or {}).get("config") or {}
+    ingress = list(config.get("ingress") or [])
+    if any(r.get("hostname") == hostname for r in ingress):
+        return ingress  # already routed
+    rule = {"hostname": hostname, "service": service}
+    if ingress and not ingress[-1].get("hostname"):
+        ingress = ingress[:-1] + [rule, ingress[-1]]  # keep catch-all last
+    else:
+        ingress = ingress + [rule, {"service": "http_status:404"}]
+    config["ingress"] = ingress
+    _cf("PUT", f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations", {"config": config})
+    return ingress
+
+
+# ============================================================================
 # Vercel verification rescue — the 2026-04-30 incident workflow
 # ============================================================================
 def sync_vercel_verify_txt(apex: str, vercel_project: str, *, wait_seconds: int = 8) -> bool:
@@ -194,6 +233,15 @@ def main() -> int:
     p_sync.add_argument("--domain", required=True)
     p_sync.add_argument("--vercel-project", required=True)
 
+    p_lt = sub.add_parser("list-tunnels")
+    p_lt.add_argument("--account", required=True)
+
+    p_rt = sub.add_parser("add-tunnel-route")
+    p_rt.add_argument("--account", required=True)
+    p_rt.add_argument("--tunnel", required=True)
+    p_rt.add_argument("--hostname", required=True)
+    p_rt.add_argument("--service", required=True)
+
     args = p.parse_args()
 
     if args.cmd == "list-zone":
@@ -205,6 +253,14 @@ def main() -> int:
     elif args.cmd == "sync-vercel-txt":
         ok = sync_vercel_verify_txt(args.domain, args.vercel_project)
         return 0 if ok else 1
+    elif args.cmd == "list-tunnels":
+        for t in list_tunnels(args.account):
+            print(f"{t['id']}  {t.get('name', ''):<20} {t.get('status', '')}")
+    elif args.cmd == "add-tunnel-route":
+        ingress = add_tunnel_route(args.account, args.tunnel, args.hostname, args.service)
+        print("ingress now:")
+        for r in ingress:
+            print("  ", r.get("hostname", "(catch-all)"), "->", r.get("service"))
     return 0
 
 
