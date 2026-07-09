@@ -499,15 +499,20 @@ def run_agent_self_improvement(env_vars: dict) -> str:
 
 
 def run_daily_brief(_env_vars: dict) -> str:
-    """Phase 5c — daily AI-narrated brief to CC's Telegram.
+    """Phase 5c — daily operational brief to CC's Telegram.
 
     scripts/daily_brief.py reads the latest briefing snapshot (regenerating
-    if >24h stale), hands the JSON to Claude Sonnet for a 5-bullet
-    narration, and ships it to Telegram via notify(force=True). The brief
-    self-ships — this handler just invokes the script and returns the
-    stdout so cron_jobs.last_result captures whether it landed.
+    if >5min stale), narrates a 5-bullet brief via the LOCAL claude CLI on
+    CC's subscription (falling back to a deterministic brief on any failure),
+    and ships it to Telegram via notify(force=True). Revenue/MRR is omitted —
+    that's Atlas's brief. The script self-ships; this handler just invokes it
+    and returns stdout so cron_jobs.last_result captures whether it landed.
+
+    Timeout 150s > daily_brief's inner CLI-narration timeout (60s) + snapshot
+    regen (60s) so the script always reaches its own graceful fallback before
+    the scheduler force-kills it.
     """
-    out = run_script("daily_brief.py", [], timeout=90)
+    out = run_script("daily_brief.py", [], timeout=150)
     if not out or not out.strip():
         return "ERROR: daily_brief returned empty output"
     first_line = out.strip().splitlines()[0]

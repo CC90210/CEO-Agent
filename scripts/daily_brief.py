@@ -6,9 +6,13 @@ Phase 5c of the OASIS HQ redesign. Two layers:
      MRR / pipeline / follow-ups / client health into a single JSON blob.
      We read state/snapshots/latest_briefing.json (regenerate if stale).
 
-  2. Narration layer: hand the JSON to Claude with a tight prompt — return
-     a 5-bullet brief in CC's voice. No fluff, no "I hope this finds you
-     well", no recommendations Claude wasn't asked for.
+  2. Narration layer: hand the JSON to the LOCAL claude CLI (CC's Claude Code
+     SUBSCRIPTION / OAuth — never the metered ANTHROPIC_API_KEY, per the
+     CLI-only rule) with a tight prompt → a 5-bullet brief in CC's voice.
+     If narration is unavailable (no CLI, expired token, timeout) we fall
+     back to a deterministic brief built straight from the snapshot — always
+     accurate, never the old empty "—" message. Revenue/MRR is intentionally
+     omitted from Bravo's brief: that's Atlas's (CFO) job.
 
   3. Delivery: notify.notify(message, category="system", force=True) ships
      it to CC's Telegram. Same path daemon crash alerts use, so we know
@@ -27,15 +31,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.claude_auth import build_claude_spawn_env  # noqa: E402
 
 # Windows console defaults to cp1252; the brief includes 🌅 + bullet
 # glyphs. Reconfigure to UTF-8 so --dry-run prints don't UnicodeEncodeError.
@@ -46,9 +51,19 @@ except Exception:
     pass
 
 SNAPSHOT_PATH = PROJECT_ROOT / "state" / "snapshots" / "latest_briefing.json"
-ANTHROPIC_VERSION = "2023-06-01"
-NARRATION_MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 600
+
+# Narration runs through the LOCAL claude CLI on CC's subscription OAuth
+# (see _narrate_via_cli) — NEVER the metered ANTHROPIC_API_KEY. The old path
+# POSTed to api.anthropic.com with an x-api-key header, which (a) 400'd on the
+# model id and (b) violated CC's iron "CLI-only, no API keys in automations"
+# rule — so every brief fell through to the fallback and read "AI narration
+# unavailable". Set BRAVO_BRIEF_NARRATE=0 to skip narration and ship the
+# deterministic brief directly (fully offline, zero AI dependency).
+NARRATION_MODEL_CLI = "sonnet"          # CLI alias — always resolves
+# Kept comfortably below the scheduler's outer run_script timeout for
+# daily_brief (150s) so the inner narration bails to the deterministic brief
+# BEFORE the scheduler kills the whole process. Observed narration ~22s.
+CLI_NARRATION_TIMEOUT_SEC = 60
 SNAPSHOT_STALENESS_SEC = 5 * 60  # 5 min — was 24h, but CC's revenue events
 # (subscription_start / cancel logged manually) change throughout the day. A
 # 24h-old snapshot caused the 2026-05-18 15:15 brief to report MRR $3,322 / 12d
@@ -57,25 +72,22 @@ SNAPSHOT_STALENESS_SEC = 5 * 60  # 5 min — was 24h, but CC's revenue events
 # the brief regenerates from fresh CLIs on any non-trivial wait, while still
 # avoiding regeneration cost on rapid-fire manual re-runs.
 
-SYSTEM_PROMPT = """You are Bravo, CC's lead architect. Each morning you turn last 24h's empire data into a 5-bullet brief CC can read in 30 seconds before he starts his day.
+SYSTEM_PROMPT = """You are Bravo — CC's CEO/COO/CTO in one. Each morning you turn the last 24h of empire data into a 5-bullet operational brief CC can read in 30 seconds before his day starts.
+
+Scope: pipeline, follow-ups, execution, client health, and system/ops. Revenue and MRR are Atlas's job (CFO) — do NOT report MRR or revenue figures. If money is relevant to a bullet, point to Atlas rather than quoting a number.
 
 Style:
   - Five bullets. Five exactly. Never more.
   - Each bullet leads with the metric or fact, then the why-it-matters in <12 words.
   - No greetings, no sign-off, no "hope this helps".
   - Use CC's voice: direct, no corporate hedging, no "as an AI" disclaimers.
-  - Numbers stay precise (don't round $4,237 to $4K).
+  - Numbers stay precise.
   - If something's broken or stuck, lead with it — bad news first.
 
 Bullet shape: "<METRIC> — <one short clause of why>."
-Example: "MRR $2,840 — flat vs yesterday, still $2,160 from the May goal."
+Example: "1 qualified lead (score 70) — ready to move, follow-up overdue."
 
 Output the bullets only, one per line, prefixed with `• `. Nothing else."""
-
-
-def _load_env() -> dict[str, str]:
-    from lib.secret_loader import load_env  # noqa: E402
-    return load_env()
 
 
 def _read_snapshot(regenerate: bool) -> dict | None:
@@ -117,97 +129,184 @@ def _regenerate_snapshot() -> None:
         sys.stderr.write(f"[daily_brief] snapshot regen failed: {e}\n")
 
 
-def _narrate(snapshot: dict, env: dict[str, str]) -> str | None:
-    """Hand the snapshot to Claude → 5-bullet brief. Returns None on any
-    failure (caller decides whether to fall back to a dumb summary)."""
-    api_key = (env.get("BRAVO_ANTHROPIC_API_KEY")
-               or env.get("ANTHROPIC_API_KEY")
-               or os.environ.get("BRAVO_ANTHROPIC_API_KEY", "")).strip()
-    if not api_key:
-        sys.stderr.write("[daily_brief] BRAVO_ANTHROPIC_API_KEY missing\n")
+def _resolve_claude_bin() -> str | None:
+    """Locate the claude CLI. shutil.which covers the common case; the
+    Windows npm-global / .local/bin fallbacks mirror warm_claude_pool so a
+    PYTHONW-spawned scheduler with a slim PATH still finds it."""
+    found = shutil.which("claude")
+    if found:
+        return found
+    if os.name == "nt":
+        for c in (Path.home() / ".local" / "bin" / "claude.exe",
+                  Path.home() / "AppData" / "Roaming" / "npm" / "claude.cmd"):
+            if c.is_file():
+                return str(c)
+    return None
+
+
+def _narrate_via_cli(snapshot: dict) -> str | None:
+    """Hand the operational snapshot to the LOCAL claude CLI → 5-bullet brief.
+
+    Auth is CC's Claude Code SUBSCRIPTION (OAuth) via build_claude_spawn_env,
+    which strips ANTHROPIC_API_KEY from the child env — the CLI-only rule.
+    Returns None on any failure; caller falls back to the deterministic brief,
+    so a missing CLI / expired token / timeout degrades to accurate numbers
+    rather than the old "AI narration unavailable" dead-end."""
+    claude_bin = _resolve_claude_bin()
+    if not claude_bin:
+        sys.stderr.write("[daily_brief] claude CLI not found — deterministic brief\n")
         return None
 
-    # Strip noisy fields before sending to Claude. The snapshot has full
-    # error blobs from sub-engine failures; those waste tokens.
-    cleaned = {
-        k: v for k, v in snapshot.items()
-        if k not in ("snapshot_type", "ts")
-    }
+    # Strip revenue/cash (Atlas's domain) + noisy fields before narrating.
+    cleaned = {k: v for k, v in snapshot.items()
+               if k not in ("snapshot_type", "ts", "revenue")}
+    if isinstance(cleaned.get("briefing"), dict):
+        cleaned["briefing"] = {k: v for k, v in cleaned["briefing"].items()
+                               if k not in ("mrr", "cash")}
     user_prompt = (
-        f"Today is {snapshot.get('date', 'today')}. "
-        f"Here's the aggregate empire state from the last 24h:\n\n"
+        f"Today is {snapshot.get('date', 'today')}. Operational empire state "
+        f"(revenue omitted — that's Atlas's brief):\n\n"
         f"{json.dumps(cleaned, indent=2, default=str)[:6000]}\n\n"
-        f"Write CC's 5-bullet brief."
+        f"Write CC's 5-bullet operational brief."
     )
 
-    body = json.dumps({
-        "model": NARRATION_MODEL,
-        "max_tokens": MAX_TOKENS,
-        "system": SYSTEM_PROMPT,
-        "messages": [{"role": "user", "content": user_prompt}],
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=body,
-        headers={
-            "content-type": "application/json",
-            "x-api-key": api_key,
-            "anthropic-version": ANTHROPIC_VERSION,
-        },
-        method="POST",
-    )
+    # Subscription-first env + a lean, side-effect-free boot: no MCP servers,
+    # no slash commands, no settings/CLAUDE.md/hooks (--setting-sources "").
+    # The Bravo-narrator persona is injected via --append-system-prompt.
+    env = build_claude_spawn_env(force_api_key=False, extras={
+        "CI": "true", "NONINTERACTIVE": "true", "NO_COLOR": "1",
+        "FORCE_COLOR": "0", "PAGER": "cat",
+        "CLAUDE_PROJECT_DIR": str(PROJECT_ROOT),
+    })
+    args = [
+        claude_bin, "-p", user_prompt,
+        "--append-system-prompt", SYSTEM_PROMPT,
+        "--model", NARRATION_MODEL_CLI,
+        "--output-format", "text",
+        "--disable-slash-commands",
+        "--strict-mcp-config",
+        "--setting-sources", "",
+    ]
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
-            payload = json.loads(resp.read().decode("utf-8"))
-    except Exception as e:  # noqa: BLE001
-        sys.stderr.write(f"[daily_brief] anthropic call failed: {e}\n")
+        proc = subprocess.run(
+            args, cwd=str(PROJECT_ROOT), capture_output=True, text=True,
+            timeout=CLI_NARRATION_TIMEOUT_SEC, encoding="utf-8",
+            errors="replace", creationflags=WINDOWLESS_FLAGS, env=env,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        sys.stderr.write(f"[daily_brief] claude narration failed: {e}\n")
         return None
+    if proc.returncode != 0:
+        sys.stderr.write(
+            f"[daily_brief] claude narration exit {proc.returncode}: "
+            f"{(proc.stderr or '').strip()[:300]}\n")
+        return None
+    return (proc.stdout or "").strip() or None
 
-    blocks = payload.get("content") or []
-    text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
-    return text or None
+
+def _count_stage(pipe: dict, stage: str) -> int:
+    """Count for one pipeline stage, tolerant of both snapshot shapes:
+    {stage: {count: N}} (raw lead_engine) and {stage: N} (aggregated)."""
+    v = pipe.get(stage)
+    if isinstance(v, dict):
+        return int(v.get("count") or 0)
+    if isinstance(v, (int, float)):
+        return int(v)
+    return 0
 
 
-def _dumb_fallback(snapshot: dict) -> str:
-    """Pre-AI fallback. If Claude is unreachable, at least ship the numbers
-    so CC knows the brief tried to fire."""
-    rev = (snapshot.get("revenue") or {}).get("mrr") or {}
-    pipe = snapshot.get("pipeline") or {}
-    followups = snapshot.get("followups_due") or {}
-    alerts = snapshot.get("client_health_alerts") or {}
+def _render_brief(snapshot: dict) -> str:
+    """Deterministic operational brief — always accurate, no AI, no API key.
 
-    def _scalar(d, *keys, default="—"):
-        v = d
-        for k in keys:
-            if not isinstance(v, dict):
-                return default
-            v = v.get(k)
-            if v is None:
-                return default
-        return v
+    The old fallback read snapshot keys that never existed (revenue.net_mrr_cad,
+    pipeline.total, followups_due.total, ...) so every line rendered "—" even
+    though the snapshot held real data. This reads the ACTUAL schema. MRR/cash
+    are intentionally omitted — revenue reporting is Atlas's (CFO) job; Bravo
+    stays operational (pipeline / follow-ups / client health)."""
+    date = snapshot.get("date", "today")
+    brief = snapshot.get("briefing") if isinstance(snapshot.get("briefing"), dict) else {}
+    lines = [f"🌅 Bravo brief · {date}", ""]
 
-    return (
-        f"📊 Daily brief ({snapshot.get('date', 'today')}) — AI narration unavailable\n\n"
-        f"• MRR: {_scalar(rev, 'net_mrr_cad', default=_scalar(rev, 'net_mrr_usd'))}\n"
-        f"• Pipeline total: {_scalar(pipe, 'total')}\n"
-        f"• Follow-ups due: {_scalar(followups, 'total')}\n"
-        f"• Client health alerts: {_scalar(alerts, 'total')}\n"
-        f"• Snapshot ts: {snapshot.get('ts')}"
+    # --- Pipeline: prefer the pre-aggregated briefing block, else raw stages ---
+    pipe_agg = brief.get("pipeline") if isinstance(brief.get("pipeline"), dict) else {}
+    by_stage = pipe_agg.get("by_stage")
+    if not isinstance(by_stage, dict):
+        raw = snapshot.get("pipeline") or {}
+        by_stage = {s: _count_stage(raw, s)
+                    for s in ("new", "contacted", "qualified", "proposal", "won", "lost")}
+    active = pipe_agg.get("active_leads")
+    if not isinstance(active, int):
+        active = sum(int(by_stage.get(s) or 0)
+                     for s in ("new", "contacted", "qualified", "proposal"))
+    qualified = int(by_stage.get("qualified") or 0)
+    stage_bits = " · ".join(
+        f"{int(by_stage.get(s) or 0)} {label}"
+        for s, label in (("new", "new"), ("contacted", "contacted"),
+                         ("qualified", "qualified"), ("won", "won"))
+        if int(by_stage.get(s) or 0)
     )
+    lines.append(f"🎯 Pipeline — {active} active")
+    if stage_bits:
+        lines.append(f"   {stage_bits}")
+    if qualified:
+        lines.append(f"   → {qualified} qualified lead{'s' if qualified != 1 else ''} ready to move")
+
+    # --- Follow-ups due (snapshot has a list of lead objects) ---
+    followups = snapshot.get("followups_due")
+    fu = followups if isinstance(followups, list) else []
+    lines.append("")
+    lines.append(f"📞 Follow-ups due: {len(fu)}")
+    for lead in fu[:5]:
+        if not isinstance(lead, dict):
+            continue
+        name = lead.get("name") or "—"
+        company = lead.get("company") or ""
+        score = lead.get("score")
+        tail = f" · {company}" if company else ""
+        if score is not None:
+            tail += f" (score {score})"
+        lines.append(f"   • {name}{tail}")
+
+    # --- Client health: honour the "0 monitored" truth-note over "all green" ---
+    ch = brief.get("client_health") if isinstance(brief.get("client_health"), dict) else {}
+    monitored = ch.get("monitored")
+    alerts = snapshot.get("client_health_alerts") if isinstance(snapshot.get("client_health_alerts"), dict) else {}
+    at_risk = ch.get("at_risk")
+    if at_risk is None:
+        at_risk = len(alerts.get("at_risk_clients") or [])
+    lines.append("")
+    if monitored == 0:
+        lines.append("🩺 Client health: ⚠️ 0 clients monitored")
+        lines.append("   CRM gap — paying subscribers aren't tagged status='client'.")
+    elif at_risk:
+        lines.append(f"🩺 Client health: ⚠️ {at_risk} at risk")
+    else:
+        lines.append("🩺 Client health: ✅ all green")
+
+    # --- footer: prove the brief ran + how fresh the data is ---
+    ts = snapshot.get("ts") or ""
+    hhmm = ts[11:16] if len(ts) >= 16 else ts
+    lines.append("")
+    lines.append(f"⏱ snapshot {hhmm} UTC" if hhmm else "⏱ snapshot generated")
+    return "\n".join(lines)
 
 
 def build_brief(regenerate: bool = False) -> str:
-    env = _load_env()
     snapshot = _read_snapshot(regenerate)
     if not snapshot:
         return "Daily brief: snapshot unreadable. Run `python scripts/snapshots/briefing_snapshot.py` manually."
 
-    narrated = _narrate(snapshot, env)
-    if narrated:
-        date_str = snapshot.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
-        return f"🌅 Bravo brief · {date_str}\n\n{narrated}"
-    return _dumb_fallback(snapshot)
+    deterministic = _render_brief(snapshot)
+    # Narration is best-effort polish ON TOP of the deterministic brief. If the
+    # CLI is missing, the token's expired, or it times out, CC still gets the
+    # accurate deterministic brief — never the old empty "—" message.
+    # BRAVO_BRIEF_NARRATE=0 skips narration entirely (pure deterministic).
+    if os.environ.get("BRAVO_BRIEF_NARRATE", "1").strip() != "0":
+        narrated = _narrate_via_cli(snapshot)
+        if narrated:
+            date_str = snapshot.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+            return f"🌅 Bravo brief · {date_str}\n\n{narrated}"
+    return deterministic
 
 
 def send_brief(message: str) -> bool:
