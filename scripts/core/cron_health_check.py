@@ -143,6 +143,14 @@ def main() -> int:
         if args.alert and not args.dry_run:
             print(f"  telegram_alert: {send_detail}")
 
+    # If we found failures and TRIED to alert but the send didn't land, the
+    # watchdog itself must go RED (nonzero exit → cron_jobs.last_result starts
+    # with ERROR). Otherwise the meta-cron shows green while CC gets no alert —
+    # the exact silent-failure this guard exists to prevent.
+    if bad and args.alert and not args.dry_run and not sent:
+        print(f"ERROR: cron failures detected but alert delivery failed "
+              f"({send_detail})", file=sys.stderr)
+        return 1
     return 0
 
 

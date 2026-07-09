@@ -76,6 +76,15 @@ def run_claude_cli(
     args += [
         "--model", model,
         "--output-format", "text",
+        # Pure text transform — deny ALL tools. Callers feed untrusted data
+        # (lead notes, session logs) into the prompt, so a prompt-injection
+        # payload must not be able to invoke Bash/Read/Write etc. An empty
+        # allowlist = no tool is available (verified). Belt-and-suspenders with
+        # the boot-strip flags below (no MCP servers, no slash commands, no
+        # settings/CLAUDE.md/hooks). --no-session-persistence avoids writing
+        # session state for these one-shot calls.
+        "--allowed-tools", "",
+        "--no-session-persistence",
         "--disable-slash-commands",
         "--strict-mcp-config",
         "--setting-sources", "",

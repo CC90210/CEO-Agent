@@ -91,18 +91,26 @@ Output the bullets only, one per line, prefixed with `• `. Nothing else."""
 
 
 def _read_snapshot(regenerate: bool) -> dict | None:
-    """Read the latest briefing snapshot. Regenerate if missing or stale."""
+    """Read the latest briefing snapshot. Regenerate if missing or stale.
+
+    If regeneration was needed but FAILED while an old snapshot is on disk, the
+    numbers are stale — flag them (`_stale`) so the brief says so rather than
+    shipping yesterday's data as if it were fresh."""
+    attempted = regen_ok = False
     if regenerate or not SNAPSHOT_PATH.exists():
-        _regenerate_snapshot()
+        attempted, regen_ok = True, _regenerate_snapshot()
     elif _is_stale(SNAPSHOT_PATH):
-        _regenerate_snapshot()
+        attempted, regen_ok = True, _regenerate_snapshot()
 
     if not SNAPSHOT_PATH.exists():
         return None
     try:
-        return json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        snap = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
+    if attempted and not regen_ok and _is_stale(SNAPSHOT_PATH):
+        snap["_stale"] = True
+    return snap
 
 
 def _is_stale(path: Path) -> bool:
@@ -113,11 +121,12 @@ def _is_stale(path: Path) -> bool:
         return True
 
 
-def _regenerate_snapshot() -> None:
+def _regenerate_snapshot() -> bool:
     # Phase 9.4 — windowless flag prevents the briefing snapshot
-    # subprocess from flashing a console every 06:00.
+    # subprocess from flashing a console every 06:00. Returns True only on a
+    # clean regen so the caller can tell "fresh" from "kept the old file".
     try:
-        subprocess.run(
+        r = subprocess.run(
             [sys.executable, "scripts/snapshots/briefing_snapshot.py"],
             cwd=str(PROJECT_ROOT),
             timeout=60,
@@ -125,8 +134,15 @@ def _regenerate_snapshot() -> None:
             text=True,
             creationflags=WINDOWLESS_FLAGS,
         )
+        if r.returncode != 0:
+            sys.stderr.write(
+                f"[daily_brief] snapshot regen exit {r.returncode}: "
+                f"{(r.stderr or '').strip()[:200]}\n")
+            return False
+        return True
     except (subprocess.TimeoutExpired, OSError) as e:
         sys.stderr.write(f"[daily_brief] snapshot regen failed: {e}\n")
+        return False
 
 
 def _narrate_via_cli(snapshot: dict) -> str | None:
@@ -267,6 +283,8 @@ def _render_brief(snapshot: dict) -> str:
     ts = snapshot.get("ts") or ""
     hhmm = ts[11:16] if len(ts) >= 16 else ts
     lines.append("")
+    if snapshot.get("_stale"):
+        lines.append("⚠️ data may be stale — snapshot refresh failed")
     lines.append(f"⏱ snapshot {hhmm} UTC" if hhmm else "⏱ snapshot generated")
     return html.escape("\n".join(lines), quote=False)
 

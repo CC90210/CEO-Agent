@@ -258,6 +258,11 @@ def cmd_add(client, args, output_json: bool):
     payload = {
         "name": args.name,
         "status": "new",
+        # Stamp the operator tenant on insert — otherwise the row lands with a
+        # NULL tenant and the (now tenant-scoped) pipeline/followups reads would
+        # silently exclude it, so a manually-added inbound lead would never show
+        # in the brief. Overridable via --tenant.
+        "tenant_id": getattr(args, "tenant", None) or OASIS_TENANT_ID,
         "created_at": now,
         "updated_at": now,
     }
@@ -892,6 +897,9 @@ def cmd_bulk_import(client, args, output_json: bool):
             payload = {
                 "name": name or company,
                 "status": mapped_status,
+                # Stamp operator tenant so bulk-imported rows are visible to the
+                # tenant-scoped pipeline/followups reads (see cmd_add).
+                "tenant_id": OASIS_TENANT_ID,
                 "created_at": now,
                 "updated_at": now,
                 "source": "cold_outreach",
