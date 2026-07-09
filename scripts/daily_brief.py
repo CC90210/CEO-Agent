@@ -29,6 +29,7 @@ Cron: register as a cron_jobs SEED entry at 06:00 daily.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 import shutil
@@ -201,7 +202,15 @@ def _narrate_via_cli(snapshot: dict) -> str | None:
             f"[daily_brief] claude narration exit {proc.returncode}: "
             f"{(proc.stderr or '').strip()[:300]}\n")
         return None
-    return (proc.stdout or "").strip() or None
+    text = (proc.stdout or "").strip()
+    if not text:
+        return None
+    # notify() ships with parse_mode=HTML and has NO plain-text fallback, so a
+    # stray <, >, or & in the model's prose ("score > 70", "A & B") would make
+    # Telegram reject the whole message → CC gets nothing. Escape the three
+    # HTML-special chars; they render as literal glyphs. (_render_brief is
+    # authored without them, so the deterministic path needs no escaping.)
+    return html.escape(text, quote=False)
 
 
 def _count_stage(pipe: dict, stage: str) -> int:
