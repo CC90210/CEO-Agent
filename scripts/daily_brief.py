@@ -138,11 +138,14 @@ def _narrate_via_cli(snapshot: dict) -> str | None:
     degrades to accurate numbers rather than the old "AI narration unavailable"
     dead-end."""
     # Strip revenue/cash (Atlas's domain) + noisy fields before narrating.
+    # Also drop briefing.pipeline: ceo_dashboard computes it UNSCOPED (counts
+    # other tenants), whereas snapshot.pipeline is the tenant-scoped lead_engine
+    # truth. Sending both would let the narrator quote the wrong (inflated) count.
     cleaned = {k: v for k, v in snapshot.items()
                if k not in ("snapshot_type", "ts", "revenue")}
     if isinstance(cleaned.get("briefing"), dict):
         cleaned["briefing"] = {k: v for k, v in cleaned["briefing"].items()
-                               if k not in ("mrr", "cash")}
+                               if k not in ("mrr", "cash", "pipeline")}
     user_prompt = (
         f"Today is {snapshot.get('date', 'today')}. Operational empire state "
         f"(revenue omitted — that's Atlas's brief):\n\n"

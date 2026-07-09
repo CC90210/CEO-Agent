@@ -29,6 +29,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+# OASIS operator tenant. This is CC's personal CRM hub, but the leads table is
+# shared with the multi-tenant command-center DB — so an UNSCOPED read counts
+# other tenants' rows (e.g. funding-submission inboxes) plus legacy untenanted
+# orphans, which is why the daily brief once reported "111 new" when CC had ~35.
+# The lead-COUNTING reads (pipeline, followups) scope to CC's tenant so the
+# brief only ever reflects CC's own inbound. Overridable via env for another
+# operator/tenant. Matches CC_EMPIRE_TENANT_ID in scripts/core/cron_engine.py.
+OASIS_TENANT_ID = (
+    os.environ.get("OASIS_TENANT_ID")
+    or os.environ.get("EMPIRE_TENANT_ID")
+    or "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+)
+
+
 # -- Credential loading (identical pattern to supabase_tool.py) ----------------
 
 def load_env():
@@ -522,6 +536,7 @@ def cmd_followups(client, args, output_json: bool):
     result = (
         client.table("leads")
         .select("*")
+        .eq("tenant_id", OASIS_TENANT_ID)
         .lte("next_followup_at", today)
         .not_.is_("next_followup_at", "null")
         .order("next_followup_at", desc=False)
@@ -552,7 +567,7 @@ def cmd_followups(client, args, output_json: bool):
 
 def cmd_pipeline(client, args, output_json: bool):
     """Show pipeline summary: count and avg score by status."""
-    result = client.table("leads").select("status, score").execute()
+    result = client.table("leads").select("status, score").eq("tenant_id", OASIS_TENANT_ID).execute()
     leads = result.data or []
 
     stages = ["new", "contacted", "qualified", "proposal", "won", "lost"]
