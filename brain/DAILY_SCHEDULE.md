@@ -38,7 +38,7 @@ verified: 2026-06-09
 - Coffee, snack, step outside. Reset.
 
 ### 9:45 AM - DEEP WORK BLOCK 2: CLIENT DELIVERY (90 min)
-- Work on active client projects (OASIS retainers, primary community).
+- Work on active client projects (OASIS retainers).
 - Build features, fix bugs, deliver value to paying clients.
 - If no active clients yet: work on the CC Funnel, Gritly, or OASIS platform.
 
@@ -65,10 +65,10 @@ verified: 2026-06-09
 - Study: sales (NEPQ, closing), cybersecurity (TryHackMe), financial literacy.
 - Review competitor content. Study chase.h.ai hooks.
 - Read Atlas CFO reports on investment positions.
-- Plan tomorrow's outreach targets.
+- Plan tomorrow's outreach targets *(inbound-first: review inbound funnel + nurture queue; outbound only if CC directed)*.
 
 ### 4:30 PM - ADMIN + CLEANUP (30 min)
-- Respond to emails, DMs, Skool community.
+- Respond to emails, DMs.
 - Update ACTIVE_TASKS.md if priorities shifted.
 - Handle any loose ends from the day.
 

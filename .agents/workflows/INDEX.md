@@ -2,7 +2,7 @@
 tags: [workflows, index, hub]
 ---
 
-# Workflows Index — 35 Automated Pipelines
+# Workflows Index — 34 Automated Pipelines (+ this index)
 
 > Workflow files define slash-command triggers and step-by-step execution plans.
 > [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OPERATING_SYSTEM]]
@@ -45,8 +45,8 @@ tags: [workflows, index, hub]
 - [[.agents/workflows/knowledge-maintenance]] — Weekly cleanup
 
 ## Plans
-- [[.agents/plans/2026-03-07_northwood_meeting]] — Northwood meeting preparation plan
-- [[.agents/plans/2026-03-10_painting_software_build_plan]] — Painting software build plan
+- [[.agents/plans/_archive/2026-03-07_northwood_meeting]] — Northwood meeting preparation plan (archived)
+- [[.agents/plans/_archive/2026-03-10_painting_software_build_plan]] — Painting software build plan (archived)
 - [[.agents/plans/inbound-engine-build-plan]] — Inbound lead engine build plan
 
 ## System

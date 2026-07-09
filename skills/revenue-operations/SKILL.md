@@ -10,7 +10,7 @@ dependencies: []
 
 ## Overview
 
-`revenue_engine.py` is the single source of truth for CC's business revenue. It syncs Stripe subscription data and accepts manual entries for retainers, one-off projects, and consulting. Every dollar in and out runs through this system. The north star is $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20 — BreezeAdvance deal).
+`revenue_engine.py` is the mechanical ledger for revenue events (Stripe sync + manual entries for retainers, one-off projects, and consulting) — but **revenue reporting is ATLAS-OWNED**: Atlas (CFO) is the single source of truth for MRR/revenue numbers, and Bravo runs these mechanics only on explicit CC request. The north star is $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20 — BreezeAdvance deal) — owned by Atlas, not Bravo.
 
 ---
 
@@ -41,7 +41,7 @@ MRR = sum of all active monthly recurring revenue, normalized to monthly.
 - **One-off projects:** Logged via `log-revenue --type payment`. These count toward gross revenue but not MRR.
 - **Net MRR:** Gross MRR minus churn. Churn is logged when a client is marked inactive.
 
-Current state (March 2026): ~$2,691 USD Net MRR. Gap to goal: ~$2,309. That is 5-6 new clients at an average retainer of $400-500/mo, or 1-2 higher-ticket clients.
+Current revenue state: Atlas (CFO) owns it — do not quote a number from this file; defer to Atlas.
 
 ---
 
@@ -59,7 +59,9 @@ Run `goal` at the start of every week. If the required growth rate is above 15%,
 
 ## Monthly Reporting Cadence
 
-Run this sequence on the 1st of each month:
+**Run only on explicit CC request — Atlas (CFO) owns the monthly report.** Do not run this as a routine ritual.
+
+The sequence, when CC asks:
 
 1. `revenue_engine.py sync-stripe` — pull latest Stripe data
 2. `revenue_engine.py mrr` — confirm the number

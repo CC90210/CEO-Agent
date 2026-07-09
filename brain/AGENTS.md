@@ -191,10 +191,10 @@ Per STATE.md "Content Studio | MOVED TO MAVEN", the `content-creator`, `social-p
 
 ### 19. Sun Biz Agent (Funding Operations — Separate Client Product, corrected 2026-05-11)
 - **Model Tier:** Sonnet (per-agent runtime in its own repo, like Atlas/Maven)
-- **Project:** `C:\Users\User\Marketing-Agent` (legacy directory name retained for now; repo identity is Sun Biz Agent V1)
+- **Project:** `C:\Users\User\SunBiz-Agent` (canonical Windows clone; VPS runtime at `/srv/sunbiz/sunbiz-agent`)
 - **GitHub:** `CC90210/SunBiz-Agent` (operator-provided target URL; local remote rename/push still pending authorization)
 - **Purpose:** CC's first **client backend operations product**. Runs Sun Biz Funding LLC's day-to-day funding operations — lead sourcing, multi-provider SMS + email outreach, application/offer/funded-deal lifecycle, renewal triggers, commission tracking, and lender CRM — as a separate client-facing agent, not as a permanent row-level tenant of CC's own ops product.
-- **Capabilities (V1):** Twilio SMS (Phase 1; Telnyx + Plivo failover Phase 2), Gmail SMTP bulk email (inherited from AdVantage V2.0 production engine), funding-intel (factor rates, commission math, TAR-band classification), deal_tracker lifecycle helpers, renewal_scanner cron, JotForm lead ingestion. 16 sub-agents preserved from AdVantage rebrand — ads remain a lead-gen sub-capability.
+- **Capabilities (V1):** Kixie (voice) + TextTorrent (SMS), Gmail SMTP bulk email (inherited from AdVantage V2.0 production engine), funding-intel (factor rates, commission math, TAR-band classification), deal_tracker lifecycle helpers, renewal_scanner cron, native /forms designer lead ingestion. 16 sub-agents preserved from AdVantage rebrand — ads remain a lead-gen sub-capability.
 - **Heartbeat:** `scripts/state_bridge.py` daemon pings shared V6 state DB every 15s under `agent="sunbiz"`. Visible in dashboard `/agents` page and `state_api:8500/status` response.
 - **Events:** Emits the `SUNBIZ_*` family — registered in [[brain/EVENT_BUS_CONTRACT]] §Standard event-type registry (LEAD_SOURCED, SMS_SENT, APPLICATION_SUBMITTED, OFFER_PRESENTED, DEAL_FUNDED, RENEWAL_DUE, COMMISSION_BOOKED, EMAIL_BLAST_DISPATCHED, SESSION_LOG_APPENDED).
 - **Data topology:** Sun client data is **Turso/libSQL-first**. Shared infra may still use Business-Empire-Agent's V6 substrate (state DB mirror, event bus, dashboard shell), but leads/applications/offers/funded deals/renewals/commissions/SMS audit are NOT assumed to live in CC's shared Supabase tables.

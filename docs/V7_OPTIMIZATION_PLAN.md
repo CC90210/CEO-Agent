@@ -271,7 +271,7 @@ scripts/
 │   ├── ai_operator.ps1
 │   ├── ai_workstation_doctor.ps1
 │   ├── bravo_console_launcher.vbs
-│   ├── bravo_startup.pyw
+│   ├── bravo_startup.pyw   # archived 2026-07-09 → scripts/_archive/ (fleet boot is PM2-managed)
 │   ├── fix_watchdog_task.ps1
 │   ├── harden_powershell_profile.ps1
 │   ├── harden_windows.ps1

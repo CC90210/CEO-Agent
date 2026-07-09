@@ -76,13 +76,13 @@ SEED_JOBS: list[dict] = [
     # 'Lead Follow-up Check' removed 2026-05-22 — superseded by 'Nurture
     # Sequence Check' (both ran the same overdue-follow-up logic).
     {
-        # Phase 5c — OASIS HQ daily AI brief. Sonnet narrates the
+        # Phase 5c — OASIS HQ daily AI brief. Local claude CLI narrates the
         # briefing_snapshot into a 5-bullet morning summary, shipped to
-        # CC's Telegram via notify(force=True). Empty MRR / pipeline data
-        # still produces a brief that says "nothing happened" — the cron's
-        # job is to fire reliably, not to gate on activity.
+        # CC's Telegram via notify(force=True). No MRR — revenue reporting
+        # is Atlas's (CFO). Empty pipeline data still produces a brief that
+        # says "nothing happened" — the cron's job is to fire reliably.
         "name": "Daily Bravo Brief",
-        "description": "AI-narrated morning brief — pipeline, MRR, follow-ups — sent to CC's Telegram",
+        "description": "AI-narrated morning brief — pipeline, follow-ups, client health — sent to CC's Telegram (no MRR; Atlas owns revenue)",
         "schedule": "0 6 * * *",
         "action_type": "daily_brief",
         "action_config": {"notify_channel": "telegram"},
@@ -151,7 +151,11 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 8 * * *",
         "action_type": "morning_powwow",
         "action_config": {"voice": "aura", "agent": "aura"},
-        "is_active": True,
+        # 2026-07-09: matches live DB state (disabled since 2026-05-21) AND
+        # scripts/aura/brain.py still drafts via the dead metered API key —
+        # a reseed must not resurrect a job whose model call cannot succeed.
+        # Re-enable only after porting aura/brain.py to lib/claude_cli.
+        "is_active": False,
     },
     {
         "name": "Booking Reminders",
@@ -192,11 +196,15 @@ SEED_JOBS: list[dict] = [
     },
     {
         "name": "Weekly MRR Report",
-        "description": "Generate and log weekly MRR dashboard",
+        "description": "Generate and log weekly MRR dashboard — ATLAS-OWNED reporting; disabled 2026-07-09 (Bravo does not report MRR). Re-home to Atlas (CFO-Agent) if CC wants the weekly digest back.",
         "schedule": "0 9 * * MON",
         "action_type": "revenue_report",
         "action_config": {"report_type": "mrr_weekly", "notify_channel": "telegram"},
-        "is_active": True,
+        # 2026-07-09: toggled off in the live DB (row 68e3e96e) same day —
+        # keep seed in lockstep so a reseed doesn't resurrect Bravo-sent
+        # MRR digests. Data plumbing (Stripe Revenue Sync, Daily MRR
+        # Auto-Sync) stays active — Atlas reads those tables.
+        "is_active": False,
     },
     {
         "name": "Weekly Pipeline Review",
@@ -220,6 +228,18 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 9 1 * *",
         "action_type": "monthly_snapshot",
         "action_config": {"tables": ["revenue_events", "leads", "content_calendar"]},
+        "is_active": True,
+    },
+    {
+        # In the live DB since 2026-06 (row bb0d5f2b) but was never seeded —
+        # a fresh-machine reseed would silently lose it. Added 2026-07-09.
+        # Runs the cross-agent self-improvement sweep (Bravo + Atlas + Maven
+        # digest via scripts/core/agent_self_improvement.py).
+        "name": "Cross-Agent Self-Improvement Sweep",
+        "description": "Nightly cross-agent self-improvement sweep — mistakes/patterns digest across Bravo, Atlas, Maven",
+        "schedule": "0 4 * * *",
+        "action_type": "agent_self_improvement",
+        "action_config": {},
         "is_active": True,
     },
     # SunBiz cron entries live in SunBiz-Agent/scripts/core/cron_registry.py

@@ -19,7 +19,6 @@ verified: 2026-06-09
 
    ❌ Mac must NOT run any of these (they mutate shared state — running two = corruption):
    - `scheduler.py` (Supabase `cron_jobs` table)
-   - `skool_engine.py daemon` (Skool browser session lock)
    - `telegram_agent.js` (single Telegram poll connection)
    - any PM2 processes under the `bravo-*` namespace
    - `local_bridge.py _loop` (heartbeat ping daemon — single bridge per machine is fine, but redundant heartbeats waste rows)
@@ -34,12 +33,7 @@ verified: 2026-06-09
      simultaneously — no conflict.
    - `bravo bridge install` to set up launchd auto-start on login.
 
-   **Skool daemon specifically:** Windows-exclusive. The Chromium profile at
-   `tmp/skool-browser/` holds CC's Skool auth session, and an OS-level file
-   lock (`msvcrt.locking` via `DaemonLock` class) prevents two instances.
-   Running Skool daemon on Mac means a second browser session logs into the
-   same Skool account → Skool sees two devices → double-replies publicly in
-   the the prior community community with CC's name attached. **NEVER.**
+   **Skool daemon:** archived 2026-05-18 → `scripts/_archive/skool/` (revival steps in its README).
 
    **Telegram bridge specifically:** Only one bridge can exist globally. Both
    bridges use the same `TELEGRAM_BOT_TOKEN`, which means Telegram's
@@ -71,7 +65,7 @@ verified: 2026-06-09
 | `memory/HANDOFF.md` | **shared** | Outgoing session writes here; incoming session reads first. |
 | `scripts/` | **shared** | Both machines can edit. Surgical changes only — no full-file rewrites on Mac if Windows is also editing. |
 | `skills/` | **shared** | Safe to edit on either. |
-| Daemons (skool, scheduler, telegram-bot) | **Windows only** | Mac never starts these. |
+| Daemons (scheduler, telegram-bot) | **Windows only** | Mac never starts these. |
 
 ## The Session Lifecycle
 
@@ -145,14 +139,6 @@ Every session declares its identity in `ACTIVE_SESSION.json`:
 
 Any Claude Code session that reads this file knows instantly: who's live, what they're doing, how stale the claim is, and whether to defer or proceed.
 
-## The Skool Daemon Exclusivity Lock
-
-The skool daemon uses a **file-based lock** at `tmp/skool_daemon.lock` (Windows `msvcrt.locking`). Only one process can hold it. But `tmp/` is gitignored and machine-local, so Mac has no knowledge of the Windows lock. That means:
-
-**Never run `python scripts/skool_engine.py daemon` on Mac.** The Mac daemon would try to open a fresh Chromium profile at `tmp/skool-browser/`, Skool would see a second device logging into the same account, and you'd get double-replies in the live community.
-
-Enforcement: the session script checks which machine you're on and refuses to start skool daemon if `machine != "windows"`.
-
 ## Telegram Bridge Handoff Protocol (Windows ↔ Mac)
 
 **Default state:**
@@ -186,9 +172,8 @@ ssh cc-mac "pm2 stop bravo-telegram && pm2 save"
 ### Hard rules
 
 - **NEVER both running.** Two bridges sharing `TELEGRAM_BOT_TOKEN` → Telegram routes each message to whichever grabs it first, alternating randomly. Your phone commands will feel broken.
-- **Skool daemon stays Windows-only regardless of telegram location.** It has no Mac equivalent and uses an OS-level DaemonLock.
 - **Scheduler stays Windows-only regardless of telegram location.** Never run two schedulers against one Supabase `cron_jobs` table.
-- **Only telegram bridge is handoff-capable.** Everything else (scheduler, skool, content automation) is Windows-pinned.
+- **Only telegram bridge is handoff-capable.** Everything else (scheduler, content automation) is Windows-pinned.
 
 ## Telegram as the Cross-Machine Control Plane
 

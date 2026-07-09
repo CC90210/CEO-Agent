@@ -8,6 +8,8 @@ dependencies: [stripe_tool.py, supabase_tool.py, financial-modeling]
 
 # Investor Update Workflow
 
+> **FINANCIALS SUPPLIED BY ATLAS (CFO):** Bravo assembles, Atlas provides MRR/ARR/runway numbers — do not compute from revenue_engine directly.
+
 Generate and draft a monthly investor update email using live data from Stripe, Supabase, and the financial model.
 
 ## When to Run
@@ -18,12 +20,8 @@ Generate and draft a monthly investor update email using live data from Stripe, 
 
 ## Steps
 
-### Step 1 — Pull Revenue Data
-```bash
-python scripts/integrations/stripe_tool.py subscriptions --status active --json
-python scripts/integrations/stripe_tool.py invoices --limit 10 --json
-```
-Extract: current MRR, new MRR added this month, churned MRR, total active subscriptions.
+### Step 1 — Pull Revenue Data (via Atlas)
+Request from Atlas (CFO-Agent): current MRR, new MRR added this month, churned MRR, total active subscriptions. Atlas owns the Stripe pulls — Bravo consumes the numbers, does not compute them.
 
 ### Step 2 — Pull Pipeline Data
 ```bash
@@ -39,11 +37,11 @@ Pull last 30 days of outgoing charges (Stripe subscriptions CC pays). Reference 
 
 ### Step 4 — Compile Metrics Table
 
-Build the metrics comparison table:
+Build the metrics comparison table (MRR/ARR/runway rows populated from Atlas's numbers — Bravo does not compute them):
 | Metric | This Month | Last Month | Change |
 |--------|------------|------------|--------|
-| MRR (USD) | [from Stripe] | [from last session log] | [calc] |
-| ARR (USD) | MRR × 12 | — | [calc] |
+| MRR (USD) | [from Atlas] | [from Atlas] | [from Atlas] |
+| ARR (USD) | [from Atlas] | — | [from Atlas] |
 | Active Clients | [from Supabase] | [from last log] | [diff] |
 | Pipeline (USD) | [from leads query] | — | — |
 | Burn Rate (USD) | [from expenses] | — | — |
@@ -96,7 +94,7 @@ The update is also saved to `memory/SESSION_LOG.md` for historical tracking.
 
 ## Error Handling
 
-- Stripe API fails: use last known MRR from `brain/STATE.md` and flag as estimated
+- Atlas unavailable / numbers missing: flag the financial rows as "pending Atlas" — do not fall back to computing MRR from Stripe or brain/STATE.md
 - Supabase query fails: use lead count from last session log entry
 - Missing data point: always flag as estimated rather than omitting — transparency builds trust
 

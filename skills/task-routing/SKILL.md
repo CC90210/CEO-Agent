@@ -58,7 +58,7 @@ Scan the task for domain keywords to identify the primary domain:
 | **Database** | schema, migration, table, query, Supabase, RPC | architect |
 | **Content** | post, copy, caption, pillar, brand voice | content-creator |
 | **Outreach** | email, lead, follow-up, client, proposal | chief-of-staff |
-| **Revenue** | pricing, Stripe, invoice, subscription, MRR | revenue-hunter |
+| **Revenue** | pricing, Stripe, invoice, subscription, MRR | Atlas (CFO-Agent) — defer, do not self-serve |
 | **Workflow** | n8n, automation, trigger, webhook | workflow-builder |
 | **Video** | FFmpeg, Remotion, caption, render, audio | video-editor |
 | **Research** | investigate, compare, analyze market, documentation | researcher |
@@ -66,7 +66,6 @@ Scan the task for domain keywords to identify the primary domain:
 | **Documentation** | docs, README, update memory, changelog | documenter |
 | **Git** | commit, branch, PR, merge, rebase | git-ops |
 | **Social** | post, schedule, Zernio, Late, cross-post, publish | social-publisher |
-| **Skool** | lesson, course, classroom, community | writer (+ skool-automation skill) |
 | **Exploration** | find, where is, search, locate, navigate | explorer |
 
 ### Step 3: Agent Assignment

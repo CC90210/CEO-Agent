@@ -173,7 +173,7 @@ Aura reads all 3 pulses → suppresses takeout nudges that week (lean mode)
 CC → Bravo: "Should I hire a VA?"
 Bravo reads: cfo_pulse (runway), cmo_pulse (ad ROAS), ceo_pulse (client pipeline)
 Bravo computes: cost of hire vs. time freed vs. pipeline load
-Bravo answers: "Not yet — wait until MRR hits $5K, then we hire for XYZ specifically"
+Bravo answers: "Not yet — wait until MRR hits $10K, then we hire for XYZ specifically"
 Bravo writes reasoning to ceo_pulse for future sessions
 ```
 

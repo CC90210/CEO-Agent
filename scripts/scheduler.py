@@ -425,7 +425,19 @@ def _send_digest(msg: str, category: str, skip_phrase: str) -> str:
 
 
 def run_revenue_report(env_vars: dict) -> str:
-    """Generate MRR dashboard summary as a clean Telegram message."""
+    """MRR reporting is ATLAS-OWNED (CFO) — Bravo does not send revenue digests.
+
+    Handler-level enforcement (2026-07-09): the 'Weekly MRR Report' cron was
+    disabled in both the DB and SEED_JOBS, but that's a toggle anyone could flip
+    back on. This is the backstop — even if a revenue_report row fires, Bravo
+    refuses to build/send an MRR figure to Telegram. Set BRAVO_ALLOW_REVENUE_REPORT=1
+    ONLY for a deliberate one-off; the digest belongs to Atlas.
+    """
+    import os as _os
+    if (env_vars.get("BRAVO_ALLOW_REVENUE_REPORT")
+            or _os.environ.get("BRAVO_ALLOW_REVENUE_REPORT") or "").strip() != "1":
+        return ("revenue-report skipped: MRR reporting is Atlas-owned (CFO). "
+                "Re-home this job to Atlas or set BRAVO_ALLOW_REVENUE_REPORT=1 for a one-off.")
     raw = run_script("revenue_engine.py", ["--json", "dashboard"])
     if not raw or not raw.strip().startswith("{"):
         return f"ERROR: revenue dashboard returned non-JSON: {raw[:200]}"
@@ -817,16 +829,19 @@ def run_monthly_snapshot(env_vars: dict) -> str:
     except (json.JSONDecodeError, TypeError) as exc:
         return f"ERROR: monthly snapshot JSON parse failed: {exc}"
 
-    stripe_mrr = float(data.get("stripe_mrr", 0) or 0)
-    manual_mrr = float(data.get("manual_mrr", 0) or 0)
-    total_mrr = float(data.get("total_mrr", stripe_mrr + manual_mrr) or 0)
+    # 2026-07-09 Atlas boundary: Bravo does NOT report MRR/revenue figures to
+    # CC — that's Atlas's (CFO) brief. The engine still runs above so the
+    # snapshot data lands in the revenue DB (plumbing Atlas reads) and a
+    # broken engine still surfaces as ERROR — but the message CC sees (this
+    # return string doubles as last_result AND the Telegram digest) carries
+    # no dollar figures.
     subs = data.get("stripe_subs") or []
     active_subs = sum(1 for s in subs if isinstance(s, dict) and s.get("status") == "active")
 
     return (
-        f"Monthly snapshot: ${total_mrr:,.0f} MRR "
-        f"(Stripe ${stripe_mrr:,.0f} + manual ${manual_mrr:,.0f}) · "
-        f"{active_subs} active sub{'s' if active_subs != 1 else ''}"
+        f"Monthly snapshot captured — revenue data logged for Atlas (CFO) · "
+        f"{active_subs} active Stripe sub{'s' if active_subs != 1 else ''} · "
+        f"details in the revenue DB, reporting via Atlas"
     )
 
 

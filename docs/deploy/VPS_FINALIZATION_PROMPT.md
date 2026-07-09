@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED 2026-07-09** — do NOT paste `ANTHROPIC_API_KEY` into any env.
+> Auth = `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` (see memory `reference_claude_code_headless_vps_auth`).
+> MRR reporting is Atlas-owned.
+
 # VPS Finalization Prompt — close the gap from 65% → 100%
 
 > Paste everything between the triple-dashes into your VPS Claude Code

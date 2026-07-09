@@ -21,8 +21,6 @@ When CC reboots his Windows machine (CCPC), the 9 PM2 daemons that drive the Sun
 | `sequence-runner` | SunBiz drip-campaign engine | Yes |
 | `lender-response-classifier` | Gmail thread classifier | Yes |
 
-Plus the standalone Skool daemon (NOT in PM2 — owns its own DaemonLock; auto-managed by the `SkoolWatchdog` Windows scheduled task).
-
 ## After a reboot
 
 1. **Wait 30 seconds** after login — Windows takes a moment to settle services.
@@ -83,7 +81,7 @@ Register-ScheduledTask -TaskName "PM2 Resurrect" -Action $action -Trigger $trigg
 The old duplicate task **"PM2 Resurrect on Login"** must stay disabled. It used
 `cmd.exe /c pm2.cmd resurrect ...` directly and was the popup-prone path.
 
-### Task 2: "SkoolWatchdog"
+### Task 2: "SkoolWatchdog" [ARCHIVED 2026-05-18 — do not re-register; see scripts/_archive/skool/README.md]
 The Skool daemon is standalone (NOT in PM2 - owns its own DaemonLock). It is
 managed by **"SkoolWatchdog"**, which runs every 5 minutes through
 `pythonw.exe` and starts/restarts `skool_engine.py` with the no-console

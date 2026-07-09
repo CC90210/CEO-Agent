@@ -10,7 +10,7 @@ tier: standard
 
 > **Purpose:** Prevent zombie daemon incidents. A running Python process does NOT pick up source code changes. This skill encodes every lesson from a 7-day zombie incident where an old Skool automation kept sending unwanted DMs because the process was never properly killed and restarted after code changes.
 >
-> **Note on examples:** `daemon_name.py` throughout this skill is a placeholder — substitute the real daemon you're building. The historical `skool_engine.py` / `skool_watchdog.py` references reflect the original incident; those scripts were archived 2026-05-18 to `scripts/_archive/skool/` and the pattern is retained as a teaching example. `scripts/bravo_startup.pyw` (active) remains the single startup entry point.
+> **Note on examples:** `daemon_name.py` throughout this skill is a placeholder — substitute the real daemon you're building. The historical `skool_engine.py` / `skool_watchdog.py` references reflect the original incident; those scripts were archived 2026-05-18 to `scripts/_archive/skool/` and the pattern is retained as a teaching example. `scripts/bravo_startup.pyw` was archived 2026-07-09 to `scripts/_archive/` — fleet boot is PM2-managed post-Montreal-reset; the startup-script pattern below is historical.
 
 ## The Core Law
 
@@ -224,8 +224,8 @@ Start the new process, watch the first cycle output, confirm behavior matches ex
 # Start headless (no console window)
 pythonw scripts/daemon_name.py &
 
-# Or via startup script
-python scripts/bravo_startup.pyw
+# Or via startup script (archived 2026-07-09 — fleet boot is PM2-managed now)
+python scripts/_archive/bravo_startup.pyw
 
 # Watch logs for first cycle
 tail -f tmp/logs/daemon_name_$(date +%Y-%m-%d).log
@@ -486,9 +486,9 @@ def post_content(payload: dict) -> bool:
 
 ---
 
-## 6. Startup Architecture (`bravo_startup.pyw`)
+## 6. Startup Architecture (`bravo_startup.pyw` — archived 2026-07-09 to `scripts/_archive/`, teaching example only)
 
-The startup script is the single entry point for all daemons. It runs at Windows logon via Task Scheduler.
+The startup script was the single entry point for all daemons, run at Windows logon via Task Scheduler. Fleet boot is now PM2-managed (`pm2 save` + Startup VBS).
 
 ```python
 """
@@ -608,12 +608,12 @@ Copy this when building any new daemon automation.
 [ ] Watchdog checks heartbeat freshness AND PID existence
 [ ] `--dry-run` CLI flag for testing without side effects
 [ ] `--status` subcommand printing heartbeat/lock/PID state
-[ ] bravo_startup.pyw entry updated with new daemon
+[ ] PM2 ecosystem.config.js entry added for new daemon (bravo_startup.pyw archived 2026-07-09)
 [ ] Version constant or git hash logged at startup (confirms new code is live)
 [ ] 5-step redeploy protocol verified by running it once after initial deploy
 ```
 
 ## Obsidian Links
-- `scripts/bravo_startup.pyw` | `scripts/_archive/skool/skool_engine.py` (historical) | `scripts/_archive/skool/skool_watchdog.py` (historical) | [[brain/CAPABILITIES]]
+- `scripts/_archive/bravo_startup.pyw` (archived 2026-07-09) | `scripts/_archive/skool/skool_engine.py` (historical) | `scripts/_archive/skool/skool_watchdog.py` (historical) | [[brain/CAPABILITIES]]
 - [[skills/background-workers/SKILL.md]] | [[skills/hooks-automation/SKILL.md]]
 - [[memory/MISTAKES]] | [[memory/SESSION_LOG]]

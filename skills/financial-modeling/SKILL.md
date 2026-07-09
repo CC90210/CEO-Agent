@@ -8,7 +8,7 @@ tier: specialized
 
 # Financial Modeling
 
-> **Note (2026-05-18):** Worked examples below use pre-2026-05-18 numbers ($2,500 primary retainer, $2,982 MRR, 94% concentration). They remain as **pedagogical references** — the formulas + structure still apply. For current state see brain/STATE.md (~$371 confirmed MRR, no dominant client).
+> **Note (2026-05-18):** Worked examples below use pre-2026-05-18 numbers ($2,500 primary retainer, $2,982 MRR, 94% concentration). They remain as **pedagogical references** — the formulas + structure still apply. Current revenue state: Atlas (CFO) owns it — defer to Atlas, don't quote a number.
 
 ## Overview
 

@@ -22,12 +22,17 @@ CC's business target is $10,000 USD Net MRR by September 30, 2026 ($5K achieved 
 
 ## 1. North Star Metrics (5 Numbers, Every Morning)
 
+> **ATLAS-OWNED boundary (2026-07-09):** Bravo does NOT compute or report MRR — Atlas (CFO)
+> owns revenue reporting. Metric #1 (Net MRR) is a pointer only: read Atlas cfo_pulse /
+> STATE.md (READ ONLY) if CC explicitly asks for the number. Do not run `revenue_engine.py`
+> for a dashboard.
+
 These are the only 5 numbers CC needs to see before starting his day.
 
 ```
 NORTH STAR SNAPSHOT — [Date]
 ──────────────────────────────────────────────────────
-1. Net MRR:        $[X] / $10,000 target  ([X]% — [Y] days to deadline)
+1. Net MRR:        $[X] / $10,000 target  ([X]% — [Y] days to deadline)  [ATLAS-OWNED — read-only]
    [████████░░] [X]%
    Trend: [↑ +$X vs last month / → flat / ↓ -$X vs last month]
 
@@ -49,7 +54,7 @@ NORTH STAR SNAPSHOT — [Date]
 ```
 
 **Manual sources when script unavailable:**
-1. MRR: `memory/ACTIVE_TASKS.md` last known MRR entry + `python scripts/integrations/stripe_tool.py subscriptions --status active --json`
+1. MRR: ATLAS-OWNED — read Atlas cfo_pulse / STATE.md (read-only) on explicit CC ask; Bravo does not compute it
 2. Pipeline: `memory/LEAD_TRACKER.csv` — sum value of leads in Discovery, Proposal, Negotiation stages
 3. Client health: `python scripts/client_health.py alerts` or `skills/client-success/SKILL.md`
 4. Cash: Stripe balance (`python scripts/integrations/stripe_tool.py balance`) + bank (manual input)
@@ -59,7 +64,12 @@ NORTH STAR SNAPSHOT — [Date]
 
 ## 2. Revenue Dashboard
 
-### MRR Breakdown by Client
+> **ATLAS-OWNED boundary (2026-07-09):** This entire section is Atlas's (CFO) report — Bravo
+> does NOT compute or report MRR. The templates below stay for reference; populate them only
+> by reading Atlas cfo_pulse / STATE.md (READ ONLY) on explicit CC request, never via
+> `revenue_engine.py`.
+
+### MRR Breakdown by Client (ATLAS-OWNED — read-only)
 
 ```
 MRR BREAKDOWN — [Month YYYY]
@@ -90,7 +100,7 @@ This month  | $[X]    | +$[X]   | -$[X]   | [±$X (proj)]
 ────────────────────────────────────────────────────
 ```
 
-**Data source:** `python scripts/revenue_engine.py history --months 6 --json`
+**Data source:** ATLAS-OWNED — Atlas cfo_pulse / STATE.md (read-only). `revenue_engine.py history` runs only on explicit CC request.
 
 ### Revenue Composition Analysis
 
@@ -105,7 +115,7 @@ Revenue concentration (top client %):    [X]%
 [WARNING if any single client > 40% of MRR — concentration risk]
 ```
 
-**Concentration risk flag:** If any single client accounts for >40% of MRR, flag it. (Historical note: the primary retainer was 84% concentration through 2026-05-17 — that risk materialized 2026-05-18 when the retainer ended. Current state: ~$371 confirmed MRR, no dominant client. The flag is now a guardrail against re-creating the same concentration.)
+**Concentration risk flag:** If any single client accounts for >40% of MRR, flag it. (Historical note: the primary retainer was 84% concentration through 2026-05-17 — that risk materialized 2026-05-18 when the retainer ended. Current revenue state: Atlas (CFO) owns it — read Atlas STATE.md, don't quote a number here. The flag is now a guardrail against re-creating the same concentration.)
 
 ### Revenue by Brand
 
@@ -216,7 +226,7 @@ TOTAL OVERHEAD:   | $[X]/mo  | $[Y]/mo  |
 ────────────────────────────────────────────────
 ```
 
-**Rule:** Keep total overhead below 10% of MRR. At $5,000 MRR target, overhead cap is $500/mo.
+**Rule:** Keep total overhead below 10% of MRR. At the $10,000 MRR target (by 2026-09-30), overhead cap is $1,000/mo.
 
 ---
 
@@ -343,7 +353,7 @@ One sentence on the highest-leverage thing happening right now.
 One sentence on the biggest risk or open item needing attention today.]
 
 NORTH STAR
-  Net MRR:        $[X] / $5,000  ([X]%) — [X] days remaining ↑↓→
+  Net MRR:        $[X] / $10,000 (by 2026-09-30)  ([X]%) — [X] days remaining ↑↓→
   Pipeline:        $[X] potential ([N] warm leads) ↑↓→
   Client Health:   [X]/100 avg ([N] at risk) ↑↓→
   Cash Position:   $[X] net available ↑↓→
@@ -395,7 +405,7 @@ TODAY'S #1 PRIORITY
 ## Integration Points
 
 - **Live data** → `python scripts/ceo_dashboard.py briefing`
-- **Revenue** → `python scripts/revenue_engine.py mrr --json`
+- **Revenue** → ATLAS-OWNED; defer to Atlas (read Atlas STATE.md read-only on explicit CC ask)
 - **Stripe** → `python scripts/integrations/stripe_tool.py subscriptions --status active --json`
 - **Pipeline** → `memory/LEAD_TRACKER.csv`
 - **Client health** → `python scripts/client_health.py report --json`

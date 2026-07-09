@@ -6,7 +6,7 @@
 #
 # Usage from BEA root:
 #   bash scripts/sync-from-github.sh
-#   bash scripts/sync-from-github.sh --restart-daemons   # also restart skool + scheduler after pull
+#   bash scripts/sync-from-github.sh --restart-daemons   # also restart scheduler after pull
 #   bash scripts/sync-from-github.sh --verify-only       # fetch + diff only, no pull
 #
 # Exit codes:
@@ -145,7 +145,7 @@ ok "Now at $NEW_COMMIT"
 bold "=== Post-pull verification ==="
 if [[ -n "$PYTHON" ]]; then
     info "Syntax-checking critical scripts..."
-    for f in scripts/skool_engine.py scripts/lead_engine.py scripts/revenue_engine.py scripts/content_pipeline.py; do
+    for f in scripts/lead_engine.py scripts/revenue_engine.py scripts/content_pipeline.py; do
         if [[ -f "$f" ]]; then
             if "$PYTHON" -c "import ast,sys; ast.parse(open('$f',encoding='utf-8').read()); print('  ok: $f')" 2>&1; then
                 :
@@ -156,23 +156,6 @@ if [[ -n "$PYTHON" ]]; then
         fi
     done
     ok "All critical scripts parse clean."
-
-    # Verify skool_engine import (catches missing imports / broken helpers)
-    if [[ -f scripts/skool_engine.py ]]; then
-        if "$PYTHON" -c "
-import importlib.util, sys
-sys.stdout.reconfigure(encoding='utf-8') if hasattr(sys.stdout,'reconfigure') else None
-spec = importlib.util.spec_from_file_location('t','scripts/skool_engine.py')
-m = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(m)
-print('  ok: skool_engine imports (V2.1 symbols present =', hasattr(m, '_needs_coach_attention'),')')
-" 2>&1; then
-            ok "skool_engine.py imports cleanly."
-        else
-            err "skool_engine.py import failed after pull."
-            exit 3
-        fi
-    fi
 else
     warn "Skipping Python verification (no interpreter)."
 fi

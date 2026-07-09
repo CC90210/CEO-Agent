@@ -1,8 +1,8 @@
 # =============================================================================
-# BRAVO V5.5 — Orchestration Configuration
+# BRAVO V6.8 — Orchestration Configuration
 # =============================================================================
 # Single source of truth for agent behavior, routing, security, and performance.
-# All AI interfaces (Claude Code, Gemini CLI, Anti-Gravity) read this config.
+# All AI interfaces (Claude Code, Gemini CLI, Antigravity, Codex/Cursor via AGENTS.md, OpenCode, ZCode) read this config.
 # Place: .agents/config.toml (project-level)
 # =============================================================================
 
@@ -60,7 +60,7 @@ security = "reviewer"
 database = "architect"
 content = "content-creator"
 outreach = "chief-of-staff"
-revenue = "revenue-hunter"
+# revenue = "revenue-hunter"  # removed 2026-07-09 — revenue routes to Atlas (CFO-Agent), not a subagent
 workflow = "workflow-builder"
 video = "video-editor"
 research = "researcher"
@@ -147,7 +147,8 @@ documenter = ["**/*.md", "brain/**", "memory/**", "skills/**"]
 explorer = ["**/*"]         # Read-only on everything
 git-ops = [".git/**", "**/*"]
 content-creator = ["content-studio/**", "media/**", "courses/**"]
-social-publisher = ["scripts/late_tool.py"]
+# social-publisher scope removed 2026-07-09 — scripts/late_tool.py no longer exists in this repo;
+# Late tooling lives at ../CMO-Agent/scripts/late_tool.py (Maven owns social publishing)
 
 # Blocked patterns (NO agent can touch these)
 [permissions.blocked]

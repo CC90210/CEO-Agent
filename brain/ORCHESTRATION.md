@@ -241,7 +241,6 @@ This was previously conflated across `brain/AGENTS.md` and `agents/INDEX.md`. Th
 - `skills/gws-gmail-reply/SKILL.md` — Gmail reply (sends)
 - `skills/gws-gmail-reply-all/SKILL.md` — Gmail reply-all (sends)
 - `skills/gws-chat-send/SKILL.md` — Google Chat send
-- `skills/skool-automation/SKILL.md` — community content edits
 
 **Rule for future skills:** any skill that mutates external state (sends, posts, publishes, pays, deploys, writes to a production DB) MUST have the flag. Read-only knowledge skills (e.g., `supabase-patterns` for SQL guidance) do NOT need the flag.
 
@@ -389,7 +388,7 @@ Run quarterly or after major capability additions:
 python scripts/integrations/google_tool.py test
 python scripts/integrations/supabase_tool.py list-tables --project bravo
 python scripts/integrations/stripe_tool.py balance
-python scripts/late_tool.py --json accounts
+python ../CMO-Agent/scripts/late_tool.py --json accounts
 python scripts/integrations/n8n_tool.py list
 python scripts/integrations/firecrawl_tool.py search "test"
 

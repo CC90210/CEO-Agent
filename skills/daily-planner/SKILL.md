@@ -74,7 +74,7 @@ Things Bravo does WITHOUT CC:
 - Email nurture sequences
 - Supabase/Stripe monitoring
 - Memory sync, state updates
-- Social media engagement replies (Skool engine, IG engine)
+- Social media engagement replies (IG engine)
 
 Things that need CC's quick approval:
 - Outgoing emails to clients (draft → CC approves → send)
@@ -112,7 +112,7 @@ CC's batch upload day. CC uploads video/files, Bravo schedules 1 piece/day acros
 - Bravo handles all post-production scheduling
 
 ### Weekend (Nicky's Donuts + Rest)
-- Automated systems run (Skool engine, content calendar, nurture sequences)
+- Automated systems run (IG engine, content calendar, nurture sequences)
 - Bravo logs any overnight events for Monday briefing
 - No active tasks pushed to CC unless CRITICAL
 

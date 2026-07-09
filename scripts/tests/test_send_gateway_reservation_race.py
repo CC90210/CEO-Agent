@@ -16,8 +16,8 @@ This test asserts:
   3. actor_user_id roundtrips through the RPC
 
 Run:
-    python scripts/_test_send_gateway_reservation_race.py
-    python scripts/_test_send_gateway_reservation_race.py --json
+    python scripts/tests/test_send_gateway_reservation_race.py
+    python scripts/tests/test_send_gateway_reservation_race.py --json
 """
 
 from __future__ import annotations
@@ -28,7 +28,8 @@ import os
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# Lives in scripts/tests/ (moved 2026-07-09) — repo root is two parents up.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "lib"))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 

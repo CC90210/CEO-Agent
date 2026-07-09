@@ -14,11 +14,11 @@ verified: 2026-06-09
 ```
 CC (Final Authority — human decision-maker)
 │
-├── Bravo (CEO)     — Strategy, clients, revenue, partnerships, vision
+├── Bravo (CEO)     — Strategy, clients, partnerships, vision
 │   Project: C:\Users\User\Business-Empire-Agent
 │   GitHub: CC90210/CEO-Agent
 │   Pulse:   data/pulse/ceo_pulse.json
-│   Orchestrates apps: ig-setter-pro (PULSE), cc-funnel, Skool automation
+│   Orchestrates apps: ig-setter-pro (PULSE)
 │
 ├── Atlas (CFO)     — Money, tax, research, compliance, wealth
 │   Project: C:\Users\User\APPS\CFO-Agent

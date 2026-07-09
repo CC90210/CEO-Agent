@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-07-09T15:42:31.388920+00:00",
+  "generated_at": "2026-07-09T18:31:36.359127+00:00",
   "totals": {
     "skills": 150,
-    "scripts": 113,
+    "scripts": 114,
     "agents": 21,
     "mcp_servers": 9,
     "workflows": 35,
-    "nodes_total": 328,
+    "nodes_total": 329,
     "edges_total": 47,
     "drift_count": 0
   },
@@ -5110,6 +5110,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:harness_eval",
+      "kind": "script",
+      "name": "harness_eval",
+      "path": "scripts/harness_eval.py",
+      "description": "harness_eval.py \u2014 deterministic eval suite for the Bravo agent harness.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:harness_plugin",
       "kind": "script",
       "name": "harness_plugin",
@@ -6170,7 +6180,7 @@
       "kind": "workflow",
       "name": "INDEX",
       "path": ".agents/workflows/INDEX.md",
-      "description": "# Workflows Index \u2014 35 Automated Pipelines\n\n> Workflow files define slash-command triggers and step-by-step execution plans.\n> [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OPERATING_SYSTEM]",
+      "description": "# Workflows Index \u2014 34 Automated Pipelines (+ this index)\n\n> Workflow files define slash-command triggers and step-by-step execution plans.\n> [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OP",
       "owner": "bravo",
       "discovery": "auto-frontmatter"
     },
@@ -6188,7 +6198,7 @@
       "kind": "workflow",
       "name": "Investor Update",
       "path": ".agents/workflows/investor-update.md",
-      "description": "# Investor Update Workflow\n\nGenerate and draft a monthly investor update email using live data from Stripe, Supabase, and the financial model.\n\n## When to Run\n\n- Manually via `/investor-update` comman",
+      "description": "# Investor Update Workflow\n\n> **FINANCIALS SUPPLIED BY ATLAS (CFO):** Bravo assembles, Atlas provides MRR/ARR/runway numbers \u2014 do not compute from revenue_engine directly.\n\nGenerate and draft a monthl",
       "owner": "bravo",
       "discovery": "auto-frontmatter"
     },
@@ -6413,6 +6423,11 @@
       "kind": "uses"
     },
     {
+      "from": "skill:ceo-dashboard",
+      "to": "script:revenue_engine",
+      "kind": "uses"
+    },
+    {
       "from": "skill:client-success",
       "to": "script:client_health",
       "kind": "uses"
@@ -6511,11 +6526,6 @@
       "from": "skill:hooks-automation",
       "to": "skill:task-routing",
       "kind": "requires"
-    },
-    {
-      "from": "skill:integrations-sync",
-      "to": "script:lead_engine",
-      "kind": "uses"
     },
     {
       "from": "skill:integrations-sync",

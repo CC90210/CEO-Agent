@@ -182,7 +182,7 @@ browser_handle_dialog    accept=true promptText="input"  → Fill prompt dialog
 | Need | Use | How |
 |------|-----|-----|
 | **Data from a page** (text, links, tables) | **CLI script** | `node .claude/skills/playwright/scripts/run.js <url>` |
-| **Interactive session** (login, click flows, Skool editing) | **MCP tools** | `browser_navigate`, `browser_snapshot`, etc. |
+| **Interactive session** (login, click flows, Stripe/Vercel dashboard work) | **MCP tools** | `browser_navigate`, `browser_snapshot`, etc. |
 | **Batch scrape** (10+ pages) | **CLI script** | Loop over URLs, get JSON back |
 | **Visual verification** | **MCP screenshot** | `browser_take_screenshot` |
 

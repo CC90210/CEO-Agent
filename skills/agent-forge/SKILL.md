@@ -51,7 +51,7 @@ Templates live in `templates/agent-scaffold/`. The default template produces the
 | Memory | `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md` | Live operational state + task backlog + session history |
 | User context | `brain/USER.md` | Who they work for and that person's priorities |
 | Safety | `scripts/integrations/send_gateway.py` (stub) + `skills/security-protocol/` | V5.6 outbound chokepoint; no bypass paths |
-| Health | `scripts/core/self_audit.py` + `scripts/doctor.py` | Same 100-point audit Bravo uses |
+| Health | `scripts/core/self_audit.py` | Same 100-point audit Bravo uses |
 | Skills | `skills/INDEX.md` | Registry of capabilities |
 | Docs | `README.md` | One-page explanation of what this agent does |
 

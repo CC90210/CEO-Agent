@@ -27,13 +27,13 @@ Not every query needs the full 4,944-line context. Match the load to the task.
 
 | Tier | When | Files Loaded | ~Lines |
 |------|------|-------------|--------|
-| **T1 — Minimal** | Status checks, quick lookups, "what's the MRR?" | STATE.md, ACTIVE_TASKS.md | ~185 |
+| **T1 — Minimal** | Status checks, quick lookups, "how many active leads?" | STATE.md, ACTIVE_TASKS.md | ~185 |
 | **T2 — Standard** | Feature work, bug fixes, typical development | T1 + AGENTS.md, CAPABILITIES.md, SESSION_LOG.md | ~780 |
 | **T3 — Full** | Architecture, SPARC tasks, complex multi-file refactors | T2 + INTERACTION_PROTOCOL.md, BRAIN_LOOP.md, HEARTBEAT.md, PATTERNS.md, MISTAKES.md | ~4,944 |
 
 ### Classification Keywords
 
-**T1 triggers:** status, check, what, how much, MRR, balance, count, list, show
+**T1 triggers:** status, check, what, how much, leads, balance, count, list, show
 **T2 triggers:** build, fix, implement, create, update, add, modify, debug, test, deploy
 **T3 triggers:** redesign, architecture, refactor, migrate, schema, system, overhaul, SPARC, complex
 
@@ -43,7 +43,7 @@ Not every query needs the full 4,944-line context. Match the load to the task.
 
 ```bash
 # Check what tier a query needs
-python scripts/core/context_manager.py tier "what's our current MRR?"
+python scripts/core/context_manager.py tier "how many active leads do we have?"
 # → TIER 1: Load STATE.md + ACTIVE_TASKS.md (~185 lines)
 
 python scripts/core/context_manager.py tier "build a new Stripe integration"

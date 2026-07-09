@@ -4,6 +4,10 @@ purpose: One self-contained prompt CC pastes into Antigravity on the MacBook to 
 last_updated: 2026-04-11
 ---
 
+> ⚠️ **SUPERSEDED 2026-07-09** — do NOT paste `ANTHROPIC_API_KEY` into any env.
+> Auth = `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` (see memory `reference_claude_code_headless_vps_auth`).
+> MRR reporting is Atlas-owned.
+
 # MAC ANTIGRAVITY PROMPT — Paste This
 
 > CC: Open Antigravity IDE (or Claude Code) on your MacBook. Make sure the BEA repo is open at `~/APPS/Business-Empire-Agent` (or wherever you cloned it). Paste the block below verbatim into the chat. It's fully self-contained — no manual steps, no copy-paste from other files.
@@ -78,7 +82,6 @@ STEP 4 — Integration smoke test. For each, report OK or specific error:
   python3 scripts/integrations/supabase_tool.py select leads --limit 1
   python3 scripts/integrations/stripe_tool.py balance
   python3 scripts/funnel_sync.py stats
-  python3 scripts/revenue_engine.py --json mrr
   python3 scripts/funnel_nurture.py --json run
   python3 scripts/revenue_engine.py --json sync-stripe
 
@@ -114,7 +117,6 @@ STEP 7 — Report back in this exact format:
   supabase_tool.py select leads: OK / <error>
   stripe_tool.py balance: OK / <error>
   funnel_sync.py stats: <result>
-  revenue_engine.py mrr: $<value>
   funnel_nurture.py run: <day2/day5 counts>
   revenue_engine.py sync-stripe: <inserted/skipped/errors>
 
@@ -122,7 +124,6 @@ STEP 7 — Report back in this exact format:
   No daemons running on Mac: PASS / FAIL (details)
 
   ## Current state (from files)
-  MRR: $<value>
   Open P0 tasks: <N>
   Last session log entry: <date, one-line>
   Active session claim: <machine, age>

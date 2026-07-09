@@ -75,7 +75,6 @@ verified: 2026-06-09
 | Content creation | `../CMO-Agent/skills/content-engine/SKILL.md` | `/content` |
 | Social publishing | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | `/post` |
 | Brand voice | `../CMO-Agent/skills/brand-guidelines/SKILL.md` | Consistency enforcement |
-| Skool community | `skills/skool-automation/SKILL.md` | `/skool-push` |
 | Template library | `data/templates/content/` | LinkedIn, X, IG templates |
 
 ### 7. Intelligence & Learning

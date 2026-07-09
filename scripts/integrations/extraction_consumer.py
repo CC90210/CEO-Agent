@@ -241,7 +241,19 @@ def _extract_via_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, dict | 
 
 def _extract_via_api(env: dict[str, str], raw_bytes: bytes, mime: str) -> tuple[bool, dict | None, str]:
     """Break-glass fallback: replicate ai-document-extractor.ts against the
-    metered Anthropic API. Returns (ok, fields|None, error)."""
+    metered Anthropic API. Returns (ok, fields|None, error).
+
+    RETIRED 2026-07-09: the metered key is out of credits, so this fallback
+    cannot succeed — every attempt 4xx'd while callers believed a safety net
+    existed. Short-circuit with an honest error (callbacks report it verbatim)
+    instead of a confusing api_error:HTTP 400. Set
+    EXTRACTION_ALLOW_API_FALLBACK=1 to re-arm after the key is funded."""
+    # Honour the re-arm flag from EITHER the loaded .env.agents dict (where the
+    # Anthropic key itself lives) OR the process env — not just os.environ.
+    allow = (env.get("EXTRACTION_ALLOW_API_FALLBACK")
+             or os.environ.get("EXTRACTION_ALLOW_API_FALLBACK") or "").strip()
+    if allow != "1":
+        return False, None, "fallback_retired_dead_api_key (CLI path is primary; see lib/claude_cli)"
     api_key = (env.get("BRAVO_ANTHROPIC_API_KEY") or env.get("ANTHROPIC_API_KEY") or "").strip()
     if not api_key:
         return False, None, "anthropic_key_missing"

@@ -105,7 +105,7 @@ as a class. Every command is preserved verbatim:
 - Rate limiting and security firewall
 - Conversation history persistence
 
-`telegram_agent.js` is kept as a backup. The gateway is the active path.
+`telegram_agent.js` (PM2 app `bravo-telegram`) is the ACTIVE Telegram path; this gateway is a dormant multi-platform wrapper (not in PM2).
 
 ## Environment overrides (gateway/adapters/telegram.js)
 

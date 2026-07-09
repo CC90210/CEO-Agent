@@ -129,7 +129,7 @@ Failed sends write only to `email_log` with `status='failed'` for forensics.
 
 - **Migration:** [database/003_unified_interaction_ledger.sql](../../database/003_unified_interaction_ledger.sql) — adds `cooldown_until`, `agent_source`, `metadata` columns + indexes. Apply via `python scripts/apply_migration.py`.
 - **Context builder:** [scripts/core/context_builder.py](../../scripts/core/context_builder.py) — `get_entity_context(lead_id)` returns the full relationship context for persona-aware LLM drafting.
-- **Tests:** [scripts/test_send_gateway.py](../../scripts/test_send_gateway.py) — 17 golden + negative path tests. MUST pass before any gateway change ships.
+- **Tests:** [scripts/tests/test_send_gateway.py](../../scripts/tests/test_send_gateway.py) — golden + negative path tests. MUST pass before any gateway change ships.
 - **CASL module:** [scripts/casl_compliance.py](../../scripts/casl_compliance.py) — suppression list + footer + List-Unsubscribe helpers the gateway composes.
 
 ## When adding a new channel
@@ -138,4 +138,4 @@ Failed sends write only to `email_log` with `status='failed'` for forensics.
 2. Add a default cooldown to `DEFAULT_COOLDOWNS`.
 3. If there's a daily cap, add it to `DAILY_CAPS`.
 4. In `send()`, add a channel-specific branch that performs the physical send — route it through a `_send_<channel>()` helper that is the ONLY place where the real client call lives.
-5. Add tests for the new channel to [test_send_gateway.py](../../scripts/test_send_gateway.py).
+5. Add tests for the new channel to [test_send_gateway.py](../../scripts/tests/test_send_gateway.py).

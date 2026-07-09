@@ -20,15 +20,9 @@ description: Comprehensive 90-day business review — financial performance, pip
 
 ## Step 1: Revenue Performance
 
-Pull live MRR and revenue data:
+> Numbers from Atlas (CFO) — Bravo consumes, does not compute. Request MRR/revenue data from Atlas instead of running revenue_engine/Stripe pulls directly.
 
-```bash
-python scripts/revenue_engine.py dashboard --json
-python scripts/integrations/stripe_tool.py invoices --limit 20 --json
-python scripts/revenue_engine.py history --months 3 --json
-```
-
-Calculate:
+From Atlas's numbers, note:
 - MRR growth rate (MoM and QoQ)
 - Gap to $10,000 target and days remaining
 - Revenue vs expenses (net profit this quarter)
@@ -120,7 +114,7 @@ Using `skills/strategic-planning/SKILL.md` QBR template, compile:
 ```
 ## Strategic Review — [Date]
 
-### Headline Numbers
+### Headline Numbers (financials from Atlas — Bravo consumes, does not compute)
 MRR: $X,XXX | Gap: $X,XXX | Days to target: X
 Gross Margin: X% | Net/mo: $X,XXX | HHI: X.XX
 

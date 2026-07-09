@@ -128,6 +128,7 @@ When multiple tools could handle a request, use this precedence:
 4. **Simple DB query** → `supabase_tool.py` | **Operational metrics (pipeline/health)** → `ceo_dashboard.py` | **MRR/revenue** → ATLAS-owned, defer
 5. **Structured memory** → markdown files | **Fuzzy recall** → `mem0_tool.py`
 6. **Model call from ANY automation/script** → `scripts/lib/claude_cli.py` `run_claude_cli()` — local `claude` CLI on CC's subscription OAuth, toolless. NEVER call api.anthropic.com / `ANTHROPIC_API_KEY` from an automation (key is out of credits AND banned — CLI-only rule).
+7. **Is the harness itself healthy? (ANY runtime, session-start on unfamiliar machines, after substrate changes)** → `python scripts/harness_eval.py` — 10 deterministic checks (entry-point lockstep, skill routing, Atlas boundary, guards, crons, PM2, tenant scoping); `--json` for machines, `--with-model` adds a live claude-CLI probe. All-green = turnkey.
 
 ## MCP Servers (7 Active — Stateless Only)
 

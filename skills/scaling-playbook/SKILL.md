@@ -225,7 +225,7 @@ Define this before you need it. At minimum:
 
 This is the concrete roadmap from current state to empire, specific to CC's situation.
 
-### NOW — May 2026 (~$371 USD confirmed MRR, post-primary-retainer end)
+### NOW — May 2026 snapshot (historical; current revenue state: Atlas (CFO) owns it), post-primary-retainer end
 **Current constraint:** Baseline rebuild after R-001 materialization (primary retainer ended 2026-05-18). SunBiz salary (~$2,500 pending) is the primary near-term recovery candidate; do not count until signed.
 
 **Immediate actions:**

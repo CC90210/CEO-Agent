@@ -19,8 +19,8 @@ python scripts/ceo_dashboard.py briefing
 ```
 
 If the script fails or returns zeroes (Stripe unavailable), fall back to:
-1. `python scripts/revenue_engine.py mrr --json` for MRR
-2. `memory/ACTIVE_TASKS.md` for last known MRR + active priorities
+1. Revenue/MRR: Atlas-owned — do not pull; note "financials → Atlas" in the brief
+2. `memory/ACTIVE_TASKS.md` for active priorities
 3. `brain/STATE.md` for current operational state
 
 Capture the output — it contains the 5 North Star metrics.
@@ -68,11 +68,11 @@ CEO BRIEFING — [Weekday, Date]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 EXECUTIVE SUMMARY
-[Net MRR vs target — one sentence. Highest-leverage thing happening right now.
+[Financials → Atlas (CFO). Highest-leverage thing happening right now.
 Biggest open risk or action item needing attention today.]
 
 NORTH STAR
-  Net MRR:        $[X] / $10,000  ([X]%) — [X] days to target [↑↓→]
+  Net MRR:        Atlas-owned — do not pull; "financials → Atlas"
   Pipeline:        $[X] potential ([N] warm leads) [↑↓→]
   Client Health:   [X]/100 avg ([N] at risk) [↑↓→]
   Cash Position:   $[X] Stripe + bank (manual) [↑↓→]
@@ -126,7 +126,7 @@ Append a one-liner to `memory/SESSION_LOG.md`:
 
 ```
 ### [DATE] — Morning Briefing
-MRR: $[X] ([X]% of target) | Pipeline: $[X] | Alerts: [N] | Priority: [1-sentence summary of #1 action]
+Active leads: [N] | Follow-ups due: [N] | Pipeline: $[X] | Alerts: [N] | Priority: [1-sentence summary of #1 action]
 ```
 
 ## Completion

@@ -94,7 +94,7 @@ Meeting notes on `complete` are stored against the booking record. Pull them bac
 
 - **lead_engine.py** — the booking flow starts when a lead hits `qualified`; post-meeting, update the lead status immediately
 - **email_engine.py** — confirmation and reminder emails are sent via email_engine; pass `--lead-id` to keep the interaction log accurate
-- **revenue_engine.py** — meetings that close into retainers should be logged: `revenue_engine.py log-revenue` the day the contract is confirmed
+- **revenue_engine.py** — meetings that close into retainers should be logged: `revenue_engine.py log-revenue` the day the contract is confirmed — on explicit CC request only; Atlas (CFO) owns revenue reporting
 
 
 ## Outbound Gate Compliance

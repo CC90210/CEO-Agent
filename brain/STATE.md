@@ -110,9 +110,9 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 ## Agent Runner Backend (2026-05-05)
 
 **Design + scaffold shipped, not deployed yet**
-- `docs/AGENT_RUNNER_DESIGN.md` written â€” direct `runner.oasisai.work` architecture for the Command Center chat widget. Decision set: Node/TypeScript runner, session-scoped workers, SSE streaming, Supabase JWT verification on-runner, libsodium app-layer key encryption, BYOK enforcement for non-CC tenants, read-only file tree with approval-gated writes.
-- `apps/agent-runner/` scaffold added â€” `server.ts`, `sessions.ts`, `spawner.ts`, `auth.ts`, `files.ts`, `sse.ts`, plus isolated `package.json` + `tsconfig.json`.
-- `database/020_agent_runner.sql` added â€” `agent_model_config`, `chat_sessions`, `chat_messages`, `audit_log`, plus managed-auth guardrail on `tenants.custom_fields.managed_auth_allowed`.
+- `docs/AGENT_RUNNER_DESIGN.md` written — direct `runner.oasisai.work` architecture for the Command Center chat widget. Decision set: Node/TypeScript runner, session-scoped workers, SSE streaming, Supabase JWT verification on-runner, libsodium app-layer key encryption, BYOK enforcement for non-CC tenants, read-only file tree with approval-gated writes.
+- `apps/agent-runner/` scaffold added — `server.ts`, `sessions.ts`, `spawner.ts`, `auth.ts`, `files.ts`, `sse.ts`, plus isolated `package.json` + `tsconfig.json`.
+- `database/020_agent_runner.sql` (planned — never landed; see `apps/agent-runner/`) — `agent_model_config`, `chat_sessions`, `chat_messages`, `audit_log`, plus managed-auth guardrail on `tenants.custom_fields.managed_auth_allowed`.
 - **Operator note:** local worktree already contains untracked `database/020_chat_widget_and_pairings.sql`; it overlaps migration numbering and scope. Choose one migration lineage before applying anything to Supabase.
 
 ## Obsidian Links
@@ -141,8 +141,8 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 ## Last Heartbeat
 
 - **Date:** 2026-07-09
-- **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Breeze LOC turnkey day: full money loop verified ON PROD (advance->draw->approve->esign->fund->repay+audit); built native repayment recording, tenant-scoped Plaid webhook verify, optional CRM webhook; migrations 0061-0067 confirmed applied; deployed 9679fd52
+- **Agent:** CODEX via state_sync
+- **Result:** Created separate SunBiz front website app, pushed GitHub repo, linked Vercel project, deployed live at https://sunbiz-front-website.vercel.app, restored canonical SunBiz Funding site, and recorded registry/mistake notes.
 
 *Last updated: 2026-07-09*
 

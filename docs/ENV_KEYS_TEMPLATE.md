@@ -1,6 +1,6 @@
 ---
 tags: [onboarding, deployment, credentials, template]
-last_updated: 2026-05-03
+last_updated: 2026-07-09
 freshness_threshold_days: 60
 ---
 
@@ -24,7 +24,8 @@ For client deployments (deploying Hermes / a sibling agent for someone else), co
 
 | Variable | Provider | Notes |
 |----------|----------|-------|
-| `ANTHROPIC_API_KEY` | Anthropic | Primary — Claude Sonnet 4.6 / Opus 4.7 |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Anthropic | **Primary** — Claude Code subscription OAuth. Generate with `claude setup-token`; automations call the local `claude` CLI via `scripts/lib/claude_cli.py` |
+| `ANTHROPIC_API_KEY` | Anthropic | **DEPRECATED for CC's deployment** (out of credits + CLI-only rule) — fork-only |
 | `OPENAI_API_KEY` | OpenAI | Codex delegation, fallback |
 | `OPENROUTER_API_KEY` | OpenRouter | Multi-model routing fallback |
 | `DEEPSEEK_API_KEY` | DeepSeek | Optional, cheap-tier routing |

@@ -30,7 +30,7 @@ Built 2026-05-16 (V6.7+) to unify what was previously 13 skills making the tier-
   ```
 
 Do NOT use when:
-- You need to act AS CC inside CC's logged-in account (Skool, Stripe dashboard, Vercel admin, LinkedIn private profile) → use **Browser Harness** (`scripts/browser/browser_harness_doctor.py`).
+- You need to act AS CC inside CC's logged-in account (Stripe dashboard, Vercel admin, LinkedIn private profile) → use **Browser Harness** (`scripts/browser/browser_harness_doctor.py`).
 - You need an interactive flow on a protected site (multi-step form, navigation chain) → use **CloakBrowser** directly (`scripts/browser/cloak_browser_tool.py goto`).
 - You need batch site crawling or LLM-schema extraction → use **Firecrawl** directly (`scripts/integrations/firecrawl_tool.py crawl` / `extract`).
 - You need a visual screenshot for evidence → use **Playwright MCP** or `cloak_browser_tool.py scrape --screenshot`.
@@ -122,7 +122,7 @@ Flags: `--json`, `--force-tier {firecrawl,cloak}`, `--min-chars N` (escalation t
 - **Firecrawl credit exhaustion** (CC's account currently): Firecrawl tier-1 returns "Payment Required" → the fetcher auto-escalates to Cloak so the agent still gets results. Top up Firecrawl credits to restore the cheap tier. The escalation masks the cost; check reputation memory periodically (`FC 0/N` for everything = Firecrawl is dead).
 - **Reputation can go stale.** If a target adds Cloudflare after we'd been Firecrawl'ing it for a year, reputation still says "use Firecrawl" until a fetch fails and re-learns. Acceptable cost: one wasted Firecrawl call.
 - **Soft-block status codes.** CloakBrowser sometimes returns 403 with the full page body (Cloudflare "we're suspicious but not blocking" pattern, confirmed on G2). The fetcher treats `ok=True with text` as success regardless of status.
-- **For CC-authenticated targets, this is the WRONG tool.** No login is performed. Use Browser Harness for Skool / Stripe dashboard / Vercel admin / LinkedIn full profiles.
+- **For CC-authenticated targets, this is the WRONG tool.** No login is performed. Use Browser Harness for Stripe dashboard / Vercel admin / LinkedIn full profiles.
 
 ## Untrusted Input Handling
 

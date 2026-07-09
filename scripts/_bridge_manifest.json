@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-07-06T19:54:40.911704+00:00",
-  "script_count": 108,
-  "entry_count": 265,
+  "generated_at_iso": "2026-07-09T18:39:42.545522+00:00",
+  "script_count": 109,
+  "entry_count": 266,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -691,6 +691,14 @@
       "subcmd": "evaluate",
       "mutating": false,
       "help": "GNN Skill Router -- graph-based next-skill prediction over the Obsidian vault. \u2014 subcommand: evaluate"
+    },
+    {
+      "key": "harness_eval",
+      "path": "scripts/harness_eval.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "harness_eval.py \u2014 deterministic eval suite for the Bravo agent harness."
     },
     {
       "key": "harness_plugin_list",
