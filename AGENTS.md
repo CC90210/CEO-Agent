@@ -80,6 +80,7 @@ Do **not** dump any file content to the user. Read silently, then answer the act
 - **Owner:** Conaugh McKenna (CC) — OASIS AI Solutions, Collingwood ON, Canada
 - **Brands:** OASIS AI Solutions (AI automation agency), PropFlow (real estate SaaS, 50/50 with Adon), Nostalgic Requests (music/DJ SaaS), Conaugh McKenna (personal brand), DJ services, consulting
 - **North Star:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
+- **CRM motion (2026-07-09): INBOUND-first** — leads arrive via funnel / DMs / social content → nurture → book a call. Cold outbound is on-demand only, never the default. Automation model calls go through `scripts/lib/claude_cli.py` (local CLI, subscription OAuth) — never `ANTHROPIC_API_KEY`.
 - **Stack:** Python 3.12, TypeScript, Next.js 14, Supabase (Postgres), Vercel, Stripe, n8n, Telegram bot bridge
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) — full design rationale, V5.6 outbound chokepoint explained
 
@@ -153,7 +154,7 @@ Changing any config or entry point → update ALL files that reference it:
 
 Every outbound email, DM, or call log goes through [scripts/integrations/send_gateway.py](scripts/integrations/send_gateway.py). Direct `smtplib.SMTP_SSL()` calls from any business engine are a regression and must be reverted in review. See [skills/send-gateway/SKILL.md](skills/send-gateway/SKILL.md) for the full contract.
 
-**Cold-outreach send (canonical, all AIs):** [skills/outreach-send/SKILL.md](skills/outreach-send/SKILL.md). One command, three templates, geo-rapport auto-injected. Do **not** call `email_engine.py send --body` for outreach — Gate 1b will refuse. Use `send-template`.
+**Cold-outreach send (canonical, all AIs — ON-DEMAND only; inbound nurture is the default motion):** [skills/outreach-send/SKILL.md](skills/outreach-send/SKILL.md). One command, three templates, geo-rapport auto-injected. Do **not** call `email_engine.py send --body` for outreach — Gate 1b will refuse. Use `send-template`.
 
 ### RULE 6: VERIFICATION
 

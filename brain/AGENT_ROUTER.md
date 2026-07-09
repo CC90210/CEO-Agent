@@ -29,9 +29,9 @@ Every operator turn, do this in order:
 
 ## Operator-specific facts
 
-The operator's profile (name, brand, north-star MRR target, manifesto) lives in `brain/USER.md`. **Read it once on the first operator turn** of a session — it's small and high-value. After that, trust your prompt unless the operator says something changed.
+The operator's profile (name, brand, manifesto) lives in `brain/USER.md`. **Read it once on the first operator turn** of a session — it's small and high-value. After that, trust your prompt unless the operator says something changed. (MRR / revenue targets are Atlas-owned — Bravo does not track or report them.)
 
-The operator also has a profile row in Supabase `user_profiles` keyed by `auth_user_id`. Use `python scripts/integrations/supabase_tool.py select user_profiles --eq '{"id":"<id>"}'` if you need the live values (mrr_current_usd, mrr_target_usd, primary_agent, agents_enabled).
+The operator also has a profile row in Supabase `user_profiles` keyed by `auth_user_id`. Use `python scripts/integrations/supabase_tool.py select user_profiles --eq '{"id":"<id>"}'` if you need the live values (primary_agent, agents_enabled).
 
 ## Where you run
 
@@ -65,7 +65,8 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Recent context / what just happened | `memory/SESSION_LOG.md` | `memory/DECISIONS.md` |
 | Past mistakes to avoid | `memory/MISTAKES.md` | — |
 | Validated patterns to reuse | `memory/PATTERNS.md` | — |
-| Send an email or DM | `skills/outreach-send/SKILL.md` | `brain/QUICK_REFERENCE.md` |
+| Send a cold/follow-up OUTREACH email (on-demand only — outbound is NOT the default motion) | `skills/outreach-send/SKILL.md` | `brain/QUICK_REFERENCE.md` |
+| Inbound lead reply / nurture (the PRIMARY motion: funnel, DMs, social → nurture → book call) | `scripts/integrations/send_gateway.py` (same confirm-gated send steps as INTENTS.md, minus outreach framing) | `brain/QUICK_REFERENCE.md` |
 | What's deployed / live | `memory/OPERATIONAL_STATE.md` (7d threshold) | `brain/STATE.md` (stable arch), `brain/CHANGELOG.md` |
 | Pricing / offers / deal shape | `brain/DEAL_ARCHITECTURE.md` | `brain/CLIENT_PLAYBOOK.md` |
 | OKRs / strategy | `brain/OKRs.md` | `brain/CEO_OPERATING_SYSTEM.md` |
@@ -95,7 +96,7 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 
 | Operator wants... | run_script key (or how to act) | Consult first |
 |---|---|---|
-| Get current MRR | `revenue_engine_mrr` | `brain/STATE.md` |
+| Get current MRR | ATLAS-OWNED — do not self-serve; defer to Atlas (read Atlas cfo_pulse/STATE.md READ-ONLY if CC insists) | `brain/C_SUITE_ARCHITECTURE.md` |
 | CEO daily briefing | `ceo_dashboard` | — |
 | Read a Supabase table | `supabase_select` (args: table, --eq, --limit) | `brain/CAPABILITIES.md` |
 | Write to Supabase | `supabase_insert` / `supabase_update` (mutating; needs `confirm: true`) | `brain/CAPABILITIES.md` |

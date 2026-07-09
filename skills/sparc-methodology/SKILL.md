@@ -1,11 +1,6 @@
 ---
 name: sparc-methodology
-description: >
-  SPARC development workflow: Specification, Pseudocode, Architecture, Refinement, Completion.
-  A structured 5-phase approach for complex implementations that ensures thorough planning
-  before any code is written. Use when: new feature implementation, complex integrations,
-  architectural changes, system redesign, unclear requirements. Skip when: simple bug fixes,
-  documentation updates, configuration changes, single-file edits.
+description: "SPARC development workflow (Specification, Pseudocode, Architecture, Refinement, Completion) — a structured 5-phase approach for complex implementations that ensures thorough planning before any code is written. Use for new feature implementation, complex integrations, architectural changes, system redesign, unclear requirements. Skip for simple bug fixes, documentation updates, configuration changes, single-file edits."
 tags: [development, planning, methodology]
 triggers: ["sparc methodology", "use sparc methodology", "run sparc methodology"]
 disable_model_invocation: true

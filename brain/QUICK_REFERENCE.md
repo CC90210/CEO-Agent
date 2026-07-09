@@ -42,6 +42,8 @@ verified: 2026-06-09
 | LinkedIn — research a profile (read-only) | Browser Harness on CC's logged-in Chrome | n/a — there is no LinkedIn outreach automation by design. CC drafts LinkedIn messages by hand. |
 
 ### Sales & CRM
+> **Primary CRM motion is INBOUND** (funnel, DMs, social content → nurture → book a call). Cold outbound is on-demand only, never the default. `lead_engine.py` `pipeline`/`followups` are tenant-scoped to `OASIS_TENANT_ID` (2026-07-09).
+
 | CC Says | Tool | Command |
 |---------|------|---------|
 | Leads / pipeline / CRM | `lead_engine.py` | `list`, `add`, `score`, `pipeline`, `followups`, `funnel` |
@@ -52,12 +54,14 @@ verified: 2026-06-09
 | Pick leads ready to email | `outreach_eligible.py` | `--limit 20`, `--mark-dormant`, `--json` |
 
 ### Revenue & Finance
+> **ATLAS-OWNED domain.** Bravo does not report MRR/revenue — "what's my MRR" → defer to Atlas. The tools below stay for on-demand mechanics on explicit CC request only.
+
 | CC Says | Tool | Command |
 |---------|------|---------|
-| MRR / revenue / dashboard | `revenue_engine.py` | `mrr`, `dashboard`, `sync-stripe`, `forecast`, `goal` |
+| MRR / revenue (ATLAS-owned — defer; mechanics on explicit CC ask only) | `revenue_engine.py` | `mrr`, `dashboard`, `sync-stripe`, `forecast`, `goal` |
 | Stripe (balance, invoices, subs) | `stripe_tool.py` | `balance`, `customers`, `invoices`, `subscriptions`, `payment-links` |
 | Financial modeling / unit economics | `financial_model.py` | `unit-economics`, `forecast`, `scenario`, `runway` |
-| CEO briefing / KPIs | `ceo_dashboard.py` | `briefing`, `revenue`, `pipeline`, `full` |
+| CEO briefing / KPIs (no revenue — Atlas's brief) | `ceo_dashboard.py` | `briefing`, `pipeline`, `full` |
 
 ### Database & Infrastructure
 | CC Says | Tool | Command |
@@ -121,8 +125,9 @@ When multiple tools could handle a request, use this precedence:
 1. **One-off email** → `google_tool.py` | **Email sequence/template** → `email_engine.py`
 2. **Any "fetch URL X" task** → **`research_fetch.py` (default, auto-escalates + remembers per-domain)**. Specific tiers only when you need their unique features: `firecrawl_tool.py` (crawl / extract / map / search), `cloak_browser_tool.py` (interactive goto / screenshot / direct Cloak), Playwright MCP (interactive flow on unprotected), Browser Harness (act as CC under CC's login).
 3. **Quick post** → `late_tool.py` | **Full content pipeline** → Maven (`../CMO-Agent/scripts/content_pipeline.py`)
-4. **Simple DB query** → `supabase_tool.py` | **Business metrics** → `revenue_engine.py` or `ceo_dashboard.py`
+4. **Simple DB query** → `supabase_tool.py` | **Operational metrics (pipeline/health)** → `ceo_dashboard.py` | **MRR/revenue** → ATLAS-owned, defer
 5. **Structured memory** → markdown files | **Fuzzy recall** → `mem0_tool.py`
+6. **Model call from ANY automation/script** → `scripts/lib/claude_cli.py` `run_claude_cli()` — local `claude` CLI on CC's subscription OAuth, toolless. NEVER call api.anthropic.com / `ANTHROPIC_API_KEY` from an automation (key is out of credits AND banned — CLI-only rule).
 
 ## MCP Servers (7 Active — Stateless Only)
 
@@ -160,8 +165,8 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | `outreach_engine.py` | Outreach campaign automation | CLI tool |
 | `scrape_firecrawl_leads.py` | Firecrawl lead scraping (canonical) | CLI tool |
 | `outreach_eligible.py` | Pick leads ready to email + cadence enforcement | CLI tool |
-| **--- Revenue & Finance ---** | | |
-| `revenue_engine.py` | MRR tracking, Stripe sync | CLI tool |
+| **--- Revenue & Finance (ATLAS-OWNED — mechanics on explicit CC ask only) ---** | | |
+| `revenue_engine.py` | MRR tracking, Stripe sync (Atlas-owned; Bravo never reports MRR) | CLI tool |
 | `stripe_tool.py` | Payments, invoices, subscriptions | CLI tool |
 | `financial_model.py` | Unit economics, forecasting | CLI tool |
 | `ceo_dashboard.py` | KPI aggregator, briefings | CLI tool |

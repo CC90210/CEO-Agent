@@ -352,7 +352,8 @@ docker compose -f infra/docker-compose.cloud.yml up -d --build
 | **Lead scrape (preferred)** | `scripts/scrape_firecrawl_leads.py` | Firecrawl-based search + structured extract. Pulls owner first name + email + phone from business websites. Inserts to Supabase. | `--target 50 --cities "X,Y" --niches "A,B"` |
 | **Booking** | `scripts/booking_engine.py` | Self-hosted Cal.com replacement, slot management | `slots open/open-week/list/close`, `book`, `cancel`, `available`, `remind`, `complete` |
 | **Content** | `../CMO-Agent/scripts/content_engine.py` | Content calendar, templates, multi-platform posting | `calendar`, `create`, `create-multi`, `templates list/create/render`, `due`, `week-plan`, `stats` |
-| **Revenue** | `scripts/revenue_engine.py` | MRR tracking, Stripe sync, forecasting | `mrr`, `dashboard`, `sync-stripe`, `log-revenue`, `history`, `forecast`, `clients`, `goal` |
+| **Revenue (ATLAS-OWNED)** | `scripts/revenue_engine.py` | MRR tracking, Stripe sync, forecasting — Bravo does NOT report MRR (Atlas is CFO); run only on explicit CC request | `mrr`, `dashboard`, `sync-stripe`, `log-revenue`, `history`, `forecast`, `clients`, `goal` |
+| **Model call (automations)** | `scripts/lib/claude_cli.py` | `run_claude_cli()` — THE blessed model-call path for every automation: local `claude` CLI on CC's subscription OAuth, toolless (`--allowed-tools ""`), lean boot. Never api.anthropic.com / ANTHROPIC_API_KEY (out of credits + banned) | import `from lib.claude_cli import run_claude_cli` |
 | **Competitive Intel** | `scripts/competitive_intel.py` | Competitor profiles, battlecards, landscape reports | `add`, `list`, `view`, `update`, `battlecard`, `report`, `matrix`, `delete` |
 | **Financial Model** | `scripts/financial_model.py` | Unit economics, scenario modeling, concentration risk | `unit-economics`, `forecast`, `scenario`, `concentration`, `runway` |
 | **Cron** | `scripts/core/cron_engine.py` + `scripts/core/cron_dispatcher.py` | Automated job registry plus allowlisted script-backed execution for Atlas/Maven jobs | `cron_engine.py list/add/toggle/due/seed`; `cron_dispatcher.py due --execute`, `run <job_id>` |
@@ -596,7 +597,7 @@ Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-pr
 | Lead Follow-up Check | Weekdays 8am | lead_followup |
 | Booking Reminders | Daily 6pm | booking_reminder |
 | Stripe Revenue Sync | Daily 6am | stripe_sync |
-| Weekly MRR Report | Monday 9am | revenue_report |
+| Weekly MRR Report | Monday 9am | revenue_report (ATLAS-boundary conflict — flagged 2026-07-09 to move to Atlas or disable; pending CC) |
 | Weekly Pipeline Review | Monday 10am | pipeline_review |
 | Nurture Sequence Check | Weekdays 10am | nurture_check |
 | Monthly Metrics Snapshot | 1st of month 9am | monthly_snapshot |
@@ -633,7 +634,7 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 
 | Command | Cadence | Purpose |
 |---------|---------|---------|
-| /briefing | Daily | CEO morning briefing — MRR, pipeline, client health, #1 priority |
+| /briefing | Daily | CEO morning briefing — pipeline, follow-ups, client health, #1 priority (no MRR — Atlas's brief) |
 | /cli-anything | On-demand | Generate CLI wrapper for any software/API/service |
 | /client-health | Weekly (Fri) | Client health scoring, churn risk alerts, retention actions |
 | /client-onboard | On-demand | New OASIS client setup |

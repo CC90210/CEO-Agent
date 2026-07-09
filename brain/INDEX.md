@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **62 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -18,14 +18,18 @@ Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first
 - [ORCHESTRATION.md](ORCHESTRATION.md) — ORCHESTRATION — Capability Governance & Routing Integrity
 - [ORCHESTRATION_DECISION_TABLE.md](ORCHESTRATION_DECISION_TABLE.md) — ORCHESTRATION — Decision Table (read this first)
 - [SECURITY_MODEL.md](SECURITY_MODEL.md) — SECURITY MODEL — Agent Command Center
-- [SOUL.md](SOUL.md) — BRAVO — High-Leverage Business Manager (V5.5)
+- [SOUL.md](SOUL.md) — BRAVO — CEO · COO · CTO (CC's right hand)
 - [STATE.md](STATE.md) — STATE — Current Operational State
 - [USER.template.md](USER.template.md) — USER — {{ full_name }}'s Operator Profile
 - [V68_AGENT_OS_PATTERNS.md](V68_AGENT_OS_PATTERNS.md) — V6.8 — Agent-OS Vocabulary Layer
 
 ## Deploy & multi-machine
 - [CROSS_MACHINE_SYNC.md](CROSS_MACHINE_SYNC.md) — CROSS-MACHINE SYNC PROTOCOL
+- [VPS_EXTRACTION_DEPLOY_AGENT_PROMPT.md](VPS_EXTRACTION_DEPLOY_AGENT_PROMPT.md) — VPS deploy-agent system message — bring CLI document-extraction live
 - [VPS_SHOPOUT_HOTFIX_PROMPT.md](VPS_SHOPOUT_HOTFIX_PROMPT.md) — VPS Shop-Out Hotfix — paste this whole block into the Claude Code session running ON the SunBiz VPS
+- [VPS_SUNBIZ_BRIDGE_PROMPT.md](VPS_SUNBIZ_BRIDGE_PROMPT.md) — VPS Agent Task — Verify the SunBiz Website→CRM→Email Bridge
+- [VPS_SUNBIZ_TASK2_PROMPT.md](VPS_SUNBIZ_TASK2_PROMPT.md) — VPS Agent — Task 2 (close the self-test gap + fix the SMS-step defect)
+- [VPS_SUNBIZ_TASK3_PROMPT.md](VPS_SUNBIZ_TASK3_PROMPT.md) — VPS Agent — Task 3 (persist the SMS fix; answers to your 3 questions)
 
 ## Prompts & playbooks
 - [CLIENT_PLAYBOOK.md](CLIENT_PLAYBOOK.md) — 🎯 CLIENT PLAYBOOK — What CC Does, How He's Different, How to Run a Meeting
@@ -48,6 +52,7 @@ Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first
 - [DATA_TAXONOMY.md](DATA_TAXONOMY.md) — Data Taxonomy
 - [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS AI (V1.0, 2026-04-30)
 - [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) — EVENT BUS CONTRACT — V6 BUILD 3
+- [HANDOFF_EXTRACTION_CLI_FOR_SUNBIZ.md](HANDOFF_EXTRACTION_CLI_FOR_SUNBIZ.md) — Handoff — Document extraction moved to the VPS Claude subscription (off the API)
 - [METRIC_AUDIT.md](METRIC_AUDIT.md) — Dashboard Metric Audit
 - [MODEL_CONFIG.md](MODEL_CONFIG.md) — (no H1 heading)
 - [OKRs.md](OKRs.md) — OKRs — Q2 2026 (April - June)

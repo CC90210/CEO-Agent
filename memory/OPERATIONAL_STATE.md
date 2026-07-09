@@ -1,6 +1,6 @@
 ---
 tags: [operational-state, ephemeral]
-last_updated: 2026-07-07
+last_updated: 2026-07-09
 freshness_threshold_days: 7
 ---
 
@@ -50,8 +50,17 @@ Reboot-persistent via `pm2 save` (dump.pm2) + the **`PM2 Resurrect` scheduled ta
 | Issue | Severity | Action |
 |-------|----------|--------|
 | `dashboard-email-consumer` also running on **Windows** though it's designated VPS-only | HIGH | Double-send risk on lead-email queue. Verify the VPS consumer is up, then `pm2 delete dashboard-email-consumer` on Windows + `pm2 save`. **Needs CC confirmation of VPS state first.** |
-| CFO finance module still lives in Bravo repo | MEDIUM | Revenue skills (ceo-dashboard, financial-modeling, revenue-operations, ceo-briefing), `revenue_engine.py`/`financial_model.py`/`sync_mrr.py`, and the 3 revenue crons (Stripe Revenue Sync, Daily MRR Auto-Sync, Weekly MRR Report) should migrate to Atlas (CFO). Flagged 2026-07-07 finance purge — do NOT deactivate revenue tracking before Atlas has equivalents. |
+| CFO finance module still lives in Bravo repo | MEDIUM | Revenue skills + `revenue_engine.py`/`financial_model.py`/`sync_mrr.py` + 3 revenue crons should migrate to Atlas (CFO). **2026-07-09 progress: MRR removed from the daily brief + all router docs/skills now mark the domain ATLAS-OWNED; Weekly MRR Report cron still sends from Bravo — pending CC (disable vs migrate).** Do NOT deactivate revenue tracking before Atlas has equivalents. |
 | Cross-machine LAN IPs stale after Montreal move | LOW | Refresh in `brain/CROSS_MACHINE_SYNC.md`. |
+| Automations still importing dead `ANTHROPIC_API_KEY` paths | MEDIUM | Key is out of credits — any direct api.anthropic.com caller 400s. Migrated 2026-07-09: `daily_brief.py`, `bravo_sleep.py` → `scripts/lib/claude_cli.py`. Known candidates remaining: `auto_score_leads.py`, `inbound_classifier.py`, `autonomous_agent.py`, `model_router.py`, telegram_agent.js API-key fallback + bridge_chat_server sticky-paid respawn. Migrate on next touch or when they fail loud. |
+
+## Recently Fixed (2026-07-09 — Telegram automations + inbound pivot)
+
+- **Daily Telegram brief** — was shipping "MRR: — / AI narration unavailable" for weeks (fallback read nonexistent snapshot keys; narration used the dead API key). Rebuilt: deterministic schema-correct render + local-CLI narration via `scripts/lib/claude_cli.py` + HTML-escape + degraded→"unavailable" guards. MRR removed (Atlas's brief).
+- **Sleep Agent (`bravo_sleep.py`)** — dead on the out-of-credits API key; now runs Haiku via the local CLI. Self-improving memory loop live again.
+- **Cron watchdog (`cron_health_check.py`)** — alert path read bare `os.environ` → always `telegram_not_configured`; now sends via `notify()` and exits RED when delivery fails.
+- **Inbound-only CRM** — 156 outbound leads hard-deleted (backup `state/backups/leads_purge_*.json`); `lead_engine.py` pipeline/followups tenant-scoped to `OASIS_TENANT_ID`; inserts tenant-stamped. Brief now shows 8 inbound + 1 won.
+- **Skills routing** — 6 skills had block-scalar frontmatter that the graph parser read as `>` (routing-blind to weaker runtimes); rewritten single-line + drift detector hardened + graph/WTUS regenerated (150 skills, 0 drift).
 
 ## Recently Fixed (2026-07-07 Montreal turnkey reset)
 

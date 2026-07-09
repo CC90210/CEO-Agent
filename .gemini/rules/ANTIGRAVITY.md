@@ -45,6 +45,7 @@
 - **Owner:** CC (Conaugh McKenna), OASIS AI Solutions, Collingwood ON
 - **Brands:** OASIS AI, PropFlow, Nostalgic Requests
 - **Goal:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
+- **CRM motion (2026-07-09): INBOUND-first** — leads arrive via funnel / DMs / social content → nurture → book a call. Cold outbound is on-demand only, never the default. Automation model calls go through `scripts/lib/claude_cli.py` (local CLI, subscription OAuth) — never `ANTHROPIC_API_KEY`.
 - **System architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## Triage (FIRST step every operator turn — before any tool call)
@@ -213,7 +214,7 @@ When CC asks about content creation, posting strategy, cold outreach, or closing
 - **Content Bible**: `../CMO-Agent/brain/CONTENT_BIBLE.md` (Maven canonical) + `../CMO-Agent/skills/content-engine/SKILL.md` (voice calibration, hook templates, platform matrix, 7-day calendar, repurposing flow)
 - **Video pipeline**: raw input → `content_pipeline.py process <video>` → word-level Whisper captions → Remotion → thumbnail → Zernio schedule across 6 platforms. Entry point, not a menu.
 - **Cold outreach**: Jeremy Miner NEPQ framework — pattern interrupts, never salesy, questions > pitching. "I'm not sure if..." framing. Lead with their problem, not our product. See `skills/sales-methodology/SKILL.md`.
-- **Outreach send command** (one path, all AIs): [skills/outreach-send/SKILL.md](skills/outreach-send/SKILL.md). Always use `email_engine.py send-template --template-id <uuid> --to <email> --lead-id <uuid> --vars '{...}'`. Region auto-injected for geo-rapport. Raw `send --body` blocked by Gate 1b.
+- **Outreach send command** (one path, all AIs — ON-DEMAND only; inbound nurture is the default motion): [skills/outreach-send/SKILL.md](skills/outreach-send/SKILL.md). Always use `email_engine.py send-template --template-id <uuid> --to <email> --lead-id <uuid> --vars '{...}'`. Region auto-injected for geo-rapport. Raw `send --body` blocked by Gate 1b.
 - **Closing**: LAER objection loop (Listen → Acknowledge → Explore → Respond) + 6 close techniques (assumptive / alternative / summary / scarcity / takeaway / question). Math-for-them framework over price defense. See `skills/sales-closing/SKILL.md`.
 - **Call review**: After every call, CC can paste/attach the transcript and trigger `/close-review` — Bravo runs NEPQ + LAER scoring, logs pattern to `memory/sales_patterns.md`, escalates to skill update after 3 occurrences of same objection.
 - **B2B naming rule (LOCKED in `brain/SOUL.md`)**: Use full name **Conaugh McKenna** for agency / OASIS AI / professional outreach. **CC** only for DJ / entertainment / internal.
@@ -361,10 +362,10 @@ Four pillars added 2026-05-10. All gated by `EMPIRE_V6_MODE` env var (off/shadow
 - **Sandbox** — `scripts/state/exec_guard.py` blocks destructive Bash patterns (DROP, DELETE-without-WHERE, ALTER DROP COLUMN, rm -rf /, force-push to main, git reset --hard <ref>, fork bombs). `scripts/state/state_guard.py` blocks edits on auto-generated state mirror files.
 - **Secrets** — `.env.agents` is NOT LLM-readable. `scripts/state/secret_guard.py` blocks Read on `.env*`/`*.pem`/`*.key`/`credentials.json` and Bash commands that exfiltrate them. Use CLI wrappers (`python scripts/<service>_tool.py <verb> --json`) — they load via `scripts/lib/secret_loader.py` and return only sanitized JSON.
 
-Hook modes (env vars in `.env.agents`):
-- `EMPIRE_HOOK_SECRET_GUARD` (default `report`) → flip to `enforce` for hard-block.
-- `EMPIRE_HOOK_EXEC_GUARD` (default `report`) → flip to `enforce` after 14-day false-positive soak.
-- `EMPIRE_HOOK_STATE_GUARD` (default `off`) → flip to `enforce` after `EMPIRE_V6_MODE=on` cutover.
+Hook modes (set in `.claude/settings.json`) — all **enforce** as of the 2026-07-02 lockdown:
+- `EMPIRE_HOOK_SECRET_GUARD` = **enforce** — now also guards the PowerShell tool + Grep/Glob path args (not just Read/Bash).
+- `EMPIRE_HOOK_EXEC_GUARD` = **enforce** — now also blocks `git checkout`/`git restore`/`git stash drop`, `rm -rf` of untracked repo dirs, and PowerShell `Remove-Item -Recurse`.
+- `EMPIRE_HOOK_STATE_GUARD` = **enforce** — blocks hand-edits to auto-generated `memory/SESSION_LOG.md`.
 
 Audit logs: `state/{secret_guard,exec_guard,state_guard,secret_access}.log` (jsonl). Drift check: `python scripts/state/state_manager.py export --check` exits 1 if mirrors are stale.
 

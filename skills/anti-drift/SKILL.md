@@ -1,10 +1,6 @@
 ---
 name: anti-drift
-description: >
-  Prevents agent divergence from task intent through checkpoint validation, scope monitoring,
-  and alignment gates. Detects scope creep, time overruns, and error cascades, then forces
-  re-alignment before work continues. Use when: multi-agent tasks, complex implementations,
-  long-running sessions. Skip when: trivial single-step tasks, pure research.
+description: "Prevents agent divergence from task intent through checkpoint validation, scope monitoring, and alignment gates. Detects scope creep, time overruns, and error cascades, then forces re-alignment before work continues. Use for multi-agent tasks, complex implementations, long-running sessions. Skip for trivial single-step tasks or pure research."
 tags: [orchestration, quality, agents]
 triggers: ["anti drift", "use anti drift", "run anti drift"]
 tier: standard

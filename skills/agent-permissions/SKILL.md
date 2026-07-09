@@ -1,10 +1,6 @@
 ---
 name: agent-permissions
-description: >
-  Claims-based access control for multi-agent coordination. Defines what each agent can
-  read, write, execute, and spawn. Enforces least-privilege: agents only access what they
-  need. Use when: spawning agents, multi-agent tasks, security-sensitive operations.
-  Skip when: single-agent inline work, trivial tasks.
+description: "Claims-based access control for multi-agent coordination. Defines what each agent can read, write, execute, and spawn. Enforces least-privilege. Use when spawning agents, multi-agent tasks, security-sensitive operations. Skip for single-agent inline work or trivial tasks."
 tags: [security, orchestration, agents]
 triggers: ["agent permissions", "use agent permissions", "run agent permissions"]
 tier: standard

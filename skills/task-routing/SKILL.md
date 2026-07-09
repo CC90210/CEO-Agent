@@ -1,11 +1,6 @@
 ---
 name: task-routing
-description: >
-  Complexity-based intelligent task routing to specialized agents. Analyzes incoming tasks
-  for file count, domain signals, estimated steps, and risk level, then auto-assigns to
-  the optimal agent or agent team. Use when: any non-trivial task arrives, multi-file changes,
-  unclear which agent should handle work. Skip when: trivial single-file edits, CC explicitly
-  names the agent to use.
+description: "Complexity-based intelligent task routing to specialized agents. Analyzes incoming tasks for file count, domain signals, estimated steps, and risk level, then auto-assigns to the optimal agent or agent team. Use when any non-trivial task arrives, multi-file changes, or it's unclear which agent should handle work. Skip for trivial single-file edits or when CC explicitly names the agent."
 tags: [orchestration, routing, agents]
 triggers: ["task routing", "use task routing", "run task routing"]
 tier: core

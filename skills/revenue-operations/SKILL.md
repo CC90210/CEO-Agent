@@ -1,6 +1,6 @@
 ---
 name: revenue-operations
-description: Track MRR, log revenue events, run forecasts, and monitor progress toward the $10,000 USD Net MRR goal using revenue_engine.py. Combines Stripe subscription data with manual entries in Supabase.
+description: "ATLAS-OWNED domain — Bravo does not report MRR/revenue (Atlas is CFO). Invoke only on explicit CC request to run revenue_engine.py mechanics (log a revenue event, sync Stripe). For any 'what's my MRR / revenue / goal' question, defer to Atlas."
 triggers: [revenue, MRR, forecast, Stripe, income, goal, monthly, clients, financial]
 tier: standard
 dependencies: []

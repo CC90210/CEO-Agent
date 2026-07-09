@@ -55,7 +55,7 @@ the OASIS SaaS plan). The new wizard answers:
      prompts + manifest.
 
 3. **What credentials do you have?**
-   - Required: Anthropic API key.
+   - Required: Claude Code subscription OAuth (`claude setup-token`) — automations call the local CLI via `scripts/lib/claude_cli.py`; an Anthropic API key is NOT required (retired for automations).
    - Optional (per industry): Stripe, Twilio, TextTorrent, Kixie,
      Gmail OAuth, Supabase key (if self-hosted), Turso key (if
      self-hosted with data sovereignty).

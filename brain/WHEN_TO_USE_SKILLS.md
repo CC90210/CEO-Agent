@@ -15,7 +15,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 - **Path:** `skills/agent-inbox/SKILL.md` · tier `standard` · risk `low`
 
 ## agent-permissions
-- **Use when:** >
+- **Use when:** Claims-based access control for multi-agent coordination. Defines what each agent can read, write, execute, and spawn. Enforces least-privilege. Use when spawning agents, multi-agent tasks, security-sensitive operations. Skip for single-agent inline work or trivial tasks.
 - **Triggers:** agent permissions, use agent permissions, run agent permissions
 - **Path:** `skills/agent-permissions/SKILL.md` · tier `standard` · risk `low`
 
@@ -40,7 +40,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 - **Path:** `skills/algorithmic-art/SKILL.md` · tier `specialized` · risk `low`
 
 ## anti-drift
-- **Use when:** >
+- **Use when:** Prevents agent divergence from task intent through checkpoint validation, scope monitoring, and alignment gates. Detects scope creep, time overruns, and error cascades, then forces re-alignment before work continues. Use for multi-agent tasks, complex implementations, long-runnin
 - **Triggers:** anti drift, use anti drift, run anti drift
 - **Path:** `skills/anti-drift/SKILL.md` · tier `standard` · risk `low`
 
@@ -50,7 +50,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 - **Path:** `skills/auto-generated/SKILL.md` · tier `meta` · risk `low`
 
 ## background-workers
-- **Use when:** >
+- **Use when:** Formalized background worker system for automated audit, memory management, state sync, and optimization tasks. Workers run on intervals during active sessions to maintain system health without manual intervention. Use when configuring workers, debugging worker failures, adding n
 - **Triggers:** background workers, use background workers, run background workers
 - **Path:** `skills/background-workers/SKILL.md` · tier `standard` · risk `low`
 
@@ -80,8 +80,8 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 - **Path:** `skills/canvas-design/SKILL.md` · tier `specialized` · risk `low`
 
 ## ceo-briefing
-- **Use when:** Executive morning briefing — revenue, pipeline, clients, Atlas financial snapshot, blocked items, and today's #1 priority
-- **Triggers:** ceo briefing, use ceo briefing, run ceo briefing, executive morning briefing \u2014 revenue
+- **Use when:** Executive morning briefing — pipeline, follow-ups, client health, blocked items, and today's #1 priority. Revenue/MRR is Atlas's brief, not Bravo's.
+- **Triggers:** ceo briefing, use ceo briefing, run ceo briefing, executive morning briefing, daily brief
 - **Path:** `skills/ceo-briefing/SKILL.md` · tier `standard` · risk `low`
 
 ## ceo-dashboard
@@ -410,7 +410,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 - **Path:** `skills/heartbeat/SKILL.md` · tier `core` · risk `low`
 
 ## hooks-automation
-- **Use when:** >
+- **Use when:** Enhanced pre/post operation hooks with learning capabilities. Extends Claude Code's native hooks with task-aware pre-validation, post-execution learning, memory coordination, and session lifecycle management. Use when configuring hooks, debugging hook failures, adding new automat
 - **Triggers:** hooks automation, use hooks automation, run hooks automation
 - **Path:** `skills/hooks-automation/SKILL.md` · tier `core` · risk `low`
 
@@ -565,7 +565,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 - **Path:** `skills/retro/SKILL.md` · tier `specialized` · risk `low`
 
 ## revenue-operations
-- **Use when:** Track MRR, log revenue events, run forecasts, and monitor progress toward the $10,000 USD Net MRR goal using revenue_engine.py. Combines Stripe subscription data with manual entries in Supabase.
+- **Use when:** ATLAS-OWNED domain — Bravo does not report MRR/revenue (Atlas is CFO). Invoke only on explicit CC request to run revenue_engine.py mechanics (log a revenue event, sync Stripe). For any 'what's my MRR / revenue / goal' question, defer to Atlas.
 - **Triggers:** revenue, MRR, forecast, Stripe, income, goal, monthly, clients, financial
 - **Path:** `skills/revenue-operations/SKILL.md` · tier `standard` · risk `low`
 
@@ -650,7 +650,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 - **Path:** `skills/sop-breakdown/SKILL.md` · tier `standard` · risk `low`
 
 ## sparc-methodology — _explicit `/command` only_
-- **Use when:** >
+- **Use when:** SPARC development workflow (Specification, Pseudocode, Architecture, Refinement, Completion) — a structured 5-phase approach for complex implementations that ensures thorough planning before any code is written. Use for new feature implementation, complex integrations, architectu
 - **Triggers:** sparc methodology, use sparc methodology, run sparc methodology
 - **Path:** `skills/sparc-methodology/SKILL.md` · tier `specialized` · risk `low`
 
@@ -680,7 +680,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 - **Path:** `skills/systematic-debugging/SKILL.md` · tier `core` · risk `low`
 
 ## task-routing
-- **Use when:** >
+- **Use when:** Complexity-based intelligent task routing to specialized agents. Analyzes incoming tasks for file count, domain signals, estimated steps, and risk level, then auto-assigns to the optimal agent or agent team. Use when any non-trivial task arrives, multi-file changes, or it's uncle
 - **Triggers:** task routing, use task routing, run task routing
 - **Path:** `skills/task-routing/SKILL.md` · tier `core` · risk `low`
 

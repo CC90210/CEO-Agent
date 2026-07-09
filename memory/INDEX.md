@@ -2,10 +2,11 @@
 
 # Memory Index
 
-Auto-generated index of tracked `memory/*.md` — **19 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `memory/*.md` — **20 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Files
 - [ACTIVE_TASKS.template.md](ACTIVE_TASKS.template.md) — ACTIVE TASKS — {{ preferred_name }}
+- [CODEX_HANDOFF.md](CODEX_HANDOFF.md) — SunBiz Command Center — Codex Handoff (2026-06-23)
 - [DECISIONS.template.md](DECISIONS.template.md) — DECISIONS — {{ preferred_name }}
 - [DISCOVERY_PLAYBOOK.md](DISCOVERY_PLAYBOOK.md) — UNIVERSAL DISCOVERY PLAYBOOK: OASIS AI SOLUTIONS
 - [INDEX.md](INDEX.md) — Memory Index

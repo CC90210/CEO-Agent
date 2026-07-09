@@ -37,4 +37,5 @@ owner: CC (Conaugh McKenna)
   (maintainer) + live probes on the client domain.
 
 ## Reference instance
-- `docs/playbooks/05-breeze-maintainer.md` — the fully-worked BreezeAdvance example.
+- [[docs/playbooks/05-breeze-maintainer]] — the fully-worked BreezeAdvance example.
+- [[docs/playbooks/INDEX]] — all playbooks.

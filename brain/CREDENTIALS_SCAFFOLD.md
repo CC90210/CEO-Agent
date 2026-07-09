@@ -20,11 +20,11 @@ verified: 2026-06-09
 ---
 
 ## Core AI Layer
-At minimum, Anthropic must be set. OpenAI is for the Codex delegation path only.
+Automation model calls run on the LOCAL `claude` CLI with subscription OAuth (`claude setup-token`), via `scripts/lib/claude_cli.py`. OpenAI is for the Codex delegation path only.
 
 | Key | Priority | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | REQUIRED | Claude API — main reasoning engine. Get at console.anthropic.com |
+| `ANTHROPIC_API_KEY` | RETIRED/OPTIONAL | Do NOT use for automations — key is metered (currently out of credits) and the CLI-only rule bans it. Model calls → `scripts/lib/claude_cli.py` on subscription OAuth |
 | `OPENAI_API_KEY` | OPTIONAL | Codex/GPT paths only |
 | `OPENAI_ORG_ID` | OPTIONAL | If multi-org OpenAI account |
 

@@ -44,6 +44,7 @@
 - **Owner:** CC (Conaugh McKenna), OASIS AI Solutions, Collingwood ON
 - **Brands:** OASIS AI, PropFlow, Nostalgic Requests
 - **Goal:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
+- **CRM motion (2026-07-09): INBOUND-first** — leads arrive via funnel / DMs / social content → nurture → book a call. Cold outbound is on-demand only, never the default. Automation model calls go through `scripts/lib/claude_cli.py` (local CLI, subscription OAuth) — never `ANTHROPIC_API_KEY`.
 - **System architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## Triage (FIRST step every operator turn — before any tool call)
@@ -201,7 +202,7 @@ Delegation: Complex features → planner. Architecture → architect. Code revie
 When CC asks about content creation, posting strategy, or cold outreach:
 - **Content Bible**: 3 daily pillars (Sobriety Log, Quote Drop, CEO Log), hook bank, pacing rules. See `../CMO-Agent/brain/CONTENT_BIBLE.md` (Maven's repo — this repo's sibling).
 - **Cold outreach**: Jeremy Miner NEPQ framework — pattern interrupts, never salesy, questions > pitching. Use "I'm not sure if..." framing. Lead with their problem, not our product.
-- **Outreach send command** (one path, all AIs): see [skills/outreach-send/SKILL.md](skills/outreach-send/SKILL.md). Always use `email_engine.py send-template --template-id <uuid> --to <email> --lead-id <uuid> --vars '{...}'`. Region auto-injected for geo-rapport. Raw `send --body` blocked by Gate 1b.
+- **Outreach send command** (one path, all AIs — ON-DEMAND only; inbound nurture is the default motion): see [skills/outreach-send/SKILL.md](skills/outreach-send/SKILL.md). Always use `email_engine.py send-template --template-id <uuid> --to <email> --lead-id <uuid> --vars '{...}'`. Region auto-injected for geo-rapport. Raw `send --body` blocked by Gate 1b.
 - **Platform limits**: X=280 | Threads=500 | IG=2200 | LinkedIn=3000 | TikTok=4000
 
 ### RULE 4.6: AI Slop Detection

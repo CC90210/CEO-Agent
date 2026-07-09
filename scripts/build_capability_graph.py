@@ -369,7 +369,11 @@ def infer_edges(nodes: list[dict[str, Any]]) -> list[dict[str, str]]:
 def detect_drift(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     drift: list[dict[str, Any]] = []
     for n in nodes:
-        if n["kind"] == "skill" and n.get("description") in ("", "(no docstring)"):
+        # '>' / '|' = a YAML block-scalar marker captured verbatim by the naive
+        # line parser — the real description was on the continuation lines and
+        # got lost. Six skills shipped routing-blind for weeks because this
+        # condition didn't treat that as drift (2026-07-09 audit).
+        if n["kind"] == "skill" and n.get("description") in ("", ">", "|", "(no docstring)"):
             drift.append({"node": n["id"], "issue": "skill missing description in frontmatter"})
         if n["kind"] == "skill" and not n.get("triggers"):
             drift.append({"node": n["id"], "issue": "skill has no triggers — agent can't route to it"})

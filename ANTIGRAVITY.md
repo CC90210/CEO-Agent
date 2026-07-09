@@ -45,6 +45,7 @@
 - **Owner:** CC (Conaugh McKenna), OASIS AI Solutions, Collingwood ON
 - **Brands:** OASIS AI, PropFlow, Nostalgic Requests
 - **Goal:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
+- **CRM motion (2026-07-09): INBOUND-first** — leads arrive via funnel / DMs / social content → nurture → book a call. Cold outbound is on-demand only, never the default. Automation model calls go through `scripts/lib/claude_cli.py` (local CLI, subscription OAuth) — never `ANTHROPIC_API_KEY`.
 - **System architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## Triage (FIRST step every operator turn — before any tool call)
@@ -213,7 +214,7 @@ When CC asks about content creation, posting strategy, cold outreach, or closing
 - **Content Bible**: `../CMO-Agent/brain/CONTENT_BIBLE.md` (Maven canonical) + `../CMO-Agent/skills/content-engine/SKILL.md` (voice calibration, hook templates, platform matrix, 7-day calendar, repurposing flow)
 - **Video pipeline**: raw input → `content_pipeline.py process <video>` → word-level Whisper captions → Remotion → thumbnail → Zernio schedule across 6 platforms. Entry point, not a menu.
 - **Cold outreach**: Jeremy Miner NEPQ framework — pattern interrupts, never salesy, questions > pitching. "I'm not sure if..." framing. Lead with their problem, not our product. See `skills/sales-methodology/SKILL.md`.
-- **Outreach send command** (one path, all AIs): [skills/outreach-send/SKILL.md](skills/outreach-send/SKILL.md). Always use `email_engine.py send-template --template-id <uuid> --to <email> --lead-id <uuid> --vars '{...}'`. Region auto-injected for geo-rapport. Raw `send --body` blocked by Gate 1b.
+- **Outreach send command** (one path, all AIs — ON-DEMAND only; inbound nurture is the default motion): [skills/outreach-send/SKILL.md](skills/outreach-send/SKILL.md). Always use `email_engine.py send-template --template-id <uuid> --to <email> --lead-id <uuid> --vars '{...}'`. Region auto-injected for geo-rapport. Raw `send --body` blocked by Gate 1b.
 - **Closing**: LAER objection loop (Listen → Acknowledge → Explore → Respond) + 6 close techniques (assumptive / alternative / summary / scarcity / takeaway / question). Math-for-them framework over price defense. See `skills/sales-closing/SKILL.md`.
 - **Call review**: After every call, CC can paste/attach the transcript and trigger `/close-review` — Bravo runs NEPQ + LAER scoring, logs pattern to `memory/sales_patterns.md`, escalates to skill update after 3 occurrences of same objection.
 - **B2B naming rule (LOCKED in `brain/SOUL.md`)**: Use full name **Conaugh McKenna** for agency / OASIS AI / professional outreach. **CC** only for DJ / entertainment / internal.

@@ -1,8 +1,8 @@
 ---
 name: ceo-briefing
-description: Executive morning briefing — revenue, pipeline, clients, Atlas financial snapshot, blocked items, and today's #1 priority
-tags: [skill, ceo, revenue, briefing]
-triggers: ["ceo briefing", "use ceo briefing", "run ceo briefing", "executive morning briefing \u2014 revenue"]
+description: Executive morning briefing — pipeline, follow-ups, client health, blocked items, and today's #1 priority. Revenue/MRR is Atlas's brief, not Bravo's.
+tags: [skill, ceo, briefing, operations]
+triggers: ["ceo briefing", "use ceo briefing", "run ceo briefing", "executive morning briefing", "daily brief"]
 tier: standard
 ---
 
@@ -18,13 +18,13 @@ One command to give CC a complete picture of his empire in 30 seconds. Pulls liv
 
 When triggered, generate this exact format:
 
-### Section 1: Revenue Pulse
+### Section 1: Revenue Pulse (ATLAS-OWNED — pointer only)
 ```
-MRR: $X,XXX / $5,000 target (XX% — Y days remaining)
-[████████░░] XX%
+Revenue/MRR: Atlas's brief. → Read Atlas cfo_pulse / STATE.md (READ ONLY) if CC asks.
 ```
-**Data source:** `python scripts/revenue_engine.py mrr --json` OR `python scripts/integrations/stripe_tool.py balance --json`
-**Fallback:** Read memory/ACTIVE_TASKS.md for last known MRR figure.
+**Boundary (2026-07-09):** Bravo does NOT compute or report MRR — Atlas (CFO) owns
+revenue reporting. Do not run `revenue_engine.py` for a briefing; if CC explicitly
+asks for a number, defer to Atlas or read Atlas's pulse file read-only.
 
 ### Section 2: Pipeline Health
 ```
@@ -101,7 +101,7 @@ This is the silver-platter principle (brain/AGENTIC_OS_REFERENCE.md §3) — one
 
 ## Integration
 
-- **Revenue Engine:** `scripts/revenue_engine.py` — MRR, Stripe sync, forecasting
+- **Revenue Engine:** `scripts/revenue_engine.py` — ATLAS-OWNED; Bravo runs it only on explicit CC request, never for briefings
 - **Lead Engine:** `scripts/lead_engine.py` — pipeline, scoring, follow-ups
 - **Atlas (CFO):** `C:\Users\User\APPS\trading-agent\brain\STATE.md` — READ ONLY
 - **Active Tasks:** `memory/ACTIVE_TASKS.md` — blocked items, priorities

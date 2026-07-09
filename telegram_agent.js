@@ -534,10 +534,10 @@ ${reach}
 BUSINESS OPS (use these — NOT the browser):
 - Email: ${PYTHON} scripts/integrations/google_tool.py gmail list | gmail read <id> | gmail send --to "..." --subject "..." --body "..."
 - Calendar: ${PYTHON} scripts/integrations/google_tool.py calendar list | calendar create --title "..." --start "..." --end "..."
-- Revenue: ${PYTHON} scripts/revenue_engine.py mrr | dashboard | forecast | clients | goal
+- Revenue/MRR: ATLAS-OWNED (CFO) — Bravo does not report MRR. Defer to Atlas; read Atlas's pulse/STATE.md READ-ONLY only if CC explicitly insists.
 - Stripe: ${PYTHON} scripts/integrations/stripe_tool.py balance | customers | invoices
-- CEO Briefing: ${PYTHON} scripts/ceo_dashboard.py briefing | revenue | pipeline | content | full
-- Leads/CRM: ${PYTHON} scripts/lead_engine.py list | add "Name" --email x | followups | view <id>
+- CEO Briefing (no revenue — Atlas's brief): ${PYTHON} scripts/ceo_dashboard.py briefing | pipeline | content | full
+- Leads/CRM (INBOUND-first: funnel/DMs/social -> nurture -> book call; cold outbound on-demand only): ${PYTHON} scripts/lead_engine.py list | add "Name" --email x | followups | view <id>
 - Client Health: ${PYTHON} scripts/client_health.py report | alerts | score <name>
 - Content: ${PYTHON} ../CMO-Agent/scripts/content_engine.py calendar | create --platform x --pillar ceo_log --body "..." | due
 - Social (Maven cross-repo): ${PYTHON} ../CMO-Agent/scripts/late_tool.py accounts | posts | create --text "..." --account <id>
@@ -546,7 +546,6 @@ BUSINESS OPS (use these — NOT the browser):
 - n8n: ${PYTHON} scripts/integrations/n8n_tool.py list | execute <id>
 - Database: ${PYTHON} scripts/integrations/supabase_tool.py select <table> --project bravo --limit 10
 - Financial: ${PYTHON} scripts/financial_model.py unit-economics | forecast | scenario --type base|bull|bear
-- Skool metrics: ${PYTHON} scripts/skool_engine.py metrics --json (scrapes dashboard, updates revenue DB automatically)
 - Web scraping: ${PYTHON} scripts/integrations/firecrawl_tool.py scrape <url> | crawl <url> --limit 10 | search "query" | map <url>
 - Semantic memory: ${PYTHON} scripts/integrations/mem0_tool.py add "fact" | search "query" | list | stats
 

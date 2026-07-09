@@ -1,10 +1,6 @@
 ---
 name: hooks-automation
-description: >
-  Enhanced pre/post operation hooks with learning capabilities. Extends Claude Code's
-  native hooks with task-aware pre-validation, post-execution learning, memory coordination,
-  and session lifecycle management. Use when: configuring hooks, debugging hook failures,
-  adding new automation triggers. Skip when: hooks are already working correctly.
+description: "Enhanced pre/post operation hooks with learning capabilities. Extends Claude Code's native hooks with task-aware pre-validation, post-execution learning, memory coordination, and session lifecycle management. Use when configuring hooks, debugging hook failures, adding new automation triggers. Skip when hooks are already working correctly."
 tags: [automation, hooks, orchestration]
 triggers: ["hooks automation", "use hooks automation", "run hooks automation"]
 tier: core

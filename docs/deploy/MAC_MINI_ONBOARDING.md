@@ -188,7 +188,8 @@ Because every public surface is a Cloudflare tunnel (outbound connections, DNS u
    permanently stops the `bravo-*` daemons and the Mac Mini owns them.
 
 ## Reference
-- Agentic bootstrap detail: `docs/deploy/MACHINE_PARITY_BOOTSTRAP.md`
-- Plugins / Codex / bins: `docs/deploy/CAPABILITY_MANIFEST.md`
-- Daemon ownership law: `brain/CROSS_MACHINE_SYNC.md`
+- Agentic bootstrap detail: [[docs/deploy/MACHINE_PARITY_BOOTSTRAP]]
+- Plugins / Codex / bins: [[docs/deploy/CAPABILITY_MANIFEST]]
+- Daemon ownership law: [[brain/CROSS_MACHINE_SYNC]]
+- PM2 cold-start ritual: [[docs/RUNBOOK_PM2_COLD_START]]
 - Breeze bridge specifics: `~/APPS/breeze-portal/docs/MAC_MINI_HANDOFF.md`, `docs/CHAT_PRODUCTION_RUNBOOK.md`

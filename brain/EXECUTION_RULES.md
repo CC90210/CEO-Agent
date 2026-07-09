@@ -121,7 +121,7 @@ Before quoting **any** of the following, compute or read live. Never infer from 
 | Today's day-of-week (Monday, Tuesday…) | `python -c "from datetime import date; print(date.today().strftime('%A'))"` |
 | Today's date | `python -c "from datetime import date; print(date.today().isoformat())"` |
 | Days remaining to a deadline | `python -c "from datetime import date; print((date(YYYY,M,D)-date.today()).days)"` |
-| Current MRR / revenue | `python scripts/revenue_engine.py mrr --json` |
+| Current MRR / revenue | ATLAS-OWNED — Bravo does not report MRR. Defer to Atlas; read Atlas's pulse/STATE.md READ-ONLY if CC explicitly asks |
 | Current pipeline state | `python scripts/lead_engine.py pipeline --json` |
 | Active tasks | `read_file("memory/ACTIVE_TASKS.md")` AND verify its `last_updated` against today |
 | Recent activity | `read_file("memory/SESSION_LOG.md")` |

@@ -169,6 +169,7 @@ If your output sounds like a generic AI assistant, you've already lost the room.
 - **Workflows:** 35 in `.agents/workflows/`
 - **Cron jobs:** 23 in `cron_engine.py SEED_JOBS`. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — run `python scripts/core/cron_engine.py seed` only after CC reviews the entries.
 - **North Star:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
+- **CRM motion (2026-07-09): INBOUND-first** — leads arrive via funnel / DMs / social content → nurture → book a call. Cold outbound is on-demand only, never the default. Automation model calls go through `scripts/lib/claude_cli.py` (local CLI, subscription OAuth) — never `ANTHROPIC_API_KEY`.
 
 ---
 
