@@ -32,7 +32,6 @@ import argparse
 import html
 import json
 import os
-import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -41,7 +40,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
-from lib.claude_auth import build_claude_spawn_env  # noqa: E402
+from lib.claude_cli import run_claude_cli  # noqa: E402
 
 # Windows console defaults to cp1252; the brief includes 🌅 + bullet
 # glyphs. Reconfigure to UTF-8 so --dry-run prints don't UnicodeEncodeError.
@@ -130,34 +129,14 @@ def _regenerate_snapshot() -> None:
         sys.stderr.write(f"[daily_brief] snapshot regen failed: {e}\n")
 
 
-def _resolve_claude_bin() -> str | None:
-    """Locate the claude CLI. shutil.which covers the common case; the
-    Windows npm-global / .local/bin fallbacks mirror warm_claude_pool so a
-    PYTHONW-spawned scheduler with a slim PATH still finds it."""
-    found = shutil.which("claude")
-    if found:
-        return found
-    if os.name == "nt":
-        for c in (Path.home() / ".local" / "bin" / "claude.exe",
-                  Path.home() / "AppData" / "Roaming" / "npm" / "claude.cmd"):
-            if c.is_file():
-                return str(c)
-    return None
-
-
 def _narrate_via_cli(snapshot: dict) -> str | None:
     """Hand the operational snapshot to the LOCAL claude CLI → 5-bullet brief.
 
-    Auth is CC's Claude Code SUBSCRIPTION (OAuth) via build_claude_spawn_env,
-    which strips ANTHROPIC_API_KEY from the child env — the CLI-only rule.
-    Returns None on any failure; caller falls back to the deterministic brief,
-    so a missing CLI / expired token / timeout degrades to accurate numbers
-    rather than the old "AI narration unavailable" dead-end."""
-    claude_bin = _resolve_claude_bin()
-    if not claude_bin:
-        sys.stderr.write("[daily_brief] claude CLI not found — deterministic brief\n")
-        return None
-
+    Routes through lib.claude_cli.run_claude_cli (CC's Claude Code SUBSCRIPTION
+    OAuth, never the metered API key). Returns None on any failure; caller falls
+    back to the deterministic brief, so a missing CLI / expired token / timeout
+    degrades to accurate numbers rather than the old "AI narration unavailable"
+    dead-end."""
     # Strip revenue/cash (Atlas's domain) + noisy fields before narrating.
     cleaned = {k: v for k, v in snapshot.items()
                if k not in ("snapshot_type", "ts", "revenue")}
@@ -170,46 +149,16 @@ def _narrate_via_cli(snapshot: dict) -> str | None:
         f"{json.dumps(cleaned, indent=2, default=str)[:6000]}\n\n"
         f"Write CC's 5-bullet operational brief."
     )
-
-    # Subscription-first env + a lean, side-effect-free boot: no MCP servers,
-    # no slash commands, no settings/CLAUDE.md/hooks (--setting-sources "").
-    # The Bravo-narrator persona is injected via --append-system-prompt.
-    env = build_claude_spawn_env(force_api_key=False, extras={
-        "CI": "true", "NONINTERACTIVE": "true", "NO_COLOR": "1",
-        "FORCE_COLOR": "0", "PAGER": "cat",
-        "CLAUDE_PROJECT_DIR": str(PROJECT_ROOT),
-    })
-    args = [
-        claude_bin, "-p", user_prompt,
-        "--append-system-prompt", SYSTEM_PROMPT,
-        "--model", NARRATION_MODEL_CLI,
-        "--output-format", "text",
-        "--disable-slash-commands",
-        "--strict-mcp-config",
-        "--setting-sources", "",
-    ]
-    try:
-        proc = subprocess.run(
-            args, cwd=str(PROJECT_ROOT), capture_output=True, text=True,
-            timeout=CLI_NARRATION_TIMEOUT_SEC, encoding="utf-8",
-            errors="replace", creationflags=WINDOWLESS_FLAGS, env=env,
-        )
-    except (subprocess.TimeoutExpired, OSError) as e:
-        sys.stderr.write(f"[daily_brief] claude narration failed: {e}\n")
-        return None
-    if proc.returncode != 0:
-        sys.stderr.write(
-            f"[daily_brief] claude narration exit {proc.returncode}: "
-            f"{(proc.stderr or '').strip()[:300]}\n")
-        return None
-    text = (proc.stdout or "").strip()
+    text = run_claude_cli(
+        user_prompt, system=SYSTEM_PROMPT,
+        model=NARRATION_MODEL_CLI, timeout=CLI_NARRATION_TIMEOUT_SEC,
+    )
     if not text:
         return None
     # notify() ships with parse_mode=HTML and has NO plain-text fallback, so a
     # stray <, >, or & in the model's prose ("score > 70", "A & B") would make
     # Telegram reject the whole message → CC gets nothing. Escape the three
-    # HTML-special chars; they render as literal glyphs. (_render_brief is
-    # authored without them, so the deterministic path needs no escaping.)
+    # HTML-special chars; they render as literal glyphs.
     return html.escape(text, quote=False)
 
 
@@ -224,80 +173,99 @@ def _count_stage(pipe: dict, stage: str) -> int:
     return 0
 
 
+_PIPELINE_STAGES = ("new", "contacted", "qualified", "proposal", "won", "lost")
+_ACTIVE_STAGES = ("new", "contacted", "qualified", "proposal")
+
+
+def _is_failed_block(v) -> bool:
+    """briefing_snapshot._call marks a failed/unparseable sub-engine call with
+    an _error or _raw key. Treat those as 'no data' — never as zero/green. A
+    silent 0 is a worse lie than an honest 'unavailable'."""
+    return isinstance(v, dict) and ("_error" in v or "_raw" in v)
+
+
 def _render_brief(snapshot: dict) -> str:
     """Deterministic operational brief — always accurate, no AI, no API key.
 
-    The old fallback read snapshot keys that never existed (revenue.net_mrr_cad,
-    pipeline.total, followups_due.total, ...) so every line rendered "—" even
-    though the snapshot held real data. This reads the ACTUAL schema. MRR/cash
-    are intentionally omitted — revenue reporting is Atlas's (CFO) job; Bravo
-    stays operational (pipeline / follow-ups / client health)."""
+    Reads the ACTUAL snapshot schema (the old fallback read keys that never
+    existed → every field '—'). A DEGRADED sub-engine renders '⚠️ unavailable',
+    never a false zero/green. MRR/cash omitted — revenue is Atlas's (CFO) job.
+    Output is HTML-escaped for Telegram's parse_mode=HTML."""
     date = snapshot.get("date", "today")
     brief = snapshot.get("briefing") if isinstance(snapshot.get("briefing"), dict) else {}
     lines = [f"🌅 Bravo brief · {date}", ""]
 
-    # --- Pipeline: prefer the pre-aggregated briefing block, else raw stages ---
-    pipe_agg = brief.get("pipeline") if isinstance(brief.get("pipeline"), dict) else {}
-    by_stage = pipe_agg.get("by_stage")
-    if not isinstance(by_stage, dict):
-        raw = snapshot.get("pipeline") or {}
-        by_stage = {s: _count_stage(raw, s)
-                    for s in ("new", "contacted", "qualified", "proposal", "won", "lost")}
-    active = pipe_agg.get("active_leads")
-    if not isinstance(active, int):
-        active = sum(int(by_stage.get(s) or 0)
-                     for s in ("new", "contacted", "qualified", "proposal"))
-    qualified = int(by_stage.get("qualified") or 0)
-    stage_bits = " · ".join(
-        f"{int(by_stage.get(s) or 0)} {label}"
-        for s, label in (("new", "new"), ("contacted", "contacted"),
-                         ("qualified", "qualified"), ("won", "won"))
-        if int(by_stage.get(s) or 0)
-    )
-    lines.append(f"🎯 Pipeline — {active} active")
-    if stage_bits:
-        lines.append(f"   {stage_bits}")
-    if qualified:
-        lines.append(f"   → {qualified} qualified lead{'s' if qualified != 1 else ''} ready to move")
+    # --- Pipeline: prefer the raw lead_engine block (authoritative), then the
+    #     ceo_dashboard aggregate; 'unavailable' if BOTH are degraded ---
+    raw_pipe = snapshot.get("pipeline")
+    brief_pipe = brief.get("pipeline") if isinstance(brief.get("pipeline"), dict) else {}
+    by_stage = None
+    if isinstance(raw_pipe, dict) and raw_pipe and not _is_failed_block(raw_pipe):
+        by_stage = {s: _count_stage(raw_pipe, s) for s in _PIPELINE_STAGES}
+    elif isinstance(brief_pipe.get("by_stage"), dict) and brief_pipe["by_stage"]:
+        by_stage = {s: int(brief_pipe["by_stage"].get(s) or 0) for s in _PIPELINE_STAGES}
 
-    # --- Follow-ups due (snapshot has a list of lead objects) ---
-    followups = snapshot.get("followups_due")
-    fu = followups if isinstance(followups, list) else []
-    lines.append("")
-    lines.append(f"📞 Follow-ups due: {len(fu)}")
-    for lead in fu[:5]:
-        if not isinstance(lead, dict):
-            continue
-        name = lead.get("name") or "—"
-        company = lead.get("company") or ""
-        score = lead.get("score")
-        tail = f" · {company}" if company else ""
-        if score is not None:
-            tail += f" (score {score})"
-        lines.append(f"   • {name}{tail}")
-
-    # --- Client health: honour the "0 monitored" truth-note over "all green" ---
-    ch = brief.get("client_health") if isinstance(brief.get("client_health"), dict) else {}
-    monitored = ch.get("monitored")
-    alerts = snapshot.get("client_health_alerts") if isinstance(snapshot.get("client_health_alerts"), dict) else {}
-    at_risk = ch.get("at_risk")
-    if at_risk is None:
-        at_risk = len(alerts.get("at_risk_clients") or [])
-    lines.append("")
-    if monitored == 0:
-        lines.append("🩺 Client health: ⚠️ 0 clients monitored")
-        lines.append("   CRM gap — paying subscribers aren't tagged status='client'.")
-    elif at_risk:
-        lines.append(f"🩺 Client health: ⚠️ {at_risk} at risk")
+    if by_stage is None:
+        lines.append("🎯 Pipeline — ⚠️ unavailable (snapshot degraded)")
     else:
-        lines.append("🩺 Client health: ✅ all green")
+        active = sum(int(by_stage.get(s) or 0) for s in _ACTIVE_STAGES)
+        qualified = int(by_stage.get("qualified") or 0)
+        stage_bits = " · ".join(
+            f"{int(by_stage.get(s) or 0)} {label}"
+            for s, label in (("new", "new"), ("contacted", "contacted"),
+                             ("qualified", "qualified"), ("won", "won"))
+            if int(by_stage.get(s) or 0)
+        )
+        lines.append(f"🎯 Pipeline — {active} active")
+        if stage_bits:
+            lines.append(f"   {stage_bits}")
+        if qualified:
+            lines.append(f"   → {qualified} qualified lead{'s' if qualified != 1 else ''} ready to move")
+
+    # --- Follow-ups due: a list = real data; anything else = unavailable ---
+    followups = snapshot.get("followups_due")
+    lines.append("")
+    if isinstance(followups, list):
+        lines.append(f"📞 Follow-ups due: {len(followups)}")
+        for lead in followups[:5]:
+            if not isinstance(lead, dict):
+                continue
+            name = lead.get("name") or "—"
+            company = lead.get("company") or ""
+            score = lead.get("score")
+            tail = f" · {company}" if company else ""
+            if score is not None:
+                tail += f" (score {score})"
+            lines.append(f"   • {name}{tail}")
+    else:
+        lines.append("📞 Follow-ups due: ⚠️ unavailable")
+
+    # --- Client health: honour the '0 monitored' truth-note; degraded = unavailable
+    ch_raw = brief.get("client_health")
+    alerts = snapshot.get("client_health_alerts")
+    ch = ch_raw if isinstance(ch_raw, dict) else None
+    lines.append("")
+    if ch is None or _is_failed_block(ch_raw) or _is_failed_block(alerts):
+        lines.append("🩺 Client health: ⚠️ unavailable")
+    else:
+        monitored = ch.get("monitored")
+        at_risk = ch.get("at_risk")
+        if at_risk is None and isinstance(alerts, dict):
+            at_risk = len(alerts.get("at_risk_clients") or [])
+        if monitored == 0:
+            lines.append("🩺 Client health: ⚠️ 0 clients monitored")
+            lines.append("   CRM gap — paying subscribers aren't tagged status='client'.")
+        elif at_risk:
+            lines.append(f"🩺 Client health: ⚠️ {at_risk} at risk")
+        else:
+            lines.append("🩺 Client health: ✅ all green")
 
     # --- footer: prove the brief ran + how fresh the data is ---
     ts = snapshot.get("ts") or ""
     hhmm = ts[11:16] if len(ts) >= 16 else ts
     lines.append("")
     lines.append(f"⏱ snapshot {hhmm} UTC" if hhmm else "⏱ snapshot generated")
-    return "\n".join(lines)
+    return html.escape("\n".join(lines), quote=False)
 
 
 def build_brief(regenerate: bool = False) -> str:

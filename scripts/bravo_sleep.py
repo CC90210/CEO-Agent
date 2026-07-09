@@ -28,14 +28,14 @@ Design notes
 - Each entry gets its own git commit so it's auditable + reversible
 - A 7-day cooldown per (file, topic-hash) prevents the same lesson getting
   re-logged every night when no genuinely new activity has happened
-- Refuses to run if `ANTHROPIC_API_KEY` is missing (fail closed)
+- Model calls run through the local `claude` CLI on CC's Claude Code
+  subscription (lib.claude_cli) — never the metered ANTHROPIC_API_KEY
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
-import os
 import re
 import sqlite3
 import subprocess
@@ -144,25 +144,16 @@ def _recent_git_log(hours: int) -> str:
 
 
 def _call_model(prompt: str) -> str:
+    # Local claude CLI on CC's subscription OAuth (lib.claude_cli), NOT the
+    # metered ANTHROPIC_API_KEY. The old path used model_router.call() + the
+    # API key, which now 400s ("credit balance too low") and violates the
+    # CLI-only rule — the exact failure that left this nightly job dead. Haiku
+    # alias: cheapest tier is correct for a nightly daemon.
     sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-    try:
-        import model_router  # type: ignore
-    except ImportError:
-        raise RuntimeError("model_router not importable — fix that first")
-    # Pin Haiku explicitly — nightly daemon, cheapest tier is correct
-    result = model_router.call(
-        messages=[{"role": "user", "content": prompt}],
-        agent="bravo",
-        model="claude-haiku-4-5",
-        max_tokens=2000,
-    )
-    if not isinstance(result, dict):
-        raise RuntimeError(f"model_router returned non-dict: {result!r}")
-    if result.get("error"):
-        raise RuntimeError(f"model call failed: {result.get('error')}")
-    text = result.get("text", "").strip()
+    from lib.claude_cli import run_claude_cli  # type: ignore
+    text = run_claude_cli(prompt, model="haiku", timeout=120)
     if not text:
-        raise RuntimeError(f"model returned empty text; full payload: {result!r}")
+        raise RuntimeError("claude CLI returned no text (missing CLI / expired token / timeout)")
     return text
 
 
@@ -224,16 +215,15 @@ def _git_commit(target: Path, kind: str, title: str, dry_run: bool) -> None:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        try:
-            sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "lib"))
-            from secret_loader import bootstrap  # type: ignore
-            bootstrap()
-        except Exception as e:
-            print(f"[bravo_sleep] secret_loader bootstrap failed: {e}", file=sys.stderr)
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("[bravo_sleep] no ANTHROPIC_API_KEY — refusing to run", file=sys.stderr)
-        return 2
+    # Model calls go through the local claude CLI on CC's subscription (see
+    # _call_model); no ANTHROPIC_API_KEY required. Bootstrap secrets anyway so
+    # the state DB / git paths resolve under the PYTHONW scheduler.
+    try:
+        sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "lib"))
+        from secret_loader import bootstrap  # type: ignore
+        bootstrap()
+    except Exception as e:
+        print(f"[bravo_sleep] secret_loader bootstrap failed: {e}", file=sys.stderr)
 
     prompt = PROMPT_TEMPLATE.format(
         hours=args.window_hours,
