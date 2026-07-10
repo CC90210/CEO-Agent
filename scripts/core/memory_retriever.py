@@ -45,7 +45,10 @@ SCOPES: dict[str, list[str]] = {
     "skill":   ["skills/*/SKILL.md"],
     "brain":   ["brain/*.md"],
     "entry":   ["CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md", "ZCODE.md"],
-    "context": ["CONTEXT.md"],
+    # PERSONAL.md = the germline seed (2026-07-09 genome) — the single most
+    # canonical identity/wiring doc; it must be retrievable and its wiki-links
+    # feed the association graph (graph_activation.py shares this walker).
+    "context": ["CONTEXT.md", "PERSONAL.md"],
     "adr":     ["docs/adr/*.md"],
     "prompt":  ["prompts/*.md"],
 }
@@ -683,9 +686,31 @@ def query(text: str, limit: int = 5, kind: str | None = None,
                 h.pop("lex_score", None)
                 h.pop("sem_score", None)
             merged.append(h)
+        merged = _graph_boost(merged, limit)
         return _trim_to_budget(merged, limit, kind_field="score")
     finally:
         conn.close()
+
+
+def _graph_boost(hits: list[dict], limit: int) -> list[dict]:
+    """Associative layer (2026-07-10): spread activation over the vault's
+    wiki-link graph so well-connected notes rank up and 1-hop neighbors of
+    strong matches surface as `kind='associative'` extras. Opt-out with
+    EMPIRE_GRAPH_BOOST=0. HARD fallback — any graph failure returns the
+    hits untouched; the graph can only ever add signal, never break recall."""
+    import os as _os
+    if (_os.environ.get("EMPIRE_GRAPH_BOOST", "1").strip() == "0"):
+        return hits
+    try:
+        from graph_activation import boost_hits  # same dir (scripts/core)
+        boosted = boost_hits(hits, limit=limit)
+        if boosted:
+            for h in boosted:
+                h.setdefault("score", h.get("assoc_score", 0.0))
+            return boosted
+    except Exception:  # noqa: BLE001 — associative layer is best-effort by design
+        pass
+    return hits
 
 
 def _trim_to_budget(hits: list[dict], limit: int, kind_field: str = "score") -> list[dict]:
