@@ -136,11 +136,11 @@ Always inject stack/file/constraint context. Present Codex output verbatim. Fail
 **End-of-task review MUST include Codex (added 2026-05-23 per CC).** Self-reviews by the agent that did the work are biased — Bravo will undersell its mistakes and oversell its completeness. After ANY big task — ≥3 commits in the session, ≥5 files touched, OR any user-facing change (frontend, prompts, dashboard UI, applied migration, production push) — before declaring done:
 
 1. Write Bravo's own honest self-review (as usual, against the Stop-hook prompts).
-2. **ALSO** delegate the diff to Codex for an independent audit:
+2. **ALSO** delegate the diff to Codex for an independent audit — via the recording wrapper (2026-07-10: it prints Codex verbatim AND records the verdict to task_outcomes, closing the first-pass-success loop):
    ```bash
-   node ~/.claude/codex-plugin/scripts/codex-companion.mjs review --wait
+   python scripts/core/codex_review.py review --session "<task-slug>"
    ```
-   `--wait` blocks until Codex finishes so the result is ready to include. For an architectural challenge instead of a sober walkthrough, use `adversarial-review --wait`.
+   For an architectural challenge instead of a sober walkthrough: `python scripts/core/codex_review.py adversarial-review "<focus>"`. (Raw `codex-companion.mjs ... --wait` still works but skips telemetry — use the wrapper.)
 3. Present BOTH reviews verbatim to CC — Bravo's first, then a `### Codex independent audit` section with the Codex output. Don't paraphrase, don't soften, don't selectively quote. If Codex flags something Bravo dismissed, surface the disagreement explicitly.
 
 Bravo's self-review is necessary but never sufficient on big tasks. Optional reinforcement: enable the workspace stop-gate so the Stop hook blocks until Codex has reviewed — `node ~/.claude/codex-plugin/scripts/codex-companion.mjs setup --enable-review-gate`. Cross-machine: each rig enables this per-workspace; pulled docs don't propagate the gate config.
