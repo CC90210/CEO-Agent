@@ -278,11 +278,18 @@ def render_branded_html(
     cta_url: Optional[str] = None,
     show_booking: bool = False,
     brand: Optional[str] = None,
+    from_display: Optional[str] = None,
 ) -> str:
     """Wrap a plain-text body in the brand-aware HTML shell.
 
     `brand` selects the palette + wordmark + signature defaults. Pass
     'oasis' (default) or 'sunbiz'. Adding a brand: extend BRAND_CONFIG.
+
+    `from_display` overrides the signature name for THIS render only —
+    the per-rep path (2026-07-10): a dashboard email queued by Alex must
+    sign "— Alex" even though the brand default is the shared identity.
+    None keeps the existing env-var/brand-default resolution, so every
+    current caller is unchanged.
 
     `body` may contain newlines — they're converted to <br/>. Markdown
     is NOT processed; if the caller wants formatting they should pass
@@ -307,7 +314,7 @@ def render_branded_html(
     brand_display = str(bcfg["display_name"])
     brand_tagline = str(bcfg["tagline"])
     safe_body = _html.escape(body).replace("\n", "<br/>\n")
-    name = _html.escape(_from_display(brand))
+    name = _html.escape(from_display or _from_display(brand))
     sig = _html.escape(_signature_block(brand))
     site = _html.escape(_website(brand))
     booking = _booking_link()

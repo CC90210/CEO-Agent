@@ -72,6 +72,136 @@ from casl_compliance import (  # noqa: E402
 # CASL footer + List-Unsubscribe headers apply when intent != "internal".
 _VALID_INTENTS = frozenset({"commercial", "transactional", "internal"})
 
+# ---- Per-message sender identity (2026-07-10) -------------------------------
+#
+# Before this block, _build_message called build_casl_footer(to_email) bare and
+# render_branded_html without a brand — so every daemon-drained SunBiz lead
+# email signed "Conaugh McKenna — OASIS AI Solutions, Collingwood, ON, Canada"
+# inside an OASIS-branded shell. Wrong person, wrong company, wrong country.
+# It went unnoticed only because the daemon itself was down (2026-06-28..07-07
+# stall) and the synchronous Vercel routes did their own compose.
+#
+# Identity now resolves per message, mirroring the dashboard's own rules
+# (app/api/leads/[id]/email/route.ts): tenant slug -> brand, and the acting
+# rep (metadata.acted_by_user_id, the auth_user_id the drawer stamps) ->
+# user_profiles.display_name for the signature. Fallbacks are deliberate and
+# ordered: rep display_name -> requested_by_email profile match -> the brand's
+# default sender. A resolution failure NEVER blocks the send — worst case the
+# email signs with the brand default, which is always compliant.
+
+# Mirrors the dashboard's slug->brand map and send_gateway.BRAND_IDENTITY
+# footer fields. Local mirror per this file's no-gateway-import rule; if a
+# brand's legal identity changes, update send_gateway.BRAND_IDENTITY first,
+# then this. (sunbiz address provenance: CC-confirmed 2026-06-17.)
+_BRAND_BY_TENANT_SLUG = {"submissions": "sunbiz"}
+_DEFAULT_BRAND = "oasis"
+_BRAND_FOOTER_IDENTITY: dict[str, dict[str, str]] = {
+    "oasis": {
+        "business_name": "OASIS AI Solutions",
+        "business_address": "OASIS AI Solutions, Collingwood, ON, Canada",
+        "sender_name": "Conaugh McKenna",
+    },
+    "sunbiz": {
+        "business_name": "Sun Biz Funding",
+        "business_address": "221 W Hallandale Beach Blvd, Suite 518, Hallandale, FL 33009",
+        "sender_name": "Matt",
+    },
+}
+
+# tenant_id -> slug cache. Slugs are immutable post-provisioning (same
+# reasoning as integrations/user_gmail_oauth._TENANT_SLUG_CACHE), so an
+# unbounded module-level cache is safe in the daemon process.
+_tenant_slug_cache: dict[str, str] = {}
+# (tenant_id, auth_user_id) -> display name cache. Rep renames are rare and a
+# stale name self-heals on daemon restart; per-send freshness isn't worth a
+# DB round-trip on every message of a bulk batch.
+_rep_name_cache: dict[tuple[str, str], str] = {}
+
+
+def _brand_for_tenant(sb, tenant_id: str) -> str:
+    """Resolve tenant_id -> brand key via the tenants.slug lookup."""
+    if not tenant_id:
+        return _DEFAULT_BRAND
+    slug = _tenant_slug_cache.get(tenant_id)
+    if slug is None:
+        try:
+            r = (
+                sb.table("tenants").select("slug").eq("id", tenant_id)
+                .limit(1).execute()
+            )
+            rows = r.data or []
+            slug = ((rows[0] or {}).get("slug") if rows else "") or ""
+            _tenant_slug_cache[tenant_id] = slug
+        except Exception as e:  # noqa: BLE001
+            print(f"[dashboard_email_consumer] tenant slug lookup failed: {e}",
+                  file=sys.stderr)
+            return _DEFAULT_BRAND
+    return _BRAND_BY_TENANT_SLUG.get(slug, _DEFAULT_BRAND)
+
+
+def _rep_display_name(sb, tenant_id: str, md: dict) -> str | None:
+    """The acting rep's display name, or None when unresolvable.
+
+    metadata.acted_by_user_id is the drawer's auth_user_id stamp (the same
+    value tenant_records data.assigned_to carries). requested_by_email is the
+    session email — the secondary key when the id misses (e.g. a profile
+    re-provisioned under a new auth user).
+    """
+    acted_by = str((md or {}).get("acted_by_user_id") or "").strip()
+    requested_by = str((md or {}).get("requested_by_email") or "").strip()
+    if not tenant_id or not (acted_by or requested_by):
+        return None
+    cache_key = (tenant_id, acted_by or requested_by.lower())
+    cached = _rep_name_cache.get(cache_key)
+    if cached is not None:
+        return cached or None  # "" caches a confirmed miss
+    name = ""
+    try:
+        if acted_by:
+            r = (
+                sb.table("user_profiles")
+                .select("display_name, full_name")
+                .eq("tenant_id", tenant_id).eq("auth_user_id", acted_by)
+                .limit(1).execute()
+            )
+            rows = r.data or []
+            if rows:
+                name = (rows[0].get("display_name") or rows[0].get("full_name") or "").strip()
+        if not name and requested_by:
+            r = (
+                sb.table("user_profiles")
+                .select("display_name, full_name")
+                .eq("tenant_id", tenant_id).ilike("email", requested_by)
+                .limit(1).execute()
+            )
+            rows = r.data or []
+            if rows:
+                name = (rows[0].get("display_name") or rows[0].get("full_name") or "").strip()
+    except Exception as e:  # noqa: BLE001
+        print(f"[dashboard_email_consumer] rep name lookup failed: {e}",
+              file=sys.stderr)
+        return None  # transient DB error — don't cache, retry next message
+    _rep_name_cache[cache_key] = name
+    return name or None
+
+
+def _resolve_message_identity(sb, tenant_id: str, md: dict) -> dict[str, str]:
+    """Brand + signature identity for one queued message.
+
+    Returns {brand, sender_name, business_name, business_address}. Always
+    complete — falls back to the brand's default sender when the rep can't
+    be resolved, and to the oasis identity for unknown brands/tenants.
+    """
+    brand = _brand_for_tenant(sb, tenant_id)
+    footer = _BRAND_FOOTER_IDENTITY.get(brand, _BRAND_FOOTER_IDENTITY[_DEFAULT_BRAND])
+    sender = _rep_display_name(sb, tenant_id, md) or footer["sender_name"]
+    return {
+        "brand": brand,
+        "sender_name": sender,
+        "business_name": footer["business_name"],
+        "business_address": footer["business_address"],
+    }
+
 # Per-user Gmail OAuth resolver (Phase 4 SunBiz multi-employee
 # personalization). When the dashboard drawer queued the email with a
 # metadata.acted_by_user_id stamp, we try to send authenticated as that
@@ -172,6 +302,12 @@ def _fetch_queued(sb, *, limit: int = 25) -> list[dict]:
             # here, bulk emails would queue forever and never send.
             .in_("agent_source", ["dashboard_drawer", "dashboard_bulk_email"])
             .eq("type", "email_queued")
+            # Server-side jsonb filter (PostgREST `metadata->>status`). The
+            # previous post-filter starved the queue once non-queued rows
+            # outnumbered the page: oldest-25 were all sent/held, post-filter
+            # returned 0, and NEW queued rows behind them were never reached
+            # (found 2026-07-10 via a loopback that sat queued forever).
+            .eq("metadata->>status", "queued")
             .order("created_at", desc=False)
             .limit(limit)
             .execute()
@@ -180,8 +316,8 @@ def _fetch_queued(sb, *, limit: int = 25) -> list[dict]:
     except Exception as e:
         print(f"[dashboard_email_consumer] fetch failed: {e}", file=sys.stderr)
         return []
-    # PostgREST can't filter on nested jsonb keys via the python SDK
-    # cleanly, so we post-filter on metadata.status here.
+    # Defense-in-depth re-check of the jsonb filter — a malformed metadata
+    # (non-dict) row must never be re-sent.
     out: list[dict] = []
     for row in rows:
         md = row.get("metadata") or {}
@@ -198,8 +334,19 @@ def _footer_already_present(content: str, footer_text: str) -> bool:
     return bool(sig_line and sig_line in content)
 
 
-def _build_message(row: dict, gmail_from: str, intent: str = "commercial") -> MIMEMultipart:
-    """Build a multipart/alternative email with BOTH plain-text + OASIS-branded HTML.
+def _build_message(
+    row: dict,
+    gmail_from: str,
+    intent: str = "commercial",
+    identity: dict[str, str] | None = None,
+) -> MIMEMultipart:
+    """Build a multipart/alternative email with BOTH plain-text + branded HTML.
+
+    `identity` (from _resolve_message_identity) carries the brand + acting
+    rep for THIS message: the HTML shell renders in the tenant's brand and
+    signs with the rep's name, and the CASL footer states the rep + the
+    brand's legal business name/address. None falls back to the legacy
+    env-default behavior (kept for direct callers/tests).
 
     2026-06-06: previously this attached only the plain-text part, so every
     drawer-queued check-in arrived unbranded — CC's complaint after
@@ -221,10 +368,26 @@ def _build_message(row: dict, gmail_from: str, intent: str = "commercial") -> MI
     subject = (row.get("subject") or "").strip() or "(no subject)"
     content = (row.get("content") or row.get("content_preview") or "").strip()
     to_email = (row.get("to_email") or "").strip()
+    ident = identity or {}
+    brand = ident.get("brand")
+    sender_name = ident.get("sender_name")
+    business_name = ident.get("business_name")
+    business_address = ident.get("business_address")
 
     # CASL footer (text). Mirrors send_gateway: append when intent != internal.
+    # Identity-aware since 2026-07-10 — the footer states the acting rep and
+    # the tenant brand's legal name/address instead of the OASIS env defaults.
     want_footer = intent != "internal"
-    footer_text = build_casl_footer(to_email) if want_footer else ""
+    footer_text = (
+        build_casl_footer(
+            to_email,
+            business_name=business_name,
+            business_address=business_address,
+            sender_name=sender_name,
+        )
+        if want_footer
+        else ""
+    )
     if footer_text and _footer_already_present(content, footer_text):
         want_footer = False  # operator already signed — don't double-stamp
         footer_text = ""
@@ -238,20 +401,33 @@ def _build_message(row: dict, gmail_from: str, intent: str = "commercial") -> MI
     # Plain-text part (always attached — fallback for HTML-blocking clients)
     msg.attach(MIMEText(plain_body, "plain", "utf-8"))
 
-    # OASIS-branded HTML part. Import is lazy + best-effort so a missing
+    # Brand-aware HTML part. Import is lazy + best-effort so a missing
     # email_template module degrades to plain-text-only rather than
     # failing the send. Render from the ORIGINAL content (not plain_body)
     # so the footer isn't double-rendered, then append the HTML footer.
+    # brand selects the tenant's shell (sunbiz navy/gold vs oasis) and
+    # from_display signs the shell's signature block as the acting rep.
     try:
         from email_template import render_branded_html  # type: ignore
-        html_body = render_branded_html(content, subject=subject, show_booking=False)
+        html_body = render_branded_html(
+            content,
+            subject=subject,
+            show_booking=False,
+            brand=brand,
+            from_display=sender_name,
+        )
         if want_footer:
-            html_body = html_body + build_casl_footer_html(to_email)
+            html_body = html_body + build_casl_footer_html(
+                to_email,
+                business_name=business_name,
+                business_address=business_address,
+                sender_name=sender_name,
+            )
         msg.attach(MIMEText(html_body, "html", "utf-8"))
     except Exception as exc:  # noqa: BLE001
         # Log but don't fail — recipient will see the plain-text body.
         print(
-            f"[dashboard_email_consumer] OASIS branding failed (sending plain only): {exc}",
+            f"[dashboard_email_consumer] branded HTML failed (sending plain only): {exc}",
             file=sys.stderr,
         )
 
@@ -370,6 +546,10 @@ def _send_one(env: dict[str, str], sb, row: dict) -> str:
         return "failed"
     user_bundle = identity["bundle"] if identity["mode"] == "user_oauth" else None
 
+    # Brand + acting-rep signature identity for this message (best-effort —
+    # falls back to brand defaults, never blocks the send).
+    msg_identity = _resolve_message_identity(sb, tenant_id, md)
+
     sent_via = "smtp"
     sent_as = ""
     err: str | None = None
@@ -377,7 +557,7 @@ def _send_one(env: dict[str, str], sb, row: dict) -> str:
 
     if user_bundle and _send_via_gmail_api is not None:
         gmail_from = user_bundle["gmail_address"]
-        msg = _build_message(row, gmail_from, intent)
+        msg = _build_message(row, gmail_from, intent, msg_identity)
         try:
             raw = msg.as_bytes()
         except Exception:
@@ -404,7 +584,7 @@ def _send_one(env: dict[str, str], sb, row: dict) -> str:
                 error="GMAIL_USER or GMAIL_APP_PASSWORD missing in .env.agents",
             )
             return "failed"
-        msg = _build_message(row, gmail_from or gmail_user, intent)
+        msg = _build_message(row, gmail_from or gmail_user, intent, msg_identity)
         try:
             ok, err = smtp_send(
                 gmail_user, gmail_pass, msg, to_email,
