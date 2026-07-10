@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-07-10T01:02:33.836874+00:00",
-  "script_count": 111,
-  "entry_count": 268,
+  "generated_at_iso": "2026-07-10T19:47:27.802628+00:00",
+  "script_count": 112,
+  "entry_count": 270,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1643,6 +1643,22 @@
       "subcmd": null,
       "mutating": true,
       "help": "SunBiz \u2014 interactive seeder for lender restricted_states + restricted_industries"
+    },
+    {
+      "key": "agent_sleep_run",
+      "path": "scripts/agent_sleep.py",
+      "root": "sunbiz",
+      "subcmd": "run",
+      "mutating": true,
+      "help": "agent_sleep \u2014 Nightly memory consolidation by an LLM judge. \u2014 subcommand: run"
+    },
+    {
+      "key": "agent_sleep_status",
+      "path": "scripts/agent_sleep.py",
+      "root": "sunbiz",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "agent_sleep \u2014 Nightly memory consolidation by an LLM judge. \u2014 subcommand: status"
     },
     {
       "key": "api_server",
