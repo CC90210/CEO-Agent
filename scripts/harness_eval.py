@@ -43,7 +43,8 @@ except Exception:
     WINDOWLESS_FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 ENTRY_POINTS = ["CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md", "OPENCODE.md", "ZCODE.md"]
-LOCKSTEP_MARKER = "CRM motion (2026-07-09): INBOUND-first"
+# The germline seed's core block (stamped from PERSONAL.md by genome_sync.py).
+LOCKSTEP_MARKER = "LOCKSTEP:seed_core"
 REQUIRED_PM2 = {"bravo-scheduler", "bravo-telegram", "claude-bridge", "event-router", "bravo-coord"}
 
 

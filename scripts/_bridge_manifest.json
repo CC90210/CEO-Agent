@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-07-09T18:39:42.545522+00:00",
-  "script_count": 109,
-  "entry_count": 266,
+  "generated_at_iso": "2026-07-10T01:02:33.836874+00:00",
+  "script_count": 111,
+  "entry_count": 268,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -11,6 +11,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Add `from __future__ import annotations` to Python files that use PEP 604"
+    },
+    {
+      "key": "agent_genome",
+      "path": "scripts/agent_genome.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "agent_genome.py \u2014 verify an agent repo fully expresses the genome."
     },
     {
       "key": "apply_migration",
@@ -659,6 +667,14 @@
       "subcmd": null,
       "mutating": false,
       "help": "Generate a conventional-commits \u2192 CHANGELOG.md draft from `git log`."
+    },
+    {
+      "key": "genome_sync",
+      "path": "scripts/genome_sync.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "genome_sync.py \u2014 stamp the germline seed (PERSONAL.md) into every runtime entry point."
     },
     {
       "key": "gnn_skill_router_export_graph",

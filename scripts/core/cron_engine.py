@@ -231,6 +231,24 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # Genome fitness loop (2026-07-09) — the verifiable-reward wire. Runs
+        # the deterministic harness eval nightly at 03:30 (before Sleep Agent
+        # at 04:00, so a red substrate is on record before consolidation) and
+        # alerts CC's Telegram on any failing check. Closes the frontier gap
+        # "the eval exists but feeds nothing" — the score now has a consumer.
+        "name": "Bravo — Nightly Harness Eval",
+        "description": "Deterministic 10-check harness eval (genome fitness) — Telegram alert on any red check",
+        "schedule": "30 3 * * *",
+        "action_type": "script_run",
+        # NO --json here: the script_run wrapper stores the LAST stdout line as
+        # last_result, and pretty JSON's last line is just "}" (the exact
+        # 2026-06-06 Daily-MRR-Auto-Sync lesson). Plain mode ends with
+        # "ALL GREEN — harness is turnkey for any runtime." on success and
+        # exits 1 on any red check → notify_on nonzero_exit fires.
+        "action_config": {"script": "scripts/harness_eval.py", "args": [], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
+        "is_active": True,
+    },
+    {
         # In the live DB since 2026-06 (row bb0d5f2b) but was never seeded —
         # a fresh-machine reseed would silently lose it. Added 2026-07-09.
         # Runs the cross-agent self-improvement sweep (Bravo + Atlas + Maven
@@ -495,6 +513,10 @@ def cmd_add(client, args, output_json: bool) -> None:
         "is_active": True,
         "run_count": 0,
         "created_at": now,
+        # cron_jobs.tenant_id is NOT NULL; cmd_seed always stamped it but
+        # cmd_add never did, so every `add` failed 23502 (latent since the
+        # column landed — caught 2026-07-09 wiring the harness-eval cron).
+        "tenant_id": CC_EMPIRE_TENANT_ID,
     }
     if args.description:
         payload["description"] = args.description

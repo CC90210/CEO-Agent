@@ -141,8 +141,8 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 ## Last Heartbeat
 
 - **Date:** 2026-07-09
-- **Agent:** CODEX via state_sync
-- **Result:** Created separate SunBiz front website app, pushed GitHub repo, linked Vercel project, deployed live at https://sunbiz-front-website.vercel.app, restored canonical SunBiz Funding site, and recorded registry/mistake notes.
+- **Agent:** BRAVO via Claude Code (claude-fable-5)
+- **Result:** Deep structure audit executed (commit e2046cba, pushed): harness_eval.py flagship (10/10), auto_score_leads->claude_cli, Weekly MRR Report + Morning Pow Wow crons off (DB+SEED), run_revenue_report handler refuses MRR, ~50 md files reworded for Atlas-owns-MRR/inbound-first/claude_cli across all runtimes, 4 orphan scripts archived, capability graph rebuilt 150 skills 0 drift. Codex pre-commit review 1H+3M all fixed.
 
 *Last updated: 2026-07-09*
 
