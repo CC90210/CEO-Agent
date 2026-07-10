@@ -57,10 +57,11 @@ DEFAULTS: dict[str, list[str]] = {
     "capability_resolver": ["scripts/capability_query.py"],
     "memory_tiers": ["memory/MISTAKES.md", "memory/PATTERNS.md", "memory/DECISIONS.md"],  # ALL required
     "retrieval": ["scripts/core/memory_retriever.py"],
-    "learning_loop": ["scripts/bravo_sleep.py", "scripts/core/agent_self_improvement.py"],
+    "learning_loop": ["scripts/bravo_sleep.py", "scripts/agent_sleep.py", "scripts/core/agent_self_improvement.py"],
     "model_access": ["scripts/lib/claude_cli.py", "cfo/claude_auth.py", "scripts/lib/claude_auth.py"],
     "guards": [".claude/settings.json", ".claude/settings.local.json", ".claude/settings.hooks.template.json"],
-    "eval": ["scripts/harness_eval.py"],
+    "eval": ["scripts/harness_eval.py", "scripts/agent_genome.py"],
+    "learning_loop_extra": [],  # reserved
 }
 
 
@@ -71,8 +72,8 @@ def _load_manifest(repo: Path) -> dict[str, list[str]]:
         try:
             override = json.loads(gj.read_text(encoding="utf-8"))
             for k, v in override.items():
-                if isinstance(v, list):
-                    cfg[k] = v
+                if isinstance(v, (list, str)):
+                    cfg[k] = v  # lists = candidate paths; strings (e.g. mirror_dir, name) pass through
         except json.JSONDecodeError as e:
             print(f"WARN: genome.json unparseable ({e}) — using defaults", file=sys.stderr)
     return cfg
@@ -125,7 +126,9 @@ def verify(repo: Path) -> list[dict]:
             for b, content in seed_blocks.items():
                 if have.get(b) != content:
                     drift.append(f"{e}:{b}")
-        mirror_dir = repo / ".gemini" / "rules"
+        _mirror_rel = cfg.get("mirror_dir", [".gemini/rules"])
+        _mirror_rel = _mirror_rel[0] if isinstance(_mirror_rel, list) else _mirror_rel
+        mirror_dir = (repo / _mirror_rel) if _mirror_rel else (repo / "__no_mirror__")
         mirror_issues: list[str] = []
         if mirror_dir.is_dir():
             for e in eps:

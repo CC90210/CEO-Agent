@@ -23,14 +23,28 @@ Rules:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SEED = ROOT / "PERSONAL.md"
-ENTRY_POINTS = ["CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md", "OPENCODE.md", "ZCODE.md"]
-MIRROR_DIR = ROOT / ".gemini" / "rules"
+
+# Self-configuring (portable across agent repos): genome.json at the repo root
+# may override entry_points (Atlas/Maven ship 5 — no ZCODE.md) and mirror_dir
+# ("" = no mirrors). Defaults are Bravo's layout. Keep this file byte-identical
+# across siblings — per-repo differences live in genome.json, never in code.
+_DEFAULT_ENTRY_POINTS = ["CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md", "OPENCODE.md", "ZCODE.md"]
+_cfg: dict = {}
+if (ROOT / "genome.json").exists():
+    try:
+        _cfg = json.loads((ROOT / "genome.json").read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        print(f"WARN: genome.json unparseable ({e}) — using defaults", file=sys.stderr)
+ENTRY_POINTS = _cfg.get("entry_points", _DEFAULT_ENTRY_POINTS)
+_mirror = _cfg.get("mirror_dir", ".gemini/rules")
+MIRROR_DIR = (ROOT / _mirror) if _mirror else (ROOT / "__no_mirror__")
 
 LOCKSTEP_RE = re.compile(
     r"<!--\s*LOCKSTEP:([A-Za-z0-9_-]+)\s*-->(.*?)<!--\s*/LOCKSTEP:\1\s*-->",
