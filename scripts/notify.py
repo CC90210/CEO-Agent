@@ -99,19 +99,24 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
         silent = True
 
     env = _load_env()
-    token = env.get("TELEGRAM_BOT_TOKEN")
+    # 2026-07-10: fall back to the EZRA bot creds. The SunBiz VPS .env.agents
+    # only carries EZRA_TELEGRAM_BOT_TOKEN / EZRA_TELEGRAM_CHAT_ID (the pair
+    # ezra-telegram-bridge + scrubber use), so every notify() call here —
+    # including notify_daemon_crash() from the pm2 daemons — was a silent
+    # no-op for months. Primary keys still win when both are set.
+    token = env.get("TELEGRAM_BOT_TOKEN") or env.get("EZRA_TELEGRAM_BOT_TOKEN")
     # V2.1 2026-04-11: Guarded chat_id parsing. Old code used
     # `.split(",")[0].strip()` which returned "" on empty/whitespace env
     # and silently failed at Telegram send. Now we filter valid IDs and
     # log a visible error when none are found.
-    raw_users = env.get("TELEGRAM_ALLOWED_USERS", "")
+    raw_users = env.get("TELEGRAM_ALLOWED_USERS", "") or env.get("EZRA_TELEGRAM_CHAT_ID", "")
     chat_ids = [c.strip() for c in raw_users.split(",") if c.strip()]
 
     if not token:
-        print("[notify] TELEGRAM_BOT_TOKEN missing in .env.agents", file=sys.stderr)
+        print("[notify] TELEGRAM_BOT_TOKEN / EZRA_TELEGRAM_BOT_TOKEN missing in .env.agents", file=sys.stderr)
         return False
     if not chat_ids:
-        print("[notify] TELEGRAM_ALLOWED_USERS empty or malformed in .env.agents", file=sys.stderr)
+        print("[notify] TELEGRAM_ALLOWED_USERS / EZRA_TELEGRAM_CHAT_ID empty or malformed in .env.agents", file=sys.stderr)
         return False
     chat_id = chat_ids[0]
 

@@ -385,6 +385,34 @@ if (IS_LINUX) {
         merge_logs: true,
         max_size: "10M",
     });
+
+    // dashboard-email-queue-monitor — watchdog for the consumer above.
+    // Added 2026-07-10 after the consumer was found stopped for ~12 days with
+    // 62 lead emails stranded at metadata.status='queued' and NOTHING alerting.
+    // Watches two independent signals (consumer pm2 status + queued-age
+    // backpressure) and Telegram-alerts the operator (EZRA channel) on a stall,
+    // so a silent drain failure can never hide behind an empty queue again.
+    apps.push({
+        name: "dashboard-email-queue-monitor",
+        script: "scripts/dashboard_email_queue_monitor.py",
+        args: ["loop", "--interval", "300"],
+        interpreter: PYTHON,
+        cwd: PROJECT_ROOT,
+        watch: false,
+        autorestart: true,
+        max_restarts: 20,
+        restart_delay: 10000,
+        windowsHide: true,
+        env: {
+            PYTHONIOENCODING: "utf-8",
+            PYTHONUNBUFFERED: "1",
+        },
+        log_date_format: "YYYY-MM-DD HH:mm:ss",
+        error_file: "tmp/pm2-dashboard-email-queue-monitor-error.log",
+        out_file: "tmp/pm2-dashboard-email-queue-monitor-out.log",
+        merge_logs: true,
+        max_size: "10M",
+    });
 }
 
 // ============================================================================
