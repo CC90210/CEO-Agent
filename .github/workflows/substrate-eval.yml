@@ -1,0 +1,33 @@
+# Substrate eval gate (2026-07-10) — the eval-in-CI ring of the genome.
+#
+# Runs the STRUCTURAL subset of the fitness function on every push/PR:
+#   - entry-point parity (LOCKSTEP blocks byte-identical across 6 runtimes)
+#   - genome-sync drift check (seed ↔ expressions)
+#   - agent_genome 10-gene expression (file-based genes only on a runner)
+#
+# The LIVE-health eval (scripts/harness_eval.py — PM2 fleet, Supabase cron
+# table, local claude CLI probe) is machine-bound by nature and runs as the
+# nightly 03:30 cron with Telegram alerting instead. CI asserts the substrate;
+# the cron asserts the phenotype.
+name: substrate-eval
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  substrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Entry-point parity (LOCKSTEP byte-identity)
+        run: python -m pytest scripts/tests/test_entrypoint_parity.py -q
+      - name: Genome sync drift check (seed is the source of truth)
+        run: python scripts/genome_sync.py --check
+      - name: Agent genome — 10 genes expressed
+        run: python scripts/agent_genome.py --json

@@ -115,8 +115,9 @@ verified: 2026-06-09
 | CC Says | Tool | Command |
 |---------|------|---------|
 | Backend implementation / deep debug | Codex CLI | `node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<task>"` |
-| Code review (second opinion) | Codex CLI | `codex-companion.mjs review` |
-| Adversarial review | Codex CLI | `codex-companion.mjs adversarial-review "<focus>"` |
+| Code review (second opinion — RECORDS the verdict) | `scripts/core/codex_review.py` | `python scripts/core/codex_review.py review [--session <slug>]` — runs codex-companion --wait, prints verbatim, records verdict to task_outcomes (the telemetry loop) |
+| Adversarial review (records verdict) | `scripts/core/codex_review.py` | `python scripts/core/codex_review.py adversarial-review "<focus>"` |
+| First-pass success dashboard | `scripts/core/task_outcomes.py` | `rate` — verdicts (validator self-records since 2026-07-10) + guard-catch counts |
 
 ## Routing Priority Rules
 
