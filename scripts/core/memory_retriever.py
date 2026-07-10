@@ -686,8 +686,14 @@ def query(text: str, limit: int = 5, kind: str | None = None,
                 h.pop("lex_score", None)
                 h.pop("sem_score", None)
             merged.append(h)
-        merged = _graph_boost(merged, limit)
-        return _trim_to_budget(merged, limit, kind_field="score")
+        # Trim FIRST, then spread activation from the final top-`limit` picks.
+        # Boosting the wide pre-trim set turns weak tail-matches into seeds,
+        # which both hides them from the associative layer and gets them
+        # clipped anyway — the extras must derive from what the caller will
+        # actually SEE. Extras (≤3, tiny snippets) ride above the limit;
+        # they're bounded by MAX_ASSOCIATIVE_EXTRAS, not the token budget.
+        final = _trim_to_budget(merged, limit, kind_field="score")
+        return _graph_boost(final, limit)
     finally:
         conn.close()
 
