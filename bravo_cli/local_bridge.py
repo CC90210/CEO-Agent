@@ -510,6 +510,59 @@ def _log(msg: str) -> None:
         pass
 
 
+# --- Failure-streak escalation (2026-07-12) ---------------------------------
+# This ping loop is the SINGLE execution point for every tenant cron
+# (shop-out sender, underwriting orchestrator, health check, ...). Before
+# this block a dead dashboard or a wedged cron poll produced only silent
+# FAIL / "CRON loop error" log lines — no cron fired and nobody was told.
+# A streak of consecutive failures now escalates to Telegram (notify
+# force=True) once at _ALERT_AFTER, again every _REALERT_EVERY while the
+# outage persists, and sends a recovery note on the first success after a
+# delivered alert. Delivery failures are logged; they never break the loop.
+
+_ALERT_AFTER = int(os.environ.get("BRIDGE_ALERT_AFTER_FAILURES", "10"))
+_REALERT_EVERY = int(os.environ.get("BRIDGE_REALERT_EVERY", "60"))
+_streaks: dict[str, int] = {"ping": 0, "cron": 0}
+_alert_delivered: dict[str, bool] = {"ping": False, "cron": False}
+
+
+def _notify_force(msg: str) -> bool:
+    """Best-effort forced Telegram via scripts/notify.py. Never raises."""
+    try:
+        scripts_dir = str(Path(__file__).resolve().parent.parent / "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        from notify import notify  # type: ignore
+        return bool(notify(msg, category="system", force=True))
+    except Exception as e:  # noqa: BLE001
+        _log(f"ESCALATION DELIVERY FAILED: {e} :: {msg[:200]}")
+        return False
+
+
+def _track_failure_streak(kind: str, ok: bool, detail: str = "") -> None:
+    """Update the consecutive-failure streak for 'ping' or 'cron' and
+    escalate/recover accordingly. Ping interval is ~60s, so a streak count
+    reads roughly as minutes of outage."""
+    if ok:
+        if _alert_delivered[kind]:
+            _notify_force(
+                f"✅ claude-bridge {kind} recovered after "
+                f"{_streaks[kind]} consecutive failures."
+            )
+        _streaks[kind] = 0
+        _alert_delivered[kind] = False
+        return
+    _streaks[kind] += 1
+    n = _streaks[kind]
+    if n == _ALERT_AFTER or (n > _ALERT_AFTER and (n - _ALERT_AFTER) % _REALERT_EVERY == 0):
+        delivered = _notify_force(
+            f"🚨 claude-bridge {kind} has failed {n} consecutive times "
+            f"(~{n} min). ALL tenant crons are stalled while this persists. "
+            f"Last error: {detail[:200]}"
+        )
+        _alert_delivered[kind] = _alert_delivered[kind] or delivered
+
+
 def _poll_and_execute_cron(token: str) -> None:
     """Phase I: pull tenant_cron_jobs from the dashboard, execute any that are
     due, report results back. Called once per outer ping loop iteration so
@@ -534,8 +587,10 @@ def _poll_and_execute_cron(token: str) -> None:
         ran = poll_once(token=token, dashboard_url=_dashboard_url())
         if ran:
             _log(f"CRON ran {ran} job(s)")
+        _track_failure_streak("cron", True)
     except Exception as e:
         _log(f"CRON loop error: {e}")
+        _track_failure_streak("cron", False, str(e))
 
 
 def run_loop() -> int:
@@ -555,12 +610,19 @@ def run_loop() -> int:
             except BridgeAuthError as e:
                 _log(f"AUTH FAIL {e} — token rejected, exiting. "
                      f"Re-pair with `bravo setup` then `bravo bridge start`.")
+                _notify_force(
+                    "🚨 claude-bridge token REJECTED by the dashboard — bridge "
+                    "is exiting and ALL tenant crons are stalled until the "
+                    "operator re-pairs (`bravo setup` → `bravo bridge start`). "
+                    f"Detail: {e}"
+                )
                 return 3
             if ok:
                 LAST_PING_PATH.write_text(
                     datetime.now(timezone.utc).isoformat(), encoding="utf-8"
                 )
                 _log(f"OK ping recorded {len(services)} services {info}")
+                _track_failure_streak("ping", True)
                 # Cron tick — same cadence as ping. Polls /api/cron-jobs/poll
                 # via the bridge token, evaluates schedules locally, runs
                 # whatever's due. Best-effort; failures don't block the ping
@@ -568,6 +630,7 @@ def run_loop() -> int:
                 _poll_and_execute_cron(token)
             else:
                 _log(f"FAIL {info}")
+                _track_failure_streak("ping", False, info)
             time.sleep(PING_INTERVAL_SEC)
     except KeyboardInterrupt:
         _log("STOP via SIGINT")
