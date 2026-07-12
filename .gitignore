@@ -250,3 +250,6 @@ data/email_suppressions.csv
 evals/reports/
 
 output/
+
+# Empty spawn-cwd for the draft critic CLI (no repo context bleed)
+state/critic_cwd/
