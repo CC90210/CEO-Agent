@@ -32,6 +32,11 @@ COOLDOWN_SECONDS=1800                            # 30 min
 LOG="${OPS_LOG:-/srv/sunbiz/backups/ops.log}"
 
 # Expected pm2 daemons on the SunBiz VPS (the funnel + its infra).
+# 2026-07-12: added the 6 daemons the pager previously ignored so EVERY live
+# daemon screams when it dies (audit found 6/13 uncovered, incl. the
+# dashboard-email-consumer that once stranded 62 lead emails for 12 days and
+# the queue-monitor watchdog itself). If a daemon is ever deliberately parked,
+# remove it here rather than leaving the whole fleet half-monitored.
 EXPECTED_DAEMONS=(
   event-router
   sunbiz-sequence-runner
@@ -40,6 +45,12 @@ EXPECTED_DAEMONS=(
   claude-bridge
   sunbiz-cold-outreach-runner
   sunbiz-sentinel
+  extraction-consumer
+  mca-lead-scrubber
+  ezra-telegram-bridge
+  uw-lead-enricher
+  dashboard-email-consumer
+  dashboard-email-queue-monitor
 )
 
 FORCE=0
