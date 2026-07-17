@@ -49,12 +49,9 @@ try:  # Windows console defaults to cp1252 — same guard harness_eval.py uses
 except Exception:  # noqa: BLE001
     pass
 
-try:  # Windows: prefer the OS trust store (certifi bundles miss corporate/OS roots)
-    import truststore  # noqa: E402
+from lib.tls_trust import ensure_os_trust  # noqa: E402 — Windows CA-bundle fix
 
-    truststore.inject_into_ssl()
-except Exception:  # noqa: BLE001
-    pass
+ensure_os_trust()
 
 from lib.retry import retry, RetryConfig  # noqa: E402
 

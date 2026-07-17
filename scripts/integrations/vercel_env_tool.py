@@ -38,12 +38,12 @@ except ImportError:
     print("ERROR: 'requests' package not installed. Run: pip install requests", file=sys.stderr)
     sys.exit(1)
 
-try:  # Windows CA-bundle fix (2026-07-17): use the OS trust store — certifi
-    import truststore  # type: ignore
+REPO_SCRIPTS = str(Path(__file__).resolve().parents[1])
+if REPO_SCRIPTS not in sys.path:
+    sys.path.insert(0, REPO_SCRIPTS)
+from lib.tls_trust import ensure_os_trust  # noqa: E402 — Windows CA-bundle fix
 
-    truststore.inject_into_ssl()
-except ImportError:  # bundles miss roots on this machine; same fix as cron/heartbeat
-    pass
+ensure_os_trust()
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
