@@ -186,6 +186,20 @@ scripts/linkedin_automation/chrome_profile/
 tiktik-*.png
 skool-*.png
 e2e-screenshots/
+# Ad-hoc dashboard/pipeline captures dropped at repo root (never source).
+# Root-only glob — subdir PNGs (docs, assets) stay tracked.
+/*.png
+
+# =============================================
+# OBSIDIAN VIEW-STATE (per-user zoom/panel/graph state — churns every launch,
+# and the obsidian-git plugin restages it. Real config below stays tracked.)
+# =============================================
+.obsidian/graph.json
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/workspace.json.backup-*
+# Empty "Untitled" bases Obsidian creates by accident
+**/Untitled.base
 
 # =============================================
 # VIRTUAL ENVIRONMENTS
