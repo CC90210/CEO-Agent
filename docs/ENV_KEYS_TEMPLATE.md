@@ -156,6 +156,12 @@ Per-client isolation contract: `brain/AGENT_ORCHESTRATION.md` § "Per-client API
 
 ---
 
+## Free-Tier Radar adoptions (V7.1)
+
+When CC greenlights a `candidate` row from `brain/TOOL_SHED.md` § "Free-Tier Radar" (uptime probes, error tracking, dead-man pings, coverage, SAST, …), its key lands here FIRST as a documented row, then CC signs up for the service and hand-adds the key to `.env.agents` — agents never create, see, or paste keys (ADR-0010 rule 4). No keys are pre-registered for candidates; this section gains rows only per adoption. Currently adopted from the Radar: **Disify** (`email_validate_tool.py`) — no-auth, no key needed.
+
+---
+
 ## Related
 
 - [[brain/AGENT_ORCHESTRATION]] · [[CLAUDE]] · [[brain/QUICK_REFERENCE]]
