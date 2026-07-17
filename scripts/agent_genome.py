@@ -26,6 +26,14 @@ CLI:
   python scripts/agent_genome.py                 # verify this repo
   python scripts/agent_genome.py --json          # machine-readable
   python scripts/agent_genome.py --repo <path>   # verify a sibling (read-only)
+  python scripts/agent_genome.py --structural    # CI mode: skip operator-private genes
+
+Structural mode (--structural, added V7.1 for substrate-eval.yml): a clean CI
+checkout has no operator-private files (brain/USER.md and the memory tiers are
+gitignored per-operator), so G5 and the operator half of G3 cannot be honestly
+asserted on a runner. In structural mode those are SKIPPED and listed as such —
+never counted as passing — and the score denominator shrinks accordingly. The
+full 10-gene check remains the default and runs nightly on the real machine.
 """
 from __future__ import annotations
 
@@ -93,9 +101,11 @@ def _any(repo: Path, candidates: list[str]) -> str | None:
     return None
 
 
-def verify(repo: Path) -> list[dict]:
+def verify(repo: Path, structural: bool = False) -> tuple[list[dict], list[str]]:
+    """Returns (genes, skipped) — skipped is non-empty only in structural mode."""
     cfg = _load_manifest(repo)
     genes: list[dict] = []
+    skipped: list[str] = []
 
     def gene(gid: str, name: str, ok: bool, detail: str):
         genes.append({"gene": gid, "name": name, "ok": ok, "detail": detail})
@@ -146,8 +156,15 @@ def verify(repo: Path) -> list[dict]:
 
     # G3 identity spine
     ident, oper = _any(repo, cfg["identity"]), _any(repo, cfg["operator"])
-    gene("G3", "identity spine (SOUL + USER)", bool(ident and oper),
-         f"{ident} + {oper}" if ident and oper else f"identity={ident}, operator={oper}")
+    if structural:
+        # Operator profile is gitignored per-operator — absent on any clean
+        # checkout. Assert only the tracked identity half; record the skip.
+        skipped.append("G3.operator (brain/USER.md is operator-private)")
+        gene("G3", "identity spine (SOUL; operator half skipped — structural mode)",
+             bool(ident), ident or f"identity missing (looked for {cfg['identity']})")
+    else:
+        gene("G3", "identity spine (SOUL + USER)", bool(ident and oper),
+             f"{ident} + {oper}" if ident and oper else f"identity={ident}, operator={oper}")
 
     # G4 capability engine
     graph_rel = _any(repo, cfg["capability_graph"])
@@ -164,10 +181,13 @@ def verify(repo: Path) -> list[dict]:
          f"{graph_rel} ({n_skills} skills) + {resolver}" if graph_rel and resolver
          else f"graph={graph_rel}, resolver={resolver}")
 
-    # G5 memory tiers — ALL required
-    missing_tiers = [t for t in cfg["memory_tiers"] if not (repo / t).exists()]
-    gene("G5", "memory tiers (MISTAKES/PATTERNS/DECISIONS)", not missing_tiers,
-         "all present" if not missing_tiers else f"missing: {missing_tiers}")
+    # G5 memory tiers — ALL required (operator-private; skipped in structural mode)
+    if structural:
+        skipped.append("G5 (memory tiers are operator-private, gitignored)")
+    else:
+        missing_tiers = [t for t in cfg["memory_tiers"] if not (repo / t).exists()]
+        gene("G5", "memory tiers (MISTAKES/PATTERNS/DECISIONS)", not missing_tiers,
+             "all present" if not missing_tiers else f"missing: {missing_tiers}")
 
     # G6 retrieval
     ret = _any(repo, cfg["retrieval"])
@@ -203,13 +223,16 @@ def verify(repo: Path) -> list[dict]:
     ev = _any(repo, cfg["eval"])
     gene("G10", "verifiable self-check (eval)", bool(ev), ev or f"missing (looked for {cfg['eval']})")
 
-    return genes
+    return genes, skipped
 
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Verify an agent repo expresses the genome")
     p.add_argument("--repo", default=None, help="target repo (default: this one). READ-ONLY.")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--structural", action="store_true",
+                   help="CI mode: skip operator-private genes (USER.md, memory tiers) — "
+                        "they are listed as skipped, never asserted as passing")
     args = p.parse_args(argv)
 
     repo = Path(args.repo).resolve() if args.repo else Path(__file__).resolve().parent.parent
@@ -217,16 +240,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: repo not found: {repo}", file=sys.stderr)
         return 2
 
-    genes = verify(repo)
+    genes, skipped = verify(repo, structural=args.structural)
     passed = sum(1 for g in genes if g["ok"])
     if args.json:
-        print(json.dumps({"repo": str(repo), "score": f"{passed}/{len(genes)}",
-                          "fully_expressed": passed == len(genes), "genes": genes}, indent=2))
+        out = {"repo": str(repo), "score": f"{passed}/{len(genes)}",
+               "fully_expressed": passed == len(genes), "genes": genes}
+        if args.structural:
+            out["mode"] = "structural"
+            out["skipped"] = skipped
+        print(json.dumps(out, indent=2))
     else:
-        print(f"AGENT GENOME — {repo.name}: {passed}/{len(genes)} genes expressed\n")
+        mode = " (structural — operator-private genes skipped)" if args.structural else ""
+        print(f"AGENT GENOME — {repo.name}: {passed}/{len(genes)} genes expressed{mode}\n")
         for g in genes:
             print(f"  {'✅' if g['ok'] else '⭕'} {g['gene']:4} {g['name']}")
             print(f"        {g['detail']}")
+        for s in skipped:
+            print(f"  ⏭️  skipped: {s}")
         print()
         print("FULLY EXPRESSED — this repo wakes any model up as a complete agent."
               if passed == len(genes) else
