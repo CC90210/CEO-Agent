@@ -18,14 +18,14 @@ verified: 2026-06-09
 
 ## MCP Servers (By Interface)
 
-### Claude Code (Opus 4.6 — Bravo: CEO/COO/CTO)
-| Server | Purpose | Key Tools |
-|--------|---------|-----------|
-| **Playwright** | Browser automation, ALL web research, scraping, testing | navigate, snapshot, click, type, evaluate |
-| **Context7** | Live library documentation lookup | resolve-library-id, query-docs |
-| **Memory** | Persistent knowledge graph across sessions | create_entities, search_nodes, open_nodes |
-| **Sequential Thinking** | Structured multi-step reasoning | sequentialthinking |
-| **Knowledge Graph** | Obsidian vault as graph — PageRank, communities, semantic search, path-finding | kg_search, kg_node, kg_central, kg_bridges, kg_paths, kg_communities, kg_index |
+### Claude Code (Opus 4.8 / Fable 5 — Bravo: CEO/COO/CTO)
+| Server                  | Purpose                                                                        | Key Tools                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| **Playwright**          | Browser automation, ALL web research, scraping, testing                        | navigate, snapshot, click, type, evaluate                                      |
+| **Context7**            | Live library documentation lookup                                              | resolve-library-id, query-docs                                                 |
+| **Memory**              | Persistent knowledge graph across sessions                                     | create_entities, search_nodes, open_nodes                                      |
+| **Sequential Thinking** | Structured multi-step reasoning                                                | sequentialthinking                                                             |
+| **Knowledge Graph**     | Obsidian vault as graph — PageRank, communities, semantic search, path-finding | kg_search, kg_node, kg_central, kg_bridges, kg_paths, kg_communities, kg_index |
 
 ### OpenCode (big-pickle — Bravo, same identity)
 - **Identity:** Full **Bravo** — CC's right hand: CEO, COO, and CTO in one. Same persona, voice, capabilities as Claude-powered Bravo.
@@ -36,7 +36,7 @@ verified: 2026-06-09
 
 ### Anti-Gravity IDE (Native Local Agent — Multi-Model)
 
-Models: Gemini 3.1 Pro High/Low, Gemini 3 Flash, Claude Sonnet/Opus 4.6, GPT-OSS 120B Medium
+Models: Gemini 3.1 Pro High/Low, Gemini 3 Flash, Claude Sonnet 4.6 / Opus 4.8, GPT-OSS 120B Medium
 Entry Point: `ANTIGRAVITY.md` | Config: `.vscode/mcp.json`
 Workflows: `.agents/workflows/` (35 active workflows: post, status, health, prime, content, commit, n8n, sync, research, debug, client-onboard, cli-anything, evolve, briefing, client-health-report, generate-proposal, strategic-review, competitive-report, qbr, onboard-team-member, meeting-prep, investor-update, knowledge-maintenance, review, ship, retro, create-prd, opencli, ingest, query-knowledge, lint-knowledge, browser-harness, close-review, e2e-testing, sop). Archived: skool-edit, skool-push (2026-05-18, see `.agents/workflows/_archive/`).
 
