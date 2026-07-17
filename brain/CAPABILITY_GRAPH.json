@@ -1,15 +1,16 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-07-09T18:31:36.359127+00:00",
+  "generated_at": "2026-07-17T21:37:09.446287+00:00",
   "totals": {
-    "skills": 150,
-    "scripts": 114,
+    "skills": 151,
+    "scripts": 116,
     "agents": 21,
     "mcp_servers": 9,
     "workflows": 35,
-    "nodes_total": 329,
-    "edges_total": 47,
+    "resources": 14,
+    "nodes_total": 346,
+    "edges_total": 49,
     "drift_count": 0
   },
   "nodes": [
@@ -3390,6 +3391,45 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:resource-radar",
+      "kind": "skill",
+      "name": "resource-radar",
+      "path": "skills/resource-radar/SKILL.md",
+      "description": "Free-tier service & free-API lookup \u2014 consult the TOOL_SHED Free-Tier Radar before adding/paying for any external service; enforces closed-slot conflict rules and the keyed-adoption path",
+      "tier": "tool",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "free tier",
+        "free API",
+        "what service for",
+        "replace paid tool",
+        "do we pay for",
+        "cheaper alternative",
+        "uptime monitoring",
+        "error tracking",
+        "need a service"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "catalog",
+        "cost-reduction",
+        "integrations"
+      ],
+      "status": "[NEW]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:retro",
       "kind": "skill",
       "name": "retro",
@@ -4620,6 +4660,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:agent_genome",
+      "kind": "script",
+      "name": "agent_genome",
+      "path": "scripts/agent_genome.py",
+      "description": "agent_genome.py \u2014 verify an agent repo fully expresses the genome.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:apply_migration",
       "kind": "script",
       "name": "apply_migration",
@@ -5095,6 +5145,16 @@
       "name": "generate_covers",
       "path": "scripts/generate_covers.py",
       "description": "Generate branded cover images for the prior community Skool courses. Each cover: 1460x752px, dark theme, course title + icon/accent.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:genome_sync",
+      "kind": "script",
+      "name": "genome_sync",
+      "path": "scripts/genome_sync.py",
+      "description": "genome_sync.py \u2014 stamp the germline seed (PERSONAL.md) into every runtime entry point.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6354,6 +6414,314 @@
       "description": "# V6 Production Hardening Execution Plan\n\n> **System Message for Autonomous Agent (Bravo / Codex / OpenCode)**\n> \n> **Context:** A recent deep diagnostic audit identified specific gaps in the Business",
       "owner": "bravo",
       "discovery": "auto-body"
+    },
+    {
+      "id": "resource:healthchecks-deadman",
+      "kind": "resource",
+      "name": "Healthchecks.io",
+      "path": "brain/TOOL_SHED.md",
+      "description": "cron dead-man-switch monitoring \u2014 free tier: 20 checks, ping-by-URL \u2014 none \u2014 closes the \"crons report failure only from within; a dead host is invisible\" blind spot. TOP PICK",
+      "capability": "cron dead-man-switch monitoring",
+      "status": "candidate",
+      "auth": "apiKey",
+      "source_url": "https://healthchecks.io",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "cron dead-man-switch monitoring"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:uptimerobot-uptime",
+      "kind": "resource",
+      "name": "UptimeRobot",
+      "path": "brain/TOOL_SHED.md",
+      "description": "external uptime probes \u2014 free tier: 50 monitors @ 5-min \u2014 none \u2014 all current monitoring runs ON the box it monitors; probe Hostinger n8n VPS + Vercel sites + Command Center",
+      "capability": "external uptime probes",
+      "status": "candidate",
+      "auth": "apiKey",
+      "source_url": "https://uptimerobot.com",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "external uptime probes"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:betterstack-uptime",
+      "kind": "resource",
+      "name": "BetterStack",
+      "path": "brain/TOOL_SHED.md",
+      "description": "external uptime + status page \u2014 free tier: 10 monitors \u2014 overlaps uptimerobot-uptime \u2014 pick ONE external prober",
+      "capability": "external uptime + status page",
+      "status": "candidate",
+      "auth": "apiKey",
+      "source_url": "https://betterstack.com",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "external uptime + status page"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:sentry-errors",
+      "kind": "resource",
+      "name": "Sentry",
+      "path": "brain/TOOL_SHED.md",
+      "description": "error tracking for the agent runtime \u2014 free tier: 5k errors/mo \u2014 none in Bravo (only local structured_log jsonl); Breeze app already uses Sentry \u2014 copy that pattern",
+      "capability": "error tracking for the agent runtime",
+      "status": "candidate",
+      "auth": "apiKey (DSN)",
+      "source_url": "https://sentry.io",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "error tracking for the agent runtime"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:codecov-coverage",
+      "kind": "resource",
+      "name": "Codecov",
+      "path": "brain/TOOL_SHED.md",
+      "description": "test-coverage reporting \u2014 free tier: free for public repos \u2014 none \u2014 coverage is currently terminal-only; wire into .github/workflows/",
+      "capability": "test-coverage reporting",
+      "status": "candidate",
+      "auth": "apiKey (token)",
+      "source_url": "https://codecov.io",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "test-coverage reporting"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:sonarcloud-sast",
+      "kind": "resource",
+      "name": "SonarCloud",
+      "path": "brain/TOOL_SHED.md",
+      "description": "hosted SAST / code quality \u2014 free tier: free for OSS \u2014 overlaps codeql-sast \u2014 pick ONE; local ruff/mypy/security_audit.py stay regardless",
+      "capability": "hosted SAST / code quality",
+      "status": "candidate",
+      "auth": "apiKey",
+      "source_url": "https://sonarcloud.io",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "hosted SAST / code quality"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:codeql-sast",
+      "kind": "resource",
+      "name": "CodeQL",
+      "path": "brain/TOOL_SHED.md",
+      "description": "SAST in GitHub Actions \u2014 free tier: free for public repos \u2014 overlaps sonarcloud-sast \u2014 pick ONE",
+      "capability": "SAST in GitHub Actions",
+      "status": "candidate",
+      "auth": "none (GH-native)",
+      "source_url": "https://codeql.github.com",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "SAST in GitHub Actions"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:disify-email-validate",
+      "kind": "resource",
+      "name": "Disify",
+      "path": "brain/TOOL_SHED.md",
+      "description": "disposable/format email validation \u2014 free tier: unlimited, no signup \u2014 none \u2014 standalone `scripts/integrations/email_validate_tool.py`; send_gateway wiring is a separate approved task",
+      "capability": "disposable/format email validation",
+      "status": "adopted",
+      "auth": "none (browser UA header required \u2014 default python UA is 403-blocked)",
+      "source_url": "https://www.disify.com",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "disposable/format email validation"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "adopted"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:caldays-holidays",
+      "kind": "resource",
+      "name": "caldays",
+      "path": "brain/TOOL_SHED.md",
+      "description": "public-holiday API \u2014 free tier: free, no signup \u2014 `is_quiet_day` already works OFFLINE \u2014 an external API inside cron scheduling adds a failure mode for zero gain",
+      "capability": "public-holiday API",
+      "status": "rejected",
+      "auth": "none",
+      "source_url": "https://caldays.com",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "public-holiday API"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "rejected"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:exchangerate-fx",
+      "kind": "resource",
+      "name": "Exchangerate.host",
+      "path": "brain/TOOL_SHED.md",
+      "description": "live FX rates \u2014 free tier: free tier \u2014 ATLAS-OWNED \u2014 Bravo never owns finance; pointer for CFO-Agent when cross-border deals need FX",
+      "capability": "live FX rates",
+      "status": "candidate",
+      "auth": "none/apiKey",
+      "source_url": "https://exchangerate.host",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "live FX rates"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:firecrawl-fallback",
+      "kind": "resource",
+      "name": "Playwright + BeautifulSoup (already in-repo)",
+      "path": "brain/TOOL_SHED.md",
+      "description": "scraping cost reduction \u2014 free tier: n/a \u2014 prefer un-metered Playwright/bs4 before spending Firecrawl credits (research_fetch ladder already encodes this)",
+      "capability": "scraping cost reduction",
+      "status": "policy",
+      "auth": "n/a",
+      "source_url": null,
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "scraping cost reduction"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "policy"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:elevenlabs-free-tier",
+      "kind": "resource",
+      "name": "ElevenLabs free tier",
+      "path": "brain/TOOL_SHED.md",
+      "description": "TTS cost reduction \u2014 free tier: 10k chars/mo \u2014 powwow cron is disabled on a dead metered key \u2014 free tier may cover the ~daily voice note after the claude_cli port",
+      "capability": "TTS cost reduction",
+      "status": "candidate",
+      "auth": "apiKey",
+      "source_url": "https://elevenlabs.io",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "TTS cost reduction"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:enrichment-free-tiers",
+      "kind": "resource",
+      "name": "Apollo",
+      "path": "brain/TOOL_SHED.md",
+      "description": "lead-enrichment cost check \u2014 free tier: limited credits/mo \u2014 both ALREADY integrated (GHL/Apollo/Clearbit keys exist) \u2014 audit current plan usage before paying more, don't add a 3rd vendor",
+      "capability": "lead-enrichment cost check",
+      "status": "candidate",
+      "auth": "apiKey",
+      "source_url": "https://apollo.io",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "lead-enrichment cost check"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:vps-alternatives",
+      "kind": "resource",
+      "name": "Oracle Cloud Always-Free",
+      "path": "brain/TOOL_SHED.md",
+      "description": "n8n host cost question \u2014 free tier: always-free VM tiers \u2014 Hostinger VPS is the ONE fixed recurring host cost; migration is a real op with downtime risk \u2014 decision, not a quick win",
+      "capability": "n8n host cost question",
+      "status": "candidate",
+      "auth": "account",
+      "source_url": "https://www.oracle.com/cloud/free/",
+      "verified": "2026-07-17",
+      "owner": "bravo",
+      "triggers": [
+        "n8n host cost question"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
     }
   ],
   "edges": [
@@ -6544,6 +6912,16 @@
     },
     {
       "from": "skill:research-fetch",
+      "to": "script:research_fetch",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:resource-radar",
+      "to": "script:capability_query",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:resource-radar",
       "to": "script:research_fetch",
       "kind": "uses"
     },

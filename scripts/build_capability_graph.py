@@ -59,6 +59,7 @@ SCRIPTS   — every scripts/*.py with module docstring (excluding _private, test
 AGENTS    — every agents/<name>.md and .claude/agents/<name>.md
 MCP       — every server in .claude/mcp.json or .vscode/mcp.json
 WORKFLOWS — every .agents/workflows/*.md
+RESOURCES — rows of the Free-Tier Radar table in brain/TOOL_SHED.md (V7.1)
 INTEGRATIONS — env vars in .env.example matched against known providers
 
 EDGES (RELATIONSHIPS)
@@ -333,6 +334,58 @@ def discover_workflows() -> list[dict[str, Any]]:
     return out
 
 
+# V7.1: external-resource radar (brain/TOOL_SHED.md § Free-Tier Radar).
+# The table's row contract is documented in the section header itself; slugs are
+# stable IDs so `resource:` nodes survive rebuilds. Status enum kept in sync with
+# ADR-0010.
+RADAR_SECTION_RE = re.compile(r"^##\s+.*Free-Tier Radar\s*$", re.MULTILINE)
+RADAR_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+RADAR_STATUSES = {"candidate", "adopted", "rejected", "policy"}
+
+
+def discover_resources() -> list[dict[str, Any]]:
+    """Parse the Free-Tier Radar table in brain/TOOL_SHED.md into resource nodes."""
+    shed = PROJECT_ROOT / "brain" / "TOOL_SHED.md"
+    if not shed.exists():
+        return []
+    text = shed.read_text(encoding="utf-8", errors="ignore")
+    m = RADAR_SECTION_RE.search(text)
+    if not m:
+        return []
+    section = text[m.end():]
+    nxt = re.search(r"^##\s+", section, re.MULTILINE)
+    if nxt:
+        section = section[:nxt.start()]
+    out: list[dict[str, Any]] = []
+    for line in section.splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) < 8 or cells[0].lower() == "slug" or set(cells[0]) <= {"-", ":", " "}:
+            continue
+        slug, capability, service, free_tier, auth, status, conflicts, verified = cells[:8]
+        link = RADAR_LINK_RE.search(service)
+        name = link.group(1) if link else service
+        out.append({
+            "id": f"resource:{slug}",
+            "kind": "resource",
+            "name": name,
+            "path": "brain/TOOL_SHED.md",
+            "description": f"{capability} — free tier: {free_tier} — {conflicts}"[:280],
+            "capability": capability,
+            "status": status,
+            "auth": auth,
+            "source_url": link.group(2) if link else None,
+            "verified": verified,
+            "owner": _agent_name(),
+            "triggers": [capability],
+            "tags": ["free-tier", "radar", status],
+            "discovery": "auto-radar-table",
+        })
+    return out
+
+
 # ── Edge inference ──────────────────────────────────────────────────────────
 
 def infer_edges(nodes: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -379,6 +432,9 @@ def detect_drift(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
             drift.append({"node": n["id"], "issue": "skill has no triggers — agent can't route to it"})
         if n["kind"] == "script" and n.get("discovery") == "auto-filename":
             drift.append({"node": n["id"], "issue": "script missing module docstring"})
+        if n["kind"] == "resource" and n.get("status") not in RADAR_STATUSES:
+            drift.append({"node": n["id"],
+                          "issue": f"radar row status '{n.get('status')}' not in {sorted(RADAR_STATUSES)}"})
     return drift
 
 
@@ -390,7 +446,8 @@ def build() -> dict[str, Any]:
     agents = discover_agents()
     mcp = discover_mcp_servers()
     workflows = discover_workflows()
-    nodes = skills + scripts + agents + mcp + workflows
+    resources = discover_resources()
+    nodes = skills + scripts + agents + mcp + workflows + resources
     edges = infer_edges(nodes)
     drift = detect_drift(nodes)
     # Strip private fields (_body) before output
@@ -405,6 +462,7 @@ def build() -> dict[str, Any]:
             "agents": len(agents),
             "mcp_servers": len(mcp),
             "workflows": len(workflows),
+            "resources": len(resources),
             "nodes_total": len(nodes),
             "edges_total": len(edges),
             "drift_count": len(drift),
@@ -595,7 +653,7 @@ def main() -> int:
                    help="Print full graph JSON to stdout instead of writing the file")
     p.add_argument("--check", action="store_true",
                    help="Exit 1 if on-disk graph is out of sync")
-    p.add_argument("--query", choices=["skill", "script", "agent", "mcp", "workflow"],
+    p.add_argument("--query", choices=["skill", "script", "agent", "mcp", "workflow", "resource"],
                    help="Filter nodes by kind")
     p.add_argument("--emit-docs", action="store_true",
                    help="Regenerate brain/WHEN_TO_USE_SKILLS.md, brain/INDEX.md, memory/INDEX.md "
@@ -626,7 +684,8 @@ def main() -> int:
     t = graph["totals"]
     print(f"Wrote {path.relative_to(PROJECT_ROOT)}")
     print(f"  Nodes: {t['nodes_total']} ({t['skills']} skills, {t['scripts']} scripts, "
-          f"{t['agents']} agents, {t['mcp_servers']} MCP, {t['workflows']} workflows)")
+          f"{t['agents']} agents, {t['mcp_servers']} MCP, {t['workflows']} workflows, "
+          f"{t['resources']} resources)")
     print(f"  Edges: {t['edges_total']}")
     if t["drift_count"]:
         print(f"  Drift: {t['drift_count']} (run with --json to see details)")

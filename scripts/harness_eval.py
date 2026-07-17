@@ -17,6 +17,12 @@ CLI:
   python scripts/harness_eval.py --with-model  # + live claude-CLI probe (~5-20s)
 
 Exit code: 0 = all checks pass, 1 = any failure (cron-able; nonzero → red).
+
+V7.1 (patterns from GokuMohandas/Made-With-ML, MIT): checks roll up into named
+SLICES (lockstep / routing / boundary / guards / live-health / model-call) so a
+regression concentrated in one slice can't hide inside the aggregate score, and
+every run appends {run_id, timestamp, score, slices, failed} to
+state/harness_eval_history.jsonl for drift tracking across sessions.
 """
 from __future__ import annotations
 
@@ -245,19 +251,48 @@ def check_model_call_path():
     return False, f"claude CLI probe failed (got {text!r})"
 
 
+# V7.1: each check belongs to a named SLICE (pattern: Made-With-ML slice-based
+# evaluation — an aggregate 10/10 can hide a regression concentrated in one
+# slice; per-slice pass-rates surface it). Tuple: (name, fn, model_only, slice).
 CHECKS = [
-    ("entry-point lockstep (6 runtimes + mirrors)", check_entry_point_lockstep, False),
-    ("capability graph fresh (skills disk==graph, 0 drift)", check_capability_graph, False),
-    ("skill routing not blind (WTUS descriptions)", check_wtus_descriptions, False),
-    ("Atlas boundary held (routers + brief)", check_atlas_boundary, False),
-    ("no dead API key in active automations", check_no_dead_api_key_in_active, False),
-    ("daily brief renders real data", check_brief_renders, False),
-    ("CRM tenant scoping intact", check_tenant_scoping, False),
-    ("safety guards in enforce", check_guards_enforce, False),
-    ("cron table healthy (no ERROR, no MRR digest)", check_cron_health, False),
-    ("PM2 fleet online", check_pm2_fleet, False),
-    ("model-call path live (claude CLI probe)", check_model_call_path, True),  # --with-model only
+    ("entry-point lockstep (6 runtimes + mirrors)", check_entry_point_lockstep, False, "lockstep"),
+    ("capability graph fresh (skills disk==graph, 0 drift)", check_capability_graph, False, "routing"),
+    ("skill routing not blind (WTUS descriptions)", check_wtus_descriptions, False, "routing"),
+    ("Atlas boundary held (routers + brief)", check_atlas_boundary, False, "boundary"),
+    ("no dead API key in active automations", check_no_dead_api_key_in_active, False, "model-call"),
+    ("daily brief renders real data", check_brief_renders, False, "live-health"),
+    ("CRM tenant scoping intact", check_tenant_scoping, False, "boundary"),
+    ("safety guards in enforce", check_guards_enforce, False, "guards"),
+    ("cron table healthy (no ERROR, no MRR digest)", check_cron_health, False, "live-health"),
+    ("PM2 fleet online", check_pm2_fleet, False, "live-health"),
+    ("model-call path live (claude CLI probe)", check_model_call_path, True, "model-call"),  # --with-model only
 ]
+
+HISTORY_PATH = PROJECT_ROOT / "state" / "harness_eval_history.jsonl"
+
+
+def _slice_rollup(results: list[dict]) -> dict[str, dict]:
+    slices: dict[str, dict] = {}
+    for r in results:
+        s = slices.setdefault(r["slice"], {"passed": 0, "total": 0})
+        s["total"] += 1
+        if r["ok"]:
+            s["passed"] += 1
+    for s in slices.values():
+        s["ok"] = s["passed"] == s["total"]
+    return slices
+
+
+def _append_history(record: dict) -> None:
+    """Persist the run (pattern: Made-With-ML versioned eval records — a score
+    without a persisted run_id/timestamp can't show drift). Best-effort: the
+    eval must never fail because the history write did."""
+    try:
+        HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with HISTORY_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, default=str) + "\n")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -268,26 +303,42 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     results = []
-    for name, fn, model_only in CHECKS:
+    for name, fn, model_only, slice_name in CHECKS:
         if model_only and not args.with_model:
             continue
         try:
             ok, detail = fn()
         except Exception as e:  # noqa: BLE001
             ok, detail = False, f"check crashed: {type(e).__name__}: {e}"
-        results.append({"check": name, "ok": ok, "detail": detail})
+        results.append({"check": name, "ok": ok, "detail": detail, "slice": slice_name})
 
     passed = sum(1 for r in results if r["ok"])
     total = len(results)
+    slices = _slice_rollup(results)
+
+    import uuid
+    from datetime import datetime, timezone
+    run_id = uuid.uuid4().hex[:12]
+    timestamp = datetime.now(timezone.utc).isoformat()
+    _append_history({"run_id": run_id, "timestamp": timestamp,
+                     "score": f"{passed}/{total}", "pass": passed == total,
+                     "with_model": bool(args.with_model),
+                     "slices": slices,
+                     "failed": [r["check"] for r in results if not r["ok"]]})
+
     if args.json:
         print(json.dumps({"score": f"{passed}/{total}", "pass": passed == total,
-                          "results": results}, indent=2))
+                          "run_id": run_id, "timestamp": timestamp,
+                          "slices": slices, "results": results}, indent=2))
     else:
-        print(f"HARNESS EVAL — {passed}/{total} checks pass\n")
+        print(f"HARNESS EVAL — {passed}/{total} checks pass  (run {run_id})\n")
         for r in results:
             mark = "✅" if r["ok"] else "❌"
             print(f"  {mark} {r['check']}")
             print(f"      {r['detail']}")
+        print()
+        slice_bits = ", ".join(f"{k} {v['passed']}/{v['total']}" for k, v in sorted(slices.items()))
+        print(f"  slices: {slice_bits}")
         print()
         print("ALL GREEN — harness is turnkey for any runtime." if passed == total
               else "FAILURES above name the exact gap. Fix, then re-run.")

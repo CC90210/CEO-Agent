@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **151 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## agent-forge
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -558,6 +558,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Eac
 - **Use when:** Unified research-tier fetcher with auto-escalation (Firecrawl → CloakBrowser) and SQLite site-reputation memory. The single entry point all research-heavy skills should call instead of choosing tiers manually. Replaces ad-hoc firecrawl_tool / cloak_browser_tool decisions in compe
 - **Triggers:** research fetch, research_fetch, fetch url, fetch a page, get page content, scrape a page, scrape this url, research a website, scrape with auto escalation, intelligent fetch, tier aware scrape
 - **Path:** `skills/research-fetch/SKILL.md` · tier `tool` · risk `low`
+
+## resource-radar
+- **Use when:** Free-tier service & free-API lookup — consult the TOOL_SHED Free-Tier Radar before adding/paying for any external service; enforces closed-slot conflict rules and the keyed-adoption path
+- **Triggers:** free tier, free API, what service for, replace paid tool, do we pay for, cheaper alternative, uptime monitoring, error tracking, need a service
+- **Path:** `skills/resource-radar/SKILL.md` · tier `tool` · risk `low`
 
 ## retro — _explicit `/command` only_
 - **Use when:** Weekly retrospective analysis. Use when CC says "/retro", "weekly retro", "how did we do this week", or "what shipped this week". Analyzes all agent activity, rates 4 operational dimensions, and generates specific improvement actions.
