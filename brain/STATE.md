@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** GitHub push unblocked (CC verified email+2FA): 12 commits pushed incl V7.1.0-V7.1.4; substrate-eval CI green for the first time (e95e7b2f); remaining: bravo_sleep argv cap + Dependabot 11 vulns triage
+- **Result:** Vercel cost question: verified team account (Pro) + 17 production projects via vercel_env_tool (fixed its Windows TLS break with truststore, same pattern as cron/heartbeat); recommendation = keep Vercel, audit seats
 
 *Last updated: 2026-07-17*
 

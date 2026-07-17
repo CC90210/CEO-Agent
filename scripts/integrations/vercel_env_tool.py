@@ -38,6 +38,13 @@ except ImportError:
     print("ERROR: 'requests' package not installed. Run: pip install requests", file=sys.stderr)
     sys.exit(1)
 
+try:  # Windows CA-bundle fix (2026-07-17): use the OS trust store — certifi
+    import truststore  # type: ignore
+
+    truststore.inject_into_ssl()
+except ImportError:  # bundles miss roots on this machine; same fix as cron/heartbeat
+    pass
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 VERCEL_API = "https://api.vercel.com"
