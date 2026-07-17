@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** V7.1 Free-Tier Radar shipped: 6-repo integration audit -> 4 layer commits (e35810e3..b1507992); 14 resource nodes, resource-radar skill, Disify wrapper live, harness_eval slices+history, ADR-0010; Codex P2 findings on pre-existing branch commits logged as follow-ups
+- **Result:** GitHub push unblocked (CC verified email+2FA): 12 commits pushed incl V7.1.0-V7.1.4; substrate-eval CI green for the first time (e95e7b2f); remaining: bravo_sleep argv cap + Dependabot 11 vulns triage
 
 *Last updated: 2026-07-17*
 
