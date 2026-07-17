@@ -255,6 +255,19 @@ npm install -g @carlrannaberg/claudekit
 
 ---
 
+## 📚 Section 10: Learning & R&D References
+
+> Education/reference repos from the 2026-07-17 six-repo audit. These are **reading material, not integrations** — nothing here installs, trains the model, or adds capability today. Fetch individual files on demand when the need arises.
+
+| Repo | License | Honest one-liner | When to reach for it |
+|------|---------|------------------|----------------------|
+| [rasbt/LLMs-from-scratch](https://github.com/rasbt/LLMs-from-scratch) | Apache-2.0 | Build-a-GPT book code (tokenization → GPT-2-class pretrain → finetune). Pretraining is NOT laptop-viable; LoRA finetuning of small checkpoints is. | **When the own-LLM project greenlights**: Appendix E (LoRA on one GPU), ch06 (classification finetune), ch07 (instruction + DPO) are the recipes. Sequel: `rasbt/reasoning-from-scratch`. |
+| [eriklindernoren/ML-From-Scratch](https://github.com/eriklindernoren/ML-From-Scratch) | MIT | NumPy-only reimplementations of ~30 classic ML/DL algorithms. **Stale since Oct 2019; `pip install` is broken** (dead `sklearn` shim, unpinned deps). | "Explain how algorithm X works internally" — read the single relevant `.py` on demand. Never install/run as-is; scikit-learn is the production answer. |
+| [GokuMohandas/Made-With-ML](https://github.com/GokuMohandas/Made-With-ML) | MIT | MLOps course (design→data→model→serve→monitor). Classic supervised-ML ops, NOT agent-eval content despite the "llms" tag. | Two patterns already imported V7.1.0: slice-based eval + versioned eval-run records (both live in `harness_eval.py`). Revisit if an actual ML training workload ever lands. |
+| [EbookFoundation/free-programming-books](https://github.com/EbookFoundation/free-programming-books) | CC-BY-4.0 | Link directory of free programming books. Explicitly low value for an agent (an LLM doesn't learn from having book links in-repo); kept at CC's request as a bookmark. | Literal "is there a good free book on X?" question — grep `books/free-programming-books-subjects.md` via raw fetch. Prefer Context7/live docs for actual technical reference. |
+
+---
+
 ## 🔗 Obsidian Links
 - [[brain/SOUL]] | [[brain/APP_REGISTRY]] | [[brain/CAPABILITIES]] | [[brain/QUICK_REFERENCE]]
 - [[memory/MEMORY_INDEX]] | [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical)

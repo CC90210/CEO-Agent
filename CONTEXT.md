@@ -2,7 +2,7 @@
 name: CONTEXT
 description: Canonical vocabulary for the Business-Empire-Agent / Bravo OS. Every skill, agent, and entry-point must use these terms with these meanings. If a new domain term needs to enter the codebase, add it here first.
 tags: [vocabulary, canonical, context]
-last_updated: 2026-07-09
+last_updated: 2026-07-17
 ---
 
 # CONTEXT — Canonical Vocabulary
@@ -78,6 +78,14 @@ Patterns imported from [twentyhq/twenty](https://github.com/twentyhq/twenty) (AG
 - **Workflow Step** — Typed handler in the workflow engine. Substrate set: `record-crud / http-request / if-else / delay / mail-sender / ai-agent`. Composable via `workflows.definition` JSONB. Adding a step type is one new file + one REGISTRY line (ADR-0003). See `~/APPS/oasis-command-center/lib/workflow-steps/`.
 - **AI Agent Step** — Workflow step type that loads an agent persona (`getPersona`), substitutes `{{trigger.x}}` / `{{step_id.field}}` placeholders, fires single Anthropic call, returns text + token usage. Composes with `record-crud` step for writeback.
 - **Field Permission** — `manifest.agents[].field_permissions` entry restricting an agent's read/write access to specific fields per entity_type. Three-state semantics: `undefined`=full / `[]`=zero / populated=scoped with default-deny on entities with any entry. Server-side enforced in `lib/role-gates.ts`. ADR-0004.
+
+## V7.1 Free-Tier Radar (six-repo audit import, 2026-07-17)
+
+Patterns imported from [free-for-dev](https://github.com/ripienaar/free-for-dev), [public-apis](https://github.com/public-apis/public-apis), and [Made-With-ML](https://github.com/GokuMohandas/Made-With-ML) (links + patterns only — upstream lists are never mirrored). Plan: `~/.claude/plans/i-m-dropping-you-a-elegant-truffle.md`. Governance: [docs/adr/0010-external-resource-catalog.md](docs/adr/0010-external-resource-catalog.md).
+
+- **Free-Tier Radar** — `brain/TOOL_SHED.md` § Section 9. The single curated catalog of free-tier services and free APIs mapped to real capability gaps, with per-row status (`candidate` / `adopted` / `rejected` / `policy`). Consult it BEFORE recommending or paying for any external service; fronted by `skills/resource-radar`.
+- **Resource node** — `resource:` kind in `brain/CAPABILITY_GRAPH.json`, parsed from Radar table rows by `discover_resources()` in `build_capability_graph.py`. Makes external-service knowledge resolvable at runtime: `capability_query.py resolve "<need>" --kind resource`.
+- **Slice-based eval** — `harness_eval.py` groups its checks into named slices (`lockstep / routing / boundary / guards / live-health / model-call`) and persists every run to `state/harness_eval_history.jsonl` (`run_id` + timestamp), so a regression inside one slice can't hide behind the aggregate score and score drift is trackable across sessions.
 
 ## Skill / agent vocabulary
 
