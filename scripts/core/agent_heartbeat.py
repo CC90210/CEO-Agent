@@ -43,7 +43,28 @@ for _k, _v in _env.items():
 VALID_AGENTS = {"bravo", "atlas", "maven", "hermes", "codex", "aura", "lex", "sunbiz", "suga_sean"}
 
 
+def _configure_ca_bundle() -> None:
+    """Use the OS trust store or certifi when Python has no default CA file."""
+    if os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE"):
+        return
+    try:
+        import truststore  # type: ignore
+    except ImportError:
+        pass
+    else:
+        truststore.inject_into_ssl()
+        return
+    try:
+        import certifi  # type: ignore
+    except ImportError:
+        return
+    ca_path = certifi.where()
+    os.environ.setdefault("SSL_CERT_FILE", ca_path)
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", ca_path)
+
+
 def _client():
+    _configure_ca_bundle()
     try:
         from supabase import create_client  # type: ignore
     except ImportError:

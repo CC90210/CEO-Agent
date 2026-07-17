@@ -140,11 +140,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-12
+- **Date:** 2026-07-15
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Breeze premium UI pass live (9f50e9d): theme-aware tone system (Chip TONE), StatusPill re-map, Stat compact KPI strips, shared inputs, table discipline, kanban polish - 40 files, verified dark+light on prod
+- **Result:** Fixed Maven startup to use Claude CLI OAuth only; fixed Bravo nightly harness by refreshing Gemini mirror and adding truststore-backed Supabase TLS for cron and heartbeat paths.
 
-*Last updated: 2026-07-12*
+*Last updated: 2026-07-15*
 
 ## Manifest
 

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,6 +48,7 @@ def load_env() -> dict[str, str]:
 
 def get_client(env_vars: dict[str, str]):
     """Create a Supabase client for the bravo project."""
+    configure_ca_bundle()
     try:
         from supabase import create_client
     except ImportError:
@@ -64,6 +66,30 @@ def get_client(env_vars: dict[str, str]):
         sys.exit(1)
 
     return create_client(url, key)
+
+
+def configure_ca_bundle() -> None:
+    """Use the OS trust store or certifi when Python has no default CA file.
+
+    Windows installs can report ssl cafile=None, which makes Supabase TLS fail
+    with CERTIFICATE_VERIFY_FAILED. Respect explicit operator env overrides.
+    """
+    if os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE"):
+        return
+    try:
+        import truststore  # type: ignore
+    except ImportError:
+        pass
+    else:
+        truststore.inject_into_ssl()
+        return
+    try:
+        import certifi  # type: ignore
+    except ImportError:
+        return
+    ca_path = certifi.where()
+    os.environ.setdefault("SSL_CERT_FILE", ca_path)
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", ca_path)
 
 
 # -- Seed definitions ----------------------------------------------------------
