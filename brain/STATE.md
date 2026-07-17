@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** post-truststore-install verification heartbeat
+- **Result:** V7.1 Free-Tier Radar shipped: 6-repo integration audit -> 4 layer commits (e35810e3..b1507992); 14 resource nodes, resource-radar skill, Disify wrapper live, harness_eval slices+history, ADR-0010; Codex P2 findings on pre-existing branch commits logged as follow-ups
 
 *Last updated: 2026-07-17*
 
