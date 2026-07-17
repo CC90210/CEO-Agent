@@ -14,6 +14,31 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 
 ## [Unreleased]
 
+## [7.1.3] — 2026-07-17
+
+V7.1 — **Free-Tier & Knowledge Radar.** Six-repo integration audit (free-for-dev,
+public-apis, free-programming-books, LLMs-from-scratch, ML-From-Scratch, Made-With-ML)
+shipped as four layer commits per `prompts/INTEGRATE_NEW_TOOL.md`. External-service
+knowledge is now cataloged, machine-queryable, and governed; the harness eval gained
+per-slice scoring + run history. (The V7.1 roadmap items captured by the V7.0 research
+sweep — stuck-loop detector, outcome-state verification, etc. — remain open; they were
+not part of this drop.)
+
+- **V7.1.0 substrate:** `brain/TOOL_SHED.md` § 9 Free-Tier Radar (14 curated rows:
+  1 adopted, 1 rejected, 1 policy, 11 candidates awaiting CC signups);
+  `discover_resources()` → `resource:` capability-graph nodes + status-enum drift check;
+  `skills/resource-radar` lookup skill (all-soft deps); `scripts/integrations/
+  email_validate_tool.py` zero-key Disify wrapper (verified live: disposable
+  detection, batch mode); `harness_eval.py` named slices + `state/
+  harness_eval_history.jsonl` run records (Made-With-ML patterns, MIT).
+- **V7.1.1 conventions:** ADR-0010 (one catalog, row contract, link-don't-vendor,
+  keyed-adoption path, closed slots); ENV_KEYS_TEMPLATE "Radar adoptions" section.
+- **V7.1.2 vocabulary:** CONTEXT.md — Free-Tier Radar / Resource node / Slice-based
+  eval; TOOL_SHED § 10 Learning & R&D references (honest one-liners incl. the own-LLM
+  future recipes in LLMs-from-scratch Appendix E/ch06/ch07).
+- **V7.1.3 distribution:** plugin.json exclusion note (resource-radar is empire-
+  specific, not distributed); STATE.md version bump; this entry.
+
 ## [7.0.0] — 2026-06-10
 
 V7.0 — **Reliability & Observability foundation.** CC lifted the $5K freeze to harden the OS

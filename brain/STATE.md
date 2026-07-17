@@ -1,6 +1,6 @@
 ---
 tags: [state, ephemeral, fable-5]
-architecture_version: V7.0.0
+architecture_version: V7.1.3
 last_updated: 2026-07-07
 freshness_threshold_days: 30
 verified: 2026-07-07
@@ -140,11 +140,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-15
+- **Date:** 2026-07-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Fixed Maven startup to use Claude CLI OAuth only; fixed Bravo nightly harness by refreshing Gemini mirror and adding truststore-backed Supabase TLS for cron and heartbeat paths.
+- **Result:** post-truststore-install verification heartbeat
 
-*Last updated: 2026-07-15*
+*Last updated: 2026-07-17*
 
 ## Manifest
 
