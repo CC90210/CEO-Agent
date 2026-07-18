@@ -264,13 +264,23 @@ def discover_scripts() -> list[dict[str, Any]]:
 
 
 def discover_agents() -> list[dict[str, Any]]:
+    # V7.2.0: recursive (rglob) so subdirs like agents/voltagent/ are graph-visible
+    # (they were silently invisible from 2026-04-21 to V7.2.0). Node ids are
+    # `agent:<stem>` with no dir qualifier, so stems are deduped with explicit
+    # precedence: .claude/agents/ (native spawnable definitions) wins collisions;
+    # shadowed copies (architect/debugger/researcher in agents/, voltagent
+    # code-reviewer) are skipped rather than emitted as duplicate node ids.
     out = []
-    for agents_dir in (PROJECT_ROOT / "agents", PROJECT_ROOT / ".claude" / "agents"):
+    seen: set[str] = set()
+    for agents_dir in (PROJECT_ROOT / ".claude" / "agents", PROJECT_ROOT / "agents"):
         if not agents_dir.exists():
             continue
-        for md in sorted(agents_dir.glob("*.md")):
+        for md in sorted(agents_dir.rglob("*.md")):
             if md.name.startswith(("README", "INDEX", "_")):
                 continue
+            if md.stem in seen:
+                continue
+            seen.add(md.stem)
             fm, body = _read_frontmatter(md)
             out.append({
                 "id": f"agent:{md.stem}",

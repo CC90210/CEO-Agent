@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-07-17T21:37:09.446287+00:00",
+  "generated_at": "2026-07-18T05:16:57.250670+00:00",
   "totals": {
     "skills": 151,
     "scripts": 116,
-    "agents": 21,
+    "agents": 32,
     "mcp_servers": 9,
     "workflows": 35,
     "resources": 14,
-    "nodes_total": 346,
+    "nodes_total": 357,
     "edges_total": 49,
     "drift_count": 0
   },
@@ -5813,146 +5813,6 @@
       "id": "agent:architect",
       "kind": "agent",
       "name": "architect",
-      "path": "agents/architect.md",
-      "description": "Use ONLY for major architecture decisions, system design, database schema design, and complex multi-service planning. Not for simple tasks.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:aura",
-      "kind": "agent",
-      "name": "aura",
-      "path": "agents/aura.md",
-      "description": "",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:chief-of-staff",
-      "kind": "agent",
-      "name": "chief-of-staff",
-      "path": "agents/chief-of-staff.md",
-      "description": "Personal communication and mission chief of staff. Triages Gmail, Slack (via n8n), and Social (via Zernio, formerly Late). Classifies messages into 4 tiers, generates draft replies, and enforces post-action follow-through.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:codex-agent",
-      "kind": "agent",
-      "name": "Codex Agent",
-      "path": "agents/codex-agent.md",
-      "description": "OpenAI Codex delegation agent \u2014 handles backend-heavy tasks, debugging, code reviews, and parallel implementation via the Codex CLI runtime",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:debugger",
-      "kind": "agent",
-      "name": "debugger",
-      "path": "agents/debugger.md",
-      "description": "MUST BE USED for debugging, error investigation, and bug fixing.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:documenter",
-      "kind": "agent",
-      "name": "documenter",
-      "path": "agents/documenter.md",
-      "description": "MUST BE USED for documentation, READMEs, session logs, technical writing, and memory file updates.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:explorer",
-      "kind": "agent",
-      "name": "explorer",
-      "path": "agents/explorer.md",
-      "description": "MUST BE USED for file search, codebase navigation, and code analysis. READ-ONLY \u2014 never edits files.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:git-ops",
-      "kind": "agent",
-      "name": "git-ops",
-      "path": "agents/git-ops.md",
-      "description": "MUST BE USED for git operations, branch management, commits, and PR creation.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:meta-agent",
-      "kind": "agent",
-      "name": "meta-agent",
-      "path": "agents/meta-agent.md",
-      "description": "Generate specialized subagent definitions from natural language descriptions. Use when CC describes a new capability that doesn't map to any existing subagent.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:researcher",
-      "kind": "agent",
-      "name": "researcher",
-      "path": "agents/researcher.md",
-      "description": "MUST BE USED for competitive analysis, market research, trend identification, and web research.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:revenue-hunter",
-      "kind": "agent",
-      "name": "revenue-hunter",
-      "path": "agents/revenue-hunter.md",
-      "description": "ELITE REVENUE AGENT. Uses Google Calendar, Gmail, and Playwright to identify and secure business deals.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:reviewer",
-      "kind": "agent",
-      "name": "reviewer",
-      "path": "agents/reviewer.md",
-      "description": "MUST BE USED for code review, security audit, and quality assurance.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:workflow-builder",
-      "kind": "agent",
-      "name": "workflow-builder",
-      "path": "agents/workflow-builder.md",
-      "description": "MUST BE USED for n8n workflow creation, automation building, and workflow debugging. Uses the n8n-mcp SDK code-first flow.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:writer",
-      "kind": "agent",
-      "name": "writer",
-      "path": "agents/writer.md",
-      "description": "MUST BE USED for code writing, feature implementation, and file creation.",
-      "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:architect",
-      "kind": "agent",
-      "name": "architect",
       "path": ".claude/agents/architect.md",
       "description": "System design, database schema, API design, architecture decisions",
       "owner": "bravo",
@@ -6015,6 +5875,256 @@
       "name": "validator",
       "path": ".claude/agents/validator.md",
       "description": "MUST BE USED after any multi-agent orchestration, parallel sub-agent spawn, or Codex task that modified files. Read-only Haiku validator that scores agent output against original success criteria, catches silent failures and hallucinated claims, prevents Bravo from surfacing degr",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:aura",
+      "kind": "agent",
+      "name": "aura",
+      "path": "agents/aura.md",
+      "description": "",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:chief-of-staff",
+      "kind": "agent",
+      "name": "chief-of-staff",
+      "path": "agents/chief-of-staff.md",
+      "description": "Personal communication and mission chief of staff. Triages Gmail, Slack (via n8n), and Social (via Zernio, formerly Late). Classifies messages into 4 tiers, generates draft replies, and enforces post-action follow-through.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:codex-agent",
+      "kind": "agent",
+      "name": "Codex Agent",
+      "path": "agents/codex-agent.md",
+      "description": "OpenAI Codex delegation agent \u2014 handles backend-heavy tasks, debugging, code reviews, and parallel implementation via the Codex CLI runtime",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:documenter",
+      "kind": "agent",
+      "name": "documenter",
+      "path": "agents/documenter.md",
+      "description": "MUST BE USED for documentation, READMEs, session logs, technical writing, and memory file updates.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:engineering-database-reliability-engineer",
+      "kind": "agent",
+      "name": "engineering-database-reliability-engineer",
+      "path": "agents/engineering-database-reliability-engineer.md",
+      "description": "MUST BE USED for Postgres/Supabase reliability: zero-downtime migration design, RLS-safe schema evolution, backup/DR strategy. Proposes SQL \u2014 the main agent applies it.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:engineering-devops-automator",
+      "kind": "agent",
+      "name": "engineering-devops-automator",
+      "path": "agents/engineering-devops-automator.md",
+      "description": "MUST BE USED for CI/CD pipeline design: GitHub Actions workflows, deploy gates, environment promotion, rollback strategy.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:engineering-incident-response-commander",
+      "kind": "agent",
+      "name": "engineering-incident-response-commander",
+      "path": "agents/engineering-incident-response-commander.md",
+      "description": "MUST BE USED when an incident spans multiple services (crons, PM2, VPS, Vercel, DB): triage severity, coordinate containment, run the timeline, draft the blameless post-mortem. Coordinates \u2014 never applies fixes itself.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:explorer",
+      "kind": "agent",
+      "name": "explorer",
+      "path": "agents/explorer.md",
+      "description": "MUST BE USED for file search, codebase navigation, and code analysis. READ-ONLY \u2014 never edits files.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:git-ops",
+      "kind": "agent",
+      "name": "git-ops",
+      "path": "agents/git-ops.md",
+      "description": "MUST BE USED for git operations, branch management, commits, and PR creation.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:meta-agent",
+      "kind": "agent",
+      "name": "meta-agent",
+      "path": "agents/meta-agent.md",
+      "description": "Generate specialized subagent definitions from natural language descriptions. Use when CC describes a new capability that doesn't map to any existing subagent.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:product-manager",
+      "kind": "agent",
+      "name": "product-manager",
+      "path": "agents/product-manager.md",
+      "description": "MUST BE USED for product lifecycle work: discovery synthesis, roadmaps with owner/metric/time-horizon per item, PRDs, outcome measurement across the app portfolio.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:project-management-project-shepherd",
+      "kind": "agent",
+      "name": "project-management-project-shepherd",
+      "path": "agents/project-management-project-shepherd.md",
+      "description": "MUST BE USED for cross-project status shepherding: dependency tracking, stalled-item surfacing, and status rollups across the 15+ concurrently open projects. Read-only.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:revenue-hunter",
+      "kind": "agent",
+      "name": "revenue-hunter",
+      "path": "agents/revenue-hunter.md",
+      "description": "ELITE REVENUE AGENT. Uses Google Calendar, Gmail, and Playwright to identify and secure business deals.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:reviewer",
+      "kind": "agent",
+      "name": "reviewer",
+      "path": "agents/reviewer.md",
+      "description": "MUST BE USED for code review, security audit, and quality assurance.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:sales-discovery-coach",
+      "kind": "agent",
+      "name": "sales-discovery-coach",
+      "path": "agents/sales-discovery-coach.md",
+      "description": "Use when preparing for a qualification/discovery call with an INBOUND lead already in the pipeline: question frameworks, call structure, objection prep. Advisory only \u2014 never does outreach.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:security-ai-generated-code-auditor",
+      "kind": "agent",
+      "name": "security-ai-generated-code-auditor",
+      "path": "agents/security-ai-generated-code-auditor.md",
+      "description": "MUST BE USED to audit AI-authored diffs for injected vulnerabilities, hardcoded secrets, and plausible-but-wrong logic. Read-only by design.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:specialized-mcp-builder",
+      "kind": "agent",
+      "name": "specialized-mcp-builder",
+      "path": "agents/specialized-mcp-builder.md",
+      "description": "MUST BE USED for designing, building, and auditing MCP server integrations end to end (config shape, auth wrapper pattern, cross-config sync per Rule 4).",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:testing-accessibility-auditor",
+      "kind": "agent",
+      "name": "testing-accessibility-auditor",
+      "path": "agents/testing-accessibility-auditor.md",
+      "description": "MUST BE USED to audit live UIs and components for WCAG/Section 508 accessibility. Audits and reports \u2014 never edits code directly.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:testing-test-automation-engineer",
+      "kind": "agent",
+      "name": "testing-test-automation-engineer",
+      "path": "agents/testing-test-automation-engineer.md",
+      "description": "MUST BE USED for designing/repairing E2E and integration test suites, root-causing flaky tests, and CI test architecture (Playwright-first).",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:api-designer",
+      "kind": "agent",
+      "name": "api-designer",
+      "path": "agents/voltagent/api-designer.md",
+      "description": "Use this agent when designing new APIs, creating API specifications, or refactoring existing API architecture for scalability and developer experience. Invoke when you need REST/GraphQL endpoint design, OpenAPI documentation, authentication patterns, or API versioning strategies.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:competitive-analyst",
+      "kind": "agent",
+      "name": "competitive-analyst",
+      "path": "agents/voltagent/competitive-analyst.md",
+      "description": "Use when you need to analyze direct and indirect competitors, benchmark against market leaders, or develop strategies to strengthen competitive positioning and market advantage.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:market-researcher",
+      "kind": "agent",
+      "name": "market-researcher",
+      "path": "agents/voltagent/market-researcher.md",
+      "description": "Use this agent when you need to analyze markets, understand consumer behavior, assess competitive landscapes, and size opportunities to inform business strategy and market entry decisions.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:security-auditor",
+      "kind": "agent",
+      "name": "security-auditor",
+      "path": "agents/voltagent/security-auditor.md",
+      "description": "Use this agent when conducting comprehensive security audits, compliance assessments, or risk evaluations across systems, infrastructure, and processes. Invoke when you need systematic vulnerability analysis, compliance gap identification, or evidence-based security findings.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:workflow-builder",
+      "kind": "agent",
+      "name": "workflow-builder",
+      "path": "agents/workflow-builder.md",
+      "description": "MUST BE USED for n8n workflow creation, automation building, and workflow debugging. Uses the n8n-mcp SDK code-first flow.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:writer",
+      "kind": "agent",
+      "name": "writer",
+      "path": "agents/writer.md",
+      "description": "MUST BE USED for code writing, feature implementation, and file creation.",
       "owner": "bravo",
       "tier": "specialized",
       "discovery": "auto-frontmatter"
