@@ -140,11 +140,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-17
+- **Date:** 2026-07-18
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Vercel cost question: verified team account (Pro) + 17 production projects via vercel_env_tool (fixed its Windows TLS break with truststore, same pattern as cron/heartbeat); recommendation = keep Vercel, audit seats
+- **Result:** V7.2+V7.3 shipped: agency-agents persona bench (10 Bravo + 2 Maven + 2 Atlas, all hand-scoped) + OpenViking typed-memory patterns (sleep dedup+audit, abstract layer 242/267, freshness ranking); arch V7.3.3; suite 237 green, CI green, Codex audited (2 fixed, 2 logged)
 
-*Last updated: 2026-07-17*
+*Last updated: 2026-07-18*
 
 ## Manifest
 
