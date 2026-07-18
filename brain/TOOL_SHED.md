@@ -86,6 +86,7 @@ The curated lists, plugins, and toolkits that make Claude Code 10x more useful.
 
 ### The Canonical Awesome Lists
 - **[hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code)** — 40K ⭐ — THE hub. Skills, hooks, slash commands, CLAUDE.md examples. Sweep monthly.
+- **[msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents)** — 132K ⭐ — ~263 personas, 17 divisions, MIT, very actively maintained. **Cherry-pick ONLY — never run its install.sh/convert.sh against a guard-based harness** (most files ship no `tools:`/`model:` → full default tool surface). V7.2.0 imported 10 hand-scoped (see `agents/INDEX.md` § Agency Imports) + 2→Atlas + 2→Maven.
 - **[VoltAgent/awesome-claude-code-subagents](https://github.com/VoltAgent/awesome-claude-code-subagents)** — 17.8K ⭐ — 131+ drop-in subagent personas across 10 categories (dev, security, data/AI, infra).
 - **[rohitg00/awesome-claude-code-toolkit](https://github.com/rohitg00/awesome-claude-code-toolkit)** — 1.4K ⭐ — Kitchen-sink aggregator. Lower signal-to-noise but useful for discovery.
 

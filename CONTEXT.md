@@ -79,6 +79,13 @@ Patterns imported from [twentyhq/twenty](https://github.com/twentyhq/twenty) (AG
 - **AI Agent Step** — Workflow step type that loads an agent persona (`getPersona`), substitutes `{{trigger.x}}` / `{{step_id.field}}` placeholders, fires single Anthropic call, returns text + token usage. Composes with `record-crud` step for writeback.
 - **Field Permission** — `manifest.agents[].field_permissions` entry restricting an agent's read/write access to specific fields per entity_type. Three-state semantics: `undefined`=full / `[]`=zero / populated=scoped with default-deny on entities with any entry. Server-side enforced in `lib/role-gates.ts`. ADR-0004.
 
+## V7.2 Persona Bench (agency-agents import, 2026-07-18)
+
+Cherry-picked from [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) (MIT). Plan: `~/.claude/plans/i-m-dropping-you-a-elegant-truffle.md`.
+
+- **Persona bench** — the full subagent roster across `.claude/agents/` (native spawnable, wins stem collisions) + `agents/` (recursive since V7.2.0, incl. `voltagent/` and the 10 agency imports). Count lives in `CAPABILITY_GRAPH.json` totals — never hand-counted.
+- **Cherry-pick contract** — the ONLY way external personas enter the empire: hand-select against a confirmed gap, normalize to canonical frontmatter, add explicit `tools:`/`model:` scoping (auditors/coordinators read-only), strip personality fluff, keep Critical Rules + Success Metrics, ≤120 lines, source attribution. Bulk importers are never run — untyped personas would carry full Bash/Edit surface under the guard model.
+
 ## V7.1 Free-Tier Radar (six-repo audit import, 2026-07-17)
 
 Patterns imported from [free-for-dev](https://github.com/ripienaar/free-for-dev), [public-apis](https://github.com/public-apis/public-apis), and [Made-With-ML](https://github.com/GokuMohandas/Made-With-ML) (links + patterns only — upstream lists are never mirrored). Plan: `~/.claude/plans/i-m-dropping-you-a-elegant-truffle.md`. Governance: [docs/adr/0010-external-resource-catalog.md](docs/adr/0010-external-resource-catalog.md).
