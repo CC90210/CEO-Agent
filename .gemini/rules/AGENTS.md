@@ -260,9 +260,9 @@ C-Suite coordination via `data/pulse/*.json` (poll-based) and `agent_events` tab
 
 ---
 
-## Architecture (V6.0–V6.8)
+## Architecture (V6.0 → V7.3.3)
 
-Full history + substrate detail (state DB · retrieval · guards · event bus · capability graph · agentic-OS hooks · vocabulary layer): **brain/V6_ARCHITECTURE.md** — read on architecture/redesign turns. Operationally: resolve a skill with `python scripts/capability_query.py resolve "<intent>"` (router over `brain/CAPABILITY_GRAPH.json`); guard modes in **Safety & Hooks** above; state via `python scripts/state/state_sync.py`.
+Full history + substrate detail (state DB · retrieval · guards · event bus · capability graph · agentic-OS hooks · vocabulary layer): **brain/V6_ARCHITECTURE.md** (current running version **V7.3.3**; the V6.9→V7.x deltas — audit remediation, reliability/observability, free-tier radar, persona bench, typed memory — are in **CHANGELOG.md**) — read on architecture/redesign turns. Operationally: resolve a skill with `python scripts/capability_query.py resolve "<intent>"` (router over `brain/CAPABILITY_GRAPH.json`); guard modes in **Safety & Hooks** above; state via `python scripts/state/state_sync.py`.
 
 ## Inventory (synced 2026-06-17)
 

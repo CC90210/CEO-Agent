@@ -376,9 +376,9 @@ Audit logs: `state/{secret_guard,exec_guard,state_guard,secret_access}.log` (jso
 
 **Phase 2 (productized deployment, 2026-05-10):** turnkey local + cloud deployment via `infra/docker-compose.{local,cloud}.yml`. Wizard adds `step_environment` + `step_v6_init` (boots state DB, FTS5 index, scoped env files `.env.agents.{core,webhook,dashboard}`). Command Center adds `/system-health` and `/playbook/onboarding`. Cloud → `enforce` for all guards; local → `shadow` mode. Full registry: brain/CAPABILITIES.md "V6.0 Phase 2 — Productized Deployment".
 
-## Architecture (V6.0–V6.8)
+## Architecture (V6.0 → V7.3.3)
 
-Full history + substrate detail (state DB · retrieval · guards · event bus · capability graph · agentic-OS hooks · vocabulary layer): **brain/V6_ARCHITECTURE.md** — read on architecture/redesign turns. Operationally: resolve a skill with `python scripts/capability_query.py resolve "<intent>"` (router over `brain/CAPABILITY_GRAPH.json`); guard modes in **Safety & Hooks** above; state via `python scripts/state/state_sync.py`.
+Full history + substrate detail (state DB · retrieval · guards · event bus · capability graph · agentic-OS hooks · vocabulary layer): **brain/V6_ARCHITECTURE.md** (current running version **V7.3.3**; the V6.9→V7.x deltas — audit remediation, reliability/observability, free-tier radar, persona bench, typed memory — are in **CHANGELOG.md**) — read on architecture/redesign turns. Operationally: resolve a skill with `python scripts/capability_query.py resolve "<intent>"` (router over `brain/CAPABILITY_GRAPH.json`); guard modes in **Safety & Hooks** above; state via `python scripts/state/state_sync.py`.
 
 ## Inventory (synced 2026-06-17)
 

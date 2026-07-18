@@ -1,13 +1,23 @@
 ---
-description: "Canonical V6 substrate reference (state DB, retrieval, guards, event bus, orchestration); single source for architecture decision reasoning"
-tags: [architecture, v6, reference]
-last_updated: 2026-06-10
+description: "Canonical substrate architecture reference (state DB, retrieval, guards, event bus, orchestration). Current running version V7.3.3; this file is the V6.0→V6.8 foundation history — V6.9→V7.x deltas live in CHANGELOG.md."
+tags: [architecture, substrate, reference, v7]
+last_updated: 2026-07-18
 freshness_threshold_days: 90
 ---
-# V6 Architecture — Canonical History (V6.0 → V6.8)
+# Substrate Architecture — current: **V7.3.3** (foundation history V6.0 → V6.8 below)
 
-> Single source for the V6 substrate exposition that the 5 entry points used to duplicate verbatim. Entry points now carry a one-line pointer here. Operational commands stay in the entry points; this file is the *why/what* for architecture/redesign turns.
-> Related: [[brain/CAPABILITIES]] · [[brain/AGENTIC_OS_REFERENCE]] · [[CONTEXT]]
+> **CURRENT VERSION: V7.3.3** (see `brain/STATE.md` `architecture_version`). This file is the canonical *foundation* exposition (the V6.0→V6.8 substrate the entry points once duplicated verbatim). The V6.9 → V7.3.3 deltas — audit remediation, reliability/observability, free-tier radar, persona bench, typed memory — are recorded in **`CHANGELOG.md`** and **`docs/V7_OPTIMIZATION_PLAN.md`**, NOT rewritten here. Read this for the *why/what* of the base substrate; read the CHANGELOG for anything V6.9+.
+> Related: [[brain/CAPABILITIES]] · [[brain/AGENTIC_OS_REFERENCE]] · [[CONTEXT]] · CHANGELOG.md
+
+## What changed since V6.8 (V6.9 → V7.3.3) — summary; full detail in CHANGELOG.md
+
+- **V6.9.x — Audit remediation, fleet harmonization, evals & adversarial defense.** 10-phase pass against an external architecture audit; proved the fleet disciplined, then good-and-defended; repo-estate tidy.
+- **V7.0.0 — Reliability & Observability foundation.** `scripts/system_health.py` (7 probes incl. path-drift detector; found + fixed 8 live silent-failures), `state_compact.py` (LanceDB version bounding), routing-accuracy gate, state_manager round-trip tests, `LOCKSTEP:untrusted_content` propagated to all siblings.
+- **V7.1.x — Free-Tier & Knowledge Radar.** `brain/TOOL_SHED.md` §9 Free-Tier Radar, `resource:` capability-graph nodes, `skills/resource-radar`, `email_validate_tool.py` (zero-key Disify), named harness eval slices. ADR-0010.
+- **V7.2.x — Persona Bench.** 10 hand-scoped personas into `agents/` (typed tools/model; validator 100/100); `discover_agents()` recursive with stem-dedup; sibling shards (Maven, Atlas).
+- **V7.3.x — Typed Memory.** `bravo_sleep` dedup state machine + `state/memory_diff/` audit artifacts + anti-pollution filter; retriever L1 abstract column (migration 003, FTS5+LanceDB) + freshness-decay ranking; ADR-0011 per-file update semantics.
+
+---
 
 ## V6.0 Architecture (transactional, retrieval-driven, fenced)
 
