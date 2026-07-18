@@ -52,4 +52,4 @@ sequence-runner (not the bridge). The "VPS E2E TEST" lead is a REAL CRM row — 
 it after, or note it for cleanup. The earlier loopback row under the OASIS tenant is benign — leave it.
 ```
 
-[[VPS_SUNBIZ_BRIDGE_PROMPT]] · [[project_sunbiz_funding_website]] · [[feedback_vps_paste_prompt_not_ssh]]
+[[VPS_SUNBIZ_BRIDGE_PROMPT]] · `project_sunbiz_funding_website` · `feedback_vps_paste_prompt_not_ssh`

@@ -31,4 +31,4 @@ Then report one line: the branch name + commit hash you pushed, and confirm pm2 
 sequence-runner online. That's it for tonight.
 ```
 
-[[VPS_SUNBIZ_TASK2_PROMPT]] · [[VPS_SUNBIZ_BRIDGE_PROMPT]] · [[project_sunbiz_funding_website]]
+[[VPS_SUNBIZ_TASK2_PROMPT]] · [[VPS_SUNBIZ_BRIDGE_PROMPT]] · `project_sunbiz_funding_website`
