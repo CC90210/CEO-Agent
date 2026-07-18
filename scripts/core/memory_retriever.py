@@ -786,7 +786,13 @@ def _graph_boost(hits: list[dict], limit: int) -> list[dict]:
     if (_os.environ.get("EMPIRE_GRAPH_BOOST", "1").strip() == "0"):
         return hits
     try:
-        from graph_activation import boost_hits  # same dir (scripts/core)
+        try:
+            from graph_activation import boost_hits  # same dir (scripts/core on sys.path)
+        except ImportError:
+            # V7.3.3+2 (Codex finding): programmatic callers import this module
+            # as core.memory_retriever — there the bare name doesn't resolve and
+            # the associative layer was silently disabled.
+            from core.graph_activation import boost_hits  # type: ignore
         boosted = boost_hits(hits, limit=limit)
         if boosted:
             for h in boosted:

@@ -232,6 +232,13 @@ def boost_hits(hits: list[dict], limit: int = 5) -> list[dict]:
         extras.append({
             "source": rel, "line_start": 1, "kind": "associative",
             "snippet": snippet,
+            # V7.3.3+2 (Codex finding): extras must carry the standard hit
+            # fields — the retriever's human-output path prints hit['ref'] /
+            # hit['heading'] and crashed on any associative extra without them.
+            "ref": f"{rel}:1",
+            "heading": "",
+            "line_range": "1-1",
+            "chunk_idx": -1,
             "graph_score": round(score, 4),
             "assoc_score": round(GRAPH_WEIGHT * score, 4),
             "why": f"linked from {sum(1 for s in seeds if rel in fwd.get(s, []) or rel in back.get(s, []))} matched note(s)",
