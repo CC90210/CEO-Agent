@@ -1,6 +1,6 @@
 ---
 tags: [agents, orchestration]
-last_updated: 2026-06-09
+last_updated: 2026-07-18
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -72,6 +72,16 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 | Deep debugging, root-cause analysis | **Codex Agent** | `/codex:rescue investigate [bug]` |
 | Pre-ship design challenge | **Codex Agent** | `/codex:adversarial-review --background` |
 | Post-execution gate / silent-failure detection | **Validator** (`.claude/agents/validator.md`) | After every parallel sub-agent spawn, every Codex file-modifying task, every risk-3 or blast_radius-3 op, before `/ship` and `/commit`. Read-only Haiku; returns APPROVE/WARN/REJECT. See [[brain/ORCHESTRATION#Validator Pattern]]. |
+| Flaky tests, new/broken E2E suites, CI test architecture | **testing-test-automation-engineer** (V7.2.0) | test failures beyond one file, "tests are flaky", suite design |
+| Accessibility audit of a live site/component | **testing-accessibility-auditor** (V7.2.0) | WCAG/508 questions, pre-launch a11y pass on client sites |
+| Migration design, RLS-safe schema change, DB backup/DR | **engineering-database-reliability-engineer** (V7.2.0) | Supabase schema evolution, zero-downtime migration, recurring RLS pain |
+| CI/CD pipeline or deploy-gate design | **engineering-devops-automator** (V7.2.0) | GitHub Actions work, promotion/rollback strategy, "push ≠ live" gates |
+| Incident spanning multiple services | **engineering-incident-response-commander** (V7.2.0) | cron+PM2+Vercel+DB cascades; coordinates, never applies fixes |
+| Audit an AI-authored diff before ship | **security-ai-generated-code-auditor** (V7.2.0) | Rule 8 pre-ship on Claude/Codex diffs; read-only |
+| Roadmap, PRD, feature prioritization across apps | **product-manager** (V7.2.0) | "what should we build next", portfolio roadmap artifacts |
+| Cross-project status rollup, stalled-item sweep | **project-management-project-shepherd** (V7.2.0) | 15+ open projects, dependency tracking; read-only |
+| Design/build/audit an MCP integration | **specialized-mcp-builder** (V7.2.0) | new MCP server, Rule 4 config-sync work |
+| Prep for an inbound qualification/discovery call | **sales-discovery-coach** (V7.2.0) | call tomorrow with a funnel lead; advisory only, INBOUND-first policy holds |
 
 ## Subagent Definitions
 

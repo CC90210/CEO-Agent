@@ -230,7 +230,7 @@ Bravo coordinates with **APEX** (Adon's agent, `@KnutRPEbot`) in the shared **OA
 - **Skills:** 150 active (10 archived in `skills/_archive/`) — graph-registered with frontmatter
 - **Python scripts:** 105 top-level production CLI tools under `scripts/` (238 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
 - **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
-- **Subagents:** 8 in `.claude/agents/`
+- **Subagents:** 32 agent nodes in the capability graph (7 native `.claude/agents/` + `agents/` incl. voltagent + V7.2.0 agency imports) — live count: `CAPABILITY_GRAPH.json` totals, don't hand-count
 - **Workflows:** 35 in `.agents/workflows/`
 - **Cron jobs:** 23 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
 - **North Star:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)

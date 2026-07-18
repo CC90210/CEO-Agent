@@ -3,7 +3,7 @@ name: ORCHESTRATION DECISION TABLE
 description: One-screen scannable decision index — who handles a task, when to delegate, when the Validator must run. Condensation of the 5 deep orchestration docs; read this first, drill into them only when a row needs detail.
 mutability: SEMI-MUTABLE
 tags: [brain, orchestration, router, agent-only]
-last_updated: 2026-06-10
+last_updated: 2026-07-18
 freshness_threshold_days: 60
 verified: 2026-06-10
 ---
@@ -28,6 +28,8 @@ verified: 2026-06-10
 | App-specific work (PropFlow/OASIS/SunBiz/etc.) | **the app's repo** | `brain/APP_REGISTRY.md` → cd to local path → commit there |
 | Read-only deep search / multi-file analysis | **Explore / explorer sub-agent** | read-only; returns the conclusion |
 | Need a 2nd independent opinion on a finding | **adversarial verify** (2-3 skeptics) | default to refuted-if-uncertain |
+| Flaky/broken test suites, E2E architecture | **testing-test-automation-engineer** | V7.2.0 import; Playwright-first, write-enabled, validator-gated |
+| A11y audit · DB migration design · CI/CD gates · multi-service incident · AI-diff audit · roadmap/PRD · project rollup · MCP build · inbound call prep | **V7.2.0 persona bench** — see [[agents/INDEX]] §Agency Imports | 10 hand-scoped personas; auditors/coordinators are read-only by design |
 
 ## B. When the Validator MUST run (quality gate — `.claude/agents/validator.md`)
 
