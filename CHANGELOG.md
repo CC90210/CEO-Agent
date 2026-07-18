@@ -8,8 +8,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 - **Major** — breaking changes to the cross-agent substrate (state DB schema,
   event-bus contract, sibling-agent ABI).
-- **Minor** — new V6.x epic landing (V6.5 multi-machine bridge,
-  V6.6 capability graph, V6.7 agentic-OS orchestration, V6.8 vocabulary layer).
+- **Minor** — a new epic landing (e.g. V6.5 multi-machine bridge, V6.6
+  capability graph, V6.7 agentic-OS orchestration, V6.8 vocabulary layer,
+  V7.0 reliability/observability, V7.2 persona bench, V7.3 typed memory).
 - **Patch** — production-hardening passes, doc syncs, test repairs.
 
 ## [Unreleased]

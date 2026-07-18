@@ -30,7 +30,7 @@ One command. A few minutes. The wizard asks who you are, helps you connect your 
 | **[Atlas](https://github.com/CC90210/CFO-Agent)** | CFO | Revenue & MRR reporting, tax, treasury, research, FIRE planning, financial advisory |
 | **[Maven](https://github.com/CC90210/CMO-Agent)** | CMO | Content, brand, ads, social, video pipeline |
 
-All three siblings share the same V6.8 substrate (state DB, retrieval, exec_guard, vocabulary layer) and coordinate via the cross-agent event bus and pulse protocol. Atlas can veto Maven's ad spend; Bravo reads both pulses before scheduling client work.
+All three siblings share the same substrate — currently **V7.3.3** (state DB, hybrid retrieval, exec_guard, vocabulary layer, reliability/observability, typed memory) — and coordinate via the cross-agent event bus and pulse protocol. Atlas can veto Maven's ad spend; Bravo reads both pulses before scheduling client work. (Full version history: `CHANGELOG.md`.)
 
 **V6.2 — Client products** (separate, paid offerings):
 
