@@ -14,6 +14,35 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 
 ## [Unreleased]
 
+## [7.3.3] — 2026-07-18
+
+V7.2 + V7.3 — **Persona Bench & Typed Memory.** Two-repo integration audit
+(msitarzewski/agency-agents MIT · volcengine/OpenViking AGPLv3-patterns-only)
+shipped as two epics, eight layer commits, per `prompts/INTEGRATE_NEW_TOOL.md`.
+
+- **V7.2.0–V7.2.3 Persona Bench:** 10 hand-scoped personas into `agents/`
+  (QA/test engineering, accessibility, DB reliability, DevOps, incident command,
+  AI-code audit, product mgmt, project shepherd, MCP builder, inbound discovery
+  coach — every file explicit `tools:`/`model:`; validator 100/100);
+  `discover_agents()` now recursive with stem-dedup (`.claude/agents` wins) —
+  voltagent/ graph-visible for the first time since April; routing rows in
+  AGENTS.md + ORCHESTRATION_DECISION_TABLE; counts read from graph totals;
+  sibling shards committed: Maven +2 (SEO, email-nurture strategy — ccb8f6b),
+  Atlas +2 (FP&A, tax w/ CRA+Revenu Québec transition framing — 777e6be; the
+  validator caught stale Ontario residency, live-verified against USER.md).
+- **V7.3.0–V7.3.3 Typed Memory:** bravo_sleep dedup state machine
+  (cooldown → retrieval near-dup probe → judged create/skip; merge deliberately
+  not adopted) + `state/memory_diff/` per-run audit artifacts + anti-pollution
+  input filter; retriever L1 abstract column (migration 003, FTS5+LanceDB) with
+  `description:` backfill across 79 files (abstract coverage 163→242/267
+  sources) + freshness-decay ranking (memory_aging inputs finally reach
+  retrieval); ADR-0011 registry of per-file update semantics; mem0 verified
+  already flag-gated (verdict recorded, no new stores).
+- **Explicitly not done:** no bulk persona import (untyped tools vs guard
+  model), no OpenViking server/code (AGPL + cloud-VLM dependency + would be a
+  4th vector store), no knowledge/ vector-indexing, vendor benchmarks not
+  cited as fact.
+
 ## [7.1.3] — 2026-07-17
 
 V7.1 — **Free-Tier & Knowledge Radar.** Six-repo integration audit (free-for-dev,

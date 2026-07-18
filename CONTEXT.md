@@ -79,6 +79,14 @@ Patterns imported from [twentyhq/twenty](https://github.com/twentyhq/twenty) (AG
 - **AI Agent Step** — Workflow step type that loads an agent persona (`getPersona`), substitutes `{{trigger.x}}` / `{{step_id.field}}` placeholders, fires single Anthropic call, returns text + token usage. Composes with `record-crud` step for writeback.
 - **Field Permission** — `manifest.agents[].field_permissions` entry restricting an agent's read/write access to specific fields per entity_type. Three-state semantics: `undefined`=full / `[]`=zero / populated=scoped with default-deny on entities with any entry. Server-side enforced in `lib/role-gates.ts`. ADR-0004.
 
+## V7.3 Typed Memory (OpenViking pattern import, 2026-07-18)
+
+Patterns from [volcengine/OpenViking](https://github.com/volcengine/OpenViking) (AGPLv3 — patterns only, zero code). Governance: [docs/adr/0011-typed-memory-taxonomy.md](docs/adr/0011-typed-memory-taxonomy.md).
+
+- **Typed memory** — every memory surface declares update semantics (MISTAKES=append-only, PATTERNS=mergeable with [P]→[V] promotion, DECISIONS=immutable, ACTIVE_TASKS=mutable-current, SESSION_LOG=immutable-generated). The registry lives in ADR-0011; writers obey it.
+- **Memory diff audit** — `state/memory_diff/<stamp>.json`, written by every bravo_sleep run (even empty ones): each proposal's create/skip decision with duplicate evidence. Missing artifact after a scheduled run = the run crashed.
+- **Abstract layer (L1)** — the `description:` frontmatter of every brain/memory file, indexed as a searchable `abstract` column in FTS5 + LanceDB (migration 003; backfilled by `scripts/core/abstract_backfill.py`). Files are findable by what they ARE. Freshness-aware ranking: stale files rank down (floor 0.7; `EMPIRE_FRESHNESS_RANK=0` to disable).
+
 ## V7.2 Persona Bench (agency-agents import, 2026-07-18)
 
 Cherry-picked from [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) (MIT). Plan: `~/.claude/plans/i-m-dropping-you-a-elegant-truffle.md`.
