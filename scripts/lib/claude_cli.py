@@ -70,7 +70,13 @@ def run_claude_cli(
         sys.stderr.write("[claude_cli] claude CLI not found on PATH\n")
         return None
 
-    args = [claude_bin, "-p", prompt]
+    # V7 fix (Codex P2, flagged twice): the prompt goes via STDIN, never argv.
+    # Windows caps the process command line at ~32K chars; bravo_sleep feeds up
+    # to 50 session-log rows + git log, so a busy day could kill the spawn
+    # before Claude started. `claude -p` reads the prompt from stdin when no
+    # positional prompt is given. (--append-system-prompt stays argv — callers
+    # pass short personas; keep it small.)
+    args = [claude_bin, "-p"]
     if system:
         args += ["--append-system-prompt", system]
     args += [
@@ -97,7 +103,8 @@ def run_claude_cli(
     })
     try:
         proc = subprocess.run(
-            args, cwd=str(cwd or PROJECT_ROOT), capture_output=True, text=True,
+            args, input=prompt, cwd=str(cwd or PROJECT_ROOT),
+            capture_output=True, text=True,
             timeout=timeout, encoding="utf-8", errors="replace",
             creationflags=WINDOWLESS_FLAGS, env=env,
         )

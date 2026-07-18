@@ -219,10 +219,16 @@ def boost_hits(hits: list[dict], limit: int = 5) -> list[dict]:
 
     # Associative extras — activated neighbors that did NOT match the query.
     extras = []
-    for rel, act in sorted(activation.items(), key=lambda kv: -kv[1]):
-        if rel in seeds:
-            continue
-        score = act * _recency(graph, rel)
+    # V7 fix (Codex P3): rank on the DECAYED score, not raw activation. The old
+    # loop sorted by raw activation and `break`-ed on the decayed threshold, so
+    # one stale high-backlink note could hide fresher neighbors with better
+    # final scores behind the break.
+    decayed = sorted(
+        ((rel, act * _recency(graph, rel)) for rel, act in activation.items()
+         if rel not in seeds),
+        key=lambda kv: (-kv[1], kv[0]),
+    )
+    for rel, score in decayed:
         if score < 0.15:  # not activated enough to spend context on
             break
         path = PROJECT_ROOT / rel
