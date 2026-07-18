@@ -1,4 +1,5 @@
 ---
+description: "Bravo's soul — immutable identity file loaded first on every reasoning cycle establishing role, personality, values, prime directive, and communication rules"
 tags: [identity, immutable]
 last_updated: 2026-07-07
 freshness_threshold_days: 90

@@ -1,4 +1,5 @@
 ---
+description: "Reference defining product vertical packs, canonical-vs-personal architecture (shipped frameworks vs buyer credentials), and update flow for additions"
 tags: [product, verticals, lead-management, marketing-research, pricing]
 last_updated: 2026-06-09
 freshness_threshold_days: 30

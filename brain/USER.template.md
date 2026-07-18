@@ -1,4 +1,5 @@
 ---
+description: "Personalized operator profile template; agents reference it for operator identity, objectives, communication voice, and off-limits constraints"
 tags: [brain]
 last_updated: 2026-06-09
 freshness_threshold_days: 90

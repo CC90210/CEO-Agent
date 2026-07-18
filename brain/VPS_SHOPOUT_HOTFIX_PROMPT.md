@@ -1,3 +1,7 @@
+---
+description: "Diagnostic hotfix prompt for SunBiz VPS shop-out send failures; diagnoses Gmail auth + critic-gate issues via phase-based verify-first approach"
+---
+
 # VPS Shop-Out Hotfix — paste this whole block into the Claude Code session running ON the SunBiz VPS
 
 > **For CC:** copy everything inside the fenced block below into the Claude Code chat that is already

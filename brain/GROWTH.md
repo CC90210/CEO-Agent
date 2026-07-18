@@ -1,4 +1,5 @@
 ---
+description: "Agent skill registry with acquisition timeline, validation status, compositionality graph, and capability frontiers for activation scoring and routing"
 tags: [growth, evolution]
 last_updated: 2026-06-09
 freshness_threshold_days: 30

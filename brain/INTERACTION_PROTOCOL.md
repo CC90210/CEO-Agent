@@ -1,4 +1,5 @@
 ---
+description: "Interaction protocol: tiered logging system (Supabase, sessions), observability standards, and action traceability requirements for all agent interfaces"
 tags: [protocol, governance]
 last_updated: 2026-06-09
 freshness_threshold_days: 90

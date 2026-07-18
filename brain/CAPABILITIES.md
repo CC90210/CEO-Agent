@@ -1,4 +1,5 @@
 ---
+description: "Registry of Bravo's MCP servers, integrations, and CLI tools auto-synced by catalog_sync.py; agents use it to route tasks to capabilities"
 tags: [capabilities, tools]
 last_updated: 2026-06-09
 freshness_threshold_days: 30

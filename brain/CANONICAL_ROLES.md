@@ -1,4 +1,5 @@
 ---
+description: "Reference defining CEO, Operational CEO, CTO, COO functions in CC's operating model; guides Bravo on strategic decisions, OKRs, and client health at solo scale"
 tags: [brain, c-suite, canonical, roles, frameworks]
 last_updated: 2026-06-09
 freshness_threshold_days: 90

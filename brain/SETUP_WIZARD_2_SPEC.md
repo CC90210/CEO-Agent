@@ -1,4 +1,5 @@
 ---
+description: "Setup Wizard 2.0 spec covering hosting options (OASIS/local/self-hosted), agent templates, credentials, and tenant provisioning flow"
 title: Setup Wizard 2.0 — Spec
 date: 2026-05-15
 phase: 8 (of SunBiz CRM build)

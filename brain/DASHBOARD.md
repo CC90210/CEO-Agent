@@ -1,4 +1,5 @@
 ---
+description: "Navigation hub for Bravo's brain files, operational state, agents, active tasks, knowledge base, and CEO Operating System; agents use it to discover system resources"
 tags:
   - dashboard
   - pinned

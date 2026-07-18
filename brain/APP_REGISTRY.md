@@ -1,4 +1,5 @@
 ---
+description: "Lookup table routing app names to local paths and GitHub repos; enforces that code changes happen in external app repos, not Business-Empire-Agent"
 tags: [apps, routing]
 last_updated: 2026-07-13
 freshness_threshold_days: 30

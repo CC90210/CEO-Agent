@@ -1,4 +1,5 @@
 ---
+description: "Task decomposition protocol agents follow; loads context, recalls patterns, assesses complexity, generates alternative plans, verifies approach before execution"
 tags: [reasoning, protocol]
 last_updated: 2026-06-09
 freshness_threshold_days: 30

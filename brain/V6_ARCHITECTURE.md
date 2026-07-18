@@ -1,4 +1,5 @@
 ---
+description: "Canonical V6 substrate reference (state DB, retrieval, guards, event bus, orchestration); single source for architecture decision reasoning"
 tags: [architecture, v6, reference]
 last_updated: 2026-06-10
 freshness_threshold_days: 90

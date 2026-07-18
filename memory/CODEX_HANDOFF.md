@@ -1,3 +1,7 @@
+---
+description: "Handoff doc for SunBiz Command Center: what's shipped, two P0 TODOs (bank-statement upload, FICO field), architecture decisions, and DB-driven form re-seeding instructions"
+---
+
 # SunBiz Command Center — Codex Handoff (2026-06-23)
 
 **Repo:** `C:\Users\User\APPS\oasis-command-center` (Next.js 15, tenant `submissions`).

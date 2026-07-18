@@ -1,4 +1,5 @@
 ---
+description: "CC's daily schedule with time blocks for movement, outreach, client delivery, content creation, building; agents reference for understanding daily priorities"
 tags: [schedule, accountability, daily, non-negotiable]
 purpose: CC's optimized daily schedule starting April 13, 2026. Last shift at Nicky's Donuts was April 12. Free-range now. This is the structure.
 owner: CC (Conaugh McKenna)

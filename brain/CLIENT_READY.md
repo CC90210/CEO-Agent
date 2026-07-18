@@ -1,4 +1,5 @@
 ---
+description: "Readiness audit for client cloning; covers proof-of-self-use, revenue, deliverables, sanitization, credentials, onboarding, pricing, support, and contractual maturity"
 tags: [readiness, cloning, productization, honest]
 owner: CC (Conaugh McKenna)
 purpose: The single honest checklist that gates whether Bravo's operating system is ready to be cloned and sold to OASIS AI agency clients.

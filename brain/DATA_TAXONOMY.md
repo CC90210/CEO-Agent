@@ -1,4 +1,5 @@
 ---
+description: "Maps data through three tiers (Pantry=raw sources, Prep Table=aggregated snapshots, Plate=consumed views) to route queries and validate freshness"
 title: Data Taxonomy — Pantry / Prep Table / Plate
 mutability: GOVERNED
 purpose: Single source of truth for what data lives where, how it's aggregated, and which consumers read which views. The audit target for the silver-platter skill.

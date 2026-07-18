@@ -1,4 +1,5 @@
 ---
+description: "Configuration assigning Claude model versions to agents (bravo, atlas, maven, aura) with fallback provider chains"
 tags: [brain]
 last_updated: 2026-07-02
 freshness_threshold_days: 90

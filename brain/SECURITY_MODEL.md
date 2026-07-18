@@ -1,4 +1,5 @@
 ---
+description: "Agent Command Center security model: multi-tenant RLS isolation, bearer+cookie auth, field encryption, bridge pairing — every claim mapped to migrations"
 tags: [security, architecture, multi-tenant, encryption, hmac, rls, canonical]
 purpose: Single canonical doc explaining how the Agent Command Center secures multi-tenant data, authenticates bridge daemons, and isolates per-client identity. The answer to "is this military-grade?" is in this file.
 last_updated: 2026-06-09

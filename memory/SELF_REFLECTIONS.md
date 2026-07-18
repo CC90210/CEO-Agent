@@ -1,4 +1,5 @@
 ---
+description: "Structured log of Bravo's reflections after complex tasks and failures: evidence-based learnings with actionable changes and confidence scores"
 tags: [reflections, growth]
 last_updated: 2026-05-07
 freshness_threshold_days: 90

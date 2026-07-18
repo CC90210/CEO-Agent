@@ -1,4 +1,5 @@
 ---
+description: "Phases 0–4 rearchitecture retrospective: what worked (phased commits, pre-phase audits, type-safe schemas) and what failed (gitignore collisions, test gaps)"
 last_updated: 2026-05-14
 author: Bravo (Claude Opus 4.7)
 scope: end-of-phases retrospective for the Phase 0–4 rearchitecture

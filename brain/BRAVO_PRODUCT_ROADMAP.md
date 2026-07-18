@@ -1,4 +1,5 @@
 ---
+description: "Bravo V1.0 roadmap: six-phase product plan (CLI, browser harness, agent forge, runtime, installer, terminal); completion status per phase"
 tags: [product, roadmap, vision]
 created: 2026-04-22
 last_updated: 2026-06-09

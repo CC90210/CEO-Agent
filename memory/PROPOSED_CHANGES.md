@@ -1,4 +1,5 @@
 ---
+description: "Approval queue for agent-proposed changes to core system files; tracks submissions, CC review status, and application history for entry points and BRAIN_LOOP"
 tags: [memory, governance]
 last_updated: 2026-05-21
 freshness_threshold_days: 90

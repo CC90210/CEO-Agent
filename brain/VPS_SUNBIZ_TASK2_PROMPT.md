@@ -1,4 +1,5 @@
 ---
+description: "SunBiz VPS Agent paste-prompt: form→lead self-test verification and SMS E.164 normalization fix for welcome sequence"
 tags: [vps, sunbiz, bridge, paste-prompt, task]
 last_updated: 2026-06-22
 ---

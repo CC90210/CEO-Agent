@@ -1,4 +1,5 @@
 ---
+description: "Personalized task tracking template; Bravo maintains live instance per user with North Star, priorities, operator actions, and weekly scope"
 tags: [tasks, active]
 last_updated: 2026-05-21
 freshness_threshold_days: 7

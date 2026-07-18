@@ -1,4 +1,5 @@
 ---
+description: "Indexed standard operating procedures with prerequisites, success metrics, and activation scoring to guide repeatable Bravo tasks"
 tags: [sops, processes]
 last_updated: 2026-05-07
 freshness_threshold_days: 180

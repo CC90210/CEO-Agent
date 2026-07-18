@@ -1,3 +1,7 @@
+---
+description: "System prompt for an agent to deploy and verify the extraction-consumer daemon on the SunBiz VPS, enabling CLI document-extraction"
+---
+
 # VPS deploy-agent system message — bring CLI document-extraction live
 
 > Paste the block below as the system/opening message to a Claude Code agent you

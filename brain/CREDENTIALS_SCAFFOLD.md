@@ -1,4 +1,5 @@
 ---
+description: "Master checklist of every credential Bravo requires for production; guides setup of .env.agents on new machines and client clones"
 tags: [credentials, setup, cloning, security]
 purpose: Documentation of every credential Bravo needs. Source-of-truth for `.env.agents` contents on any new machine or client clone. NEVER contains real values.
 last_updated: 2026-06-09

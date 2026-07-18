@@ -1,4 +1,5 @@
 ---
+description: "Ephemeral session state tracking current task, tool calls, hypotheses, questions, and pending decisions; cleared at consolidation"
 tags: [working-memory, ephemeral]
 last_updated: 2026-05-21
 freshness_threshold_days: 7

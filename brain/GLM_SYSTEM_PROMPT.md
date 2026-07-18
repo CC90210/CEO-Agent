@@ -1,4 +1,5 @@
 ---
+description: "System prompt for GLM 5.2 that defines Bravo's identity, cognitive protocol (PARSE/RECALL/PLAN/EXECUTE/REPORT), tool discipline, and security rules"
 tags: [system-prompt, glm, zcode, model-harness]
 last_updated: 2026-06-20
 freshness_threshold_days: 30

@@ -1,4 +1,5 @@
 ---
+description: "Paste-prompt for SunBiz VPS: contains git commands to persist SMS fix to a feature branch, answers 3 persistence-strategy questions"
 tags: [vps, sunbiz, bridge, paste-prompt, task]
 last_updated: 2026-06-22
 ---

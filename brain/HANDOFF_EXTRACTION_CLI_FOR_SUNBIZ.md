@@ -1,3 +1,7 @@
+---
+description: "Handoff: SunBiz document extraction moved from metered API to VPS Claude subscription; VPS daemon setup, config doctor command, PM2 persistence, and end-to-end verification steps"
+---
+
 # Handoff — Document extraction moved to the VPS Claude subscription (off the API)
 
 > **For: the SunBiz agent / whoever runs the VPS.** What changed, how it works, the

@@ -1,4 +1,5 @@
 ---
+description: "Quarterly-verified persistent facts on architecture, business, and technical systems with confidence scores — agents reference for established truths"
 tags: [memory, persistent]
 last_updated: 2026-06-12
 freshness_threshold_days: 90

@@ -1,4 +1,5 @@
 ---
+description: "Reference for multi-machine Claude Code sync: defines git pull/push boundaries, daemon ownership (Windows-only), and session declaration requirements"
 tags: [sync, multi-machine, protocol, non-negotiable]
 purpose: Single canonical protocol for how Claude Code on Windows and Claude Code on Mac stay in perfect sync without stepping on each other's work.
 owner: CC (Conaugh McKenna)

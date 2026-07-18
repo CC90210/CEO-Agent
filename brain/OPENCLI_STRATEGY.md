@@ -1,4 +1,5 @@
 ---
+description: "Maps OpenCLI platform adapters to lead-gen use cases; prioritizes 46 platforms by business impact tier toward MRR north star"
 tags: [strategy, opencli, lead-gen]
 last_updated: 2026-06-09
 freshness_threshold_days: 30

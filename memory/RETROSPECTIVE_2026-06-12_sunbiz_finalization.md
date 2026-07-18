@@ -1,4 +1,5 @@
 ---
+description: "SunBiz finalization sprint retrospective tracking SOP implementation, underwriting pipeline, bridge reliability, and security fixes with commit references"
 tags: [retrospective, sunbiz, mca, bridge, security, hardening, fable-5]
 last_updated: 2026-06-12
 freshness_threshold_days: 365

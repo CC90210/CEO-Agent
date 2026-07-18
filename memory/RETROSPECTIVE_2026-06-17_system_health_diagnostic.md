@@ -1,4 +1,5 @@
 ---
+description: "Retrospective of system health diagnostic + ZCode integration with verified live outputs: capability-graph drift closure, entry-point registry updates, audits"
 tags: [retrospective, health-diagnostic, integrity, auto-fix, capability-graph, zcode-entry-point]
 last_updated: 2026-06-17
 freshness_threshold_days: 365
