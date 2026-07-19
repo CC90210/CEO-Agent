@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** README second pass live on main (521975f0): oasisai.work/welcome as the Command Centre link, plain-English harness-vs-model explainer, V6-breakthrough framing kept; branch mirrored (4f935dab)
+- **Result:** V7.3.5 currency sweep shipped (d9e50da1): 30 stale claims fixed (Suga fully retired, Solara+Helios canonical, STATE body V7.3.3, Montreal QC everywhere, model tables current, knowledge wiki refreshed, scaffold gap closed, pre-commit stats gate live-proven); audit reference docs/audits/2026-07-19 + currency-audit skill; Atlas USER.md fixed in place, Maven pushed ae80cde
 
 *Last updated: 2026-07-19*
 
