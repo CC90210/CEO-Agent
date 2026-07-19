@@ -1018,6 +1018,38 @@ def _extract_text_preview(msg, max_chars=200):
     return preview[:max_chars]
 
 
+def stop_signal_decision(classification, preview, subject):
+    """CASL auto-suppress decision for an inbound reply.
+
+    Returns (is_stop_signal, needs_manual_review):
+      is_stop_signal      — irreversibly suppress (CASL list) + mark lead lost.
+      needs_manual_review — the DEGRADED keyword classifier (model outage,
+                            fallback=True) said unsubscribe but there is no
+                            literal STOP/UNSUBSCRIBE line-opener; ping CC
+                            instead of auto-killing what may be a hot lead
+                            ("nothing will stop me from signing" matches the
+                            fallback's substring test). CASL's 10-business-day
+                            window is met either way: literal openers still
+                            suppress instantly, ambiguous ones go to review.
+
+    Pure function — unit-tested directly (scripts/tests, CASL-critical).
+    """
+    intent = (classification or {}).get("intent", "")
+    preview_upper = (preview or "").strip().upper()
+    subject_upper = (subject or "").strip().upper()
+    literal_stop = (
+        preview_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
+        or subject_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
+    )
+    classifier_stop = (
+        intent == "unsubscribe"
+        and not (classification or {}).get("fallback")
+    )
+    is_stop_signal = classifier_stop or literal_stop
+    needs_manual_review = intent == "unsubscribe" and not is_stop_signal
+    return is_stop_signal, needs_manual_review
+
+
 def cmd_check_inbox(env_vars, args, output_json=False):
     """
     Connect to Gmail IMAP, fetch UNSEEN emails, log them to Supabase,
@@ -1198,27 +1230,12 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             # what makes reply-STOP actually legally compliant — CASL requires
             # opt-outs to be processed within 10 business days; this does it
             # within 5 minutes (next scheduler tick).
-            intent = (classification or {}).get("intent", "")
-            preview_upper = (preview or "").strip().upper()
-            subject_upper = (subject or "").strip().upper()
-            literal_stop = (
-                preview_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
-                or subject_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
+            # Decision logic lives in stop_signal_decision() (pure, unit-tested
+            # — CASL-critical, see its docstring for the degraded-mode guard).
+            is_stop_signal, needs_manual_review = stop_signal_decision(
+                classification, preview, subject
             )
-            # Degraded-mode guard (2026-07-18): when the classifier ran in
-            # keyword-fallback mode (model/CLI outage, fallback=True), its
-            # intent is a coarse substring match — "nothing will stop me from
-            # signing" classifies as unsubscribe. An IRREVERSIBLE CASL
-            # suppression + lead lost-overwrite must never ride on that. In
-            # fallback mode only the literal STOP/UNSUBSCRIBE line-opener
-            # counts; ambiguous fallback opt-outs go to CC for manual review
-            # below (CASL's 10-business-day window is met either way).
-            classifier_stop = (
-                intent == "unsubscribe"
-                and not (classification or {}).get("fallback")
-            )
-            is_stop_signal = classifier_stop or literal_stop
-            if intent == "unsubscribe" and not is_stop_signal and sender_addr:
+            if needs_manual_review and sender_addr:
                 notify(
                     f"POSSIBLE opt-out from {sender_addr} — flagged by the "
                     "degraded keyword classifier (model outage), no literal "

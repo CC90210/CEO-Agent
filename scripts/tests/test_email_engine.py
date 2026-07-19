@@ -20,6 +20,7 @@ from integrations.email_engine import (  # noqa: E402
     missing_template_variables,
     normalize_template_vars,
     render_template,
+    stop_signal_decision,
     unresolved_template_placeholders,
 )
 
@@ -71,6 +72,65 @@ class TestTemplateRendering(unittest.TestCase):
             "company_name": "Wrong Alias",
         })
         self.assertEqual(variables["company"], "JN Roofing & Contracting")
+
+
+class TestStopSignalDecision(unittest.TestCase):
+    """CASL auto-suppress guard (2026-07-18): a keyword-fallback classification
+    (model outage) must never trigger irreversible suppression on its own —
+    only a literal STOP/UNSUBSCRIBE opener or a real model classification can.
+    """
+
+    def test_outage_hot_lead_containing_stop_is_not_suppressed(self):
+        suppress, review = stop_signal_decision(
+            {"intent": "unsubscribe", "fallback": True},
+            "nothing will stop me from signing, send the contract",
+            "Re: funding",
+        )
+        self.assertFalse(suppress)
+        self.assertTrue(review)
+
+    def test_outage_literal_stop_reply_still_suppresses(self):
+        suppress, review = stop_signal_decision(
+            {"intent": "unsubscribe", "fallback": True}, "STOP", "Re: OASIS intro",
+        )
+        self.assertTrue(suppress)
+        self.assertFalse(review)
+
+    def test_outage_unsubscribe_subject_still_suppresses(self):
+        suppress, review = stop_signal_decision(
+            {"intent": "unsubscribe", "fallback": True},
+            "take me off this list", "UNSUBSCRIBE",
+        )
+        self.assertTrue(suppress)
+        self.assertFalse(review)
+
+    def test_model_classified_soft_optout_suppresses(self):
+        suppress, review = stop_signal_decision(
+            {"intent": "unsubscribe"},
+            "please take me off your list, thanks", "Re: intro",
+        )
+        self.assertTrue(suppress)
+        self.assertFalse(review)
+
+    def test_model_classified_hot_lead_untouched(self):
+        suppress, review = stop_signal_decision(
+            {"intent": "booking"}, "nothing will stop me from signing", "Re: funding",
+        )
+        self.assertFalse(suppress)
+        self.assertFalse(review)
+
+    def test_outage_negative_but_not_optout_untouched(self):
+        suppress, review = stop_signal_decision(
+            {"intent": "reply_negative", "fallback": True},
+            "not interested right now", "Re: intro",
+        )
+        self.assertFalse(suppress)
+        self.assertFalse(review)
+
+    def test_no_classification_at_all(self):
+        suppress, review = stop_signal_decision(None, "hello", "hi")
+        self.assertFalse(suppress)
+        self.assertFalse(review)
 
 
 if __name__ == "__main__":
