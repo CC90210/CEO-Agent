@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** README V7 refresh live on GitHub main (15661f55): Solara+Helios client team (Suga retired per live agent catalog), V7.0-V7.3 features+timeline, 13 MCPs; all repos pushed (bravo branch e61c21ba, maven ccb8f6b, atlas 777e6be); local main ref aligned
+- **Result:** README second pass live on main (521975f0): oasisai.work/welcome as the Command Centre link, plain-English harness-vs-model explainer, V6-breakthrough framing kept; branch mirrored (4f935dab)
 
 *Last updated: 2026-07-19*
 
