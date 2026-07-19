@@ -43,6 +43,22 @@ Each client product is a separate agent persona + dashboard profile with explici
 
 ---
 
+## How it works — the harness, not the model
+
+The simplest way to understand this system: **the AI model is the engine; this repo is the vehicle built around it.**
+
+- **Models are interchangeable.** Claude is the primary brain today, with OpenAI/Codex wired in as a permanent second opinion (backend implementation, adversarial code review) and OpenRouter / Groq / DeepSeek / local Ollama as fallbacks. Any engine can be swapped without touching the rest of the system — the harness doesn't care what's in the bay, and every agent identity (Bravo, Atlas, Maven) stays the same across runtimes.
+- **The durable value is the harness, not the model** — three things in particular:
+  - **Tools** — dedicated CLIs for Stripe, Supabase, Google Workspace, n8n, DNS, browser automation. Battle-tested wrappers a model can drive reliably, instead of improvising raw API calls.
+  - **Skills** — 150+ written procedures that encode how this business actually does things: outreach, systematic debugging, deployments, code review, incident response. The model changes; the playbook survives.
+  - **Credentials** — every secret lives in one guarded vault the agent can *use* but never *read*. Wrappers load keys internally and return only sanitized results; guard hooks block any attempt to read or exfiltrate the vault itself.
+- **Memory makes it a colleague, not a chatbot.** A transactional state database, sub-100ms hybrid semantic retrieval, and typed memory files (mistakes, patterns, decisions — each with declared update rules) mean every session starts where the last one ended. Lessons are extracted nightly, deduplicated against what it already knows, and every memory change leaves an audit trail.
+- **The reasoning loop, in plain words:** wake → recall what matters → assess → plan → verify assumptions against live systems (never from memory alone) → act through the tools → reflect and write down what was learned. Guards sit under every step: destructive commands are refused outright, secrets can't leak into a conversation, and machine-generated state can't be hand-corrupted.
+
+**V6 was the breakthrough** that turned a folder of scripts into an operating system: one transactional state DB instead of racing flat files, semantic memory instead of whole-file context dumps, security guards on every tool call, and a machine-readable capability graph the agent itself queries at decision time to know what it can do. **V7 made it trustworthy**: failures announce themselves, the agent scores its own health on a sliced eval with persisted history, CI verifies the agent's DNA on every push, and memory writes are deduplicated and auditable.
+
+Everything below is the deep tour of those pieces.
+
 ## What it actually does
 
 - **Autonomous reasoning loop** — 7-phase brain (orient → recall → assess → plan → verify → execute → reflect) running on a tick. Decides what to do next without being asked.
@@ -118,9 +134,7 @@ python scripts/register.py skill my-new-skill --description "..." --triggers "..
 
 ## See it running
 
-The reference deployment lives at **[agent-dashboard-cc90210.vercel.app](https://agent-dashboard-cc90210.vercel.app)** (auth-gated — that's the operator's working copy). After your install, your own dashboard runs at the same URL with your tenant data via Supabase RLS.
-
-> **Add a screenshot:** drop `docs/screenshots/operations.png` into the repo and replace this block with `![operations](docs/screenshots/operations.png)`. The Operations page is the most legible single view (paired machines, warm process pool, live agent activity tape).
+The live deployment is the **OASIS Command Centre** at **[oasisai.work](https://oasisai.work)** — start at **[oasisai.work/welcome](https://oasisai.work/welcome)**. That's the production surface the operator runs the business from every day: agent chat, live pipeline, operations view, playbooks. The welcome flow is public; the operator dashboard behind it is auth-gated. After your install, your own dashboard runs under your own tenant, isolated by Supabase RLS.
 
 ---
 
