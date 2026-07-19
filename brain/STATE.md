@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** V7 cleanup: routed model_router + 7 automations to the subscription claude CLI (metered key now opt-in via MODEL_ROUTER_ALLOW_METERED_API); set EMPIRE_V6_MODE=shadow agent+daemons; archived stale ACTIVE_TASKS; harness 10/10, migration live-verified
+- **Result:** Rule 8 Codex audit + 7-script adversarial workflow found 3 outage-path data-loss bugs in the CLI migration; fixed 2 mine (enrich_sheet + memory_consolidation preflight/fail-closed, commit 91d81a9f), flagged pre-existing email_engine CASL-suppress-on-fallback for CC; harness 10/10
 
 *Last updated: 2026-07-19*
 
