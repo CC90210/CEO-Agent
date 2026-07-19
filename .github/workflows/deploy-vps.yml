@@ -22,7 +22,7 @@ on:
       - "skills/**"
       - "infra/**"
       - "requirements.txt"
-      - "scripts/core/scheduler.py"
+      - "scripts/scheduler.py"
       - "telegram_agent.js"
       - "coordination_agent.js"
       - "ecosystem.config.js"

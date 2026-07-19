@@ -95,10 +95,10 @@ verified: 2026-06-09
 - ⏭ Distribution manifest
 - ⏭ Hook-side vocab injection
 
-### Hermes (future) — propagated via agent-forge
+### Forked agents — propagated via agent-forge (scaffold gap CLOSED 2026-07-19)
 
-- ⏭ Not yet deployed. When Hermes ships, `skills/agent-forge` + `skills/agent-runtime-packaging` must scaffold the V6.8 layout by default: CONTEXT.md template + `docs/adr/` directory + frontmatter conventions in `skill-creator/SKILL.md`.
-- TODO: `skills/agent-forge/SKILL.md` should be updated to include the V6.8 patterns in the harness. Tracked in `memory/ACTIVE_TASKS.md`.
+- ✅ `templates/agent-scaffold/` now ships the V6.8 shapes: `CONTEXT.md` template (section headers + update rules), `docs/adr/0001-context-md-canonical-vocabulary.md` stub (references the empire ADR-0002), and `skills/in-progress/.gitkeep`. Closed during the V7.3.5 currency sweep — the "How to propagate" section below was aspirational until this date (the scaffold did NOT ship these files from 2026-05-16 to 2026-07-19).
+- ⏭ Remaining nice-to-have: `skill-creator/SKILL.md` with the 4-step pre-flight is still not part of the scaffold's 3 canonical skills — forks adopt it when they add their first custom skill.
 
 ## Why this version exists
 

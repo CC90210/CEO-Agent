@@ -65,7 +65,7 @@ Auto-generated index of tracked `brain/*.md` — **62 files**. Each file's first
 - [SETUP_WIZARD_2_SPEC.md](SETUP_WIZARD_2_SPEC.md) — Setup Wizard 2.0
 - [SHARED_DB.md](SHARED_DB.md) — Shared DB
 - [TOOL_SHED.md](TOOL_SHED.md) — 🧰 TOOL SHED — CC's GitHub Repository Catalog
-- [V6_ARCHITECTURE.md](V6_ARCHITECTURE.md) — V6 Architecture — Canonical History (V6.0 → V6.8)
+- [V6_ARCHITECTURE.md](V6_ARCHITECTURE.md) — Substrate Architecture — current: **V7.3.3** (foundation history V6.0 → V6.8 below)
 
 ## Routing & capability map
 - [AGENT_INDEX.md](AGENT_INDEX.md) — Agent Index — The 4-Agent Graph Hub

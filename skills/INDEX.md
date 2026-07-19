@@ -2,10 +2,12 @@
 tags: [skills, index, hub]
 ---
 
-# Skills Index — 150 Specialized Capabilities
+# Skills Index — Specialized Capabilities (live count: `CAPABILITY_GRAPH.json` totals — 152 as of 2026-07-19; never hand-count here)
 
 > Central hub for all Bravo skills. Each skill is a reusable protocol loaded on-demand.
 > [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/DASHBOARD]]
+>
+> **Newest (2026-06/07, currency-audit backfill):** [[skills/currency-audit/SKILL.md]] (semantic-staleness sweep, V7.3.5) · [[skills/resource-radar/SKILL.md]] (Free-Tier Radar lookup, V7.1) · [[skills/manifest-ai-editor/SKILL.md]] · [[skills/silver-platter/SKILL.md]] · [[skills/memory-journaling/SKILL.md]] · [[skills/gws-docs-edit/SKILL.md]] · [[skills/score-b2b-lead-quality/SKILL.md]]
 >
 > Last cluster-audit: 2026-05-16 (V6.7+). 9 archived persona-* skills moved to `skills/_archive/personas/` (orphaned 2026-05-07, never physically removed). Knowledge + memory clusters confirmed non-redundant. GWS cluster confirmed intentional auto-gen (OpenClaw). Routing-accuracy bug fixed: capability_query resolver now respects `disable-model-invocation: true` and `archived: <date>` per skill frontmatter.
 

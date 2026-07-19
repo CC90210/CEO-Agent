@@ -9,7 +9,7 @@ The dashboard's `n8n_inbound` integration is showing **unconfigured** because n8
 ## What you need
 
 - n8n access (Hostinger cloud)
-- The OASIS Command Center deployment URL (e.g. `https://agent-dashboard-cc90210.vercel.app`)
+- The OASIS Command Center deployment URL (e.g. `https://oasisai.work`)
 - 5 minutes
 
 ---
@@ -44,7 +44,7 @@ Configuration:
 | Field | Value |
 |-------|-------|
 | **Method** | `POST` |
-| **URL** | `https://agent-dashboard-cc90210.vercel.app/api/inbound/n8n` |
+| **URL** | `https://oasisai.work/api/inbound/n8n` |
 | **Authentication** | `None` (we use custom headers, not n8n's built-in auth) |
 | **Send Headers** | `On` |
 | **Send Body** | `On` |

@@ -35,7 +35,7 @@ When someone asks you for a solution, send them here. **All repo names are click
 | "I want live song requests at my gigs" | [CC90210/nostalgic-requests](https://github.com/CC90210/nostalgic-requests) |
 | "I run a field service business (HVAC, landscaping, etc.)" | [CC90210/gritly](https://github.com/CC90210/gritly) |
 | "I run a daycare and need attendance tracking" | [CC90210/tiktik](https://github.com/CC90210/tiktik) |
-| "I need a lead capture funnel with payment" | [CC90210/cc-funnel](https://github.com/CC90210/cc-funnel) |
+| "I need a lead capture funnel with payment" | Native Command Center funnel at `oasisai.work/f/` (cc-funnel repo RETIRED 2026-06-18) |
 | "I sell Shopify products and want AI ad videos" | [CC90210/shopify-ad-engine](https://github.com/CC90210/shopify-ad-engine) |
 | "I need a compliance/EDI/POS agent for wholesale" | [CC90210/hermes](https://github.com/CC90210/hermes) (Hermes — public, OASIS-built) |
 | "I want an AI CFO watching my finances" | [CC90210/CFO-Agent](https://github.com/CC90210/CFO-Agent) (Atlas) |
@@ -60,7 +60,7 @@ All production repos owned by CC. These are the "source code" CC can point clien
 | **Nostalgic Requests** | [CC90210/nostalgic-requests](https://github.com/CC90210/nostalgic-requests) | Next.js, Supabase, Stripe Connect | Live-event song request + tipping | Live |
 | **Gritly** | (pending) | Next.js 15, Drizzle, Better Auth, Stripe, Turso | Field service management (FSM) | Pre-launch |
 | **TIKTIK** | [CC90210/tiktik](https://github.com/CC90210/tiktik) | Next.js 14, Supabase, Tailwind | Daycare attendance tracking | Live — tiktik-psi.vercel.app |
-| **CC Funnel** | [CC90210/cc-funnel](https://github.com/CC90210/cc-funnel) | Next.js 14, Supabase | Lead capture funnel | Live — cc-funnel.vercel.app |
+| **CC Funnel** | [CC90210/cc-funnel](https://github.com/CC90210/cc-funnel) | Next.js 14, Supabase | Lead capture funnel | **RETIRED 2026-06-18** — replaced by native funnel at oasisai.work/f/ (see APP_REGISTRY) |
 | **IG Setter Pro** (PULSE) | [CC90210/ig-setter-pro](https://github.com/CC90210/ig-setter-pro) | Next.js 14, Turso, n8n, Claude API | Instagram DM automation + lead capture | Live |
 | **Shopify Ad Engine** | [CC90210/shopify-ad-engine](https://github.com/CC90210/shopify-ad-engine) | Remotion, React 19, Three.js, Meta Ads API | Programmatic Shopify video ad generation | Client-ready |
 | **Grape Vine Cottage** | [CC90210/grapevinecottage](https://github.com/CC90210/grapevinecottage) | Vite, React 18, Shadcn | Cottage booking site | Live |
@@ -73,8 +73,8 @@ All production repos owned by CC. These are the "source code" CC can point clien
 
 | Agent | Repo | Role | Key Tech |
 |-------|------|------|----------|
-| **Bravo** (CEO) | [CC90210/Business-Empire-Agent](https://github.com/CC90210/Business-Empire-Agent) | All-ops orchestrator, architecture, routing | Claude Sonnet 4.6, Supabase, n8n, 17 sub-agents |
-| **Atlas** (CFO) | [CC90210/CFO-Agent](https://github.com/CC90210/CFO-Agent) | Financial advisor + trading + tax compliance | Python, CCXT, Claude API, 12+ strategies, CRA-accurate tax calc |
+| **Bravo** (CEO) | [CC90210/CEO-Agent](https://github.com/CC90210/CEO-Agent) | All-ops orchestrator, architecture, routing | Claude (fable-5 standard), Supabase, n8n — agent roster: CAPABILITY_GRAPH totals (32 nodes) |
+| **Atlas** (CFO) | [CC90210/CFO-Agent](https://github.com/CC90210/CFO-Agent) | Financial advisory + tax compliance (pivoted from autonomous trading 2026-04-14) | Python, local Claude CLI, CRA + Revenu Quebec-aware tax calc |
 | **Maven** (CMO) | [CC90210/CMO-Agent](https://github.com/CC90210/CMO-Agent) | Content, brand voice, ad campaigns | Meta + Google Ads SDKs, Remotion, Python |
 | **Aura** (Home) | [CC90210/Aura-Home-Agent](https://github.com/CC90210/Aura-Home-Agent) | Smart home + life habits | Raspberry Pi 5, Home Assistant, ESP32, voice agent |
 
@@ -111,7 +111,7 @@ The curated lists, plugins, and toolkits that make Claude Code 10x more useful.
 
 ## 🔌 Section 3: MCP Servers
 
-### Currently Installed (8 Active)
+### Registered in `.claude/mcp.json` (9 — live source of truth; supabase/late/n8n below are CLI-replaced for agents, kept as dashboard/enabled extras)
 
 | MCP | Purpose | Config |
 |-----|---------|--------|
@@ -123,6 +123,7 @@ The curated lists, plugins, and toolkits that make Claude Code 10x more useful.
 | **filesystem** | Sandboxed file access | Official MCP |
 | **github** | GitHub ops (shim injects token) | `scripts/mcp_shims/github.js` |
 | **firecrawl** | Structured web scraping | Firecrawl API wrapper |
+| **obsidian** | Vault operations | Registered in mcp.json |
 | **supabase** | DB queries, migrations, edge fns | Official Supabase MCP |
 | **late/zernio** | Social media scheduling | Late API wrapper |
 | **n8n-mcp** | Workflow automation | Community package |
@@ -293,7 +294,7 @@ OASIS AI Platform     https://github.com/CC90210/oasis-ai-platform
 PropFlow (real estate) https://github.com/CC90210/real-estate-App
 Nostalgic Requests     https://github.com/CC90210/nostalgic-requests
 TIKTIK (daycare)       https://github.com/CC90210/tiktik
-CC Funnel              https://github.com/CC90210/cc-funnel
+CC Funnel (RETIRED)    https://github.com/CC90210/cc-funnel  # replaced by native funnel oasisai.work/f/
 IG Setter Pro (PULSE)  https://github.com/CC90210/ig-setter-pro
 Shopify Ad Engine      https://github.com/CC90210/shopify-ad-engine
 Grape Vine Cottage     https://github.com/CC90210/grapevinecottage

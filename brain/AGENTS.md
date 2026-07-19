@@ -10,7 +10,7 @@ verified: 2026-06-09
 > **PURPOSE:** Single source of truth for all specialized subagents. Every AI interface (Claude, Gemini, Antigravity) references this file to determine delegation strategy.
 > **RULE:** When a task matches a subagent's domain, adopt that subagent's mindset and principles. For Claude Code, delegate to the actual `agents/*.md` files.
 >
-> **Read first for any non-trivial delegation:** [[brain/ORCHESTRATION#PART 1 — DELEGATION & ORCHESTRATION PROTOCOL (V5.7, 2026-04-21)]] — risk-weighted routing score, layer selection matrix (agents/ vs .claude/agents/ vs voltagent/ vs Codex), handoff contract, result schema, Validator pattern, per-domain verification contracts, 3-tier model routing (Haiku/Sonnet/Opus).
+> **Read first for any non-trivial delegation:** [[brain/ORCHESTRATION#PART 1 — DELEGATION & ORCHESTRATION PROTOCOL (V5.7, 2026-04-21)]] — risk-weighted routing score, layer selection matrix (agents/ vs .claude/agents/ vs voltagent/ vs Codex), handoff contract, result schema, Validator pattern, per-domain verification contracts, model routing per `scripts/lib/model_registry.py` (fable-5 standard · opus-4-8 heavy code · sonnet-4-6 general · haiku-4-5 cheap).
 >
 > **Related:** [[brain/CROSS_AGENT_AWARENESS]] — how Bravo/Atlas/Maven/Aura stay in sync via pulse files. [[brain/HOW_TO_USE_THE_4_AGENTS]] — CC's operating manual. [[brain/AGENT_SELF_IMPROVEMENT_PROMPTS]] — paste-into-IDE prompts to level up sibling agents.
 
@@ -212,60 +212,19 @@ Per STATE.md "Content Studio | MOVED TO MAVEN", the `content-creator`, `social-p
 - **Dashboard connection:** the Agent Command Center may render a Sun-specific sidebar/profile shell, but that shell is a reusable client-facing surface — not proof that Sun should live forever as a row-level tenant inside CC's internal dashboard deployment.
 - **Relationship to Bravo:** Bravo is CC's architect — owns shared substrate (state_manager, event_bus, dashboard chrome, onboarding rails). Sun Biz Agent owns Sun's runtime and business logic. Bravo MAY read Sun Biz pulse/state and mutate shared substrate files here; Sun product/data architecture lives in the Sun Biz repo/runtime.
 - **Relationship to Atlas/Maven:** Atlas approves spend gates on any paid Sun outreach (SMS/email volume budget); Maven owns CC's empire content but does NOT touch Sun Biz content (that's the tenant's own brand voice).
+- **Client-facing personas (2026-07):** inside the Command Center this product presents as a two-agent team — **Solara** (ops: pipeline reporting, application packaging, lender matching, template production) and **Helios** (sales: SMS outreach voice, NEPQ qualification, TCPA guardrails). Persona definitions: `oasis-command-center:lib/agent-personas.ts`. See CONTEXT.md § People & agents.
 - **Routing rule:** Anything labeled "for Sun", "Sun Biz Funding", lead sourcing inside the Sun tenant, MCA/funding deal lifecycle, multi-provider SMS, or commission tracking → route to Sun Biz Agent repo.
 - **Key files:** `brain/SOUL.md` (identity), `brain/CLIENT.md` (Sun Biz Funding profile + ICP), `scripts/sms_engine.py`, `scripts/funding_intel.py`, `scripts/deal_tracker.py`, `scripts/renewal_scanner.py`, `scripts/email_blast.py` (preserved from AdVantage V2.0).
 
-### 20. Suga Sean O'Malley Agent (Brand Ops — Client Product Scaffold, added 2026-05-12)
-- **Model Tier:** Sonnet (target runtime; standalone repo TBD)
-- **Project:** `C:\Users\User\APPS\suga-sean-agent` (planned; directory does not yet exist on disk — agent profile + dashboard shell live in the [oasis-command-center](https://github.com/CC90210/oasis-command-center) repo until the standalone runtime ships)
-- **GitHub:** TBD (operator will supply repo URL; wizard `AGENT_REPOS["suga_sean"]` left unset so cloning is skipped until ready)
-- **Purpose:** CC's second **client backend operations product**. Runs Suga Sean O'Malley's brand operations — fan engagement, merch drops, social distribution (X/Twitter + Late/Zernio scheduling), sponsorship triage — as a separate client-facing agent paralleling Sun Biz Agent's structure.
-- **Capabilities (Phase 1 scaffold):** Command Center profile (SUGA_PROFILE, Turso/dedicated), SUGA_NAV sidebar (17 items across Operations / Fans / Brand / Commerce / Sponsorship / System), Crown brand mark (pink gradient), ChatWidget suggestions. SMS deferred — Suga's primary channels are social + email, not transactional SMS. Demo data + dedicated stub pages pending.
-- **Heartbeat:** Same pattern as Sun Biz — once the runtime exists, `state_bridge.py` pings shared V6 state DB every 15s under `agent="suga_sean"`. Registered in `scripts/state/state_manager.py` VALID_AGENTS, `scripts/core/agent_heartbeat.py` VALID_AGENTS, `scripts/core/agent_inbox.py` KNOWN_AGENTS (commit 1fe3d91).
-- **Events:** Reserved `SUGA_SEAN_*` family (deterministic from agent key `suga_sean` via state_manager's `f"{agent.upper()}_..."` templating) in [[brain/EVENT_BUS_CONTRACT]] §Standard event-type registry — populated when the runtime ships. Types: SESSION_LOG_APPENDED, FAN_DM_RECEIVED, MERCH_DROP_SCHEDULED, SOCIAL_POST_PUBLISHED, SPONSORSHIP_LEAD_RECEIVED, AFFILIATE_PAYOUT_DUE.
-- **Data topology:** Brand + fan data is **Turso/libSQL-first** (PII-adjacent — DMs, subscriber lists, affiliate payouts). Same sovereignty story as Sun Biz: client data stays on the operator's Mac Mini; shared infra reads pulse/state only.
-- **Dashboard connection:** Tenants whose `command_center_profile_slug = "suga"` see the Suga shell — magenta Crown logo, fan-ops sidebar, agents tab gated to `suga_sean`. Brand detection in `lib/client-provisioning.ts` matches "suga sean" / "o'malley" variants on signup.
-- **Relationship to Bravo:** Bravo owns shared substrate (state_manager, event_bus, dashboard chrome, wizard rails). Suga Sean Agent will own Sean's runtime + business logic once its repo ships. Bravo MAY read Suga pulse/state and mutate shared substrate files here; Suga product/data architecture lives in the Suga repo/runtime.
-- **Relationship to Atlas/Maven:** Atlas approves spend gates on Suga's paid promo budget. Maven owns CC's empire content but does NOT touch Suga's brand voice — that's the tenant's own (Sean's).
-- **Routing rule:** Anything labeled "for Suga", "Sean O'Malley", fan engagement inside the Suga tenant, merch drop scheduling, social post pipeline, or sponsorship triage → route to Suga Sean Agent repo (when it ships).
-- **Key files (current):** in the [oasis-command-center](https://github.com/CC90210/oasis-command-center) repo: `lib/agents.ts:115` (registry entry), `lib/client-profiles.ts` (SUGA_PROFILE), `lib/nav-config.ts` (SUGA_NAV), `components/Sidebar.tsx` (Crown brand mark). In this repo: `bravo_cli/wizard.py` PROFILES["suga_sean"]. Planned key files in the standalone Suga repo: `brain/SOUL.md`, `brain/CLIENT.md`, `scripts/fan_engagement.py`, `scripts/merch_scheduler.py`, `scripts/social_publisher.py`.
+### 20. Suga Sean O'Malley Agent — RETIRED (scaffold removed 2026-07; recorded 2026-07-19)
+- **Status:** RETIRED. The Suga client-product scaffold (SUGA_PROFILE, SUGA_NAV, Crown brand shell) was removed from the live agent catalog; the standalone runtime was never built. No routing rule — anything referencing "Suga" is historical.
+- **Superseded by:** the client-persona pattern now proven on Sun Biz Funding — **Solara (ops) + Helios (sales)**, defined in `oasis-command-center:lib/agent-personas.ts` (see §19). New client products follow that two-persona shape.
+- **History:** original scaffold spec preserved in git history (this section, pre-2026-07-19) and `_archive/` handovers.
 
-### External: Atlas (CFO — Separate Project)
-- **Model Tier:** Opus (separate project, own CLAUDE.md)
-- **Project:** `C:\Users\User\APPS\CFO-Agent`
-- **GitHub:** CC90210/CFO-Agent
-- **Purpose:** CC's CFO — tax strategy (CRA T1/T2125/T5013), accounting, stock research, wealth management, compliance, international tax planning.
-- **Capabilities:** 16 skill playbooks, 8 CFO modules (tax, advisor, budget, wealth, accounting, compliance, international, planning), 10 research modules, 59 tax docs (~80K lines), live Telegram bot (PM2).
-- **Pulse:** `data/pulse/cfo_pulse.json` — read by Bravo + Maven (CMO) for spend gates and runway checks.
-- **Relationship to Bravo:** CC is Visionary founder. Bravo is CC's right hand — CEO/COO/CTO in one (strategy, business ops, revenue, clients, operations, infrastructure, code). Atlas is CFO (capital, tax, research, compliance). All three share CC context but do NOT modify each other's files. Atlas READs from Business-Empire-Agent. Bravo READs from CFO-Agent.
-- **Relationship to Maven:** Atlas has veto power on any spend decision. Maven (CMO) checks `cfo_pulse.json` spend gate before committing ad budget.
-- **Routing rule:** Any question about taxes, crypto gains, budgeting, FIRE, registered accounts (TFSA/RRSP/FHSA), stock research, compliance, or financial strategy → defer to Atlas or reference its docs.
-- **Key files:** `brain/USER.md` (CC profile), `brain/CAPABILITIES.md` (auto-generated), `finance/tax.py` (calculator), `research/stock_picker.py` (10-layer research)
-
-### External: Maven (CMO — Separate Project)
-- **Model Tier:** Opus (separate project, own CLAUDE.md)
-- **Project:** `C:\Users\User\CMO-Agent`
-- **GitHub:** CC90210/CMO-Agent
-- **Purpose:** CC's CMO — brand strategy, content creation & editing, paid ads (Meta + Google), organic distribution, deep market research, funnels, growth experiments, marketing advice.
-- **Capabilities:** 16 sub-agents (ad-strategist, content-creator, seo-specialist, video-editor, image-generator, email-outbound, etc.), 19+ skills, Meta Ads API + Google Ads API, Gemini Imagen, Remotion video pipeline.
-- **Orchestrates:** shopify-ad-engine (video ads), ig-setter-pro (Instagram), cc-funnel (lead capture).
-- **Pulse:** `data/pulse/cmo_pulse.json` — read by Bravo (brand health, funnel metrics) + Atlas (ad spend for tax/cashflow).
-- **Relationship to Bravo:** Bravo sets strategy and client priorities. Maven executes within the strategy Bravo defines. Maven does NOT handle client delivery or revenue operations.
-- **Relationship to Atlas:** Atlas approves spend gates. Maven checks `cfo_pulse.json` before ANY paid campaign. Ad spend = T2125 business expense.
-- **Routing rule:** Any question about content creation, ad campaigns, brand voice, SEO, funnels, marketing research, social media strategy, or growth experiments → defer to Maven or reference its docs.
-- **Key files:** `brain/SOUL.md` (identity), `brain/CAPABILITIES.md` (tool inventory), `brain/STATE.md` (campaign status)
-- **Receives from Bravo (migration):** content-engine, email-marketing, funnel-management, brand-guidelines, growth-engine, competitive-intelligence, elite-video-production, lead-management, linkedin-outreach, persona-content-creator skills + ../CMO-Agent/content-studio/
-
-### External: Lex (Legal / Counsel — Separate Project, added 2026-06-18)
-- **Model Tier:** Opus (separate project, own CLAUDE.md / AGENTS.md)
-- **Project:** `C:\Users\User\APPS\Lex-Agent`
-- **GitHub:** CC90210/Lex-Agent (private)
-- **Purpose:** CC's in-house counsel — contract drafting, inbound-agreement review, redlines, legal-risk triage. The first **vertical product agent** (sold to tenants, multi-tenant from day one). Sales/SDR + Customer-Support agents are next on the roadmap.
-- **Capabilities:** skills `contract-draft`, `contract-review`, `clause-library`; seed contract templates (mutual NDA, SOW); multi-tenant schema (`database/migrations/0001_lex_core.sql` — RLS, security_invoker views, SECURITY DEFINER status RPC).
-- **Compliance (NON-NEGOTIABLE):** Lex is **not a licensed attorney** and **never gives legal advice** — information + drafting only, attorney review before execution, explicit governing law, standard disclaimer on every output. Gate lives in `Lex-Agent/brain/COMPLIANCE.md`.
-- **Product surface:** OASIS Command Center fleet (registry slug `lex`); cloud-knowledge tools resolve per-slug to the Lex-Agent repo.
-- **Relationship to Bravo:** Bravo orchestrates and sets priorities; Lex owns legal/contract matters. Route any contract drafting/review or legal-risk question to Lex.
-- **Pulse:** `data/pulse/lex_pulse.json` (create on first session).
+### 21. V7.2 Agency-Import Bench (10 specialist personas, 2026-07-18)
+- **What:** 10 hand-scoped specialist subagents imported from msitarzewski/agency-agents (MIT): QA/test engineering, accessibility, DB reliability, DevOps, incident command, AI-code audit, product management, project shepherding, MCP building, inbound discovery coaching.
+- **Registry:** [[agents/INDEX]] § Agency Imports is the single source for the roster + per-persona tool scoping — deliberately NOT duplicated here (copies are how counts rot). Live count: `CAPABILITY_GRAPH.json` totals (32 agent nodes).
+- **Routing:** rows in the Orchestration Decision Matrix above + [[brain/ORCHESTRATION_DECISION_TABLE]] §A.
 
 ## V6.0 Cross-Agent Contract (added 2026-05-10)
 

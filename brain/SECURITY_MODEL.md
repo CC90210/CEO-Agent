@@ -19,7 +19,7 @@ verified: 2026-06-09
 
 **One shared dashboard. One shared Supabase. N tenants. Tenant ID on every row that matters.**
 
-- **Dashboard:** `agent-dashboard-cc90210.vercel.app` (Vercel-hosted Next.js).
+- **Dashboard:** `oasisai.work` (canonical domain; Vercel-hosted Next.js — deployment alias `agent-dashboard-cc90210.vercel.app`).
   Same URL for CC and every paying client. Routes are tenant-aware via
   the auth-cookie / bridge-token resolution path.
 - **Supabase:** project ref `phctllmtsogkovoilwos`. Single Postgres; isolation

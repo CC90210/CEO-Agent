@@ -24,10 +24,12 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 - **Aura** — Branding/design agent.
 - **Lex** — Legal/contracts agent at `~/APPS/Lex-Agent` (`CC90210/Lex-Agent`). In-house counsel: drafts/reviews contracts, ranks legal risk in plain English. Product-first + multi-tenant. **Not a licensed attorney — never gives legal advice** (UPL gate in its `brain/COMPLIANCE.md`). Added 2026-06-18.
 - **Codex** — OpenAI's executor, integrated as Bravo's dual-AI backend specialist. Delegated to via `codex-companion.mjs` for backend implementation, deep debugging, adversarial review.
+- **Solara** — SunBiz Funding's client-facing **ops agent** in the Command Center: pipeline reporting, application packaging, lender matching, renewal sweeps, HTML template production. Never drafts outreach (that's Helios). Persona: `oasis-command-center:lib/agent-personas.ts`.
+- **Helios** — SunBiz Funding's client-facing **sales agent**: the SMS/outreach voice (NEPQ qualification, revival sequences) under hard TCPA guardrails — never promises rates or amounts in writing. Automated sends attribute to Helios via `agent_source`. Replaced the retired Suga scaffold as the second client persona (2026-07).
 
 ## Brands
 
-- **OASIS AI Solutions** — CC's primary B2B brand. AI automation consulting + custom agents for local businesses. Collingwood, ON.
+- **OASIS AI Solutions** — CC's primary B2B brand. AI automation consulting + custom agents for local businesses. Montreal, QC (relocated from Collingwood, ON 2026-07; 2026 is a tax transition year — see Atlas).
 - **PropFlow** — Tenant-screening + landlord-automation product. CC + Adon 50/50. Has its own Supabase project (separate from empire DB). Bucket-list feature: real-estate portal embed.
 - **CredPort** — The multi-tenant MCA / business-funding software platform (named 2026-06-15; was working-named "Fundrail"): a merchant-facing portal + funder back-office that many funders run on, each under their own branding. A **separate jointly-owned company** — **60% OASIS AI / 40% David** (equity split). Commercial terms — the monthly engagement fee and the platform-fee split — are owned by **Atlas / CFO**, not tracked here. Has its own Supabase project (trust boundary on merchant financial data). Repo: [CC90210/breeze-portal](https://github.com/CC90210/breeze-portal) (repo name still `breeze-portal`; product brand is CredPort). Platform brand (CredPort) shows on public/landing surfaces; tenant brand (BreezeAdvance etc.) shows inside each funder's portal. MCA domain vocabulary in the "MCA / Lending" section below.
 - **BreezeAdvance** — David's **existing MCA funding company** (breezeadvance.com), NOT the platform. It is the **first funder / first tenant** on CredPort. Do not conflate: "BreezeAdvance" = the funder (keeps its own navy/cyan brand inside its portal); "CredPort" = the separate software platform company. Other funders onboard later as additional tenants with their own logos + brand.
@@ -35,9 +37,9 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 
 ## Multi-tenancy
 
-- **Tenant** — A customer-facing namespace inside the empire DB. Tenant-scoped data is filtered by `tenant_id`. Examples: OASIS, PropFlow, CC-Funnel.
+- **Tenant** — A customer-facing namespace inside the empire DB. Tenant-scoped data is filtered by `tenant_id`. Examples: OASIS, PropFlow, submissions (SunBiz). (CC-Funnel was a tenant until it retired 2026-06-18 — funnel is now native at `oasisai.work/f/`.)
 - **Tenant manifest** — Config object describing a tenant's nav, theme, feature flags. Lives in code under `oasis-command-center:config/tenants/`.
-- **Tenant-scoped feature** — A feature that should appear in ONE tenant's nav only (e.g., `/forms` lives in CC-Funnel, NOT in OASIS). Infrastructure features extrapolate across tenants; product features do not. See `feedback_tenant_scoped_nav.md`.
+- **Tenant-scoped feature** — A feature that should appear in ONE tenant's nav only (e.g., `/forms` lives in the SunBiz `submissions` tenant, NOT in OASIS). Infrastructure features extrapolate across tenants; product features do not. See `feedback_tenant_scoped_nav.md`.
 - **Empire DB** — CC's Supabase project. Single source for all empire + client data; tenant_id-scoped. (Turso-per-tenant was deferred 2026-05-15.)
 
 ## Sales / CRM vocabulary
@@ -118,7 +120,7 @@ Patterns imported from [free-for-dev](https://github.com/ripienaar/free-for-dev)
 - **Browser ladder** — Mandatory 4-tier classification: Firecrawl → CloakBrowser (stealth tier-2) → Browser Harness (CC-authenticated) → Playwright (interactive unprotected). NEVER raw Playwright against bot-protected sites.
 - **CloakBrowser** — `scripts/browser/cloak_browser_tool.py`. Drop-in Playwright replacement with C++ source-level fingerprint patches. Binary at `~/.cloakbrowser/`. Mandatory tier-2 for fresh-session scrapes against Cloudflare / DataDome / FingerprintJS.
 
-## MCA / Lending (Breeze — `~/APPS/breeze-portal`)
+## MCA / Lending (CredPort platform — repo `~/APPS/breeze-portal`, brand rebranded 2026-06-15)
 
 Vocabulary for the merchant-funding domain. Captured 2026-06-08 with David's product spec. Use these terms verbatim across Breeze code, marketing, and any conversation with David's team.
 

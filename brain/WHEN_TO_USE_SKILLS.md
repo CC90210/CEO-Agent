@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **151 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **152 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## agent-forge
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -128,6 +128,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **151 active skills**. Eac
 - **Use when:** Structured crisis response protocols for business emergencies — P0 through P3 classification, pre-built response plans, and communication templates
 - **Triggers:** crisis response, use crisis response, run crisis response
 - **Path:** `skills/crisis-response/SKILL.md` · tier `standard` · risk `low`
+
+## currency-audit
+- **Use when:** System currency sweep — find prose that contradicts live reality (retired products, stale counts, old versions/locations/domains) that freshness gates cannot see; 3-lens audit + fix + verify
+- **Triggers:** currency audit, staleness sweep, out of date, stale docs, semantic staleness
+- **Path:** `skills/currency-audit/SKILL.md` · tier `meta` · risk `low`
 
 ## daily-planner
 - **Use when:** Structured daily plan for CC — content creation priorities, scheduled tasks, and revenue-moving actions. Generated each morning.

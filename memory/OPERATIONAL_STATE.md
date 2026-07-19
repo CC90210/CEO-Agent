@@ -1,10 +1,12 @@
 ---
 tags: [operational-state, ephemeral]
-last_updated: 2026-07-09
+last_updated: 2026-07-19
 freshness_threshold_days: 7
 ---
 
 # OPERATIONAL STATE — Live Infrastructure & Known Issues
+
+> ✅ Re-verified 2026-07-19 (currency sweep): PM2 fleet 10/10 online (bravo-telegram, maven-telegram, atlas-telegram, claude-bridge, claude-bridge-ping, bravo-scheduler, dashboard-email-consumer, event-router, bravo-coord, pm2-logrotate). EMPIRE_V6_MODE=shadow. Architecture V7.3.3.
 
 > Ephemeral half of `brain/STATE.md` (split 2026-05-07 per Architecture Certification C5). PIDs, deploy state, the daily-shifting issue queue, and last-heartbeat live here under a 7-day freshness gate. Stable identity / mission / capability architecture stays in `brain/STATE.md`.
 >

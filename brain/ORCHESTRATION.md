@@ -251,9 +251,9 @@ Currently most `agents/` are assigned "Sonnet" uniformly. This is cost-suboptima
 
 | Tier | Model | Agents that belong here |
 |------|-------|-------------------------|
-| **Fast/deterministic** | Haiku 4.5 | git-ops, explorer, documenter, social-publisher, the Validator subagent |
-| **Reasoning** | Sonnet 4.6 | writer, reviewer, debugger, researcher, chief-of-staff, revenue-hunter, workflow-builder, most of the fleet |
-| **Critical/irreversible** | Opus 4.7 | architect (for billing / vendor lock-in / schema migration decisions ONLY), meta-agent |
+| **Fast/deterministic** | Haiku 4.5 | git-ops, explorer, documenter, social-publisher, the Validator subagent, project-shepherd, sales-discovery-coach |
+| **Reasoning** | Sonnet 4.6 | writer, reviewer, debugger, researcher, chief-of-staff, revenue-hunter, workflow-builder, the V7.2 agency-import bench, most of the fleet |
+| **Critical/irreversible** | Opus 4.8 (heavy code) / Fable 5 (top reasoning) | architect (for billing / vendor lock-in / schema migration decisions ONLY), meta-agent. Canonical tier map: `scripts/lib/model_registry.py` — fable-5 is the main-loop standard since 2026-06-12 |
 
 Pattern: Planning (Sonnet) → Execution (Haiku) → Validation (Sonnet or Haiku depending on domain). Opus reserved for decisions where a wrong call is irreversible.
 

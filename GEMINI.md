@@ -41,7 +41,7 @@
 ## WHAT — Project & Stack
 
 - **Project:** Business-Empire-Agent — autonomous AI operations hub
-- **Owner:** CC (Conaugh McKenna), OASIS AI Solutions, Collingwood ON
+- **Owner:** CC (Conaugh McKenna), OASIS AI Solutions, Montreal QC (relocated 2026-07)
 - **Brands:** OASIS AI, PropFlow, Nostalgic Requests
 - **Goal:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 <!-- LOCKSTEP:seed_core -->

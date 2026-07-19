@@ -7,7 +7,7 @@ verified: 2026-06-09
 ---
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Last reviewed: 2026-05-06 (V6.1 era).
+> Complete inventory of what Bravo can do. Last reviewed: 2026-07-19 (V7.3.3 currency sweep).
 >
 > **Counts are live — read them, do not quote them.** Hardcoding counts in this header is a known regression vector. The MANIFEST block at the bottom of this file is auto-synced by `scripts/catalog_sync.py`. For absolute live truth: `python scripts/core/self_audit.py --json`.
 >
@@ -30,7 +30,7 @@ verified: 2026-06-09
 
 ### OpenCode (big-pickle — Bravo, same identity)
 - **Identity:** Full **Bravo** — CC's right hand: CEO, COO, and CTO in one. Same persona, voice, capabilities as Claude-powered Bravo.
-- **Access:** Full read/write to all 150 active skills in `skills/`, all 105 top-level Python CLI tools in `scripts/` (238 total inc. subpackages), all brain/ and memory/ files, all subagent definitions.
+- **Access:** Full read/write to every active skill in `skills/` and every Python CLI tool in `scripts/` (live counts: `CAPABILITY_GRAPH.json` totals — 151 skills / 116 scripts as of 2026-07-19), all brain/ and memory/ files, all subagent definitions.
 - **Entry Point:** `AGENTS.md` (shared with Codex/Cursor/Windsurf). Identity routing at lines 13-15.
 - **MCP Servers:** Same 9 servers as Claude Code (Playwright, Context7, Memory, Sequential Thinking, GitHub, Firecrawl, Obsidian, Filesystem, Knowledge Graph) when available via OpenCode.
 - **Tool routing:** Same CLI-first rules — `scripts/integrations/send_gateway.py`, `scripts/integrations/supabase_tool.py`, `scripts/integrations/stripe_tool.py`, `scripts/integrations/google_tool.py`, `scripts/integrations/n8n_tool.py`.

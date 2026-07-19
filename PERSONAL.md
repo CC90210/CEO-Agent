@@ -93,7 +93,7 @@ with their own paths (per-repo `genome.json` overrides).
 | G1 seed | one canonical identity+wiring file | `PERSONAL.md` (this file) |
 | G2 expression | entry points carry the seed's LOCKSTEP blocks, byte-identical | 6 entry points + `.gemini/rules/` mirrors, `genome_sync.py` |
 | G3 identity spine | deep identity + operator profile (lazy-read) | `brain/SOUL.md` (immutable) + `brain/USER.md` |
-| G4 capability engine | intent → skill/tool resolution | `brain/CAPABILITY_GRAPH.json` + `scripts/capability_query.py` (150 skills · 105 CLI tools) |
+| G4 capability engine | intent → skill/tool resolution | `brain/CAPABILITY_GRAPH.json` + `scripts/capability_query.py` (live counts in graph totals — never hardcode) |
 | G5 memory tiers | lesson capture targets | `memory/MISTAKES.md` · `PATTERNS.md` · `DECISIONS.md` |
 | G6 retrieval | lessons found before repeating work | `scripts/core/memory_retriever.py` (FTS5) + per-prompt hook injection |
 | G7 self-improvement | nightly consolidation loop | `scripts/bravo_sleep.py` (04:00) + Cross-Agent Self-Improvement Sweep + RULE 9 |

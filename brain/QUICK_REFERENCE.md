@@ -134,7 +134,7 @@ When multiple tools could handle a request, use this precedence:
 8. **Identity/wiring change across runtimes** → edit `PERSONAL.md` (germline seed) → `python scripts/genome_sync.py` (stamps all 6 entry points + mirrors). Verify expression anywhere: `python scripts/agent_genome.py [--repo <sibling>]` — 10-gene score (fleet: Bravo/Atlas/Maven 10/10, SunBiz 8/10 by design, Breeze 5/10 product).
 9. **Associative recall (2026-07-10)** → `memory_retriever.py query` now spreads activation over the vault's `[[wiki-link]]` graph — well-connected notes rank up, and 1-hop neighbors of strong matches surface as `kind: associative` extras. Engine: `scripts/core/graph_activation.py` (`build` / `status` / `neighbors <rel>` / `query "<q>"`); cache `state/graph_adjacency.json` (6h TTL). Opt-out per-call env `EMPIRE_GRAPH_BOOST=0`; hard fallback to plain hybrid on any failure. This is WHY every markdown file needs ≥2 wiki-links (RULE 6) — links are the agent's associations, not just human navigation.
 
-## MCP Servers (7 Active — Stateless Only)
+## MCP Servers (9 registered in `.claude/mcp.json` — the 7 stateless ones below are the agent-usable set; +4 via `enabledMcpjsonServers` = 13 across configs)
 
 | MCP | Purpose | Notes |
 |-----|---------|-------|

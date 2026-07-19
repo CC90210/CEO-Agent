@@ -77,7 +77,7 @@ Do **not** dump any file content to the user. Read silently, then answer the act
 ## WHAT — Project & Stack
 
 - **Project:** Business-Empire-Agent — CC's autonomous AI operations hub
-- **Owner:** Conaugh McKenna (CC) — OASIS AI Solutions, Collingwood ON, Canada
+- **Owner:** Conaugh McKenna (CC) — OASIS AI Solutions, Montreal QC, Canada (relocated from Collingwood ON 2026-07)
 - **Brands:** OASIS AI Solutions (AI automation agency), PropFlow (real estate SaaS, 50/50 with Adon), Nostalgic Requests (music/DJ SaaS), Conaugh McKenna (personal brand), DJ services, consulting
 - **North Star:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 <!-- LOCKSTEP:seed_core -->

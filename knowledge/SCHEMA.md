@@ -27,6 +27,7 @@ knowledge/
     ├── revenue-model.md
     ├── tech-stack.md
     ├── client-playbook.md
+│   ├── frontier-models.md
     └── [additional pages as knowledge grows]
 ```
 

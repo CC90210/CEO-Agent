@@ -26,7 +26,7 @@ When CC reboots his Windows machine (CCPC), the 9 PM2 daemons that drive the Sun
 1. **Wait 30 seconds** after login — Windows takes a moment to settle services.
 2. **Auto-start should run:** the `PM2 Resurrect` scheduled task replays the saved process list from `~/.pm2/dump.pm2`.
 3. **Verify manually if needed:** `pm2 list` — every row should show `status: online`.
-4. **Optional sanity ping:** open `https://agent-dashboard-cc90210.vercel.app/automations` — the Background Workers panel shows green for all 9 daemons within 60 seconds (next heartbeat tick).
+4. **Optional sanity ping:** open `https://oasisai.work/automations` — the Background Workers panel shows green for all 9 daemons within 60 seconds (next heartbeat tick).
 
 If any daemon shows `errored` or `stopped`:
 - `pm2 logs <name> --lines 50` — check the most recent stderr.

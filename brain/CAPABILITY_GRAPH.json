@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-07-18T05:16:57.250670+00:00",
+  "generated_at": "2026-07-19T20:08:21.482052+00:00",
   "totals": {
-    "skills": 151,
+    "skills": 152,
     "scripts": 116,
     "agents": 32,
     "mcp_servers": 9,
     "workflows": 35,
     "resources": 14,
-    "nodes_total": 357,
+    "nodes_total": 358,
     "edges_total": 49,
     "drift_count": 0
   },
@@ -782,6 +782,40 @@
         "ceo"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:currency-audit",
+      "kind": "skill",
+      "name": "currency-audit",
+      "path": "skills/currency-audit/SKILL.md",
+      "description": "System currency sweep \u2014 find prose that contradicts live reality (retired products, stale counts, old versions/locations/domains) that freshness gates cannot see; 3-lens audit + fix + verify",
+      "tier": "meta",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "currency audit",
+        "staleness sweep",
+        "out of date",
+        "stale docs",
+        "semantic staleness"
+      ],
+      "tags": [
+        "audit",
+        "hygiene",
+        "meta",
+        "documentation"
+      ],
+      "status": "[NEW]",
       "disable_model_invocation": false,
       "argument_hint": null,
       "requires": {

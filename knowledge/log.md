@@ -39,3 +39,12 @@ brain files. Confidence set at 0.90–0.92 reflecting high-fidelity first-party 
 ---
 
 _Append new entries above this line as new ingests are performed._
+
+## 2026-04-08 — frontier-models ingest
+Added `wiki/frontier-models.md` (model landscape snapshot). Recorded retroactively 2026-07-19 — this entry was missed at ingest time.
+
+## 2026-05-18 — revenue-model archived
+`wiki/revenue-model.md` archived after the primary-retainer end reshaped the revenue model. Recorded retroactively 2026-07-19.
+
+## 2026-07-19 — currency sweep refresh
+`tech-stack.md` rewritten against live sources (graph totals 151/116/32/35/14, 9+4 MCPs, fable-5 standard, CLI-first model calls, CC Funnel retired, Atlas post-trading). Index confidences decayed per SCHEMA (0.05/30d).
