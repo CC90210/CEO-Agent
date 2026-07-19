@@ -140,11 +140,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-18
+- **Date:** 2026-07-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Final V7 check: battery all green (graph OK, genome 10/10, suite 237, retriever 267/3431, harness 11/11 prior); inbox cleared — ceo_pulse refreshed per Atlas, Breeze BD ownership acked to Maven; README stats regenerated
+- **Result:** V7 cleanup: routed model_router + 7 automations to the subscription claude CLI (metered key now opt-in via MODEL_ROUTER_ALLOW_METERED_API); set EMPIRE_V6_MODE=shadow agent+daemons; archived stale ACTIVE_TASKS; harness 10/10, migration live-verified
 
-*Last updated: 2026-07-18*
+*Last updated: 2026-07-19*
 
 ## Manifest
 
