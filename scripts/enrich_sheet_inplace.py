@@ -30,7 +30,6 @@ from urllib.parse import quote_plus
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts" / "lib"))
 sys.path.insert(0, str(ROOT / "scripts"))
-from secret_loader import load_env  # type: ignore  # noqa: E402
 
 SHEET_ID = "1OJBuXsqzhWfOCQP6Kzsvjoa-nzgXPndVWCVg5N5IuXY"
 TAB = "Leads - Sheet31"
@@ -56,14 +55,6 @@ Hard rules:
 - official_url = the company's own website if identifiable (else null). source_url = where the phone/email was read.
 - confidence "high" only when name+location clearly match and the data is on a labelled contact source.
 """
-
-
-def _anthropic():
-    key = load_env().get("ANTHROPIC_API_KEY")
-    if not key:
-        raise SystemExit("missing ANTHROPIC_API_KEY")
-    from anthropic import Anthropic  # type: ignore
-    return Anthropic(api_key=key)
 
 
 def _render(url: str, timeout: int = 170) -> str:
@@ -105,16 +96,14 @@ def _valid_email(v) -> str:
     return s if re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-z]{2,}", s, re.I) else ""
 
 
-def _ask(cl, business, address, owner, blob) -> dict | None:
-    try:
-        msg = cl.messages.create(
-            model="claude-haiku-4-5-20251001", max_tokens=500,
-            messages=[{"role": "user", "content": PROMPT.format(
-                business=business, address=address or "(unknown)",
-                owner=owner or "(unknown)") + "\n\nFETCHED CONTENT\n===============\n" + blob[:14000]}])
-    except Exception:  # noqa: BLE001
+def _ask(business, address, owner, blob) -> dict | None:
+    from lib.claude_cli import run_claude_cli
+    prompt = PROMPT.format(
+        business=business, address=address or "(unknown)",
+        owner=owner or "(unknown)") + "\n\nFETCHED CONTENT\n===============\n" + blob[:14000]
+    text = run_claude_cli(prompt, model="haiku", timeout=90)
+    if text is None:
         return None
-    text = "".join(getattr(b, "text", "") for b in msg.content if getattr(b, "type", None) == "text")
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if not m:
         return None
@@ -124,18 +113,18 @@ def _ask(cl, business, address, owner, blob) -> dict | None:
         return None
 
 
-def enrich_one(cl, business, address, owner) -> dict:
+def enrich_one(business, address, owner) -> dict:
     q = " ".join(x for x in [business, address, "phone"] if x)
     serp = _render(f"https://www.bing.com/search?q={quote_plus(q)}")
     if len(serp) < 400:
         serp = _render(f"https://lite.duckduckgo.com/lite/?q={quote_plus((business + ' ' + (owner or '') + ' contact').strip())}")
     if not serp:
         return {"business_match": False, "note": "no SERP content"}
-    ext = _ask(cl, business, address, owner, serp) or {}
+    ext = _ask(business, address, owner, serp) or {}
     if ext.get("business_match") and ext.get("official_url") and not (ext.get("phone") and ext.get("email")):
         site = _render(ext["official_url"])
         if site:
-            e2 = _ask(cl, business, address, owner, serp[:3500] + "\n\n[OFFICIAL SITE]\n" + site)
+            e2 = _ask(business, address, owner, serp[:3500] + "\n\n[OFFICIAL SITE]\n" + site)
             if e2 and e2.get("business_match"):
                 for k in ("phone", "phone2", "email", "source_url"):
                     ext[k] = ext.get(k) or e2.get(k)
@@ -143,10 +132,10 @@ def enrich_one(cl, business, address, owner) -> dict:
     return ext
 
 
-def enrich_one_deep(cl, business, address, owner) -> dict:
+def enrich_one_deep(business, address, owner) -> dict:
     """Thorough pass for the blanks: base SERP+site, then the company's
     contact/about pages (where emails live) + directory listings."""
-    res = enrich_one(cl, business, address, owner)
+    res = enrich_one(business, address, owner)
     if res.get("business_match") and res.get("phone") and res.get("email"):
         return res
     blobs: list[str] = []
@@ -167,7 +156,7 @@ def enrich_one_deep(cl, business, address, owner) -> dict:
             if len(blobs) >= 4:
                 break
     if blobs:
-        e2 = _ask(cl, business, address, owner, "\n\n".join(blobs))
+        e2 = _ask(business, address, owner, "\n\n".join(blobs))
         if e2 and e2.get("business_match"):
             for k in ("phone", "phone2", "email", "source_url", "official_url"):
                 res[k] = res.get(k) or e2.get(k)
@@ -229,7 +218,6 @@ def main() -> int:
         todo = todo[: args.limit]
     print(f"leads={len(leads)} already_done={len(done)} to_enrich={len(todo)} workers={args.workers}")
 
-    cl = _anthropic()
     lock = threading.Lock()
     counters = {"n": 0, "phone": 0, "email": 0}
 
@@ -237,7 +225,7 @@ def main() -> int:
 
     def task(ld):
         try:
-            res = enrich(cl, ld["business"], ld["address"], ld["owner"])
+            res = enrich(ld["business"], ld["address"], ld["owner"])
         except Exception as exc:  # noqa: BLE001
             res = {"business_match": False, "note": f"error {str(exc)[:60]}"}
         return ld, res

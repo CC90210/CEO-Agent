@@ -102,6 +102,14 @@ const PYTHONW = IS_WIN
 // Mac has nvm node v24+, Windows has whatever the user installed.
 const NODE = 'node';
 
+// V6 staged cutover (2026-07-18): shadow = state_sync dual-writes flat files
+// AND the state DB. Shadow NEVER runs the `on`-mode export, so flat files stay
+// authoritative and nothing is clobbered — a safe soak before any future `on`
+// flip. Spread into every app's env below so all daemons inherit it uniformly
+// (non-uniform inheritance is the drift hazard the investigator flagged). Takes
+// effect on the next `pm2 restart ecosystem.config.js --update-env`.
+const V6_ENV = { EMPIRE_V6_MODE: "shadow" };
+
 // Presence check for a non-empty key in .env.agents WITHOUT echoing its value.
 // Used to gate the coordination bridge so it isn't crash-looped by PM2 before
 // CC has provisioned the dedicated bot token.
@@ -430,6 +438,14 @@ if (IS_LINUX) {
         merge_logs: true,
         max_size: "10M",
     });
+}
+
+// Uniformly stamp the V6 cutover mode onto every daemon's env (base layer, so
+// any app-specific env key still wins). Applied here rather than in each block
+// so a future daemon can't accidentally ship without it — non-uniform
+// inheritance across state-writers is the drift hazard we're avoiding.
+for (const app of apps) {
+    app.env = { ...V6_ENV, ...(app.env || {}) };
 }
 
 module.exports = { apps };

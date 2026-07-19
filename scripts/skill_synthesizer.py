@@ -97,15 +97,6 @@ def get_supabase(env: Optional[dict[str, str]] = None):
     return create_client(url, key)
 
 
-def get_anthropic_key(env: Optional[dict[str, str]] = None) -> str:
-    """Return the Anthropic API key. Fail-closed."""
-    e = env if env is not None else load_env()
-    key = e.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
-    if not key:
-        raise RuntimeError("ANTHROPIC_API_KEY missing in .env.agents")
-    return key
-
-
 # ---- Destructive-op safety guard ---------------------------------------------
 
 # Terms that indicate a skill step could cause irreversible side effects.
@@ -327,28 +318,14 @@ def extract_procedure(
         f"Reasoning: {row.get('reasoning') or '(none)'}\n"
     )
 
-    api_key = get_anthropic_key(e)
-    try:
-        import anthropic  # type: ignore
-    except ImportError:
-        raise RuntimeError("anthropic SDK not installed — pip install anthropic")
-
-    client = anthropic.Anthropic(api_key=api_key)
-    message = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=1024,
-        system=_EXTRACT_SYSTEM,
-        messages=[
-            {
-                "role": "user",
-                "content": (
-                    "Extract a reusable skill procedure from this agent decision trace:\n\n"
-                    + trace_text
-                ),
-            }
-        ],
+    from lib.claude_cli import run_claude_cli
+    raw = run_claude_cli(
+        "Extract a reusable skill procedure from this agent decision trace:\n\n" + trace_text,
+        system=_EXTRACT_SYSTEM, model="haiku", timeout=90,
     )
-    raw = message.content[0].text.strip()
+    if raw is None:
+        raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")
+    raw = raw.strip()
 
     # Strip any accidental markdown fences.
     raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)

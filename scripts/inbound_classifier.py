@@ -358,18 +358,12 @@ Rules:
 
 def _classify_via_haiku(content: str, channel: str,
                          subject: Optional[str], from_identity: Optional[str],
-                         env: dict[str, str]) -> dict:
-    """Call Claude Haiku. Returns the raw parsed dict or raises."""
-    try:
-        import anthropic
-    except ImportError:
-        raise RuntimeError("anthropic SDK not installed")
+                         _env: dict[str, str]) -> dict:
+    """Call Claude Haiku via the subscription `claude` CLI (lib.claude_cli) —
+    never the metered ANTHROPIC_API_KEY (out of credits + banned per CC's
+    CLI-only rule). Returns the raw parsed dict or raises."""
+    from lib.claude_cli import run_claude_cli
 
-    api_key = env.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY missing in .env.agents")
-
-    client = anthropic.Anthropic(api_key=api_key)
     user_parts = [f"Channel: {channel}"]
     if from_identity:
         user_parts.append(f"From: {from_identity}")
@@ -380,13 +374,10 @@ def _classify_via_haiku(content: str, channel: str,
     user_parts.append((content or "")[:4000])
     user_msg = "\n".join(user_parts)
 
-    resp = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=400,
-        system=CLASSIFY_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_msg}],
-    )
-    text = "".join(b.text for b in resp.content if hasattr(b, "text")).strip()
+    text = run_claude_cli(user_msg, system=CLASSIFY_SYSTEM_PROMPT, model="haiku", timeout=90)
+    if text is None:
+        raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")
+    text = text.strip()
     # Strip accidental code fence
     if text.startswith("```"):
         text = re.sub(r"^```[a-z]*\n", "", text)
