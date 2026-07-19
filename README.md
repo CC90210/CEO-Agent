@@ -32,14 +32,14 @@ One command. A few minutes. The wizard asks who you are, helps you connect your 
 
 All three siblings share the same substrate — currently **V7.3.3** (state DB, hybrid retrieval, exec_guard, vocabulary layer, reliability/observability, typed memory) — and coordinate via the cross-agent event bus and pulse protocol. Atlas can veto Maven's ad spend; Bravo reads both pulses before scheduling client work. (Full version history: `CHANGELOG.md`.)
 
-**V6.2 — Client products** (separate, paid offerings):
+**Client products** (separate, paid offerings — currently deployed for SunBiz Funding as a two-agent team):
 
-| Product | Industry | What it owns |
+| Product | Role | What it owns |
 |---|---|---|
-| **Solara** | Funding ops | Sun Biz Funding's lead → SMS → application → funded deal → renewal lifecycle |
-| **Suga** | Brand ops | Suga Sean O'Malley's fan engagement, merch drops, social, sponsorship triage |
+| **Solara** | Funding ops agent | The back office: pipeline reporting, application packaging, lender matching, renewal sweeps, HTML template production, scheduled browser jobs |
+| **Helios** | Funding sales agent | The voice leads hear: SMS outreach + follow-up cadence, revival sequences, NEPQ-framework qualification — under hard TCPA/compliance guardrails (never promises rates or amounts in writing) |
 
-Each client product is a separate agent + dashboard profile. The Command Center renders an industry-specific sidebar (`SUN_NAV` / `SUGA_NAV`) based on the tenant's brand. New industries slot in by adding one profile + nav array — the underlying engine is the same.
+Each client product is a separate agent persona + dashboard profile with explicit boundaries (Solara never drafts outreach; Helios never touches pipeline data destructively). The Command Center renders an industry-specific sidebar per tenant brand. New industries slot in by adding one profile + nav array — the underlying engine is the same.
 
 ---
 
@@ -56,6 +56,11 @@ Each client product is a separate agent + dashboard profile. The Command Center 
 - **Research-fetch ladder + CloakBrowser (V6.7)** — [`scripts/research_fetch.py`](scripts/research_fetch.py) is the default URL entry point: auto-escalates Firecrawl → CloakBrowser → Browser Harness → Playwright with per-domain reputation memory in `state/site_reputation.db`. CloakBrowser is a drop-in Playwright replacement with C++ source-level fingerprint patches — mandatory tier-2 stealth for Cloudflare / DataDome / reCAPTCHA / FingerprintJS / Akamai / Kasada protected sites.
 - **Agent-OS vocabulary layer (V6.8)** — Root [`CONTEXT.md`](CONTEXT.md) is the canonical empire glossary (people, brands, multi-tenancy, sales/CRM, state/substrate, V6 arch, browser ladder, North Star). Auto-injected on UserPromptSubmit when a glossary term appears in the prompt. Architectural decisions live in [`docs/adr/`](docs/adr/) — separate from tactical business decisions.
 - **Skill governance (V6.8)** — Frontmatter conventions enforced by the resolver: `disable_model_invocation` (slash-command-only skills), `argument_hint` (runtime prompts), and `requires: [env:KEY, daemon:NAME, state:PATH]` (hard deps per ADR-0001, verified by `capability_query.py check-deps`). Lifecycle dirs: `skills/_archive/` and `skills/in-progress/`.
+- **Reliability & observability (V7.0)** — failures are loud by design: [`scripts/system_health.py`](scripts/system_health.py) runs 7 silent-failure probes (path drift, stale PM2, dead cron/hook/MCP targets); a routing-accuracy regression gate holds the resolver to a capability floor; and `substrate-eval` CI verifies entry-point parity + genome expression on **every push to every branch**.
+- **Verifiable self-checks (V7.0–V7.3)** — [`scripts/harness_eval.py`](scripts/harness_eval.py) scores the live harness across named slices (lockstep / routing / boundary / guards / live-health / model-call) and persists every run to `state/harness_eval_history.jsonl` so score drift is trackable; [`scripts/agent_genome.py`](scripts/agent_genome.py) verifies the 10-gene agent genome (with `--structural` for clean CI runners).
+- **Free-Tier Radar (V7.1)** — a curated, machine-queryable catalog of free-tier services and free APIs mapped to real capability gaps, parsed into first-class `resource:` capability-graph nodes. "Is there a free service for X?" resolves offline in one call (`capability_query.py resolve "<need>" --kind resource`); upstream awesome-lists are fetched on demand, never mirrored. Governance: [ADR-0010](docs/adr/0010-external-resource-catalog.md).
+- **Specialist persona bench (V7.2)** — 30+ graph-visible subagents including hand-scoped imports (QA/test engineering, accessibility auditing, database reliability, DevOps, incident command, AI-generated-code audit, product management, MCP design). Every imported persona carries explicit `tools:`/`model:` scoping — auditors and coordinators are read-only by construction. Bulk persona installers are never run against the guard model.
+- **Typed memory (V7.3)** — every memory surface declares its update semantics (append-only / mergeable / immutable, [ADR-0011](docs/adr/0011-typed-memory-taxonomy.md)); nightly consolidation runs a retrieval-checked dedup state machine and writes a `state/memory_diff/` audit artifact for every run; the retriever indexes a per-file abstract layer and ranks stale files down (freshness-aware retrieval).
 - **External distribution** — [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) packages 47 universally-useful skills for `npx skills@latest add` consumption. Operators who don't want to fork the whole agent can grab just the skills.
 - **Multi-provider routing** — Claude, OpenAI, OpenRouter, Groq, DeepSeek, local Ollama. Per-agent model config with fallbacks. Switch providers without touching code.
 - **Self-learning skills** — successful patterns extracted into reusable `SKILL.md` files. After 3 successful uses they promote into the main skill tree automatically.
@@ -67,7 +72,7 @@ Each client product is a separate agent + dashboard profile. The Command Center 
 ---
 
 <details>
-<summary><strong>V6 architecture timeline</strong></summary>
+<summary><strong>V6 → V7 architecture timeline</strong></summary>
 
 | Version | Date | Primary deliverable | Critical files |
 |---|---|---|---|
@@ -80,8 +85,13 @@ Each client product is a separate agent + dashboard profile. The Command Center 
 | **V6.7** | 2026-05-14 | Hooks-as-orchestration, Pantry/Prep Table/Plate data tier, research_fetch ladder, CloakBrowser, three canonical skills (silver-platter / integrations-sync / memory-journaling), six new INTENTS playbooks | `scripts/hooks/{session_start,pre_compact,user_prompt_submit,rotate_logs}.py`, `scripts/snapshots/*.py`, `brain/DATA_TAXONOMY.md`, `scripts/{research_fetch,cloak_browser_tool}.py` |
 | **V6.8** | 2026-05-16 | Vocabulary layer (CONTEXT.md auto-injection), ADRs (`docs/adr/`), skill frontmatter conventions, lifecycle dirs, distribution manifest | `CONTEXT.md`, `docs/adr/0001-skill-dependency-classification.md`, `.claude-plugin/plugin.json` |
 | **V6.8.1** | 2026-05-16 | Load-bearing substrate: glossary auto-injection on UserPromptSubmit, ADR `check-deps` enforcement, register.py wizard emits V6.8 frontmatter by default | `scripts/hooks/user_prompt_submit.py`, `scripts/capability_query.py check-deps` |
+| **V6.9** | 2026-05-25 | CRM substrate patterns from twentyhq/twenty (AGPL — patterns only): DB-backed object/field metadata, saved views, typed workflow-step registry, field-level permissions | `docs/adr/0003-typed-workflow-step-registry.md`, `docs/adr/0004-field-level-permission-model.md`, [oasis-command-center](https://github.com/CC90210/oasis-command-center) `lib/workflow-steps/` |
+| **V7.0** | 2026-06-10 | Reliability & observability foundation: Loud Failures probes, routing-accuracy CI gate, state hygiene/compaction, state_manager round-trip tests, fleet-wide prompt-injection LOCKSTEP | `scripts/system_health.py`, `scripts/core/state_compact.py`, `scripts/tests/test_routing_accuracy.py`, `.github/workflows/substrate-eval.yml` |
+| **V7.1** | 2026-07-17 | Free-Tier Radar: curated service/API catalog as `resource:` graph nodes, resource-radar skill, zero-key Disify wrapper, harness-eval slices + run history, ADR-0010 | `brain/TOOL_SHED.md` §9, `scripts/integrations/email_validate_tool.py`, `scripts/harness_eval.py` |
+| **V7.2** | 2026-07-18 | Specialist persona bench: hand-scoped agency-agents imports (10 Bravo + 2 Maven + 2 Atlas), recursive agent discovery with stem-dedup, cherry-pick contract | `agents/`, `agents/INDEX.md` §Agency Imports, `scripts/build_capability_graph.py` |
+| **V7.3** | 2026-07-18 | Typed memory: declared update semantics (ADR-0011), sleep-consolidation dedup state machine + `memory_diff` audit artifacts, retriever abstract layer + freshness-aware ranking, stdin model calls (Windows argv-cap fix) | `scripts/bravo_sleep.py`, `scripts/core/memory_retriever.py`, `scripts/core/abstract_backfill.py`, `state/migrations/003_memory_abstract.sql` |
 
-Source of truth: [`CLAUDE.md`](CLAUDE.md) and [`brain/CAPABILITIES.md`](brain/CAPABILITIES.md). The README is the curated surface; the graph is the inventory.
+Source of truth: [`CLAUDE.md`](CLAUDE.md), [`CHANGELOG.md`](CHANGELOG.md), and [`brain/CAPABILITIES.md`](brain/CAPABILITIES.md). The README is the curated surface; the graph is the inventory.
 
 </details>
 
@@ -122,9 +132,9 @@ The one-liner does nine things:
 2. Bootstraps the wizard into `~/.oasis/wizard/repo` and reuses that clone on future installs
 3. Builds a Python venv at `~/.oasis/wizard/venv` and installs deps
 4. Drops both `oasis` and `bravo` shims onto your PATH via `~/.oasis/bin`
-5. Launches the **setup wizard** — asks who you are, what you sell, what you're optimizing for, and which APIs you have keys for. **Pick your profile** (CEO Bravo / CFO Atlas / CMO Maven / **client products Solara (SunBiz) · Suga**)
+5. Launches the **setup wizard** — asks who you are, what you sell, what you're optimizing for, and which APIs you have keys for. **Pick your profile** (CEO Bravo / CFO Atlas / CMO Maven / **client products — e.g. Solara + Helios for a funding shop**)
 6. Renders your personal `brain/USER.md` from your answers (`scripts/personalize.py`)
-7. **Data sovereignty prompt** — choose **Local libSQL** (PII never leaves the machine; recommended for client products like Solara/Suga) or **Cloud Supabase** (managed multi-tenant). Writes `EMPIRE_DATA_BACKEND` + `TURSO_DB_PATH`. The dashboard's [`lib/db.ts:getDbBackend()`](https://github.com/CC90210/oasis-command-center/blob/main/lib/db.ts) reads this at request time and routes hot reads via [`lib/turso-queries.ts`](https://github.com/CC90210/oasis-command-center/blob/main/lib/turso-queries.ts)
+7. **Data sovereignty prompt** — choose **Local libSQL** (PII never leaves the machine; recommended for client products like Solara/Helios) or **Cloud Supabase** (managed multi-tenant). Writes `EMPIRE_DATA_BACKEND` + `TURSO_DB_PATH`. The dashboard's [`lib/db.ts:getDbBackend()`](https://github.com/CC90210/oasis-command-center/blob/main/lib/db.ts) reads this at request time and routes hot reads via [`lib/turso-queries.ts`](https://github.com/CC90210/oasis-command-center/blob/main/lib/turso-queries.ts)
 8. **Browser-driven dashboard pairing** — wizard opens your dashboard flow, waits for sign-in, and pairs the machine without making you juggle raw bearer tokens
 9. **Rewrites the codebase to match you** — replaces the original operator's identity tokens across every reference in tracked files (`scripts/scaffold.py --apply --backup`), then runs `bravo doctor` to verify everything works
 
@@ -175,7 +185,7 @@ If you'd rather build from scratch: respect, but you're paying yourself ~$50K of
 - **Multi-user team access** (V6.2) — `tenant_invites` + role-based gating (`owner`/`admin`/`loan_officer`/`processor`/`read_only`/`member`); owner machine pairings are trigger-protected from employee revocation. See [`database/037_team_roles_and_invites.sql`](database/037_team_roles_and_invites.sql) and the `/team` page
 - **Stripe**, **n8n**, **Late/Zernio**, **Google Workspace** integrations via dedicated CLIs
 - **Anthropic Claude** (Opus / Sonnet / Haiku) primary, with OpenAI / OpenRouter / Groq / DeepSeek / local Ollama as fallbacks
-- **9 MCP servers** (Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph, GitHub, Firecrawl, Obsidian, Filesystem) — `.claude/mcp.json` is gitignored (per-machine), so this count is hand-maintained, not auto-derived
+- **13 MCP servers across configs** — 9 in `.claude/mcp.json` (Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph, GitHub, Firecrawl, Obsidian, Filesystem) + 4 more via `enabledMcpjsonServers` (Supabase, n8n, Stripe, Late). Configs are gitignored (per-machine), so this count is hand-maintained; `scripts/audit_mcp_secrets.py` is the authoritative config-path registry
 - <!-- STATS:skills-->**151 skills**<!-- /STATS -->, <!-- STATS:scripts-->**115 scripts**<!-- /STATS -->, <!-- STATS:sub_agents-->**31 sub-agents**<!-- /STATS -->, <!-- STATS:workflows-->**35 workflows**<!-- /STATS --> (counts auto-regenerated by [`scripts/update_readme_stats.py`](scripts/update_readme_stats.py) — `--check` exits 1 on drift, runs in pre-commit)
 - **Self-audit gate** — `python scripts/core/self_audit.py` enforces graph health, orphan detection, and config drift on every commit. Verdict must be `HEALTHY` to ship.
 - **Security model** — Three guards (exec/secret/state) gate every Bash, Read, and Edit. Three modes per guard (off/report/enforce) via env var; all three guards enforce as of the 2026-07-02 lockdown. Audit logs in `state/{guard}.log`.
