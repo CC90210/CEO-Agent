@@ -15,6 +15,18 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 
 ## [Unreleased]
 
+## [7.3.5] — 2026-07-19
+
+V7.3.5 — **System currency sweep.** Three-lens audit for semantic staleness (prose
+contradicting live reality — the rot class freshness gates can't see): 6 HIGH / 14 MED /
+10 LOW findings, all fixed. Suga fully retired from the brain (Solara + Helios
+canonicalized in CONTEXT.md); STATE.md body no longer claims V6 Apex; Montreal QC
+propagated across entry points + siblings; model tables mirror model_registry;
+knowledge wiki refreshed; agent-forge scaffold gap closed; README stats check wired
+into pre-commit (blocked its own shipping commit as live proof). Reference:
+`docs/audits/2026-07-19-currency-audit.md` · repeatable via `skills/currency-audit`.
+
+
 ## [7.3.3] — 2026-07-18
 
 V7.2 + V7.3 — **Persona Bench & Typed Memory.** Two-repo integration audit
