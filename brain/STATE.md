@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Self-review follow-up (f2cd6249): CASL decision extracted to pure stop_signal_decision() + 7 truth-table tests now import the real function (14/14); flagged Maven-repo scripts for the same dead-key migration (propagation pass, not unilateral)
+- **Result:** Codex P2s fixed: claude_cli resolver portability (BRAVO_CLAUDE_EXE + per-OS dirs) + HTML-escaped all CASL Telegram alerts; 14/14 tests
 
 *Last updated: 2026-07-19*
 
