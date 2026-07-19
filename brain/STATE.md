@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Codex P2s fixed: claude_cli resolver portability (BRAVO_CLAUDE_EXE + per-OS dirs) + HTML-escaped all CASL Telegram alerts; 14/14 tests
+- **Result:** README V7 refresh live on GitHub main (15661f55): Solara+Helios client team (Suga retired per live agent catalog), V7.0-V7.3 features+timeline, 13 MCPs; all repos pushed (bravo branch e61c21ba, maven ccb8f6b, atlas 777e6be); local main ref aligned
 
 *Last updated: 2026-07-19*
 
