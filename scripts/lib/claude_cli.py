@@ -36,17 +36,34 @@ from lib.claude_auth import build_claude_spawn_env  # noqa: E402
 
 
 def resolve_claude_bin() -> Optional[str]:
-    """Locate the claude CLI. shutil.which first; Windows npm-global /
-    .local/bin fallbacks so a PYTHONW scheduler with a slim PATH still finds
-    it (mirrors bravo_cli/warm_claude_pool)."""
+    """Locate the claude CLI.
+
+    Order: BRAVO_CLAUDE_EXE override > shutil.which > per-OS install dirs a
+    daemon's slim PATH misses (PM2 / launchd / PYTHONW schedulers inherit a
+    minimal PATH, so Homebrew / npm-global / nvm installs aren't on it). The
+    non-Windows candidates mirror bridge_chat_server._macos_linux_search_paths
+    (Codex P2, 2026-07-19)."""
+    override = os.environ.get("BRAVO_CLAUDE_EXE", "").strip()
+    if override and Path(override).is_file():
+        return override
     found = shutil.which("claude")
     if found:
         return found
+    home = Path.home()
     if os.name == "nt":
-        for c in (Path.home() / ".local" / "bin" / "claude.exe",
-                  Path.home() / "AppData" / "Roaming" / "npm" / "claude.cmd"):
-            if c.is_file():
-                return str(c)
+        candidates = [home / ".local" / "bin" / "claude.exe",
+                      home / "AppData" / "Roaming" / "npm" / "claude.cmd"]
+    else:
+        candidates = [Path(d) / "claude" for d in (
+            "/opt/homebrew/bin",              # Apple Silicon Homebrew
+            "/usr/local/bin",                 # Intel Homebrew + manual installs
+            str(home / ".npm-global" / "bin"),  # npm prefix=~/.npm-global
+            str(home / ".local" / "bin"),     # pipx / user installs
+            str(home / ".bun" / "bin"),
+        )]
+    for c in candidates:
+        if c.is_file():
+            return str(c)
     return None
 
 

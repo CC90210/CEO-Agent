@@ -20,6 +20,7 @@ Usage:
 import argparse
 import email
 import email.header
+import html as _html
 import imaplib
 import json
 import re
@@ -1236,10 +1237,13 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 classification, preview, subject
             )
             if needs_manual_review and sender_addr:
+                # html.escape: notify() sends parse_mode=HTML — a raw <...> in
+                # the subject would make Telegram reject the alert, silently
+                # losing the one surface this opt-out gets (Codex P2).
                 notify(
-                    f"POSSIBLE opt-out from {sender_addr} — flagged by the "
+                    f"POSSIBLE opt-out from {_html.escape(sender_addr)} — flagged by the "
                     "degraded keyword classifier (model outage), no literal "
-                    f"STOP/UNSUBSCRIBE opener.\nSubject: {subject}\n"
+                    f"STOP/UNSUBSCRIBE opener.\nSubject: {_html.escape(subject or '')}\n"
                     "NOT auto-suppressed — review and suppress manually if genuine.",
                     category="email",
                     force=True,
@@ -1275,10 +1279,12 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                                 pass
                     except Exception as lead_err:
                         print(f"[email_inbox] lead update on STOP failed: {lead_err}", file=sys.stderr)
-                    # Loud Telegram ping so CC knows someone opted out
+                    # Loud Telegram ping so CC knows someone opted out.
+                    # html.escape: notify() sends parse_mode=HTML — raw <...>
+                    # in a subject would make Telegram reject the ping.
                     notify(
-                        f"STOP received from {sender_addr}\n"
-                        f"Subject: {subject}\n"
+                        f"STOP received from {_html.escape(sender_addr)}\n"
+                        f"Subject: {_html.escape(subject or '')}\n"
                         f"Auto-suppressed — they will not receive further emails.",
                         category="email",
                         force=True,
@@ -1290,8 +1296,8 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     print(f"[email_inbox] CRITICAL: STOP auto-suppress FAILED for "
                           f"{sender_addr}: {sup_err}", file=sys.stderr)
                     notify(
-                        f"CRITICAL: STOP received from {sender_addr} but auto-suppress "
-                        f"FAILED: {sup_err}. Add them to suppression list MANUALLY now.",
+                        f"CRITICAL: STOP received from {_html.escape(sender_addr)} but auto-suppress "
+                        f"FAILED: {_html.escape(str(sup_err))}. Add them to suppression list MANUALLY now.",
                         category="email",
                         force=True,
                     )
