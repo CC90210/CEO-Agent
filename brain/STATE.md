@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Rule 8 Codex audit + 7-script adversarial workflow found 3 outage-path data-loss bugs in the CLI migration; fixed 2 mine (enrich_sheet + memory_consolidation preflight/fail-closed, commit 91d81a9f), flagged pre-existing email_engine CASL-suppress-on-fallback for CC; harness 10/10
+- **Result:** CC-approved #2+#3 shipped (b72b7ac9): email_engine CASL fallback guard (7/7 truth-table) + dead-metered-key fallback purge across telegram_agent/gateway adapter/bridge_chat_server (subscription-only, OpenRouter-only cloud, cold-spawn key strip); harness 10/10; Codex audit running
 
 *Last updated: 2026-07-19*
 
