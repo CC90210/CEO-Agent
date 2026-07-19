@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** CC-approved #2+#3 shipped (b72b7ac9): email_engine CASL fallback guard (7/7 truth-table) + dead-metered-key fallback purge across telegram_agent/gateway adapter/bridge_chat_server (subscription-only, OpenRouter-only cloud, cold-spawn key strip); harness 10/10; Codex audit running
+- **Result:** Self-review follow-up (f2cd6249): CASL decision extracted to pure stop_signal_decision() + 7 truth-table tests now import the real function (14/14); flagged Maven-repo scripts for the same dead-key migration (propagation pass, not unilateral)
 
 *Last updated: 2026-07-19*
 
