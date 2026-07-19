@@ -480,7 +480,7 @@ CC's message:`;
 
     // ---- PRIVATE: CLI EXECUTION (preserved from telegram_agent.js) ----
 
-    _executeCli(tool, userPrompt, chatId, modelOverride = null, forceApiKey = false) {
+    _executeCli(tool, userPrompt, chatId, modelOverride = null) {
         return new Promise((resolve) => {
             const fullPrompt = tool === 'claude'
                 ? `${this._buildPrompt(chatId, userPrompt)} ${userPrompt}`
@@ -515,14 +515,13 @@ CC's message:`;
 
             log(`[EXEC] ${tool}: "${userPrompt.substring(0, 80)}..."`);
 
+            // Subscription-ONLY (2026-07-18): buildClaudeSpawnEnv's default
+            // strips ANTHROPIC_API_KEY (key dead + banned, CLI-only rule).
             const spawnEnv = tool === 'claude'
                 ? buildClaudeSpawnEnv({
-                    forceApiKey,
                     extras: { CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' },
                 })
                 : { ...process.env, CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' };
-
-            if (forceApiKey) log('[AUTH FALLBACK] using ANTHROPIC_API_KEY');
 
             const child = spawn(cmd, args, {
                 env: spawnEnv, stdio: ['ignore', 'pipe', 'pipe'],
@@ -581,17 +580,11 @@ CC's message:`;
                     return;
                 }
 
+                // Fail LOUD — no metered-key retry (key dead + banned).
                 const looksLikeAuth = isClaudeAuthOrQuotaFailure(raw, code);
-                if (looksLikeAuth && tool === 'claude' && !forceApiKey) {
-                    log('[AUTH FALLBACK TRIGGERED]');
-                    if (chatId && this._bot) {
-                        this._bot.sendMessage(chatId, 'Subscription quota issue — retrying via API key...').catch(() => {});
-                    }
-                    this._executeCli(tool, userPrompt, chatId, modelOverride, true).then(resolve);
-                    return;
-                }
-                if (looksLikeAuth && forceApiKey) {
-                    resolve('Auth hard-fail. Check `claude setup-token` and ANTHROPIC_API_KEY in .env.agents.');
+                if (looksLikeAuth && tool === 'claude') {
+                    log(`[AUTH FAIL] subscription quota/auth failure: ${raw.substring(0, 200)}`);
+                    resolve('Claude subscription quota or auth failure. If quota: wait for the window to reset. If auth: run `claude setup-token`, then restart the bridge.');
                     return;
                 }
                 resolve(cleanOutput(raw));
@@ -1036,14 +1029,13 @@ CC's message:`;
 
     _startupHealthCheck() {
         setTimeout(() => {
+            // Subscription-only auth (2026-07-18): the metered-key fallback
+            // was removed, so OAuth presence is the only signal that matters.
             const auth = checkClaudeAuthPaths();
             if (!auth.hasOAuth) {
-                log('[HEALTH] Claude OAuth not found — run `claude setup-token`. (Telegram notification suppressed.)');
+                log('[HEALTH] Claude OAuth not found — run `claude setup-token`. Claude calls WILL fail until then (no metered fallback). (Telegram notification suppressed.)');
             } else {
-                log(`[HEALTH] Claude OAuth present at ${auth.oauthPath}`);
-            }
-            if (!auth.hasApiKey) {
-                log('[HEALTH] ANTHROPIC_API_KEY missing — fallback unavailable.');
+                log(`[HEALTH] Claude OAuth present at ${auth.oauthPath} (sole auth path)`);
             }
         }, 5000);
     }

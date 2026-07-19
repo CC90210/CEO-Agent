@@ -168,7 +168,7 @@ try:
         all_resolved,
         under_root,
     )
-    from .warm_claude_pool import use_or_create as _warm_use_or_create, pool_status as _warm_pool_status, chat_lean_args as _warm_chat_lean_args, mark_force_api_key as _warm_mark_force_api_key
+    from .warm_claude_pool import use_or_create as _warm_use_or_create, pool_status as _warm_pool_status, chat_lean_args as _warm_chat_lean_args
     from ._claude_auth import is_claude_auth_or_quota_failure as _is_auth_failure
 except ImportError:
     _here = Path(__file__).resolve().parent
@@ -184,7 +184,6 @@ except ImportError:
     from warm_claude_pool import use_or_create as _warm_use_or_create  # type: ignore
     from warm_claude_pool import pool_status as _warm_pool_status  # type: ignore
     from warm_claude_pool import chat_lean_args as _warm_chat_lean_args  # type: ignore
-    from warm_claude_pool import mark_force_api_key as _warm_mark_force_api_key  # type: ignore
     from _claude_auth import is_claude_auth_or_quota_failure as _is_auth_failure  # type: ignore
     from _subprocess_helpers import (  # type: ignore
         command_without_cmd_shim as _command_without_cmd_shim,
@@ -193,12 +192,11 @@ except ImportError:
     )
 
 PORT = int(os.environ.get("BRAVO_BRIDGE_PORT", "9100"))
-ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
 # OpenRouter exposes an Anthropic-compatible /v1/messages endpoint — same
-# wire format (content_block_delta, tool_use blocks, etc.). Using that means
-# one streaming loop covers both providers; only the URL + auth header swap.
+# wire format (content_block_delta, tool_use blocks, etc.). Legacy cloud chat
+# is OpenRouter-ONLY (2026-07-18): the direct api.anthropic.com constant +
+# model default were removed with the dead-metered-key path.
 OPENROUTER_MESSAGES_API = "https://openrouter.ai/api/v1/messages"
-DEFAULT_ANTHROPIC_MODEL = os.environ.get("BRAVO_CHAT_MODEL", "claude-sonnet-4-6")
 DEFAULT_OPENROUTER_MODEL = os.environ.get(
     "BRAVO_CHAT_OPENROUTER_MODEL", "anthropic/claude-sonnet-4"
 )
@@ -380,20 +378,18 @@ def _redact_secrets(text: str) -> str:
 
 
 def _resolve_provider() -> tuple[str, str, str]:
-    """Pick the chat backend.
+    """Pick the chat backend for legacy cloud mode. OpenRouter-ONLY
+    (2026-07-18): the ANTHROPIC_API_KEY arm was removed — the key is out of
+    credits + banned in automations (CLI-only rule), so selecting it made
+    every cloud chat 400 against api.anthropic.com. Default (non-legacy)
+    chat runs the claude CLI on the subscription and never comes through here.
 
-    Preference: OpenRouter > Anthropic. OpenRouter is cheaper, single-key,
-    and what we recommend in onboarding.
-
-    Returns (provider, api_key, model). If neither key is present, returns
-    ("none", "", "") and the chat handler 412s with a clear hint.
+    Returns (provider, api_key, model). With no OPENROUTER_API_KEY, returns
+    ("none", "", "") and the chat handler errors with a clear hint.
     """
     or_key = _read_env_value("OPENROUTER_API_KEY")
     if or_key:
         return ("openrouter", or_key, DEFAULT_OPENROUTER_MODEL)
-    anth = _read_env_value("ANTHROPIC_API_KEY")
-    if anth:
-        return ("anthropic", anth, DEFAULT_ANTHROPIC_MODEL)
     return ("none", "", "")
 
 
@@ -853,14 +849,11 @@ def _call_provider(
             "anthropic-version": "2023-06-01",
             "accept": "text/event-stream",
         }
-    else:  # anthropic
-        url = ANTHROPIC_API
-        headers = {
-            "content-type": "application/json",
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "accept": "text/event-stream",
-        }
+    else:
+        # The direct api.anthropic.com branch was removed 2026-07-18 (metered
+        # key dead + banned; cloud mode is OpenRouter-only). Fail loud rather
+        # than silently POSTing a dead credential.
+        raise ValueError(f"unsupported cloud provider {provider!r} — cloud chat is OpenRouter-only")
     body_bytes = json.dumps(body).encode("utf-8")
 
     last_exc: Exception | None = None
@@ -1903,7 +1896,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
             if provider == "none" or not api_key:
                 emit("error", {
                     "message": "no_provider_key",
-                    "detail": "No OPENROUTER_API_KEY or ANTHROPIC_API_KEY in .env.agents. Set OASIS_CHAT_LEGACY=0 to use Claude Code subprocess instead.",
+                    "detail": "No OPENROUTER_API_KEY in .env.agents (legacy cloud chat is OpenRouter-only). Set OASIS_CHAT_LEGACY=0 to use the Claude Code subscription subprocess instead.",
                 })
                 emit("done", {})
                 return
@@ -2210,11 +2203,8 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         # send_turn returned False — process died mid-turn or stream
         # ended without a result event. Pull captured stderr to decide
-        # whether this looks like a subscription auth/quota failure.
-        # If it does AND we haven't shipped any text yet AND we weren't
-        # already on the paid API key, fall over: kill the warm proc,
-        # mark the pool sticky-paid, respawn with ANTHROPIC_API_KEY in
-        # env, retry send_turn ONCE.
+        # whether this looks like a subscription auth/quota failure; if so,
+        # fail loud with the real fix (no metered-key retry — key dead+banned).
         stderr_tail = ""
         try:
             stderr_tail = wp.recent_stderr()
@@ -2223,12 +2213,11 @@ class _ChatHandler(BaseHTTPRequestHandler):
         exit_code = wp.proc.poll()
         wp.kill(reason="send_turn_failed")
 
-        should_fallback = (
+        auth_failure = (
             not state["emitted_any_text"]
-            and not wp.force_api_key
             and _is_auth_failure(stderr_tail, exit_code)
         )
-        if not should_fallback:
+        if not auth_failure:
             # Warm process died for a non-auth reason. Two sub-cases:
             #
             # 1. No text was streamed yet — safe to fall back to cold
@@ -2285,44 +2274,21 @@ class _ChatHandler(BaseHTTPRequestHandler):
             emit("done", {"warm_aborted": True})
             return True
 
-        # Auth/quota fallback — spawn a fresh process forced onto the
-        # paid API key path. Sticky-mark the pool so subsequent turns
-        # in this session skip the subscription attempt entirely.
-        _warm_mark_force_api_key(pool_key)
-        # Give the operator a one-line notice in the chat transcript so
-        # they know what happened. Markdown italics for soft styling.
-        emit("delta", {
-            "text": "_Subscription was capped — switched to API key for the rest of this conversation._\n\n"
+        # Subscription auth/quota failure — fail LOUD (2026-07-18). The old
+        # path respawned the claude CLI with ANTHROPIC_API_KEY kept in env and
+        # sticky-marked the pool "paid" for the rest of the session. The key
+        # is out of credits + banned (CLI-only rule), so that retry was doomed
+        # AND poisoned every subsequent turn in the session onto the dead key.
+        # Surface the real failure + fix instead; the dashboard shows Retry.
+        emit("error", {
+            "code": "subscription_auth_failure",
+            "message": (
+                "Claude subscription quota or auth failure. If quota: wait for "
+                "the usage window to reset. If auth: run `claude setup-token` "
+                "on this machine, then retry."
+            ),
         })
-        state["emitted_any_text"] = True
-
-        try:
-            wp2 = _warm_use_or_create(
-                pool_key=pool_key,
-                agent=agent,
-                root=root,
-                prompt_text=prompt_text,
-                resume_session_id=resume_session_id,
-                force_api_key=True,
-                disallowed_tools=disallowed_tools,
-            )
-        except Exception as e:
-            print(f"[bridge] auth-fallback respawn failed: {e}", file=sys.stderr)
-            emit("done", {"warm_aborted": True, "fallback_attempted": True})
-            return True
-
-        if not wp2.is_alive():
-            wp2.kill(reason="dead_at_send_after_fallback")
-            emit("done", {"warm_aborted": True, "fallback_attempted": True})
-            return True
-
-        ok2 = wp2.send_turn(prompt_text, make_on_event(), max_seconds=300)
-        if not ok2:
-            # Both paths failed. Kill the second proc and bail — the
-            # client will surface the empty-stream banner with its Retry
-            # button as before.
-            wp2.kill(reason="send_turn_failed_after_fallback")
-            emit("done", {"warm_aborted": True, "fallback_attempted": True})
+        emit("done", {"warm_aborted": True, "auth_failure": True})
         return True
 
 
@@ -3073,20 +3039,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # Spawn env — same approach as telegram_agent. Inherit current env,
         # set non-interactive flags so claude doesn't try to render TTY UI.
         #
-        # NOTE on auth: this cold-spawn path deliberately keeps the env
-        # unmodified — claude picks ANTHROPIC_API_KEY if set, OAuth
-        # otherwise. The warm-pool path (warm_claude_pool.py) IS
-        # subscription-first via build_claude_spawn_env() and has the
-        # auth-fallback retry from Phase 1 of giggly-reef. Cold spawn only
-        # fires when warm pool is disabled (OASIS_NO_WARM_POOL=1) or
-        # crashes — a rare path. Leaving the env model as-is for cold
-        # spawn keeps the change-surface tight; if Phase 2/3 wants to
-        # unify the auth model across both paths, swap this dict for
-        # build_claude_spawn_env() AND add the retry-on-auth-failure
-        # block (cold spawn has no equivalent today, so going
-        # subscription-first here without the retry would regress the
-        # rare-path UX).
+        # NOTE on auth (2026-07-18): subscription-ONLY, matching the warm
+        # pool. ANTHROPIC_API_KEY is stripped because the claude CLI prefers
+        # an env key over OAuth — with the key left in, every cold spawn
+        # billed (and now 400s on) the dead metered key instead of using
+        # CC's subscription. Cold spawn only fires when the warm pool is
+        # disabled (OASIS_NO_WARM_POOL=1) or crashes.
         env = dict(os.environ)
+        env.pop("ANTHROPIC_API_KEY", None)
         # Enriched PATH — Claude's own child processes (ripgrep, node, sed,
         # the user's hooks) need to see Homebrew + npm-global + nvm. Same
         # treatment _run_cli_command gives codex/gemini spawns.

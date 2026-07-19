@@ -1201,11 +1201,32 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             intent = (classification or {}).get("intent", "")
             preview_upper = (preview or "").strip().upper()
             subject_upper = (subject or "").strip().upper()
-            is_stop_signal = (
-                intent == "unsubscribe"
-                or preview_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
+            literal_stop = (
+                preview_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
                 or subject_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
             )
+            # Degraded-mode guard (2026-07-18): when the classifier ran in
+            # keyword-fallback mode (model/CLI outage, fallback=True), its
+            # intent is a coarse substring match — "nothing will stop me from
+            # signing" classifies as unsubscribe. An IRREVERSIBLE CASL
+            # suppression + lead lost-overwrite must never ride on that. In
+            # fallback mode only the literal STOP/UNSUBSCRIBE line-opener
+            # counts; ambiguous fallback opt-outs go to CC for manual review
+            # below (CASL's 10-business-day window is met either way).
+            classifier_stop = (
+                intent == "unsubscribe"
+                and not (classification or {}).get("fallback")
+            )
+            is_stop_signal = classifier_stop or literal_stop
+            if intent == "unsubscribe" and not is_stop_signal and sender_addr:
+                notify(
+                    f"POSSIBLE opt-out from {sender_addr} — flagged by the "
+                    "degraded keyword classifier (model outage), no literal "
+                    f"STOP/UNSUBSCRIBE opener.\nSubject: {subject}\n"
+                    "NOT auto-suppressed — review and suppress manually if genuine.",
+                    category="email",
+                    force=True,
+                )
             if is_stop_signal and sender_addr:
                 try:
                     sys.path.insert(0, str(Path(__file__).resolve().parent))

@@ -665,7 +665,7 @@ const killTree = (pid) => {
 const MCP_CONFIG_PATH = path.join(__dirname, '.claude', 'mcp.json');
 const HAS_MCP_CONFIG = fs.existsSync(MCP_CONFIG_PATH);
 
-const executeCli = (tool, userPrompt, chatId, modelOverride = null, forceApiKey = false) => {
+const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
     return new Promise((resolve) => {
         const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId, userPrompt)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
         const tier = classifyTier(userPrompt);
@@ -706,13 +706,14 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null, forceApiKey 
 
         log(`[EXEC] ${tool}: "${userPrompt.substring(0, 80)}..."`);
 
-        // AUTH PRIORITY (V15.8 — 2026-04-27): subscription-first, API-key
-        // fallback. Implementation in scripts/c_suite_context.js so the
-        // pattern is shared with future Bravo CLI tools and mirrored
-        // verbatim by Maven's bridge.
+        // AUTH (V16 — 2026-07-18): subscription-ONLY. buildClaudeSpawnEnv's
+        // default strips ANTHROPIC_API_KEY so the claude CLI authenticates via
+        // CC's subscription OAuth. The old metered-key retry was removed: the
+        // key is out of credits + banned (CLI-only rule), so the fallback was
+        // a doomed second call with a misleading "retrying via API key
+        // billing" message. Implementation in scripts/c_suite_context.js.
         const spawnEnv = (tool === 'claude')
             ? buildClaudeSpawnEnv({
-                forceApiKey,
                 extras: { CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' },
             })
             : {
@@ -720,9 +721,6 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null, forceApiKey 
                 CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat',
                 NO_COLOR: '1', FORCE_COLOR: '0',
             };
-        if (forceApiKey) {
-            log(`[AUTH FALLBACK] using ANTHROPIC_API_KEY for this call (subscription quota or auth error)`);
-        }
 
         const child = spawn(cmd, args, {
             env: spawnEnv,
@@ -803,20 +801,13 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null, forceApiKey 
                 return;
             }
 
-            // Auth + quota detection (V15.8): pattern lives in c_suite_context.
+            // Auth + quota detection: pattern lives in c_suite_context. Fail
+            // LOUD — there is no metered-key retry (key dead + banned), so a
+            // subscription failure surfaces immediately with the real fix.
             const looksLikeQuotaOrAuth = isClaudeAuthOrQuotaFailure(raw, code);
-            if (looksLikeQuotaOrAuth && tool === 'claude' && !forceApiKey) {
-                log(`[AUTH FALLBACK TRIGGERED] subscription failed, retrying with ANTHROPIC_API_KEY: ${raw.substring(0, 200)}`);
-                if (chatId) {
-                    bot.sendMessage(chatId, '⏱ Subscription quota or auth issue — retrying via API key billing...').catch(() => {});
-                }
-                executeCli(tool, userPrompt, chatId, modelOverride, true).then(resolve);
-                return;
-            }
-            // Already tried API key fallback — give CC a clear actionable message
-            if (looksLikeQuotaOrAuth && forceApiKey) {
-                log(`[AUTH HARD FAIL] both subscription and API key failed — check both`);
-                resolve('Auth hard-fail. Both Claude Code subscription AND ANTHROPIC_API_KEY rejected. Check `claude setup-token` (subscription OAuth) and ANTHROPIC_API_KEY in .env.agents, then: pm2 restart bravo-telegram');
+            if (looksLikeQuotaOrAuth && tool === 'claude') {
+                log(`[AUTH FAIL] subscription quota/auth failure: ${raw.substring(0, 200)}`);
+                resolve('Claude subscription quota or auth failure. If quota: wait for the window to reset. If auth: run `claude setup-token`, then: pm2 restart bravo-telegram');
                 return;
             }
 
@@ -1542,42 +1533,13 @@ try {
 // To re-enable warning sends: revert this commit. To check auth state:
 // tail ~/.bravo/logs/telegram_agent.log or run scripts/health_doctor.py.
 setTimeout(() => {
+    // Subscription-only auth (2026-07-18): the metered-key fallback + its boot
+    // probe were removed (key out of credits + banned per the CLI-only rule).
+    // The only health signal that matters is the subscription OAuth presence.
     const auth = checkClaudeAuthPaths();
     if (auth.hasOAuth) {
-        log(`[HEALTH] Claude Code subscription OAuth: present at ${auth.oauthPath} (primary auth path)`);
+        log(`[HEALTH] Claude Code subscription OAuth: present at ${auth.oauthPath} (sole auth path — no metered fallback)`);
     } else {
-        log(`[HEALTH] Claude Code subscription OAuth: NOT FOUND at ${auth.claudeDir} — run \`claude setup-token\`. Bridge will fall back to ANTHROPIC_API_KEY. (Telegram notification suppressed; check log only.)`);
+        log(`[HEALTH] Claude Code subscription OAuth: NOT FOUND at ${auth.claudeDir} — run \`claude setup-token\`, then: pm2 restart bravo-telegram. Claude calls WILL fail until then (no metered fallback). (Telegram notification suppressed; check log only.)`);
     }
-
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!auth.hasApiKey) {
-        log('[HEALTH] ANTHROPIC_API_KEY missing — fallback path unavailable. If subscription quota hits, Bravo will hard-fail.');
-        return;
-    }
-    const https = require('https');
-    const body = JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 5,
-        messages: [{ role: 'user', content: 'ping' }]
-    });
-    const req = https.request({
-        hostname: 'api.anthropic.com',
-        path: '/v1/messages',
-        method: 'POST',
-        headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json',
-            'content-length': Buffer.byteLength(body)
-        }
-    }, (res) => {
-        if (res.statusCode === 200) {
-            log('[HEALTH] ANTHROPIC_API_KEY fallback path: OK');
-        } else {
-            log(`[HEALTH] ANTHROPIC_API_KEY fallback path FAILED (HTTP ${res.statusCode}) — fallback unavailable, subscription is single point of failure. (Telegram notification suppressed.)`);
-        }
-    });
-    req.on('error', (e) => log(`[HEALTH] API check error: ${e.message}`));
-    req.write(body);
-    req.end();
 }, 5000);
