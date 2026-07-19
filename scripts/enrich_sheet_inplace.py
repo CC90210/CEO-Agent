@@ -218,6 +218,18 @@ def main() -> int:
         todo = todo[: args.limit]
     print(f"leads={len(leads)} already_done={len(done)} to_enrich={len(todo)} workers={args.workers}")
 
+    # Fail-closed preflight (restores the run-level guard the SDK->CLI migration
+    # removed — the old `cl = _anthropic()` raised SystemExit up front on a missing
+    # key). If the subscription `claude` CLI is unavailable, ABORT before any write:
+    # otherwise every enrich() returns {} -> write_row blanks columns I:M for each
+    # row AND checkpoints it done, silently wiping real phone/email across the whole
+    # sheet on a model outage, with no retry (the --resume default skips done rows).
+    from lib.claude_cli import run_claude_cli
+    if run_claude_cli("Reply with: ok", model="haiku", timeout=60) is None:
+        print("ABORT: claude subscription CLI unavailable — refusing to run so rows "
+              "are not blanked (run `claude setup-token`).", file=sys.stderr)
+        return 1
+
     lock = threading.Lock()
     counters = {"n": 0, "phone": 0, "email": 0}
 

@@ -461,6 +461,19 @@ def consolidate(
         except Exception as exc:  # noqa: BLE001
             result["db_error"] = str(exc)
 
+    # Fail-closed: if EVERY item failed classification (e.g. a total model/CLI
+    # outage — run_claude_cli returned None for all of them, so classify_item
+    # raised and each item was forced to type="noise"), do NOT archive+reset
+    # WORKING.md. Resetting here would silently drop the whole session of working
+    # memory (nothing was promoted). Leave the buffer intact so the next run
+    # retries once the model is back. Restores the guard the SDK->CLI migration
+    # removed (the old get_anthropic_key() preflight raised up front).
+    if classified and all("classify_error" in c for c in classified):
+        result["aborted"] = True
+        result["message"] = ("classification unavailable for all items (model/CLI "
+                              "outage) — WORKING.md left intact for retry")
+        return result
+
     # Archive and reset.
     original_content = WORKING_MD.read_text(encoding="utf-8") if WORKING_MD.exists() else ""
     archive_path = _archive_working(original_content)
@@ -476,6 +489,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         result = consolidate(dry_run=args.dry_run, env=env)
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: consolidate failed: {exc}", file=sys.stderr)
+        return 1
+
+    if result.get("aborted"):
+        print(f"ABORTED: {result.get('message')}", file=sys.stderr)
         return 1
 
     if args.output_json:

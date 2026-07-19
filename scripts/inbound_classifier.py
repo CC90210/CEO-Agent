@@ -297,7 +297,7 @@ def _keyword_fallback(content: str) -> dict:
                 "priority": "cold", "stage_signal": "hold",
                 "suggested_action": "ignore", "confidence": 0.5,
                 "fallback": True}
-    if negative and "unsubscribe" in lower or "stop" in lower:
+    if negative and ("unsubscribe" in lower or "stop" in lower):
         return {"sentiment": "negative", "intent": "unsubscribe",
                 "priority": "low", "stage_signal": "mark_lost",
                 "suggested_action": "mark_unsubscribed", "confidence": 0.7,
