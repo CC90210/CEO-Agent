@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** V7.4 Agent Fleet Modernization shipped (aa3c3fe4 + V7.4.1 9eee0b53): 13 personas -> canonical contract, 4 shadowed dupes deleted, reviewer->code-reviewer, wiring (agent triggers in graph edges 49->134, generated WHEN_TO_USE_AGENTS, resolver --kind any fix, scoped-by-default scaffold), ADR-0012; Rule-8 self-audit hardened register enforcement boundary; STATE V7.4.0; Codex verbatim re-run pending capacity
+- **Result:** Published the complete Business Empire Agent batch to GitHub and published the PropFlow modernization batch with green GitHub and Vercel preview checks. PropFlow production reset delivery remains pending explicit approval to rotate the fresh backend's internal database credential before activation.
 
 *Last updated: 2026-07-20*
 
