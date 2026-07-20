@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Published the complete Business Empire Agent batch to GitHub and published the PropFlow modernization batch with green GitHub and Vercel preview checks. PropFlow production reset delivery remains pending explicit approval to rotate the fresh backend's internal database credential before activation.
+- **Result:** PropFlow production activated 2026-07-20: fresh Supabase xusnasmzoxkaimyjqbie secured and initialized with 43 RLS-protected tables; owner conaugh@oasisai.work created as active admin, super-admin, founding partner, enterprise/lifetime with all automations; Vercel environments moved to fresh backend; PropFlow PR #1 merged at 59a92c8 and production READY on propflow.pro; real Chromium login-to-admin metrics flow passed; recovery email queued successfully at 17:53:25 UTC. Independent Codex companion audit transport timed out twice; local quality and all remote gates passed.
 
 *Last updated: 2026-07-20*
 
