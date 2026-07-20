@@ -15,9 +15,12 @@ Run:
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import unittest
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "scripts"
@@ -25,6 +28,30 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 import build_capability_graph as bcg  # noqa: E402
+
+
+def test_tracked_md_includes_untracked_nonignored_direct_files(tmp_path, monkeypatch):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    brain = tmp_path / "brain"
+    brain.mkdir()
+    (tmp_path / ".gitignore").write_text("brain/private.md\n", encoding="utf-8")
+    (brain / "tracked.md").write_text("# tracked\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "brain/tracked.md", ".gitignore"], check=True)
+    (brain / "new.md").write_text("# new\n", encoding="utf-8")
+    (brain / "private.md").write_text("# private\n", encoding="utf-8")
+    nested = brain / "nested"
+    nested.mkdir()
+    (nested / "child.md").write_text("# child\n", encoding="utf-8")
+
+    monkeypatch.setattr(bcg, "PROJECT_ROOT", tmp_path)
+    assert [path.name for path in bcg._tracked_md("brain")] == ["new.md", "tracked.md"]
+
+
+def test_tracked_md_fails_loud_outside_a_git_worktree(tmp_path, monkeypatch):
+    (tmp_path / "brain").mkdir()
+    monkeypatch.setattr(bcg, "PROJECT_ROOT", tmp_path)
+    with pytest.raises(RuntimeError, match="git ls-files failed"):
+        bcg._tracked_md("brain")
 
 
 class TestGeneratedDocsFresh(unittest.TestCase):

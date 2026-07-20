@@ -157,4 +157,4 @@ take a screenshot                       → captures current screen
 
 ## Obsidian Links
 - [[skills/INDEX.md]] | [[brain/CAPABILITIES]]
-- [[skills/browser-automation/SKILL.md]] | [[../../CMO-Agent/skills/content-engine/SKILL]]
+- [[skills/browser-automation/SKILL.md]] | [[../../../CMO-Agent/skills/content-engine/SKILL]]

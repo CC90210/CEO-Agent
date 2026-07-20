@@ -83,5 +83,5 @@ and now lives in its own repo:
 Dashboard work goes in that repo. New agent components go in `scripts/` or `apps/<name>/` — never a recreated `app/`.
 
 ## Obsidian Links
-- [[APPS_CONTEXT/OASIS_AI_CLAUDE]] | [[APPS_CONTEXT/PROPFLOW_CLAUDE]] | [[APPS_CONTEXT/NOSTALGIC_REQUESTS_CLAUDE]]
+- [[APPS_CONTEXT/README]] | [[APPS_CONTEXT/OASIS_AI_CLAUDE]] | [[APPS_CONTEXT/PROPFLOW_CLAUDE]] | [[APPS_CONTEXT/NOSTALGIC_REQUESTS_CLAUDE]]
 - [[memory/SESSION_LOG]] | [[brain/DASHBOARD]]

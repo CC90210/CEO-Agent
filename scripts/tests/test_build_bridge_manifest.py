@@ -20,6 +20,7 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 import build_bridge_manifest as bbm  # type: ignore
+import check_bridge_manifest as cbm  # type: ignore
 
 
 def _make_script(tmp_dir: Path, name: str, content: str) -> Path:
@@ -49,13 +50,14 @@ def _restore(original_root: Path, original_scripts: Path) -> None:
 # Tests
 # ---------------------------------------------------------------------------
 
-def test_read_only_subcommand_classified_correctly():
-    """A subcommand with no mutating verb -> mutating=False."""
+def test_explicit_read_only_header_classifies_subcommands_correctly():
+    """Read-only behavior must be declared rather than inferred from a verb."""
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td)
         original = _with_repo_root(td_path)
         try:
             p = _make_script(bbm.SCRIPTS_DIR, "fake_reader.py", '''
+                # bridge_mutating: false
                 """Read-only fake reader."""
                 import argparse
                 def main():
@@ -74,8 +76,8 @@ def test_read_only_subcommand_classified_correctly():
             _restore(*original)
 
 
-def test_mutating_verb_in_subcommand_detected():
-    """A subcommand with 'send' or 'delete' -> mutating=True."""
+def test_legacy_subcommands_fail_closed_without_declared_policy():
+    """Verb names alone cannot grant a no-confirm execution path."""
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td)
         original = _with_repo_root(td_path)
@@ -94,10 +96,10 @@ def test_mutating_verb_in_subcommand_detected():
             ''')
             entries = bbm.build_one(p)
             by_sub = {e["subcmd"]: e for e in entries}
-            assert by_sub["list"]["mutating"] is False
+            assert by_sub["list"]["mutating"] is True
             assert by_sub["send"]["mutating"] is True, "send should be mutating"
             assert by_sub["delete-row"]["mutating"] is True, "delete-row should be mutating"
-            assert by_sub["status"]["mutating"] is False
+            assert by_sub["status"]["mutating"] is True
         finally:
             _restore(*original)
 
@@ -248,6 +250,326 @@ def test_visibility_opt_in_overrides_missing_argparse():
             assert entries[0]["subcmd"] is None
         finally:
             _restore(*original)
+
+
+def test_capability_metadata_controls_each_subcommand_policy():
+    """Literal CAPABILITY_META is authoritative over verb heuristics."""
+    with tempfile.TemporaryDirectory() as td:
+        td_path = Path(td)
+        original = _with_repo_root(td_path)
+        try:
+            p = _make_script(bbm.SCRIPTS_DIR, "fake_pause.py", '''
+                """Pause controller fixture."""
+                import argparse
+                CAPABILITY_META = {
+                    "category": "outbound.safety",
+                    "lifecycle": "active",
+                    "risk": "external_write",
+                    "triggers": ["pause outbound"],
+                    "owner": "bravo",
+                    "project": "sunbiz",
+                    "bridge": {
+                        "visible": True,
+                        "confirm": True,
+                        "subcommands": {
+                            "pause": {"visible": True, "confirm": True},
+                            "status": {"visible": True, "confirm": False},
+                        },
+                    },
+                }
+                p = argparse.ArgumentParser()
+                sub = p.add_subparsers(dest="cmd")
+                sub.add_parser("pause")
+                sub.add_parser("status")
+            ''')
+            by_sub = {entry["subcmd"]: entry for entry in bbm.build_one(p)}
+            assert by_sub["pause"]["mutating"] is True
+            assert by_sub["status"]["mutating"] is False
+        finally:
+            _restore(*original)
+
+
+def test_declared_subcommands_are_an_allowlist_and_may_define_public_keys():
+    with tempfile.TemporaryDirectory() as td:
+        td_path = Path(td)
+        original = _with_repo_root(td_path)
+        try:
+            p = _make_script(bbm.SCRIPTS_DIR, "alias_tool.py", '''
+                """Alias fixture."""
+                import argparse
+                CAPABILITY_META = {
+                    "category": "data.operations",
+                    "lifecycle": "active",
+                    "risk": "external_write",
+                    "triggers": ["query data"],
+                    "owner": "bravo",
+                    "project": "empire",
+                    "bridge": {
+                        "visible": True,
+                        "confirm": True,
+                        "subcommands": {
+                            "query": {
+                                "key": "alias_sql",
+                                "visible": True,
+                                "confirm": True,
+                            },
+                        },
+                    },
+                }
+                parser = argparse.ArgumentParser()
+                sub = parser.add_subparsers(dest="cmd")
+                sub.add_parser("query")
+                sub.add_parser("delete")
+            ''')
+            entries = bbm.build_one(p)
+            assert [(entry["key"], entry["subcmd"]) for entry in entries] == [
+                ("alias_sql", "query"),
+            ]
+            assert entries[0]["mutating"] is True
+        finally:
+            _restore(*original)
+
+
+def test_nested_scripts_require_literal_capability_metadata():
+    with tempfile.TemporaryDirectory() as td:
+        td_path = Path(td)
+        original = _with_repo_root(td_path)
+        try:
+            nested = bbm.SCRIPTS_DIR / "integrations"
+            nested.mkdir()
+            _make_script(nested, "unregistered.py", '''
+                """Nested legacy CLI must not be auto-exposed."""
+                import argparse
+                argparse.ArgumentParser()
+            ''')
+            _make_script(nested, "registered.py", '''
+                """Nested registered CLI."""
+                import argparse
+                CAPABILITY_META = {
+                    "category": "data.operations",
+                    "lifecycle": "active",
+                    "risk": "read_only",
+                    "triggers": ["read data"],
+                    "owner": "bravo",
+                    "project": "empire",
+                    "bridge": {"visible": True, "confirm": False},
+                }
+                argparse.ArgumentParser()
+            ''')
+            manifest = bbm.build_manifest()
+            paths = {entry["path"] for entry in manifest["entries"]}
+            assert "scripts/integrations/registered.py" in paths
+            assert "scripts/integrations/unregistered.py" not in paths
+        finally:
+            _restore(*original)
+
+
+def test_capability_metadata_hides_unsafe_script():
+    with tempfile.TemporaryDirectory() as td:
+        td_path = Path(td)
+        original = _with_repo_root(td_path)
+        try:
+            p = _make_script(bbm.SCRIPTS_DIR, "fake_hidden.py", '''
+                """Unsafe fixture."""
+                import argparse
+                CAPABILITY_META = {
+                    "category": "data.operations",
+                    "lifecycle": "one_off",
+                    "risk": "external_write",
+                    "triggers": ["rewrite data"],
+                    "owner": "bravo",
+                    "project": "oasis",
+                    "bridge": {"visible": False},
+                }
+                argparse.ArgumentParser()
+            ''')
+            assert bbm.build_one(p) == []
+        finally:
+            _restore(*original)
+
+
+def test_metadata_denied_arguments_are_emitted_for_runtime_enforcement():
+    with tempfile.TemporaryDirectory() as td:
+        td_path = Path(td)
+        original = _with_repo_root(td_path)
+        try:
+            p = _make_script(bbm.SCRIPTS_DIR, "fake_scanner.py", '''
+                """Read-only scan with a destructive legacy flag."""
+                import argparse
+                CAPABILITY_META = {
+                    "category": "security.privacy",
+                    "lifecycle": "active",
+                    "risk": "destructive",
+                    "triggers": ["scan pii"],
+                    "owner": "bravo",
+                    "project": "empire",
+                    "bridge": {
+                        "visible": True,
+                        "confirm": False,
+                        "deny_args": ["--rewrite"],
+                    },
+                }
+                argparse.ArgumentParser()
+            ''')
+            entries = bbm.build_one(p)
+            assert len(entries) == 1
+            assert entries[0]["mutating"] is False
+            assert entries[0]["deny_args"] == ["--rewrite"]
+        finally:
+            _restore(*original)
+
+
+def test_metadata_confirmation_arguments_are_emitted_for_runtime_escalation():
+    with tempfile.TemporaryDirectory() as td:
+        td_path = Path(td)
+        original = _with_repo_root(td_path)
+        try:
+            p = _make_script(bbm.SCRIPTS_DIR, "fake_capture.py", '''
+                """Read a page, optionally writing a screenshot."""
+                import argparse
+                CAPABILITY_META = {
+                    "category": "browser.research",
+                    "lifecycle": "active",
+                    "risk": "local_write",
+                    "triggers": ["capture page"],
+                    "owner": "bravo",
+                    "project": "empire",
+                    "bridge": {
+                        "visible": True,
+                        "confirm": False,
+                        "confirm_args": ["--screenshot"],
+                    },
+                }
+                argparse.ArgumentParser()
+            ''')
+            entries = bbm.build_one(p)
+            assert entries[0]["mutating"] is False
+            assert entries[0]["confirm_args"] == ["--screenshot"]
+        finally:
+            _restore(*original)
+
+
+def test_unknown_flat_script_fails_closed_as_confirm_required():
+    with tempfile.TemporaryDirectory() as td:
+        td_path = Path(td)
+        original = _with_repo_root(td_path)
+        try:
+            p = _make_script(bbm.SCRIPTS_DIR, "ambiguous_tool.py", '''
+                """Ambiguous operator-facing tool."""
+                import argparse
+                argparse.ArgumentParser()
+            ''')
+            entries = bbm.build_one(p)
+            assert len(entries) == 1
+            assert entries[0]["mutating"] is True
+        finally:
+            _restore(*original)
+
+
+def test_unknown_subcommands_fail_closed_as_confirm_required():
+    with tempfile.TemporaryDirectory() as td:
+        td_path = Path(td)
+        original = _with_repo_root(td_path)
+        try:
+            p = _make_script(bbm.SCRIPTS_DIR, "ambiguous_commands.py", '''
+                """Ambiguous operator-facing commands."""
+                import argparse
+                parser = argparse.ArgumentParser()
+                sub = parser.add_subparsers(dest="cmd")
+                sub.add_parser("list")
+                sub.add_parser("status")
+            ''')
+            entries = bbm.build_one(p)
+            assert entries
+            assert all(entry["mutating"] is True for entry in entries)
+        finally:
+            _restore(*original)
+
+
+def test_reviewed_real_script_bridge_contracts():
+    scripts = bbm.REPO_ROOT / "scripts"
+    manifest = bbm.build_manifest()
+    assert manifest["version"] == 2
+    manifest_keys = {entry["key"] for entry in manifest["entries"]}
+    assert not any(key.startswith("harness_plugin") for key in manifest_keys)
+    assert not any(key.startswith("history_secret_scan") for key in manifest_keys)
+    for hidden in (
+        "breeze_set_tenant_email.py",
+        "consolidate_mca_phone_sheet.py",
+        "enrich_sheet_inplace.py",
+        "migrate_lender_industry_restrictions_key.py",
+        "run_reseed_sunbiz_forms.py",
+        "seed_sunbiz_application_form_fields.py",
+    ):
+        assert bbm.build_one(scripts / hidden) == [], hidden
+
+    pause = {entry["subcmd"]: entry for entry in bbm.build_one(scripts / "pause_controller.py")}
+    assert pause["status"]["mutating"] is False
+    assert pause["get-mode"]["mutating"] is False
+    assert pause["pause"]["mutating"] is True
+    assert pause["resume"]["mutating"] is True
+    assert pause["set-mode"]["mutating"] is True
+
+    pii = bbm.build_one(scripts / "pii_sweep.py")
+    assert len(pii) == 1
+    assert pii[0]["mutating"] is False
+    assert pii[0]["deny_args"] == ["--rewrite", "--strings"]
+    assert pii[0]["fixed_args"] == ["."]
+
+
+def test_canonical_nested_bridge_keys_are_backed_by_real_subcommands():
+    manifest = bbm.build_manifest()
+    entries = {entry["key"]: entry for entry in manifest["entries"]}
+    expected = {
+        "supabase_select": ("scripts/integrations/supabase_tool.py", "select", False),
+        "supabase_insert": ("scripts/integrations/supabase_tool.py", "insert", True),
+        "supabase_sql": ("scripts/integrations/supabase_tool.py", "query", True),
+        "send_gateway_send": ("scripts/integrations/send_gateway.py", "send", True),
+        "cloak_browser_scrape": ("scripts/browser/cloak_browser_tool.py", "scrape", False),
+        "cloak_browser_check_stealth": (
+            "scripts/browser/cloak_browser_tool.py",
+            "check-stealth",
+            False,
+        ),
+        "cloak_browser_download": ("scripts/browser/cloak_browser_tool.py", "download", True),
+        "agent_inbox_send": ("scripts/core/agent_inbox.py", "post", True),
+        "agent_inbox_inbox": ("scripts/core/agent_inbox.py", "list", False),
+        "agent_inbox_ack": ("scripts/core/agent_inbox.py", "read", True),
+    }
+    for key, (path, subcmd, mutating) in expected.items():
+        entry = entries[key]
+        assert (entry["path"], entry["subcmd"], entry["mutating"]) == (
+            path,
+            subcmd,
+            mutating,
+        )
+
+    for nonexistent in ("send_gateway_queue", "send_gateway_list", "send_gateway_pending"):
+        assert nonexistent not in entries
+
+    assert "supabase_delete" not in entries
+    assert "cloak_browser_clear_cache" not in entries
+
+
+def test_manifest_drift_detects_denied_argument_policy_changes():
+    disk = {
+        "entries": [
+            {"key": "pii_sweep", "mutating": False, "deny_args": [], "help": "old"},
+        ]
+    }
+    live = {
+        "entries": [
+            {"key": "pii_sweep", "mutating": False, "deny_args": ["--rewrite"], "help": "new"},
+        ]
+    }
+    diff = cbm._diff(live, disk)
+    assert diff["policy_changed"] == ["pii_sweep"]
+
+
+def test_manifest_drift_detects_schema_version_changes():
+    disk = {"version": 1, "entries": []}
+    live = {"version": 2, "entries": []}
+    assert cbm._diff(live, disk)["version_changed"] is True
 
 
 def test_oversized_script_skipped_at_manifest_level():

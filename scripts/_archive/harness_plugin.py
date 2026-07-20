@@ -1,4 +1,4 @@
-"""Harness Plugin — unified chassis interface for multi-model agent operation.
+"""Archived static chassis registry; use the capability graph and genome tools.
 
 Every chassis (Claude Code, Gemini CLI, Antigravity, ZCode, OpenCode) implements
 the same abstract interface but with different capabilities. This module provides:
@@ -9,11 +9,7 @@ the same abstract interface but with different capabilities. This module provide
 4. Health probes — verify a chassis is operational
 
 Usage:
-    python scripts/harness_plugin.py list                    # list all chassis
-    python scripts/harness_plugin.py capabilities --chassis zcode
-    python scripts/harness_plugin.py health --chassis all    # health check
-    python scripts/harness_plugin.py handoff --from claude --to zcode --note "..."
-    python scripts/harness_plugin.py resolve --task "send email" --json
+    Archived: use scripts/capability_query.py and scripts/agent_genome.py.
 
 Design:
     Every chassis entry point (CLAUDE.md, GEMINI.md, ZCODE.md, etc.) is a "plugin."
@@ -33,7 +29,17 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Optional
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CAPABILITY_META = {
+    "category": "governance.runtime",
+    "lifecycle": "deprecated",
+    "risk": "read_only",
+    "triggers": ["inspect chassis registry", "resolve legacy harness", "legacy chassis health"],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {"visible": False},
+}
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # ── Chassis Registry ────────────────────────────────────────────────────
 

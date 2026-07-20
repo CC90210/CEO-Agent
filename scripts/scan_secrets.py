@@ -102,7 +102,24 @@ SECRET_RULES: list[tuple[str, re.Pattern[str]]] = [
      re.compile(r"-----BEGIN PGP PRIVATE KEY BLOCK-----")),
     ("JWT",
      re.compile(r"\beyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}")),
+    # Human-style passwords do not match provider-token shapes, but a literal
+    # fallback for a sensitive environment key is still a credential leak.
+    ("Hardcoded sensitive env fallback", re.compile(
+        r"(?:os\.environ\.get|os\.getenv)\(\s*[\"']"
+        r"(?P<env_key>[A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY)[A-Z0-9_]*)"
+        r"[\"']\s*,\s*[\"'](?P<env_fallback>[^\"'\r\n]{8,})[\"']\s*\)",
+        re.IGNORECASE,
+    )),
 ]
+
+HISTORICAL_SECRET_FILENAME_RE = re.compile(
+    r"(^|/)\.env(?:\.|$)|\.(?:pem|key|p12|pfx)$|credentials\.json$|"
+    r"service_account.*\.json$|(?:^|/)(?:id_rsa|id_ed25519)$",
+    re.IGNORECASE,
+)
+HISTORICAL_FILENAME_ALLOW_RE = re.compile(
+    r"\.(?:template|example|sample|dist)$", re.IGNORECASE
+)
 
 # Filename substrings that ALWAYS warrant a flag (like `.long_lived_token.txt`
 # — even if the contents happen to look innocent, a file named like this
@@ -117,19 +134,10 @@ SUSPICIOUS_FILENAMES = [
     "id_ed25519",
 ]
 
-# Known-safe filenames (avoid false positives from security tooling itself).
-ALLOWLIST_FILES = {
-    ".secrets.baseline",       # detect-secrets baseline — by design
-    "scripts/scan_secrets.py", # this very scanner carries the regexes
-}
-
-# Placeholder strings that look secret-like but aren't.
-PLACEHOLDERS = {
-    "INSERT_YOUR_APP_SECRET",
-    "INSERT_YOUR_APP_ID",
-    "YOUR_API_KEY_HERE",
-    "xxxxxxxxxxxx",
-}
+SELF_SCANNER_PATH = "scripts/scan_secrets.py"
+SELF_SCANNER_SAFE_LITERALS = (
+    're.compile(r"-----BEGIN PGP PRIVATE KEY BLOCK-----")',
+)
 
 # Don't scan binary / large / irrelevant extensions.
 SKIP_EXTENSIONS = {
@@ -143,6 +151,10 @@ SKIP_DIRS = {
     ".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build",
     ".next", ".nuxt", ".cache", ".claude/worktrees",
 }
+
+GIT_BLOB_BATCH_BYTES = 16 * 1024 * 1024
+MAX_SCAN_BLOB_BYTES = 64 * 1024 * 1024
+MAX_INDEX_SNAPSHOT_BYTES = 256 * 1024 * 1024
 
 
 def _git_cmd(args: list[str], cwd: Path) -> tuple[int, str]:
@@ -161,6 +173,44 @@ def _git_cmd(args: list[str], cwd: Path) -> tuple[int, str]:
         return 1, str(exc)
 
 
+def _git_bytes(
+    args: list[str], cwd: Path, *, input_bytes: bytes | None = None
+) -> bytes:
+    """Run Git without text decoding so NUL-delimited paths remain exact."""
+    env = dict(os.environ)
+    env["GIT_NO_REPLACE_OBJECTS"] = "1"
+    try:
+        completed = subprocess.run(
+            ["git", *args],
+            cwd=str(cwd),
+            input=input_bytes,
+            capture_output=True,
+            timeout=120,
+            creationflags=WINDOWLESS_FLAGS,
+            env=env,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"git {' '.join(args)} failed") from exc
+    if completed.returncode != 0:
+        raise RuntimeError(f"git {' '.join(args)} failed")
+    return completed.stdout
+
+
+def _decode_git_path(raw: bytes) -> str:
+    # Git's raw ``-z`` output already uses repository-style separators.
+    # Rewriting backslashes would corrupt a legal literal backslash in a Unix
+    # filename and disconnect the index representation from its worktree path.
+    return raw.decode("utf-8", errors="surrogateescape")
+
+
+def _git_ls_files_z(repo_root: Path, *args: str) -> list[str]:
+    output = _git_bytes(
+        ["-c", "core.quotepath=false", "ls-files", *args, "-z"],
+        repo_root,
+    )
+    return [_decode_git_path(raw) for raw in output.split(b"\0") if raw]
+
+
 def _is_ignored(path: Path, repo_root: Path) -> bool:
     rc, _ = _git_cmd(["check-ignore", "-q", str(path)], cwd=repo_root)
     return rc == 0
@@ -174,28 +224,233 @@ def _iter_tree_files(repo_root: Path) -> Iterator[Path]:
     A gitignored file cannot leak via git, so there's no reason to scan it —
     and Chromium caches in tmp/ produce endless false positives otherwise.
     """
-    rc, stdout = _git_cmd(
-        ["ls-files", "--cached", "--others", "--exclude-standard"],
-        cwd=repo_root)
-    if rc != 0:
-        return
-    for rel in stdout.splitlines():
-        rel = rel.strip()
-        if not rel:
+    cached = set(_git_ls_files_z(repo_root, "--cached"))
+    for normalized in _git_ls_files_z(
+        repo_root, "--cached", "--others", "--exclude-standard"
+    ):
+        # Never exempt a tracked path: once content is in Git, directory names
+        # such as dist/ or node_modules/ are not a security boundary. Cache and
+        # vendor skips apply only to untracked content.
+        parts = normalized.split("/")
+        skipped_untracked_dir = any(
+            skip in parts if "/" not in skip else normalized.startswith(skip + "/")
+            for skip in SKIP_DIRS
+        )
+        if normalized not in cached and skipped_untracked_dir:
             continue
-        # Defense in depth: skip known cache/vendor dirs even if somehow not
-        # gitignored (e.g. a new developer clone without .gitignore).
-        if any(part in SKIP_DIRS for part in rel.replace("\\", "/").split("/")):
-            continue
-        p = (repo_root / rel).resolve()
-        if p.suffix.lower() in SKIP_EXTENSIONS:
-            continue
-        try:
-            if p.stat().st_size > 2 * 1024 * 1024:
-                continue
-        except OSError:
+        # Keep Git's lexical path. Resolving here follows symlinks, which can
+        # both escape the repository and make the raw staged path disappear
+        # from cached-path comparisons on Unix.
+        p = repo_root / Path(normalized)
+        if normalized not in cached and p.suffix.lower() in SKIP_EXTENSIONS:
             continue
         yield p
+
+
+def _cached_tree_paths(repo_root: Path) -> set[str]:
+    """Return normalized paths present in Git's index.
+
+    The index and worktree are separate security boundaries: a staged secret
+    can be hidden by a later clean worktree edit, while an unstaged secret can
+    be absent from the index. Callers must inspect both representations.
+    """
+    return set(_git_ls_files_z(repo_root, "--cached"))
+
+
+def _git_object_info(repo_root: Path, oids: list[bytes]) -> dict[bytes, tuple[bytes, int]]:
+    """Return raw object type and size for each requested object id."""
+    if not oids:
+        return {}
+    output = _git_bytes(
+        ["cat-file", "--batch-check"],
+        repo_root,
+        input_bytes=b"".join(oid + b"\n" for oid in oids),
+    )
+    lines = output.splitlines()
+    if len(lines) != len(oids):
+        raise RuntimeError("git cat-file metadata count mismatch")
+    info: dict[bytes, tuple[bytes, int]] = {}
+    for requested_oid, line in zip(oids, lines):
+        fields = line.split()
+        if len(fields) != 3 or fields[0] != requested_oid:
+            raise RuntimeError("invalid git cat-file metadata")
+        try:
+            size = int(fields[2])
+        except ValueError as exc:
+            raise RuntimeError("invalid git object size") from exc
+        info[requested_oid] = (fields[1], size)
+    return info
+
+
+def _read_raw_git_blobs(repo_root: Path, oids: list[bytes]) -> dict[bytes, bytes]:
+    """Read exact blob bytes for *oids* through one cat-file batch."""
+    if not oids:
+        return {}
+    batch_output = _git_bytes(
+        ["cat-file", "--batch"],
+        repo_root,
+        input_bytes=b"".join(oid + b"\n" for oid in oids),
+    )
+    blobs: dict[bytes, bytes] = {}
+    cursor = 0
+    for requested_oid in oids:
+        header_end = batch_output.find(b"\n", cursor)
+        if header_end < 0:
+            raise RuntimeError("truncated git cat-file header; scan incomplete")
+        header = batch_output[cursor:header_end].split()
+        cursor = header_end + 1
+        if (
+            len(header) != 3
+            or header[0] != requested_oid
+            or header[1] != b"blob"
+        ):
+            raise RuntimeError("git cat-file returned an unexpected index object")
+        try:
+            size = int(header[2])
+        except ValueError as exc:
+            raise RuntimeError("invalid git cat-file size") from exc
+        end = cursor + size
+        if end > len(batch_output) or batch_output[end:end + 1] != b"\n":
+            raise RuntimeError("truncated git blob; scan incomplete")
+        blobs[requested_oid] = batch_output[cursor:end]
+        cursor = end + 1
+    return blobs
+
+
+def _oid_batches(
+    oids: list[bytes], sizes: dict[bytes, int]
+) -> Iterator[list[bytes]]:
+    """Yield bounded cat-file requests without silently skipping large blobs."""
+    batch: list[bytes] = []
+    batch_size = 0
+    for oid in oids:
+        size = sizes[oid]
+        if batch and (
+            batch_size + size > GIT_BLOB_BATCH_BYTES or len(batch) >= 128
+        ):
+            yield batch
+            batch = []
+            batch_size = 0
+        batch.append(oid)
+        batch_size += size
+    if batch:
+        yield batch
+
+
+def _read_index_snapshot(
+    repo_root: Path, paths: set[str]
+) -> tuple[dict[str, str], set[str], set[str]]:
+    """Read raw index blobs in one batch, bypassing checkout/smudge filters."""
+
+    stage_output = _git_bytes(
+        ["-c", "core.quotepath=false", "ls-files", "--stage", "-z"],
+        repo_root,
+    )
+    entries: dict[str, tuple[bytes, bytes]] = {}
+    gitlinks: set[str] = set()
+    symlinks: set[str] = set()
+    unresolved: set[str] = set()
+    for record in stage_output.split(b"\0"):
+        if not record:
+            continue
+        metadata, separator, raw_path = record.partition(b"\t")
+        fields = metadata.split()
+        if not separator or len(fields) != 3:
+            raise RuntimeError("could not parse git index; tree scan incomplete")
+        mode, oid, stage = fields
+        rel = _decode_git_path(raw_path)
+        if stage != b"0":
+            unresolved.add(rel)
+            continue
+        if mode == b"160000":
+            gitlinks.add(rel)
+            continue
+        if mode == b"120000":
+            symlinks.add(rel)
+        entries[rel] = (mode, oid)
+
+    conflicted = paths & unresolved
+    if conflicted:
+        raise RuntimeError(
+            f"unmerged staged file {sorted(conflicted)[0]}; tree scan incomplete"
+        )
+    missing = paths - set(entries) - gitlinks
+    if missing:
+        raise RuntimeError(
+            f"staged file missing from raw index: {sorted(missing)[0]}"
+        )
+
+    requested_oids = sorted({entries[rel][1] for rel in paths if rel in entries})
+    object_info = _git_object_info(repo_root, requested_oids)
+    blob_sizes: dict[bytes, int] = {}
+    for oid in requested_oids:
+        kind, size = object_info.get(oid, (b"", 0))
+        if kind != b"blob":
+            raise RuntimeError("git index referenced a non-blob object")
+        if size > MAX_SCAN_BLOB_BYTES:
+            raise RuntimeError(
+                f"staged blob {oid[:12].decode('ascii', errors='replace')} is "
+                f"{size} bytes; scan refused to load it"
+            )
+        blob_sizes[oid] = size
+    aggregate_size = sum(blob_sizes.values())
+    if aggregate_size > MAX_INDEX_SNAPSHOT_BYTES:
+        raise RuntimeError(
+            f"staged snapshot is {aggregate_size} bytes; scan limit is "
+            f"{MAX_INDEX_SNAPSHOT_BYTES} bytes"
+        )
+    decoded_blobs: dict[bytes, str] = {}
+    for oid_batch in _oid_batches(requested_oids, blob_sizes):
+        raw_batch = _read_raw_git_blobs(repo_root, oid_batch)
+        for oid, raw in raw_batch.items():
+            decoded_blobs[oid] = _decode_scan_bytes(raw)
+
+    snapshot = {rel: "" for rel in paths & gitlinks}
+    for rel in paths & set(entries):
+        snapshot[rel] = decoded_blobs[entries[rel][1]]
+    return snapshot, gitlinks, symlinks
+
+
+def _decode_scan_bytes(data: bytes) -> str:
+    """Decode likely source/config text without making UTF-16 a blind spot.
+
+    ASCII-shaped credentials remain visible under UTF-8-compatible encodings.
+    NUL-bearing content is additionally decoded as UTF-16/32 in both byte
+    orders so a text file with a missing or unusual BOM cannot bypass regexes.
+    """
+    candidates = [data.decode("utf-8-sig", errors="ignore")]
+    has_unicode_bom = data.startswith(
+        (b"\xff\xfe", b"\xfe\xff", b"\xff\xfe\x00\x00", b"\x00\x00\xfe\xff")
+    )
+    if has_unicode_bom or b"\x00" in data:
+        for encoding in ("utf-16", "utf-16-le", "utf-16-be", "utf-32", "utf-32-le", "utf-32-be"):
+            try:
+                decoded = data.decode(encoding, errors="ignore")
+            except (UnicodeDecodeError, UnicodeError):
+                continue
+            if decoded not in candidates:
+                candidates.append(decoded)
+    return "\n".join(candidates)
+
+
+def _is_explicit_placeholder(rule_name: str, matched: str) -> bool:
+    """Allow only unmistakable documentation fixtures, never substrings."""
+    if rule_name == "Hardcoded sensitive env fallback":
+        return False
+    if (rule_name, matched) == (
+        "Telegram bot token",
+        "123456789:ABCdefGHIjklMNOPQRSTUV-EXAMPLE",
+    ):
+        return True
+    upper = matched.upper()
+    if "EXAMPLE" in upper and "PLACE-ME" in upper:
+        return True
+    if upper.endswith(("YOUR_API_KEY_HERE", "INSERT_YOUR_APP_SECRET")):
+        return True
+    # Conventional all-X provider examples remain safe without allowing a
+    # production token that merely contains one placeholder-looking word.
+    payload = re.sub(r"^(?:SK-(?:PROJ-)?|XOX[BAPRS]-)", "", upper)
+    return len(payload) >= 12 and set(payload) <= {"X", "-", "_"}
 
 
 def _scan_text(text: str) -> list[tuple[str, str]]:
@@ -204,11 +459,12 @@ def _scan_text(text: str) -> list[tuple[str, str]]:
     for name, rgx in SECRET_RULES:
         for m in rgx.finditer(text):
             matched = m.group(0)
-            # Skip obvious placeholders.
-            if any(ph in matched for ph in PLACEHOLDERS):
+            if _is_explicit_placeholder(name, matched):
                 continue
-            # Common Telegram documentation placeholder, not a live bot token.
-            if name == "Telegram bot token" and matched.startswith("123456:"):
+            if name == "Hardcoded sensitive env fallback":
+                # Never expose any portion of a human-style password. The key
+                # name is enough to locate and remediate the unsafe fallback.
+                hits.append((name, f"{m.group('env_key')}=<literal fallback>"))
                 continue
             # Redact the middle of the match — keep 8 chars at each end.
             redacted = (matched[:8] + "..." + matched[-8:]
@@ -217,71 +473,331 @@ def _scan_text(text: str) -> list[tuple[str, str]]:
     return hits
 
 
+def _sanitize_scanner_source(path: str, text: str) -> str:
+    """Remove exact self-referential regex literals, not their whole lines."""
+    if path != SELF_SCANNER_PATH:
+        return text
+    sanitized = text
+    for literal in SELF_SCANNER_SAFE_LITERALS:
+        sanitized = sanitized.replace(literal, "<scanner-rule-literal>")
+    return sanitized
+
+
 def scan_tree(repo_root: Path) -> dict:
     findings: list[dict] = []
     files_scanned = 0
-    for p in _iter_tree_files(repo_root):
+    try:
+        paths = list(_iter_tree_files(repo_root))
+        cached_paths = _cached_tree_paths(repo_root)
+        eligible_cached_paths = {
+            str(p.relative_to(repo_root)).replace("\\", "/")
+            for p in paths
+            if str(p.relative_to(repo_root)).replace("\\", "/") in cached_paths
+        }
+        index_snapshot, gitlink_paths, symlink_paths = _read_index_snapshot(
+            repo_root, eligible_cached_paths
+        )
+    except RuntimeError as exc:
+        return {
+            "mode": "tree",
+            "repo": str(repo_root),
+            "files_scanned": 0,
+            "findings": [],
+            "error": str(exc),
+        }
+    for p in paths:
         rel = p.relative_to(repo_root)
         rel_str = str(rel).replace("\\", "/")
-        # Allowlist — security tooling itself can carry the regexes.
-        if rel_str in ALLOWLIST_FILES:
-            continue
+        if (
+            HISTORICAL_SECRET_FILENAME_RE.search(rel_str)
+            and not HISTORICAL_FILENAME_ALLOW_RE.search(rel_str)
+        ):
+            findings.append({
+                "path": rel_str,
+                "rule": "Secret-shaped filename",
+                "match": "<filename only>",
+            })
         # Suspicious filename — flag even before reading
         for needle in SUSPICIOUS_FILENAMES:
             if needle in rel_str.lower():
                 findings.append({"path": rel_str, "rule": "Suspicious filename",
                                  "match": needle})
                 break
-        try:
-            text = p.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
+        # A gitlink stores only a pinned commit id in this repository. Its
+        # nested worktree is a separate repository and reading the directory
+        # as a file would turn a normal checkout into a scanner failure.
+        if rel_str in gitlink_paths:
             continue
-        files_scanned += 1
-        for rule_name, redacted in _scan_text(text):
+        contents: list[str] = []
+        if rel_str in cached_paths:
+            staged_text = index_snapshot.get(rel_str)
+            if staged_text is None:
+                return {
+                    "mode": "tree",
+                    "repo": str(repo_root),
+                    "files_scanned": files_scanned,
+                    "findings": findings,
+                    "error": f"staged file missing from snapshot: {rel_str}",
+                }
+            contents.append(staged_text)
+        if p.is_symlink():
+            try:
+                worktree_text = str(os.readlink(p))
+            except OSError:
+                return {
+                    "mode": "tree",
+                    "repo": str(repo_root),
+                    "files_scanned": files_scanned,
+                    "findings": findings,
+                    "error": f"could not read worktree symlink {rel_str}; tree scan incomplete",
+                }
+            if not contents or worktree_text != contents[0]:
+                contents.append(worktree_text)
+        elif p.exists():
+            try:
+                worktree_size = p.stat().st_size
+                if worktree_size > MAX_SCAN_BLOB_BYTES:
+                    raise RuntimeError(
+                        f"worktree file {rel_str} is {worktree_size} bytes; "
+                        "scan refused to load it"
+                    )
+                worktree_text = _decode_scan_bytes(p.read_bytes())
+            except RuntimeError as exc:
+                return {
+                    "mode": "tree",
+                    "repo": str(repo_root),
+                    "files_scanned": files_scanned,
+                    "findings": findings,
+                    "error": str(exc),
+                }
+            except Exception:
+                return {
+                    "mode": "tree",
+                    "repo": str(repo_root),
+                    "files_scanned": files_scanned,
+                    "findings": findings,
+                    "error": f"could not read worktree file {rel_str}; tree scan incomplete",
+                }
+            # Avoid doing the same regex work twice for unchanged tracked files.
+            if not contents or worktree_text != contents[0]:
+                contents.append(worktree_text)
+        elif rel_str not in cached_paths:
+            return {
+                "mode": "tree",
+                "repo": str(repo_root),
+                "files_scanned": files_scanned,
+                "findings": findings,
+                "error": f"untracked file disappeared during scan: {rel_str}",
+            }
+
+        path_hits: set[tuple[str, str]] = set()
+        for text in contents:
+            files_scanned += 1
+            for rule_name, redacted in _scan_text(
+                _sanitize_scanner_source(rel_str, text)
+            ):
+                path_hits.add((rule_name, redacted))
+        for rule_name, redacted in sorted(path_hits):
             findings.append({"path": rel_str, "rule": rule_name,
                              "match": redacted})
     return {"mode": "tree", "repo": str(repo_root),
             "files_scanned": files_scanned, "findings": findings}
 
 
+def _first_commit_for_object(repo_root: Path, oid: bytes) -> str:
+    """Best-effort attribution for a raw historical blob finding."""
+    oid_text = oid.decode("ascii", errors="replace")
+    rc, output = _git_cmd(
+        ["log", "--all", "--reverse", "--format=%H", f"--find-object={oid_text}"],
+        cwd=repo_root,
+    )
+    if rc == 0:
+        commits = [line.strip() for line in output.splitlines() if line.strip()]
+        if commits:
+            return commits[0][:8]
+    return oid_text[:8]
+
+
+def _first_commit_for_path(repo_root: Path, path: str) -> str:
+    """Best-effort attribution for a historical path-policy finding."""
+    rc, output = _git_cmd(
+        ["log", "--all", "--reverse", "--format=%H", "--", path],
+        cwd=repo_root,
+    )
+    if rc == 0:
+        commits = [line.strip() for line in output.splitlines() if line.strip()]
+        if commits:
+            return commits[0][:8]
+    return "<history>"
+
+
+def _historical_paths(repo_root: Path) -> set[str]:
+    """Return every path named by reachable history, independent of blob aliases."""
+    output = _git_bytes(
+        [
+            "-c",
+            "core.quotepath=false",
+            "log",
+            "--all",
+            "--full-history",
+            "--format=",
+            "--name-only",
+            "-z",
+            "--",
+            ".",
+        ],
+        repo_root,
+    )
+    return {_decode_git_path(raw) for raw in output.split(b"\0") if raw}
+
+
 def scan_history(repo_root: Path) -> dict:
-    """Grep every commit for secret-shaped content. Slower but catches
-    leaked-once-then-deleted secrets — the exact case this tool was built for."""
-    rc, commits_out = _git_cmd(
-        ["log", "--all", "--full-history", "--pretty=format:%H"], cwd=repo_root)
+    """Scan every reachable historical blob as raw bytes.
+
+    Diff text is not a safe boundary because Git labels UTF-16/NUL-bearing
+    content as binary. Reachable-object enumeration plus ``cat-file`` sees the
+    exact committed bytes and deduplicates identical blobs across commits.
+    """
+    rc, count_out = _git_cmd(["rev-list", "--count", "--all"], cwd=repo_root)
     if rc != 0:
-        return {"mode": "history", "error": "git log failed",
+        return {"mode": "history", "error": "git rev-list failed",
                 "repo": str(repo_root)}
-    commits = [c for c in commits_out.splitlines() if c.strip()]
+    try:
+        commits_scanned = int(count_out.strip() or "0")
+    except ValueError:
+        return {"mode": "history", "error": "invalid git rev-list count",
+                "repo": str(repo_root)}
+
     findings: list[dict] = []
-    for commit in commits:
-        rc, diff_out = _git_cmd(
-            ["show", "--no-color", "--unified=0", commit], cwd=repo_root)
-        if rc != 0:
-            continue
-        current_path = ""
-        for line in diff_out.splitlines():
-            if line.startswith("+++ b/"):
-                current_path = line[6:].strip()
+    blobs_scanned = 0
+    try:
+        object_output = _git_bytes(
+            ["rev-list", "--objects", "--all", "-z"], repo_root
+        )
+        paths_by_oid: dict[bytes, set[str]] = {}
+        listed_oids: set[bytes] = set()
+        pending_oid: bytes | None = None
+        for record in object_output.split(b"\0"):
+            if not record:
                 continue
-            if line.startswith("+++ /dev/null"):
-                current_path = ""
+            # With -z, modern Git emits ``<oid>\0path=<raw path>\0`` so
+            # filenames containing whitespace/newlines remain unambiguous.
+            if record.startswith(b"path="):
+                if pending_oid is None:
+                    raise RuntimeError("git rev-list emitted a path without an object")
+                paths_by_oid.setdefault(pending_oid, set()).add(
+                    _decode_git_path(record[len(b"path="):])
+                )
+                pending_oid = None
                 continue
-            if current_path in ALLOWLIST_FILES:
+            oid, separator, raw_path = record.partition(b" ")
+            listed_oids.add(oid)
+            if separator and raw_path:
+                paths_by_oid.setdefault(oid, set()).add(_decode_git_path(raw_path))
+                pending_oid = None
+            else:
+                pending_oid = oid
+
+        object_info = _git_object_info(repo_root, sorted(listed_oids))
+        blob_paths: dict[bytes, list[str]] = {}
+        blob_sizes: dict[bytes, int] = {}
+        attribution_cache: dict[bytes, str] = {}
+
+        def attribution(oid: bytes) -> str:
+            if oid not in attribution_cache:
+                attribution_cache[oid] = _first_commit_for_object(repo_root, oid)
+            return attribution_cache[oid]
+
+        filename_seen: set[tuple[str, str]] = set()
+        historical_paths = _historical_paths(repo_root)
+        for advisory_paths in paths_by_oid.values():
+            historical_paths.update(advisory_paths)
+        for path in sorted(historical_paths):
+            if (
+                HISTORICAL_SECRET_FILENAME_RE.search(path)
+                and not HISTORICAL_FILENAME_ALLOW_RE.search(path)
+            ):
+                filename_seen.add((path, "Secret-shaped filename"))
+                findings.append({
+                    "commit": _first_commit_for_path(repo_root, path),
+                    "object": "<path-only>",
+                    "rule": "Secret-shaped filename",
+                    "path": path,
+                    "match": "<filename only>",
+                })
+            for needle in SUSPICIOUS_FILENAMES:
+                if needle in path.lower():
+                    key = (path, "Suspicious filename")
+                    if key not in filename_seen:
+                        filename_seen.add(key)
+                        findings.append({
+                            "commit": _first_commit_for_path(repo_root, path),
+                            "object": "<path-only>",
+                            "rule": "Suspicious filename",
+                            "path": path,
+                            "match": needle,
+                        })
+                    break
+
+        for oid in sorted(listed_oids):
+            kind, size = object_info.get(oid, (b"", 0))
+            if kind != b"blob":
                 continue
-            # Only scan added lines to reduce noise.
-            if not line.startswith("+") or line.startswith("+++"):
-                continue
-            added = line[1:]
-            for name, redacted in _scan_text(added):
-                findings.append({"commit": commit[:8], "rule": name,
-                                 "path": current_path or "?",
-                                 "match": redacted})
-    return {"mode": "history", "repo": str(repo_root),
-            "commits_scanned": len(commits), "findings": findings}
+            paths = paths_by_oid.get(oid, set())
+            if size > MAX_SCAN_BLOB_BYTES:
+                raise RuntimeError(
+                    f"historical blob {oid[:12].decode('ascii', errors='replace')} "
+                    f"is {size} bytes; scan refused to skip it"
+                )
+            # Object names are advisory: rev-list emits only one traversal name
+            # for a deduplicated blob. Never let that one name (or extension)
+            # exempt the raw bytes, because the same object may also have lived
+            # at a sensitive historical path.
+            blob_paths[oid] = sorted(paths) or [f"<blob:{oid[:12].decode('ascii')}>" ]
+            blob_sizes[oid] = size
+
+        finding_seen: set[tuple[bytes, str, str, str]] = set()
+        for oid_batch in _oid_batches(sorted(blob_paths), blob_sizes):
+            for oid, raw in _read_raw_git_blobs(repo_root, oid_batch).items():
+                text = _decode_scan_bytes(raw)
+                blobs_scanned += 1
+                for path in blob_paths[oid]:
+                    scan_text = _sanitize_scanner_source(path, text)
+                    for rule_name, redacted in _scan_text(scan_text):
+                        key = (oid, path, rule_name, redacted)
+                        if key in finding_seen:
+                            continue
+                        finding_seen.add(key)
+                        findings.append({
+                            "commit": attribution(oid),
+                            "object": oid.decode("ascii", errors="replace")[:12],
+                            "rule": rule_name,
+                            "path": path,
+                            "match": redacted,
+                        })
+    except RuntimeError as exc:
+        return {
+            "mode": "history",
+            "repo": str(repo_root),
+            "commits_scanned": commits_scanned,
+            "blobs_scanned": blobs_scanned,
+            "findings": findings,
+            "error": str(exc),
+        }
+
+    return {
+        "mode": "history",
+        "repo": str(repo_root),
+        "commits_scanned": commits_scanned,
+        "blobs_scanned": blobs_scanned,
+        "findings": findings,
+    }
 
 
 def _format_findings(result: dict) -> int:
+    if result.get("error"):
+        print(f"ERROR  secret scan incomplete: {result['error']}", file=sys.stderr)
+        return 2
     findings = result.get("findings", [])
     mode = result.get("mode", "?")
     if not findings:
@@ -301,8 +817,9 @@ def _format_findings(result: dict) -> int:
     print()
     print("Remediation:")
     print("  1. Revoke / rotate each exposed credential at its provider.")
-    print("  2. Scrub git history with:  git filter-repo --path <file> --invert-paths")
-    print("  3. Force-push:              git push origin --force --all")
+    print("  2. Remove the live-tree value and add a regression guard.")
+    print("  3. If repository policy requires history rewriting, obtain explicit operator")
+    print("     approval and coordinate every clone before filter-repo/force-push.")
     print("  4. Add the file pattern to .gitignore so it can't re-land.")
     return 1
 
@@ -325,6 +842,8 @@ def main() -> int:
     result = scan_history(repo_root) if args.history else scan_tree(repo_root)
     if args.json:
         print(json.dumps(result, indent=2))
+        if result.get("error"):
+            return 2
         return 0 if not result.get("findings") else 1
     return _format_findings(result)
 

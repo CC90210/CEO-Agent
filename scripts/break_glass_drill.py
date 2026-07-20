@@ -16,6 +16,16 @@ import subprocess
 import sys
 from pathlib import Path
 
+CAPABILITY_META = {
+    "category": "governance.resilience",
+    "lifecycle": "active",
+    "risk": "read_only",
+    "triggers": ["break glass drill", "emergency recovery audit", "verify disaster recovery"],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {"visible": True, "confirm": False},
+}
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:

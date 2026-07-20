@@ -129,4 +129,4 @@ bravo agent list   # see the 20 registered sub-agents
 ## Related
 - [[runtime/profile_home]] — ensure_home implementation
 - [[bravo_cli/main]] — the CLI the installer wires up
-- [[brain/BRAVO_PRODUCT_ROADMAP]] — where this install path fits
+- [[brain/PRODUCT_ARCHITECTURE]] — where this install path fits

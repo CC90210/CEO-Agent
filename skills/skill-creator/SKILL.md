@@ -495,6 +495,7 @@ Please add steps to your TodoList, if you have such a thing, to make sure you do
 Good luck!
 
 ## Agents
+- [[skills/skill-creator/agents/INDEX]] — specialized evaluator-agent registry
 - [[skills/skill-creator/agents/analyzer]] — Benchmark analysis and pattern detection
 - [[skills/skill-creator/agents/comparator]] — Blind A/B comparison between skill versions
 - [[skills/skill-creator/agents/grader]] — Assertion grading against test outputs

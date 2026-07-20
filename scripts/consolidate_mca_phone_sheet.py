@@ -7,6 +7,9 @@ existing Sheet1 one-number export as a supporting hint, and writes:
 - Sheet1 A:H  => clean dialer view with one/two phones plus context
 
 The original raw phone columns are never overwritten.
+
+Runs read-only by default. Pass ``--apply`` to write after reviewing the
+computed totals/sample; sheet and tab targets are CLI-configurable.
 """
 from __future__ import annotations
 
@@ -19,6 +22,16 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+CAPABILITY_META = {
+    "category": "client.data_operations",
+    "lifecycle": "one_off",
+    "risk": "external_write",
+    "triggers": ["consolidate mca phone sheet", "clean sunbiz phone leads", "build mca dialer sheet"],
+    "owner": "bravo",
+    "project": "sunbiz",
+    "bridge": {"visible": False},
+}
 
 try:
     import phonenumbers  # type: ignore
@@ -94,14 +107,14 @@ class Candidate:
     sheet1_hint: bool = False
 
 
-def gread(range_name: str) -> list[list[Any]]:
+def gread(range_name: str, sheet_id: str = SHEET_ID) -> list[list[Any]]:
     proc = subprocess.run(
         [
             sys.executable,
             str(GTOOL),
             "sheets",
             "read",
-            SHEET_ID,
+            sheet_id,
             "--range",
             range_name,
             "--json",
@@ -120,14 +133,16 @@ def gread(range_name: str) -> list[list[Any]]:
     return data.get("values") or (data.get("data") or {}).get("values") or []
 
 
-def gwrite(range_name: str, values: list[list[Any]]) -> None:
+def gwrite(
+    range_name: str, values: list[list[Any]], sheet_id: str = SHEET_ID
+) -> None:
     proc = subprocess.run(
         [
             sys.executable,
             str(GTOOL),
             "sheets",
             "write",
-            SHEET_ID,
+            sheet_id,
             "--range",
             range_name,
             "--json-values",
@@ -152,6 +167,7 @@ def write_chunks(
     values: list[list[Any]],
     chunk_size: int = 75,
     start_row: int = 1,
+    sheet_id: str = SHEET_ID,
 ) -> None:
     quoted = f"'{tab}'" if any(ch in tab for ch in " @()-") else tab
     for offset in range(0, len(values), chunk_size):
@@ -159,13 +175,17 @@ def write_chunks(
         start = start_row + offset
         end = start + len(chunk) - 1
         try:
-            gwrite(f"{quoted}!{start_col}{start}:{end_col}{end}", chunk)
+            gwrite(f"{quoted}!{start_col}{start}:{end_col}{end}", chunk, sheet_id)
         except RuntimeError:
             if chunk_size == 1 or len(chunk) == 1:
                 raise
             for row_offset, row in enumerate(chunk):
                 row_num = start + row_offset
-                gwrite(f"{quoted}!{start_col}{row_num}:{end_col}{row_num}", [row])
+                gwrite(
+                    f"{quoted}!{start_col}{row_num}:{end_col}{row_num}",
+                    [row],
+                    sheet_id,
+                )
 
 
 def normalize_phone(value: Any) -> str:
@@ -369,14 +389,29 @@ def build_outputs(raw_rows: list[list[Any]], sheet1_rows: list[list[Any]]) -> tu
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dry-run", action="store_true", help="compute only; do not write")
-    parser.add_argument("--sample", type=int, default=8, help="rows to print from the clean output")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--apply", action="store_true", help="write the computed output")
+    mode.add_argument(
+        "--dry-run", action="store_true", help="compute only; do not write (default)"
+    )
+    parser.add_argument("--sample", type=int, default=0, help="rows to print (requires --show-pii)")
+    parser.add_argument(
+        "--show-pii", action="store_true",
+        help="allow sampled names, emails, and phone numbers in terminal output",
+    )
     parser.add_argument("--skip-raw", action="store_true", help="do not rewrite raw tab K:L")
     parser.add_argument("--output-start-row", type=int, default=1, help="resume Sheet1 write from this 1-based row")
+    parser.add_argument("--sheet-id", default=SHEET_ID, help="source/output Google Sheet id")
+    parser.add_argument("--raw-tab", default=RAW_TAB, help="raw lead-data tab")
+    parser.add_argument("--output-tab", default=OUTPUT_TAB, help="clean dialer output tab")
     args = parser.parse_args()
+    if args.sample and not args.show_pii:
+        parser.error("--sample requires --show-pii")
 
-    raw_rows = gread(RAW_RANGE)
-    sheet1_rows = gread(OUTPUT_HINT_RANGE)
+    raw_range = f"'{args.raw_tab}'!A1:J1753"
+    output_hint_range = f"{args.output_tab}!A1:D1753"
+    raw_rows = gread(raw_range, args.sheet_id)
+    sheet1_rows = gread(output_hint_range, args.sheet_id)
     raw_out, clean_out, totals = build_outputs(raw_rows, sheet1_rows)
 
     print(json.dumps(totals, indent=2))
@@ -384,18 +419,26 @@ def main() -> int:
     for row in clean_out[1 : 1 + args.sample]:
         print(" | ".join(row[:6]))
 
-    if args.dry_run:
+    if not args.apply:
         print("dry_run=true writes_skipped=true")
         return 0
 
     if not args.skip_raw:
-        write_chunks(RAW_TAB, "K", "L", raw_out, chunk_size=75)
+        write_chunks(args.raw_tab, "K", "L", raw_out, chunk_size=75, sheet_id=args.sheet_id)
     output_start = max(1, args.output_start_row)
-    write_chunks(OUTPUT_TAB, "A", "H", clean_out[output_start - 1 :], chunk_size=10, start_row=output_start)
+    write_chunks(
+        args.output_tab,
+        "A",
+        "H",
+        clean_out[output_start - 1 :],
+        chunk_size=10,
+        start_row=output_start,
+        sheet_id=args.sheet_id,
+    )
     print("writes_complete=true")
-    print(f"raw_range={RAW_WRITE_RANGE}")
-    print(f"output_range={OUTPUT_WRITE_RANGE}")
-    print(f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit?gid=1760032424#gid=1760032424")
+    print(f"raw_range='{args.raw_tab}'!K1:L1753")
+    print(f"output_range={args.output_tab}!A1:H1753")
+    print(f"https://docs.google.com/spreadsheets/d/{args.sheet_id}/edit")
     return 0
 
 

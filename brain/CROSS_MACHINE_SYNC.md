@@ -60,10 +60,9 @@ verified: 2026-06-09
 | `.env.agents` | **LOCAL to each machine** | NEVER committed. Each box has its own copy with machine-specific overrides (GWS_PATH, paths, etc). Both machines use the SAME `TELEGRAM_BOT_TOKEN` and SAME `BRAVO_SUPABASE_*` — that's intentional (single source of truth for state), but it also means both machines must NEVER run the telegram bridge or scheduler simultaneously. |
 | `tmp/` | **LOCAL to each machine** | Gitignored. Daemon state, browser profiles, heartbeats. Never shared. |
 | `brain/` | **shared, read-mostly** | Both machines read. Edits go through normal commit flow. |
-| `memory/SESSION_LOG.md` | **append-only shared** | Both machines append to the top. Git merges cleanly because every entry is a new section. |
-| `memory/ACTIVE_TASKS.md` | **shared, mutation-prone** | Both machines may update P0 items. Use the handoff protocol to avoid conflicts. |
+| `memory/SESSION_LOG.md` | **append-only shared** | Canonical cross-session handoff trail. Append through `scripts/state/state_sync.py`; incoming sessions read the latest entries. |
+| `memory/ACTIVE_TASKS.md` | **shared, mutation-prone** | Both machines may update P0 items. Use the state/session-log protocol to avoid conflicts. |
 | `memory/ACTIVE_SESSION.json` | **shared, machine-claimed** | Declares which machine holds the "live" slot right now. |
-| `memory/HANDOFF.md` | **shared** | Outgoing session writes here; incoming session reads first. |
 | `scripts/` | **shared** | Both machines can edit. Surgical changes only — no full-file rewrites on Mac if Windows is also editing. |
 | `skills/` | **shared** | Safe to edit on either. |
 | Daemons (scheduler, telegram-bot) | **Windows only** | Mac never starts these. |
@@ -80,12 +79,12 @@ What it does:
 1. `git fetch origin main && git pull --ff-only origin main`
 2. Reads `memory/ACTIVE_SESSION.json` — if another machine is live (<30 min since last heartbeat), prints a warning with the other machine's current task
 3. Writes a fresh ACTIVE_SESSION claim: `{machine, hostname, started_at, last_heartbeat, claude_session_id}`
-4. Reads `memory/HANDOFF.md` and prints the last handoff note
-5. Reports status: commit hash, P0 task count, current MRR from live DB
+4. Prints the legacy scratch handoff if one exists; the durable successor is the latest entry in [[memory/SESSION_LOG]]
+5. Reports the current commit hash and open-task count
 
 ### During a session (each significant action)
 
-The session script runs in the background and bumps the heartbeat every 5 minutes so the claim doesn't expire. If you're about to touch a file that the other machine also touched in the last 10 minutes (detected via `git log`), the protocol says: pull again, re-check, and either proceed or write to HANDOFF.md first.
+The active-session claim is advisory and can become stale. Before touching a file recently changed on the other machine, pull again and re-check. Record durable cross-session context with `python scripts/state/state_sync.py --note "<status, blocker, and next step>"`; that appends to the canonical session log.
 
 ### On session END
 
@@ -95,7 +94,7 @@ bash scripts/hooks/bravo-session-end.sh "one-line summary of what I did"
 
 What it does:
 1. Appends to `memory/SESSION_LOG.md` with the summary + machine tag
-2. Writes `memory/HANDOFF.md` with: status, files touched, blocker if any, recommended next steps
+2. Records status, files touched, blockers, and recommended next steps in `memory/SESSION_LOG.md` (the helper's optional scratch-handoff output is legacy, not canonical state)
 3. Releases the ACTIVE_SESSION claim
 4. `git add <tracked files> && git commit -m "bravo(<machine>): <summary>"`
 5. `git push origin main`
@@ -193,5 +192,3 @@ This is future work — the protocol supports it, the implementation is ~60 line
 - [[brain/CREDENTIALS_SCAFFOLD]]
 - [[memory/SESSION_LOG]]
 - [[memory/ACTIVE_TASKS]]
-- [[memory/HANDOFF]]
-- [[memory/SESSION_LOG]]

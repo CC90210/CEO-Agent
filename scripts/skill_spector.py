@@ -28,6 +28,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+CAPABILITY_META = {
+    "category": "security.agent_governance",
+    "lifecycle": "active",
+    "risk": "read_only",
+    "triggers": ["scan skill security", "audit a skill", "inspect skill vulnerabilities"],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {
+        "visible": True,
+        "confirm": False,
+        "subcommands": {
+            "scan": {"visible": True, "confirm": False},
+            "audit": {"visible": True, "confirm": False},
+            "summary": {"visible": True, "confirm": False},
+        },
+    },
+}
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = PROJECT_ROOT / "skills"
 

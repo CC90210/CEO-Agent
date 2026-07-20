@@ -460,6 +460,45 @@ def _load_script_manifest() -> dict[str, dict]:
 
 SCRIPT_ALLOWLIST: dict[str, dict] = _load_script_manifest()
 
+
+def _matching_script_option(spec: dict, extra_args: list, policy_field: str) -> str | None:
+    """Return the canonical governed option matched by supplied arguments.
+
+    Prefixes are denied too because argparse accepts unambiguous long-option
+    abbreviations by default (for example ``--rew`` for ``--rewrite``).
+    """
+    for raw in extra_args:
+        arg = str(raw)
+        option = arg.split("=", 1)[0]
+        for governed in spec.get(policy_field, []):
+            if option == governed or (
+                option.startswith("--")
+                and len(option) > 2
+                and str(governed).startswith(option)
+            ):
+                return str(governed)
+    return None
+
+
+def _script_argument_violation(spec: dict, extra_args: list) -> str | None:
+    """Return a bridge-disabled CLI option, including argparse abbreviations."""
+    return _matching_script_option(spec, extra_args, "deny_args")
+
+
+def _script_confirmation_argument(spec: dict, extra_args: list) -> str | None:
+    """Return an option that escalates an otherwise read-only entry to confirm."""
+    return _matching_script_option(spec, extra_args, "confirm_args")
+
+
+def _script_runtime_args(spec: dict, extra_args: list) -> list[str]:
+    """Assemble governed CLI arguments in non-overridable order."""
+    args: list[str] = []
+    if spec.get("subcmd"):
+        args.append(str(spec["subcmd"]))
+    args.extend(str(arg) for arg in spec.get("fixed_args", []))
+    args.extend(str(arg) for arg in extra_args)
+    return args
+
 # SunBiz-Agent (and future sibling tenant runtimes) — discovered via the
 # shared lib/agent_roots probe so bridge_chat_server, bridge_tools, and
 # build_bridge_manifest all agree on where to look.
@@ -3720,9 +3759,19 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 f"Allowed: {allowed}\n"
                 f"To add a new script: edit SCRIPT_ALLOWLIST in bridge_chat_server.py."
             ), True
-        if spec.get("mutating") and not confirm:
+        denied_arg = _script_argument_violation(spec, extra_args)
+        if denied_arg is not None:
             return (
-                f"confirm_required: '{script_key}' is a mutating script. "
+                f"argument_not_allowed: '{denied_arg}' is disabled for bridge tool "
+                f"'{script_key}'. Run the reviewed read-only path instead."
+            ), True
+        confirmation_arg = _script_confirmation_argument(spec, extra_args)
+        if (spec.get("mutating") or confirmation_arg is not None) and not confirm:
+            reason = "is a mutating entry" if spec.get("mutating") else (
+                f"argument '{confirmation_arg}' enables a write"
+            )
+            return (
+                f"confirm_required: '{script_key}' {reason}. "
                 f"Re-call with confirm:true ONLY if the operator asked for the "
                 f"action in this chat turn. Help: {spec.get('help', '')}"
             ), True
@@ -3742,12 +3791,9 @@ class _ChatHandler(BaseHTTPRequestHandler):
             ), True
 
         cmd: list = [sys.executable, str(full_path)]
-        subcmd = spec.get("subcmd")
-        if subcmd:
-            cmd.append(subcmd)
-        cmd.extend(extra_args)
+        cmd.extend(_script_runtime_args(spec, extra_args))
 
-        timeout_s = 60 if spec.get("mutating") else 180
+        timeout_s = 60 if spec.get("mutating") or confirmation_arg is not None else 180
 
         try:
             proc = _safe_popen(

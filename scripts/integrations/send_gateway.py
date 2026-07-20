@@ -101,6 +101,35 @@ from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any, Optional
 
+CAPABILITY_META = {
+    "category": "outbound.gateway",
+    "lifecycle": "active",
+    "risk": "external_write",
+    "triggers": [
+        "send outbound message",
+        "check whether outbound is allowed",
+        "review outbound history",
+        "inspect outbound stats",
+    ],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {
+        "visible": True,
+        "confirm": True,
+        "subcommands": {
+            "send": {
+                "key": "send_gateway_send",
+                "visible": True,
+                "confirm": True,
+            },
+            "can-act": {"visible": True, "confirm": False},
+            "history": {"visible": True, "confirm": False},
+            "stats": {"visible": True, "confirm": False},
+            "doctor": {"visible": True, "confirm": False},
+        },
+    },
+}
+
 # ---- Path + env wiring (same pattern used by every other engine) -----------
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent

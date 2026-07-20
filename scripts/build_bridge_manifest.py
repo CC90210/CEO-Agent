@@ -8,18 +8,21 @@ automatically by scanning every Python script in `scripts/`, parsing its
 docstring + argparse setup, and emitting a JSON manifest the bridge reads
 at boot.
 
-Opt-in / opt-out via header comments at the top of each script:
+Preferred contract: a literal ``CAPABILITY_META`` dictionary in each reviewed
+operator-facing script. Its ``bridge`` policy controls visibility, confirmation,
+per-subcommand overrides, fixed safe arguments, and denied legacy arguments
+without importing the script.
+
+Legacy opt-in / opt-out header comments remain supported during migration:
   # bridge_visible: true   — explicitly include (default for scripts with
                               an argparse parser + a docstring)
   # bridge_visible: false  — exclude even if otherwise eligible
   # bridge_mutating: true  — force the mutating flag (requires confirm:true)
   # bridge_mutating: false — force read-only (no confirm needed)
 
-Auto-detection rules when no header is present:
+Fail-closed rules when neither metadata nor a header is present:
   - bridge_visible:  true if file has argparse AND a triple-quoted docstring
-  - bridge_mutating: true if any subcommand name matches the mutating regex
-                     (send|insert|update|delete|post|create|run|execute|
-                      apply|migrate|publish|approve|revoke|reset)
+  - bridge_mutating: true for every entry until its behavior is explicitly reviewed
 
 Run via:
   python scripts/build_bridge_manifest.py            # write the JSON
@@ -48,6 +51,11 @@ MANIFEST_PATH = SCRIPTS_DIR / "_bridge_manifest.json"
 # centralised in lib/agent_roots.py.
 sys.path.insert(0, str(SCRIPTS_DIR))
 from lib.agent_roots import resolve_sunbiz_root  # noqa: E402
+from lib.capability_metadata import (  # noqa: E402
+    capability_meta_declared,
+    capability_meta_from_tree,
+    validate_capability_meta,
+)
 
 EXTRA_ROOTS: list[tuple[str, Path]] = []
 _sunbiz_root = resolve_sunbiz_root()
@@ -90,22 +98,10 @@ BLOCKLIST = {
 # subcommand is a tiny atomic action. Surface those via direct CLI, not
 # the chat agent. 20 is generous — n8n_tool has 12, lead_engine has 11.
 MAX_ENTRIES_PER_SCRIPT = 25
-
-MUTATING_VERBS_RE = re.compile(
-    r"(?:^|_|-)(send|insert|update|delete|post|create|run|execute|apply|"
-    r"migrate|publish|approve|revoke|reset|drop|truncate|rotate|book|cancel|"
-    r"open|close|enqueue|complete|fire|trigger|refresh|sync|push|deploy|"
-    r"add|remove|disable|enable|set|seed|grant|retry)(?:_|$|-)",
-    re.IGNORECASE,
-)
+NESTED_SKIP_PARTS = frozenset({"_archive", "__pycache__", "tests"})
 
 VISIBILITY_HEADER_RE = re.compile(r"^#\s*bridge_visible\s*:\s*(true|false)\s*$", re.MULTILINE)
 MUTATING_HEADER_RE = re.compile(r"^#\s*bridge_mutating\s*:\s*(true|false)\s*$", re.MULTILINE)
-
-
-def _slug(filename: str) -> str:
-    """scripts/lead_engine.py + subcommand 'list' -> 'lead_engine_list'."""
-    return Path(filename).stem
 
 
 def _read_header_flags(text: str) -> dict:
@@ -166,9 +162,30 @@ def _has_argparse(tree: ast.AST) -> bool:
     return False
 
 
-def _is_mutating(script_stem: str, subcmd: str | None) -> bool:
-    target = subcmd if subcmd else script_stem
-    return bool(MUTATING_VERBS_RE.search(target))
+def _script_candidates(scripts_dir: Path) -> list[Path]:
+    """Return bridge candidates, with nested discovery explicitly opt-in.
+
+    Existing top-level CLIs retain their legacy migration behavior. Nested
+    modules are internal by default and become operator-facing only when they
+    declare the static ``CAPABILITY_META`` contract.
+    """
+    candidates: list[Path] = []
+    if not scripts_dir.is_dir():
+        return candidates
+    for path in sorted(scripts_dir.rglob("*.py")):
+        rel = path.relative_to(scripts_dir)
+        if any(part in NESTED_SKIP_PARTS for part in rel.parts[:-1]):
+            continue
+        if len(rel.parts) == 1:
+            candidates.append(path)
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"))
+        except (OSError, SyntaxError, ValueError):
+            continue
+        if capability_meta_declared(tree):
+            candidates.append(path)
+    return candidates
 
 
 def build_one(path: Path, root_key: str = "bravo", root_dir: Path | None = None) -> list[dict]:
@@ -193,12 +210,21 @@ def build_one(path: Path, root_key: str = "bravo", root_dir: Path | None = None)
     except SyntaxError:
         return []
 
-    flags = _read_header_flags(text)
-    if flags.get("bridge_visible") is False:
+    try:
+        meta = capability_meta_from_tree(tree)
+    except ValueError:
+        return []  # malformed governance metadata is never bridge-exposed
+    if meta is not None and validate_capability_meta(meta):
+        return []
+
+    flags = _read_header_flags(text) if meta is None else {}
+    bridge = (meta or {}).get("bridge", {})
+    visible = bridge.get("visible") if meta is not None else flags.get("bridge_visible")
+    if visible is False:
         return []
     has_ap = _has_argparse(tree)
     summary = _extract_docstring_summary(tree)
-    if flags.get("bridge_visible") is None and not (has_ap and summary):
+    if visible is None and not (has_ap and summary):
         return []
 
     stem = path.stem
@@ -207,18 +233,65 @@ def build_one(path: Path, root_key: str = "bravo", root_dir: Path | None = None)
     subcmds = _find_subcommands(tree)
     forced_mutating = flags.get("bridge_mutating")
 
+    def policy_for(subcmd: str | None) -> dict:
+        if meta is None:
+            return {}
+        policy = dict(bridge)
+        policy.pop("subcommands", None)
+        if subcmd is not None:
+            policy.update(bridge.get("subcommands", {}).get(subcmd, {}))
+        return policy
+
+    def subcommand_visible(subcmd: str) -> bool:
+        if meta is None:
+            return True
+        declared = bridge.get("subcommands", {})
+        if declared and subcmd not in declared:
+            return False
+        return policy_for(subcmd).get("visible", bridge.get("visible", False)) is True
+
+    def manifest_policy(subcmd: str | None) -> dict:
+        if meta is None:
+            # Legacy tools remain available, but ambiguity requires confirmation.
+            mutating = forced_mutating if forced_mutating is not None else True
+            return {"mutating": bool(mutating)}
+        policy = policy_for(subcmd)
+        deny_args = list(dict.fromkeys([
+            *bridge.get("deny_args", []),
+            *policy.get("deny_args", []),
+        ]))
+        fields = {
+            "mutating": bool(policy.get("confirm", bridge.get("confirm", True))),
+            "category": meta["category"],
+            "lifecycle": meta["lifecycle"],
+            "risk": meta["risk"],
+            "project": meta["project"],
+        }
+        if deny_args:
+            fields["deny_args"] = deny_args
+        confirm_args = list(dict.fromkeys([
+            *bridge.get("confirm_args", []),
+            *policy.get("confirm_args", []),
+        ]))
+        if confirm_args:
+            fields["confirm_args"] = confirm_args
+        fixed_args = policy.get("fixed_args", bridge.get("fixed_args", []))
+        if fixed_args:
+            fields["fixed_args"] = fixed_args
+        return fields
+
     if subcmds:
         return [
             {
-                "key": f"{stem}_{sub.replace('-', '_')}",
+                "key": policy_for(sub).get("key", f"{stem}_{sub.replace('-', '_')}"),
                 "path": rel_path,
                 "root": root_key,
                 "subcmd": sub,
-                "mutating": forced_mutating if forced_mutating is not None else _is_mutating(stem, sub),
+                **manifest_policy(sub),
                 "help": f"{summary} — subcommand: {sub}".strip(" —"),
             }
             for sub in subcmds
-            if sub not in {"-h", "--help"}
+            if sub not in {"-h", "--help"} and subcommand_visible(sub)
         ]
     return [
         {
@@ -226,7 +299,7 @@ def build_one(path: Path, root_key: str = "bravo", root_dir: Path | None = None)
             "path": rel_path,
             "root": root_key,
             "subcmd": None,
-            "mutating": forced_mutating if forced_mutating is not None else _is_mutating(stem, None),
+            **manifest_policy(None),
             "help": summary,
         }
     ]
@@ -236,7 +309,7 @@ def build_manifest() -> dict:
     entries: list[dict] = []
     skipped_oversize: list[tuple[str, int]] = []
     # Default CEO-Agent root scan
-    for path in sorted(SCRIPTS_DIR.glob("*.py")):
+    for path in _script_candidates(SCRIPTS_DIR):
         es = build_one(path, root_key="bravo")
         if len(es) > MAX_ENTRIES_PER_SCRIPT:
             skipped_oversize.append((path.name, len(es)))
@@ -245,7 +318,7 @@ def build_manifest() -> dict:
     # Additional roots (e.g., SunBiz-Agent) — each registered with its
     # own root key so the bridge runtime knows where to resolve it.
     for root_key, scripts_dir in EXTRA_ROOTS:
-        for path in sorted(scripts_dir.glob("*.py")):
+        for path in _script_candidates(scripts_dir):
             es = build_one(path, root_key=root_key, root_dir=scripts_dir)
             if len(es) > MAX_ENTRIES_PER_SCRIPT:
                 skipped_oversize.append((f"{root_key}/{path.name}", len(es)))
@@ -270,7 +343,7 @@ def build_manifest() -> dict:
         deduped.append(e)
 
     return {
-        "version": 1,
+        "version": 2,
         "generated_at_iso": _utc_now(),
         "script_count": len({e["path"] for e in deduped}),
         "entry_count": len(deduped),

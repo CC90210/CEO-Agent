@@ -22,6 +22,16 @@ import subprocess
 import sys
 from pathlib import Path
 
+CAPABILITY_META = {
+    "category": "release.sunbiz",
+    "lifecycle": "active",
+    "risk": "external_write",
+    "triggers": ["reseed sunbiz forms", "deploy sunbiz form schema", "refresh live sunbiz forms"],
+    "owner": "bravo",
+    "project": "sunbiz",
+    "bridge": {"visible": False},
+}
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 

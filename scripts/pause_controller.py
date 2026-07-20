@@ -66,6 +66,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+CAPABILITY_META = {
+    "category": "outbound.safety",
+    "lifecycle": "active",
+    "risk": "external_write",
+    "triggers": ["pause outbound", "resume outbound", "outbound status", "set operating mode"],
+    "owner": "bravo",
+    "project": "sunbiz",
+    "bridge": {
+        "visible": True,
+        "confirm": True,
+        "subcommands": {
+            "pause": {"visible": True, "confirm": True},
+            "resume": {"visible": True, "confirm": True},
+            "status": {"visible": True, "confirm": False},
+            "set-mode": {"visible": True, "confirm": True},
+            "get-mode": {"visible": True, "confirm": False},
+        },
+    },
+}
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))

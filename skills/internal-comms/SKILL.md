@@ -35,6 +35,7 @@ If the communication type doesn't match any existing guideline, ask for clarific
 3P updates, company newsletter, company comms, weekly update, faqs, common questions, updates, internal comms
 
 ## Examples
+- [[skills/internal-comms/examples/INDEX]] — complete examples registry
 - [[skills/internal-comms/examples/3p-updates]] — Progress/Plans/Problems format
 - [[skills/internal-comms/examples/company-newsletter]] — Company-wide newsletters
 - [[skills/internal-comms/examples/faq-answers]] — FAQ response format

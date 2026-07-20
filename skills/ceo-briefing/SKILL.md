@@ -109,4 +109,4 @@ This is the silver-platter principle (brain/AGENTIC_OS_REFERENCE.md §3) — one
 
 ## Obsidian Links
 - [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/DASHBOARD]] | [[brain/CAPABILITIES]]
-- [[skills/revenue-operations/SKILL.md]] | [[../../CMO-Agent/skills/lead-management/SKILL]]
+- [[skills/revenue-operations/SKILL.md]] | [[../../../CMO-Agent/skills/lead-management/SKILL]]

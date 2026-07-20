@@ -440,5 +440,5 @@ Run quarterly. Answer three questions:
 
 ## Obsidian Links
 - [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[brain/CAPABILITIES]]
-- [[skills/revenue-operations/SKILL.md]] | [[../../CMO-Agent/skills/lead-management/SKILL]]
+- [[skills/revenue-operations/SKILL.md]] | [[../../../CMO-Agent/skills/lead-management/SKILL]]
 - [[skills/ceo-briefing/SKILL.md]] | [[skills/financial-modeling/SKILL.md]] | [[brain/USER]]

@@ -14,7 +14,7 @@ Strategy without execution is fiction. This skill turns CC's ambition into quart
 
 **Trigger:** `/strategic-review`, "set OKRs", "quarterly planning", "run QBR", "what's the strategy"
 
-**Related skills:** `skills/financial-modeling/SKILL.md`, `../../CMO-Agent/skills/competitive-intelligence/SKILL.md`, `skills/ceo-briefing/SKILL.md`
+**Related skills:** `skills/financial-modeling/SKILL.md`, `../../../CMO-Agent/skills/competitive-intelligence/SKILL.md`, `skills/ceo-briefing/SKILL.md`
 
 ---
 
@@ -632,4 +632,4 @@ Before considering a pivot, answer these 4 questions:
 
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
-- [[skills/financial-modeling/SKILL.md]] | [[../../CMO-Agent/skills/competitive-intelligence/SKILL]] | [[skills/ceo-briefing/SKILL.md]]
+- [[skills/financial-modeling/SKILL.md]] | [[../../../CMO-Agent/skills/competitive-intelligence/SKILL]] | [[skills/ceo-briefing/SKILL.md]]

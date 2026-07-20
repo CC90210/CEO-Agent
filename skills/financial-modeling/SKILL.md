@@ -612,5 +612,5 @@ Target: 0.75+ by adding formal contracts to existing clients
 
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[skills/strategic-planning/SKILL.md]]
-- [[skills/ceo-briefing/SKILL.md]] | [[../../CMO-Agent/skills/competitive-intelligence/SKILL]]
+- [[skills/ceo-briefing/SKILL.md]] | [[../../../CMO-Agent/skills/competitive-intelligence/SKILL]]
 - [[skills/client-success/SKILL.md]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]

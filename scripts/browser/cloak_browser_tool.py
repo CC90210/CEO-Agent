@@ -49,6 +49,41 @@ import sys
 from pathlib import Path
 from typing import Any
 
+CAPABILITY_META = {
+    "category": "browser.research",
+    "lifecycle": "active",
+    "risk": "local_write",
+    "triggers": [
+        "scrape a bot-protected page",
+        "check browser stealth",
+        "download CloakBrowser Chromium",
+    ],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {
+        "visible": True,
+        "confirm": True,
+        "subcommands": {
+            "scrape": {
+                "key": "cloak_browser_scrape",
+                "visible": True,
+                "confirm": False,
+                "confirm_args": ["--screenshot"],
+            },
+            "check-stealth": {
+                "key": "cloak_browser_check_stealth",
+                "visible": True,
+                "confirm": False,
+            },
+            "download": {
+                "key": "cloak_browser_download",
+                "visible": True,
+                "confirm": True,
+            },
+        },
+    },
+}
+
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")

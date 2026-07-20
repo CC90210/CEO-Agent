@@ -1,4 +1,4 @@
-"""Read-only git-history secret scanner (sanitized output only).
+"""Archived git-history scanner; use ``scripts/scan_secrets.py --history``.
 
 Answers the critical question for PUBLIC repos: was a real credential ever
 COMMITTED to history (and thus exposed forever, even if later deleted)?
@@ -6,12 +6,22 @@ COMMITTED to history (and thus exposed forever, even if later deleted)?
 Reports filenames, commit short-shas, and the matched secret *type/prefix* only
 — NEVER the secret value. Safe to run; mutates nothing. Run per repo:
 
-    python scripts/history_secret_scan.py [<repo_path>]
+    python scripts/scan_secrets.py --history [--path <repo_path>]
 """
 import re
 import subprocess
 import sys
 from collections import defaultdict
+
+CAPABILITY_META = {
+    "category": "security.secrets",
+    "lifecycle": "deprecated",
+    "risk": "read_only",
+    "triggers": ["scan git history for secrets", "find committed credentials", "audit secret history"],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {"visible": False},
+}
 
 REPO = sys.argv[1] if len(sys.argv) > 1 else "."
 

@@ -383,5 +383,5 @@ After every deal outcome (won or lost), log this within 24 hours. Patterns compo
 
 ## Obsidian Links
 - [[skills/proposal-generation/SKILL.md]] | [[skills/client-success/SKILL.md]] | [[brain/CAPABILITIES]]
-- [[skills/meeting-automation/SKILL.md]] | [[../../CMO-Agent/skills/lead-management/SKILL]]
+- [[skills/meeting-automation/SKILL.md]] | [[../../../CMO-Agent/skills/lead-management/SKILL]]
 - [[brain/CEO_OPERATING_SYSTEM]] | [[brain/USER]]

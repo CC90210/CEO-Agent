@@ -82,7 +82,7 @@ python scripts/core/memory_query.py \
   --format markdown
 ```
 
-Returns: 8 most relevant chunks across all memory, each prefixed with provenance (`### from memory/project_alejandro_andrade.md § Retainer Pitch`), with always-included files appended verbatim. Total output bounded by `--max-tokens`.
+Returns: 8 most relevant chunks across all memory, each prefixed with provenance (`### from memory/project_<client_slug>.md § Retainer Pitch`), with always-included files appended verbatim. Total output bounded by `--max-tokens`.
 
 ### What still loads at boot (unchanged)
 

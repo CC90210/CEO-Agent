@@ -141,4 +141,4 @@ See `AGENTS.md` "Untrusted Content Discipline" for the full iron rule.
 - [[skills/cloak-browser/SKILL.md]] — the tier-2 stealth Chromium
 - [[skills/web-scraping/SKILL.md]] — full 4-tool decision matrix (research-fetch sits inside the Firecrawl + CloakBrowser tiers)
 - [[skills/browser-harness/SKILL.md]] — for CC-authenticated work
-- [[../../CMO-Agent/skills/competitive-intelligence/SKILL.md]] (Maven) · [[skills/market-research/SKILL.md]] · [[skills/proposal-generation/SKILL.md]] · [[skills/ceo-briefing/SKILL.md]] — primary consumers
+- [[../../../CMO-Agent/skills/competitive-intelligence/SKILL.md]] (Maven) · [[skills/market-research/SKILL.md]] · [[skills/proposal-generation/SKILL.md]] · [[skills/ceo-briefing/SKILL.md]] — primary consumers

@@ -19,6 +19,48 @@ import os
 import sys
 from pathlib import Path
 
+CAPABILITY_META = {
+    "category": "data.supabase",
+    "lifecycle": "active",
+    "risk": "destructive",
+    "triggers": [
+        "query Supabase",
+        "select database rows",
+        "insert database row",
+        "update database rows",
+    ],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {
+        "visible": True,
+        "confirm": True,
+        "subcommands": {
+            "list-projects": {"visible": True, "confirm": False},
+            "list-tables": {"visible": True, "confirm": False},
+            "select": {
+                "key": "supabase_select",
+                "visible": True,
+                "confirm": False,
+            },
+            "insert": {
+                "key": "supabase_insert",
+                "visible": True,
+                "confirm": True,
+            },
+            "update": {
+                "key": "supabase_update",
+                "visible": True,
+                "confirm": True,
+            },
+            "query": {
+                "key": "supabase_sql",
+                "visible": True,
+                "confirm": True,
+            },
+        },
+    },
+}
+
 # V6.8.3 reliability primitive — @retry transient network errors on
 # Supabase SDK calls (postgrest / gotrue raise httpx-level errors via
 # the supabase-py client).

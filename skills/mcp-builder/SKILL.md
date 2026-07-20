@@ -239,6 +239,7 @@ Load these resources as needed during development:
   - Running an evaluation with the provided scripts
 
 ## Reference
+- [[skills/mcp-builder/reference/INDEX]] — complete reference registry
 - [[skills/mcp-builder/reference/evaluation]] — Evaluation creation guide
 - [[skills/mcp-builder/reference/mcp_best_practices]] — Core MCP guidelines
 - [[skills/mcp-builder/reference/node_mcp_server]] — TypeScript implementation guide
