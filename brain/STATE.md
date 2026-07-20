@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** PropFlow production activated 2026-07-20: fresh Supabase xusnasmzoxkaimyjqbie secured and initialized with 43 RLS-protected tables; owner conaugh@oasisai.work created as active admin, super-admin, founding partner, enterprise/lifetime with all automations; Vercel environments moved to fresh backend; PropFlow PR #1 merged at 59a92c8 and production READY on propflow.pro; real Chromium login-to-admin metrics flow passed; recovery email queued successfully at 17:53:25 UTC. Independent Codex companion audit transport timed out twice; local quality and all remote gates passed.
+- **Result:** PropFlow production is active on fresh Supabase project xusnasmzoxkaimyjqbie with 43 RLS-protected tables and conaugh@oasisai.work as active admin, super-admin, founding partner, and enterprise/lifetime owner. PR #2 password-recovery hotfix merged at 1adc55c and Vercel production deployment dpl_4urkvAb2HMByBnEKQPwgW362zMFR is READY on propflow.pro. A real one-time token passed callback → password creation → clean login → SUPER ADMIN portal, and the fresh recovery email was accepted at 2026-07-20T21:04:50Z.
 
 *Last updated: 2026-07-20*
 
