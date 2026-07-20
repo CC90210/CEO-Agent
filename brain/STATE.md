@@ -15,7 +15,7 @@ model_standard: fable-5
      scripts/tests/test_entrypoint_parity.py. Released versions live in CHANGELOG.md. -->
 
 
-> Updated 2026-07-19 (currency sweep) | **Architecture is V7.3.3** — V6 (state DB, retrieval, guards, capability graph, vocabulary layer) remains the foundation, and V7.0–V7.3 shipped on top: reliability/observability (Loud Failures, sliced harness eval + history, substrate-eval CI), Free-Tier Radar (`resource:` graph nodes, ADR-0010), the V7.2 persona bench (32 agent nodes), and typed memory (ADR-0011: dedup + memory_diff audits, retriever abstract layer + freshness ranking). Full narrative: `CHANGELOG.md`. Self-audit health: run `python scripts/core/self_audit.py` for the live score. Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
+> Updated 2026-07-20 (V7.4 fleet modernization) | **Architecture is V7.4.0** — V6 (state DB, retrieval, guards, capability graph, vocabulary layer) remains the foundation, and V7.0–V7.4 shipped on top: reliability/observability (Loud Failures, sliced harness eval + history, substrate-eval CI), Free-Tier Radar (`resource:` graph nodes, ADR-0010), the V7.2 persona bench, typed memory (ADR-0011: dedup + memory_diff audits, retriever abstract layer + freshness ranking), and the V7.4 agent-fleet canonical contract (ADR-0012: 13 personas modernized, one schema, generated agent routing, resolver scores agents by trigger). Full narrative: `CHANGELOG.md`. Self-audit health: run `python scripts/core/self_audit.py` for the live score. Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
 >
 > **V6 Apex (2026-05-10 — closes the V6 architecture epic):**
 >   - **Phase 1** — `/api/state-health` two-tier read path: state-api passthrough preferred, Supabase mirror fallback for Vercel. The page renders a `via state-api` / `via supabase-mirror` tag so operators see which side served the payload.
@@ -38,7 +38,7 @@ model_standard: fable-5
 
 | Dimension | Level | Notes |
 |-----------|-------|-------|
-| **Version** | **V7.3.3** (frontmatter `architecture_version` is canonical) | V6 foundation + V7.0 reliability + V7.1 Radar + V7.2 persona bench + V7.3 typed memory. Released history: CHANGELOG.md. |
+| **Version** | **V7.4.0** (frontmatter `architecture_version` is canonical) | V6 foundation + V7.0 reliability + V7.1 Radar + V7.2 persona bench + V7.3 typed memory + V7.4 agent-fleet contract. Released history: CHANGELOG.md. |
 | **Position**| EXECUTING — PAID CLIENT WORK | SunBiz + Breeze (BreezeAdvance) are active paying-client development. Deal terms and revenue are tracked by Atlas (CFO). Top priority: deliver the client work that keeps them retained. |
 | **Confidence** | 0.80 | Core automations production-grade and verified running (Montreal fleet reset 2026-07-07). SunBiz/Breeze delivered at spec. |
 | **Focus Area** | **HARNESS INTEGRITY + ONGOING CLIENT DELIVERY** | Montreal turnkey reset (2026-07-07): fleet persistence + identity truth. SunBiz / Breeze delivery continues. |
@@ -142,7 +142,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Provided hybrid 'Command Star' whiteboard layout combining OASIS AI center spoke-model with structured Kanban boxes for client priorities.
+- **Result:** V7.4 Agent Fleet Modernization shipped (aa3c3fe4 + V7.4.1 9eee0b53): 13 personas -> canonical contract, 4 shadowed dupes deleted, reviewer->code-reviewer, wiring (agent triggers in graph edges 49->134, generated WHEN_TO_USE_AGENTS, resolver --kind any fix, scoped-by-default scaffold), ADR-0012; Rule-8 self-audit hardened register enforcement boundary; STATE V7.4.0; Codex verbatim re-run pending capacity
 
 *Last updated: 2026-07-20*
 
