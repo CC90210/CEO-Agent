@@ -22,6 +22,7 @@ The V7.4 fleet audit (CC directive: "fresh update that ties everything together,
 - `.claude/agents/` — **native dialect**: `tools:` as inline comma string (Claude Code's runtime parser requires it). These are the runtime-spawnable definitions and WIN stem collisions in the graph.
 - `agents/` — **bench dialect**: `tools:` as YAML block-list. Graph-visible, cross-runtime, spawn-registered where the harness supports it.
 - Same keys, same meanings. The graph parses both.
+- **Enforcement boundary (security-critical, do not blur):** the Claude Code runtime ENFORCES the `tools:` allow-list ONLY for personas under `.claude/agents/`. In `agents/` (the bench), `tools:` is **advisory graph metadata** — it documents intended scoping and lets the resolver reason about it, but does NOT sandbox a spawn. A persona that must be a runtime-spawnable, tool-restricted subagent lives in `.claude/agents/`. `register.py agent` scaffolds into `agents/` and prints this boundary; orchestration must not treat a bench `tools:` list as an enforced sandbox.
 
 **3. Canonical-home rule — no duplicates.** One file per persona. The V5.5 duplicates (`agents/{architect,debugger,researcher}.md`, plus `agents/reviewer.md` vs `code-reviewer`) are merged into their `.claude/agents/` natives and **deleted** — a shadowed definition is drift waiting to be read by the wrong runtime. `agents/voltagent/code-reviewer.md` stays as import-record (shadowed, documented). `agents/aura.md` is a **peer-agent profile, not a spawnable persona** — marked as such.
 

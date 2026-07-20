@@ -266,6 +266,15 @@ def create_agent(args) -> int:
     )
     md.write_text(text, encoding="utf-8")
     print(f"  Created {md.relative_to(PROJECT_ROOT)}")
+    # V7.4 (ADR-0012 §2/§5) — enforcement boundary, stated loudly so the scaffold
+    # never implies a sandbox it doesn't deliver: `tools:` here is ADVISORY graph
+    # metadata. Claude Code's runtime only ENFORCES the tool allow-list for
+    # personas under `.claude/agents/`. If this agent must be a runtime-spawnable,
+    # tool-restricted subagent, copy it to `.claude/agents/<name>.md` (inline
+    # `tools:` string) — that is the enforced home; `agents/` is the graph bench.
+    print("  NOTE: agents/ tools: are advisory (graph metadata). For RUNTIME tool "
+          "enforcement, place a copy under .claude/agents/ — see ADR-0012.",
+          file=sys.stderr)
     return _post_create(["agent", slug, str(md.relative_to(PROJECT_ROOT))])
 
 

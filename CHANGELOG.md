@@ -15,6 +15,29 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 
 ## [Unreleased]
 
+## [7.4.0] — 2026-07-20
+
+V7.4 — **Agent Fleet Modernization (the AOS pass).** The 13 core personas were V5.5-era
+next to the modern V7.2 imports; four frontmatter dialects; shadowed duplicate files;
+hand-maintained routing that drifted; agent nodes the resolver couldn't score. This ties
+the fleet into one system.
+
+- **Wiring (code):** `discover_agents()` now carries triggers/tags/model/tools into the
+  capability graph (edges 49→134) + a **generated `brain/WHEN_TO_USE_AGENTS.md`**
+  (frontmatter-derived, freshness-tested — can't drift); `capability_query.py --kind any`
+  genuinely searches all kinds (was silently skills-only) so agents resolve by trigger
+  ("review this diff" → code-reviewer, score 11.5); `register.py agent` emits the
+  ADR-0012 canonical schema **scoped read-only by default** (was full Write/Edit/Bash).
+- **Personas (content):** all 13 modernized to one contract
+  (name/description/model/tools/tier/owner/triggers/tags + Rules/Success Metrics/
+  Collaboration) with current facts (model_registry tiers, send_gateway-only,
+  INBOUND-first, Atlas-owned MRR, graph-deferred counts). 4 shadowed duplicates deleted;
+  `reviewer` consolidated into native `code-reviewer`; `aura` marked peer-profile.
+- **Governance:** ADR-0012 (canonical contract, two-dialects-one-schema, canonical-home
+  rule); `agents/INDEX.md` rewritten to reality; `brain/AGENTS.md` stale per-persona
+  deep-list + fictional-name matrix (Coder/Planner/Content Creator) collapsed to a pointer
+  at the generated doc. Fleet SCHEMA propagates to siblings; personas stay per-agent.
+
 ## [7.3.5] — 2026-07-19
 
 V7.3.5 — **System currency sweep.** Three-lens audit for semantic staleness (prose

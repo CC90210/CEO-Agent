@@ -1,6 +1,6 @@
 ---
 tags: [state, ephemeral, fable-5]
-architecture_version: V7.3.3
+architecture_version: V7.4.0
 last_updated: 2026-07-07
 freshness_threshold_days: 30
 verified: 2026-07-07
@@ -135,16 +135,16 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[skills/ethical-hacking/SKILL]] | [[skills/sales-closing/SKILL]]
 - [[knowledge/index]] | [[knowledge/SCHEMA]]
 - [[brain/DASHBOARD]]
-- **Hubs (graph spine):** [[skills/INDEX]] · [[docs/INDEX]] · [[browser/README]] · [[browser/domain-skills/README]] · [[browser/interaction-skills/INDEX]] · [oasis-command-center](https://github.com/CC90210/oasis-command-center) (external) · [[data/pulse/README]] · [[memory/outreach_archive/INDEX]] · [[memory/daily/INDEX]] · [[.gemini/INDEX]] · [[templates/agent-scaffold/README]]
+- **Hubs (graph spine):** [[skills/INDEX]] · [[docs/INDEX]] · [[browser/README]] · [[browser/domain-skills/README]] · [[browser/interaction-skills/INDEX]] · [oasis-command-center](https://github.com/CC90210/oasis-command-center) (external) · [[data/pulse/README]] · [[memory/daily/INDEX]] · [[.gemini/INDEX]] · [[templates/agent-scaffold/README]]
 - **Top-level:** [[PLAYBOOK]] · [[SECURITY]] · [[brain/CLIENT_READY]]
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-19
+- **Date:** 2026-07-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** V7.3.5 currency sweep shipped (d9e50da1): 30 stale claims fixed (Suga fully retired, Solara+Helios canonical, STATE body V7.3.3, Montreal QC everywhere, model tables current, knowledge wiki refreshed, scaffold gap closed, pre-commit stats gate live-proven); audit reference docs/audits/2026-07-19 + currency-audit skill; Atlas USER.md fixed in place, Maven pushed ae80cde
+- **Result:** Provided hybrid 'Command Star' whiteboard layout combining OASIS AI center spoke-model with structured Kanban boxes for client priorities.
 
-*Last updated: 2026-07-19*
+*Last updated: 2026-07-20*
 
 ## Manifest
 
