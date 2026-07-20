@@ -33,42 +33,30 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 
 ## Orchestration Decision Matrix
 
-| Task Signal | Subagent | Trigger |
+> **V7.4 (ADR-0012):** per-persona spawn routing is now GENERATED from agent frontmatter → **[[brain/WHEN_TO_USE_AGENTS]]** (regenerated on every graph build, freshness-tested; can't drift). Resolve at runtime: `python scripts/capability_query.py resolve "<intent>" --kind agent`. This matrix keeps only what frontmatter can't express: **cross-agent delegation** (to sibling agents / apps) and the coarse signal→owner map. The V5.5 rows below that named fictional agents (Coder/Planner/Content Creator/Reviewer) are corrected to real personas.
+
+| Task Signal | Route to | Trigger / how |
 |---|---|---|
-| System design, schema, cross-service planning | **Architect** | `/plan-feature`, architectural questions |
-| Multi-step feature breakdown | **Planner** | `/plan-feature`, complex requirements |
-| Code implementation, bug fixes, TDD | **Coder** | `/execute`, approved plans |
-| Security audit, code quality | **Reviewer** | `/review`, `/commit` (pre-commit gate) |
-| Market research, documentation lookup | **Researcher** | `/research`, unknown APIs |
-| Website-to-CLI, platform data, API discovery | **Researcher** | `/opencli`, `opencli explore`, `opencli <platform>` |
-| Authenticated web app control, screenshots, domain-skill learning | **Browser Harness + owning agent** | `skills/browser-harness`, `.agents/workflows/browser-harness`, owner gates below |
-| Content creation, brand voice | **Maven (CMO)** | route to `~/CMO-Agent` — content-creator persona lives there |
-| Social media publishing | **Maven (CMO)** | route to `~/CMO-Agent` — social-publisher persona lives there |
-| Video/audio production | **Maven (CMO)** | route to `~/CMO-Agent` — video-editor persona lives there |
-| Debugging, error resolution | **Debugger** | `/debug`, build failures |
-| Git operations, PR management | **Git Ops** | `/commit`, branch management |
-| Communication, outreach, follow-ups | **Chief of Staff** | Client emails, lead responses |
-| Revenue strategy, lead hunting | **Revenue Hunter** | Sales outreach, pricing strategy |
-| n8n automation creation | **Workflow Builder** | `/build-workflow`, automation tasks |
-| Documentation updates | **Documenter** | `/update-docs`, post-feature docs |
-| File search, codebase navigation, code analysis | **Explorer** | Search queries, "find X", "where is Y" |
-| Generate new subagent definitions | **Meta-Agent** | "I need an agent that...", new capability requests |
-| Morning briefing, revenue status, pipeline check, client health | **Bravo (CEO Briefing)** | `/briefing`, session start Monday, "what's the status" |
-| Tax, trading, accounting, budgeting, FIRE, crypto | **Atlas (CFO)** | Finance questions, tax strategy, trading performance, wealth planning |
-| Content creation, brand voice, marketing advice | **Maven (CMO)** | Content strategy, ad campaigns, brand guidelines, marketing research |
-| Ad campaigns (Meta, Google), paid media | **Maven (CMO)** | `/campaign-create`, ad performance, ROAS optimization |
-| Funnels, lead capture, growth experiments | **Maven (CMO)** | Funnel optimization, A/B testing, conversion rate |
-| SEO, AEO, social media strategy | **Maven (CMO)** | Platform optimization, audience growth, organic distribution |
-| Client health, churn risk, NPS | **Chief of Staff** | `/client-health`, retention concerns |
-| Proposals, SOWs, quotes | **Content Creator** | `/proposal`, deal closing |
-| Competitive analysis, market research | **Researcher** | `/competitive-report`, market questions |
-| Financial modeling, unit economics | **Architect** | `/financial-model`, pricing strategy |
-| Strategic planning, OKRs, QBRs | **Bravo (CEO Briefing)** | `/qbr`, `/strategic-review` |
-| Team onboarding, hiring, 1:1s | **Chief of Staff** | `/onboard-team-member`, team management |
-| Meeting prep, follow-up | **Chief of Staff** | `/meeting-prep`, calendar management |
-| Project tracking, milestones, status | **Planner** | project status questions |
-| Investor updates, pitch prep | **Content Creator** | `/investor-update`, fundraising |
-| Backend implementation, parallel coding | **Codex Agent** | `/codex:rescue`, heavy backend tasks |
+| System design, schema, cross-service planning, financial-model architecture | **architect** (.claude/agents) | architectural questions; advisory-only, hands to writer |
+| Code implementation, bug fixes, TDD | **writer** | approved plans; feature/bugfix work |
+| Code review, security audit, quality, pre-ship | **code-reviewer** (.claude/agents) | `/review`, `/commit` gate; two-pass |
+| Debugging, error resolution, root cause | **debugger** (.claude/agents) | build failures, stack traces; Codex-delegates deep chains |
+| Market/competitive research, documentation lookup | **researcher** (.claude/agents) | unknown APIs, competitor questions; 3-source |
+| Authenticated web app control, screenshots, domain-skill learning | **Browser Harness + owning agent** | `skills/browser-harness`, owner gates below |
+| Debug/build/deploy/migrate/incident/a11y/MCP/PM specialists | **V7.2 agency bench** | see [[brain/WHEN_TO_USE_AGENTS]] + rows below |
+| Git operations, PR management | **git-ops** | `/commit`, branch management |
+| Client comms drafts, follow-ups, meeting prep, churn | **chief-of-staff** | client emails (drafts → send_gateway) |
+| INBOUND pipeline motion, nurture, lead scoring | **revenue-hunter** | funnel leads; cold outbound operator-approved only |
+| n8n automation creation | **workflow-builder** | `/build-workflow`, automation tasks |
+| Documentation, changelogs, memory files | **documenter** | `/update-docs`, post-feature docs |
+| File search, codebase navigation | **explorer** | "find X", "where is Y"; read-only |
+| Generate a new subagent | **meta-agent** | "I need an agent that…"; emits ADR-0012 contract |
+| Morning briefing, pipeline check, client health, strategy/OKRs/QBRs | **Bravo (self)** | `/briefing`, `/qbr` — MRR excluded (Atlas owns it) |
+| **Content, brand voice, ads, social, funnels, SEO, video, proposals/investor decks** | **Maven (CMO)** → `~/CMO-Agent` | Bravo never writes content — route to Maven |
+| **Tax, accounting, revenue/MRR reporting, financial advisory, FIRE** | **Atlas (CFO)** → `~/APPS/CFO-Agent` | all money questions |
+| **Legal, contracts, NDAs, risk review** | **Lex** → `~/APPS/Lex-Agent` | UPL-gated; not legal advice |
+| **Home / ambient / voice** | **Aura** → `~/AURA` | peer agent |
+| Backend implementation, deep debugging, adversarial review (2nd opinion) | **Codex Agent** | `python scripts/core/codex_review.py` / codex-companion (Rule 8) |
 | Second-opinion code review | **Codex Agent** | `/codex:review`, `/codex:adversarial-review` |
 | Deep debugging, root-cause analysis | **Codex Agent** | `/codex:rescue investigate [bug]` |
 | Pre-ship design challenge | **Codex Agent** | `/codex:adversarial-review --background` |
@@ -86,101 +74,7 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 
 ## Subagent Definitions
 
-> **V5.5+ Upgrade:** All agents now include Decision Autonomy, Quality Gates, Anti-Patterns, Escalation Protocol, Output Format, Performance Metrics, and Collaboration Rules. Read the agent file for full detail.
-
-### 1. Architect (Lead System Designer)
-- **Model Tier:** Opus (expensive — use sparingly)
-- **File:** [[agents/architect]]
-- **Purpose:** High-level decisions on tech stack, database schema, cross-service orchestration (n8n ↔ Supabase ↔ Vercel ↔ Stripe).
-- **Key upgrades:** Options with completeness scores (0-10) + dual effort estimates. Explicit approval gates for billing and vendor lock-in. Output format standardized.
-- **Principles:** Present 2-3 options with pros/cons. Log decisions to `memory/DECISIONS.md`. Advisory only — never edits code directly.
-
-### 2. Planner (Task Breakdown Engine)
-- **Model Tier:** Sonnet
-- **File:** (virtual role — uses writing-plans skill, no dedicated agent file)
-- **Purpose:** Translates feature requests into phased implementation plans stored in `.agents/plans/`.
-- **Principles:** Restate requirements. Create numbered steps. Identify file dependencies. **WAIT for CC's confirmation before any code execution.**
-
-### 3. Coder / Writer (Implementation Engine)
-- **Model Tier:** Sonnet
-- **File:** [[agents/writer]]
-- **Purpose:** High-speed TDD implementation of approved plans.
-- **Key upgrades:** Quality gates (build pass, no console.log, no hardcoded secrets, mobile-first). 5 specific anti-patterns. Triggers Debugger on first build failure instead of debugging inline.
-- **Principles:** Write tests first (RED → GREEN → REFACTOR). Small focused functions (<50 lines). Immutability over mutation.
-
-### 4. Reviewer (Quality & Security Guard)
-- **Model Tier:** Sonnet
-- **File:** [[agents/reviewer]]
-- **Purpose:** Pre-commit audit of all code changes.
-- **Key upgrades:** Two-pass review (structural + adversarial). Full OWASP security checklist. Performance checklist (N+1, bundle size, waterfalls). Severity ratings enforced.
-- **Principles:** Check for hardcoded secrets, validate error handling, verify TypeScript type safety. Output severity ratings (CRITICAL/HIGH/MEDIUM/LOW). Never edits — only reports.
-
-### 5. Debugger (Root Cause Analyst)
-- **Model Tier:** Sonnet
-- **File:** [[agents/debugger]]
-- **Purpose:** Systematic bug investigation and resolution.
-- **Key upgrades:** Root-cause-first (no symptom patching). 5 Whys escalation. Bisect strategy for complex bugs. Hard 3-attempt limit with structured escalation report.
-- **Principles:** Diagnose from actual code (never guess) → minimal fix → verify build → report. Max 3 attempts before escalating.
-
-### 6. Researcher (Market & Documentation Intel)
-- **Model Tier:** Sonnet / Haiku
-- **File:** [[agents/researcher]]
-- **Purpose:** Deep research via OpenCLI + Playwright (web) or Context7 (library docs).
-- **Key upgrades:** Multi-source triangulation (minimum 3 sources per claim). Source credibility scoring (A/B/C/D). 500-word brief limit enforced.
-- **Principles:** Facts over impressions. Distill into actionable briefs. Never present single-source findings as facts.
-
-### 7-9. Content / Social / Video — MOVED TO MAVEN (CMO-Agent repo)
-
-Per STATE.md "Content Studio | MOVED TO MAVEN", the `content-creator`, `social-publisher`, and `video-editor` personas live in `C:\Users\User\CMO-Agent\agents\` as part of Maven's 16 sub-agent stack. Route all content, posting, and video pipeline work to Maven — local wiki-links to those three agent names will fail to resolve here by design (the files do not exist in this repo). See [[brain/APP_REGISTRY]] → Maven for path + GitHub.
-
-### 10. Chief of Staff (Communication & Mission Control)
-- **Model Tier:** Sonnet
-- **File:** [[agents/chief-of-staff]]
-- **Purpose:** Triage incoming signals, draft professional communications, ensure follow-through, monitor client health.
-- **Key upgrades:** Client churn prediction signals. Proactive retention actions. 7-day silence detection. Churn signal taxonomy.
-- **Principles:** Professional tone for B2B ("Conaugh McKenna"). Casual for DJ/entertainment ("CC"). Every draft pending CC approval.
-
-### 11. Git Ops (Version Control)
-- **Model Tier:** Haiku
-- **File:** [[agents/git-ops]]
-- **Purpose:** Git operations, commit formatting, PR generation.
-- **Key upgrades:** Mandatory secret scan before every commit (grep patterns included). Hook bypass blocked. Branch naming convention. PR quality gates.
-- **Principles:** Conventional commits (`bravo: type — description`). Never push to main. Never stage `.env` files.
-
-### 12. Revenue Hunter (Sales & Growth)
-- **Model Tier:** Sonnet
-- **File:** [[agents/revenue-hunter]]
-- **Purpose:** Sales outreach strategy, lead scoring, NEPQ-based personalized outreach, follow-up cadence.
-- **Key upgrades:** NEPQ framework (Jeremy Miner) integrated. Lead scoring model (100-point system, min 60 to pursue). Follow-up cadence (Day 1/4/10/21). Personalization depth requirements.
-- **Principles:** Revenue-first. NEPQ not pitch. Score before contact. Track in `memory/LEAD_TRACKER.csv`.
-
-### 13. Workflow Builder (n8n Automation)
-- **Model Tier:** Sonnet
-- **File:** [[agents/workflow-builder]]
-- **Purpose:** Create and manage n8n workflows. Client OASIS deliverables + internal automations.
-- **Key upgrades:** Idempotency requirement on all write operations. Webhook-first design mandate. Duplicate check before every build. Activation requires CC approval.
-- **Principles:** Webhook > polling. Idempotent writes. Error paths mandatory. No invented node types.
-
-### 14. Documenter (Knowledge Maintenance)
-- **Model Tier:** Haiku
-- **File:** [[agents/documenter]]
-- **Purpose:** Update documentation, memory files, and brain files. Maintains Obsidian wiki-link graph.
-- **Key upgrades:** Wiki-link preservation mandate. Obsidian frontmatter requirements. Pattern file formats (PROBATIONARY/VALIDATED lifecycle).
-- **Principles:** No filler. ISO 8601 timestamps always. Read before append. Preserve ``wiki-links``.
-
-### 15. Explorer (Codebase Navigator)
-- **Model Tier:** Haiku
-- **File:** [[agents/explorer]]
-- **Purpose:** Read-only codebase search, file discovery, and code analysis. Never edits files.
-- **Key upgrades:** Search strategy hierarchy (Glob → Grep → Read). File:line citations required. 300-word summary limit. App Router-aware (checks `app/` first).
-- **Principles:** Search before reading. Cite file:line always. Never write, edit, or delete. Never report unverified findings.
-
-### 16. Meta-Agent (Agent Generator) [PROBATIONARY]
-- **Model Tier:** Sonnet
-- **File:** [[agents/meta-agent]]
-- **Purpose:** Generate complete subagent definition files from natural language descriptions.
-- **Key upgrades:** Mandatory overlap check with % calculation. Full 7-section template required on all generated agents. PROBATIONARY → VALIDATED lifecycle enforced.
-- **Principles:** Check AGENTS.md first. >50% overlap = enhance existing. Tag all generated agents `[PROBATIONARY]`. All 7 sections required.
+> **V7.4 (ADR-0012):** the per-persona detail for the CORE BENCH (architect, writer, code-reviewer, debugger, researcher, chief-of-staff, revenue-hunter, workflow-builder, git-ops, documenter, explorer, meta-agent, codex-agent) is now the persona files themselves + the GENERATED **[[brain/WHEN_TO_USE_AGENTS]]** (frontmatter-derived, freshness-tested). Human hub with one-liners + tiers: **[[agents/INDEX]]**. This section keeps ONLY the entries that carry context frontmatter can't express: the Validator gate, Codex external-executor contract, and the client-product / import records.
 
 ### 17.5 Validator (Silent-Failure Detector — NEW 2026-04-21)
 - **Model Tier:** Haiku (fast, deterministic, cheap)

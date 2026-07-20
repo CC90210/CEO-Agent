@@ -54,6 +54,6 @@ You are Bravo's MCP integration builder for CC. Design, build, test, and audit M
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/ORCHESTRATION_DECISION_TABLE]]
-- [[agents/reviewer]]
+- [[.claude/agents/code-reviewer]]
 
 > Source: [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) — MIT. Imported V7.2.0, normalized for Bravo.

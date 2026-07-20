@@ -4,31 +4,37 @@ tags: [agents, index]
 
 # Agents — Subagent Registry
 
-> Roster counts live in `brain/CAPABILITY_GRAPH.json` totals (32 agent nodes as of V7.2.0) — do not hand-count here; hardcoded numbers drift. Full orchestration matrix in [[brain/AGENTS]].
+> Roster counts live in `brain/CAPABILITY_GRAPH.json` totals — do not hand-count here; hardcoded numbers drift. Runtime routing table (generated from frontmatter): [[brain/WHEN_TO_USE_AGENTS]]. Cross-agent delegation + veto rules: [[brain/ORCHESTRATION_DECISION_TABLE]].
 > Content / video / social publishing agents live in Maven ([[../CMO-Agent]]), not here.
-> All agents upgraded V5.5+: Decision Autonomy, Quality Gates, Anti-Patterns, Escalation Protocol, Output Format, Performance Metrics, Collaboration Rules.
-> [[brain/DASHBOARD]] | [[brain/CAPABILITIES]]
+> **All core personas modernized to the V7.4 canonical contract (ADR-0012):** one schema (name/description/model/tools/tier/owner/triggers/tags), scoped-by-default, one file per persona. Two dialects, one contract — `.claude/agents/` uses inline `tools:` (runtime-spawnable, wins stem collisions); `agents/` uses block-list `tools:` (graph-visible bench).
+> [[brain/DASHBOARD]] | [[brain/CAPABILITIES]] | [[docs/adr/0012-agent-fleet-contract]]
 
-## Architecture Tier (Opus)
-- [[agents/architect]] — System design, schema, cross-service planning. Options with completeness scores. Advisory only.
+## Core bench — the always-on team
+Strategic (Opus/Fable):
+- [[.claude/agents/architect]] — System/schema/cross-service design. Ranked, costed options; advisory-only, never implements.
 
-## Implementation Tier (Sonnet)
-- [[agents/writer]] — Code implementation, TDD, bug fixes. TypeScript/Next.js/Supabase specialist.
-- [[agents/researcher]] — Market research, documentation lookup, OpenCLI. 3-source triangulation required.
-- [[agents/chief-of-staff]] — Client comms, team management, meeting prep, churn signal detection.
-- [[agents/revenue-hunter]] — Sales outreach, NEPQ framework, lead scoring model, pipeline management.
-- [[agents/reviewer]] — Security audit, code quality, pre-ship review. Two-pass: structural + adversarial.
-- [[agents/debugger]] — Error resolution, root-cause-first, 5 Whys, bisect strategy.
-- [[agents/workflow-builder]] — n8n automation creation. Webhook-first, idempotency required.
-- [[agents/meta-agent]] — Generate new subagent definitions. Full 7-section template required.
+Reasoning (Sonnet):
+- [[agents/writer]] — Feature implementation, bug fixes, TDD. TS/Next.js/Supabase + Python; send_gateway-only, surgical.
+- [[.claude/agents/code-reviewer]] — Two-pass review (structural + adversarial), OWASP security + perf checklists, file:line precision.
+- [[.claude/agents/debugger]] — Root-cause-first (5 Whys + bisect); Codex-delegates deep multi-service chains (Rule 8).
+- [[.claude/agents/researcher]] — 3-source triangulation, credibility scoring, research_fetch ladder + Context7.
+- [[agents/chief-of-staff]] — Client comms DRAFTS (send_gateway-gated), churn signals, meeting prep. MRR → Atlas.
+- [[agents/revenue-hunter]] — INBOUND-first pipeline motion, nurture, lead scoring. Cold outbound = operator-approved only.
+- [[agents/workflow-builder]] — n8n builds (CLI-first), webhook + idempotency, cron via SEED_JOBS.
+- [[agents/codex-agent]] — OpenAI Codex executor: backend, deep debugging, adversarial review. Verbatim output.
+- [[agents/meta-agent]] — Generates new personas via the ADR-0012 canonical contract (register.py, scoped-by-default).
 
-## Operations Tier (Haiku)
-- [[agents/git-ops]] — Git operations, branch management, PRs. Secret scan before every commit.
-- [[agents/documenter]] — Documentation updates, changelogs. Wiki-link preservation mandatory.
-- [[agents/explorer]] — File search, codebase navigation, analysis. READ-ONLY, file:line citations required.
+Operations (Haiku):
+- [[agents/git-ops]] — Git/branches/PRs. Secret scan + gate obedience; CC90210 identity for app repos.
+- [[agents/documenter]] — Docs, changelogs, memory files. Wiki-link preservation; never hand-edits generated docs.
+- [[agents/explorer]] — Read-only codebase search/navigation. file:line citations required.
+
+## Peer profile (not spawnable)
+- [[agents/aura]] — Home/ambient sibling agent (`~/AURA`). Documented here for reference; route home/voice work to Aura's repo.
 
 ## VoltAgent Drop-Ins (2026-04-21 — `agents/voltagent/`)
 From [VoltAgent/awesome-claude-code-subagents](https://github.com/VoltAgent/awesome-claude-code-subagents) — drop-in personas, fully compatible with Claude Code agent schema.
+- [[agents/voltagent/INDEX]] — package registry
 - [[agents/voltagent/security-auditor]] — SOC2/HIPAA/PCI/GDPR pre-ship audits (Opus)
 - [[agents/voltagent/code-reviewer]] — Parallel structural + adversarial review (Sonnet)
 - [[agents/voltagent/competitive-analyst]] — Competitor benchmarking + positioning strategy (Sonnet)

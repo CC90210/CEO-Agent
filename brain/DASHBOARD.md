@@ -75,7 +75,7 @@ verified: 2026-06-09
 
 ### Resources
 - [[proposals/README]] — Generated proposals directory
-- [[memory/ARCHIVES/references-setup/awesome-claude-skills/README]] — Claude Skills reference library
+- [[skills/INDEX]] — Active skills registry
 
 ---
 
@@ -84,7 +84,7 @@ verified: 2026-06-09
 |-------|-------|------|
 | Architect | Opus | [[agents/architect]] |
 | Writer | Sonnet | [[agents/writer]] |
-| Reviewer | Sonnet | [[agents/reviewer]] |
+| Reviewer | Sonnet | [[.claude/agents/code-reviewer]] |
 | Debugger | Sonnet | [[agents/debugger]] |
 | Researcher | Sonnet | [[agents/researcher]] |
 | Chief of Staff | Sonnet | [[agents/chief-of-staff]] |

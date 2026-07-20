@@ -1,5 +1,13 @@
 ---
 description: "System prompt for an agent to deploy and verify the extraction-consumer daemon on the SunBiz VPS, enabling CLI document-extraction"
+tags: [sunbiz, extraction, vps, deployment, archived]
+last_updated: 2026-06-26
+freshness_threshold_days: 365
+status: archived
+archived_on: 2026-07-19
+archived_from: brain/VPS_EXTRACTION_DEPLOY_AGENT_PROMPT.md
+archive_reason: "One-time extraction-consumer deployment prompt completed and replaced by the maintained VPS runbook."
+superseded_by: docs/VPS_SETUP_HANDOFF.md
 ---
 
 # VPS deploy-agent system message — bring CLI document-extraction live

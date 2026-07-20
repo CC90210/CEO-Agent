@@ -1,16 +1,17 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-07-19T20:08:21.482052+00:00",
+  "generated_at": "2026-07-20T06:37:14.803409+00:00",
   "totals": {
     "skills": 152,
-    "scripts": 116,
-    "agents": 32,
+    "scripts": 118,
+    "agents": 31,
     "mcp_servers": 9,
-    "workflows": 35,
+    "workflows": 34,
     "resources": 14,
-    "nodes_total": 358,
-    "edges_total": 49,
+    "runtime_entrypoints": 3,
+    "nodes_total": 361,
+    "edges_total": 134,
     "drift_count": 0
   },
   "nodes": [
@@ -4801,7 +4802,20 @@
       "description": "break_glass_drill \u2014 quarterly dry-run of the emergency runbook.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-docstring"
+      "discovery": "auto-capability-meta",
+      "category": "governance.resilience",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "break glass drill",
+        "emergency recovery audit",
+        "verify disaster recovery"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": false
+      }
     },
     {
       "id": "script:breeze_set_tenant_email",
@@ -4811,7 +4825,19 @@
       "description": "Wire the BreezeAdvance tenant's email sender via the funder Settings UI.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-docstring"
+      "discovery": "auto-capability-meta",
+      "category": "client.onboarding",
+      "lifecycle": "one_off",
+      "risk": "external_write",
+      "triggers": [
+        "configure breeze tenant email",
+        "set breeze sender",
+        "breeze email setup"
+      ],
+      "project": "breeze",
+      "bridge": {
+        "visible": false
+      }
     },
     {
       "id": "script:bridge_lock",
@@ -4901,7 +4927,20 @@
       "description": "Brain freshness checker (audit Phase 9).",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-docstring"
+      "discovery": "auto-capability-meta",
+      "category": "governance.knowledge",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "check brain freshness",
+        "find stale brain docs",
+        "knowledge freshness audit"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": false
+      }
     },
     {
       "id": "script:check_bridge_manifest",
@@ -4971,7 +5010,19 @@
       "description": "Consolidate CC's 2026-06-24 MCA lead phone sheet.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-docstring"
+      "discovery": "auto-capability-meta",
+      "category": "client.data_operations",
+      "lifecycle": "one_off",
+      "risk": "external_write",
+      "triggers": [
+        "consolidate mca phone sheet",
+        "clean sunbiz phone leads",
+        "build mca dialer sheet"
+      ],
+      "project": "sunbiz",
+      "bridge": {
+        "visible": false
+      }
     },
     {
       "id": "script:cost_audit",
@@ -5101,7 +5152,19 @@
       "description": "enrich_sheet_inplace.py \u2014 enrich CC's live 'Leads - Sheet31' in place.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-docstring"
+      "discovery": "auto-capability-meta",
+      "category": "lead.data_operations",
+      "lifecycle": "manual",
+      "risk": "external_write",
+      "triggers": [
+        "enrich lead sheet",
+        "find lead contact data",
+        "update sheet enrichment"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
     },
     {
       "id": "script:ensure_cockpit",
@@ -5214,26 +5277,6 @@
       "discovery": "auto-docstring"
     },
     {
-      "id": "script:harness_plugin",
-      "kind": "script",
-      "name": "harness_plugin",
-      "path": "scripts/harness_plugin.py",
-      "description": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation.",
-      "tier": "tool",
-      "owner": "bravo",
-      "discovery": "auto-docstring"
-    },
-    {
-      "id": "script:history_secret_scan",
-      "kind": "script",
-      "name": "history_secret_scan",
-      "path": "scripts/history_secret_scan.py",
-      "description": "Read-only git-history secret scanner (sanitized output only).",
-      "tier": "tool",
-      "owner": "bravo",
-      "discovery": "auto-docstring"
-    },
-    {
       "id": "script:inbound_classifier",
       "kind": "script",
       "name": "inbound_classifier",
@@ -5311,7 +5354,19 @@
       "description": "migrate_lender_industry_restrictions_key.py \u2014 one-shot key rename across lender rows.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-docstring"
+      "discovery": "auto-capability-meta",
+      "category": "database.migration",
+      "lifecycle": "one_off",
+      "risk": "external_write",
+      "triggers": [
+        "migrate lender restriction key",
+        "rename industry restrictions",
+        "sunbiz lender migration"
+      ],
+      "project": "sunbiz",
+      "bridge": {
+        "visible": false
+      }
     },
     {
       "id": "script:migrate_subprocess_calls",
@@ -5431,7 +5486,43 @@
       "description": "pause_controller.py \u2014 operator kill switches + operating mode toggles for the SunBiz outbound infrastructure.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-docstring"
+      "discovery": "auto-capability-meta",
+      "category": "outbound.safety",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "pause outbound",
+        "resume outbound",
+        "outbound status",
+        "set operating mode"
+      ],
+      "project": "sunbiz",
+      "bridge": {
+        "visible": true,
+        "confirm": true,
+        "subcommands": {
+          "pause": {
+            "visible": true,
+            "confirm": true
+          },
+          "resume": {
+            "visible": true,
+            "confirm": true
+          },
+          "status": {
+            "visible": true,
+            "confirm": false
+          },
+          "set-mode": {
+            "visible": true,
+            "confirm": true
+          },
+          "get-mode": {
+            "visible": true,
+            "confirm": false
+          }
+        }
+      }
     },
     {
       "id": "script:personalize",
@@ -5461,7 +5552,27 @@
       "description": "Content-keyed PII sweep (audit V2/V3). Sweep a repo by OPERATOR-ADJUDICATED strings \u2014 never by paths alone (the path-keyed-purge lesson: path-keyed purges miss content that leaked wider into prose, changelogs, and tooling).",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-docstring"
+      "discovery": "auto-capability-meta",
+      "category": "security.privacy",
+      "lifecycle": "active",
+      "risk": "destructive",
+      "triggers": [
+        "scan repository for pii",
+        "audit pii history",
+        "check redaction carriers"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": false,
+        "fixed_args": [
+          "."
+        ],
+        "deny_args": [
+          "--rewrite",
+          "--strings"
+        ]
+      }
     },
     {
       "id": "script:proposal_generator",
@@ -5601,7 +5712,19 @@
       "description": "run_reseed_sunbiz_forms.py \u2014 inject Supabase service-role creds and run the oasis-command-center SunBiz form re-seed (scripts/reseed-sunbiz-forms.ts).",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-docstring"
+      "discovery": "auto-capability-meta",
+      "category": "release.sunbiz",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "reseed sunbiz forms",
+        "deploy sunbiz form schema",
+        "refresh live sunbiz forms"
+      ],
+      "project": "sunbiz",
+      "bridge": {
+        "visible": false
+      }
     },
     {
       "id": "script:run_sql_via_mgmt_api",
@@ -5701,7 +5824,19 @@
       "description": "seed_sunbiz_application_form_fields.py \u2014 add SOP \u00a74 inputs to SunBiz intake forms.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-docstring"
+      "discovery": "auto-capability-meta",
+      "category": "database.migration",
+      "lifecycle": "one_off",
+      "risk": "external_write",
+      "triggers": [
+        "seed sunbiz form fields",
+        "add sunbiz intake fields",
+        "patch sunbiz application form"
+      ],
+      "project": "sunbiz",
+      "bridge": {
+        "visible": false
+      }
     },
     {
       "id": "script:set_secret",
@@ -5751,7 +5886,34 @@
       "description": "SkillSpector \u2014 skill vulnerability scanner inspired by NVIDIA's SkillSpector.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-docstring"
+      "discovery": "auto-capability-meta",
+      "category": "security.agent_governance",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "scan skill security",
+        "audit a skill",
+        "inspect skill vulnerabilities"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": false,
+        "subcommands": {
+          "scan": {
+            "visible": true,
+            "confirm": false
+          },
+          "audit": {
+            "visible": true,
+            "confirm": false
+          },
+          "summary": {
+            "visible": true,
+            "confirm": false
+          }
+        }
+      }
     },
     {
       "id": "script:skill_synthesizer",
@@ -5844,13 +6006,215 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:cloak_browser_tool",
+      "kind": "script",
+      "name": "cloak_browser_tool",
+      "path": "scripts/browser/cloak_browser_tool.py",
+      "description": "CloakBrowser CLI Tool \u2014 Stealth Chromium for fresh-session work against bot-protected sites.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "browser.research",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "scrape a bot-protected page",
+        "check browser stealth",
+        "download CloakBrowser Chromium"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": true,
+        "subcommands": {
+          "scrape": {
+            "key": "cloak_browser_scrape",
+            "visible": true,
+            "confirm": false,
+            "confirm_args": [
+              "--screenshot"
+            ]
+          },
+          "check-stealth": {
+            "key": "cloak_browser_check_stealth",
+            "visible": true,
+            "confirm": false
+          },
+          "download": {
+            "key": "cloak_browser_download",
+            "visible": true,
+            "confirm": true
+          }
+        }
+      }
+    },
+    {
+      "id": "script:agent_inbox",
+      "kind": "script",
+      "name": "agent_inbox",
+      "path": "scripts/core/agent_inbox.py",
+      "description": "agent_inbox \u2014 Async agent-to-agent messaging (mcp_agent_mail-inspired pattern).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "orchestration.messaging",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "send a message to another agent",
+        "list agent inbox messages",
+        "acknowledge an agent message"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": true,
+        "subcommands": {
+          "post": {
+            "key": "agent_inbox_send",
+            "visible": true,
+            "confirm": true
+          },
+          "list": {
+            "key": "agent_inbox_inbox",
+            "visible": true,
+            "confirm": false
+          },
+          "read": {
+            "key": "agent_inbox_ack",
+            "visible": true,
+            "confirm": true
+          }
+        }
+      }
+    },
+    {
+      "id": "script:send_gateway",
+      "kind": "script",
+      "name": "send_gateway",
+      "path": "scripts/integrations/send_gateway.py",
+      "description": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action Bravo performs on behalf of CC's empire.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "outbound.gateway",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "send outbound message",
+        "check whether outbound is allowed",
+        "review outbound history",
+        "inspect outbound stats"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": true,
+        "subcommands": {
+          "send": {
+            "key": "send_gateway_send",
+            "visible": true,
+            "confirm": true
+          },
+          "can-act": {
+            "visible": true,
+            "confirm": false
+          },
+          "history": {
+            "visible": true,
+            "confirm": false
+          },
+          "stats": {
+            "visible": true,
+            "confirm": false
+          },
+          "doctor": {
+            "visible": true,
+            "confirm": false
+          }
+        }
+      }
+    },
+    {
+      "id": "script:supabase_tool",
+      "kind": "script",
+      "name": "supabase_tool",
+      "path": "scripts/integrations/supabase_tool.py",
+      "description": "Supabase SDK Integration \u2014 Universal Agent Tool Replaces the broken Supabase MCP server with direct Python SDK access. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "destructive",
+      "triggers": [
+        "query Supabase",
+        "select database rows",
+        "insert database row",
+        "update database rows"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": true,
+        "subcommands": {
+          "list-projects": {
+            "visible": true,
+            "confirm": false
+          },
+          "list-tables": {
+            "visible": true,
+            "confirm": false
+          },
+          "select": {
+            "key": "supabase_select",
+            "visible": true,
+            "confirm": false
+          },
+          "insert": {
+            "key": "supabase_insert",
+            "visible": true,
+            "confirm": true
+          },
+          "update": {
+            "key": "supabase_update",
+            "visible": true,
+            "confirm": true
+          },
+          "query": {
+            "key": "supabase_sql",
+            "visible": true,
+            "confirm": true
+          }
+        }
+      }
+    },
+    {
       "id": "agent:architect",
       "kind": "agent",
       "name": "architect",
       "path": ".claude/agents/architect.md",
-      "description": "System design, database schema, API design, architecture decisions",
+      "description": "Advisory-only systems architect for major architecture decisions, schema design, and cross-service planning \u2014 MUST BE USED when a choice locks in structure across services, tables, or vendors; never for simple tasks or implementation.",
       "owner": "bravo",
-      "tier": "specialized",
+      "tier": "strategic",
+      "model": "opus",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash"
+      ],
+      "triggers": [
+        "system design",
+        "schema design",
+        "architecture decision",
+        "cross-service planning",
+        "tradeoff"
+      ],
+      "tags": [
+        "agent",
+        "native"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5858,9 +6222,27 @@
       "kind": "agent",
       "name": "code-reviewer",
       "path": ".claude/agents/code-reviewer.md",
-      "description": "Two-pass code review \u2014 structural analysis then adversarial challenge",
+      "description": "Two-pass code review (structural then adversarial) \u2014 MUST BE USED before shipping any user-facing change or merge; OWASP-aligned security + performance audit with file:line precision.",
       "owner": "bravo",
-      "tier": "specialized",
+      "tier": "core",
+      "model": "sonnet",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash"
+      ],
+      "triggers": [
+        "code review",
+        "review diff",
+        "pre-ship review",
+        "quality audit",
+        "security review"
+      ],
+      "tags": [
+        "agent",
+        "native"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5871,6 +6253,18 @@
       "description": "Creates platform-optimized content in CC's authentic voice",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "claude-fable-5",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Write"
+      ],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "content"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5878,9 +6272,29 @@
       "kind": "agent",
       "name": "debugger",
       "path": ".claude/agents/debugger.md",
-      "description": "Root-cause-first debugging with 5 Whys and bisect strategies",
+      "description": "Root-cause-first debugging \u2014 MUST BE USED for bugs, test failures, build errors, and unexpected behavior; finds the systemic cause via 5 Whys + bisect, never patches symptoms.",
       "owner": "bravo",
-      "tier": "specialized",
+      "tier": "core",
+      "model": "sonnet",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash",
+        "Edit"
+      ],
+      "triggers": [
+        "debug",
+        "error",
+        "root cause",
+        "stack trace",
+        "build failure",
+        "bisect"
+      ],
+      "tags": [
+        "agent",
+        "native"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5888,9 +6302,29 @@
       "kind": "agent",
       "name": "researcher",
       "path": ".claude/agents/researcher.md",
-      "description": "Multi-source research agent \u2014 web, docs, codebase analysis",
+      "description": "Multi-source research & competitive intelligence \u2014 MUST BE USED for market research, documentation lookup, competitor analysis, and any claim that needs facts over impressions; 3-source triangulation required.",
       "owner": "bravo",
-      "tier": "specialized",
+      "tier": "core",
+      "model": "sonnet",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash",
+        "WebSearch",
+        "WebFetch"
+      ],
+      "triggers": [
+        "research",
+        "market research",
+        "documentation lookup",
+        "compare options",
+        "investigate"
+      ],
+      "tags": [
+        "agent",
+        "native"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5901,6 +6335,17 @@
       "description": "Reviews code for security vulnerabilities, OWASP top 10, credential exposure",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "security"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5911,6 +6356,15 @@
       "description": "MUST BE USED after any multi-agent orchestration, parallel sub-agent spawn, or Codex task that modified files. Read-only Haiku validator that scores agent output against original success criteria, catches silent failures and hallucinated claims, prevents Bravo from surfacing degr",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "haiku",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash"
+      ],
+      "triggers": [],
+      "tags": [],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5918,9 +6372,16 @@
       "kind": "agent",
       "name": "aura",
       "path": "agents/aura.md",
-      "description": "",
+      "description": "PEER-AGENT PROFILE, not a spawnable persona (ADR-0012 \u00a73) \u2014 Aura is the home/ambient sibling agent; route home/voice work to ~/AURA. This file documents her Bravo-side voice surface only.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "",
+      "tools": [],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "peer-profile"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5928,19 +6389,46 @@
       "kind": "agent",
       "name": "chief-of-staff",
       "path": "agents/chief-of-staff.md",
-      "description": "Personal communication and mission chief of staff. Triages Gmail, Slack (via n8n), and Social (via Zernio, formerly Late). Classifies messages into 4 tiers, generates draft replies, and enforces post-action follow-through.",
+      "description": "Communications triage and client-health chief of staff that classifies inbound signals, scores churn risk against the ledger, and produces approval-gated drafts \u2014 MUST BE USED for client health checks, churn-risk scoring, meeting prep, onboarding, and follow-up drafts.",
       "owner": "bravo",
-      "tier": "specialized",
+      "tier": "core",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [
+        "client health",
+        "churn risk",
+        "meeting prep",
+        "onboarding",
+        "follow-up draft",
+        "team management"
+      ],
+      "tags": [
+        "agent",
+        "core-bench"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
       "id": "agent:codex-agent",
       "kind": "agent",
-      "name": "Codex Agent",
+      "name": "codex-agent",
       "path": "agents/codex-agent.md",
-      "description": "OpenAI Codex delegation agent \u2014 handles backend-heavy tasks, debugging, code reviews, and parallel implementation via the Codex CLI runtime",
+      "description": "OpenAI Codex delegation layer \u2014 Bravo's second AI coding engine; MUST BE USED for backend-heavy implementation, deep debugging with stack traces, adversarial/second-opinion reviews, and any \"get Codex to...\" request.",
       "owner": "bravo",
-      "tier": "specialized",
+      "tier": "core",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [
+        "codex",
+        "backend implementation",
+        "adversarial review",
+        "second opinion",
+        "deep debugging"
+      ],
+      "tags": [
+        "agent",
+        "core-bench"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5948,9 +6436,22 @@
       "kind": "agent",
       "name": "documenter",
       "path": "agents/documenter.md",
-      "description": "MUST BE USED for documentation, READMEs, session logs, technical writing, and memory file updates.",
+      "description": "Writes and maintains documentation, READMEs, changelogs, session logs, memory files, and Obsidian wiki-links \u2014 MUST BE USED for any documentation, technical-writing, or memory-file task.",
       "owner": "bravo",
-      "tier": "specialized",
+      "tier": "core",
+      "model": "haiku",
+      "tools": [],
+      "triggers": [
+        "documentation",
+        "changelog",
+        "session log",
+        "readme",
+        "wiki-links"
+      ],
+      "tags": [
+        "agent",
+        "core-bench"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5961,6 +6462,13 @@
       "description": "MUST BE USED for Postgres/Supabase reliability: zero-downtime migration design, RLS-safe schema evolution, backup/DR strategy. Proposes SQL \u2014 the main agent applies it.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "agency-import"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5971,6 +6479,13 @@
       "description": "MUST BE USED for CI/CD pipeline design: GitHub Actions workflows, deploy gates, environment promotion, rollback strategy.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "agency-import"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5981,6 +6496,13 @@
       "description": "MUST BE USED when an incident spans multiple services (crons, PM2, VPS, Vercel, DB): triage severity, coordinate containment, run the timeline, draft the blameless post-mortem. Coordinates \u2014 never applies fixes itself.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "agency-import"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5988,9 +6510,22 @@
       "kind": "agent",
       "name": "explorer",
       "path": "agents/explorer.md",
-      "description": "MUST BE USED for file search, codebase navigation, and code analysis. READ-ONLY \u2014 never edits files.",
+      "description": "Read-only codebase navigator that finds files and code and reports exact file:line citations \u2014 MUST BE USED for any find / where-is / codebase-search request before a write-enabled agent touches code.",
       "owner": "bravo",
-      "tier": "specialized",
+      "tier": "core",
+      "model": "haiku",
+      "tools": [],
+      "triggers": [
+        "find",
+        "where is",
+        "search codebase",
+        "locate",
+        "navigate"
+      ],
+      "tags": [
+        "agent",
+        "core-bench"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -5998,9 +6533,22 @@
       "kind": "agent",
       "name": "git-ops",
       "path": "agents/git-ops.md",
-      "description": "MUST BE USED for git operations, branch management, commits, and PR creation.",
+      "description": "Git operations specialist for commits, branches, pushes, and pull requests \u2014 MUST BE USED for any git mutation (commit, branch, push, PR) in Bravo-managed repos.",
       "owner": "bravo",
-      "tier": "specialized",
+      "tier": "core",
+      "model": "haiku",
+      "tools": [],
+      "triggers": [
+        "commit",
+        "branch",
+        "push",
+        "pull request",
+        "git"
+      ],
+      "tags": [
+        "agent",
+        "core-bench"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6008,9 +6556,21 @@
       "kind": "agent",
       "name": "meta-agent",
       "path": "agents/meta-agent.md",
-      "description": "Generate specialized subagent definitions from natural language descriptions. Use when CC describes a new capability that doesn't map to any existing subagent.",
+      "description": "Generates and modernizes subagent definitions on the ADR-0012 canonical contract \u2014 MUST BE USED whenever CC describes a new capability no existing agent covers, or asks to scaffold, define, or import an agent persona.",
       "owner": "bravo",
-      "tier": "specialized",
+      "tier": "meta",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [
+        "new agent",
+        "create subagent",
+        "agent definition",
+        "scaffold agent"
+      ],
+      "tags": [
+        "agent",
+        "core-bench"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6021,6 +6581,13 @@
       "description": "MUST BE USED for product lifecycle work: discovery synthesis, roadmaps with owner/metric/time-horizon per item, PRDs, outcome measurement across the app portfolio.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "agency-import"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6031,6 +6598,13 @@
       "description": "MUST BE USED for cross-project status shepherding: dependency tracking, stalled-item surfacing, and status rollups across the 15+ concurrently open projects. Read-only.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "haiku",
+      "tools": [],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "agency-import"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6038,19 +6612,23 @@
       "kind": "agent",
       "name": "revenue-hunter",
       "path": "agents/revenue-hunter.md",
-      "description": "ELITE REVENUE AGENT. Uses Google Calendar, Gmail, and Playwright to identify and secure business deals.",
+      "description": "Pipeline-motion agent for INBOUND leads \u2014 scores, nurtures, and sequences warm leads toward booked calls. MUST BE USED for pipeline reviews, lead scoring, nurture planning, and follow-up sequences.",
       "owner": "bravo",
-      "tier": "specialized",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "agent:reviewer",
-      "kind": "agent",
-      "name": "reviewer",
-      "path": "agents/reviewer.md",
-      "description": "MUST BE USED for code review, security audit, and quality assurance.",
-      "owner": "bravo",
-      "tier": "specialized",
+      "tier": "core",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [
+        "pipeline",
+        "lead scoring",
+        "nurture",
+        "revenue strategy",
+        "warm lead",
+        "follow-up sequence"
+      ],
+      "tags": [
+        "agent",
+        "core-bench"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6061,6 +6639,13 @@
       "description": "Use when preparing for a qualification/discovery call with an INBOUND lead already in the pipeline: question frameworks, call structure, objection prep. Advisory only \u2014 never does outreach.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "haiku",
+      "tools": [],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "agency-import"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6071,6 +6656,13 @@
       "description": "MUST BE USED to audit AI-authored diffs for injected vulnerabilities, hardcoded secrets, and plausible-but-wrong logic. Read-only by design.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "agency-import"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6081,6 +6673,13 @@
       "description": "MUST BE USED for designing, building, and auditing MCP server integrations end to end (config shape, auth wrapper pattern, cross-config sync per Rule 4).",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "agency-import"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6091,6 +6690,13 @@
       "description": "MUST BE USED to audit live UIs and components for WCAG/Section 508 accessibility. Audits and reports \u2014 never edits code directly.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "agency-import"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6101,6 +6707,13 @@
       "description": "MUST BE USED for designing/repairing E2E and integration test suites, root-causing flaky tests, and CI test architecture (Playwright-first).",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [],
+      "tags": [
+        "agent",
+        "agency-import"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6111,6 +6724,17 @@
       "description": "Use this agent when designing new APIs, creating API specifications, or refactoring existing API architecture for scalability and developer experience. Invoke when you need REST/GraphQL endpoint design, OpenAPI documentation, authentication patterns, or API versioning strategies.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Glob",
+        "Grep"
+      ],
+      "triggers": [],
+      "tags": [],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6121,6 +6745,16 @@
       "description": "Use when you need to analyze direct and indirect competitors, benchmark against market leaders, or develop strategies to strengthen competitive positioning and market advantage.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "WebFetch",
+        "WebSearch"
+      ],
+      "triggers": [],
+      "tags": [],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6131,6 +6765,16 @@
       "description": "Use this agent when you need to analyze markets, understand consumer behavior, assess competitive landscapes, and size opportunities to inform business strategy and market entry decisions.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "WebFetch",
+        "WebSearch"
+      ],
+      "triggers": [],
+      "tags": [],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6141,6 +6785,14 @@
       "description": "Use this agent when conducting comprehensive security audits, compliance assessments, or risk evaluations across systems, infrastructure, and processes. Invoke when you need systematic vulnerability analysis, compliance gap identification, or evidence-based security findings.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "opus",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "triggers": [],
+      "tags": [],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6148,9 +6800,21 @@
       "kind": "agent",
       "name": "workflow-builder",
       "path": "agents/workflow-builder.md",
-      "description": "MUST BE USED for n8n workflow creation, automation building, and workflow debugging. Uses the n8n-mcp SDK code-first flow.",
+      "description": "MUST BE USED for n8n workflow creation, automation building, webhook wiring, and workflow debugging \u2014 builds via the n8n-mcp SDK code-first flow with n8n_tool.py CLI fallback.",
       "owner": "bravo",
       "tier": "specialized",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [
+        "n8n",
+        "workflow",
+        "automation build",
+        "webhook"
+      ],
+      "tags": [
+        "agent",
+        "core-bench"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6158,9 +6822,22 @@
       "kind": "agent",
       "name": "writer",
       "path": "agents/writer.md",
-      "description": "MUST BE USED for code writing, feature implementation, and file creation.",
+      "description": "Bravo's implementation engineer \u2014 MUST BE USED for feature implementation, bug fixes, and any production code-writing task (TDD default on the TS/Next.js/Supabase + Python house stack).",
       "owner": "bravo",
-      "tier": "specialized",
+      "tier": "core",
+      "model": "sonnet",
+      "tools": [],
+      "triggers": [
+        "implement",
+        "build feature",
+        "fix bug",
+        "code",
+        "TDD"
+      ],
+      "tags": [
+        "agent",
+        "core-bench"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6376,15 +7053,6 @@
       "name": "hyperthink",
       "path": ".agents/workflows/hyperthink.md",
       "description": "Fire the Hyperthink maximum-depth reasoning protocol \u2014 structured 7-phase loop for architectural, irreversible, or multi-hypothesis problems.",
-      "owner": "bravo",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "workflow:INDEX",
-      "kind": "workflow",
-      "name": "INDEX",
-      "path": ".agents/workflows/INDEX.md",
-      "description": "# Workflows Index \u2014 34 Automated Pipelines (+ this index)\n\n> Workflow files define slash-command triggers and step-by-step execution plans.\n> [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OP",
       "owner": "bravo",
       "discovery": "auto-frontmatter"
     },
@@ -6866,9 +7534,415 @@
         "candidate"
       ],
       "discovery": "auto-radar-table"
+    },
+    {
+      "id": "runtime:bridge_chat_server",
+      "name": "bridge_chat_server",
+      "path": "bravo_cli/bridge_chat_server.py",
+      "role": "chat_bridge",
+      "language": "python",
+      "description": "Guarded chat-to-CLI execution runtime.",
+      "kind": "runtime",
+      "owner": "bravo",
+      "available": true,
+      "discovery": "explicit-runtime-registry"
+    },
+    {
+      "id": "runtime:cron_engine",
+      "name": "cron_engine",
+      "path": "scripts/core/cron_engine.py",
+      "role": "scheduler_registry",
+      "language": "python",
+      "description": "Canonical scheduled-job registry and operator CLI.",
+      "kind": "runtime",
+      "owner": "bravo",
+      "available": true,
+      "discovery": "explicit-runtime-registry"
+    },
+    {
+      "id": "runtime:telegram_agent",
+      "name": "telegram_agent",
+      "path": "telegram_agent.js",
+      "role": "telegram_gateway",
+      "language": "javascript",
+      "description": "Telegram operator gateway and guarded command router.",
+      "kind": "runtime",
+      "owner": "bravo",
+      "available": true,
+      "discovery": "explicit-runtime-registry"
     }
   ],
   "edges": [
+    {
+      "from": "runtime:bridge_chat_server",
+      "to": "script:integration_health",
+      "kind": "calls"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:bravo_sleep",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:break_glass_drill",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:harness_eval",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:schedule_helpers",
+      "kind": "calls"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:system_health",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:telegram_agent",
+      "to": "script:cost_tracker",
+      "kind": "exposes"
+    },
+    {
+      "from": "runtime:telegram_agent",
+      "to": "script:pause_controller",
+      "kind": "exposes"
+    },
+    {
+      "from": "runtime:telegram_agent",
+      "to": "script:transcribe",
+      "kind": "exposes"
+    },
+    {
+      "from": "script:agent_inbox",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:agent_inbox",
+      "to": "script:sibling_repos",
+      "kind": "calls"
+    },
+    {
+      "from": "script:audit_rls_coverage",
+      "to": "script:apply_migration",
+      "kind": "calls"
+    },
+    {
+      "from": "script:auto_score_leads",
+      "to": "script:sibling_repos",
+      "kind": "calls"
+    },
+    {
+      "from": "script:autonomous_agent",
+      "to": "script:draft_critic",
+      "kind": "calls"
+    },
+    {
+      "from": "script:autonomous_agent",
+      "to": "script:name_utils",
+      "kind": "calls"
+    },
+    {
+      "from": "script:autonomous_agent",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:autonomous_agent",
+      "to": "script:send_gateway",
+      "kind": "calls"
+    },
+    {
+      "from": "script:booking_engine",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:booking_engine",
+      "to": "script:send_gateway",
+      "kind": "calls"
+    },
+    {
+      "from": "script:break_glass_drill",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:build_maven_env",
+      "to": "script:sibling_repos",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ceo_dashboard",
+      "to": "script:client_health",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ceo_dashboard",
+      "to": "script:lead_engine",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ceo_dashboard",
+      "to": "script:revenue_engine",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ceo_dashboard",
+      "to": "script:sibling_repos",
+      "kind": "calls"
+    },
+    {
+      "from": "script:check_brain_freshness",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:check_bridge_manifest",
+      "to": "script:build_bridge_manifest",
+      "kind": "calls"
+    },
+    {
+      "from": "script:cloak_browser_tool",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:computer_control",
+      "to": "script:macos_control",
+      "kind": "calls"
+    },
+    {
+      "from": "script:computer_control",
+      "to": "script:windows_control",
+      "kind": "calls"
+    },
+    {
+      "from": "script:cost_audit",
+      "to": "script:sibling_repos",
+      "kind": "calls"
+    },
+    {
+      "from": "script:critic_template_check",
+      "to": "script:draft_critic",
+      "kind": "calls"
+    },
+    {
+      "from": "script:daily_brief",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:dashboard_email_consumer",
+      "to": "script:casl_compliance",
+      "kind": "calls"
+    },
+    {
+      "from": "script:dashboard_email_consumer",
+      "to": "script:email_template",
+      "kind": "calls"
+    },
+    {
+      "from": "script:drift_autofix",
+      "to": "script:capability_query",
+      "kind": "calls"
+    },
+    {
+      "from": "script:drift_autofix",
+      "to": "script:register_skill",
+      "kind": "calls"
+    },
+    {
+      "from": "script:email_doctor",
+      "to": "script:send_gateway",
+      "kind": "calls"
+    },
+    {
+      "from": "script:email_doctor",
+      "to": "script:wire_all_templates",
+      "kind": "calls"
+    },
+    {
+      "from": "script:enrich_oasis_leads",
+      "to": "script:research_fetch",
+      "kind": "calls"
+    },
+    {
+      "from": "script:enrich_sheet_inplace",
+      "to": "script:research_fetch",
+      "kind": "calls"
+    },
+    {
+      "from": "script:funnel_nurture",
+      "to": "script:name_utils",
+      "kind": "calls"
+    },
+    {
+      "from": "script:funnel_nurture",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:funnel_nurture",
+      "to": "script:send_gateway",
+      "kind": "calls"
+    },
+    {
+      "from": "script:funnel_sync",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:migrate_subprocess_calls",
+      "to": "script:audit_no_visible_subprocess",
+      "kind": "calls"
+    },
+    {
+      "from": "script:outreach_eligible",
+      "to": "script:name_utils",
+      "kind": "calls"
+    },
+    {
+      "from": "script:outreach_eligible",
+      "to": "script:region_inference",
+      "kind": "calls"
+    },
+    {
+      "from": "script:outreach_eligible",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:outreach_engine",
+      "to": "script:name_utils",
+      "kind": "calls"
+    },
+    {
+      "from": "script:outreach_engine",
+      "to": "script:send_gateway",
+      "kind": "calls"
+    },
+    {
+      "from": "script:pause_controller",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:pii_sweep",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:register",
+      "to": "script:build_capability_graph",
+      "kind": "calls"
+    },
+    {
+      "from": "script:register",
+      "to": "script:capability_query",
+      "kind": "calls"
+    },
+    {
+      "from": "script:research_fetch",
+      "to": "script:cloak_browser_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scheduler",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scheduler",
+      "to": "script:schedule_helpers",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_firecrawl_leads",
+      "to": "script:casl_compliance",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_firecrawl_leads",
+      "to": "script:name_utils",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_firecrawl_leads",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:send_gateway",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:send_gateway",
+      "to": "script:casl_compliance",
+      "kind": "calls"
+    },
+    {
+      "from": "script:send_gateway",
+      "to": "script:dns_reputation",
+      "kind": "calls"
+    },
+    {
+      "from": "script:send_gateway",
+      "to": "script:draft_critic",
+      "kind": "calls"
+    },
+    {
+      "from": "script:send_gateway",
+      "to": "script:email_template",
+      "kind": "calls"
+    },
+    {
+      "from": "script:send_gateway",
+      "to": "script:integration_health",
+      "kind": "calls"
+    },
+    {
+      "from": "script:send_gateway",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:send_gateway",
+      "to": "script:pause_controller",
+      "kind": "calls"
+    },
+    {
+      "from": "script:skill_spector",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:skill_synthesizer",
+      "to": "script:register_skill",
+      "kind": "calls"
+    },
+    {
+      "from": "script:supabase_tool",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:supabase_tool",
+      "to": "script:integration_health",
+      "kind": "calls"
+    },
+    {
+      "from": "skill:agent-inbox",
+      "to": "script:agent_inbox",
+      "kind": "uses"
+    },
     {
       "from": "skill:agent-runtime-packaging",
       "to": "script:onboarding_diagnostics",
@@ -6892,6 +7966,11 @@
     {
       "from": "skill:booking-management",
       "to": "script:booking_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:browser-automation",
+      "to": "script:cloak_browser_tool",
       "kind": "uses"
     },
     {
@@ -6920,6 +7999,11 @@
       "kind": "requires"
     },
     {
+      "from": "skill:browser-harness",
+      "to": "script:cloak_browser_tool",
+      "kind": "uses"
+    },
+    {
       "from": "skill:ceo-briefing",
       "to": "script:lead_engine",
       "kind": "uses"
@@ -6946,6 +8030,11 @@
     },
     {
       "from": "skill:cloak-browser",
+      "to": "script:cloak_browser_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:cloak-browser",
       "to": "script:research_fetch",
       "kind": "uses"
     },
@@ -6967,6 +8056,11 @@
     {
       "from": "skill:email-safety",
       "to": "script:outreach_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:email-safety",
+      "to": "script:send_gateway",
       "kind": "uses"
     },
     {
@@ -6996,6 +8090,11 @@
     },
     {
       "from": "skill:gws-forms",
+      "to": "script:send_gateway",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:gws-forms",
       "to": "skill:send-gateway",
       "kind": "requires"
     },
@@ -7021,8 +8120,18 @@
     },
     {
       "from": "skill:gws-modelarmor-sanitize-prompt",
+      "to": "script:send_gateway",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:gws-modelarmor-sanitize-prompt",
       "to": "skill:send-gateway",
       "kind": "requires"
+    },
+    {
+      "from": "skill:gws-modelarmor-sanitize-response",
+      "to": "script:send_gateway",
+      "kind": "uses"
     },
     {
       "from": "skill:gws-modelarmor-sanitize-response",
@@ -7045,13 +8154,28 @@
       "kind": "uses"
     },
     {
+      "from": "skill:integrations-sync",
+      "to": "script:supabase_tool",
+      "kind": "uses"
+    },
+    {
       "from": "skill:manifest-ai-editor",
       "to": "script:apply_migration",
       "kind": "uses"
     },
     {
+      "from": "skill:mcp-operations",
+      "to": "script:supabase_tool",
+      "kind": "uses"
+    },
+    {
       "from": "skill:proposal-generation",
       "to": "script:proposal_generator",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:research-fetch",
+      "to": "script:cloak_browser_tool",
       "kind": "uses"
     },
     {
@@ -7082,6 +8206,11 @@
     {
       "from": "skill:security-protocol",
       "to": "script:scan_secrets",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:send-gateway",
+      "to": "script:send_gateway",
       "kind": "uses"
     },
     {

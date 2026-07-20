@@ -1,5 +1,13 @@
 ---
 description: "Diagnostic hotfix prompt for SunBiz VPS shop-out send failures; diagnoses Gmail auth + critic-gate issues via phase-based verify-first approach"
+tags: [sunbiz, shop-out, vps, incident, archived]
+last_updated: 2026-06-20
+freshness_threshold_days: 365
+status: archived
+archived_on: 2026-07-19
+archived_from: brain/VPS_SHOPOUT_HOTFIX_PROMPT.md
+archive_reason: "Incident closed after live verification showed shop-out operational and Gmail credentials valid."
+superseded_by: docs/VPS_SETUP_HANDOFF.md
 ---
 
 # VPS Shop-Out Hotfix — paste this whole block into the Claude Code session running ON the SunBiz VPS

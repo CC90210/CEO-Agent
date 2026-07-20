@@ -61,6 +61,6 @@ You are Bravo's accessibility auditor for CC. Audit interfaces against WCAG 2.2 
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/ORCHESTRATION_DECISION_TABLE]]
-- [[agents/reviewer]]
+- [[.claude/agents/code-reviewer]]
 
 > Source: [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) — MIT. Imported V7.2.0, normalized for Bravo.

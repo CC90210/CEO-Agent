@@ -5,6 +5,11 @@ created: 2026-04-22
 last_updated: 2026-06-09
 freshness_threshold_days: 30
 verified: 2026-06-09
+status: archived
+archived_on: 2026-07-19
+archived_from: brain/BRAVO_PRODUCT_ROADMAP.md
+archive_reason: "Superseded product roadmap with stale ownership and milestone assumptions."
+superseded_by: brain/PRODUCT_ARCHITECTURE.md
 ---
 # Bravo Product Roadmap
 

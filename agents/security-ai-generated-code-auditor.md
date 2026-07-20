@@ -51,6 +51,6 @@ You are Bravo's AI-generated-code security auditor for CC. Hunt the hardcoded se
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/ORCHESTRATION_DECISION_TABLE]]
-- [[agents/reviewer]]
+- [[.claude/agents/code-reviewer]]
 
 > Source: [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) — MIT. Imported V7.2.0, normalized for Bravo.

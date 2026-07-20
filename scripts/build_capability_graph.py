@@ -23,21 +23,25 @@ USAGE
 OUTPUT FORMAT
 -------------
     {
-      "schema_version": "1.0",
+      "schema_version": "1.2",
       "agent": "bravo",
       "generated_at": "2026-05-02T...",
       "totals": { "skills": N, "scripts": N, "agents": N, "mcp_servers": N, "workflows": N },
       "nodes": [
         {
           "id": "skill:autonomous-loop",
-          "kind": "skill",                    # skill | script | agent | mcp | workflow | integration
+          "kind": "skill",                    # skill | script | agent | mcp | workflow | resource | runtime
           "name": "autonomous-loop",
           "path": "skills/autonomous-loop/SKILL.md",
           "description": "...",               # from frontmatter or docstring
           "tier": "specialized",              # core | specialized | meta | safety
           "owner": "bravo",
-          "risk": "low",                      # low | medium | high
+          "category": "outbound.safety",      # script operating domain
+          "lifecycle": "active",              # active | manual | one_off | deprecated
+          "risk": "external_write",           # read_only | local_write | external_write | destructive
           "triggers": ["..."],
+          "project": "sunbiz",
+          "bridge": {"visible": true, "confirm": true},
           "tags": [...],
           "tools_used": [...],                # references to script: nodes
           "skills_required": [...],           # references to other skill: nodes
@@ -92,8 +96,43 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from lib.capability_metadata import (
+    capability_meta_declared,
+    capability_meta_from_tree,
+    read_capability_meta,
+    validate_capability_meta,
+)
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 GRAPH_PATH = PROJECT_ROOT / "brain" / "CAPABILITY_GRAPH.json"
+
+RUNTIME_ENTRYPOINTS = (
+    {
+        "id": "runtime:bridge_chat_server",
+        "name": "bridge_chat_server",
+        "path": "bravo_cli/bridge_chat_server.py",
+        "role": "chat_bridge",
+        "language": "python",
+        "description": "Guarded chat-to-CLI execution runtime.",
+    },
+    {
+        "id": "runtime:cron_engine",
+        "name": "cron_engine",
+        "path": "scripts/core/cron_engine.py",
+        "role": "scheduler_registry",
+        "language": "python",
+        "description": "Canonical scheduled-job registry and operator CLI.",
+    },
+    {
+        "id": "runtime:telegram_agent",
+        "name": "telegram_agent",
+        "path": "telegram_agent.js",
+        "role": "telegram_gateway",
+        "language": "javascript",
+        "description": "Telegram operator gateway and guarded command router.",
+    },
+)
+NESTED_SCRIPT_SKIP_PARTS = frozenset({"_archive", "__pycache__", "tests"})
 
 # Frontmatter regex — minimal YAML parser for our specific schema.
 FM_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
@@ -245,12 +284,35 @@ def discover_scripts() -> list[dict[str, Any]]:
     scripts_dir = PROJECT_ROOT / "scripts"
     if not scripts_dir.exists():
         return []
-    out = []
-    for py in sorted(scripts_dir.glob("*.py")):
+    out: list[dict[str, Any]] = []
+    by_stem: dict[str, dict[str, Any]] = {}
+    top_level = sorted(scripts_dir.glob("*.py"))
+    nested = sorted(py for py in scripts_dir.rglob("*.py") if py.parent != scripts_dir)
+    for py in [*top_level, *nested]:
+        rel_to_scripts = py.relative_to(scripts_dir)
         if py.name.startswith("_") or py.name.startswith("test_"):
             continue
+        if any(part in NESTED_SCRIPT_SKIP_PARTS for part in rel_to_scripts.parts[:-1]):
+            continue
+        try:
+            source = py.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            source = ""
+        try:
+            tree: ast.Module | None = ast.parse(source)
+        except (SyntaxError, ValueError):
+            tree = None
+        is_nested = len(rel_to_scripts.parts) > 1
+        if is_nested and (tree is None or not capability_meta_declared(tree)):
+            continue
         doc = _python_docstring(py)
-        out.append({
+        metadata_error = ""
+        try:
+            meta = capability_meta_from_tree(tree) if tree is not None else None
+        except ValueError as exc:
+            meta = None
+            metadata_error = str(exc)
+        node: dict[str, Any] = {
             "id": f"script:{py.stem}",
             "kind": "script",
             "name": py.stem,
@@ -259,6 +321,49 @@ def discover_scripts() -> list[dict[str, Any]]:
             "tier": "tool",
             "owner": _agent_name(),
             "discovery": "auto-docstring" if doc else "auto-filename",
+            "_source": source,
+        }
+        if meta is not None:
+            node.update({
+                "category": meta.get("category"),
+                "lifecycle": meta.get("lifecycle"),
+                "risk": meta.get("risk"),
+                "triggers": meta.get("triggers", []),
+                "owner": meta.get("owner", _agent_name()),
+                "project": meta.get("project"),
+                "bridge": meta.get("bridge", {}),
+                "discovery": "auto-capability-meta",
+                "_metadata_errors": validate_capability_meta(meta),
+            })
+        elif metadata_error:
+            node["_metadata_errors"] = [metadata_error]
+        if py.stem in by_stem:
+            existing = by_stem[py.stem]
+            existing.setdefault("_metadata_errors", []).append(
+                f"duplicate script stem also declared at {node['path']}"
+            )
+            continue
+        out.append(node)
+        by_stem[py.stem] = node
+    return out
+
+
+def discover_runtime_entrypoints() -> list[dict[str, Any]]:
+    """Emit the small, explicit set of long-lived orchestration runtimes."""
+    out: list[dict[str, Any]] = []
+    for spec in RUNTIME_ENTRYPOINTS:
+        path = PROJECT_ROOT / spec["path"]
+        try:
+            source = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            source = ""
+        out.append({
+            **spec,
+            "kind": "runtime",
+            "owner": _agent_name(),
+            "available": path.is_file(),
+            "discovery": "explicit-runtime-registry",
+            "_source": source,
         })
     return out
 
@@ -282,6 +387,18 @@ def discover_agents() -> list[dict[str, Any]]:
                 continue
             seen.add(md.stem)
             fm, body = _read_frontmatter(md)
+            # V7.4: surface triggers/tags/model/tools so the resolver can score
+            # agents like it scores skills (trigger overlap weighs 2×) and so
+            # tool scoping is graph-visible for orchestration decisions.
+            triggers = fm.get("triggers", [])
+            if isinstance(triggers, str):
+                triggers = [t.strip() for t in triggers.strip("[]").split(",") if t.strip()]
+            tags = fm.get("tags", [])
+            if isinstance(tags, str):
+                tags = [t.strip() for t in tags.strip("[]").split(",") if t.strip()]
+            tools = fm.get("tools", [])
+            if isinstance(tools, str):
+                tools = [t.strip() for t in tools.strip("[]").split(",") if t.strip()]
             out.append({
                 "id": f"agent:{md.stem}",
                 "kind": "agent",
@@ -290,6 +407,10 @@ def discover_agents() -> list[dict[str, Any]]:
                 "description": (fm.get("description") or "")[:280],
                 "owner": fm.get("owner", _agent_name()),
                 "tier": fm.get("tier", "specialized"),
+                "model": fm.get("model", ""),
+                "tools": tools,
+                "triggers": triggers,
+                "tags": tags,
                 "discovery": "auto-frontmatter" if fm else "auto-filename",
             })
     return out
@@ -331,6 +452,8 @@ def discover_workflows() -> list[dict[str, Any]]:
         return []
     out = []
     for md in sorted(wf_dir.glob("*.md")):
+        if md.name.startswith(("INDEX", "README", "_")):
+            continue
         fm, body = _read_frontmatter(md)
         out.append({
             "id": f"workflow:{md.stem}",
@@ -399,23 +522,155 @@ def discover_resources() -> list[dict[str, Any]]:
 # ── Edge inference ──────────────────────────────────────────────────────────
 
 def infer_edges(nodes: list[dict[str, Any]]) -> list[dict[str, str]]:
-    """Heuristic: if a skill body mentions `scripts/<name>.py` or another skill
-    name in `[[skill:...]]` form, emit an edge."""
-    script_ids = {n["name"]: n["id"] for n in nodes if n["kind"] == "script"}
+    """Infer static routing, execution, scheduling, and exposure relationships."""
+    scripts = [n for n in nodes if n["kind"] == "script"]
+    script_ids = {n["name"]: n["id"] for n in scripts}
     skill_ids = {n["name"]: n["id"] for n in nodes if n["kind"] == "skill"}
+    runtime_ids = {n["name"]: n["id"] for n in nodes if n["kind"] == "runtime"}
     edges: list[dict[str, str]] = []
-    for n in nodes:
-        if n["kind"] != "skill":
-            continue
-        body = n.get("_body", "")
-        for script_name, script_id in script_ids.items():
-            if f"scripts/{script_name}.py" in body or f"`{script_name}.py`" in body:
-                edges.append({"from": n["id"], "to": script_id, "kind": "uses"})
-        for skill_name, skill_id in skill_ids.items():
-            if skill_id == n["id"]:
+
+    def literal_target_ids(node: ast.AST) -> set[str]:
+        targets: set[str] = set()
+        for child in ast.walk(node):
+            if not isinstance(child, ast.Constant) or not isinstance(child.value, str):
                 continue
-            if f"skills/{skill_name}/" in body or f"[[skill:{skill_name}]]" in body:
-                edges.append({"from": n["id"], "to": skill_id, "kind": "requires"})
+            literal = child.value.replace("\\", "/")
+            for script in scripts:
+                path = str(script.get("path", "")).replace("\\", "/")
+                basename = path.rsplit("/", 1)[-1]
+                if (
+                    literal == path
+                    or literal.endswith(f"/{path}")
+                    or re.search(rf"(?:^|/){re.escape(basename)}(?:$|\b)", literal)
+                ):
+                    targets.add(script["id"])
+        return targets
+
+    def python_relationships(node: dict[str, Any]) -> tuple[set[str], set[str], ast.Module]:
+        source = node.get("_source", "")
+        called: set[str] = set()
+        configured: set[str] = set()
+        try:
+            tree = ast.parse(source)
+        except (SyntaxError, ValueError):
+            tree = ast.Module(body=[], type_ignores=[])
+
+        assigned_targets: dict[str, set[str]] = {}
+        for item in ast.walk(tree):
+            if isinstance(item, ast.Import):
+                for alias in item.names:
+                    target = script_ids.get(alias.name.rsplit(".", 1)[-1])
+                    if target:
+                        called.add(target)
+            elif isinstance(item, ast.ImportFrom):
+                if item.module:
+                    target = script_ids.get(item.module.rsplit(".", 1)[-1])
+                    if target:
+                        called.add(target)
+                for alias in item.names:
+                    target = script_ids.get(alias.name)
+                    if target:
+                        called.add(target)
+            elif isinstance(item, (ast.Assign, ast.AnnAssign)):
+                value = item.value
+                targets = literal_target_ids(value) if value is not None else set()
+                names: list[str] = []
+                if isinstance(item, ast.Assign):
+                    names = [target.id for target in item.targets if isinstance(target, ast.Name)]
+                elif isinstance(item.target, ast.Name):
+                    names = [item.target.id]
+                for name in names:
+                    assigned_targets.setdefault(name, set()).update(targets)
+                    if name.endswith(("_SCRIPT", "_TOOL", "_PATH", "_CMD", "_EXECUTABLE")):
+                        configured.update(targets)
+
+        subprocess_attrs = {"run", "Popen", "call", "check_call", "check_output"}
+        subprocess_names = {"_safe_popen"}
+        for item in ast.walk(tree):
+            if not isinstance(item, ast.Call):
+                continue
+            is_subprocess = (
+                isinstance(item.func, ast.Attribute) and item.func.attr in subprocess_attrs
+            ) or (
+                isinstance(item.func, ast.Name) and item.func.id in subprocess_names
+            )
+            if not is_subprocess:
+                continue
+            called.update(literal_target_ids(item))
+            for child in ast.walk(item):
+                if isinstance(child, ast.Name):
+                    called.update(assigned_targets.get(child.id, set()))
+        return called, configured, tree
+
+    def javascript_exposed_targets(source: str) -> set[str]:
+        """Find script paths passed to child-process calls, excluding prompt text."""
+        paths: set[str] = set()
+        path_re = re.compile(r"scripts/[A-Za-z0-9_./-]+\.py")
+        call_re = re.compile(r"\b(?:exec|execFile[A-Za-z0-9_]*|spawn[A-Za-z0-9_]*)\s*\(")
+        for segment in source.split(";"):
+            if call_re.search(segment):
+                paths.update(path_re.findall(segment))
+        assignment_re = re.compile(
+            r"(?:const|let|var)\s+(\w+)\s*=\s*`[^`\n]*(scripts/[A-Za-z0-9_./-]+\.py)[^`]*`"
+        )
+        for match in assignment_re.finditer(source):
+            variable, path = match.groups()
+            tail = source[match.end():match.end() + 2000]
+            if re.search(
+                rf"\bexecFile[A-Za-z0-9_]*\s*\([\s\S]{{0,1000}}\b{re.escape(variable)}\b",
+                tail,
+            ):
+                paths.add(path)
+        targets: set[str] = set()
+        for path in paths:
+            targets.update(literal_target_ids(ast.Constant(value=path)))
+        return targets
+
+    for n in nodes:
+        if n["kind"] == "skill":
+            body = n.get("_body", "")
+            for script in scripts:
+                path = str(script.get("path", ""))
+                basename = path.rsplit("/", 1)[-1]
+                if path in body or f"`{basename}`" in body:
+                    edges.append({"from": n["id"], "to": script["id"], "kind": "uses"})
+            for skill_name, skill_id in skill_ids.items():
+                if skill_id == n["id"]:
+                    continue
+                if f"skills/{skill_name}/" in body or f"[[skill:{skill_name}]]" in body:
+                    edges.append({"from": n["id"], "to": skill_id, "kind": "requires"})
+        elif n["kind"] in {"script", "runtime"} and n.get("language", "python") == "python":
+            called, configured, tree = python_relationships(n)
+            for script_id in sorted(called):
+                if script_id != n["id"]:
+                    edges.append({"from": n["id"], "to": script_id, "kind": "calls"})
+            for script_id in sorted(configured - called):
+                if script_id != n["id"]:
+                    edges.append({"from": n["id"], "to": script_id, "kind": "references"})
+            bridge = n.get("bridge") or {}
+            bridge_runtime = runtime_ids.get("bridge_chat_server")
+            if bridge.get("visible") is True and bridge_runtime:
+                edges.append({"from": n["id"], "to": bridge_runtime, "kind": "exposed_via"})
+            if n["id"] == runtime_ids.get("cron_engine"):
+                for item in ast.walk(tree):
+                    if not isinstance(item, ast.Dict):
+                        continue
+                    for key, value in zip(item.keys, item.values):
+                        if (
+                            isinstance(key, ast.Constant)
+                            and key.value == "script"
+                            and isinstance(value, ast.Constant)
+                            and isinstance(value.value, str)
+                        ):
+                            for script_id in literal_target_ids(value):
+                                edges.append({
+                                    "from": n["id"],
+                                    "to": script_id,
+                                    "kind": "schedules",
+                                })
+        elif n["id"] == runtime_ids.get("telegram_agent"):
+            for script_id in javascript_exposed_targets(n.get("_source", "")):
+                edges.append({"from": n["id"], "to": script_id, "kind": "exposes"})
     # Dedupe
     seen = set()
     unique: list[dict[str, str]] = []
@@ -424,7 +679,7 @@ def infer_edges(nodes: list[dict[str, Any]]) -> list[dict[str, str]]:
         if k not in seen:
             seen.add(k)
             unique.append(e)
-    return unique
+    return sorted(unique, key=lambda edge: (edge["from"], edge["to"], edge["kind"]))
 
 
 # ── Drift detection ─────────────────────────────────────────────────────────
@@ -442,6 +697,10 @@ def detect_drift(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
             drift.append({"node": n["id"], "issue": "skill has no triggers — agent can't route to it"})
         if n["kind"] == "script" and n.get("discovery") == "auto-filename":
             drift.append({"node": n["id"], "issue": "script missing module docstring"})
+        for issue in n.get("_metadata_errors", []):
+            drift.append({"node": n["id"], "issue": f"invalid CAPABILITY_META: {issue}"})
+        if n["kind"] == "runtime" and not n.get("available"):
+            drift.append({"node": n["id"], "issue": f"runtime entrypoint missing: {n.get('path')}"})
         if n["kind"] == "resource" and n.get("status") not in RADAR_STATUSES:
             drift.append({"node": n["id"],
                           "issue": f"radar row status '{n.get('status')}' not in {sorted(RADAR_STATUSES)}"})
@@ -457,13 +716,14 @@ def build() -> dict[str, Any]:
     mcp = discover_mcp_servers()
     workflows = discover_workflows()
     resources = discover_resources()
-    nodes = skills + scripts + agents + mcp + workflows + resources
+    runtimes = discover_runtime_entrypoints()
+    nodes = skills + scripts + agents + mcp + workflows + resources + runtimes
     edges = infer_edges(nodes)
     drift = detect_drift(nodes)
     # Strip private fields (_body) before output
     public_nodes = [{k: v for k, v in n.items() if not k.startswith("_")} for n in nodes]
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.2",
         "agent": _agent_name(),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "totals": {
@@ -473,6 +733,7 @@ def build() -> dict[str, Any]:
             "mcp_servers": len(mcp),
             "workflows": len(workflows),
             "resources": len(resources),
+            "runtime_entrypoints": len(runtimes),
             "nodes_total": len(nodes),
             "edges_total": len(edges),
             "drift_count": len(drift),
@@ -489,20 +750,50 @@ def write_graph(graph: dict[str, Any]) -> Path:
     return GRAPH_PATH
 
 
+def normalize_graph(graph: dict[str, Any]) -> dict[str, Any]:
+    """Return a deterministic graph view with volatile timestamps removed."""
+    normalized = {
+        key: value for key, value in graph.items()
+        if key not in {"generated_at", "generated_at_iso"}
+    }
+    normalized["nodes"] = sorted(normalized.get("nodes", []), key=lambda node: node["id"])
+    normalized["edges"] = sorted(
+        normalized.get("edges", []),
+        key=lambda edge: (edge["from"], edge["to"], edge["kind"]),
+    )
+    normalized["drift"] = sorted(
+        normalized.get("drift", []),
+        key=lambda item: json.dumps(item, sort_keys=True),
+    )
+    return normalized
+
+
 def cmd_check(graph: dict[str, Any]) -> int:
-    """Compare freshly-built graph against on-disk version. Exit 1 if drift."""
+    """Compare the full normalized graph against disk. Exit 1 on any drift."""
     if not GRAPH_PATH.exists():
         print("CAPABILITY_GRAPH.json missing — run without --check to build.")
         return 1
     old = json.loads(GRAPH_PATH.read_text(encoding="utf-8"))
-    old_ids = {n["id"]: n.get("description", "") for n in old.get("nodes", [])}
-    new_ids = {n["id"]: n.get("description", "") for n in graph.get("nodes", [])}
-    added = sorted(set(new_ids) - set(old_ids))
-    removed = sorted(set(old_ids) - set(new_ids))
-    if added or removed:
-        print(f"DRIFT: {len(added)} added, {len(removed)} removed")
-        for a in added: print(f"  + {a}")
-        for r in removed: print(f"  - {r}")
+    if normalize_graph(old) != normalize_graph(graph):
+        old_nodes = {n["id"]: n for n in old.get("nodes", [])}
+        new_nodes = {n["id"]: n for n in graph.get("nodes", [])}
+        added = sorted(set(new_nodes) - set(old_nodes))
+        removed = sorted(set(old_nodes) - set(new_nodes))
+        changed = sorted(
+            node_id for node_id in set(old_nodes) & set(new_nodes)
+            if old_nodes[node_id] != new_nodes[node_id]
+        )
+        print(f"DRIFT: {len(added)} added, {len(removed)} removed, {len(changed)} changed")
+        for node_id in added:
+            print(f"  + {node_id}")
+        for node_id in removed:
+            print(f"  - {node_id}")
+        for node_id in changed[:25]:
+            print(f"  ~ {node_id}")
+        if old.get("edges", []) != graph.get("edges", []):
+            print("  ~ graph edges")
+        if old.get("drift", []) != graph.get("drift", []):
+            print("  ~ drift findings")
         return 1
     print("OK — capability graph matches disk.")
     return 0
@@ -521,8 +812,7 @@ GENERATED_HEADER = (
 
 
 def _tracked_md(subdir: str) -> list[Path]:
-    """Tracked *.md files DIRECTLY under <subdir>/ (portable: excludes gitignored
-    local-only files like memory/MISTAKES.md so the index is clean in a fresh clone)."""
+    """Versioned or new, non-ignored Markdown files directly under *subdir*."""
     import subprocess
     from lib.subprocess_helpers import WINDOWLESS_FLAGS, windowless_startupinfo
     base = PROJECT_ROOT / subdir
@@ -530,24 +820,28 @@ def _tracked_md(subdir: str) -> list[Path]:
         # creationflags + startupinfo — capability graph builds run from
         # the cron daemon; without windowless flags the git ls-files spawn
         # flashed a conhost window on every rebuild.
-        out = subprocess.run(
-            ["git", "-C", str(PROJECT_ROOT), "ls-files", subdir],
+        proc = subprocess.run(
+            [
+                "git", "-C", str(PROJECT_ROOT), "ls-files",
+                "--cached", "--others", "--exclude-standard", "--", subdir,
+            ],
             capture_output=True, text=True, encoding="utf-8", errors="ignore",
             creationflags=WINDOWLESS_FLAGS, startupinfo=windowless_startupinfo(),
-        ).stdout
-        result = []
-        for line in out.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            p = PROJECT_ROOT / line
-            if p.parent == base and p.suffix == ".md":
-                result.append(p)
-        if result:
-            return sorted(result, key=lambda x: x.name)
-    except Exception:  # noqa: BLE001
-        pass
-    return sorted(base.glob("*.md"), key=lambda x: x.name)
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"git ls-files failed for {subdir}") from exc
+    if proc.returncode != 0:
+        detail = proc.stderr.strip() or f"exit {proc.returncode}"
+        raise RuntimeError(f"git ls-files failed for {subdir}: {detail}")
+    result = []
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        path = PROJECT_ROOT / line
+        if path.is_file() and path.parent == base and path.suffix == ".md":
+            result.append(path)
+    return sorted(result, key=lambda path: path.name)
 
 
 def _first_heading(path: Path) -> str:
@@ -593,6 +887,32 @@ def emit_when_to_use_skills(graph: dict[str, Any]) -> str:
     return "\n".join(out) + "\n"
 
 
+def emit_when_to_use_agents(graph: dict[str, Any]) -> str:
+    # V7.4: agents get the same generated routing surface skills have had since
+    # V6.6 — hand-maintained delegation matrices drift (the 2026-07-19 currency
+    # audit found three of them disagreeing); this one regenerates from
+    # frontmatter on every graph build.
+    agents = sorted((n for n in graph["nodes"] if n["kind"] == "agent"), key=lambda n: n["name"])
+    out = [GENERATED_HEADER.rstrip(), "", "# When To Use Agents", "",
+           f"Auto-generated from `brain/CAPABILITY_GRAPH.json` — **{len(agents)} agent personas**. "
+           "Each entry: what it's for → trigger phrases → model/tools scoping → path. Resolve at "
+           "runtime with `python scripts/capability_query.py resolve \"<intent>\" --kind agent`. "
+           "Cross-agent delegation (Maven/Atlas/Codex/apps) stays in "
+           "`brain/ORCHESTRATION_DECISION_TABLE.md` §A — this file covers spawnable personas only.", ""]
+    for a in agents:
+        trig = ", ".join(a.get("triggers") or []) or "—"
+        desc = (a.get("description") or "").strip() or "—"
+        tools = ", ".join(a.get("tools") or []) or "(unscoped — full default surface)"
+        model = a.get("model") or "inherit"
+        out.append(f"## {a['name']}")
+        out.append(f"- **Use when:** {desc}")
+        out.append(f"- **Triggers:** {trig}")
+        out.append(f"- **Scoping:** model `{model}` · tools: {tools}")
+        out.append(f"- **Path:** `{a['path']}` · tier `{a.get('tier','specialized')}`")
+        out.append("")
+    return "\n".join(out) + "\n"
+
+
 def emit_dir_index(subdir: str, title: str, categorize: bool) -> str:
     files = _tracked_md(subdir)
     buckets: dict[str, list[Path]] = {}
@@ -623,6 +943,7 @@ def emit_memory_index_pointer() -> str:
 
 GENERATED_DOCS = {
     "brain/WHEN_TO_USE_SKILLS.md": lambda g: emit_when_to_use_skills(g),
+    "brain/WHEN_TO_USE_AGENTS.md": lambda g: emit_when_to_use_agents(g),
     "brain/INDEX.md": lambda g: emit_dir_index("brain", "Brain Index", categorize=True),
     "memory/INDEX.md": lambda g: emit_dir_index("memory", "Memory Index", categorize=False),
     "memory/MEMORY_INDEX.md": lambda g: emit_memory_index_pointer(),
@@ -663,7 +984,9 @@ def main() -> int:
                    help="Print full graph JSON to stdout instead of writing the file")
     p.add_argument("--check", action="store_true",
                    help="Exit 1 if on-disk graph is out of sync")
-    p.add_argument("--query", choices=["skill", "script", "agent", "mcp", "workflow", "resource"],
+    p.add_argument(
+        "--query",
+        choices=["skill", "script", "agent", "mcp", "workflow", "resource", "runtime"],
                    help="Filter nodes by kind")
     p.add_argument("--emit-docs", action="store_true",
                    help="Regenerate brain/WHEN_TO_USE_SKILLS.md, brain/INDEX.md, memory/INDEX.md "
@@ -695,7 +1018,7 @@ def main() -> int:
     print(f"Wrote {path.relative_to(PROJECT_ROOT)}")
     print(f"  Nodes: {t['nodes_total']} ({t['skills']} skills, {t['scripts']} scripts, "
           f"{t['agents']} agents, {t['mcp_servers']} MCP, {t['workflows']} workflows, "
-          f"{t['resources']} resources)")
+          f"{t['resources']} resources, {t['runtime_entrypoints']} runtimes)")
     print(f"  Edges: {t['edges_total']}")
     if t["drift_count"]:
         print(f"  Drift: {t['drift_count']} (run with --json to see details)")

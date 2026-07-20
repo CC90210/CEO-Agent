@@ -1,11 +1,23 @@
 ---
-description: "Handoff doc for SunBiz Command Center: what's shipped, two P0 TODOs (bank-statement upload, FICO field), architecture decisions, and DB-driven form re-seeding instructions"
+description: "Archived SunBiz Command Center handoff: completed bank-statement upload and FICO work, architecture decisions, and DB-driven form re-seeding instructions"
+tags: [sunbiz, handoff, completed, archived]
+last_updated: 2026-06-23
+freshness_threshold_days: 365
+status: archived
+archived_on: 2026-07-19
+archived_from: memory/CODEX_HANDOFF.md
+archive_reason: "Both P0 handoff tasks shipped in oasis-command-center commit a55d1cd and the live forms were re-seeded."
+superseded_by: memory/SESSION_LOG.md
 ---
 
 # SunBiz Command Center — Codex Handoff (2026-06-23)
 
 **Repo:** `C:\Users\User\APPS\oasis-command-center` (Next.js 15, tenant `submissions`).
 **Rules:** commit author = **CC90210** (else Vercel blocks). Coordinate via OASIS `agent_activity` (APEX is active here). Gate before push: `npm run typecheck && npm run lint`.
+
+> **Archived outcome:** Both TODOs below shipped on 2026-06-23 in
+> `oasis-command-center` commit `a55d1cd`; the live SunBiz forms were re-seeded and
+> production verification passed. The TODO wording is retained only as historical context.
 
 **✅ Done by Bravo (pushed, `698802e`) — don't redo:** (1) clickable Stage on the pipeline board → `/api/leads/[id]/set-stage`; (2) removed the APPLICANT block from the application PDF.
 

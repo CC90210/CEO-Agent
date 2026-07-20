@@ -2,6 +2,12 @@
 description: "Paste-prompt for SunBiz VPS: contains git commands to persist SMS fix to a feature branch, answers 3 persistence-strategy questions"
 tags: [vps, sunbiz, bridge, paste-prompt, task]
 last_updated: 2026-06-22
+freshness_threshold_days: 365
+status: archived
+archived_on: 2026-07-19
+archived_from: brain/VPS_SUNBIZ_TASK3_PROMPT.md
+archive_reason: "One-time SMS-fix persistence prompt completed; the shipped outcome is recorded in the session log."
+superseded_by: memory/SESSION_LOG.md
 ---
 # VPS Agent — Task 3 (persist the SMS fix; answers to your 3 questions)
 

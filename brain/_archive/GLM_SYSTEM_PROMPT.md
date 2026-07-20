@@ -3,6 +3,11 @@ description: "System prompt for GLM 5.2 that defines Bravo's identity, cognitive
 tags: [system-prompt, glm, zcode, model-harness]
 last_updated: 2026-06-20
 freshness_threshold_days: 30
+status: archived
+archived_on: 2026-07-19
+archived_from: brain/GLM_SYSTEM_PROMPT.md
+archive_reason: "Model-specific prompt was replaced by the maintained ZCode entry point and lockstep harness."
+superseded_by: ZCODE.md
 ---
 
 # GLM 5.2 System Prompt — ZCode Chassis
