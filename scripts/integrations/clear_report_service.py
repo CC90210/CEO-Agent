@@ -37,8 +37,21 @@ from integrations.clear_client import (  # noqa: E402
     is_configured,
     person_search,
 )
+from integrations.clear_endpoints import (  # noqa: E402
+    CAPABILITIES,
+    BusinessQuery,
+    list_capabilities,
+    run_endpoint,
+)
 
 TABLE = "clair_reports"
+
+#: report_type -> the *Query class that builds its criteria from a lead. Report
+#: endpoints (needs_entity_id) take an entity_id instead of a lead-derived query.
+_QUERY_BUILDERS = {
+    "person_search": ClearQuery,
+    "business_search": BusinessQuery,
+}
 
 
 def _now() -> str:
@@ -102,12 +115,23 @@ def _insert(sb, row: dict[str, Any]) -> Optional[str]:
 def run_clear_report(
     tenant_id: str,
     lead_id: str,
+    report_type: str = "person_search",
+    entity_id: Optional[str] = None,
     requested_by: Optional[str] = None,
     requested_by_email: Optional[str] = None,
     application_id: Optional[str] = None,
     env: Optional[dict[str, str]] = None,
 ) -> dict[str, Any]:
-    """Pull a CLEAR report for one lead and store it. Returns a UI-shaped dict."""
+    """Run a CLEAR endpoint for one lead and persist the report. UI-shaped dict.
+
+    report_type selects the endpoint (see clear_endpoints.CAPABILITIES):
+      * person_search  (default, VERIFIED) — locate the owner + phones
+      * business_search — locate the merchant business + phones/principals
+      * person_report / business_report — full detail for an entity_id
+    A row is written for EVERY attempt, failures included, because each one
+    consumes a permissible-use assertion on the account. Nothing here is ever
+    called automatically — the only caller is an operator-initiated bridge tool.
+    """
     env = env or _load_env()
     sb = _client(env)
 
@@ -115,20 +139,39 @@ def run_clear_report(
         return {"ok": False, "error": "not_configured",
                 "message": "CLEAR credentials are not present on this host"}
 
-    lead = _load_lead(sb, tenant_id, lead_id)
-    query = ClearQuery.from_lead(lead, reference=f"sunbiz-lead-{lead_id[:8]}")
-    ok, why = query.is_searchable()
-    if not ok:
-        # Refuse BEFORE billing for a query that cannot identify anybody.
-        return {"ok": False, "error": "insufficient_criteria", "message": why,
-                "query": query.as_columns()}
+    spec = CAPABILITIES.get(report_type)
+    if spec is None:
+        return {"ok": False, "error": "unknown_report_type",
+                "message": f"unknown report_type '{report_type}'",
+                "available": [c["key"] for c in list_capabilities()]}
 
+    lead = _load_lead(sb, tenant_id, lead_id)
     cfg = clear_config(env)
+
+    # Build the criteria for the audit row + the call.
+    query = None
+    if not spec.needs_entity_id:
+        builder = _QUERY_BUILDERS.get(report_type)
+        if builder is None:
+            return {"ok": False, "error": "unsupported",
+                    "message": f"no lead-query builder for '{report_type}'"}
+        query = builder.from_lead(lead, reference=f"sunbiz-lead-{lead_id[:8]}")
+        ok, why = query.is_searchable()
+        if not ok:
+            # Refuse BEFORE billing for a query that cannot identify anybody.
+            return {"ok": False, "error": "insufficient_criteria", "message": why,
+                    "report_type": report_type, "query": query.as_columns()}
+    elif not entity_id:
+        return {"ok": False, "error": "missing_entity_id",
+                "message": f"report_type '{report_type}' requires an entity_id"}
+
     base_row: dict[str, Any] = {
         "tenant_id": tenant_id,
         "lead_id": lead_id,
         "application_id": application_id,
-        **query.as_columns(),
+        "report_type": report_type,
+        "entity_id": entity_id,
+        **(query.as_columns() if query else {}),
         "permissible_dppa": cfg.get("dppa") or None,
         "permissible_glb": cfg.get("glb") or None,
         "permissible_voter": cfg.get("voter") or None,
@@ -138,7 +181,9 @@ def run_clear_report(
     }
 
     try:
-        result: ClearResult = person_search(query, env=env)
+        result: ClearResult = run_endpoint(
+            report_type, query=query, entity_id=entity_id, env=env,
+        )
     except ClearError as e:
         report_id = _insert(sb, {
             **base_row,
@@ -150,7 +195,7 @@ def run_clear_report(
             "completed_at": _now(),
         })
         return {"ok": False, "error": e.code, "message": e.message,
-                "report_id": report_id, "http_status": e.status}
+                "report_type": report_type, "report_id": report_id, "http_status": e.status}
 
     report_id = _insert(sb, {
         **base_row,
@@ -168,9 +213,10 @@ def run_clear_report(
     return {
         "ok": True,
         "report_id": report_id,
+        "report_type": report_type,
         "status": result.status,
         "result_count": result.result_count,
         "people": result.people,
         "phones": result.phones,
-        "query": query.as_columns(),
+        "query": query.as_columns() if query else {"entity_id": entity_id},
     }

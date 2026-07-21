@@ -802,6 +802,8 @@ def _tool_clair_report(payload: dict) -> dict:
         result = run_clear_report(
             tenant_id=tenant_id,
             lead_id=lead_id,
+            report_type=str(payload.get("report_type") or "person_search").strip(),
+            entity_id=(payload.get("entity_id") or None),
             requested_by=(payload.get("requested_by") or None),
             requested_by_email=(payload.get("requested_by_email") or None),
             application_id=(payload.get("application_id") or None),
@@ -810,6 +812,34 @@ def _tool_clair_report(payload: dict) -> dict:
         return _err(f"clair_report failed: {type(e).__name__}: {e}")
     out = _json.dumps(result, default=str)
     return _ok(out) if result.get("ok") else _err(out)
+
+
+def _tool_clair_capabilities(payload: dict) -> dict:
+    """List the CLAIR (Thomson Reuters CLEAR) endpoints this system can invoke.
+
+    Discovery for other agents/operators: returns each capability's key, label,
+    entity type, verified flag, and description, so a caller knows what CLEAR can
+    do and which endpoints are confirmed against the live API vs. built from
+    documentation. Read-only — makes no CLEAR call, bills nothing.
+    """
+    import json as _json
+
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+        from integrations.clear_endpoints import list_capabilities  # type: ignore
+        from integrations.clear_client import is_configured  # type: ignore
+        from integrations.clear_report_service import _load_env  # type: ignore
+
+        # is_configured() reads os.environ by default, which the bridge process
+        # does not carry secrets in — load .env.agents the same way the service
+        # does so `configured` reflects reality.
+        env = _load_env()
+        return _ok(_json.dumps({
+            "configured": is_configured(env),
+            "capabilities": list_capabilities(),
+        }, default=str))
+    except Exception as e:  # noqa: BLE001
+        return _err(f"clair_capabilities failed: {type(e).__name__}: {e}")
 
 
 def _tool_n8n(payload: dict) -> dict:
@@ -1759,6 +1789,7 @@ TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "stripe": _tool_stripe,
     "supabase": _tool_supabase,
     "clair_report": _tool_clair_report,
+    "clair_capabilities": _tool_clair_capabilities,
     "n8n": _tool_n8n,
     "firecrawl": _tool_firecrawl,
     "notebooklm": _tool_notebooklm,

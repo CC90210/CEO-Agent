@@ -54,6 +54,8 @@ SEARCH_PATH = "/api/v2/person/searchResults"
 DEFAULT_TIMEOUT = (10, 60)   # (connect, read) — CLEAR searches are slow
 MAX_ATTEMPTS = 3
 RETRY_STATUSES = {429, 500, 502, 503, 504}
+BACKOFF_BASE_S = 1.0
+BACKOFF_MAX_S = 8.0
 
 
 class ClearError(Exception):
@@ -350,28 +352,28 @@ def _parse_search_xml(body: str) -> tuple[list[dict[str, Any]], list[dict[str, A
     return people, phones
 
 
-# ── the call ────────────────────────────────────────────────────────────────
+# ── transport core (shared by every endpoint) ───────────────────────────────
 
-def person_search(
-    query: ClearQuery,
-    env: Optional[dict[str, str]] = None,
+def clear_post(
+    path: str,
+    payload: bytes,
+    cfg: dict[str, str],
     timeout: tuple[int, int] = DEFAULT_TIMEOUT,
-) -> ClearResult:
-    """Run ONE CLEAR person search. Manual, operator-initiated calls only.
+) -> tuple[int, str]:
+    """POST an XML body to a CLEAR S2S endpoint and return (status_code, body).
 
-    Retries only on transport faults and 429/5xx — never on a 4xx, which means
-    the request or the permissible use was rejected and repeating it would just
-    bill again for the same refusal.
+    The one place that owns the transport contract for EVERY endpoint: mutual
+    TLS (client cert decrypted to a 0600 temp PEM, unlinked in a finally),
+    HTTP Basic, exponential backoff, and the error taxonomy. Endpoint methods
+    build a request and parse a response; they never touch the socket, so the
+    verified transport can never drift between them.
+
+    Retries transport faults and 429/5xx only — never a 4xx, which means the
+    request or the permissible use was rejected and a repeat would bill again
+    for the same refusal. Raises ClearError; on 2xx returns the raw body.
     """
-    ok, why = query.is_searchable()
-    if not ok:
-        raise ClearError("insufficient_criteria", why)
-
-    cfg = clear_config(env)
-    url = cfg["base_url"] + SEARCH_PATH
-    payload = _build_search_xml(query, cfg)
+    url = cfg["base_url"] + path
     pem_path = _write_client_pem(cfg["pfx_b64"], cfg["passphrase"])
-
     last_exc: Optional[Exception] = None
     try:
         for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -392,32 +394,64 @@ def person_search(
                 last_exc = e
                 if attempt == MAX_ATTEMPTS:
                     raise ClearError("network_error", f"could not reach CLEAR: {e}") from e
+                _backoff(attempt)
                 continue
 
             if resp.status_code in RETRY_STATUSES and attempt < MAX_ATTEMPTS:
+                _backoff(attempt)
                 continue
 
             body = resp.text or ""
-            if resp.status_code == 401 or resp.status_code == 403:
+            if resp.status_code in (401, 403):
                 raise ClearError("unauthorized",
                                  "CLEAR rejected the credentials or the permissible use "
                                  f"(HTTP {resp.status_code})", resp.status_code, body)
             if resp.status_code >= 400:
                 raise ClearError("http_error", f"CLEAR returned HTTP {resp.status_code}",
                                  resp.status_code, body)
-
-            people, phones = _parse_search_xml(body)
-            return ClearResult(
-                status="completed" if people else "no_results",
-                people=people,
-                phones=phones,
-                raw_report=body,
-                raw_format="xml",
-                http_status=resp.status_code,
-            )
+            return resp.status_code, body
         raise ClearError("network_error", f"CLEAR unreachable after {MAX_ATTEMPTS} attempts: {last_exc}")
     finally:
         try:
             os.unlink(pem_path)
         except OSError:
             pass
+
+
+def _backoff(attempt: int) -> None:
+    """Exponential backoff with jitter. Deterministic base so tests are stable;
+    jitter avoids synchronized retries. attempt is 1-based."""
+    import random
+    import time
+    delay = min(BACKOFF_BASE_S * (2 ** (attempt - 1)), BACKOFF_MAX_S)
+    time.sleep(delay + random.uniform(0, delay * 0.25))
+
+
+# ── person search (VERIFIED against the live endpoint) ──────────────────────
+
+def person_search(
+    query: ClearQuery,
+    env: Optional[dict[str, str]] = None,
+    timeout: tuple[int, int] = DEFAULT_TIMEOUT,
+) -> ClearResult:
+    """Run ONE CLEAR person search. Manual, operator-initiated calls only.
+
+    This is the reference endpoint — its transport and request shape are
+    confirmed against s2s.thomsonreuters.com. Every other endpoint reuses the
+    same clear_post() transport.
+    """
+    ok, why = query.is_searchable()
+    if not ok:
+        raise ClearError("insufficient_criteria", why)
+
+    cfg = clear_config(env)
+    status, body = clear_post(SEARCH_PATH, _build_search_xml(query, cfg), cfg, timeout)
+    people, phones = _parse_search_xml(body)
+    return ClearResult(
+        status="completed" if people else "no_results",
+        people=people,
+        phones=phones,
+        raw_report=body,
+        raw_format="xml",
+        http_status=status,
+    )
