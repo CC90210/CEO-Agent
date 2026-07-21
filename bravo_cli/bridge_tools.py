@@ -776,6 +776,42 @@ def _tool_supabase(payload: dict) -> dict:
     return _run_typed_tool("supabase_tool.py", payload)
 
 
+def _tool_clair_report(payload: dict) -> dict:
+    """CLAIR (Thomson Reuters CLEAR) person search — MANUAL fallback only.
+
+    Runs ONE billable, regulated CLEAR query for a lead and stores the report in
+    the clair_reports table. Never call this on a schedule, in a retry loop, or
+    speculatively: each query asserts a DPPA/GLB permissible use on the
+    operator's account. It exists so the dashboard's "Pull CLAIR Report" button —
+    which only renders after the automated TruePeopleSearch path has failed —
+    has something to invoke.
+
+    Required: tenant_id, lead_id. Optional: requested_by, requested_by_email,
+    application_id (recorded for audit).
+    """
+    import json as _json
+
+    tenant_id = str(payload.get("tenant_id") or "").strip()
+    lead_id = str(payload.get("lead_id") or "").strip()
+    if not tenant_id or not lead_id:
+        return _err("clair_report requires 'tenant_id' and 'lead_id'")
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+        from integrations.clear_report_service import run_clear_report  # type: ignore
+
+        result = run_clear_report(
+            tenant_id=tenant_id,
+            lead_id=lead_id,
+            requested_by=(payload.get("requested_by") or None),
+            requested_by_email=(payload.get("requested_by_email") or None),
+            application_id=(payload.get("application_id") or None),
+        )
+    except Exception as e:  # noqa: BLE001
+        return _err(f"clair_report failed: {type(e).__name__}: {e}")
+    out = _json.dumps(result, default=str)
+    return _ok(out) if result.get("ok") else _err(out)
+
+
 def _tool_n8n(payload: dict) -> dict:
     """n8n — list workflows, execute by name, get execution status, manage
     webhooks. Calls scripts/integrations/n8n_tool.py."""
@@ -1722,6 +1758,7 @@ TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "load_skill": _tool_load_skill,
     "stripe": _tool_stripe,
     "supabase": _tool_supabase,
+    "clair_report": _tool_clair_report,
     "n8n": _tool_n8n,
     "firecrawl": _tool_firecrawl,
     "notebooklm": _tool_notebooklm,
