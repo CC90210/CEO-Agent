@@ -531,7 +531,7 @@ def _daily_alert_key(channel: str, day_start: datetime) -> str:
     return f"{day_start.date().isoformat()}:{channel}"
 
 
-def _maybe_notify_daily_cap_threshold(channel: str, count: int, cap: Optional[int]) -> None:
+def _maybe_notify_daily_cap_threshold(db: Any, channel: str, count: int, cap: Optional[int]) -> None:
     if cap is None or cap <= 0:
         return
     threshold = max(1, math.ceil(cap * DAILY_ALERT_THRESHOLD))
@@ -541,11 +541,38 @@ def _maybe_notify_daily_cap_threshold(channel: str, count: int, cap: Optional[in
     key = _daily_alert_key(channel, day_start)
     if key in _DAILY_CAP_ALERTS_SENT:
         return
+    # Workers invoke the gateway in separate processes, so memory-only
+    # suppression repeats the same warning at 43/50, 44/50, etc. Persist the
+    # once-per-day marker in the shared event ledger before notifying.
+    try:
+        existing = (
+            db.table("agent_events")
+            .select("id")
+            .eq("event_type", "OUTREACH_DAILY_CAP_WARNING")
+            .eq("correlation_id", key)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            _DAILY_CAP_ALERTS_SENT.add(key)
+            return
+        db.table("agent_events").insert({
+            "event_type": "OUTREACH_DAILY_CAP_WARNING",
+            "publisher_agent": "send-gateway",
+            "severity": "warning",
+            "correlation_id": key,
+            "payload": {"channel": channel, "count": count, "cap": cap},
+        }).execute()
+    except Exception:  # noqa: BLE001
+        # Alert persistence must never interfere with the send policy itself.
+        pass
     _DAILY_CAP_ALERTS_SENT.add(key)
     try:
+        remaining = max(0, cap - count)
         _telegram_notify(
-            f"{channel} outbound is at {count}/{cap} today. "
-            "Gateway is still open, but you're inside the red zone.",
+            f"Outreach capacity: {count}/{cap} {channel} sends used today "
+            f"({remaining} remaining). Sending stays open until {cap}. "
+            "This is the one-time 80% warning for today.",
             category="outreach",
         )
     except Exception:  # noqa: BLE001
@@ -1603,7 +1630,7 @@ def can_act(
             day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             count = _count_window(db, channel, day_start)
             result["daily_count"] = count
-            _maybe_notify_daily_cap_threshold(channel, count, effective_daily_cap)
+            _maybe_notify_daily_cap_threshold(db, channel, count, effective_daily_cap)
             if not operator_initiated and count >= effective_daily_cap:
                 result.update(
                     allowed=False,
