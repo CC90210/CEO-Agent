@@ -26,6 +26,18 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
+# Windows CA-bundle fix (2026-07-21): python's bundled certifi store can't
+# verify api.telegram.org on this box (SSLCertVerificationError during the
+# go-live watch smoke test) — use the OS certificate store instead. Guarded:
+# if truststore isn't installed this is a no-op and behavior is unchanged.
+# Same validated fix as reference_windows_supabase_ca_bundle_fix.
+try:
+    import truststore
+
+    truststore.inject_into_ssl()
+except Exception:  # noqa: BLE001 - certifi fallback
+    pass
+
 # Load .env.agents
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ENV_PATH = PROJECT_ROOT / ".env.agents"
@@ -150,7 +162,12 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
         return ok
     except Exception as exc:
         # Visible failure beats silent failure. PM2 logs catch this.
-        print(f"[notify] Telegram send exception: {exc}", file=sys.stderr)
+        # SECURITY (2026-07-21): requests exceptions embed the request URL,
+        # which contains the bot token — redact before printing so a transient
+        # network error can't leak the credential into PM2 logs or operator
+        # context (it did exactly that during the go-live watch smoke test).
+        msg = str(exc).replace(token, "[REDACTED:BOT_TOKEN]")
+        print(f"[notify] Telegram send exception: {msg}", file=sys.stderr)
         return False
 
 
