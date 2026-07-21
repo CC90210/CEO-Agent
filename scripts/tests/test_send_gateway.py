@@ -998,6 +998,35 @@ class TestSendGateway(unittest.TestCase):
             )
         self.assertTrue(notify_mock.called)
 
+    def test_19b_daily_cap_threshold_alert_is_deduped_across_processes(self):
+        fixed_now = datetime.now(timezone.utc).replace(
+            hour=12, minute=0, second=0, microsecond=0
+        )
+        seeded_at = (fixed_now - timedelta(hours=2)).isoformat()
+        threshold = int(self.sg.DAILY_CAPS["email"] * 0.8)
+        for i in range(threshold):
+            self.db.tables["lead_interactions"].rows.append({
+                "id": f"dedupe-{i}", "lead_id": f"lead-{i}",
+                "channel": "email", "type": "email_sent", "created_at": seeded_at,
+            })
+
+        class _FakeDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return fixed_now if tz else fixed_now.replace(tzinfo=None)
+
+        with mock.patch.object(self.sg, "datetime", _FakeDatetime), \
+                mock.patch.object(self.sg, "_telegram_notify", return_value=True) as notify_mock:
+            self.sg.can_act(lead_id="lead-001", channel="email", db=self.db)
+            # Simulate a fresh gateway process: memory is empty, DB marker remains.
+            self.sg._DAILY_CAP_ALERTS_SENT.clear()
+            self.sg.can_act(lead_id="lead-002", channel="email", db=self.db)
+
+        self.assertEqual(notify_mock.call_count, 1)
+        message = notify_mock.call_args.args[0]
+        self.assertIn("remaining", message)
+        self.assertIn("one-time 80% warning", message)
+
     # ---- Kill-switch gate regression tests --------------------------------
     # These three tests anchor the behavior of the lead_id -> tenant_id
     # resolution gate that lives in send() right before can_act(). The gate
