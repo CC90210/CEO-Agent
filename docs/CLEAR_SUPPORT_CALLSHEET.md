@@ -16,6 +16,7 @@ SubStatusCode 10003, on every request — we need the S2S implementation team."*
 | Endpoint called | `POST https://s2s.thomsonreuters.com/api/v2/business/searchResults` |
 | Result | HTTP 403 wrapping XML `StatusCode 401 / SubStatusCode 10003 "Not Authorized."` (namespace `http://clear.thomsonreuters.com/api/core/2.0`) |
 | Evidence timestamp | 2026-07-22 17:58:25 GMT, CF-Ray `a1f45551daeedc28-EWR` |
+| Second endpoint, same result | `POST /api/v2/person/searchResults` → identical 401/10003, 2026-07-22 18:25:49 GMT, CF-Ray `a1f47d782cefefa7-EWR` — so this is **account-level**, not a per-endpoint entitlement issue |
 | History | Zero successful API calls ever on this account (cert issued Dec 2024) |
 | Auth used | mTLS client cert + HTTP Basic (7-digit numeric username) + PermissiblePurpose GLB=Q / DPPA=3 / VOTER=7 |
 
