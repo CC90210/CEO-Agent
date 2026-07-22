@@ -140,11 +140,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-20
+- **Date:** 2026-07-22
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** PropFlow production is active on fresh Supabase project xusnasmzoxkaimyjqbie with 43 RLS-protected tables and conaugh@oasisai.work as active admin, super-admin, founding partner, and enterprise/lifetime owner. PR #2 password-recovery hotfix merged at 1adc55c and Vercel production deployment dpl_4urkvAb2HMByBnEKQPwgW362zMFR is READY on propflow.pro. A real one-time token passed callback → password creation → clean login → SUPER ADMIN portal, and the fresh recovery email was accepted at 2026-07-20T21:04:50Z.
+- **Result:** Breeze production deep-review (CC asked for flawless turnkey): E2E-tested the Plaid fix live -> STILL FAILING; probed Plaid directly with tenant creds: NO redirect URI is allow-listed on the tenant Plaid app (client_id 649f03da...) - David likely edited a different Plaid team or didn't save. Sent exact instructions (add https://breezeadvance.credit/bank on THAT account). Pinned PLAID_REDIRECT_URI env to exact value myself. FOUND+FIXED second silent bug: all Vercel crons were dead - CRON_SECRET never set (generated+set) AND middleware 401'd cron paths before route auth (added /api/cron/ + sequences tick to public prefixes); verified live: plaid-sync cron Bearer->200, no-auth->401. Prevention: /api/health now gates on plaid_redirect_uri_set/app_url_set/cron_secret_set; permanent scripts _probe_plaid_redirect.ts + _e2e_plaid_connect.ts. Built scripts/_connect_bank_email.ts (magic link->/bank, dry-run verified: Doc Buddy + Resource Healthcare, skips demo/connected) - HELD until allow-list saved. LendSaaS: read-only lendsaas_tool.py built; token AUTHENTICATES but 403s all ETL reads while Partner endpoint answers -> token is write-scoped only; need Shlomo to enable ETL read scope. Commits 99204ee, 869ed22, + connect script live.
 
-*Last updated: 2026-07-20*
+*Last updated: 2026-07-22*
 
 ## Manifest
 
