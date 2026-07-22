@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from integrations import clear_endpoints as E
-from integrations.clear_client import ClearError, clear_config
+from integrations.clear_client import ClearError, ClearQuery, clear_config
 
 CFG = {"glb": "Q", "dppa": "3", "voter": "7", "base_url": "https://s2s.thomsonreuters.com",
        "username": "u", "password": "p", "pfx_b64": "x", "passphrase": "y", "environment": "prod"}
@@ -19,12 +19,13 @@ CFG = {"glb": "Q", "dppa": "3", "voter": "7", "base_url": "https://s2s.thomsonre
 
 # ── capability registry ─────────────────────────────────────────────────────
 
-def test_only_person_search_is_verified():
-    """The honesty invariant: person_search is confirmed against the live API;
-    everything else is doc-only until reconciled."""
+def test_no_endpoint_is_verified_yet():
+    """The honesty invariant, corrected 2026-07-22: NO endpoint has ever seen a
+    2xx from CLEAR (the old person_search verified=True rested on a
+    TLS-handshake-only check, which the Cloudflare edge passes for anyone).
+    Every endpoint is doc-only and gated until a real round-trip reconciles it."""
     caps = {c["key"]: c for c in E.list_capabilities()}
-    assert caps["person_search"]["verified"] is True
-    for k in ("business_search", "person_report", "business_report"):
+    for k in ("person_search", "business_search", "person_report", "business_report"):
         assert caps[k]["verified"] is False, f"{k} must not claim verified"
 
 
@@ -145,9 +146,12 @@ def test_report_endpoint_requires_entity_id():
     assert ei.value.code == "missing_entity_id"
 
 
-def test_verified_endpoint_not_gated():
-    """person_search must never be blocked by the unverified gate."""
-    assert E.CAPABILITIES["person_search"].verified is True
+def test_person_search_gated_until_real_roundtrip():
+    """person_search gates like everything else until a live 2xx reconciles it."""
+    q = ClearQuery(last_name="Doe", state="TX")
+    with pytest.raises(ClearError) as ei:
+        E.run_endpoint("person_search", query=q, env=_envcfg())
+    assert ei.value.code == "not_verified"
 
 
 def test_insufficient_criteria_refused_before_any_call():

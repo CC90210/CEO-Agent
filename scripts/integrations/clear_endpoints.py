@@ -290,7 +290,11 @@ CAPABILITIES: dict[str, EndpointSpec] = {
         label="Person Search",
         path="/api/v2/person/searchResults",
         entity_type="person",
-        verified=True,
+        # 2026-07-22 truth reconciliation: the earlier verified=True rested on a
+        # TLS-handshake-only check (the Cloudflare edge completes handshakes for
+        # anyone). No CLEAR endpoint has ever returned 2xx on this account, so
+        # person_search is docs-derived like the rest and gates identically.
+        verified=False,
         description="Find individuals by name + address/DOB. Returns matches with "
                     "phones and addresses. The primary enrichment vector — this is "
                     "how a merchant's owner's phone number is located.",

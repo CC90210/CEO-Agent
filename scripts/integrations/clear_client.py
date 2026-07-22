@@ -47,7 +47,12 @@ import requests
 
 CLEAR_HOSTS = {
     "prod": "https://s2s.thomsonreuters.com",
-    "cert": "https://s2scert.thomsonreuters.com",
+    # TR's test environment. NOTE: "s2scert.thomsonreuters.com" (the name we
+    # originally guessed) is NXDOMAIN — the host integrators actually use is
+    # s2s.beta.thomsonreuters.com (DNS + mTLS CertificateRequest confirmed
+    # 2026-07-22). "cert" kept as an alias for existing CLEAR_ENVIRONMENT values.
+    "beta": "https://s2s.beta.thomsonreuters.com",
+    "cert": "https://s2s.beta.thomsonreuters.com",
 }
 SEARCH_PATH = "/api/v2/person/searchResults"
 
@@ -62,12 +67,18 @@ class ClearError(Exception):
     """A CLEAR call failed. `code` is a stable slug for the UI."""
 
     def __init__(self, code: str, message: str, status: Optional[int] = None,
-                 body: Optional[str] = None) -> None:
+                 body: Optional[str] = None,
+                 headers: Optional[dict[str, str]] = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
         self.status = status
         self.body = (body or "")[:4000]
+        # Diagnostic response headers. `Server: cloudflare` + a CF-RAY id means
+        # the refusal came from the edge (IP/cert firewall rule), while an XML
+        # body with a SubStatusCode means CLEAR's application refused the
+        # account/entitlement — two different fixes, distinguishable only here.
+        self.headers = dict(headers or {})
 
 
 class ClearNotConfigured(ClearError):
@@ -402,13 +413,18 @@ def clear_post(
                 continue
 
             body = resp.text or ""
+            diag_headers = {
+                k: v for k, v in resp.headers.items()
+                if k.lower() in ("server", "cf-ray", "content-type", "date")
+            }
             if resp.status_code in (401, 403):
                 raise ClearError("unauthorized",
                                  "CLEAR rejected the credentials or the permissible use "
-                                 f"(HTTP {resp.status_code})", resp.status_code, body)
+                                 f"(HTTP {resp.status_code})", resp.status_code, body,
+                                 headers=diag_headers)
             if resp.status_code >= 400:
                 raise ClearError("http_error", f"CLEAR returned HTTP {resp.status_code}",
-                                 resp.status_code, body)
+                                 resp.status_code, body, headers=diag_headers)
             return resp.status_code, body
         raise ClearError("network_error", f"CLEAR unreachable after {MAX_ATTEMPTS} attempts: {last_exc}")
     finally:
@@ -427,7 +443,7 @@ def _backoff(attempt: int) -> None:
     time.sleep(delay + random.uniform(0, delay * 0.25))
 
 
-# ── person search (VERIFIED against the live endpoint) ──────────────────────
+# ── person search (wire format UNVERIFIED — no 2xx has ever been observed) ──
 
 def person_search(
     query: ClearQuery,
@@ -436,9 +452,11 @@ def person_search(
 ) -> ClearResult:
     """Run ONE CLEAR person search. Manual, operator-initiated calls only.
 
-    This is the reference endpoint — its transport and request shape are
-    confirmed against s2s.thomsonreuters.com. Every other endpoint reuses the
-    same clear_post() transport.
+    HONESTY NOTE (2026-07-22): the earlier "VERIFIED live" claim was wrong —
+    what was exercised on 2026-07-21 was only a TLS handshake, which the
+    Cloudflare edge completes for anyone. No CLEAR request has ever returned
+    2xx on this account, so this request/response shape is docs-derived like
+    every other endpoint. Every endpoint reuses the same clear_post() transport.
     """
     ok, why = query.is_searchable()
     if not ok:

@@ -6,12 +6,20 @@
 > company with a different API. Confirmed via the vendor's own
 > [affiliation FAQ](https://www.clearme.com/support/is-clear-affiliated-with-thomson-reuters-clear).
 
-## 1. Transport & authentication (VERIFIED)
+> ⚠️ **2026-07-22 correction:** the "person search VERIFIED live" claim below was
+> wrong. What was exercised on 2026-07-21 was a **TLS handshake only** — and the
+> endpoint is Cloudflare-fronted, which completes handshakes for anyone, so the
+> handshake proved nothing about the account. **No CLEAR request has ever
+> returned 2xx.** The first real request (business_search, 2026-07-22) returned
+> HTTP 403; diagnosis in progress (see `docs/CLEAR_SUPPORT_CALLSHEET.md`). All
+> endpoints are now marked unverified and gated until a live round-trip.
+
+## 1. Transport & authentication (mTLS layer verified; app layer NOT)
 
 | Aspect | Value | Source |
 |---|---|---|
-| Base URL (prod) | `https://s2s.thomsonreuters.com` | TLS handshake confirmed 2026-07-21 |
-| Base URL (cert/test) | `https://s2scert.thomsonreuters.com` | documented; not exercised |
+| Base URL (prod) | `https://s2s.thomsonreuters.com` | Cloudflare-fronted; mTLS accepted (authenticated GET / reached the app, 404, 2026-07-22) |
+| Base URL (beta/test) | `https://s2s.beta.thomsonreuters.com` | the real test host (DNS + mTLS CertificateRequest confirmed 2026-07-22). The previously listed `s2scert.thomsonreuters.com` is NXDOMAIN — it never existed |
 | Client auth | **Mutual TLS** — PKCS#12 client cert (`CLEAR_PFX_CERTIFICATE` + `CLEAR_PASSPHRASE`), issued by "Thomson Reuters CLEAR S2S Issuing CA" to Breeze Advance, valid to **2026-09-15** | cert decoded + handshake |
 | User auth | HTTP Basic (`CLEAR_USERNAME` / `CLEAR_PASSWORD`) on top of mTLS | documented |
 | Format | REST + XML (`Content-Type: application/xml`) | confirmed on person search |
@@ -33,7 +41,7 @@ above — only the criteria and payload shape differ.
 
 | Vector | Endpoint | Wired | Verified | Serves |
 |---|---|---|:---:|---|
-| **Person search** | `/api/v2/person/searchResults` | ✅ | ✅ live | Locate the owner + phones/addresses. **The phone-enrichment fallback.** |
+| **Person search** | `/api/v2/person/searchResults` | ✅ | ⚠ doc-only | Locate the owner + phones/addresses. **The phone-enrichment fallback.** (Previously mislabeled "✅ live" on handshake-only evidence.) |
 | **Business search** | `/api/v2/business/searchResults` | ✅ | ⚠ doc-only | Locate the merchant business + phones, addresses, principals/registered agents. High value — the merchant *is* a business. |
 | **Person report** | `/api/v2/person/reports` | ✅ | ⚠ doc-only | Full detail for a person entity id: complete phone/address history, relatives. |
 | **Business report** | `/api/v2/business/reports` | ✅ | ⚠ doc-only | Full detail for a business entity id: filings, principals, contact history. |
@@ -42,9 +50,12 @@ above — only the criteria and payload shape differ.
 | Bankruptcy / liens / judgments / UCC | `/api/v2/{bankruptcy,lien,judgment,ucc}/…` | ▫ not wired | — | Financial-distress signals for underwriting risk. |
 | Vehicle / DMV, criminal, ID Confirm | (various) | ▫ not wired | — | KYC / risk; permissible-use sensitive. Add only with a confirmed compliance basis. |
 
-**✅ live** = request + transport exercised against the real endpoint.
+**✅ live** = a real 2xx round-trip observed (currently: none).
 **⚠ doc-only** = built from TR's published S2S docs + the two-phase pattern; XML
-**not yet confirmed against a live response**, so gated (see §4).
+**not yet confirmed against a live response**, so gated (see §4). Note real
+integrator evidence (LSEG thread 48419) shows the wire uses XML namespace
+`http://clear.thomsonreuters.com/api/search/2.0` — expect our request builders
+to need a namespace once past auth.
 **▫ not wired** = available on the contract; add via the framework (§5) once the
 schema is confirmed. Deliberately *not* fabricated — a made-up schema presented
 as production-ready would be worse than absent.

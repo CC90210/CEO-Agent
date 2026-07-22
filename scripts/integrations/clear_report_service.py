@@ -20,6 +20,7 @@ Design rules that follow from CLEAR being a regulated, billable, manual tool:
 from __future__ import annotations
 
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +46,12 @@ from integrations.clear_endpoints import (  # noqa: E402
 )
 
 TABLE = "clair_reports"
+
+#: clair_reports.requested_by is uuid; anything else must degrade to NULL,
+#: never to a failed insert (audit-every-attempt is the table's whole point).
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 #: report_type -> the *Query class that builds its criteria from a lead. Report
 #: endpoints (needs_entity_id) take an entity_id instead of a lead-derived query.
@@ -176,7 +183,10 @@ def run_clear_report(
         "permissible_glb": cfg.get("glb") or None,
         "permissible_voter": cfg.get("voter") or None,
         "clear_environment": cfg.get("environment"),
-        "requested_by": requested_by,
+        # The column is uuid; a CLI-originated label like "operator" must not
+        # kill the audit insert (it did once, 2026-07-22, and the 403 body was
+        # lost with it). Non-uuid callers stay attributed via the email field.
+        "requested_by": requested_by if _UUID_RE.match(requested_by or "") else None,
         "requested_by_email": requested_by_email,
     }
 
@@ -185,17 +195,23 @@ def run_clear_report(
             report_type, query=query, entity_id=entity_id, env=env,
         )
     except ClearError as e:
+        headers = getattr(e, "headers", None) or {}
         report_id = _insert(sb, {
             **base_row,
             "status": "error",
             "error_message": f"{e.code}: {e.message}",
             "http_status": e.status,
-            "raw_report": {"body": e.body} if e.body else None,
+            # Body AND headers: `server: cloudflare` + CF-RAY = edge block;
+            # XML SubStatusCode = CLEAR app refusal. Never discard either.
+            "raw_report": {"body": e.body, "headers": headers} if (e.body or headers) else None,
             "raw_format": "xml",
             "completed_at": _now(),
         })
+        # Diagnostics also go back to the caller so a failed DB insert can
+        # never lose the vendor's explanation again.
         return {"ok": False, "error": e.code, "message": e.message,
-                "report_type": report_type, "report_id": report_id, "http_status": e.status}
+                "report_type": report_type, "report_id": report_id,
+                "http_status": e.status, "body": e.body, "headers": headers}
 
     report_id = _insert(sb, {
         **base_row,
