@@ -15,6 +15,12 @@ Design rules that follow from CLEAR being a regulated, billable, manual tool:
     THAT call, never re-derived later from config that may have changed.
   * Nothing here touches tenant_records. The report is reference material an
     operator reads; it must not merge into the application data.
+  * Billing guards run BEFORE the vendor call and fail CLOSED: a successful
+    report for the same subject within DEDUPE_DAYS is reused (no new charge),
+    and pulls stop with a loud error once CLEAR_DAILY_PULL_CAP attempts have
+    been made since UTC midnight. The tunnel gate (source-IP verification via
+    the QuotaGuard proxy) lives in clear_client.clear_post and runs on every
+    billable POST.
 """
 
 from __future__ import annotations
@@ -22,7 +28,7 @@ from __future__ import annotations
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -46,6 +52,10 @@ from integrations.clear_endpoints import (  # noqa: E402
 )
 
 TABLE = "clair_reports"
+
+#: Billing guards — every CLEAR pull costs real money on Breeze's account.
+#: A successful report for the same subject is reused for this many days.
+DEDUPE_DAYS = 30
 
 #: clair_reports.requested_by is uuid; anything else must degrade to NULL,
 #: never to a failed insert (audit-every-attempt is the table's whole point).
@@ -105,6 +115,46 @@ def _load_lead(sb, tenant_id: str, lead_id: str) -> dict[str, Any]:
     if not row:
         raise ClearError("lead_not_found", f"lead {lead_id} not found in this tenant")
     return row.get("data") or {}
+
+
+def _recent_report(sb, tenant_id: str, lead_id: str, report_type: str,
+                   entity_id: Optional[str]) -> Optional[dict[str, Any]]:
+    """The newest successful report for this subject inside the dedupe window,
+    or None. Same subject == same lead + report_type (+ entity_id for the
+    entity-keyed report endpoints). Raises on a query failure — the caller
+    fails CLOSED rather than billing for a pull it could not prove is new."""
+    since = (datetime.now(timezone.utc) - timedelta(days=DEDUPE_DAYS)).isoformat()
+    q = (
+        sb.table(TABLE)
+        .select("id,status,result_count,people,phones,report_type,completed_at,"
+                "query_name,query_city,query_state,query_zip,entity_id")
+        .eq("tenant_id", tenant_id)
+        .eq("lead_id", lead_id)
+        .eq("report_type", report_type)
+        .in_("status", ["completed", "no_results"])
+        .gte("completed_at", since)
+        .order("completed_at", desc=True)
+        .limit(1)
+    )
+    if entity_id:
+        q = q.eq("entity_id", entity_id)
+    data = getattr(q.execute(), "data", None) or []
+    return data[0] if data else None
+
+
+def _pulls_today(sb) -> int:
+    """Vendor pulls attempted since UTC midnight, account-wide (the cap
+    protects Breeze's CLEAR bill, not one tenant's). Every attempt — success
+    or error — wrote a row, so the row count IS the billable-attempt count.
+    Raises on failure; the caller fails CLOSED."""
+    day_start = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0).isoformat()
+    res = (sb.table(TABLE).select("id", count="exact")
+           .gte("created_at", day_start).limit(1).execute())
+    count = getattr(res, "count", None)
+    if count is None:
+        raise ClearError("cap_check_failed", "could not count today's CLEAR pulls")
+    return int(count)
 
 
 def _insert(sb, row: dict[str, Any]) -> Optional[str]:
@@ -171,6 +221,44 @@ def run_clear_report(
     elif not entity_id:
         return {"ok": False, "error": "missing_entity_id",
                 "message": f"report_type '{report_type}' requires an entity_id"}
+
+    # ── billing guards (each pull costs real money) ── fail CLOSED: if either
+    # guard cannot be evaluated, refuse the pull rather than risk the bill.
+    try:
+        recent = _recent_report(sb, tenant_id, lead_id, report_type, entity_id)
+        if recent is not None:
+            return {
+                "ok": True,
+                "reused": True,
+                "report_id": recent["id"],
+                "report_type": report_type,
+                "status": recent["status"],
+                "result_count": recent.get("result_count"),
+                "people": recent.get("people") or [],
+                "phones": recent.get("phones") or [],
+                "completed_at": recent.get("completed_at"),
+                "message": (f"reused report from {recent.get('completed_at')} — same subject "
+                            f"pulled within the last {DEDUPE_DAYS} days; no new CLEAR charge"),
+                "query": query.as_columns() if query else {"entity_id": entity_id},
+            }
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": "dedupe_check_failed",
+                "message": f"could not verify 30-day dedupe — refusing to bill: {e}"}
+
+    try:
+        cap = int((env.get("CLEAR_DAILY_PULL_CAP") or "0").strip() or "0")
+        if cap <= 0:
+            return {"ok": False, "error": "daily_cap_unset",
+                    "message": "CLEAR_DAILY_PULL_CAP is missing/zero — refusing to pull "
+                               "without a hard daily billing cap"}
+        used = _pulls_today(sb)
+        if used >= cap:
+            return {"ok": False, "error": "daily_cap_reached",
+                    "message": f"DAILY CLEAR PULL CAP REACHED ({used}/{cap} since UTC "
+                               "midnight) — refusing further billable pulls today"}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": "cap_check_failed",
+                "message": f"could not evaluate the daily pull cap — refusing to bill: {e}"}
 
     base_row: dict[str, Any] = {
         "tenant_id": tenant_id,

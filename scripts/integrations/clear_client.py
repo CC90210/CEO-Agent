@@ -18,6 +18,14 @@ Transport, verified against s2s.thomsonreuters.com on 2026-07-21:
     Issuing CA" to Breeze Advance, valid to 2026-09-15.
   * HTTP Basic on top of that, CLEAR_USERNAME / CLEAR_PASSWORD.
   * REST + XML: POST /api/v2/person/searchResults, Content-Type application/xml.
+  * QuotaGuard Static SOCKS5 proxy (QUOTAGUARD_SOCKS5_URL) on EVERY request —
+    CLEAR authorizes by source-IP allowlist, and only the proxy's two static
+    egress IPs (52.5.238.209 / 52.6.13.167) are whitelisted on the account.
+    The proxy is applied per-request in this module ONLY — never via
+    HTTP_PROXY/HTTPS_PROXY — because the relay quota is metered. Before any
+    billable POST, verify_tunnel() confirms the egress IP via api.ipify.org
+    and ABORTS on any mismatch; there is no direct-connection fallback (it
+    would fail auth and leak intent).
 
 The PKCS#12 blob is decrypted to a PEM in a 0600 temp file for the duration of a
 call and unlinked in a finally block — openssl-backed HTTP clients need a file
@@ -56,7 +64,14 @@ CLEAR_HOSTS = {
 }
 SEARCH_PATH = "/api/v2/person/searchResults"
 
-DEFAULT_TIMEOUT = (10, 60)   # (connect, read) — CLEAR searches are slow
+#: The QuotaGuard Static egress IPs whitelisted on the CLEAR account. A CLEAR
+#: request from any other source IP fails auth, so the tunnel gate refuses to
+#: proceed unless api.ipify.org (fetched through the proxy) returns one of these.
+QUOTAGUARD_ALLOWED_IPS = {"52.5.238.209", "52.6.13.167"}
+IPIFY_URL = "https://api.ipify.org"
+TUNNEL_CHECK_TIMEOUT = 15
+
+DEFAULT_TIMEOUT = (10, 15)   # (connect, read) — spec: 15s hard timeout
 MAX_ATTEMPTS = 3
 RETRY_STATUSES = {429, 500, 502, 503, 504}
 BACKOFF_BASE_S = 1.0
@@ -168,7 +183,17 @@ class ClearResult:
 
 # ── configuration ───────────────────────────────────────────────────────────
 
-_REQUIRED = ("CLEAR_USERNAME", "CLEAR_PASSWORD", "CLEAR_PFX_CERTIFICATE", "CLEAR_PASSPHRASE")
+#: QUOTAGUARD_SOCKS5_URL is required alongside the credentials: without the
+#: proxy a CLEAR call comes from the wrong source IP, fails auth, and leaks
+#: intent — so a missing proxy env means "not configured", never "go direct".
+_REQUIRED = ("CLEAR_USERNAME", "CLEAR_PASSWORD", "CLEAR_PFX_CERTIFICATE",
+             "CLEAR_PASSPHRASE", "QUOTAGUARD_SOCKS5_URL")
+
+
+def _socks5h(url: str) -> str:
+    """Rewrite socks5:// -> socks5h:// so DNS also resolves through the tunnel
+    (keeps the CLEAR hostname lookup off this box's resolver)."""
+    return "socks5h://" + url[len("socks5://"):] if url.startswith("socks5://") else url
 
 
 def clear_config(env: Optional[dict[str, str]] = None) -> dict[str, str]:
@@ -187,6 +212,7 @@ def clear_config(env: Optional[dict[str, str]] = None) -> dict[str, str]:
         "dppa": (env.get("CLEAR_DPPA") or "").strip(),
         "glb": (env.get("CLEAR_GLB") or "").strip(),
         "voter": (env.get("CLEAR_VOTER") or "").strip(),
+        "proxy_url": _socks5h(env["QUOTAGUARD_SOCKS5_URL"].strip()),
     }
 
 
@@ -365,6 +391,36 @@ def _parse_search_xml(body: str) -> tuple[list[dict[str, Any]], list[dict[str, A
 
 # ── transport core (shared by every endpoint) ───────────────────────────────
 
+def verify_tunnel(proxy_url: str, timeout: int = TUNNEL_CHECK_TIMEOUT) -> str:
+    """Prove the proxy egresses from a CLEAR-whitelisted IP; return that IP.
+
+    Runs before EVERY billable POST (and is callable at service start). Fetches
+    api.ipify.org THROUGH the proxy; unless the answer is one of
+    QUOTAGUARD_ALLOWED_IPS this raises ClearError — wrong IP, dead relay, or
+    missing env all ABORT. Never logs proxy_url (it embeds the relay password).
+    """
+    if not (proxy_url or "").strip():
+        raise ClearError("tunnel_unverified",
+                         "QUOTAGUARD_SOCKS5_URL is not set — refusing to call CLEAR directly")
+    proxies = {"http": proxy_url, "https": proxy_url}
+    try:
+        resp = requests.get(IPIFY_URL, proxies=proxies, timeout=timeout)
+        resp.raise_for_status()
+        egress_ip = (resp.text or "").strip()
+    except requests.RequestException as e:
+        raise ClearError(
+            "tunnel_unverified",
+            f"could not verify QuotaGuard tunnel egress via ipify: {type(e).__name__}: {e}",
+        ) from e
+    if egress_ip not in QUOTAGUARD_ALLOWED_IPS:
+        raise ClearError(
+            "tunnel_unverified",
+            f"proxy egress IP {egress_ip!r} is not in the CLEAR whitelist "
+            f"{sorted(QUOTAGUARD_ALLOWED_IPS)} — aborting before any billable call",
+        )
+    return egress_ip
+
+
 def clear_post(
     path: str,
     payload: bytes,
@@ -379,11 +435,21 @@ def clear_post(
     build a request and parse a response; they never touch the socket, so the
     verified transport can never drift between them.
 
+    Every request goes through the QuotaGuard SOCKS5 proxy (per-request
+    `proxies=`, never process-global), gated by verify_tunnel() — a wrong or
+    unverifiable egress IP aborts BEFORE anything billable happens, and there
+    is no direct-connection fallback.
+
     Retries transport faults and 429/5xx only — never a 4xx, which means the
     request or the permissible use was rejected and a repeat would bill again
-    for the same refusal. Raises ClearError; on 2xx returns the raw body.
+    for the same refusal. Connect-phase failures retry (the request never
+    reached CLEAR); a read timeout does NOT (CLEAR may have received and
+    billed it — repeating would bill again). Raises ClearError; on 2xx
+    returns the raw body.
     """
     url = cfg["base_url"] + path
+    proxies = {"http": cfg["proxy_url"], "https": cfg["proxy_url"]}
+    verify_tunnel(cfg["proxy_url"])  # ABORTS unless egress is whitelisted
     pem_path = _write_client_pem(cfg["pfx_b64"], cfg["passphrase"])
     last_exc: Optional[Exception] = None
     try:
@@ -399,14 +465,25 @@ def clear_post(
                     },
                     auth=(cfg["username"], cfg["password"]),
                     cert=pem_path,
+                    proxies=proxies,
                     timeout=timeout,
                 )
-            except requests.RequestException as e:
+            except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError) as e:
+                # Connect-phase failure: the request never reached CLEAR, so a
+                # retry cannot double-bill.
                 last_exc = e
                 if attempt == MAX_ATTEMPTS:
                     raise ClearError("network_error", f"could not reach CLEAR: {e}") from e
                 _backoff(attempt)
                 continue
+            except requests.RequestException as e:
+                # Read timeout / mid-response failure: CLEAR may have already
+                # received and billed the query. Fail loud, never auto-retry.
+                raise ClearError(
+                    "network_error",
+                    f"CLEAR call failed after send ({type(e).__name__}: {e}); "
+                    "NOT retried — the query may already have been billed",
+                ) from e
 
             if resp.status_code in RETRY_STATUSES and attempt < MAX_ATTEMPTS:
                 _backoff(attempt)
