@@ -23,7 +23,23 @@ from inbound_classifier import (  # noqa: E402
     VALID_CATEGORIES,
     classify_category,
     normalize_category,
+    strip_code_fence,
 )
+
+
+class TestStripCodeFence(unittest.TestCase):
+    def test_strips_json_fence(self):
+        self.assertEqual(strip_code_fence('```json\n{"a": 1}\n```'), '{"a": 1}')
+
+    def test_strips_bare_fence(self):
+        self.assertEqual(strip_code_fence('```\nhello\n```'), 'hello')
+
+    def test_passthrough_no_fence(self):
+        self.assertEqual(strip_code_fence('  plain text  '), 'plain text')
+
+    def test_none_and_empty(self):
+        self.assertEqual(strip_code_fence(None), '')
+        self.assertEqual(strip_code_fence(''), '')
 
 
 class TestNormalizeCategory(unittest.TestCase):

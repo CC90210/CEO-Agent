@@ -116,6 +116,19 @@ def get_supabase(env: Optional[dict[str, str]] = None):
     return create_client(url, key)
 
 
+# ---- Shared LLM-output helper -----------------------------------------------
+
+def strip_code_fence(text: Any) -> str:
+    """Strip a leading ```lang fence and trailing ``` from an LLM response and
+    trim surrounding whitespace. One home for a pattern that otherwise gets
+    copy-pasted into every JSON-parsing call site."""
+    t = str(text or "").strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```[a-z]*\n", "", t)
+        t = re.sub(r"\n```\s*$", "", t)
+    return t.strip()
+
+
 # ---- Classification schema --------------------------------------------------
 
 VALID_SENTIMENTS = {"positive", "neutral", "negative", "mixed"}
@@ -415,12 +428,9 @@ def _parse_category_response(raw: str) -> Optional[dict]:
     """Parse a runner response into {category, confidence, fallback, notes}.
     Tolerant: accepts a JSON object OR a bare category label. Returns None only
     when the input is empty/whitespace."""
-    text = (raw or "").strip()
+    text = strip_code_fence(raw)
     if not text:
         return None
-    if text.startswith("```"):
-        text = re.sub(r"^```[a-z]*\n", "", text)
-        text = re.sub(r"\n```\s*$", "", text).strip()
     category_raw: Any = text
     confidence: float = 0.6
     try:
@@ -560,12 +570,7 @@ def _classify_via_haiku(content: str, channel: str,
     text = run_claude_cli(user_msg, system=CLASSIFY_SYSTEM_PROMPT, model="haiku", timeout=90)
     if text is None:
         raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")
-    text = text.strip()
-    # Strip accidental code fence
-    if text.startswith("```"):
-        text = re.sub(r"^```[a-z]*\n", "", text)
-        text = re.sub(r"\n```\s*$", "", text)
-    parsed = json.loads(text)
+    parsed = json.loads(strip_code_fence(text))
     return parsed
 
 

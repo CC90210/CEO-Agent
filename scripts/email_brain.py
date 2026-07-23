@@ -297,13 +297,10 @@ def _default_critic(subject, body):
 
 def _parse_reply_json(raw: Optional[str]) -> Optional[dict]:
     import json
-    import re
-    text = (raw or "").strip()
+    from inbound_classifier import strip_code_fence
+    text = strip_code_fence(raw)
     if not text:
         return None
-    if text.startswith("```"):
-        text = re.sub(r"^```[a-z]*\n", "", text)
-        text = re.sub(r"\n```\s*$", "", text).strip()
     try:
         obj = json.loads(text)
         if isinstance(obj, dict):
