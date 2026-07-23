@@ -79,6 +79,16 @@ if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
 
+# Notify import. Fixes a latent bug: _notify_platform_alert() called
+# `_telegram_notify(...)` which was never imported/defined → NameError on
+# every platform alert. Canonical pattern mirrors send_gateway.py:193.
+try:
+    from notify import notify as _telegram_notify  # noqa: F401
+except Exception:  # pragma: no cover - notify import is best-effort
+    def _telegram_notify(*_a: Any, **_kw: Any) -> bool:  # type: ignore[misc]
+        return False
+
+
 # ---- Env + DB ---------------------------------------------------------------
 
 def load_env() -> dict[str, str]:
@@ -316,6 +326,179 @@ def _keyword_fallback(content: str) -> dict:
             "priority": "cold", "stage_signal": "hold",
             "suggested_action": "hold_for_review", "confidence": 0.3,
             "fallback": True}
+
+
+# ---- 4-brain category classifier (native n8n migration) ---------------------
+# Replaces the langchain `textClassifier` node in the n8n "OASIS Inbound
+# Qualifier (Bravo Aware)" workflow. Same 4-category taxonomy, but driven by
+# the subscription Claude CLI (Haiku) instead of a metered OpenAI key. The
+# category feeds email_brain.route(), which decides draft/send/label/hand-off.
+
+VALID_CATEGORIES: frozenset[str] = frozenset({
+    "technical_support",    # existing clients needing help with deliverables
+    "business_opportunity",  # new leads, warm/cold replies, referrals, intros
+    "financial_legal",      # invoices, receipts, payments, tax, contracts, legal
+    "low_priority",         # newsletters, no-reply, platform tech-alerts → archive
+})
+
+# Ordered alias map: first hit wins. Financial/business/technical are checked
+# before low_priority so a Stripe *payment* receipt lands in financial_legal
+# even though it comes from a no-reply address (matches the n8n rubric).
+_CATEGORY_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("financial_legal", ("financial", "legal", "invoice", "receipt", "finance")),
+    ("business_opportunity", ("business opportunit", "opportunit", "lead", "sales")),
+    ("technical_support", ("technical support", "client technical", "tech support", "support")),
+    ("low_priority", ("low priority", "archive", "spam", "newsletter", "trash")),
+)
+
+
+def normalize_category(raw: Any) -> str:
+    """Clamp any LLM string / n8n label / loose text to one canonical category.
+    Unknown → 'low_priority'; the autonomy layer (email_brain.decide_action)
+    fail-safes uncertain low-confidence reads to human review, so archiving is
+    never triggered on an unknown alone."""
+    if not raw:
+        return "low_priority"
+    s = str(raw).strip().lower()
+    if s in VALID_CATEGORIES:
+        return s
+    for canon, needles in _CATEGORY_ALIASES:
+        if any(n in s for n in needles):
+            return canon
+    return "low_priority"
+
+
+CATEGORY_SYSTEM_PROMPT = """You are an inbound email classifier for OASIS AI
+Solutions (operator: Conaugh McKenna / "CC"). Read the email and pick exactly
+ONE category. Judge by WHO is sending and WHAT action it requires.
+
+Categories:
+1. Client Technical Support — existing OASIS clients needing help with their
+   deliverables, automations, access, outages, bugs, or how-to questions.
+2. Business Opportunities — new leads, cold/warm-email replies, referrals,
+   introductions, discovery-call requests, inbound interest, anyone CC has been
+   emailing in outreach. Usually needs a reply toward booking a call.
+3. Financial & Legal — invoices, receipts, bank statements, Stripe PAYMENT
+   notifications (payouts, charges, refunds, successful payments), CRA/tax
+   documents, contracts, legal notices — anything involving money or legal
+   implications. NOT webhook errors, API failures, or developer/technical alerts
+   from Stripe/Vercel/GitHub/etc. — those are Low Priority.
+4. Low Priority & Archive — newsletters, marketing, promotions, automated
+   notifications, no-reply updates, platform TECHNICAL alerts (webhook failures,
+   deploy errors, API deprecation), anything needing no response.
+
+Output ONLY a JSON object, no prose, no markdown:
+{"category": "<one of: Client Technical Support | Business Opportunities | Financial & Legal | Low Priority & Archive>", "confidence": <0.0-1.0>}"""
+
+
+def _default_category_runner(prompt: str, system: Optional[str] = None,
+                             model: str = "haiku", timeout: int = 60) -> Optional[str]:
+    """Subscription Claude CLI — never the metered ANTHROPIC_API_KEY."""
+    from lib.claude_cli import run_claude_cli
+    return run_claude_cli(prompt, system=system, model=model, timeout=timeout)
+
+
+def _build_category_user_msg(content: str, subject: Optional[str],
+                             from_identity: Optional[str]) -> str:
+    parts = []
+    if from_identity:
+        parts.append(f"From: {from_identity}")
+    if subject:
+        parts.append(f"Subject: {subject}")
+    parts.append("")
+    parts.append("Body:")
+    parts.append((content or "")[:4000])
+    return "\n".join(parts)
+
+
+def _parse_category_response(raw: str) -> Optional[dict]:
+    """Parse a runner response into {category, confidence, fallback, notes}.
+    Tolerant: accepts a JSON object OR a bare category label. Returns None only
+    when the input is empty/whitespace."""
+    text = (raw or "").strip()
+    if not text:
+        return None
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-z]*\n", "", text)
+        text = re.sub(r"\n```\s*$", "", text).strip()
+    category_raw: Any = text
+    confidence: float = 0.6
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            category_raw = obj.get("category", "")
+            try:
+                confidence = float(obj.get("confidence", 0.6))
+            except (TypeError, ValueError):
+                confidence = 0.6
+    except (json.JSONDecodeError, ValueError):
+        pass  # treat the whole string as a bare label
+    return {
+        "category": normalize_category(category_raw),
+        "confidence": max(0.0, min(1.0, confidence)),
+        "fallback": False,
+        "notes": "",
+    }
+
+
+def _category_keyword_fallback(subject: Optional[str], content: Optional[str],
+                               from_identity: Optional[str]) -> dict:
+    """Cheap degraded classifier when the CLI is unavailable. Financial signals
+    are checked FIRST so a payment receipt from a no-reply sender still routes to
+    financial_legal (n8n rubric)."""
+    text = ((subject or "") + " " + (content or "")).lower()
+    fin = ("invoice", "receipt", "payment", "statement", "tax", "refund",
+           "payout", "wire transfer", "paid", "billing", "subscription renew")
+    sup = ("broken", "error", "not working", "isn't working", "bug", "outage",
+           "down", "can't access", "cannot access", "please help", "issue with")
+    biz = ("demo", "interested", "quote", "pricing", "proposal", "partnership",
+           "introduc", "book a call", "discovery call", "referral")
+    low = ("unsubscribe", "newsletter", "digest", "promotion", "no-reply",
+           "noreply", "notifications@", "webhook", "deploy error", "deprecat")
+    sender = (from_identity or "").lower()
+    if any(k in text for k in fin):
+        cat, conf = "financial_legal", 0.5
+    elif any(k in text for k in sup):
+        cat, conf = "technical_support", 0.5
+    elif any(k in text for k in biz):
+        cat, conf = "business_opportunity", 0.45
+    elif any(k in text for k in low) or sender.startswith(("noreply", "no-reply", "notifications", "news")):
+        cat, conf = "low_priority", 0.5
+    else:
+        cat, conf = "low_priority", 0.3
+    return {"category": cat, "confidence": conf, "fallback": True,
+            "notes": "keyword fallback (CLI unavailable)"}
+
+
+def classify_category(
+    content: str,
+    subject: Optional[str] = None,
+    from_identity: Optional[str] = None,
+    *,
+    runner: Any = None,
+) -> dict:
+    """Classify an inbound email into one of the 4 brain categories.
+
+    Never raises. On CLI failure or malformed output, falls back to the keyword
+    classifier and marks fallback=True. `runner` is injectable for tests
+    (signature: runner(prompt, system=, model=, timeout=) -> str|None).
+
+    Returns {"category", "confidence": float, "fallback": bool, "notes": str}.
+    """
+    _runner = runner if runner is not None else _default_category_runner
+    user_msg = _build_category_user_msg(content, subject, from_identity)
+    raw: Optional[str] = None
+    try:
+        raw = _runner(user_msg, system=CATEGORY_SYSTEM_PROMPT, model="haiku", timeout=60)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[classify_category] runner failed ({exc}); using keyword fallback.",
+              file=sys.stderr)
+        raw = None
+    if raw:
+        parsed = _parse_category_response(raw)
+        if parsed is not None:
+            return parsed
+    return _category_keyword_fallback(subject, content, from_identity)
 
 
 # ---- Haiku classifier -------------------------------------------------------

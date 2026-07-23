@@ -1051,10 +1051,43 @@ def stop_signal_decision(classification, preview, subject):
     return is_stop_signal, needs_manual_review
 
 
+def _email_brain_enabled(env_vars) -> bool:
+    """EMAIL_BRAIN_ENABLED gates the native multi-brain router (the n8n "OASIS
+    Inbound Qualifier" replacement). OFF by default so the inbox loop behaves
+    exactly as before until CC flips it on."""
+    try:
+        v = env_vars.get("EMAIL_BRAIN_ENABLED", "")
+    except Exception:
+        v = ""
+    return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
+_KNOWN_CLIENT_STATUSES = ("client", "active", "active_client", "won", "customer")
+
+
+def _is_known_client(db, email_addr) -> bool:
+    """True if the sender is an existing OASIS client (not a cold lead). Gates
+    Technical-Support auto-replies. Best-effort; False on any error (fail-safe:
+    the brain then drafts-and-holds instead of auto-sending)."""
+    if not email_addr:
+        return False
+    try:
+        rows = (db.table("leads").select("status")
+                .eq("email", email_addr.strip().lower()).limit(1).execute().data) or []
+        return bool(rows) and (rows[0].get("status") or "").strip().lower() in _KNOWN_CLIENT_STATUSES
+    except Exception:
+        return False
+
+
 def cmd_check_inbox(env_vars, args, output_json=False):
     """
     Connect to Gmail IMAP, fetch UNSEEN emails, log them to Supabase,
     notify via Telegram, then mark them as SEEN.
+
+    When EMAIL_BRAIN_ENABLED is set, each non-STOP email is routed through
+    email_brain.process_email (the native n8n classifier replacement): it
+    drafts/sends replies via send_gateway, hands Financial & Legal to Atlas,
+    archives low-priority, and controls its own read-state. Off by default.
     """
     address = env_vars.get("GMAIL_ADDRESS") or env_vars.get("GMAIL_USER")
     password = env_vars.get("GMAIL_APP_PASSWORD")
@@ -1312,10 +1345,48 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 f"Subject: {subject}\n"
                 f"Preview: {preview[:120]}"
             )
-            notify(notify_msg)
+            # --- Native multi-brain routing (n8n replacement) OR legacy path ---
+            # When the brain is enabled and this isn't a STOP signal (already
+            # handled above), route the email through email_brain: it drafts/
+            # sends/hands-off/archives and controls read-state (holds stay
+            # UNREAD for review). Any failure degrades to the legacy notify+mark.
+            if _email_brain_enabled(env_vars) and not is_stop_signal:
+                try:
+                    from email_brain import process_email, build_default_deps
 
-            # Mark as read
-            imap.store(uid, "+FLAGS", "\\Seen")
+                    def _mark_read(_e, _u=uid):
+                        imap.store(_u, "+FLAGS", "\\Seen")
+
+                    deps = build_default_deps(mark_read=_mark_read, db=db)
+                    brain_email = {
+                        "from": from_addr,
+                        "from_identity": sender_addr,
+                        "subject": subject,
+                        "body": preview,
+                        "rfc_message_id": msg.get("Message-ID"),
+                        "references": msg.get("References"),
+                        "is_known_client": _is_known_client(db, sender_addr),
+                        "attachments": [],  # TODO: attachment extraction for Atlas hand-off
+                        "tenant_id": None,
+                    }
+                    outcome = process_email(brain_email, deps=deps)
+                    print(f"[email_inbox] brain: {outcome.get('action')} "
+                          f"({outcome.get('category')}) conf={outcome.get('confidence')}",
+                          file=sys.stderr)
+                    # auto_reply/archive already marked read by the brain; hand-offs
+                    # are marked read here (Atlas owns them now); holds/reviews stay
+                    # UNREAD so CC sees them.
+                    if outcome.get("action") == "handoff_atlas":
+                        imap.store(uid, "+FLAGS", "\\Seen")
+                except Exception as brain_err:
+                    print(f"[email_inbox] email_brain failed, legacy fallback: {brain_err}",
+                          file=sys.stderr)
+                    notify(notify_msg)
+                    imap.store(uid, "+FLAGS", "\\Seen")
+            else:
+                notify(notify_msg)
+                # Mark as read
+                imap.store(uid, "+FLAGS", "\\Seen")
 
         # V2.1: Persist poison UID tracker so failure counts survive across runs
         try:

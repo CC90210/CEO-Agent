@@ -140,11 +140,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-22
+- **Date:** 2026-07-23
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Breeze Plaid turnkey work completed 2026-07-22: breeze-portal commits 0457160 and d1a1e3d pushed to main and live on Vercel; migrations 0078-0085 applied. Password visibility, end-to-end bank recovery, exact Plaid Statements PDF request/consent/private-document workflow, five-minute cron, and persistent no-double-billing guard shipped. Full 14-test regression, typecheck, 47-page build, independent cold audit, production infra/settings/link-token/save-persist-PDF/signed-download harnesses all passed. Ezra remains untouched with 1 active Bank of America Item, 8 transactions, and 0 statement requests. Chase HTTP 500 remains upstream before Breeze callback; David must verify Chase app registration/full Production under Plaid OAuth Institutions and escalate session 019f8bbb-7fc4-7b1b-8f69-d4995b0736f5 / request 42487d5a648b91c if already active.
+- **Result:** Native email classifier (email_brain.py) + 4-category classify_category + email_engine wiring (EMAIL_BRAIN_ENABLED gated OFF); 47 tests green. Part B command-center segregation delegated (branch-only). n8n OASIS Inbound Qualifier still ACTIVE pending live verify.
 
-*Last updated: 2026-07-22*
+*Last updated: 2026-07-23*
 
 ## Manifest
 

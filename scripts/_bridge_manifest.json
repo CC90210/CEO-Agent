@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-07-19T22:59:19.549638+00:00",
-  "script_count": 112,
-  "entry_count": 279,
+  "generated_at_iso": "2026-07-23T20:39:49.657297+00:00",
+  "script_count": 114,
+  "entry_count": 281,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1863,6 +1863,14 @@
       "help": "Sun Biz Agent hosted API surface."
     },
     {
+      "key": "backfill_dedupe_scrub_candidates",
+      "path": "scripts/backfill_dedupe_scrub_candidates.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": true,
+      "help": "backfill_dedupe_scrub_candidates.py \u2014 collapse duplicate review cards."
+    },
+    {
       "key": "backfill_sunbiz_stages",
       "path": "scripts/backfill_sunbiz_stages.py",
       "root": "sunbiz",
@@ -2325,6 +2333,14 @@
       "subcmd": "status",
       "mutating": true,
       "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: status"
+    },
+    {
+      "key": "tps_probe",
+      "path": "scripts/tps_probe.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": true,
+      "help": "tps_probe.py \u2014 diagnose the TruePeopleSearch contact-enrichment path."
     },
     {
       "key": "underwriting_orchestrator_loop",
