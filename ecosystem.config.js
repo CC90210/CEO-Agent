@@ -144,6 +144,18 @@ if (IS_WIN) {
         env: {
             PYTHONIOENCODING: "utf-8",
             PYTHONUNBUFFERED: "1",
+            // Native inbound email brain — the n8n "OASIS Inbound Qualifier"
+            // replacement (2026-07-23). ENABLED turns on the 4-brain router in
+            // email_engine.cmd_check_inbox (driven by the "Inbound Email Sweep"
+            // cron every 5 min). AUTO_SEND permits the ONE guarded auto-reply
+            // path: technical support -> KNOWN client, confidence >= 0.7,
+            // draft-critic approved. Hot leads, Financial & Legal, unknown
+            // senders and low-confidence reads always draft-and-hold for CC,
+            // and every auto-reply fires a Telegram alert.
+            // KILL SWITCH: set either to "0", then
+            //   pm2 restart bravo-scheduler --update-env
+            EMAIL_BRAIN_ENABLED: "1",
+            EMAIL_BRAIN_AUTO_SEND: "1",
         },
         log_date_format: "YYYY-MM-DD HH:mm:ss",
         error_file: "tmp/pm2-scheduler-error.log",

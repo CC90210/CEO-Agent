@@ -23,6 +23,7 @@ import email.header
 import html as _html
 import imaplib
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -1054,11 +1055,20 @@ def stop_signal_decision(classification, preview, subject):
 def _email_brain_enabled(env_vars) -> bool:
     """EMAIL_BRAIN_ENABLED gates the native multi-brain router (the n8n "OASIS
     Inbound Qualifier" replacement). OFF by default so the inbox loop behaves
-    exactly as before until CC flips it on."""
+    exactly as before until it's switched on.
+
+    Reads .env.agents first, then falls back to the process environment — so the
+    flag can live in .env.agents OR be injected by PM2 (ecosystem.config.js env
+    block, which is how bravo-scheduler sets it and how it reaches this script
+    as an inherited subprocess env). Same precedence email_brain._env_flag uses.
+    """
+    v = ""
     try:
-        v = env_vars.get("EMAIL_BRAIN_ENABLED", "")
+        v = env_vars.get("EMAIL_BRAIN_ENABLED", "") or ""
     except Exception:
         v = ""
+    if not str(v).strip():
+        v = os.environ.get("EMAIL_BRAIN_ENABLED", "")
     return str(v).strip().lower() in ("1", "true", "yes", "on")
 
 
@@ -1265,13 +1275,22 @@ def cmd_check_inbox(env_vars, args, output_json=False):
 
             try:
                 sender_addr = _extract_email_address(from_addr)
+                # 2026-07-23: the DB carries TWO overloads of this function —
+                # a 6-arg (…, p_message_id) and an 8-arg (…, p_thread_id,
+                # p_message_id, p_received_at). Passing only the 6 shared args
+                # made PostgREST fail every call with PGRST203 ("Could not
+                # choose the best candidate function"), so the unified inbound
+                # ledger has been silently dropping EVERY message. Sending the
+                # full 8-arg set resolves the overload unambiguously.
                 rpc_params = {
                     "p_from_email": sender_addr,
                     "p_from_name": _extract_display_name(from_addr),
                     "p_subject": subject,
                     "p_content": preview,
                     "p_classification": classification,
+                    "p_thread_id": None,
                     "p_message_id": uid_str,
+                    "p_received_at": datetime.now(timezone.utc).isoformat(),
                 }
                 db.rpc("record_inbound_from_n8n", rpc_params).execute()
             except Exception as rpc_err:

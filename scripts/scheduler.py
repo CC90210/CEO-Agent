@@ -846,8 +846,19 @@ def run_monthly_snapshot(env_vars: dict) -> str:
 
 
 def run_email_inbox_check(env_vars: dict) -> str:
-    """Check Gmail inbox for unread emails, notify CC, mark as read."""
-    return run_script("email_engine.py", ["--json", "check-inbox"], timeout=60)
+    """Sweep the Gmail inbox: classify, route through the multi-brain email
+    router (when EMAIL_BRAIN_ENABLED), draft/send/hand-off/archive, notify CC.
+
+    2026-07-23 — two turnkey fixes:
+      * PATH: email_engine.py moved to scripts/integrations/ in the 2026-05
+        reorg but this handler still pointed at scripts/email_engine.py, so
+        run_script resolved a non-existent file and every run returned
+        "FAILED (exit 2)". The inbox sweep has been dead since the reorg.
+      * TIMEOUT: 60s was sized for the old notify-and-mark-read path. With the
+        brain enabled each email costs a Haiku classify plus (for replies) a
+        Sonnet draft + critic pass, so a multi-email sweep needs real headroom.
+    """
+    return run_script("integrations/email_engine.py", ["--json", "check-inbox"], timeout=300)
 
 
 def run_funnel_sync(_env_vars: dict) -> str:

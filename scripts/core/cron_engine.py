@@ -102,6 +102,23 @@ SEED_JOBS: list[dict] = [
     # 'Lead Follow-up Check' removed 2026-05-22 — superseded by 'Nurture
     # Sequence Check' (both ran the same overdue-follow-up logic).
     {
+        # 2026-07-23 — the native replacement for the n8n "OASIS Inbound
+        # Qualifier (Bravo Aware)" 5-minute Gmail sweep. NOTHING scheduled the
+        # inbox check before this: scheduler.py has always had an
+        # 'email_inbox_check' handler, but no cron_jobs row ever invoked it, so
+        # inbound email was handled ONLY by the n8n workflow. This row is what
+        # makes the native multi-brain router (email_brain.py) actually run.
+        # Requires EMAIL_BRAIN_ENABLED (set in ecosystem.config.js for
+        # bravo-scheduler); without it the handler falls back to the legacy
+        # notify-and-mark-read behavior.
+        "name": "Inbound Email Sweep",
+        "description": "Every 5 min: classify unread Gmail into 4 brains (support/opportunity/financial/low-priority), draft replies via send_gateway, hand Financial & Legal to Atlas, archive noise. Native n8n replacement.",
+        "schedule": "*/5 * * * *",
+        "action_type": "email_inbox_check",
+        "action_config": {},
+        "is_active": True,
+    },
+    {
         # Phase 5c — OASIS HQ daily AI brief. Local claude CLI narrates the
         # briefing_snapshot into a 5-bullet morning summary, shipped to
         # CC's Telegram via notify(force=True). No MRR — revenue reporting
