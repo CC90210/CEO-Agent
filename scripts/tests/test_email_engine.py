@@ -17,6 +17,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 # email_engine moved to scripts/integrations/ during the 2026-05 reorg.
 from integrations.email_engine import (  # noqa: E402
     TemplateRenderError,
+    _extract_attachment_meta,
     missing_template_variables,
     normalize_template_vars,
     render_template,
@@ -131,6 +132,29 @@ class TestStopSignalDecision(unittest.TestCase):
         suppress, review = stop_signal_decision(None, "hello", "hi")
         self.assertFalse(suppress)
         self.assertFalse(review)
+
+
+class TestAttachmentMeta(unittest.TestCase):
+    def test_extracts_pdf_attachment(self):
+        from email.mime.application import MIMEApplication
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        m = MIMEMultipart()
+        m.attach(MIMEText("here's the invoice", "plain"))
+        pdf = MIMEApplication(b"%PDF-1.4 fake bytes", _subtype="pdf")
+        pdf.add_header("Content-Disposition", "attachment", filename="invoice.pdf")
+        m.attach(pdf)
+        meta = _extract_attachment_meta(m)
+        self.assertEqual(len(meta), 1)
+        self.assertEqual(meta[0]["filename"], "invoice.pdf")
+        self.assertEqual(meta[0]["content_type"], "application/pdf")
+        self.assertGreater(meta[0]["size"], 0)
+
+    def test_no_attachments_returns_empty(self):
+        from email.mime.text import MIMEText
+
+        self.assertEqual(_extract_attachment_meta(MIMEText("plain email")), [])
 
 
 if __name__ == "__main__":

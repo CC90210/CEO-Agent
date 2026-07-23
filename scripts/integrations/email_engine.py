@@ -1065,6 +1065,37 @@ def _email_brain_enabled(env_vars) -> bool:
 _KNOWN_CLIENT_STATUSES = ("client", "active", "active_client", "won", "customer")
 
 
+def _extract_attachment_meta(msg) -> list:
+    """Lightweight attachment metadata (filename, content_type, size) for the
+    Atlas financial hand-off — NOT the raw bytes (Atlas's consumer fetches those
+    from Gmail via rfc_message_id when it processes the hand-off). Best-effort;
+    returns [] on any error."""
+    out: list = []
+    try:
+        if not msg.is_multipart():
+            return out
+        for part in msg.walk():
+            if part.is_multipart():
+                continue
+            disp = str(part.get("Content-Disposition") or "").lower()
+            filename = part.get_filename()
+            if "attachment" not in disp and not filename:
+                continue
+            try:
+                payload = part.get_payload(decode=True)
+                size = len(payload) if payload else 0
+            except Exception:
+                size = 0
+            out.append({
+                "filename": filename or "(unnamed)",
+                "content_type": part.get_content_type(),
+                "size": size,
+            })
+    except Exception:
+        return []
+    return out
+
+
 def _is_known_client(db, email_addr) -> bool:
     """True if the sender is an existing OASIS client (not a cold lead). Gates
     Technical-Support auto-replies. Best-effort; False on any error (fail-safe:
@@ -1366,7 +1397,7 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                         "rfc_message_id": msg.get("Message-ID"),
                         "references": msg.get("References"),
                         "is_known_client": _is_known_client(db, sender_addr),
-                        "attachments": [],  # TODO: attachment extraction for Atlas hand-off
+                        "attachments": _extract_attachment_meta(msg),
                         "tenant_id": None,
                     }
                     outcome = process_email(brain_email, deps=deps)
