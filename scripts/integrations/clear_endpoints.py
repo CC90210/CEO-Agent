@@ -41,7 +41,9 @@ from integrations.clear_client import (
     _parse_search_xml,       # person search response (verified)
     _text,
     clear_config,
+    clear_get,
     clear_post,
+    results_uri,
 )
 
 # ── normalized model ────────────────────────────────────────────────────────
@@ -288,13 +290,16 @@ CAPABILITIES: dict[str, EndpointSpec] = {
     "person_search": EndpointSpec(
         key="person_search",
         label="Person Search",
-        path="/api/v2/person/searchResults",
+        # v3: the v2 resource is entitlement-blocked on this account (403/10001,
+        # 2026-07-23) while v3 accepts the same criteria schema under a
+        # PersonSearchRequestV3 root.
+        path="/api/v3/person/searchResults",
         entity_type="person",
-        # 2026-07-22 truth reconciliation: the earlier verified=True rested on a
-        # TLS-handshake-only check (the Cloudflare edge completes handshakes for
-        # anyone). No CLEAR endpoint has ever returned 2xx on this account, so
-        # person_search is docs-derived like the rest and gates identically.
-        verified=False,
+        # verified 2026-07-23 on a REAL round-trip (unlike the 2026-07-21
+        # handshake-only overclaim): POST v3 search → 200 + <Uri> → GET results
+        # → PersonResultsPageV3 parsed to 1 person / 5 phones for a live lead
+        # (clair_reports bc101333, through the QuotaGuard tunnel).
+        verified=True,
         description="Find individuals by name + address/DOB. Returns matches with "
                     "phones and addresses. The primary enrichment vector — this is "
                     "how a merchant's owner's phone number is located.",
@@ -411,4 +416,11 @@ def run_endpoint(
 
     status, body = clear_post(spec.path, payload, cfg, tmo)
     entities = spec.parse(body)
+    if not entities:
+        # v3 two-step searches acknowledge with a <Uri>; the entities are
+        # behind a GET of it (same search — retrieval is not a new query).
+        uri = results_uri(body)
+        if uri:
+            status, body = clear_get(uri, cfg, tmo)
+            entities = spec.parse(body)
     return _entities_to_result(entities, body, status)

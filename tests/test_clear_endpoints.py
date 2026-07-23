@@ -19,13 +19,14 @@ CFG = {"glb": "Q", "dppa": "3", "voter": "7", "base_url": "https://s2s.thomsonre
 
 # ── capability registry ─────────────────────────────────────────────────────
 
-def test_no_endpoint_is_verified_yet():
-    """The honesty invariant, corrected 2026-07-22: NO endpoint has ever seen a
-    2xx from CLEAR (the old person_search verified=True rested on a
-    TLS-handshake-only check, which the Cloudflare edge passes for anyone).
-    Every endpoint is doc-only and gated until a real round-trip reconciles it."""
+def test_only_person_search_is_verified():
+    """The honesty invariant: verified=True requires a REAL live round-trip.
+    person_search earned it 2026-07-23 (v3 POST → 200 + Uri → GET →
+    PersonResultsPageV3 parsed, clair_reports bc101333). Everything else is
+    still doc-only and gated."""
     caps = {c["key"]: c for c in E.list_capabilities()}
-    for k in ("person_search", "business_search", "person_report", "business_report"):
+    assert caps["person_search"]["verified"] is True
+    for k in ("business_search", "person_report", "business_report"):
         assert caps[k]["verified"] is False, f"{k} must not claim verified"
 
 
@@ -122,7 +123,11 @@ def test_bad_xml_raises_bad_response():
 def _envcfg(**over):
     e = dict(CLEAR_USERNAME="u", CLEAR_PASSWORD="p", CLEAR_PFX_CERTIFICATE="x",
              CLEAR_PASSPHRASE="passphrase12", CLEAR_ENVIRONMENT="prod",
-             CLEAR_GLB="Q", CLEAR_DPPA="3", CLEAR_VOTER="7")
+             CLEAR_GLB="Q", CLEAR_DPPA="3", CLEAR_VOTER="7",
+             # required since 2026-07-23: no proxy env = not configured, never
+             # a direct call. .invalid TLD guarantees the tunnel gate can only
+             # fail if anything ever reaches the transport in these tests.
+             QUOTAGUARD_SOCKS5_URL="socks5://u:p@relay.invalid:1080")
     e.update(over)
     return e
 
@@ -146,12 +151,22 @@ def test_report_endpoint_requires_entity_id():
     assert ei.value.code == "missing_entity_id"
 
 
-def test_person_search_gated_until_real_roundtrip():
-    """person_search gates like everything else until a live 2xx reconciles it."""
+def test_person_search_aborts_at_tunnel_gate_not_direct():
+    """person_search is verified, so with valid criteria it proceeds to the
+    transport — where the tunnel gate must ABORT on an unreachable proxy
+    instead of ever falling back to a direct (unproxied) CLEAR call."""
     q = ClearQuery(last_name="Doe", state="TX")
     with pytest.raises(ClearError) as ei:
         E.run_endpoint("person_search", query=q, env=_envcfg())
-    assert ei.value.code == "not_verified"
+    assert ei.value.code == "tunnel_unverified"
+
+
+def test_missing_proxy_env_means_not_configured():
+    """No QUOTAGUARD_SOCKS5_URL: the account creds alone must NOT be enough —
+    a direct call would come from a non-whitelisted IP and leak intent."""
+    with pytest.raises(ClearError) as ei:
+        clear_config(_envcfg(QUOTAGUARD_SOCKS5_URL=""))
+    assert ei.value.code == "not_configured"
 
 
 def test_insufficient_criteria_refused_before_any_call():
@@ -161,3 +176,86 @@ def test_insufficient_criteria_refused_before_any_call():
     with pytest.raises(ClearError) as ei:
         E.run_endpoint("business_search", query=q, env=_envcfg(CLEAR_ALLOW_UNVERIFIED="1"))
     assert ei.value.code == "insufficient_criteria"
+
+
+# ── v3 wire format, locked against the LIVE responses of 2026-07-23 ─────────
+
+from integrations.clear_client import (  # noqa: E402
+    NS_CRITERIA,
+    NS_SEARCH,
+    _build_search_xml,
+    _parse_search_xml,
+    _socks5h,
+    results_uri,
+)
+
+
+def test_person_search_xml_matches_live_v3_validator():
+    """Every constraint here was dictated by CLEAR's own 400/40002 messages:
+    namespaced PersonSearchRequestV3 root, schemas/search PersonCriteria,
+    Datasources required, NameInfo with LastName BEFORE FirstName,
+    AgeInfo/PersonBirthDate in MM/DD/YYYY."""
+    q = ClearQuery(first_name="Richard", last_name="Rutledge", city="VACAVILLE",
+                   state="CA", zip_code="95688", dob="1965-12-27")
+    xml = _build_search_xml(q, CFG).decode()
+    assert f'"{NS_SEARCH}"' in xml and "PersonSearchRequestV3" in xml
+    assert f'"{NS_CRITERIA}"' in xml and "PersonCriteria" in xml
+    assert "<Datasources><PublicRecordPeople>true</PublicRecordPeople></Datasources>" in xml
+    assert xml.index("<LastName>Rutledge</LastName>") < xml.index("<FirstName>Richard</FirstName>")
+    assert "<AgeInfo><PersonBirthDate>12/27/1965</PersonBirthDate></AgeInfo>" in xml
+    assert "<GLB>Q</GLB>" in xml and "<DPPA>3</DPPA>" in xml
+
+
+_V3_ACK = (
+    '<?xml version="1.0"?><ns2:PersonResults '
+    'xmlns:ns2="http://clear.thomsonreuters.com/api/search/2.0">'
+    "<Status><StatusCode>200</StatusCode></Status>"
+    "<Uri>https://s2s.thomsonreuters.com/api/v3/person/searchResults/abc123</Uri>"
+    "<GroupCount>1</GroupCount></ns2:PersonResults>"
+)
+
+_V3_PAGE = (
+    '<?xml version="1.0"?><ns4:PersonResultsPageV3 '
+    'xmlns:ns3="com/thomsonreuters/schemas/search" '
+    'xmlns:ns4="http://clear.thomsonreuters.com/api/search/2.0">'
+    "<Status><StatusCode>200</StatusCode></Status>"
+    "<ResultGroup><GroupId>g1</GroupId><RecordCount>1</RecordCount>"
+    "<RecordDetails><ns3:PersonResponseDetail>"
+    "<Name><FirstName>RICHARD</FirstName><LastName>RUTLEDGE</LastName></Name>"
+    "<PersonProfile><PersonBirthDates><PersonBirthDate>12/XX/1965</PersonBirthDate>"
+    "</PersonBirthDates></PersonProfile>"
+    "<KnownAddresses><Address><Street>4570 CRAIG LN</Street><City>VACAVILLE</City>"
+    "<State>CA</State><ZipCode>95688</ZipCode></Address>"
+    "<Phones><PhoneNumber>(707) 689-6252</PhoneNumber>"
+    "<PhoneNumberInfoList><PhoneNumber>(707) 689-6252</PhoneNumber></PhoneNumberInfoList>"
+    "<PhoneNumberInfoList><PhoneNumber>(530) 867-2586</PhoneNumber></PhoneNumberInfoList>"
+    "</Phones></KnownAddresses>"
+    "<PersonEntityId>P1__MTg2OTk5Njk</PersonEntityId>"
+    "</ns3:PersonResponseDetail></RecordDetails></ResultGroup>"
+    "</ns4:PersonResultsPageV3>"
+)
+
+
+def test_results_uri_extracted_from_v3_ack():
+    assert results_uri(_V3_ACK) == \
+        "https://s2s.thomsonreuters.com/api/v3/person/searchResults/abc123"
+    assert results_uri(_V3_PAGE) is None
+    assert results_uri("<garbage") is None
+
+
+def test_parse_v3_results_page():
+    people, phones = _parse_search_xml(_V3_PAGE)
+    assert len(people) == 1
+    p = people[0]
+    assert p["name"] == "RICHARD RUTLEDGE"
+    assert p["dob"] == "12/XX/1965"
+    assert p["entity_id"] == "P1__MTg2OTk5Njk"
+    assert p["addresses"] == ["4570 CRAIG LN VACAVILLE CA 95688"]
+    # deduped inside the person AND in the flat list
+    assert [x["number"] for x in p["phones"]] == ["7076896252", "5308672586"]
+    assert [x["number"] for x in phones] == ["7076896252", "5308672586"]
+
+
+def test_socks5h_rewrite():
+    assert _socks5h("socks5://u:p@h:1080") == "socks5h://u:p@h:1080"
+    assert _socks5h("socks5h://u:p@h:1080") == "socks5h://u:p@h:1080"

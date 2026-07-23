@@ -178,6 +178,7 @@ def run_clear_report(
     requested_by_email: Optional[str] = None,
     application_id: Optional[str] = None,
     env: Optional[dict[str, str]] = None,
+    force: bool = False,
 ) -> dict[str, Any]:
     """Run a CLEAR endpoint for one lead and persist the report. UI-shaped dict.
 
@@ -224,8 +225,10 @@ def run_clear_report(
 
     # ── billing guards (each pull costs real money) ── fail CLOSED: if either
     # guard cannot be evaluated, refuse the pull rather than risk the bill.
+    # `force=True` (an explicit operator refresh) skips only the dedupe reuse —
+    # the daily cap still applies.
     try:
-        recent = _recent_report(sb, tenant_id, lead_id, report_type, entity_id)
+        recent = None if force else _recent_report(sb, tenant_id, lead_id, report_type, entity_id)
         if recent is not None:
             return {
                 "ok": True,

@@ -62,7 +62,10 @@ CLEAR_HOSTS = {
     "beta": "https://s2s.beta.thomsonreuters.com",
     "cert": "https://s2s.beta.thomsonreuters.com",
 }
-SEARCH_PATH = "/api/v2/person/searchResults"
+# v3 confirmed live 2026-07-23: /api/v2/person/searchResults exists but is
+# entitlement-blocked on this account (403/10001), while v3 validates the body
+# (400/40002 naming PersonSearchRequestV3). Same criteria schema, V3 root.
+SEARCH_PATH = "/api/v3/person/searchResults"
 
 #: The QuotaGuard Static egress IPs whitelisted on the CLEAR account. A CLEAR
 #: request from any other source IP fails auth, so the tunnel gate refuses to
@@ -264,10 +267,21 @@ def _el(parent: ET.Element, tag: str, text: str = "") -> ET.Element:
     return node
 
 
+#: Namespaces confirmed from CLEAR's own 400/40002 validation response
+#: (2026-07-23): the root must be {search/2.0}PersonSearchRequest and the
+#: criteria payload lives in the com/thomsonreuters/schemas/search schema.
+NS_SEARCH = "http://clear.thomsonreuters.com/api/search/2.0"
+NS_CRITERIA = "com/thomsonreuters/schemas/search"
+
+
 def _build_search_xml(q: ClearQuery, cfg: dict[str, str]) -> bytes:
-    """PersonSearchRequest. The permissible-use block is mandatory — CLEAR
-    rejects a query that does not assert one."""
-    root = ET.Element("PersonSearchRequest")
+    """PersonSearchRequest (namespaced per the live validator). The
+    permissible-use block is mandatory — CLEAR rejects a query that does not
+    assert one. Criteria use the documented nested shape: PersonName /
+    Address / DateOfBirth groups inside a schemas/search PersonCriteria."""
+    ET.register_namespace("s", NS_SEARCH)
+    ET.register_namespace("c", NS_CRITERIA)
+    root = ET.Element(f"{{{NS_SEARCH}}}PersonSearchRequestV3")
 
     purpose = _el(root, "PermissiblePurpose")
     _el(purpose, "GLB", cfg.get("glb", ""))
@@ -276,24 +290,46 @@ def _build_search_xml(q: ClearQuery, cfg: dict[str, str]) -> bytes:
 
     _el(root, "Reference", q.reference)
 
+    # v3 requires an explicit datasource selection ("<Datasources> element is
+    # required", live validator 2026-07-23). Public-record people data is the
+    # phone/address source this integration exists for.
+    sources = _el(root, "Datasources")
+    _el(sources, "PublicRecordPeople", "true")
+
     criteria = _el(root, "Criteria")
-    person = _el(criteria, "PersonCriteria")
-    if q.first_name:
-        _el(person, "FirstName", q.first_name)
-    if q.middle_name:
-        _el(person, "MiddleName", q.middle_name)
+    person = ET.SubElement(criteria, f"{{{NS_CRITERIA}}}PersonCriteria")
+
+    # Child order follows the validator's sequence: NameInfo, AddressInfo,
+    # EmailAddress, NPINumber, SSN, PhoneNumber, AgeInfo, ...
+    # NameInfo sequence (per validator): LastName, FirstName, MiddleInitial, …
+    name = _el(person, "NameInfo")
     if q.last_name:
-        _el(person, "LastName", q.last_name)
-    if q.street:
-        _el(person, "Street", q.street)
-    if q.city:
-        _el(person, "City", q.city)
-    if q.state:
-        _el(person, "State", q.state)
-    if q.zip_code:
-        _el(person, "ZipCode", q.zip_code)
+        _el(name, "LastName", q.last_name)
+    if q.first_name:
+        _el(name, "FirstName", q.first_name)
+    if q.middle_name:
+        _el(name, "MiddleInitial", q.middle_name[:1])
+
+    if q.street or q.city or q.state or q.zip_code:
+        addr = _el(person, "AddressInfo")
+        if q.street:
+            _el(addr, "Street", q.street)
+        if q.city:
+            _el(addr, "City", q.city)
+        if q.state:
+            _el(addr, "State", q.state)
+        if q.zip_code:
+            _el(addr, "ZipCode", q.zip_code)
+
     if q.dob:
-        _el(person, "DOB", q.dob)
+        # CLEAR requires MM/DD/YYYY (asterisks for unknown digits); our leads
+        # store ISO YYYY-MM-DD.
+        dob = q.dob
+        m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", dob)
+        if m:
+            dob = f"{m.group(2)}/{m.group(3)}/{m.group(1)}"
+        age = _el(person, "AgeInfo")
+        _el(age, "PersonBirthDate", dob)
 
     return b'<?xml version="1.0" encoding="UTF-8"?>' + ET.tostring(root, encoding="utf-8")
 
@@ -339,7 +375,11 @@ def _parse_search_xml(body: str) -> tuple[list[dict[str, Any]], list[dict[str, A
     seen_numbers: set[str] = set()
     phones: list[dict[str, Any]] = []
 
-    for rec in _findall(root, "PersonResult", "Person", "PersonRecord", "Record"):
+    # "PersonResponseDetail" is the record container in the live v3
+    # PersonResultsPageV3 response (one per ResultGroup, confirmed 2026-07-23);
+    # the other names are kept for docs-derived shapes.
+    for rec in _findall(root, "PersonResponseDetail", "PersonResult", "Person",
+                        "PersonRecord", "Record"):
         name = _text(_find(rec, "FullName", "Name"))
         if not name:
             first = _text(_find(rec, "FirstName"))
@@ -347,13 +387,15 @@ def _parse_search_xml(body: str) -> tuple[list[dict[str, Any]], list[dict[str, A
             name = " ".join(p for p in (first, last) if p)
 
         person_phones: list[dict[str, Any]] = []
+        person_seen: set[str] = set()
         for pn in _findall(rec, "Phone", "PhoneNumber", "PhoneInfo"):
             number = _text(_find(pn, "Number", "PhoneNumber")) or _text(pn)
             digits = re.sub(r"\D", "", number)
             if len(digits) == 11 and digits.startswith("1"):
                 digits = digits[1:]
-            if len(digits) != 10:
+            if len(digits) != 10 or digits in person_seen:
                 continue
+            person_seen.add(digits)
             entry = {
                 "number": digits,
                 "type": _text(_find(pn, "PhoneType", "Type")) or None,
@@ -373,14 +415,14 @@ def _parse_search_xml(body: str) -> tuple[list[dict[str, Any]], list[dict[str, A
                 _text(_find(ad, "State")),
                 _text(_find(ad, "ZipCode", "Zip")),
             ) if x)
-            if line:
+            if line and line not in addresses:
                 addresses.append(line)
 
         if name or person_phones or addresses:
             people.append({
                 "name": name or None,
-                "age": _text(_find(rec, "Age")) or None,
-                "dob": _text(_find(rec, "DOB", "DateOfBirth")) or None,
+                "age": _text(_find(rec, "Age", "PersonAge")) or None,
+                "dob": _text(_find(rec, "DOB", "DateOfBirth", "PersonBirthDate")) or None,
                 "entity_id": _text(_find(rec, "PersonEntityId", "EntityId")) or None,
                 "addresses": addresses,
                 "phones": person_phones,
@@ -421,13 +463,14 @@ def verify_tunnel(proxy_url: str, timeout: int = TUNNEL_CHECK_TIMEOUT) -> str:
     return egress_ip
 
 
-def clear_post(
-    path: str,
-    payload: bytes,
+def _clear_request(
+    method: str,
+    url: str,
+    payload: Optional[bytes],
     cfg: dict[str, str],
     timeout: tuple[int, int] = DEFAULT_TIMEOUT,
 ) -> tuple[int, str]:
-    """POST an XML body to a CLEAR S2S endpoint and return (status_code, body).
+    """Send one authenticated request to CLEAR and return (status_code, body).
 
     The one place that owns the transport contract for EVERY endpoint: mutual
     TLS (client cert decrypted to a 0600 temp PEM, unlinked in a finally),
@@ -447,22 +490,21 @@ def clear_post(
     billed it — repeating would bill again). Raises ClearError; on 2xx
     returns the raw body.
     """
-    url = cfg["base_url"] + path
     proxies = {"http": cfg["proxy_url"], "https": cfg["proxy_url"]}
     verify_tunnel(cfg["proxy_url"])  # ABORTS unless egress is whitelisted
     pem_path = _write_client_pem(cfg["pfx_b64"], cfg["passphrase"])
+    headers = {"Accept": "application/xml", "User-Agent": "SunBiz-CLEAR-Client/1.0"}
+    if payload is not None:
+        headers["Content-Type"] = "application/xml"
     last_exc: Optional[Exception] = None
     try:
         for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
-                resp = requests.post(
+                resp = requests.request(
+                    method,
                     url,
                     data=payload,
-                    headers={
-                        "Content-Type": "application/xml",
-                        "Accept": "application/xml",
-                        "User-Agent": "SunBiz-CLEAR-Client/1.0",
-                    },
+                    headers=headers,
                     auth=(cfg["username"], cfg["password"]),
                     cert=pem_path,
                     proxies=proxies,
@@ -511,6 +553,42 @@ def clear_post(
             pass
 
 
+def clear_post(
+    path: str,
+    payload: bytes,
+    cfg: dict[str, str],
+    timeout: tuple[int, int] = DEFAULT_TIMEOUT,
+) -> tuple[int, str]:
+    """POST an XML body to a CLEAR S2S endpoint path."""
+    return _clear_request("POST", cfg["base_url"] + path, payload, cfg, timeout)
+
+
+def clear_get(
+    url: str,
+    cfg: dict[str, str],
+    timeout: tuple[int, int] = DEFAULT_TIMEOUT,
+) -> tuple[int, str]:
+    """GET an absolute CLEAR URL — the results-retrieval hop of v3's two-step
+    search (POST returns a <Uri>; the entities live behind a GET of it).
+    Refuses any URL not on the configured CLEAR host: the Uri comes out of a
+    response body, and following it anywhere else would ship credentials and
+    the client cert off-platform."""
+    if not url.startswith(cfg["base_url"] + "/"):
+        raise ClearError("bad_response",
+                         f"refusing to fetch results URI off the CLEAR host: {url[:80]!r}")
+    return _clear_request("GET", url, None, cfg, timeout)
+
+
+def results_uri(body: str) -> Optional[str]:
+    """The <Uri> a v3 search response points at, or None. Namespace-tolerant."""
+    try:
+        root = ET.fromstring(body)
+    except ET.ParseError:
+        return None
+    uri = _text(_find(root, "Uri"))
+    return uri if uri.startswith("http") else None
+
+
 def _backoff(attempt: int) -> None:
     """Exponential backoff with jitter. Deterministic base so tests are stable;
     jitter avoids synchronized retries. attempt is 1-based."""
@@ -542,6 +620,13 @@ def person_search(
     cfg = clear_config(env)
     status, body = clear_post(SEARCH_PATH, _build_search_xml(query, cfg), cfg, timeout)
     people, phones = _parse_search_xml(body)
+    if not people:
+        # v3 two-step: the POST acknowledges with a <Uri>; entities are
+        # behind a GET of it (same search, no additional query billed).
+        uri = results_uri(body)
+        if uri:
+            status, body = clear_get(uri, cfg, timeout)
+            people, phones = _parse_search_xml(body)
     return ClearResult(
         status="completed" if people else "no_results",
         people=people,
