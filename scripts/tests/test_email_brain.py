@@ -140,6 +140,19 @@ class TestProcessEmailDispatch(unittest.TestCase):
         deps["notify"].assert_called_once()      # CC pinged a draft is ready
         deps["mark_read"].assert_not_called()    # stays unread for review
 
+    def test_draft_hold_notification_contains_the_reply(self):
+        # The hold ping must carry the actual proposed reply — there is no
+        # separate approval UI, so the Telegram message IS the review surface.
+        deps = _deps()
+        deps["draft_reply"] = MagicMock(
+            return_value={"subject": "Re: intro", "body": "Happy to chat Thursday. CC"})
+        process_email(_email(from_identity="lead@prospect.example"),
+                      classifier=_classifier("business_opportunity"),
+                      deps=deps, config={"auto_send_enabled": True})
+        msg = deps["notify"].call_args.args[0]
+        self.assertIn("Happy to chat Thursday", msg)
+        self.assertIn("proposed reply", msg.lower())
+
     def test_low_priority_archives_silently(self):
         deps = _deps()
         out = process_email(_email(), classifier=_classifier("low_priority", 0.9),

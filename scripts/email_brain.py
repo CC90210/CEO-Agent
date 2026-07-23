@@ -15,7 +15,9 @@ Design:
     is testable without sending mail. Never raises; returns an outcome dict.
 
 Autonomy is env-gated and FAIL-SAFE: anything not explicitly cleared to send is
-drafted and held for CC's one-tap approval.
+drafted, persisted (store_draft), and pushed to CC via Telegram WITH the proposed
+reply inline for review. (There is no dedicated approve->send UI yet; the Telegram
+message is the review surface — CC sends the reply manually.)
 
   EMAIL_BRAIN_AUTO_SEND        "1"/"true" to enable auto-send (default OFF → draft)
   EMAIL_BRAIN_REPLY_THRESHOLD  min confidence to auto-reply (default 0.7)
@@ -142,6 +144,18 @@ def _noop(*_a: Any, **_kw: Any) -> None:
     return None
 
 
+def _draft_notice(category: str, sender: str, subj: str, draft: Any,
+                  flagged: bool = False) -> str:
+    """Build an ACTIONABLE hold notification that contains the proposed reply,
+    so CC can read and send it. (There is no dedicated approval UI yet; the
+    Telegram message is the review surface, and store_draft keeps the record.)"""
+    body = draft.get("body", "") if isinstance(draft, dict) else ""
+    dsubj = (draft.get("subject") if isinstance(draft, dict) else None) or subj
+    head = "Draft held (critic-flagged)" if flagged else "Draft ready to send"
+    return (f"{head} - {category}\nFrom: {sender}\nRe: {subj}\n\n"
+            f"--- proposed reply ---\nSubject: {dsubj}\n{(body or '(empty)')[:1500]}")
+
+
 # ---- Dispatcher -------------------------------------------------------------
 
 def process_email(
@@ -210,7 +224,7 @@ def process_email(
                 out["drafted"] = True
                 out["action"] = "draft_hold"
                 out["reason"] = "auto-reply downgraded: draft failed the quality critic; held for review."
-                get("notify")(f"Draft (critic-flagged) held for approval - {category} from {sender}: {subj}")
+                get("notify")(_draft_notice(category, sender, subj, draft, flagged=True))
                 out["notified"] = True
             else:
                 get("send_reply")(email, draft)      # if this raises, sent stays False
@@ -222,7 +236,7 @@ def process_email(
             draft = get("draft_reply")(email, category)
             get("store_draft")(email, draft, category)
             out["drafted"] = True
-            get("notify")(f"Draft ready for approval - {category} from {sender}: {subj}")
+            get("notify")(_draft_notice(category, sender, subj, draft))
             out["notified"] = True
             # left unread so it stays visible for CC's review
         elif action == "archive":
