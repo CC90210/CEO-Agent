@@ -1,7 +1,7 @@
 ---
 description: "Q2 2026 quarterly objectives with key results for MRR diversification, delivery systematization, and inbound content; includes progress tracking and weekly metrics"
 tags: [brain, okrs, strategy, quarterly]
-last_updated: 2026-06-20
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-20
 ---

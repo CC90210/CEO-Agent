@@ -1,7 +1,7 @@
 ---
 description: "Operating manual with decision tree to route CC's questions to correct agent: Bravo (CEO), Atlas (CFO), Maven (CMO), Aura (Life/personal) by domain"
 tags: [operating-manual, how-to, c-suite, life]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

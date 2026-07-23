@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **59 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -47,6 +47,7 @@ Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first
 - [DATA_TAXONOMY.md](DATA_TAXONOMY.md) — Data Taxonomy
 - [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS AI (V1.0, 2026-04-30)
 - [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) — EVENT BUS CONTRACT — V6 BUILD 3
+- [EXTERNAL_REVIEW_INTEGRATION.md](EXTERNAL_REVIEW_INTEGRATION.md) — EXTERNAL REVIEW INTEGRATION — Fold the Bots Into the Loop
 - [METRIC_AUDIT.md](METRIC_AUDIT.md) — Dashboard Metric Audit
 - [MODEL_CONFIG.md](MODEL_CONFIG.md) — (no H1 heading)
 - [OKRs.md](OKRs.md) — OKRs — Q2 2026 (April - June)
@@ -58,6 +59,7 @@ Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first
 - [RISK_REGISTER.md](RISK_REGISTER.md) — Risk Register — Business Empire
 - [SETUP_WIZARD_2_SPEC.md](SETUP_WIZARD_2_SPEC.md) — Setup Wizard 2.0
 - [SHARED_DB.md](SHARED_DB.md) — Shared DB
+- [SUBCONSCIOUS_LAYER.md](SUBCONSCIOUS_LAYER.md) — THE SUBCONSCIOUS LAYER — What Runs Beneath the Conscious Brain
 - [TOOL_SHED.md](TOOL_SHED.md) — 🧰 TOOL SHED — CC's GitHub Repository Catalog
 - [V6_ARCHITECTURE.md](V6_ARCHITECTURE.md) — Substrate Architecture — current: **V7.3.3** (foundation history V6.0 → V6.8 below)
 

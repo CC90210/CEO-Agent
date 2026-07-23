@@ -47,6 +47,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
 from lib.claude_auth import (  # noqa: E402
     build_claude_spawn_env,
@@ -216,7 +217,7 @@ def _extract_via_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, dict | 
         extras={"CI": "true", "NONINTERACTIVE": "true", "PAGER": "cat", "NO_COLOR": "1", "FORCE_COLOR": "0"},
     )
     try:
-        proc = subprocess.run(
+        proc = safe_run(
             args,
             cwd=str(doc_path.parent),
             env=spawn_env,

@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-07-20T06:37:14.803409+00:00",
+  "generated_at": "2026-07-23T00:58:57.738747+00:00",
   "totals": {
     "skills": 152,
-    "scripts": 118,
+    "scripts": 119,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 361,
-    "edges_total": 134,
+    "nodes_total": 362,
+    "edges_total": 135,
     "drift_count": 0
   },
   "nodes": [
@@ -4818,6 +4818,28 @@
       }
     },
     {
+      "id": "script:breeze_live_watch",
+      "kind": "script",
+      "name": "breeze_live_watch",
+      "path": "scripts/breeze_live_watch.py",
+      "description": "breeze_live_watch.py \u2014 go-live Telegram watch for the Breeze Advance portal.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "monitoring.client_apps",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "watch breeze portal",
+        "breeze go-live monitor",
+        "merchant onboarding watch"
+      ],
+      "project": "breeze",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
       "id": "script:breeze_set_tenant_email",
       "kind": "script",
       "name": "breeze_set_tenant_email",
@@ -7672,6 +7694,11 @@
       "from": "script:break_glass_drill",
       "to": "runtime:bridge_chat_server",
       "kind": "exposed_via"
+    },
+    {
+      "from": "script:breeze_live_watch",
+      "to": "script:notify",
+      "kind": "calls"
     },
     {
       "from": "script:build_maven_env",

@@ -18,7 +18,6 @@ Safe to re-run; idempotent. The tsx script snapshots each live form before
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -34,6 +33,7 @@ CAPABILITY_META = {
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
 DASHBOARD_DIR = Path(r"C:\Users\User\APPS\oasis-command-center")
 
@@ -58,7 +58,7 @@ def main() -> int:
     if "--apply" in sys.argv:
         cmd.append("--apply")
 
-    proc = subprocess.run(cmd, cwd=str(DASHBOARD_DIR), env=env)
+    proc = safe_run(cmd, cwd=str(DASHBOARD_DIR), env=env)
     return proc.returncode
 
 

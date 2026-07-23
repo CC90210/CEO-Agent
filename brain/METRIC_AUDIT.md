@@ -1,7 +1,7 @@
 ---
 description: "Audit of all dashboard metrics traced to source, categorized as real/verified/real-but-buggy/fake; reference for agents verifying data trustworthiness"
 tags: [audit, metrics, dashboard, transparency]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

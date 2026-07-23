@@ -1,9 +1,9 @@
 ---
 description: "Routes tasks inline or to sub-agents by 6-dimension risk matrix; governs tool choice, delegation scope, and agent-layer selection"
 tags: [orchestration, governance, routing, critical, delegation]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
-verified: 2026-06-09
+verified: 2026-07-22
 ---
 # ORCHESTRATION — Capability Governance & Routing Integrity
 

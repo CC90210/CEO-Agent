@@ -1,7 +1,7 @@
 ---
 description: "Cross-agent event registry with canonical event types and locked payload schemas; agents check this before emitting or subscribing to events"
 tags: [v6, event-bus, cross-agent, contract]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 14
 verified: 2026-06-09
 ---

@@ -32,7 +32,7 @@ from pathlib import Path
 
 CAPABILITY_META = {
     "category": "monitoring.client_apps",
-    "lifecycle": "golive_week",
+    "lifecycle": "active",
     "risk": "read_only",
     "triggers": ["watch breeze portal", "breeze go-live monitor", "merchant onboarding watch"],
     "owner": "bravo",

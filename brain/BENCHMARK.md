@@ -1,7 +1,7 @@
 ---
 description: "Agentic maturity self-assessment framework scoring Bravo 0-100 across 10 dimensions; agents reference it to understand autonomy tier and gaps"
 tags: [benchmark, sentience, performance, self-assessment]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

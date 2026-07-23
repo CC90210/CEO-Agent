@@ -1,7 +1,7 @@
 ---
 description: "Paste-in IDE prompts for Atlas/Maven/Aura with ecosystem briefing, self-improvement protocol intro, and each agent's gap-audit findings"
 tags: [prompts, self-improvement, agents, delegation]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

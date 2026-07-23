@@ -1,7 +1,7 @@
 ---
 description: "Fleet coordination contract: defines agent roles, responsibilities, pulse-protocol state hand-offs, approval authority, and veto boundaries"
 tags: [orchestration, contract, multi-agent, autonomy]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

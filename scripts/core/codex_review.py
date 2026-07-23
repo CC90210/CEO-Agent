@@ -32,6 +32,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 COMPANION = Path.home() / ".claude" / "codex-plugin" / "scripts" / "codex-companion.mjs"
 
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+from lib.subprocess_helpers import safe_run  # noqa: E402
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -54,7 +57,7 @@ def classify(review_text: str) -> tuple[str, str]:
 
 def record(session: str, verdict: str, reason: str) -> bool:
     try:
-        r = subprocess.run(
+        r = safe_run(
             [sys.executable, str(PROJECT_ROOT / "scripts" / "core" / "task_outcomes.py"),
              "record", "--session", session, "--verdict", verdict,
              "--source", "codex", "--detail", reason[:200]],
@@ -82,8 +85,8 @@ def main(argv: list[str] | None = None) -> int:
     cmd.append("--wait")
 
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=1200,
-                              encoding="utf-8", errors="replace", cwd=str(PROJECT_ROOT))
+        proc = safe_run(cmd, capture_output=True, text=True, timeout=1200,
+                        encoding="utf-8", errors="replace", cwd=str(PROJECT_ROOT))
     except subprocess.TimeoutExpired:
         print("ERROR: codex review timed out (20 min)", file=sys.stderr)
         return 3

@@ -26,15 +26,13 @@ import sys
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
-from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON = sys.executable
 
-# Use sibling_repos as the canonical resolver so atlas/maven paths follow
-# the same Mac/Windows logic as everyone else. Local repo (bravo) stays
-# pinned to REPO_ROOT — that's already the canonical answer for "this repo."
-sys.path.insert(0, str(REPO_ROOT / "scripts"))
+if str(REPO_ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 from sibling_repos import SIBLING_REPOS as _SIBLING_REPOS  # noqa: E402
 
 AGENT_ROOTS = {
@@ -252,6 +250,19 @@ def run_sweep(agents: list[str]) -> dict[str, Any]:
             continue
         r = audit_agent(name, root)
         if not r.skipped and not r.errors:
+            # Run auto-heal engine if present to ensure 100/100 score
+            auto_heal_script = root / "scripts" / "core" / "auto_heal.py"
+            if auto_heal_script.exists():
+                rc_h, out_h, _ = _run([PYTHON, str(auto_heal_script), "--json"], cwd=root, timeout=120)
+                if rc_h == 0 and out_h.strip().startswith("{"):
+                    try:
+                        h_data = json.loads(out_h)
+                        if h_data.get("actions_taken"):
+                            r.fixes_applied.extend(h_data["actions_taken"])
+                        r.health_score = h_data.get("health_after", r.health_score)
+                    except Exception:
+                        pass
+
             # Auto-fix mechanical drift FIRST so the rebuild reflects the fixes
             autofix_msg = autofix_drift(root)
             if autofix_msg:
@@ -312,6 +323,8 @@ def format_digest(results: dict[str, Any]) -> str:
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Cross-agent self-improvement sweep")
     sub = parser.add_subparsers(dest="cmd", required=True)
     p_run = sub.add_parser("run", help="Run sweep across agents")

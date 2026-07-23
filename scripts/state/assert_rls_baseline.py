@@ -18,9 +18,11 @@ Requires the bravo Supabase exec_sql RPC (same as supabase_tool.py).
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
 # Reviewed 2026-06-21: intentional service-role-only (RLS deny-all). If you add
 # a table here, say why in the trailing comment.
@@ -64,7 +66,7 @@ _QUERY = (
 
 def _live_rls_no_policy() -> set[str]:
     tool = Path(__file__).resolve().parent.parent / "integrations" / "supabase_tool.py"
-    out = subprocess.run(
+    out = safe_run(
         [sys.executable, str(tool), "rpc", "exec_sql", json.dumps({"sql_query": _QUERY})],
         capture_output=True, text=True,
     ).stdout

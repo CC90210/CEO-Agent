@@ -39,7 +39,12 @@ def main() -> int:
         print(json.dumps({"decision": "allow"}))
         return 0
 
-    cmd = payload.get("command") or payload.get("input", {}).get("command", "")
+    # PreToolUse payload schema is {"tool_name": ..., "tool_input": {"command"/"script": ...}}.
+    # (The old code read payload["command"] / payload["input"]["command"], which never
+    #  exist in Claude Code's schema — so the hook silently allowed everything. Caught by
+    #  APEX 2026-07-20; aligned here with exec_guard/secret_guard's reader.)
+    tool_input = payload.get("tool_input", {}) or {}
+    cmd = tool_input.get("command", "") or tool_input.get("script", "")
     if not cmd:
         print(json.dumps({"decision": "allow"}))
         return 0

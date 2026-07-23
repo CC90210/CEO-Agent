@@ -3,9 +3,9 @@ name: EXECUTION RULES
 description: Non-negotiables for the chat agent. Never tell the operator to run commands you can run yourself. Self-execute, audit, confirm.
 mutability: IMMUTABLE
 tags: [brain, agent-only, iron-law]
-last_updated: 2026-06-09
+last_updated: 2026-07-20
 freshness_threshold_days: 30
-verified: 2026-06-09
+verified: 2026-07-20
 ---
 # EXECUTION RULES — The Iron Law
 
@@ -205,6 +205,30 @@ Operator-facing CLIs where a visible window IS the intended UX (rare): annotate 
 
 **Why this rule exists:** 2026-05-18 — CC reported terminal pop-ups for the 4th+ time. Root cause was `bravo_cli/bridge_tools.py:171` (`subprocess.run(cmd, shell=True, …)` without creationflags) firing on every Telegram-bridge bash tool call. PM2 daemons all had `pythonw` + `windowsHide`; the cockpit was already configured (`bravo_console_launcher.vbs`, WindowStyle=7). The leak was always at the subprocess layer one level below. Audit found 68 unflagged calls across 36 files at the time the rule was written; codemod migrated them in one pass.
 
+## 16. EXTERNAL REVIEW SIGNAL IS PART OF THE LOOP (added 2026-07-20)
+
+Every push is reviewed by machines — CodeRabbit reads the diff, Dependabot watches dependencies, Vercel builds + checks the deploy, GitHub Actions runs CI. **That signal is not optional background noise; it is input to the loop.** A CodeRabbit CRITICAL, a red CI check, or a high-severity Dependabot alert is a finding you must see and triage, not a comment that dies in a PR page.
+
+- When you push or open a PR on a bot-reviewed repo, **check the review signal before calling it done** — and **always pass `--repo <owner>/<repo>`** (this workspace's default remote is not the repo you're triaging):
+  - CI / Vercel checks: `gh pr checks <n> --repo <owner>/<repo>`
+  - Security: `gh api repos/<owner>/<repo>/dependabot/alerts --paginate`
+  - **CodeRabbit / human review — inline threads, not just the top-level comments.** `gh pr view --comments` shows conversation comments but **misses line-level review threads** (the 2026-07-20 bounce-cron CRITICAL lived in an inline thread). Fetch inline findings with `gh api --paginate repos/<owner>/<repo>/pulls/<n>/comments`, and use the GraphQL `reviewThreads` field when you need each thread's *resolved/unresolved* state.
+- A finding a bot already produced that you ignore is worse than one you never had — the reviewer did its job and you dropped it. Surface it, fix it, or explicitly defer it with a reason.
+- Findings that recur become prevention rules, not repeat mistakes. The harvest protocol and per-repo scopes live in [[brain/EXTERNAL_REVIEW_INTEGRATION]]. Read it when wiring or triaging review signal.
+- **No branch protection currently gates any repo**, so this signal is advisory — which means *your discipline* is the only gate until protection is added. Treat a red check as blocking even when GitHub won't.
+
+**Why this rule exists:** 2026-07-20 audit found a CodeRabbit-flagged CRITICAL bug (empty-IMAP-search 500 in the oasis-command-center bounce cron) still live on `main` because its PR was closed unmerged and the finding was never re-applied; CI red on the last 5 merges; and 4 high Dependabot alerts with bump-PRs sitting unmerged. All were caught by bots, none reached a human decision.
+
+## 17. WRITE WHAT YOU FILTER (added 2026-07-20)
+
+Any time you add a `WHERE col = X` / `.eq(col, …)` / `.filter()` on a column to a **read** path, grep the same module for every `.insert(` / `.upsert(` and confirm that column is **populated on the write side too.** A read filter without a matching write stamp is a silent data-hiding bug: the rows exist but become invisible to the very query you just "fixed."
+
+- The class: scope reads to `tenant_id` (or any partition key) but leave `cmd_add` / bulk-import inserting rows with that column NULL → the new rows never appear in the scoped read.
+- The check is mechanical: filter a column on read → stamp it on every write in the module → **prove visibility in an isolated, rollback-safe test** — a throwaway/test database or a transaction that is rolled back, NEVER against live Supabase. Do not "insert one unscoped row to see if it disappears": that would create the exact NULL-partition row this rule exists to prevent, and could leave residue if the round-trip fails partway. For a production schema, the correct assertion is that an **unscoped insert is rejected** (by a NOT NULL / CHECK constraint or the write-path guard), not that it silently persists.
+
+**Why this rule exists:** the daily brief once under-counted leads because `lead_engine.py` reads were scoped to `OASIS_TENANT_ID` while `cmd_add`/bulk-import still inserted `tenant_id`-less rows — leads added via CLI were invisible to the pipeline the filter was meant to fix. Caught by Codex audit, not by the agent. Full incident: `memory/MISTAKES.md`.
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]
+- [[brain/EXTERNAL_REVIEW_INTEGRATION]] | [[brain/SUBCONSCIOUS_LAYER]]

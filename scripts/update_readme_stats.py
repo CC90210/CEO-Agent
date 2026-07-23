@@ -37,6 +37,9 @@ ROOT = Path(__file__).resolve().parent.parent
 README = ROOT / "README.md"
 MCP_CONFIG = ROOT / ".claude" / "mcp.json"
 
+sys.path.insert(0, str(ROOT / "scripts"))
+from lib.subprocess_helpers import safe_run  # noqa: E402
+
 _TRACKED: set[str] | None = None
 
 
@@ -47,9 +50,8 @@ def _tracked() -> set[str]:
     gitignored per-machine config. Empty set (git unavailable) -> count everything."""
     global _TRACKED
     if _TRACKED is None:
-        import subprocess
         try:
-            out = subprocess.run(
+            out = safe_run(
                 ["git", "-C", str(ROOT), "ls-files"],
                 capture_output=True, text=True, check=True,
             ).stdout

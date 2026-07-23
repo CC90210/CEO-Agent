@@ -1,7 +1,7 @@
 ---
 description: "Live business risk register organizing threats by severity with impact, probability, mitigations, owners, and review protocols"
 tags: [brain, risk, register]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

@@ -35,6 +35,8 @@ from urllib.parse import unquote
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
 # Directories containing knowledge files that participate in the audit. Files
 # with non-active roles are deliberately collected too: the link analyzer must
@@ -439,7 +441,7 @@ def _git_ignored_relpaths(paths: Iterable[Path], repo_root: Path) -> set[str]:
     if not relpaths:
         return set()
     try:
-        completed = subprocess.run(
+        completed = safe_run(
             ["git", "-c", "core.quotepath=false", "check-ignore", "-z", "--stdin"],
             cwd=repo_root,
             input=("\0".join(relpaths) + "\0").encode("utf-8"),

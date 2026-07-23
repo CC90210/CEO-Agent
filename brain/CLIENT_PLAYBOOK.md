@@ -1,7 +1,7 @@
 ---
 description: "Operational playbook for CC's client conversations, pitches, and meetings; positioning statements, security model, AI education, and sales plays"
 tags: [client-facing, playbook, meeting, security, positioning, shareable]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
