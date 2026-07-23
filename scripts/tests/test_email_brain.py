@@ -157,6 +157,8 @@ class TestProcessEmailDispatch(unittest.TestCase):
         self.assertTrue(out["handed_off"])
         deps["handoff_atlas"].assert_called_once()
         deps["send_reply"].assert_not_called()
+        deps["notify"].assert_called_once()      # CC pinged; never silently swallowed
+        deps["mark_read"].assert_not_called()    # stays unread until Atlas consumes it
 
     def test_autosend_disabled_globally_never_sends(self):
         deps = _deps()

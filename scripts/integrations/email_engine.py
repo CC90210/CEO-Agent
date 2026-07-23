@@ -1373,11 +1373,11 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     print(f"[email_inbox] brain: {outcome.get('action')} "
                           f"({outcome.get('category')}) conf={outcome.get('confidence')}",
                           file=sys.stderr)
-                    # auto_reply/archive already marked read by the brain; hand-offs
-                    # are marked read here (Atlas owns them now); holds/reviews stay
-                    # UNREAD so CC sees them.
-                    if outcome.get("action") == "handoff_atlas":
-                        imap.store(uid, "+FLAGS", "\\Seen")
+                    # auto_reply/archive already marked read by the brain. Financial
+                    # hand-offs and holds/reviews stay UNREAD so CC still sees them:
+                    # Atlas's consumer marks a financial email read only after it
+                    # actually processes it (until that consumer exists, the email
+                    # stays in the inbox rather than vanishing into a void).
                 except Exception as brain_err:
                     print(f"[email_inbox] email_brain failed, legacy fallback: {brain_err}",
                           file=sys.stderr)

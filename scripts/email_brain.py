@@ -232,6 +232,11 @@ def process_email(
         elif action == "handoff_atlas":
             get("handoff_atlas")(email)
             out["handed_off"] = True
+            # Ping CC so a financial/legal email is never silently swallowed while
+            # Atlas's consumer is being built. The email is left UNREAD by the
+            # caller until Atlas actually processes it.
+            get("notify")(f"Financial/legal email routed to Atlas - {sender}: {subj}")
+            out["notified"] = True
         else:  # review
             get("notify")(f"Needs your review - {category} from {sender}: {subj}")
             out["notified"] = True
