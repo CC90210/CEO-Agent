@@ -35,6 +35,15 @@ TMP_DIR = PROJECT_ROOT / "tmp"
 ALLOWLIST_PATTERNS = (
     "pm2-*.log",
     "events_offline.jsonl",
+    # Live IPC / dedup state — purging these causes real damage, not just a
+    # cold cache. inbound_processed_msgids.json is the inbound-email idempotency
+    # ledger: delete it and the next UNSEEN sweep re-classifies, re-drafts and
+    # re-hands-off every still-unread email (LLM cost + duplicate ledger rows +
+    # duplicate Atlas hand-offs). It's rewritten every 5 min so its mtime is
+    # normally fresh anyway; this makes the intent explicit and covers a paused
+    # sweep. imap_poison_uids.json is the sibling fetch-failure tracker.
+    "inbound_processed_msgids.json",
+    "imap_poison_uids.json",
     "*.lock",
     "*.lock.json",
     "*.pid",
