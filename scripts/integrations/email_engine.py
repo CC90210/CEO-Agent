@@ -1074,6 +1074,43 @@ def _email_brain_enabled(env_vars) -> bool:
 
 _KNOWN_CLIENT_STATUSES = ("client", "active", "active_client", "won", "customer")
 
+# Which agent owns each brain. Financial & Legal is Atlas's (CFO); everything
+# else stays with Bravo. Mirrors the agent_label the n8n routing contract set.
+_AGENT_LABEL_BY_CATEGORY = {
+    "financial_legal": "atlas",
+    "technical_support": "bravo",
+    "business_opportunity": "bravo",
+    "low_priority": "bravo",
+}
+
+
+def _routing_contract(outcome: dict, classification: dict) -> dict:
+    """Build the routing contract the Command Center renders for an inbound mail.
+
+    This is the native form of the `<oasis-routing>` JSON each n8n agent emitted
+    and the "Parse routing (…)" nodes POSTed to /api/inbound/n8n. Same fields —
+    intent / agent_action / priority / agent_label / summary — so the dashboard
+    shows which brain handled the mail and what it actually did, rather than a
+    bare intent with no outcome.
+    """
+    category = outcome.get("category") or "low_priority"
+    return {
+        "intent": category,
+        "legacy_intent": classification.get("intent"),
+        "agent_action": outcome.get("action"),
+        "priority": classification.get("priority") or "cold",
+        "agent_label": _AGENT_LABEL_BY_CATEGORY.get(category, "bravo"),
+        "summary": (outcome.get("reason") or "")[:500],
+        "confidence": outcome.get("confidence"),
+        "sent": bool(outcome.get("sent")),
+        "drafted": bool(outcome.get("drafted")),
+        "archived": bool(outcome.get("archived")),
+        "handed_off": bool(outcome.get("handed_off")),
+        "notified": bool(outcome.get("notified")),
+        "routing_extracted": True,
+        "source": "email_brain",
+    }
+
 
 def _extract_attachment_meta(msg) -> list:
     """Lightweight attachment metadata (filename, content_type, size) for the
@@ -1273,29 +1310,41 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                                   "priority": "cold", "confidence": 0.0,
                                   "fallback": True}
 
-            try:
-                sender_addr = _extract_email_address(from_addr)
-                # 2026-07-23: the DB carries TWO overloads of this function —
-                # a 6-arg (…, p_message_id) and an 8-arg (…, p_thread_id,
-                # p_message_id, p_received_at). Passing only the 6 shared args
-                # made PostgREST fail every call with PGRST203 ("Could not
-                # choose the best candidate function"), so the unified inbound
-                # ledger has been silently dropping EVERY message. Sending the
-                # full 8-arg set resolves the overload unambiguously.
-                rpc_params = {
-                    "p_from_email": sender_addr,
-                    "p_from_name": _extract_display_name(from_addr),
-                    "p_subject": subject,
-                    "p_content": preview,
-                    "p_classification": classification,
-                    "p_thread_id": None,
-                    "p_message_id": uid_str,
-                    "p_received_at": datetime.now(timezone.utc).isoformat(),
-                }
-                db.rpc("record_inbound_from_n8n", rpc_params).execute()
-            except Exception as rpc_err:
-                # Don't block the inbox flow on ledger errors — email_log still captures.
-                print(f"[email_inbox] ledger write warning: {rpc_err}", file=sys.stderr)
+            sender_addr = _extract_email_address(from_addr)
+
+            def _write_inbound_ledger(routing: dict | None = None) -> None:
+                """Write the unified inbound ledger row the Command Center reads.
+
+                DEFERRED until after the brain runs so the row carries the
+                brain's routing decision. The retired n8n workflow achieved this
+                by POSTing an <oasis-routing> contract to /api/inbound/n8n with a
+                plaintext shared secret in the workflow; Bravo holds the
+                service-role client directly, so it writes the same contract
+                straight through the RPC — no HTTP hop and no secret to leak.
+
+                2026-07-23: the DB carries TWO overloads of this function — a
+                6-arg (…, p_message_id) and an 8-arg (…, p_thread_id,
+                p_message_id, p_received_at). Passing only the 6 shared args made
+                PostgREST fail every call with PGRST203, silently dropping EVERY
+                message. The full 8-arg set resolves the overload.
+                """
+                payload = dict(classification or {})
+                if routing:
+                    payload["routing"] = routing
+                try:
+                    db.rpc("record_inbound_from_n8n", {
+                        "p_from_email": sender_addr,
+                        "p_from_name": _extract_display_name(from_addr),
+                        "p_subject": subject,
+                        "p_content": preview,
+                        "p_classification": payload,
+                        "p_thread_id": None,
+                        "p_message_id": uid_str,
+                        "p_received_at": datetime.now(timezone.utc).isoformat(),
+                    }).execute()
+                except Exception as rpc_err:
+                    # Never block the inbox flow — email_log still captures it.
+                    print(f"[email_inbox] ledger write warning: {rpc_err}", file=sys.stderr)
 
             # V1.0 — bump the OASIS Command Center integrations_health row so
             # the dashboard's green dot lights up. Best-effort.
@@ -1423,6 +1472,11 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     print(f"[email_inbox] brain: {outcome.get('action')} "
                           f"({outcome.get('category')}) conf={outcome.get('confidence')}",
                           file=sys.stderr)
+                    # The <oasis-routing> contract the n8n workflow used to POST
+                    # to the dashboard, now written straight into the ledger row
+                    # so the Command Center shows WHICH brain handled the mail
+                    # and WHAT it did — not just a bare intent.
+                    _write_inbound_ledger(_routing_contract(outcome, classification))
                     # auto_reply/archive already marked read by the brain. Financial
                     # hand-offs and holds/reviews stay UNREAD so CC still sees them:
                     # Atlas's consumer marks a financial email read only after it
@@ -1431,9 +1485,11 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 except Exception as brain_err:
                     print(f"[email_inbox] email_brain failed, legacy fallback: {brain_err}",
                           file=sys.stderr)
+                    _write_inbound_ledger()
                     notify(notify_msg)
                     imap.store(uid, "+FLAGS", "\\Seen")
             else:
+                _write_inbound_ledger()
                 notify(notify_msg)
                 # Mark as read
                 imap.store(uid, "+FLAGS", "\\Seen")

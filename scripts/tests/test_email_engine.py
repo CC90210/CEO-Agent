@@ -134,6 +134,34 @@ class TestStopSignalDecision(unittest.TestCase):
         self.assertFalse(review)
 
 
+class TestRoutingContract(unittest.TestCase):
+    """The native form of the n8n <oasis-routing> contract the dashboard renders."""
+
+    def test_financial_is_labelled_to_atlas(self):
+        from integrations.email_engine import _routing_contract
+        r = _routing_contract(
+            {"category": "financial_legal", "action": "handoff_atlas",
+             "reason": "x", "handed_off": True},
+            {"intent": "platform_alert", "priority": "warm"})
+        self.assertEqual(r["agent_label"], "atlas")
+        self.assertEqual(r["intent"], "financial_legal")
+        self.assertTrue(r["handed_off"])
+        self.assertTrue(r["routing_extracted"])
+
+    def test_non_financial_stays_with_bravo(self):
+        from integrations.email_engine import _routing_contract
+        for cat in ("technical_support", "business_opportunity", "low_priority"):
+            r = _routing_contract({"category": cat, "action": "draft_hold"}, {})
+            self.assertEqual(r["agent_label"], "bravo", cat)
+
+    def test_unknown_category_defaults_safely(self):
+        from integrations.email_engine import _routing_contract
+        r = _routing_contract({}, {})
+        self.assertEqual(r["intent"], "low_priority")
+        self.assertEqual(r["agent_label"], "bravo")
+        self.assertEqual(r["priority"], "cold")
+
+
 class TestAttachmentMeta(unittest.TestCase):
     def test_extracts_pdf_attachment(self):
         from email.mime.application import MIMEApplication
