@@ -954,6 +954,43 @@ IMAP_MAX_EMAILS = 20
 POISON_UID_PATH = Path(__file__).resolve().parent.parent.parent / "tmp" / "imap_poison_uids.json"
 POISON_MAX_ATTEMPTS = 3
 
+# Idempotency ledger — keyed by the STABLE RFC Message-ID (not the IMAP
+# sequence number, which changes every session). This is what stops the
+# reprocessing loop: draft_hold and handoff_atlas deliberately leave mail
+# UNREAD as CC's / Atlas's queue, but the 5-minute UNSEEN sweep re-picks
+# unread mail, so without this every held email was re-classified, re-drafted,
+# re-handed-off and re-ledgered on every tick (runaway LLM cost + duplicate
+# rows + Telegram spam). Same on-disk-JSON idiom as POISON_UID_PATH above.
+PROCESSED_MSGIDS_PATH = (Path(__file__).resolve().parent.parent.parent
+                         / "tmp" / "inbound_processed_msgids.json")
+PROCESSED_MSGIDS_MAX = 5000  # ring-buffer cap so the file can't grow unbounded
+
+
+def _load_processed_msgids() -> dict:
+    try:
+        if PROCESSED_MSGIDS_PATH.exists():
+            data = json.loads(PROCESSED_MSGIDS_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+    except Exception:  # noqa: BLE001
+        pass
+    return {}
+
+
+def _save_processed_msgids(seen: dict) -> None:
+    try:
+        # Keep only the most-recent N by stored timestamp so this never grows
+        # without bound on a busy mailbox.
+        if len(seen) > PROCESSED_MSGIDS_MAX:
+            newest = sorted(seen.items(), key=lambda kv: kv[1], reverse=True)[:PROCESSED_MSGIDS_MAX]
+            seen = dict(newest)
+        PROCESSED_MSGIDS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = PROCESSED_MSGIDS_PATH.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(seen), encoding="utf-8")
+        os.replace(tmp, PROCESSED_MSGIDS_PATH)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[email_inbox] could not persist processed-msgid ledger: {exc}", file=sys.stderr)
+
 
 def _extract_email_address(from_header: str) -> str:
     """Given a From: header string like '"Jane Doe" <jane@acme.com>', return
@@ -1273,6 +1310,9 @@ def cmd_check_inbox(env_vars, args, output_json=False):
         except Exception:
             poison_state = {}
 
+        # 2026-07-24: processed-message idempotency ledger (see the guard below).
+        processed_msgids = _load_processed_msgids()
+
         for uid in message_ids:
             uid_str = uid.decode() if isinstance(uid, bytes) else str(uid)
             fetch_status, fetch_data = imap.fetch(uid, "(RFC822)")
@@ -1329,6 +1369,16 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             date_str = _decode_header_value(msg.get("Date", ""))
             preview = _extract_text_preview(msg)
 
+            # IDEMPOTENCY GUARD (2026-07-24) — the stable RFC Message-ID, NOT the
+            # IMAP sequence number. If we've already processed this message,
+            # skip ALL work (classification, LLM, ledger, brain, hand-off) and
+            # move on WITHOUT marking it read — held/handed-off mail is left
+            # unread on purpose as CC's / Atlas's review queue, and this is what
+            # keeps the UNSEEN sweep from redoing that work every 5 minutes.
+            rfc_message_id = (msg.get("Message-ID") or "").strip() or f"uid:{uid_str}"
+            if rfc_message_id in processed_msgids:
+                continue
+
             # SENDER TRIAGE (2026-07-23) — replaces a blanket drop.
             #
             # This used to be: `if any(skip in from_lower for skip in
@@ -1344,9 +1394,33 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             # So: classify everything, reply to almost nothing. The playbook
             # decides who may receive a generated reply.
             body_full = extract_body_full(msg)
+
+            # FORWARD PARSING (2026-07-24) — wire the built-but-dead helpers.
+            # When CC forwards a vendor invoice or a lead thread INTO the inbox,
+            # the envelope From is CC. Without this, native classifies it as mail
+            # FROM CC and both the ledger and the sender triage are wrong. If the
+            # message is a forward and the original sender is recoverable, we
+            # classify/route on THAT address instead (the reply address, however,
+            # is intentionally left to CC — we never auto-reply to a forward).
+            forwarded_from = None
+            try:
+                from email_playbook import is_forwarded, extract_forwarded_sender
+                if is_forwarded(subject, body_full):
+                    forwarded_from = extract_forwarded_sender(body_full)
+            except Exception as fwd_err:  # noqa: BLE001
+                print(f"[email_inbox] forward-parse warning: {fwd_err}", file=sys.stderr)
+            # The identity used for classification + triage + ledger. Falls back
+            # to the envelope From when this isn't a recoverable forward.
+            effective_from = forwarded_from or from_addr
+
             try:
                 from email_playbook import classify_sender as _triage
-                sender_triage = _triage(from_addr, subject, body_full)
+                sender_triage = _triage(effective_from, subject, body_full)
+                # A forwarded message is CC handing us something to process, not
+                # a stranger writing in — never auto-reply to the forwarded party.
+                if forwarded_from:
+                    sender_triage["may_reply"] = False
+                    sender_triage["forwarded_from"] = forwarded_from
             except Exception as tri_err:  # noqa: BLE001
                 print(f"[email_inbox] triage warning: {tri_err}", file=sys.stderr)
                 sender_triage = {"kind": "human", "is_automated": False,
@@ -1389,7 +1463,10 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     content=body_full[:6000] or preview,
                     channel="email",
                     subject=subject,
-                    from_identity=_extract_email_address(from_addr),
+                    # effective_from = the ORIGINAL sender on a forward, else the
+                    # envelope From. This is what makes a forwarded vendor invoice
+                    # classify as the vendor's mail, not as CC's.
+                    from_identity=_extract_email_address(effective_from),
                 )
             except Exception as cls_err:
                 print(f"[email_inbox] classifier warning: {cls_err}", file=sys.stderr)
@@ -1397,7 +1474,14 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                                   "priority": "cold", "confidence": 0.0,
                                   "fallback": True}
 
-            sender_addr = _extract_email_address(from_addr)
+            # Effective sender: the ORIGINAL sender when this is a forward CC
+            # sent in, else the envelope From. Everything that attributes the
+            # mail to a person — the ledger, is_known_client, the brain — keys
+            # off this, so a forwarded vendor invoice is booked against the
+            # vendor rather than against CC.
+            sender_addr = _extract_email_address(effective_from)
+            sender_name = ("" if forwarded_from
+                           else _extract_display_name(from_addr))
 
             def _write_inbound_ledger(routing: dict | None = None) -> None:
                 """Write the unified inbound ledger row the Command Center reads.
@@ -1428,12 +1512,15 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 try:
                     db.rpc("record_inbound_from_n8n", {
                         "p_from_email": sender_addr,
-                        "p_from_name": _extract_display_name(from_addr),
+                        "p_from_name": sender_name,
                         "p_subject": subject,
                         "p_content": preview,
                         "p_classification": payload,
-                        "p_thread_id": None,
-                        "p_message_id": uid_str,
+                        "p_thread_id": (msg.get("References") or "").strip() or None,
+                        # Stable RFC Message-ID, not the volatile IMAP sequence
+                        # number — this is the ledger's real dedup key and the
+                        # same id Atlas books receipts under.
+                        "p_message_id": rfc_message_id,
                         "p_received_at": datetime.now(timezone.utc).isoformat(),
                     }).execute()
                 except Exception as rpc_err:
@@ -1595,6 +1682,11 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 # Mark as read
                 imap.store(uid, "+FLAGS", "\\Seen")
 
+            # Record this Message-ID as processed so the next UNSEEN sweep
+            # skips it (the guard at the top of the loop). Runs for every
+            # terminal path — brain, legacy, and the brain-failure fallback.
+            processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
+
         # V2.1: Persist poison UID tracker so failure counts survive across runs
         try:
             POISON_UID_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -1602,6 +1694,9 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 json.dump(poison_state, pf, indent=2)
         except Exception as save_err:
             print(f"[email_inbox] Could not save poison UID state: {save_err}", file=sys.stderr)
+
+        # Persist the processed-Message-ID idempotency ledger.
+        _save_processed_msgids(processed_msgids)
 
     finally:
         if imap:

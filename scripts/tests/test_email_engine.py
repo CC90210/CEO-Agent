@@ -134,6 +134,46 @@ class TestStopSignalDecision(unittest.TestCase):
         self.assertFalse(review)
 
 
+class TestProcessedMsgidLedger(unittest.TestCase):
+    """The idempotency guard that stops the UNSEEN reprocessing loop."""
+
+    def _use_tmp(self):
+        import tempfile
+        from integrations import email_engine as ee
+        d = tempfile.mkdtemp(prefix="msgid_")
+        self._orig = ee.PROCESSED_MSGIDS_PATH
+        ee.PROCESSED_MSGIDS_PATH = Path(d) / "processed.json"
+        self.addCleanup(setattr, ee, "PROCESSED_MSGIDS_PATH", self._orig)
+        return ee
+
+    def test_roundtrip(self):
+        ee = self._use_tmp()
+        self.assertEqual(ee._load_processed_msgids(), {})
+        ee._save_processed_msgids({"<a@x>": "2026-07-24T00:00:00", "<b@x>": "2026-07-24T00:01:00"})
+        got = ee._load_processed_msgids()
+        self.assertIn("<a@x>", got)
+        self.assertIn("<b@x>", got)
+
+    def test_ring_buffer_caps_growth(self):
+        ee = self._use_tmp()
+        big = {f"<{i}@x>": f"2026-07-24T00:{i:02d}:00" for i in range(60)}
+        orig = ee.PROCESSED_MSGIDS_MAX
+        ee.PROCESSED_MSGIDS_MAX = 10
+        self.addCleanup(setattr, ee, "PROCESSED_MSGIDS_MAX", orig)
+        ee._save_processed_msgids(big)
+        got = ee._load_processed_msgids()
+        self.assertLessEqual(len(got), 10)
+        # keeps the most-recent by timestamp
+        self.assertIn("<59@x>", got)
+        self.assertNotIn("<00@x>", got)
+
+    def test_corrupt_file_degrades_to_empty(self):
+        ee = self._use_tmp()
+        ee.PROCESSED_MSGIDS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ee.PROCESSED_MSGIDS_PATH.write_text("{not json", encoding="utf-8")
+        self.assertEqual(ee._load_processed_msgids(), {})
+
+
 class TestRoutingContract(unittest.TestCase):
     """The native form of the n8n <oasis-routing> contract the dashboard renders."""
 

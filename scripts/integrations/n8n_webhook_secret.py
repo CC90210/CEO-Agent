@@ -49,6 +49,17 @@ except ImportError:
 
 
 def db() -> "Client":
+    # Windows' certifi bundle doesn't chain Supabase's issuer, so the client
+    # dies with CERTIFICATE_VERIFY_FAILED. Use the canonical OS trust store.
+    try:
+        from lib.tls_trust import ensure_os_trust  # type: ignore
+        ensure_os_trust()
+    except Exception:  # noqa: BLE001
+        try:
+            import truststore
+            truststore.inject_into_ssl()
+        except Exception:  # noqa: BLE001
+            pass
     url = os.environ.get("BRAVO_SUPABASE_URL")
     key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
