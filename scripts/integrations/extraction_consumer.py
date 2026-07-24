@@ -204,10 +204,17 @@ def _extract_via_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, dict | 
         prompt,
         "--output-format",
         "text",
+        # SCOPED Read (2026-07-23). This previously passed a BARE "Read", which
+        # does NOT confine the tool to cwd — it will read any absolute path on
+        # the machine (verified: it read a repo file from an unrelated cwd).
+        # These documents are untrusted merchant uploads, so a prompt-injection
+        # payload inside a PDF could have walked the filesystem. The
+        # Read(<abs-dir>/**) form is the only real boundary; escape attempts
+        # come back BLOCKED. `--permission-mode` was also dropped: it is
+        # silently ignored under CLAUDE_CODE_SUBPROCESS_ENV_SCRUB, so it was
+        # never providing the guarantee its presence implied.
         "--allowedTools",
-        "Read",
-        "--permission-mode",
-        "acceptEdits",
+        f"Read({doc_path.parent.as_posix()}/**)",
         "--max-turns",
         "6",
     ]
