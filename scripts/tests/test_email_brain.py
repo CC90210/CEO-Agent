@@ -284,6 +284,66 @@ class TestDraftReply(unittest.TestCase):
         self.assertFalse(d["ship"])  # fail-safe: never auto-ship if the gate is down
 
 
+class TestDraftObeysPlaybook(unittest.TestCase):
+    """The drafter must enforce the copy rules, not just be told about them."""
+
+    def test_banned_phrase_blocks_ship_even_if_critic_approves(self):
+        from email_brain import draft_reply_via_cli
+        runner = (lambda p, system=None, model="sonnet", timeout=90:
+                  '{"subject":"Re","body":"Thank you for reaching out. Best regards"}')
+        d = draft_reply_via_cli(_email(), "technical_support", runner=runner,
+                                critic=lambda s, b: {"verdict": "ship"})
+        self.assertFalse(d["ship"])          # lint overrides a permissive critic
+        self.assertTrue(d["lint"])
+
+    def test_price_quote_blocks_ship(self):
+        from email_brain import draft_reply_via_cli
+        runner = (lambda p, system=None, model="sonnet", timeout=90:
+                  '{"subject":"Re","body":"Happy to help - it runs about $2,000."}')
+        d = draft_reply_via_cli(_email(), "business_opportunity", runner=runner,
+                                critic=lambda s, b: {"verdict": "ship"})
+        self.assertFalse(d["ship"])
+
+    def test_clean_draft_still_ships(self):
+        from email_brain import draft_reply_via_cli
+        runner = (lambda p, system=None, model="sonnet", timeout=90:
+                  '{"subject":"Re: hvac","body":"Saw the HVAC scheduling issue - fixable."}')
+        d = draft_reply_via_cli(_email(), "technical_support", runner=runner,
+                                critic=lambda s, b: {"verdict": "ship"})
+        self.assertTrue(d["ship"])
+        self.assertEqual(d["lint"], [])
+
+    def test_playbook_rules_reach_the_model(self):
+        from email_brain import draft_reply_via_cli
+        from email_playbook import BOOKING_LINK
+        seen = {}
+
+        def runner(prompt, system=None, model="sonnet", timeout=90):
+            seen["system"] = system or ""
+            return '{"subject":"Re","body":"ok"}'
+
+        draft_reply_via_cli(_email(), "business_opportunity", runner=runner,
+                            critic=lambda s, b: {"verdict": "ship"})
+        self.assertIn(BOOKING_LINK, seen["system"])
+        self.assertIn("NEVER quote a price", seen["system"])
+        self.assertIn("OASIS AI Solutions", seen["system"])
+
+
+class TestTaggedAlerts(unittest.TestCase):
+    def test_outage_review_uses_tagged_alert(self):
+        deps = _deps()
+        deps["alert"] = MagicMock()
+        # An outage from a known client with auto-send ON must still be held,
+        # and must alert with the greppable [OUTAGE] tag rather than a bland ping.
+        process_email(_email(subject="URGENT: site is down",
+                             body="our site is down and clients can't pay"),
+                      classifier=_classifier("technical_support"),
+                      deps=deps, config={"auto_send_enabled": True})
+        deps["send_reply"].assert_not_called()
+        deps["alert"].assert_called_once()
+        self.assertEqual(deps["alert"].call_args.args[0], "outage")
+
+
 class TestBuildDefaultDeps(unittest.TestCase):
     def test_has_all_handler_keys_and_callable(self):
         from email_brain import build_default_deps

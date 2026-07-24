@@ -304,8 +304,18 @@ def process_email(
             get("notify")(f"Financial/legal email routed to Atlas - {sender}: {subj}")
             out["notified"] = True
         else:  # review
-            get("notify")(f"Needs your review - {category} from {sender}: {subj}")
+            # Tag the alert by the red flag that caused the hold, so an outage
+            # or an investor intro is greppable AND breaks through notify.py's
+            # silent categories instead of arriving mute.
+            flags = out.get("red_flags") or []
+            tag = next((f for f in ("outage", "strategic", "frustrated", "opt_out")
+                        if f in flags), None)
+            if tag:
+                get("alert")(tag, sender, subj, decision.get("reason", ""))
+            else:
+                get("notify")(f"Needs your review - {category} from {sender}: {subj}")
             out["notified"] = True
+            out["alert_tag"] = tag
     except Exception as exc:  # noqa: BLE001 — never let one email break the sweep
         out["error"] = str(exc)
         print(f"[email_brain] process_email failed: {exc}", file=sys.stderr)
@@ -368,6 +378,16 @@ def draft_reply_via_cli(email: dict, category: str, *, runner=None, critic=None)
     rejected it (process_email downgrades an auto-reply to a held draft)."""
     goal = _REPLY_GOALS.get(category, "responds helpfully and concisely")
     system = BRAND_VOICE_SYSTEM.format(goal=goal)
+    # Append the playbook's full copy ruleset: the booking link (the entire
+    # point of a BD reply), the real signature block, the 7 hard rules
+    # (never quote price, never commit timelines, never claim unverified work)
+    # and the full banned-phrase set. Without this the drafter had ~4 style
+    # rules and no idea the booking link existed.
+    try:
+        from email_playbook import voice_rules
+        system = f"{system}\n\n{voice_rules()}"
+    except Exception:  # noqa: BLE001 — style guidance is best-effort
+        pass
     user = (f"From: {email.get('from') or email.get('from_identity')}\n"
             f"Subject: {email.get('subject')}\n\nTheir message:\n"
             f"{(email.get('body') or '')[:3000]}")
@@ -383,14 +403,29 @@ def draft_reply_via_cli(email: dict, category: str, *, runner=None, critic=None)
         print(f"[email_brain] draft failed: {exc}", file=sys.stderr)
     if not body:
         return {"subject": subject, "body": "", "ship": False, "notes": "drafting failed"}
-    ship = True
+    # Deterministic copy lint BEFORE the model-based critic: catches a quoted
+    # price, a banned opener/closer, a duplicated booking link, a P.S. line or
+    # an over-long reply without spending a model call. A violation here can
+    # never auto-send (process_email downgrades ship=False to a held draft).
+    lint_issues: list[str] = []
     try:
-        verdict = (critic or _default_critic)(subject, body)
-        ship = (verdict.get("verdict") == "ship")
-    except Exception as exc:  # noqa: BLE001 — critic failure never auto-ships
-        print(f"[email_brain] critic failed: {exc}", file=sys.stderr)
+        from email_playbook import lint_draft
+        lint_issues = lint_draft(body)
+    except Exception:  # noqa: BLE001
+        lint_issues = []
+
+    ship = True
+    if lint_issues:
         ship = False
-    return {"subject": subject, "body": body, "ship": ship}
+        print(f"[email_brain] draft failed copy lint: {lint_issues}", file=sys.stderr)
+    else:
+        try:
+            verdict = (critic or _default_critic)(subject, body)
+            ship = (verdict.get("verdict") == "ship")
+        except Exception as exc:  # noqa: BLE001 — critic failure never auto-ships
+            print(f"[email_brain] critic failed: {exc}", file=sys.stderr)
+            ship = False
+    return {"subject": subject, "body": body, "ship": ship, "lint": lint_issues}
 
 
 def send_reply_via_gateway(email: dict, draft: dict) -> dict:
@@ -476,13 +511,33 @@ def handoff_to_atlas(email: dict, *, db=None) -> bool:
         return False
 
 
-def notify_cc(text: str, *, category: str = "email") -> bool:
-    """One clean Telegram alert (replaces the n8n inline Telegram nodes)."""
+def notify_cc(text: str, *, category: str = "email", force: bool = False) -> bool:
+    """One clean Telegram alert (replaces the n8n inline Telegram nodes).
+
+    `force` breaks through notify.py's muting. notify.py puts "email" in
+    DEFAULT_SILENT, so without it a $5k hot lead and an outage arrive on CC's
+    phone with no sound — indistinguishable from a newsletter.
+    """
     try:
         from notify import notify
-        return notify(text, category=category)
+        return notify(text, category=category, force=force)
     except Exception:  # noqa: BLE001
         return False
+
+
+def tagged_alert(tag_key: str, sender: str, subject: str, extra: str = "") -> bool:
+    """Send a greppable, correctly-loud alert using the playbook taxonomy.
+
+    n8n emitted 8 distinct prefixes ([OUTAGE], [HOT-LEAD], [BD-STRATEGIC], …) so
+    CC could grep his own Telegram history and tell a cease-and-desist from a
+    $14 receipt. The first native port flattened them into one bland string.
+    """
+    try:
+        from email_playbook import alert as _alert
+        line, loud = _alert(tag_key, sender, subject, extra)
+    except Exception:  # noqa: BLE001
+        line, loud = f"[INBOUND] {sender}: {subject}", False
+    return notify_cc(line, force=loud)
 
 
 def build_default_deps(mark_read=None, db=None) -> dict:
@@ -497,5 +552,6 @@ def build_default_deps(mark_read=None, db=None) -> dict:
         "archive": _mark_read,
         "handoff_atlas": lambda email: handoff_to_atlas(email, db=db),
         "notify": lambda text: notify_cc(text),
+        "alert": tagged_alert,
         "mark_read": _mark_read,
     }

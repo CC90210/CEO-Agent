@@ -939,7 +939,12 @@ def cmd_stats(env_vars, args, output_json=False):
 
 # -- IMAP inbox check --------------------------------------
 
-SKIP_SENDERS = ("noreply@", "no-reply@", "mailer-daemon@", "postmaster@")
+# SKIP_SENDERS was removed 2026-07-23. It matched these prefixes on the From
+# header and DROPPED the message before classification, which silently destroyed
+# every no-reply vendor receipt (Stripe / Google Cloud / Vercel / Apple) — i.e.
+# CC's deductible expenses. Sender handling now lives in email_playbook
+# .classify_sender(), which treats no-reply as a SIGNAL (never reply) rather
+# than a reason to delete. Do not reintroduce a blanket drop here.
 IMAP_MAX_EMAILS = 20
 
 # V2.1 2026-04-11: Poison UID tracking. If an IMAP fetch fails repeatedly
