@@ -344,6 +344,46 @@ class TestTaggedAlerts(unittest.TestCase):
         self.assertEqual(deps["alert"].call_args.args[0], "outage")
 
 
+class TestHandoffValidationGate(unittest.TestCase):
+    def test_valid_for_handoff_rejects_missing_msgid(self):
+        from email_brain import valid_for_handoff
+        ok, _ = valid_for_handoff({"from": "v@x.com", "rfc_message_id": ""})
+        self.assertFalse(ok)
+        ok2, _ = valid_for_handoff({"from": "v@x.com", "rfc_message_id": "uid:17"})
+        self.assertFalse(ok2)  # unstable IMAP seq id is not fetchable
+
+    def test_valid_for_handoff_rejects_bad_sender(self):
+        from email_brain import valid_for_handoff
+        ok, _ = valid_for_handoff({"from": "", "rfc_message_id": "<a@x>"})
+        self.assertFalse(ok)
+
+    def test_valid_for_handoff_accepts_clean(self):
+        from email_brain import valid_for_handoff
+        ok, _ = valid_for_handoff({"from": "vendor@x.com", "rfc_message_id": "<real@x>"})
+        self.assertTrue(ok)
+
+    def test_rejected_handoff_becomes_review_not_deadletter(self):
+        # A financial email with no Message-ID must NOT publish a doomed event.
+        deps = _deps()
+        deps["handoff_atlas"] = MagicMock(return_value=False)  # gate rejected
+        out = process_email(_email(rfc_message_id=""),
+                            classifier=_classifier("financial_legal"),
+                            deps=deps, config={"auto_send_enabled": True})
+        self.assertFalse(out["handed_off"])
+        self.assertEqual(out["action"], "review")
+        deps["notify"].assert_called_once()
+
+    def test_force_review_bypasses_all_routing(self):
+        deps = _deps()
+        out = process_email(_email(force_review=True),
+                            classifier=_classifier("financial_legal", 0.99),
+                            deps=deps, config={"auto_send_enabled": True})
+        self.assertEqual(out["action"], "review")
+        deps["handoff_atlas"].assert_not_called()
+        deps["send_reply"].assert_not_called()
+        deps["archive"].assert_not_called()
+
+
 class TestBuildDefaultDeps(unittest.TestCase):
     def test_has_all_handler_keys_and_callable(self):
         from email_brain import build_default_deps

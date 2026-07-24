@@ -44,6 +44,7 @@ ALLOWLIST_PATTERNS = (
     # sweep. imap_poison_uids.json is the sibling fetch-failure tracker.
     "inbound_processed_msgids.json",
     "imap_poison_uids.json",
+    "notify_dedup.json",
     "*.lock",
     "*.lock.json",
     "*.pid",

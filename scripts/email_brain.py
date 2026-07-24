@@ -247,6 +247,16 @@ def process_email(
         except Exception:  # noqa: BLE001 — never let the guard layer break the sweep
             red_flags = []
 
+        # Hard override: an unresolvable forward (or any caller-forced review)
+        # bypasses all automated routing and goes straight to human review.
+        if email.get("force_review"):
+            out["category"] = category
+            out["action"] = "review"
+            out["reason"] = "forced review (e.g. unresolvable forward); no automated routing."
+            get("notify")(f"Needs your review - {category} from {sender}: {subj}")
+            out["notified"] = True
+            return out
+
         decision = decide_action(
             category,
             confidence=confidence,
@@ -296,13 +306,21 @@ def process_email(
             get("archive")(email)
             out["archived"] = True
         elif action == "handoff_atlas":
-            get("handoff_atlas")(email)
-            out["handed_off"] = True
-            # Ping CC so a financial/legal email is never silently swallowed while
-            # Atlas's consumer is being built. The email is left UNREAD by the
-            # caller until Atlas actually processes it.
-            get("notify")(f"Financial/legal email routed to Atlas - {sender}: {subj}")
-            out["notified"] = True
+            handed = get("handoff_atlas")(email)
+            if handed is False:
+                # Validation gate rejected it (no Message-ID / no sender). Do NOT
+                # dead-letter — hold for human review so an invalid financial
+                # email is neither lost nor turned into a retry/alert loop.
+                out["action"] = "review"
+                out["reason"] = "financial email failed hand-off validation; held for review."
+                get("notify")(f"Needs your review - financial email (unroutable) from {sender}: {subj}")
+                out["notified"] = True
+            else:
+                out["handed_off"] = True
+                # Ping CC so a financial/legal email is never silently swallowed.
+                # The email is left UNREAD until Atlas actually processes it.
+                get("notify")(f"Financial/legal email routed to Atlas - {sender}: {subj}")
+                out["notified"] = True
         else:  # review
             # Tag the alert by the red flag that caused the hold, so an outage
             # or an investor intro is greppable AND breaks through notify.py's
@@ -482,10 +500,33 @@ def store_draft_row(email: dict, draft: dict, category: str, *, db=None) -> Opti
         return None
 
 
+def valid_for_handoff(email: dict) -> tuple[bool, str]:
+    """Payload-integrity gate for the Atlas hand-off. Atlas fetches the emailed
+    document by RFC Message-ID, so an event with no Message-ID (or no sender)
+    can NEVER be resolved — it would only dead-letter and alert. Reject those at
+    the source instead of publishing a doomed event."""
+    mid = (email.get("rfc_message_id") or "").strip()
+    if not mid or mid.startswith("uid:"):
+        return False, "no stable rfc_message_id — Atlas could never fetch the document"
+    sender = (email.get("from") or email.get("from_identity") or "").strip()
+    if not sender or "@" not in sender:
+        return False, "no parseable sender address"
+    return True, ""
+
+
 def handoff_to_atlas(email: dict, *, db=None) -> bool:
     """Hand a Financial & Legal email to Atlas (CFO). Publishes an agent_events
     row Atlas subscribes to; Atlas's module does the document/vision analysis,
-    expense/income/invoice labeling, and ledger write. Best-effort."""
+    expense/income/invoice labeling, and ledger write.
+
+    VALIDATION GATE: refuses to publish an event that Atlas could never resolve
+    (no Message-ID / no sender). Returns False WITHOUT publishing — the caller
+    then holds the email for review rather than creating a guaranteed
+    dead-letter (and its alert). Best-effort on the insert itself."""
+    ok, why = valid_for_handoff(email)
+    if not ok:
+        print(f"[email_brain] handoff rejected (invalid payload): {why}", file=sys.stderr)
+        return False
     try:
         from datetime import datetime, timezone
         from inbound_classifier import get_supabase
@@ -503,6 +544,9 @@ def handoff_to_atlas(email: dict, *, db=None) -> bool:
             "publisher_agent": "bravo",
             "severity": "info",
             "payload": payload,
+            # idempotency_key so a duplicate publish for the same message can't
+            # create a second hand-off event.
+            "idempotency_key": f"finhandoff:{(email.get('rfc_message_id') or '').strip()}",
             "published_at": datetime.now(timezone.utc).isoformat(),
         }).execute()
         return True

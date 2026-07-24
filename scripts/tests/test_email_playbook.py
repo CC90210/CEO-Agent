@@ -113,6 +113,19 @@ class TestForwarding(unittest.TestCase):
                 "Subject: Invoice 42\n")
         self.assertEqual(extract_forwarded_sender(body), "billing@vendor.com")
 
+    def test_falls_back_to_header_from(self):
+        # body has no quoted From: -> use the envelope header
+        self.assertEqual(
+            extract_forwarded_sender("no headers here",
+                                     header_from='"CC" <konamak@icloud.com>'),
+            "konamak@icloud.com")
+
+    def test_unresolvable_returns_sentinel_never_none(self):
+        from email_playbook import UNKNOWN_FORWARD_SENDER
+        got = extract_forwarded_sender("no headers", header_from="")
+        self.assertEqual(got, UNKNOWN_FORWARD_SENDER)
+        self.assertIsNotNone(got)  # the '?' bug: must never be None
+
 
 class TestAlerts(unittest.TestCase):
     def test_hot_lead_is_loud(self):

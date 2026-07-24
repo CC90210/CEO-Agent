@@ -224,17 +224,35 @@ def is_forwarded(subject: str, body: str) -> bool:
             or "---------- forwarded message" in b)
 
 
-def extract_forwarded_sender(body: str) -> Optional[str]:
+# Sentinel used when a message is clearly a forward but the original sender is
+# unrecoverable. Routing on this instead of `None`/`?` keeps a headerless
+# forward in plain human review and OUT of any automated/financial path.
+UNKNOWN_FORWARD_SENDER = "unknown_forward@system"
+
+
+def extract_forwarded_sender(body: str, header_from: str = "") -> Optional[str]:
     """Pull the ORIGINAL sender out of a forwarded block so CC forwarding a
-    vendor invoice in gets classified on the vendor, not on CC."""
-    if not body:
-        return None
-    m = re.search(r"(?im)^\s*from:\s*(.+)$", body[:4000])
-    if not m:
-        return None
-    line = m.group(1).strip()
-    addr = re.search(r"[\w.+-]+@[\w.-]+\.\w+", line)
-    return addr.group(0).lower() if addr else None
+    vendor invoice in gets classified on the vendor, not on CC.
+
+    Hardened 2026-07-24: the quoted 'From:' line is tried first; if the body is
+    missing/malformed, fall back to the envelope From header; if BOTH fail,
+    return the UNKNOWN_FORWARD_SENDER sentinel (never None/'?') so downstream
+    code has a valid, non-routable address to work with instead of a '?' that
+    leaked into alerts."""
+    # 1. Quoted "From:" inside the forwarded block.
+    if body:
+        m = re.search(r"(?im)^\s*from:\s*(.+)$", body[:4000])
+        if m:
+            addr = re.search(r"[\w.+-]+@[\w.-]+\.\w+", m.group(1))
+            if addr:
+                return addr.group(0).lower()
+    # 2. Fall back to the envelope From header.
+    if header_from:
+        addr = re.search(r"[\w.+-]+@[\w.-]+\.\w+", header_from)
+        if addr:
+            return addr.group(0).lower()
+    # 3. Clearly a forward but unrecoverable — never emit None/'?'.
+    return UNKNOWN_FORWARD_SENDER
 
 
 def alert(tag_key: str, sender: str, subject: str, extra: str = "") -> tuple[str, bool]:

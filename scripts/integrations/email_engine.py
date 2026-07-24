@@ -1403,10 +1403,18 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             # classify/route on THAT address instead (the reply address, however,
             # is intentionally left to CC — we never auto-reply to a forward).
             forwarded_from = None
+            unresolved_forward = False
             try:
-                from email_playbook import is_forwarded, extract_forwarded_sender
+                from email_playbook import (is_forwarded, extract_forwarded_sender,
+                                            UNKNOWN_FORWARD_SENDER)
                 if is_forwarded(subject, body_full):
-                    forwarded_from = extract_forwarded_sender(body_full)
+                    # Body first, then the envelope From, then a sentinel — never
+                    # None/'?'. If it resolves to the sentinel, the original
+                    # sender is unrecoverable, so this must go to plain human
+                    # review and NOT drive any automated/financial routing.
+                    forwarded_from = extract_forwarded_sender(body_full, header_from=from_addr)
+                    if forwarded_from == UNKNOWN_FORWARD_SENDER:
+                        unresolved_forward = True
             except Exception as fwd_err:  # noqa: BLE001
                 print(f"[email_inbox] forward-parse warning: {fwd_err}", file=sys.stderr)
             # The identity used for classification + triage + ledger. Falls back
@@ -1655,6 +1663,9 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                         # eligible for a generated reply.
                         "sender_kind": sender_triage.get("kind"),
                         "may_reply": bool(sender_triage.get("may_reply")),
+                        # An unresolvable forward goes straight to human review:
+                        # no auto-reply, no archive, no financial hand-off.
+                        "force_review": unresolved_forward,
                     }
                     outcome = process_email(brain_email, deps=deps)
                     print(f"[email_inbox] brain: {outcome.get('action')} "

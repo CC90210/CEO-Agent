@@ -21,10 +21,63 @@ Override via NOTIFY_BLOCKED_CATEGORIES in .env.agents (comma-separated).
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import sys
+import time
 from pathlib import Path
 from datetime import datetime
+
+# ── Notification idempotency ──────────────────────────────────────────────────
+# A dead-letter / error alert that fires on every cron sweep becomes a Telegram
+# storm (a real incident: identical "financial hand-off dead-lettered" alerts
+# every few seconds). Each cron tick is a FRESH process, so dedup must persist
+# on disk, not in memory. Identical (category, message) pairs are suppressed for
+# DEDUP_WINDOW_SEC. Distinct alerts (different sender/subject → different text)
+# always pass, so this only ever collapses genuine repeats.
+_DEDUP_PATH = Path(__file__).resolve().parent.parent / "tmp" / "notify_dedup.json"
+DEDUP_WINDOW_SEC = int(os.environ.get("NOTIFY_DEDUP_WINDOW_SEC", "3600"))
+
+
+def _notify_disabled() -> bool:
+    """Hard off-switch. Set NOTIFY_DISABLED=1 (or run under pytest) to make
+    notify() a no-op — so a test can exercise the dead-letter/alert code paths
+    without firing real Telegram messages at CC. This closes the actual root
+    cause of the 2026-07-24 alert storm: consumer tests called the real notify()."""
+    if os.environ.get("NOTIFY_DISABLED", "").strip().lower() in ("1", "true", "yes", "on"):
+        return True
+    return "PYTEST_CURRENT_TEST" in os.environ
+
+
+def _dedup_should_send(category: str, message: str) -> bool:
+    """True if this exact alert hasn't been sent within DEDUP_WINDOW_SEC.
+    Records the send timestamp on success. Best-effort: any error → allow send
+    (fail-open, so dedup can never swallow a real alert)."""
+    if DEDUP_WINDOW_SEC <= 0:
+        return True
+    try:
+        key = hashlib.sha256(f"{category}\x00{message}".encode("utf-8")).hexdigest()[:32]
+        now = time.time()
+        seen: dict = {}
+        if _DEDUP_PATH.exists():
+            try:
+                seen = json.loads(_DEDUP_PATH.read_text(encoding="utf-8")) or {}
+            except Exception:  # noqa: BLE001
+                seen = {}
+        last = seen.get(key)
+        if last is not None and (now - float(last)) < DEDUP_WINDOW_SEC:
+            return False
+        # prune + record
+        seen = {k: v for k, v in seen.items() if (now - float(v)) < DEDUP_WINDOW_SEC}
+        seen[key] = now
+        _DEDUP_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = _DEDUP_PATH.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(seen), encoding="utf-8")
+        os.replace(tmp, _DEDUP_PATH)
+        return True
+    except Exception:  # noqa: BLE001
+        return True
 
 # Windows CA-bundle fix (2026-07-21): python's bundled certifi store can't
 # verify api.telegram.org on this box (SSLCertVerificationError during the
@@ -102,8 +155,20 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
     Returns:
         True if sent successfully, False otherwise
     """
+    # Hard off-switch for tests / CI — the real root cause of the alert storm
+    # was test code reaching the live Telegram send.
+    if _notify_disabled():
+        return False
+
     # Block noisy categories unless forced
     if not force and category in _get_blocked_categories():
+        return False
+
+    # Idempotency: suppress an identical alert seen within the dedup window, so
+    # a per-sweep dead-letter/error alert fires ONCE, not every cron tick.
+    # `force` does NOT bypass this — a forced alert is still deduped by content
+    # (force is about category muting, not repeat suppression).
+    if not _dedup_should_send(category, message):
         return False
 
     # Auto-silence low-priority categories
