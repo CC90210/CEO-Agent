@@ -49,6 +49,8 @@ def decide_action(
     auto_send_enabled: bool = False,
     reply_threshold: float = DEFAULT_REPLY_THRESHOLD,
     archive_threshold: float = DEFAULT_ARCHIVE_THRESHOLD,
+    may_reply: bool = True,
+    red_flags: Optional[list] = None,
 ) -> dict:
     """Decide the single action for a classified email. Pure — no I/O.
 
@@ -64,6 +66,42 @@ def decide_action(
         "hold_for_review": True,
         "reason": "",
     }
+
+    # ---- Pre-model guards. These OVERRIDE category routing. ----------------
+    # Deterministic on purpose: the "never auto-reply" set must not depend on a
+    # model's judgement. Each maps to a concrete way the automation could damage
+    # the business, and each was a hard rule in the retired n8n prompts.
+    flags = [f for f in (red_flags or [])]
+    d["red_flags"] = flags
+
+    if not may_reply:
+        # Machine-sent, sibling agent, security scanner, or CC himself. Never
+        # generate a reply — but DO keep routing them, because vendor receipts
+        # (CC's deductible expenses) arrive almost exclusively from no-reply
+        # addresses and must still reach Atlas.
+        if category == "financial_legal":
+            d.update(action="handoff_atlas", hold_for_review=False,
+                     reason="no-reply/automated sender -> Atlas (receipts live here); never reply.")
+        elif category == "low_priority" and confidence >= archive_threshold:
+            d.update(action="archive", should_archive=True, hold_for_review=False,
+                     reason="automated sender, low priority -> archive silently.")
+        else:
+            d.update(action="review",
+                     reason="sender is not reply-eligible (automated/sibling/security/owner); held.")
+        return d
+
+    # Content red flags: the highest-stakes mail must never get a machine reply.
+    hard_block = [f for f in flags if f in ("outage", "frustrated", "strategic", "opt_out")]
+    if hard_block:
+        d.update(action="review",
+                 reason=("auto-reply blocked - " + ", ".join(hard_block)
+                         + "; CC handles this personally."))
+        return d
+    if "money" in flags:
+        # Commercial terms inside any thread: draft for CC, never send.
+        d.update(action="draft_hold",
+                 reason="money/pricing mentioned -> drafted, never auto-sent.")
+        return d
 
     if category == "financial_legal":
         # Atlas owns CFO/legal. Hand off regardless of confidence; never auto-reply.
@@ -200,6 +238,15 @@ def process_email(
         out["category"] = category
         out["confidence"] = confidence
 
+        # Deterministic content guards (outage / frustrated / strategic /
+        # opt-out / money). Computed here, before any send decision.
+        try:
+            from email_playbook import detect_red_flags
+            red_flags = detect_red_flags(email.get("subject") or "",
+                                         email.get("body") or "", sender or "")
+        except Exception:  # noqa: BLE001 — never let the guard layer break the sweep
+            red_flags = []
+
         decision = decide_action(
             category,
             confidence=confidence,
@@ -207,7 +254,12 @@ def process_email(
             auto_send_enabled=bool(cfg["auto_send_enabled"]),
             reply_threshold=float(cfg["reply_threshold"]),
             archive_threshold=float(cfg["archive_threshold"]),
+            # email_engine supplies may_reply from the playbook's sender triage;
+            # default True so a caller that doesn't triage keeps prior behavior.
+            may_reply=bool(email.get("may_reply", True)),
+            red_flags=red_flags,
         )
+        out["red_flags"] = decision.get("red_flags") or []
         out["action"] = decision["action"]
         out["reason"] = decision["reason"]
         action = decision["action"]

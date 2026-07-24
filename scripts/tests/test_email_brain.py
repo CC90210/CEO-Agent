@@ -79,6 +79,52 @@ class TestDecideAction(unittest.TestCase):
         self.assertEqual(d["action"], "draft_hold")
         self.assertFalse(d["should_send"])
 
+    # ---- Safety guards (the rules the n8n port originally lost) ----------
+
+    def test_outage_never_autoreplies_even_for_known_client(self):
+        # Highest-stakes email CC gets. n8n hard-blocked it; the first native
+        # port would have auto-replied AND marked it read.
+        d = decide_action("technical_support", confidence=0.95, is_known_client=True,
+                          auto_send_enabled=True, red_flags=["outage"])
+        self.assertFalse(d["should_send"])
+        self.assertEqual(d["action"], "review")
+
+    def test_frustrated_client_never_autoreplies(self):
+        d = decide_action("technical_support", confidence=0.95, is_known_client=True,
+                          auto_send_enabled=True, red_flags=["frustrated"])
+        self.assertFalse(d["should_send"])
+
+    def test_strategic_sender_never_autoreplies(self):
+        d = decide_action("business_opportunity", confidence=0.95,
+                          auto_send_enabled=True, red_flags=["strategic"])
+        self.assertEqual(d["action"], "review")
+        self.assertFalse(d["should_send"])
+
+    def test_money_in_thread_drafts_but_never_sends(self):
+        d = decide_action("technical_support", confidence=0.95, is_known_client=True,
+                          auto_send_enabled=True, red_flags=["money"])
+        self.assertEqual(d["action"], "draft_hold")
+        self.assertFalse(d["should_send"])
+
+    def test_non_reply_eligible_sender_never_sends(self):
+        for cat in ("technical_support", "business_opportunity", "low_priority"):
+            d = decide_action(cat, confidence=0.95, is_known_client=True,
+                              auto_send_enabled=True, may_reply=False)
+            self.assertFalse(d["should_send"], cat)
+
+    def test_noreply_financial_still_reaches_atlas(self):
+        # The money-losing regression: vendor receipts come from no-reply
+        # addresses and must STILL be handed off, just never replied to.
+        d = decide_action("financial_legal", confidence=0.9, may_reply=False)
+        self.assertEqual(d["action"], "handoff_atlas")
+        self.assertFalse(d["should_send"])
+
+    def test_guards_do_not_change_clean_path(self):
+        d = decide_action("technical_support", confidence=0.9, is_known_client=True,
+                          auto_send_enabled=True, may_reply=True, red_flags=[])
+        self.assertEqual(d["action"], "auto_reply")
+        self.assertTrue(d["should_send"])
+
     def test_contract_keys_present_and_mutually_exclusive(self):
         for cat in ("technical_support", "business_opportunity",
                     "financial_legal", "low_priority"):

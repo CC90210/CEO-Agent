@@ -991,31 +991,94 @@ def _decode_header_value(raw_value):
     return result.encode("ascii", errors="replace").decode("ascii")
 
 
-def _extract_text_preview(msg, max_chars=200):
-    """Pull the first max_chars of plain-text body from an email.Message object."""
-    preview = ""
-    if msg.is_multipart():
-        for part in msg.walk():
-            if part.get_content_type() == "text/plain":
-                payload = part.get_payload(decode=True)
-                if payload:
-                    charset = part.get_content_charset() or "utf-8"
-                    try:
-                        preview = payload.decode(charset, errors="replace")
-                    except (LookupError, UnicodeDecodeError):
-                        preview = payload.decode("utf-8", errors="replace")
-                    break
-    else:
-        payload = msg.get_payload(decode=True)
-        if payload:
-            charset = msg.get_content_charset() or "utf-8"
-            try:
-                preview = payload.decode(charset, errors="replace")
-            except (LookupError, UnicodeDecodeError):
-                preview = payload.decode("utf-8", errors="replace")
+def _strip_html(html: str) -> str:
+    """Turn an HTML email part into readable text.
 
-    # Collapse whitespace and trim
-    preview = " ".join(preview.split())
+    Drops <style>/<script>/<head> wholesale (otherwise CSS dominates the first
+    few hundred characters of a vendor receipt), converts block tags to
+    newlines so line structure survives, strips remaining tags, and unescapes
+    entities.
+    """
+    if not html:
+        return ""
+    s = re.sub(r"(?is)<(script|style|head)[^>]*>.*?</\1>", " ", html)
+    s = re.sub(r"(?i)<br\s*/?>", "\n", s)
+    s = re.sub(r"(?i)</(p|div|tr|li|h[1-6]|table)>", "\n", s)
+    s = re.sub(r"(?s)<[^>]+>", " ", s)
+    try:
+        import html as _htmlmod
+        s = _htmlmod.unescape(s)
+    except Exception:  # noqa: BLE001
+        pass
+    # Collapse runs of spaces/tabs but KEEP newlines (forward-header parsing and
+    # salutation matching are line-anchored).
+    s = re.sub(r"[ \t\xa0]+", " ", s)
+    s = re.sub(r"\n\s*\n\s*\n+", "\n\n", s)
+    return s.strip()
+
+
+def _decode_part(part) -> str:
+    payload = part.get_payload(decode=True)
+    if not payload:
+        return ""
+    charset = part.get_content_charset() or "utf-8"
+    try:
+        return payload.decode(charset, errors="replace")
+    except (LookupError, UnicodeDecodeError):
+        return payload.decode("utf-8", errors="replace")
+
+
+def extract_body_full(msg) -> str:
+    """Full readable body text of a message. UTF-8 preserved, newlines kept.
+
+    2026-07-23 — three defects this replaces, all of which degraded EVERY
+    downstream decision:
+      * text/plain ONLY: an HTML-only message (the norm for Stripe / bank /
+        SaaS billing mail) produced an EMPTY body, so the classifier saw just
+        the subject and sender. Now falls back to the HTML part, cleaned.
+      * 200-char cap on the only body artifact: the classifier, the drafter,
+        the ledger and the hand-off all shared one 200-char string. Callers now
+        slice what they need from the full text.
+      * ASCII coercion: every accent, curly quote and emoji became '?'. That
+        matters for French mail now that CC operates from Montreal.
+    """
+    text_parts: list[str] = []
+    html_parts: list[str] = []
+    try:
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.is_multipart():
+                    continue
+                disp = str(part.get("Content-Disposition") or "").lower()
+                if "attachment" in disp:
+                    continue
+                ctype = part.get_content_type()
+                if ctype == "text/plain":
+                    text_parts.append(_decode_part(part))
+                elif ctype == "text/html":
+                    html_parts.append(_decode_part(part))
+        else:
+            raw = _decode_part(msg)
+            if msg.get_content_type() == "text/html":
+                html_parts.append(raw)
+            else:
+                text_parts.append(raw)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[email_inbox] body extract warning: {exc}", file=sys.stderr)
+
+    body = "\n".join(p for p in text_parts if p and p.strip()).strip()
+    if not body:
+        body = _strip_html("\n".join(html_parts)).strip()
+    # Normalise line endings; keep the text itself intact (UTF-8, accents, case).
+    return body.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _extract_text_preview(msg, max_chars=200):
+    """Short single-line preview for logs//email_log. Built from the full body
+    so an HTML-only message no longer previews as empty. ASCII-coerced because
+    legacy log/notify surfaces on Windows expect it — use extract_body_full()
+    for anything that feeds a decision."""
+    preview = " ".join(extract_body_full(msg).split())
     preview = preview.encode("ascii", errors="replace").decode("ascii")
     return preview[:max_chars]
 
@@ -1261,12 +1324,28 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             date_str = _decode_header_value(msg.get("Date", ""))
             preview = _extract_text_preview(msg)
 
-            # Skip system/noreply senders
-            from_lower = from_addr.lower()
-            if any(skip in from_lower for skip in SKIP_SENDERS):
-                # Still mark as seen so it doesn't keep surfacing
-                imap.store(uid, "+FLAGS", "\\Seen")
-                continue
+            # SENDER TRIAGE (2026-07-23) — replaces a blanket drop.
+            #
+            # This used to be: `if any(skip in from_lower for skip in
+            # SKIP_SENDERS): mark \Seen; continue` — i.e. every message from a
+            # no-reply address was marked read and discarded BEFORE
+            # classification, the ledger, the brain and the Atlas hand-off.
+            # Stripe, Google Cloud, Vercel, Apple and Adobe all send receipts
+            # from no-reply addresses, so that quietly destroyed CC's
+            # deductible expense records. The n8n workflow never dropped these
+            # — it treated "no-reply" as a SIGNAL and let the classifier route
+            # them (they are overwhelmingly Financial & Legal).
+            #
+            # So: classify everything, reply to almost nothing. The playbook
+            # decides who may receive a generated reply.
+            body_full = extract_body_full(msg)
+            try:
+                from email_playbook import classify_sender as _triage
+                sender_triage = _triage(from_addr, subject, body_full)
+            except Exception as tri_err:  # noqa: BLE001
+                print(f"[email_inbox] triage warning: {tri_err}", file=sys.stderr)
+                sender_triage = {"kind": "human", "is_automated": False,
+                                 "may_reply": False, "reason": "triage failed"}
 
             email_entry = {
                 "from": from_addr,
@@ -1299,7 +1378,10 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             try:
                 from inbound_classifier import classify as _classify_inbound
                 classification = _classify_inbound(
-                    content=preview,
+                    # Full body, not the 200-char preview: an HTML-only vendor
+                    # receipt previews as (almost) nothing, and every signal
+                    # past ~200 chars was invisible to the classifier.
+                    content=body_full[:6000] or preview,
                     channel="email",
                     subject=subject,
                     from_identity=_extract_email_address(from_addr),
@@ -1468,12 +1550,19 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                         "from": from_addr,
                         "from_identity": sender_addr,
                         "subject": subject,
-                        "body": preview,
+                        # Full body — the drafter's "open with a SPECIFIC
+                        # reference to what they wrote" rule is unsatisfiable
+                        # from a 200-char ASCII-mangled preview.
+                        "body": body_full or preview,
                         "rfc_message_id": msg.get("Message-ID"),
                         "references": msg.get("References"),
                         "is_known_client": _is_known_client(db, sender_addr),
                         "attachments": _extract_attachment_meta(msg),
                         "tenant_id": None,
+                        # Deterministic triage: who sent this, and are they even
+                        # eligible for a generated reply.
+                        "sender_kind": sender_triage.get("kind"),
+                        "may_reply": bool(sender_triage.get("may_reply")),
                     }
                     outcome = process_email(brain_email, deps=deps)
                     print(f"[email_inbox] brain: {outcome.get('action')} "
