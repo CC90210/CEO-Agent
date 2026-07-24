@@ -161,6 +161,32 @@ class TestRoutingContract(unittest.TestCase):
         self.assertEqual(r["agent_label"], "bravo")
         self.assertEqual(r["priority"], "cold")
 
+    def test_exposes_the_keys_the_dashboard_renders(self):
+        # oasis-command-center app/page.tsx reads cls.intent / cls.agent_action /
+        # cls.summary at the TOP level of metadata.classification. The contract is
+        # merged FLAT for that reason — renaming any of these blanks the inbound
+        # card on the dashboard without any error surfacing.
+        from integrations.email_engine import _routing_contract
+        r = _routing_contract({"category": "technical_support", "action": "auto_reply",
+                               "reason": "known client"}, {"priority": "hot"})
+        for key in ("intent", "agent_action", "summary"):
+            self.assertIn(key, r)
+        self.assertEqual(r["agent_action"], "auto_reply")
+        self.assertEqual(r["summary"], "known client")
+
+    def test_flat_merge_overrides_legacy_intent(self):
+        # Simulates _write_inbound_ledger's merge: routing must win on `intent`
+        # so the dashboard tags the brain's category, not the keyword guess.
+        from integrations.email_engine import _routing_contract
+        classification = {"intent": "platform_alert", "priority": "warm",
+                          "sentiment": "neutral"}
+        merged = dict(classification)
+        merged.update(_routing_contract({"category": "financial_legal",
+                                         "action": "handoff_atlas"}, classification))
+        self.assertEqual(merged["intent"], "financial_legal")
+        self.assertEqual(merged["legacy_intent"], "platform_alert")
+        self.assertEqual(merged["sentiment"], "neutral")  # legacy fields survive
+
 
 class TestAttachmentMeta(unittest.TestCase):
     def test_extracts_pdf_attachment(self):

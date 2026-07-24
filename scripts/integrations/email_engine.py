@@ -1328,9 +1328,16 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 PostgREST fail every call with PGRST203, silently dropping EVERY
                 message. The full 8-arg set resolves the overload.
                 """
+                # FLAT merge, not nested. The dashboard reads
+                # metadata.classification.intent / .agent_action / .summary at the
+                # TOP level (app/page.tsx renders `cls.intent`, `cls.agent_action`,
+                # `cls.summary`) — exactly the shape n8n POSTed. Nesting these
+                # under a "routing" key writes the data but renders nothing, so the
+                # routing intent deliberately overrides the legacy keyword intent
+                # (the legacy value is preserved as legacy_intent).
                 payload = dict(classification or {})
                 if routing:
-                    payload["routing"] = routing
+                    payload.update(routing)
                 try:
                     db.rpc("record_inbound_from_n8n", {
                         "p_from_email": sender_addr,
