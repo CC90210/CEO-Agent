@@ -29,9 +29,21 @@ class TestDecideAction(unittest.TestCase):
         self.assertFalse(d["should_send"])
         self.assertFalse(d["should_archive"])
 
-    def test_financial_low_confidence_still_handoff(self):
+    def test_financial_low_confidence_holds_not_handoff(self):
+        # A weakly-classified financial email must NOT book a ledger entry on a
+        # guess — it holds for review (financial_threshold default 0.5).
         d = decide_action("financial_legal", confidence=0.2)
+        self.assertEqual(d["action"], "review")
+        self.assertFalse(d["should_send"])
+
+    def test_financial_confident_hands_off(self):
+        d = decide_action("financial_legal", confidence=0.8)
         self.assertEqual(d["action"], "handoff_atlas")
+
+    def test_noreply_financial_low_conf_also_holds(self):
+        # Same floor applies on the automated-sender path.
+        d = decide_action("financial_legal", confidence=0.3, may_reply=False)
+        self.assertEqual(d["action"], "review")
 
     def test_low_priority_high_conf_archives(self):
         d = decide_action("low_priority", confidence=0.9)

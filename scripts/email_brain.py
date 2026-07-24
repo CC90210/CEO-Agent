@@ -37,6 +37,9 @@ if str(_SCRIPTS_DIR) not in sys.path:
 
 DEFAULT_REPLY_THRESHOLD = 0.7
 DEFAULT_ARCHIVE_THRESHOLD = 0.6
+# A financial hand-off books a real ledger entry, so a weakly-classified
+# financial email is held for review rather than routed to Atlas on a guess.
+DEFAULT_FINANCIAL_THRESHOLD = 0.5
 
 
 # ---- Pure policy ------------------------------------------------------------
@@ -49,6 +52,7 @@ def decide_action(
     auto_send_enabled: bool = False,
     reply_threshold: float = DEFAULT_REPLY_THRESHOLD,
     archive_threshold: float = DEFAULT_ARCHIVE_THRESHOLD,
+    financial_threshold: float = DEFAULT_FINANCIAL_THRESHOLD,
     may_reply: bool = True,
     red_flags: Optional[list] = None,
 ) -> dict:
@@ -79,9 +83,14 @@ def decide_action(
         # generate a reply — but DO keep routing them, because vendor receipts
         # (CC's deductible expenses) arrive almost exclusively from no-reply
         # addresses and must still reach Atlas.
-        if category == "financial_legal":
+        if category == "financial_legal" and confidence >= financial_threshold:
             d.update(action="handoff_atlas", hold_for_review=False,
                      reason="no-reply/automated sender -> Atlas (receipts live here); never reply.")
+        elif category == "financial_legal":
+            # Weakly classified as financial — don't book a ledger entry on a
+            # guess; hold for CC.
+            d.update(action="review",
+                     reason=f"financial but low confidence ({confidence:.2f} < {financial_threshold}); held for review.")
         elif category == "low_priority" and confidence >= archive_threshold:
             d.update(action="archive", should_archive=True, hold_for_review=False,
                      reason="automated sender, low priority -> archive silently.")
@@ -104,9 +113,15 @@ def decide_action(
         return d
 
     if category == "financial_legal":
-        # Atlas owns CFO/legal. Hand off regardless of confidence; never auto-reply.
-        d.update(action="handoff_atlas", hold_for_review=False,
-                 reason="Financial & Legal -> hand off to Atlas (CFO owns money/legal); no auto-reply.")
+        # Atlas owns CFO/legal. A confident financial classification hands off
+        # (booking a ledger entry); a weak one is held so we don't book on a
+        # guess. Never auto-reply either way.
+        if confidence >= financial_threshold:
+            d.update(action="handoff_atlas", hold_for_review=False,
+                     reason="Financial & Legal -> hand off to Atlas (CFO owns money/legal); no auto-reply.")
+        else:
+            d.update(action="review",
+                     reason=f"financial but low confidence ({confidence:.2f} < {financial_threshold}); held for review.")
         return d
 
     if category == "low_priority":
@@ -167,6 +182,7 @@ def _resolve_config(config: Optional[dict]) -> dict:
         "auto_send_enabled": _env_flag("EMAIL_BRAIN_AUTO_SEND", False),
         "reply_threshold": _env_float("EMAIL_BRAIN_REPLY_THRESHOLD", DEFAULT_REPLY_THRESHOLD),
         "archive_threshold": _env_float("EMAIL_BRAIN_ARCHIVE_THRESHOLD", DEFAULT_ARCHIVE_THRESHOLD),
+        "financial_threshold": _env_float("EMAIL_BRAIN_FINANCIAL_THRESHOLD", DEFAULT_FINANCIAL_THRESHOLD),
     }
     if config:
         resolved.update(config)
@@ -264,6 +280,7 @@ def process_email(
             auto_send_enabled=bool(cfg["auto_send_enabled"]),
             reply_threshold=float(cfg["reply_threshold"]),
             archive_threshold=float(cfg["archive_threshold"]),
+            financial_threshold=float(cfg["financial_threshold"]),
             # email_engine supplies may_reply from the playbook's sender triage;
             # default True so a caller that doesn't triage keeps prior behavior.
             may_reply=bool(email.get("may_reply", True)),
