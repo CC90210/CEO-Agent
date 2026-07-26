@@ -44,6 +44,7 @@ verified: 2026-06-09
 
 ### Sales & CRM
 > **Primary CRM motion is INBOUND** (funnel, DMs, social content → nurture → book a call). Cold outbound is on-demand only, never the default. `lead_engine.py` `pipeline`/`followups` are tenant-scoped to `OASIS_TENANT_ID` (2026-07-09).
+> **Inbound email is automated** — the native "OASIS Inbound Qualifier" replacement classifies/routes/replies (Hybrid auto-send) via the "Inbound Email Sweep" cron. Operate/enable/kill it via **`brain/EMAIL_PIPELINE.md`** (runbook). Any inbound-email question → read that first.
 
 | CC Says | Tool | Command |
 |---------|------|---------|

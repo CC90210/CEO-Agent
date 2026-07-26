@@ -1,12 +1,21 @@
 ---
 tags: [state, ephemeral, fable-5]
 architecture_version: V7.4.0
-last_updated: 2026-07-07
+last_updated: 2026-07-26
 freshness_threshold_days: 30
-verified: 2026-07-07
+verified: 2026-07-26
 model_standard: fable-5
 ---
 # STATE — Current Operational State
+
+> **2026-07-26 — Inbound email automation is LIVE.** The n8n "OASIS Inbound
+> Qualifier" is replaced by a native pipeline (classifier + `email_brain` +
+> `email_playbook` + Atlas financial hand-off), subscription-CLI only, running
+> as the "Inbound Email Sweep" cron (`*/5`) with Hybrid auto-send. Runbook:
+> `brain/EMAIL_PIPELINE.md`. Kill switch: `EMAIL_BRAIN_ENABLED`/`_AUTO_SEND` in
+> `ecosystem.config.js`. Code is on `feat/native-email-classifier` (CEO-Agent) +
+> `feat/inbound-financial-consumer` (CFO-Agent) — landing to main/master is a
+> pending CC decision (divergent notify.py on main; Atlas master would pull Qlib).
 
 <!-- CANONICAL VERSION: `architecture_version` above is the SINGLE SOURCE OF TRUTH
      for the empire's architecture version. The five entry points (CLAUDE/GEMINI/
@@ -140,11 +149,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-23
+- **Date:** 2026-07-24
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Native email classifier (email_brain.py) + 4-category classify_category + email_engine wiring (EMAIL_BRAIN_ENABLED gated OFF); 47 tests green. Part B command-center segregation delegated (branch-only). n8n OASIS Inbound Qualifier still ACTIVE pending live verify.
+- **Result:** Telegram dead-letter storm KILLED. Root cause: consumer tests called real notify() (no isolation) - not a cron loop (0 pending events confirmed). Fixes: notify.py pytest/NOTIFY_DISABLED off-switch + disk-persisted identical-message dedup (1h); email_brain valid_for_handoff() gate (no msgid/sender -> review, never publish doomed event) + idempotency_key; hardened extract_forwarded_sender (body->headerFrom->unknown_forward@system, never '?'); Atlas _ack/_bump use real columns (consumed_by/processed_at/last_error/retry_count). Commits 93ed8e7c(bravo) + atlas. Bravo 428 pass, Atlas 4 pass.
 
-*Last updated: 2026-07-23*
+*Last updated: 2026-07-24*
 
 ## Manifest
 
