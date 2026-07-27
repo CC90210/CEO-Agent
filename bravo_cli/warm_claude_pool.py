@@ -39,10 +39,12 @@ Caveats
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import queue
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -356,6 +358,12 @@ class WarmClaudeProcess:
             # we keep the existing env. Cold spawn fallback still works.
             pass
 
+        # start_new_session=True (POSIX setsid) makes this child the leader of
+        # its own process group, so kill() can signal the WHOLE tree with one
+        # killpg. claude spawns grandchildren of its own (Bash tool, MCP
+        # servers) which inherit our pipe fds; signalling only this pid leaves
+        # them holding those fds open. POSIX-only, hence the conditional.
+        _session_kw = {"start_new_session": True} if os.name != "nt" else {}
         self.proc = subprocess.Popen(
             args,
             cwd=str(root),
@@ -369,6 +377,7 @@ class WarmClaudeProcess:
             encoding="utf-8",
             errors="replace",
             bufsize=1,
+            **_session_kw,
         )
 
         # Background thread pumps stdout into a queue. Lets send_turn()
@@ -422,6 +431,14 @@ class WarmClaudeProcess:
         )
         self._stderr_thread.start()
 
+        # Spawn is done; the process is idle until send_turn() claims it.
+        # Leaving busy=True here made the entry permanently invisible to
+        # _reap_idle(), which skips busy entries unconditionally — including
+        # its own `not is_alive()` branch. Any process that never reached
+        # send_turn() (prewarm failure, caller exception) was therefore
+        # immortal inside the pool. send_turn() sets busy=True itself.
+        self.busy = False
+
     def recent_stderr(self) -> str:
         """Return the captured stderr tail. Called after a turn fails so
         callers can decide whether to retry on the API key path."""
@@ -431,16 +448,66 @@ class WarmClaudeProcess:
     def is_alive(self) -> bool:
         return self.proc.poll() is None
 
-    def kill(self, reason: str = "") -> None:
+    def _close_pipes(self) -> None:
+        """Close our ends of the pipes. Only safe AFTER the child is dead:
+        a flush into a live-but-not-reading peer can block, a flush into a
+        dead peer raises EPIPE (which we suppress)."""
+        for stream in (self.proc.stdin, self.proc.stdout, self.proc.stderr):
+            if stream is not None:
+                with contextlib.suppress(Exception):
+                    stream.close()
+
+    def kill(self, reason: str = "", grace: float = 5.0) -> None:
+        """Terminate this process and its whole group, and REAP it.
+
+        Ordering is load-bearing. The pre-2026-07-27 version closed stdin
+        FIRST and then called proc.kill(). Closing a buffered text pipe
+        flushes it, and a write(2) into a full pipe whose reader has stopped
+        blocks until the peer reads (pipe(7); CPython #66629 closed this as
+        working-as-intended). A block is not an exception, so the bare
+        `except Exception` could not rescue it and proc.kill() on the next
+        line would never run. Signal first, close last.
+
+        SIGTERM before SIGKILL because Claude Code handles SIGTERM: it aborts
+        the turn, terminates the Bash subtree it spawned, runs SessionEnd
+        hooks, and exits 143. A bare SIGKILL on this pid alone orphans those
+        grandchildren.
+
+        Every wait() has a timeout, so kill() is structurally incapable of
+        blocking the caller (it is invoked while holding _POOL_LOCK).
+        """
+        p = self.proc
+        if p.poll() is not None:
+            # Already dead — still wait() to reap the zombie.
+            with contextlib.suppress(Exception):
+                p.wait(timeout=grace)
+            self._close_pipes()
+            return
+
+        pgid = None
+        if os.name != "nt":
+            # Resolve the group BEFORE signalling; after the child dies the
+            # pid can be recycled and we would signal an unrelated group.
+            with contextlib.suppress(Exception):
+                pgid = os.getpgid(p.pid)
+
+        def _signal(sig) -> None:
+            with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+                if pgid is not None:
+                    os.killpg(pgid, sig)
+                else:
+                    p.send_signal(sig)
+
         try:
-            if self.proc.stdin and not self.proc.stdin.closed:
-                try:
-                    self.proc.stdin.close()
-                except Exception:
-                    pass
-            self.proc.kill()
-        except Exception:
-            pass
+            _signal(signal.SIGTERM)
+            try:
+                p.wait(timeout=grace)
+            except Exception:
+                _signal(signal.SIGKILL)
+                with contextlib.suppress(Exception):
+                    p.wait(timeout=grace)
+        finally:
+            self._close_pipes()
 
     def send_turn(
         self,
@@ -717,8 +784,34 @@ def prewarm(
         wp.kill(reason="prewarm_no_result")
         return False
 
+    # Compare-and-swap, NOT a blind assign. This is the fix for the orphan
+    # leak observed 2026-07-26 (14 claude processes aged 26-42 days, 1,980 MB).
+    #
+    # We released _POOL_LOCK above to spawn (5-30s) and consume the init turn
+    # (up to 120s). In that ~150s window another caller can populate this exact
+    # key: /prewarm and /chat build the SAME pool_key, and a page reload or a
+    # double-mounted widget fires two /prewarm POSTs for the same tab_id. The
+    # old code assigned unconditionally, silently dropping the incumbent's
+    # handle. That process was then unreachable by the idle reaper, the
+    # evictor and kill_for_session, stayed a direct child of the daemon, and
+    # never exited (its stdin is never closed, so claude never sees EOF).
+    #
+    # The incumbent may be mid-turn for a real operator, so the incumbent
+    # wins and we kill our own process instead. Killing happens OUTSIDE the
+    # lock so a slow terminate never stalls the pool.
+    loser = None
     with _POOL_LOCK:
-        _WARM_POOL[pool_key] = wp
+        incumbent = _WARM_POOL.get(pool_key)
+        if incumbent is not None and incumbent is not wp and incumbent.is_alive():
+            loser = wp                      # someone beat us; stand down
+        else:
+            if incumbent is not None and incumbent is not wp:
+                loser = incumbent           # dead incumbent, replace and reap it
+            _WARM_POOL[pool_key] = wp
+
+    if loser is not None:
+        loser.kill(reason="prewarm_lost_race")
+    # Either way the slot is warm, which is all the caller asked for.
     return True
 
 
