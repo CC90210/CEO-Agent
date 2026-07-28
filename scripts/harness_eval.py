@@ -53,8 +53,11 @@ ENTRY_POINTS = ["CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md", "OPENCO
 LOCKSTEP_MARKER = "LOCKSTEP:seed_core"
 REQUIRED_PM2 = {"bravo-scheduler", "bravo-telegram", "claude-bridge", "event-router", "bravo-coord"}
 # This eval's own cron_jobs row (cron_engine.SEED_JOBS). check_cron_health skips
-# it to avoid scoring itself — see the note there.
+# it ONLY when it failed by scoring itself — see the note there. The marker is
+# the banner this script prints, so the row's text proves the script actually
+# ran and self-scored (vs. failing to launch at all).
 _SELF_CRON_NAME = "Bravo — Nightly Harness Eval"
+_SELF_SCORE_MARKER = "HARNESS EVAL"
 
 
 def _run(cmd: list[str], timeout: int = 60, env_extra: dict | None = None) -> tuple[int, str, str]:
@@ -218,15 +221,26 @@ def check_cron_health():
         jobs = json.loads(out)
     except json.JSONDecodeError:
         return False, "cron_engine returned non-JSON"
-    # Exclude this eval's OWN cron row. It is scored by the very check it is
-    # running, which deadlocks (2026-07-28): one transient failure stamps
-    # last_result="ERROR: ... HARNESS EVAL ..." on the row, this check then sees
-    # that row and fails, which re-stamps ERROR — forever. The eval could never
-    # return to 10/10 on its own no matter how healthy the fleet actually was.
-    # Every OTHER cron is still scored; a real failure here still shows up as
-    # that job's own row.
+    def _is_self_scored_failure(job: dict) -> bool:
+        """True only for this eval's own row failing because it scored ITSELF.
+
+        The deadlock (2026-07-28): a transient failure stamps
+        last_result="ERROR: script_run exit 1: HARNESS EVAL — 9/10 ..." on this
+        eval's row; the check below then sees that row, fails, and re-stamps
+        ERROR — forever, no matter how healthy the fleet actually is.
+
+        Narrow, not blanket: only a failure whose text is this eval's own
+        scoreboard is skipped. If the row fails for any OTHER reason — script
+        path broken, timeout, interpreter missing — the text won't carry the
+        scoreboard marker and the job is still reported, so "the scheduled
+        harness cron is broken" remains detectable.
+        """
+        if job.get("name") != _SELF_CRON_NAME:
+            return False
+        return _SELF_SCORE_MARKER in str(job.get("last_result") or "").upper()
+
     bad = [j["name"] for j in jobs if j.get("is_active")
-           and j.get("name") != _SELF_CRON_NAME
+           and not _is_self_scored_failure(j)
            and str(j.get("last_result") or "").upper().startswith(("ERROR", "FAILED"))]
     mrr_on = [j["name"] for j in jobs if j.get("is_active") and j.get("name") == "Weekly MRR Report"]
     if bad:

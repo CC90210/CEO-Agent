@@ -41,24 +41,32 @@ def _genuine_override() -> str | None:
       AV-scanner-MITM'd chain.
 
     A real corporate bundle (exists, and isn't certifi's) still wins.
-    """
-    raw = os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE")
-    if not raw:
-        return None
-    try:
-        candidate = os.path.realpath(raw)
-        if not os.path.isfile(candidate):
-            return None
-        try:
-            import certifi  # type: ignore
 
-            if candidate == os.path.realpath(certifi.where()):
-                return None
-        except ImportError:
-            pass
-        return raw
-    except OSError:
-        return None
+    Both vars are inspected INDEPENDENTLY. An earlier draft used
+    `SSL_CERT_FILE or REQUESTS_CA_BUNDLE`, which read only the first non-empty
+    one — so a stale SSL_CERT_FILE alongside a valid REQUESTS_CA_BUNDLE was
+    judged "not genuine" and the caller then deleted BOTH, destroying a real
+    corporate bundle. Either var holding a real bundle now protects both.
+    """
+    for var in ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE"):
+        raw = os.environ.get(var)
+        if not raw:
+            continue
+        try:
+            candidate = os.path.realpath(raw)
+            if not os.path.isfile(candidate):
+                continue
+            try:
+                import certifi  # type: ignore
+
+                if candidate == os.path.realpath(certifi.where()):
+                    continue
+            except ImportError:
+                pass
+            return raw
+        except OSError:
+            continue
+    return None
 
 
 def ensure_os_trust() -> str:

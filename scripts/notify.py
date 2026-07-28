@@ -224,7 +224,14 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
     # Transport errors only. A well-formed HTTP response with ok=false (403 bot
     # blocked, 429 rate limit) is a semantic answer, not a transient fault —
     # retrying those would spam Telegram and worsen a 429.
-    transient = (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
+    #
+    # ReadTimeout is deliberately EXCLUDED: it means the request was delivered
+    # and we simply never saw the reply, so Telegram may well have accepted and
+    # posted the message. Retrying that is the one path that double-sends to CC
+    # (there is no Telegram-side idempotency key). Connect-phase failures —
+    # which is what the AV filter driver actually produces — never reached the
+    # API, so replaying them is safe.
+    transient = (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeout)
     max_attempts = 3
     last_exc: Exception | None = None
 
