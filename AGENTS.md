@@ -85,6 +85,7 @@ Do **not** dump any file content to the user. Read silently, then answer the act
 **CRM motion: INBOUND-first (2026-07-09)** — leads arrive via funnel / DMs / social content → nurture → book a call. Cold outbound is on-demand + operator-approved only, never the default.
 **Model calls from automations:** `scripts/lib/claude_cli.py` (local CLI, subscription OAuth) — never `ANTHROPIC_API_KEY` (out of credits + banned).
 **Self-check:** `python scripts/harness_eval.py` scores the live harness (10 checks); `python scripts/agent_genome.py` verifies the genome is fully expressed. Run either when the substrate feels mis-wired — the failing check names the gap.
+**Credentials before "I can't":** never claim you lack access to a tool/API/service from memory — keys live in `.env.agents`, which you cannot read by design (RULE 3 / `secret_guard`). Probe first: `python scripts/capability_probe.py check <service>` (or `list`) reports key **presence + the exact command to run**, never values. **AVAILABLE means you are authorized — run the tool.** "I don't have access to X" is true only after the probe exits non-zero for X and you quote that result; the false negative costs CC an hour of manual work you were already wired to do.
 <!-- /LOCKSTEP:seed_core -->
 - **Stack:** Python 3.12, TypeScript, Next.js 14, Supabase (Postgres), Vercel, Stripe, n8n, Telegram bot bridge
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) — full design rationale, V5.6 outbound chokepoint explained
