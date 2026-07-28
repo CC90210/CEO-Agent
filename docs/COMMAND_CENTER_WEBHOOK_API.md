@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-05-21
+---
+
 # OASIS Command Center — Public Webhook API
 
 > Base URL: `https://agent-dashboard-cc90210.vercel.app` (production)

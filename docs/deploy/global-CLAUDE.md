@@ -1,3 +1,8 @@
+---
+tags: [docs, deploy]
+last_updated: 2026-06-26
+---
+
 # Canonical `~/.claude/CLAUDE.md` (global Claude Code config)
 
 > **Provenance:** committed copy of the user-level `~/.claude/CLAUDE.md` so every machine
@@ -88,3 +93,7 @@ Did user express a preference or correction?
 | Frustration ("I told you", "why did you") | Log what went wrong and why |
 
 **The iron law:** The user never teaches the same lesson twice.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

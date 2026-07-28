@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-07-09
+---
+
 # Agent Command Center — Architecture & Capabilities Handoff
 
 > 📜 **HISTORICAL HANDOFF (2026-05-25 state)** — MRR is Atlas-owned and CRM is inbound-first since 2026-07-09; see `brain/STATE.md` for current.
@@ -438,3 +443,7 @@ If you have limited context budget, read these in this order:
 **External AI working on the new repo:** This handoff document is for you. If you need to reach the human operator with a question, surface it as text — the agent reading this doc will route it to CC. Don't assume you can make architecture decisions independently — propose, get a yes, then build.
 
 **Update cadence for this document:** Re-write at the end of any session that changes the manifest schema, adds a tenant, adds a page kind, or ships a substrate migration (V6.x bump). Last updated: 2026-05-25 evening.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

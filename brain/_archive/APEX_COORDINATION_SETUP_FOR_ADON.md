@@ -129,3 +129,7 @@ table or CC) for a copy.
 **Bottom line:** make APEX spawn a real harness, respond to Adon in the chat,
 respond to Bravo via the table, and never expect to see Bravo's chat messages.
 Then both agents work at the same depth and the loop actually closes.
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

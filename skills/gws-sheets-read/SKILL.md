@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws sheets +read --help"
 triggers: ["gws sheets read", "use gws sheets read", "run gws sheets read", "google sheets: read values from a spreadsheet"]
 tier: specialized
+tags: [skill, gws-sheets-read]
+last_updated: 2026-06-20
 ---
 
 # sheets +read

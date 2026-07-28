@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws docs --help"
 triggers: ["gws docs", "use gws docs", "run gws docs", "read and write google docs"]
 tier: specialized
+tags: [skill, gws-docs]
+last_updated: 2026-06-20
 ---
 
 # docs (v1)

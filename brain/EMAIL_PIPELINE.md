@@ -10,7 +10,7 @@ The native replacement for the n8n **"OASIS Inbound Qualifier"** workflow
 (`1cGIN32alM8sf8OV`, now inactive). Classifies every inbound email into 4 brains
 and acts under a hybrid/guarded autonomy policy — entirely on the subscription
 Claude CLI, **no metered API keys**. Durable memory: `[[project_native_email_pipeline]]`.
-See also the outbound twin: [[send_gateway]] (`scripts/integrations/send_gateway.py`).
+See also the outbound twin: `scripts/integrations/send_gateway.py` (`scripts/integrations/send_gateway.py`).
 
 ## The chain (every 5 min)
 `bravo-scheduler` (PM2) → cron **"Inbound Email Sweep"** (`*/5`, `email_inbox_check`)
@@ -67,7 +67,7 @@ tries with ONE alert.
 
 ## Guarantees / gotchas
 - Idempotency + notify dedup stop cron loops — see `[[pattern_inbound_idempotency_and_notify_dedup]]`.
-- Every reply routes through [[send_gateway]] (CASL/critic apply; non-operator source).
+- Every reply routes through `scripts/integrations/send_gateway.py` (CASL/critic apply; non-operator source).
 - State files `tmp/inbound_processed_msgids.json` + `tmp/notify_dedup.json` are
   allowlisted from tmp-hygiene — do not purge.
 

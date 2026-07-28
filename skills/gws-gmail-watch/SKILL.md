@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws gmail +watch --help"
 triggers: ["gws gmail watch", "use gws gmail watch", "run gws gmail watch", "gmail: watch for new emails and stream them as ndjson"]
 tier: specialized
+tags: [skill, gws-gmail-watch]
+last_updated: 2026-06-20
 ---
 
 # gmail +watch

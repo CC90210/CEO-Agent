@@ -4,6 +4,7 @@ description: Pre-meeting briefs, meeting type templates, post-meeting capture pr
 tags: [skill, meetings, automation, follow-up, calendar]
 triggers: ["meeting automation", "use meeting automation", "run meeting automation", "pre-meeting briefs"]
 tier: specialized
+last_updated: 2026-06-20
 ---
 
 # Meeting Automation — Prep, Capture, Follow-Up System

@@ -3,6 +3,8 @@ title: PM2 cold-start runbook for CC's Windows machine
 date: 2026-05-16
 audience: CC (operator) + anyone troubleshooting the SunBiz CRM substrate
 status: ACTIVE
+tags: [docs]
+last_updated: 2026-07-19
 ---
 
 # Cold-start procedure

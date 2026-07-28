@@ -5,6 +5,7 @@ triggers: [playwright, browser, navigate, screenshot, click, snapshot, web resea
 tier: standard
 dependencies: []
 last_updated: 2026-05-15
+tags: [skill, browser-automation]
 ---
 
 # Browser Automation with Playwright MCP

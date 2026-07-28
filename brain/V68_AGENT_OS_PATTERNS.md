@@ -4,6 +4,7 @@ description: V6.8 propagation contract — vocabulary layer (CONTEXT.md), ADR la
 last_updated: 2026-06-09
 freshness_threshold_days: 365
 verified: 2026-06-09
+tags: [brain]
 ---
 # V6.8 — Agent-OS Vocabulary Layer
 

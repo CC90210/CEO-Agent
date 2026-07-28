@@ -4,6 +4,7 @@ description: "Prevents agent divergence from task intent through checkpoint vali
 tags: [orchestration, quality, agents]
 triggers: ["anti drift", "use anti drift", "run anti drift"]
 tier: standard
+last_updated: 2026-07-09
 ---
 
 # Anti-Drift — Agent Alignment & Divergence Prevention

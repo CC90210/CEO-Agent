@@ -67,3 +67,7 @@ push (main is shared with APEX); Codex audit anything touching money/legal/the s
 verify against live code, don't trust a snapshot.
 
 ---
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

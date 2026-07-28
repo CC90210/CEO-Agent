@@ -5,6 +5,8 @@ license: Complete terms in LICENSE.txt
 triggers: [internal communication, status report, newsletter, FAQ, incident report, update]
 tier: specialized
 dependencies: []
+tags: [skill, internal-comms]
+last_updated: 2026-07-20
 ---
 
 ## When to use this skill

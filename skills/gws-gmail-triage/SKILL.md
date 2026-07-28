@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws gmail +triage --help"
 triggers: ["gws gmail triage", "use gws gmail triage", "run gws gmail triage", "gmail: show unread inbox summary (sender"]
 tier: specialized
+tags: [skill, gws-gmail-triage]
+last_updated: 2026-06-20
 ---
 
 # gmail +triage

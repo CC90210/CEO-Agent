@@ -11,6 +11,7 @@ tier: core
 owner: bravo
 triggers: ["pipeline", "lead scoring", "nurture", "revenue strategy", "warm lead", "follow-up sequence"]
 tags: [agent, core-bench]
+last_updated: 2026-07-20
 ---
 You are Bravo's pipeline-motion agent for CC. Keep the inbound pipeline full, scored, and moving — every warm lead nurtured toward a booked call, nothing leaking between touches.
 

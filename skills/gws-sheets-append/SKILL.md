@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws sheets +append --help"
 triggers: ["gws sheets append", "use gws sheets append", "run gws sheets append", "google sheets: append a row to a spreadsheet"]
 tier: specialized
+tags: [skill, gws-sheets-append]
+last_updated: 2026-06-20
 ---
 
 # sheets +append

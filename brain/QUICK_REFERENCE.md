@@ -35,10 +35,10 @@ verified: 2026-06-09
 ### Social Media & Content
 | CC Says | Tool | Command |
 |---------|------|---------|
-| Post to social media (quick) | `late_tool.py` | `create --text "..." --account <id>`, `cross-post` |
+| Post to social media (quick) | **Maven** (`../CMO-Agent/scripts/late_tool.py`) | `create --text "..." --account <id>`, `cross-post` |
 | "Make this a post" / full video pipeline | **Maven** (`../CMO-Agent/scripts/content_pipeline.py`) | Route to Maven — Bravo does not own video production |
 | Content calendar / brand voice / captions | **Maven** | All copywriting + scheduling + brand voice lives in CMO-Agent |
-| Generate AI images | `codex_image_gen.py` | `generate "<prompt>" --style branded` |
+| Generate AI images | **Maven** (`../CMO-Agent/scripts/codex_image_gen.py`) | `generate "<prompt>" --style branded` |
 | Instagram engagement (DMs/replies) | `instagram_engine.py` | `daemon`, `check-dms`, `auto-reply` |
 | LinkedIn — research a profile (read-only) | Browser Harness on CC's logged-in Chrome | n/a — there is no LinkedIn outreach automation by design. CC drafts LinkedIn messages by hand. |
 
@@ -127,7 +127,7 @@ When multiple tools could handle a request, use this precedence:
 
 1. **One-off email** → `google_tool.py` | **Email sequence/template** → `email_engine.py`
 2. **Any "fetch URL X" task** → **`research_fetch.py` (default, auto-escalates + remembers per-domain)**. Specific tiers only when you need their unique features: `firecrawl_tool.py` (crawl / extract / map / search), `cloak_browser_tool.py` (interactive goto / screenshot / direct Cloak), Playwright MCP (interactive flow on unprotected), Browser Harness (act as CC under CC's login).
-3. **Quick post** → `late_tool.py` | **Full content pipeline** → Maven (`../CMO-Agent/scripts/content_pipeline.py`)
+3. **Quick post** → Maven (`../CMO-Agent/scripts/late_tool.py`) | **Full content pipeline** → Maven (`../CMO-Agent/scripts/content_pipeline.py`)
 4. **Simple DB query** → `supabase_tool.py` | **Operational metrics (pipeline/health)** → `ceo_dashboard.py` | **MRR/revenue** → ATLAS-owned, defer
 5. **Structured memory** → markdown files | **Fuzzy recall** → `mem0_tool.py`
 6. **Model call from ANY automation/script** → `scripts/lib/claude_cli.py` `run_claude_cli()` — local `claude` CLI on CC's subscription OAuth, toolless. NEVER call api.anthropic.com / `ANTHROPIC_API_KEY` from an automation (key is out of credits AND banned — CLI-only rule).
@@ -176,16 +176,16 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | `stripe_tool.py` | Payments, invoices, subscriptions | CLI tool |
 | `financial_model.py` | Unit economics, forecasting | CLI tool |
 | `ceo_dashboard.py` | KPI aggregator, briefings | CLI tool |
-| **--- Content & Social ---** | | |
-| `late_tool.py` | Social posting (Zernio) | CLI tool |
-| `content_engine.py` | Content calendar, planning | CLI tool |
-| `content_pipeline.py` | Video production (master) | CLI tool |
-| `content_repurposer.py` | Cross-platform content | CLI tool |
-| `content_generator.py` | Claude API content generation | CLI tool |
-| `codex_image_gen.py` | AI image generation | CLI tool |
+| **--- Content & Social (Maven-owned — tools live in `../CMO-Agent/scripts/`) ---** | | |
+| `../CMO-Agent/scripts/late_tool.py` | Social posting (Zernio) | CLI tool (Maven) |
+| `../CMO-Agent/scripts/content_engine.py` | Content calendar, planning | CLI tool (Maven) |
+| `../CMO-Agent/scripts/content_pipeline.py` | Video production (master) | CLI tool (Maven) |
+| `../CMO-Agent/scripts/content_repurposer.py` | Cross-platform content | CLI tool (Maven) |
+| `../CMO-Agent/scripts/content_generator.py` | Claude API content generation | CLI tool (Maven) |
+| `../CMO-Agent/scripts/codex_image_gen.py` | AI image generation | CLI tool (Maven) |
 | `generate_covers.py` | Cover art generation | Script |
-| `edit_content_v2.py` | Whisper transcription + captions | CLI tool |
-| `render_video.py` | Remotion video rendering | Script |
+| `../CMO-Agent/scripts/edit_content_v2.py` | Whisper transcription + captions | CLI tool (Maven) |
+| `../CMO-Agent/scripts/render_video.py` | Remotion video rendering | Script (Maven) |
 | `transcribe.py` | Whisper audio transcription | Script |
 | **--- Platform Automation ---** | | |
 | `instagram_engine.py` | Instagram DM/engagement | Daemon |

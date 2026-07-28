@@ -1,3 +1,8 @@
+---
+tags: [apps]
+last_updated: 2026-05-22
+---
+
 # Desktop Code Signing — CLI Cheat Sheet
 
 Mac Gatekeeper and Windows SmartScreen both warn loudly on unsigned
@@ -163,3 +168,7 @@ A valid signature prints `Status: Valid` + the certificate chain.
   it correctly).
 - **Win SmartScreen still warns with valid EV cert:** reputation
   warm-up. Ship to 5–10 users, wait 24h, retest.
+
+## Obsidian Links
+- [[brain/APP_REGISTRY]]
+- [[docs/INDEX]]

@@ -5,6 +5,8 @@ license: Complete terms in LICENSE.txt
 triggers: [algorithmic art, generative art, p5.js, flow field, particle system, creative coding]
 tier: specialized
 dependencies: []
+tags: [skill, algorithmic-art]
+last_updated: 2026-06-20
 ---
 
 Algorithmic philosophies are computational aesthetic movements that are then expressed through code. Output .md files (philosophy), .html files (interactive viewer), and .js files (generative algorithms).

@@ -6,6 +6,8 @@ date: 2026-07-18
 deciders: [bravo, cc]
 supersedes: null
 superseded_by: null
+tags: [docs, adr, decision]
+last_updated: 2026-07-18
 ---
 
 # ADR-0011 — Typed memory taxonomy with declared update semantics
@@ -59,3 +61,7 @@ The volcengine/OpenViking audit (2026-07-18, plan `~/.claude/plans/i-m-dropping-
 - Pattern source: <https://github.com/volcengine/OpenViking> (AGPLv3 — patterns only, zero code) · docs/en/concepts/02+06+08
 - Related: [ADR-0001](0001-skill-dependency-classification.md) · [ADR-0002](0002-context-md-canonical-vocabulary.md) · [ADR-0010](0010-external-resource-catalog.md)
 - Code: `scripts/bravo_sleep.py` (state machine + audit) · `scripts/core/memory_retriever.py` (`_extract_description`, `_freshness_factor`, migration 003) · `scripts/core/abstract_backfill.py`
+
+## Obsidian Links
+- [[docs/adr/INDEX]]
+- [[CONTEXT]]

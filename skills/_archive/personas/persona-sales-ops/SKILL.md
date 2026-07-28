@@ -11,6 +11,8 @@ metadata:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-calendar", "gws-sheets", "gws-drive"]
 triggers: ["persona sales ops", "use persona sales ops", "run persona sales ops", "manage sales workflows \u2014 track deals"]
+tags: [skill, archive, _archive]
+last_updated: 2026-05-21
 ---
 
 # Sales Operations

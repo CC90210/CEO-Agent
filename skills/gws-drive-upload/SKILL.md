@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws drive +upload --help"
 triggers: ["gws drive upload", "use gws drive upload", "run gws drive upload", "google drive: upload a file with automatic metadata"]
 tier: specialized
+tags: [skill, gws-drive-upload]
+last_updated: 2026-06-20
 ---
 
 # drive +upload

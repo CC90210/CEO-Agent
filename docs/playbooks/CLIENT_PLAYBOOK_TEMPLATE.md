@@ -2,6 +2,7 @@
 tags: [docs, playbooks, client, template, maintainer]
 purpose: Reusable template for a per-client maintainer playbook — CC's operator runbook for maintaining a client's deployed autonomous agent system (their box, their repos, their domain). Copy to NN-<client>-maintainer.md and fill the tokens. First instance: 05-breeze-maintainer.md.
 owner: CC (Conaugh McKenna)
+last_updated: 2026-07-09
 ---
 
 # Client Maintainer Playbook — {{CLIENT_NAME}}

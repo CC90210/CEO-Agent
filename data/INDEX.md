@@ -1,5 +1,6 @@
 ---
 tags: [data, templates, hub]
+last_updated: 2026-04-27
 ---
 
 # Data Index — Templates, Market Research & Intelligence

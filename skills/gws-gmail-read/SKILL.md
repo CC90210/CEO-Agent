@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws gmail +read --help"
 triggers: ["gws gmail read", "use gws gmail read", "run gws gmail read", "gmail: read a message and extract its body or headers"]
 tier: specialized
+tags: [skill, gws-gmail-read]
+last_updated: 2026-06-20
 ---
 
 # gmail +read

@@ -5,6 +5,8 @@ triggers: [retro, retrospective, weekly retro, what shipped, how did we do]
 tier: specialized
 dependencies: [memory-management]
 disable_model_invocation: true
+tags: [skill, retro]
+last_updated: 2026-05-21
 ---
 
 # Retro — Weekly Retrospective Engine

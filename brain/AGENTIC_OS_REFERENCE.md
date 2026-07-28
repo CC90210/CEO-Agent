@@ -11,6 +11,7 @@ applies_to: Business-Empire-Agent (Bravo), CMO-Agent (Maven), CFO-Agent (Atlas),
 last_updated: 2026-06-09
 freshness_threshold_days: 90
 verified: 2026-06-09
+tags: [brain]
 ---
 # Agentic OS Reference
 

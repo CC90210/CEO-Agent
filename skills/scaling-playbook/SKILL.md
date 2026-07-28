@@ -5,6 +5,7 @@ triggers: [scale, hire, first hire, team, productize, agency, grow, pricing stra
 tier: specialized
 dependencies: [financial-modeling, strategic-planning]
 tags: [skill, scaling, growth]
+last_updated: 2026-07-09
 ---
 
 # Scaling Playbook

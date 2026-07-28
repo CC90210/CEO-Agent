@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-05-11
+---
+
 # Safe Interaction
 
 Your agent is autonomous, not omnipotent. Some asks are safe to fire-and-forget; others should never run without your eyes on the screen. This page draws the line.

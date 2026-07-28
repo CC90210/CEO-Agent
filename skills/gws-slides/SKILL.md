@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws slides --help"
 triggers: ["gws slides", "use gws slides", "run gws slides", "google slides: read and write presentations"]
 tier: specialized
+tags: [skill, gws-slides]
+last_updated: 2026-06-20
 ---
 
 # slides (v1)

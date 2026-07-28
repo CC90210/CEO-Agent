@@ -7,6 +7,8 @@ deciders: CC, Bravo
 supersedes: —
 superseded_by: —
 related: ADR-0006 (multi-employee tenant bridge access), Codex round-8 audit 2026-06-09
+tags: [docs, adr, decision]
+last_updated: 2026-06-09
 ---
 
 # ADR-0009 — Tenant-safe bridge-tool catalog for non-admin operators
@@ -120,3 +122,7 @@ sanitized strings — never derived from operator-repo content.
 
 Until one of those triggers fires, the round-8 conservative posture
 stays.
+
+## Obsidian Links
+- [[docs/adr/INDEX]]
+- [[CONTEXT]]

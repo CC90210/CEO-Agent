@@ -4,6 +4,7 @@ name: Invoice Reminder Sequence
 type: email_sequence
 use_case: Following up on unpaid invoices from active or past clients
 variables: [client_name, invoice_number, amount, due_date, payment_link, service_description]
+last_updated: 2026-04-27
 ---
 
 # Invoice Reminder Sequence

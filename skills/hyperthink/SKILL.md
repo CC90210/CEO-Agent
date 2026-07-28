@@ -7,6 +7,7 @@ dependencies: [sequential-reasoning, systematic-debugging, codex-delegation]
 canonical_source: ~/.claude/AGENT_COORDINATION.md
 tags: [reasoning, protocol, top-tier]
 disable_model_invocation: true
+last_updated: 2026-05-21
 ---
 
 # HYPERTHINK — Maximum-Depth Reasoning Protocol

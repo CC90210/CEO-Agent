@@ -1,3 +1,8 @@
+---
+tags: [root]
+last_updated: 2026-05-11
+---
+
 # Skill Lifecycle
 
 Bravo's skill system should become a managed lifecycle, not a folder full of disconnected instructions.

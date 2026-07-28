@@ -4,6 +4,7 @@ description: Structured crisis response protocols for business emergencies — P
 tags: [skill, crisis, response, ceo]
 triggers: ["crisis response", "use crisis response", "run crisis response"]
 tier: standard
+last_updated: 2026-07-09
 ---
 
 # Crisis Response — Emergency Protocols

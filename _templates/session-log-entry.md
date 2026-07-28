@@ -1,3 +1,8 @@
+---
+tags: [template]
+last_updated: 2026-05-11
+---
+
 ### {{date:YYYY-MM-DD}} — [AGENT] Session
 **Duration:**
 **Focus:**

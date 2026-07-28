@@ -5,6 +5,8 @@ license: Proprietary. LICENSE.txt has complete terms
 triggers: [spreadsheet, xlsx, Excel, CSV, TSV, tabular data, chart]
 tier: specialized
 dependencies: []
+tags: [skill, xlsx]
+last_updated: 2026-06-20
 ---
 
 # Requirements for Outputs

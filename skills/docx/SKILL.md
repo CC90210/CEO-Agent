@@ -5,6 +5,8 @@ license: Proprietary. LICENSE.txt has complete terms
 triggers: [Word, docx, Word document, report, memo, letter, template]
 tier: specialized
 dependencies: []
+tags: [skill, docx]
+last_updated: 2026-05-21
 ---
 
 # DOCX creation, editing, and analysis

@@ -117,7 +117,7 @@ This is a **concrete technical differentiator** that separates OASIS from agenci
 - [[brain/SOUL]] | [[brain/PERSONALITY]] | [[brain/STATE]]
 - [[brain/GROWTH]] | [[brain/CHANGELOG]]
 - [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/DECISIONS]]
-- [[scripts/core/self_audit.py]] — structural health companion tool
+- `scripts/core/self_audit.py` — structural health companion tool
 
 ## Related
 

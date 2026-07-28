@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Sunset Boulevard
 
 A warm and vibrant theme inspired by golden hour sunsets, perfect for energetic and creative presentations.

@@ -5,6 +5,7 @@ triggers: [pentest, penetration test, ethical hacking, vulnerability assessment,
 tier: strategic
 dependencies: [security-protocol, security-reviewer, firecrawl, playwright-mcp, systematic-debugging]
 tags: [security, offensive, authorized, compliance]
+last_updated: 2026-05-21
 ---
 
 # ETHICAL HACKING — Authorized Offensive Security
@@ -256,5 +257,5 @@ Log progress in `memory/cybersecurity_learning.md` (create on first session).
 
 ## Obsidian Links
 - [[skills/security-protocol/SKILL.md]]
-- [[.claude/agents/security-reviewer]] *(security-reviewer is an agent, not a skill — invoke via Task tool with subagent_type:"security-reviewer")*
+- `.claude/agents/security-reviewer.md` *(security-reviewer is an agent, not a skill — invoke via Task tool with subagent_type:"security-reviewer")*
 - [[brain/RISK_REGISTER]]

@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Code Review Agent
 
 You are reviewing code changes for production readiness.

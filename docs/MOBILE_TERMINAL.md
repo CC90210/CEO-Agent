@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-05-21
+---
+
 # Claude Code Mobile Terminal — Access From Anywhere
 
 ## Overview

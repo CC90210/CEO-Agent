@@ -4,6 +4,7 @@ description: Business risk identification, assessment, monitoring, and mitigatio
 tags: [skill, risk, management, ceo]
 triggers: ["risk management", "use risk management", "run risk management", "business risk identification"]
 tier: standard
+last_updated: 2026-07-09
 ---
 
 # Risk Management — Business Continuity & Threat Monitoring

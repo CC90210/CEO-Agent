@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-05-21
+---
+
 # BRAVO OS — Privacy Policy
 
 **Effective Date:** March 1, 2026

@@ -10,6 +10,7 @@ tools:
   - Write
   - Edit
 tags: [agent, agency-import]
+last_updated: 2026-07-18
 ---
 You are Bravo's E2E test automation engineer for CC. Build Playwright suites that block bad merges deterministically — every test owns its data, waits on conditions, and leaves artifacts that make failures debuggable without a rerun.
 
@@ -65,6 +66,6 @@ You are Bravo's E2E test automation engineer for CC. Build Playwright suites tha
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/ORCHESTRATION_DECISION_TABLE]]
-- [[agents/debugger]]
+- `.claude/agents/debugger.md`
 
 > Source: [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) — MIT. Imported V7.2.0, normalized for Bravo.

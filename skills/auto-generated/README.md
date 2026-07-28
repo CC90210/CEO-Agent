@@ -1,5 +1,6 @@
 ---
 tags: [skills, auto-generated, lifecycle]
+last_updated: 2026-07-20
 ---
 
 # Auto-Generated Skills

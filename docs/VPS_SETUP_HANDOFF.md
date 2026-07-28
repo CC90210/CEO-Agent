@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-07-20
+---
+
 # VPS Agent Handoff — SunBiz Production
 
 > Created: 2026-06-01
@@ -497,3 +502,7 @@ The VPS setup is complete only when:
 8. Kixie inbound remains disabled until its handler is implemented and verified.
 9. The single extraction consumer passes its doctor and a real-document callback test without
    metered-API fallback.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

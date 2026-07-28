@@ -1,3 +1,8 @@
+---
+tags: [plans]
+last_updated: 2026-06-09
+---
+
 # MISSION — FLEET HARMONIZATION V2 (Bravo @ fleet scope)
 Saved verbatim by Bravo at mission start, 2026-06-09. Constitution = V1 brief
 `plans/MISSION_2026-06-09_AUDIT_REMEDIATION.md` §0 (prime directives) + §2 (phase rules).
@@ -62,3 +67,7 @@ Per repo one block: tracked-file count · stack signals (next.config*/pyproject)
 
 ## 6. ROLLBACK
 V1 §7 machinery: per-phase tags per repo, bundles outside repos, filter-repo only in throwaway mirrors until explicit push. Phase isolation = independent restore.
+
+## Obsidian Links
+- [[brain/STATE]]
+- [[memory/INDEX]]

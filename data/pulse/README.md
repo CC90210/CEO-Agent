@@ -1,3 +1,8 @@
+---
+tags: [data]
+last_updated: 2026-05-18
+---
+
 # Bravo ↔ Atlas Pulse Protocol (CEO side)
 
 > Canonical handshake between Bravo (CEO agent, this project) and Atlas (CFO agent, `c:\Users\User\APPS\CFO-Agent`). One-way writes, no shared mutable state.

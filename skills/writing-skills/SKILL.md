@@ -4,6 +4,8 @@ description: Use when creating new skills, editing existing skills, or verifying
 triggers: [write skill, create skill, skill authoring, skill format]
 tier: specialized
 dependencies: []
+tags: [skill, writing-skills]
+last_updated: 2026-05-21
 ---
 
 # Writing Skills

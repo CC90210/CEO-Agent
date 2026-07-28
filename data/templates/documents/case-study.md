@@ -4,6 +4,7 @@ type: document
 use_case: Marketing — showcasing client results
 variables: [client_industry, client_challenge, solution_summary, results_metrics, timeline, testimonial_quote]
 tags: [template, document, marketing]
+last_updated: 2026-04-27
 ---
 
 # Case Study: How a {{client_industry}} Business [Achieved Specific Result]

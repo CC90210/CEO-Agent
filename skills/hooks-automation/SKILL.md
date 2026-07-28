@@ -4,6 +4,7 @@ description: "Enhanced pre/post operation hooks with learning capabilities. Exte
 tags: [automation, hooks, orchestration]
 triggers: ["hooks automation", "use hooks automation", "run hooks automation"]
 tier: core
+last_updated: 2026-07-09
 ---
 
 # Hooks Automation — Intelligent Operation Lifecycle

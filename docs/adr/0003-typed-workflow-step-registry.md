@@ -6,6 +6,8 @@ date: 2026-05-25
 deciders: [bravo, cc]
 supersedes: null
 superseded_by: null
+tags: [docs, adr, decision]
+last_updated: 2026-05-25
 ---
 
 # ADR-0003 — Typed workflow step registry
@@ -97,3 +99,7 @@ a functional step that bypasses CASL/cooldown/daily-cap is not.
 - Tests: `~/APPS/oasis-command-center/tests/workflow-steps.test.ts`
 - Plan: `~/.claude/plans/i-m-dropping-you-a-magical-cat.md`
 - Source (patterns only): https://github.com/twentyhq/twenty
+
+## Obsidian Links
+- [[docs/adr/INDEX]]
+- [[CONTEXT]]

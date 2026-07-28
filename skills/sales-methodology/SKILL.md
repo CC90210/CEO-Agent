@@ -4,6 +4,7 @@ description: NEPQ-based sales framework for OASIS AI Solutions — discovery cal
 tags: [skill, sales, methodology, nepq]
 triggers: ["sales methodology", "use sales methodology", "run sales methodology"]
 tier: specialized
+last_updated: 2026-07-20
 ---
 
 # Sales Methodology — NEPQ Framework for OASIS AI

@@ -145,7 +145,7 @@ ok "Now at $NEW_COMMIT"
 bold "=== Post-pull verification ==="
 if [[ -n "$PYTHON" ]]; then
     info "Syntax-checking critical scripts..."
-    for f in scripts/lead_engine.py scripts/revenue_engine.py scripts/content_pipeline.py; do
+    for f in scripts/lead_engine.py scripts/revenue_engine.py; do
         if [[ -f "$f" ]]; then
             if "$PYTHON" -c "import ast,sys; ast.parse(open('$f',encoding='utf-8').read()); print('  ok: $f')" 2>&1; then
                 :

@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws docs +write --help"
 triggers: ["gws docs write", "use gws docs write", "run gws docs write", "google docs: append text to a document"]
 tier: specialized
+tags: [skill, gws-docs-write]
+last_updated: 2026-06-20
 ---
 
 # docs +write

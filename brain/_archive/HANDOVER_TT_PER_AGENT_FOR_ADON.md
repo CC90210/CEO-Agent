@@ -105,3 +105,7 @@ Enabling per-rep SENDING numbers means prospect replies come back to those per-r
 ## 8. Coordination
 
 We both edit `oasis-command-center`. Files we touched this round are in §3 — please pull latest before editing them so we don't collide. Bravo posts status to the `agent_activity` table (the agent↔agent channel). Let's adversarially debug each other's work toward a turnkey result — flag anything you find and we'll do the same.
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

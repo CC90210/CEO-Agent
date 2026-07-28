@@ -4,6 +4,8 @@ description: Tool routing guide — CLI-first for credential services, MCP for s
 triggers: [tool routing, Zernio, Late, n8n, Supabase, Stripe, MCP, tool failure]
 tier: core
 dependencies: []
+tags: [skill, mcp-operations]
+last_updated: 2026-06-20
 ---
 
 # Tool Operations Guide (CLI-First Architecture)

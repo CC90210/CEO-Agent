@@ -4,6 +4,8 @@ description: Generate agent-native CLI wrappers for any software, API, or servic
 triggers: [CLI, wrapper, SDK, subprocess, CLI-anything, agent-native CLI]
 tier: specialized
 dependencies: [security-protocol]
+tags: [skill, cli-anything]
+last_updated: 2026-05-21
 ---
 
 # CLI-Anything — Universal CLI Generation

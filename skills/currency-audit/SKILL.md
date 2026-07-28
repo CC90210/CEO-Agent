@@ -8,6 +8,7 @@ triggers: ["currency audit", "staleness sweep", "out of date", "stale docs", "se
 tags: [audit, hygiene, meta, documentation]
 status: '[NEW]'
 created_at: 2026-07-19T20:04:51.210794+00:00
+last_updated: 2026-07-19
 ---
 
 # Currency Audit

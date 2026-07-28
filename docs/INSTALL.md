@@ -1,5 +1,6 @@
 ---
 tags: [install, setup, onboarding]
+last_updated: 2026-07-19
 ---
 
 # Installing Bravo

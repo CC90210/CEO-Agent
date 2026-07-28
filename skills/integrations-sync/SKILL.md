@@ -6,6 +6,7 @@ triggers: ["sync integrations", "refresh stripe", "sync supabase", "refresh data
 owner: bravo
 tier: T2
 risk: medium
+last_updated: 2026-07-09
 ---
 
 # Integrations Sync — Safe Refresh Patterns

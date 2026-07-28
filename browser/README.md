@@ -1,3 +1,8 @@
+---
+tags: [browser, automation]
+last_updated: 2026-05-21
+---
+
 # Bravo Browser Intelligence Layer
 
 This directory is Bravo's durable browser memory and safety layer.

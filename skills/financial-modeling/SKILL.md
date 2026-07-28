@@ -4,6 +4,7 @@ description: Unit economics, SaaS metrics, cohort analysis, scenario modeling, c
 tags: [skill, finance, modeling, unit-economics, saas-metrics]
 triggers: ["financial modeling", "use financial modeling", "run financial modeling", "unit economics"]
 tier: specialized
+last_updated: 2026-07-20
 ---
 
 # Financial Modeling

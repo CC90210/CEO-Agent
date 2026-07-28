@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws modelarmor --help"
 triggers: ["gws modelarmor", "use gws modelarmor", "run gws modelarmor", "google model armor: filter user-generated content for safety"]
 tier: specialized
+tags: [skill, gws-modelarmor]
+last_updated: 2026-06-20
 ---
 
 # modelarmor (v1)

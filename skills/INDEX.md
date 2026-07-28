@@ -1,5 +1,6 @@
 ---
 tags: [skills, index, hub]
+last_updated: 2026-07-19
 ---
 
 # Skills Index — Specialized Capabilities (live count: `CAPABILITY_GRAPH.json` totals — 152 as of 2026-07-19; never hand-count here)

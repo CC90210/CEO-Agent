@@ -4,6 +4,8 @@ about: Something is broken or behaving unexpectedly
 title: "[BUG] "
 labels: bug
 assignees: CC90210
+tags: [root]
+last_updated: 2026-05-11
 ---
 
 ## What happened?

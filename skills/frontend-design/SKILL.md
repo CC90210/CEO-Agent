@@ -5,6 +5,8 @@ license: Complete terms in LICENSE.txt
 triggers: [UI, design, Tailwind, component, responsive, landing page, dashboard, frontend]
 tier: standard
 dependencies: []
+tags: [skill, frontend-design]
+last_updated: 2026-05-21
 ---
 
 This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.

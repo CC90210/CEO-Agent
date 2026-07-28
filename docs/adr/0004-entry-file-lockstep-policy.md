@@ -6,6 +6,8 @@ date: 2026-05-23
 deciders: [bravo, cc]
 supersedes: null
 superseded_by: null
+tags: [docs, adr, decision]
+last_updated: 2026-05-23
 ---
 
 # ADR-0004 — Entry-file lockstep policy
@@ -96,3 +98,7 @@ These are EXPECTED to live in only one file. Cross-referencing the others is wro
 - [ ] One follow-up audit pass: confirm every Class A rule is actually present + worded compatibly in all 5 files. Run via `scripts/audit_entry_file_class_a.py` (to be written).
 
 These are nice-to-have, not load-bearing. The ADR itself is the policy artifact.
+
+## Obsidian Links
+- [[docs/adr/INDEX]]
+- [[CONTEXT]]

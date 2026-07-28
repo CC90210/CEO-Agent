@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws calendar +insert --help"
 triggers: ["gws calendar insert", "use gws calendar insert", "run gws calendar insert", "google calendar: create a new event"]
 tier: specialized
+tags: [skill, gws-calendar-insert]
+last_updated: 2026-06-20
 ---
 
 # calendar +insert

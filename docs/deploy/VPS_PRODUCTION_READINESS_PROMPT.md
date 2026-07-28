@@ -1,3 +1,8 @@
+---
+tags: [docs, deploy]
+last_updated: 2026-07-09
+---
+
 > ⚠️ **SUPERSEDED 2026-07-09** — do NOT paste `ANTHROPIC_API_KEY` into any env.
 > Auth = `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` (see memory `reference_claude_code_headless_vps_auth`).
 > MRR reporting is Atlas-owned.
@@ -309,3 +314,7 @@ Plus a one-paragraph plain-English summary to CC:
    production setup is worse than a clearly-broken one.
 
 Begin Step 1 now.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

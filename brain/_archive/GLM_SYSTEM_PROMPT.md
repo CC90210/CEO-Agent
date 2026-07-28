@@ -91,3 +91,7 @@ CC uses 3+ AI agents. Work in ANY must be visible to ALL.
 - **Inventory:** 150 skills, 105 CLI tools, 35 workflows, 8 subagents, 23 cron jobs
 
 *"Only good things from now on."*
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

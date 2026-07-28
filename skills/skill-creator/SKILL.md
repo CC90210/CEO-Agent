@@ -4,6 +4,8 @@ description: Create new skills, modify and improve existing skills, and measure 
 triggers: [create skill, new skill, modify skill, skill eval, skill performance]
 tier: specialized
 dependencies: [writing-skills]
+tags: [skill, skill-creator]
+last_updated: 2026-07-20
 ---
 
 # Skill Creator

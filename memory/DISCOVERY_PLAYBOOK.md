@@ -62,4 +62,4 @@ freshness_threshold_days: 90
 
 ## Obsidian Links
 - [[brain/USER]] | [[brain/CEO_OPERATING_SYSTEM]] | `memory/LEAD_TRACKER.csv`
-- [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) | [[agents/revenue-hunter]]
+- `../CMO-Agent/brain/CONTENT_BIBLE` (Maven canonical) | [[agents/revenue-hunter]]

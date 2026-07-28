@@ -1,5 +1,6 @@
 ---
 tags: [gateway, telegram, discord, slack, messaging, agents]
+last_updated: 2026-07-09
 ---
 
 # Multi-Platform Messaging Gateway

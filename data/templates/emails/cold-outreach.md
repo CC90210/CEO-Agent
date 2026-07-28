@@ -4,6 +4,7 @@ name: Cold Outreach — NEPQ Framework
 type: email
 use_case: First contact with a cold prospect
 variables: [prospect_name, prospect_company, industry, specific_pain_point, social_proof_metric]
+last_updated: 2026-04-27
 ---
 
 # Cold Outreach Email

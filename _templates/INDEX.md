@@ -1,5 +1,6 @@
 ---
 tags: [templates, index, hub]
+last_updated: 2026-04-27
 ---
 
 # Templates Index — Obsidian Note Templates

@@ -11,6 +11,8 @@ metadata:
       bins: ["gws"]
       skills: ["gws-calendar", "gws-gmail", "gws-drive", "gws-chat", "gws-sheets"]
 triggers: ["persona event coordinator", "use persona event coordinator", "run persona event coordinator", "plan and manage events \u2014 scheduling"]
+tags: [skill, archive, _archive]
+last_updated: 2026-05-21
 ---
 
 # Event Coordinator

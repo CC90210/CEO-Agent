@@ -137,3 +137,7 @@ the operator-initiated `agent_source` (`shop_out_sender` added to `OPERATOR_INIT
 ancestor `bravo_cli`/`send_gateway.py`); intent stays `commercial` everywhere so CASL suppression keeps
 applying to lender submissions (a Codex audit caught an earlier intent=transactional attempt as a
 compliance regression).
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

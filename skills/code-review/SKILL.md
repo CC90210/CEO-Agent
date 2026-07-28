@@ -4,6 +4,8 @@ description: Pre-landing code review for TypeScript/Next.js/Supabase/Stripe/Verc
 triggers: [review, PR, quality, security audit, checklist, pre-landing, code review]
 tier: standard
 dependencies: [systematic-debugging]
+tags: [skill, code-review]
+last_updated: 2026-05-23
 ---
 
 # Code Review — Pre-Landing Quality Gate

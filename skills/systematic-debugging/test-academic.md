@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Academic Test: Systematic Debugging Skill
 
 You have access to the systematic debugging skill at skills/debugging/systematic-debugging

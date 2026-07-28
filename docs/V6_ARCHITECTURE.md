@@ -5,6 +5,7 @@ status: DRAFT — pending CC review
 date: 2026-04-22
 supersedes: V5.7 (file-based LLM-OS)
 tags: [architecture, v6, infrastructure, security, rag, event-driven, docker]
+last_updated: 2026-07-20
 ---
 
 # Bravo V6.0 — Principal Architect's Response

@@ -4,6 +4,8 @@ description: Use when starting any conversation - establishes how to find and us
 triggers: [skill, superpowers, find skill, use skill, skill invocation]
 tier: core
 dependencies: []
+tags: [skill, using-superpowers]
+last_updated: 2026-05-21
 ---
 
 <EXTREMELY-IMPORTANT>

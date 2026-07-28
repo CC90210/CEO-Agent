@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-07-19
+---
+
 # n8n Inbound Webhook → OASIS Command Center
 
 > One-pager. Wires the OASIS Inbound Qualifier workflow (n8n ID `1cGIN32alM8sf8OV`) into the Command Center so every classified email shows up live in Pipeline + bumps the green dot in Settings → Integrations.

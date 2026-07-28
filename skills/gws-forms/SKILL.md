@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws forms --help"
 triggers: ["gws forms", "use gws forms", "run gws forms", "read and write google forms"]
 tier: specialized
+tags: [skill, gws-forms]
+last_updated: 2026-06-20
 ---
 
 # forms (v1)

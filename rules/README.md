@@ -1,3 +1,8 @@
+---
+tags: [rules]
+last_updated: 2026-05-21
+---
+
 # `rules/` — Compliance Datalog (Not Agent Rules)
 
 This directory holds **Datalog compliance rules** (`.dl` files) used by the

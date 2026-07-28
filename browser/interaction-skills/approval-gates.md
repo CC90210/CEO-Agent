@@ -1,3 +1,8 @@
+---
+tags: [browser, automation]
+last_updated: 2026-05-21
+---
+
 # Approval Gates
 
 Use this before any browser action that can affect a real account.

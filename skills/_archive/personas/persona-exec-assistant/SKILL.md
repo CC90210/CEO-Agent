@@ -11,6 +11,8 @@ metadata:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-calendar", "gws-drive", "gws-chat"]
 triggers: ["persona exec assistant", "use persona exec assistant", "run persona exec assistant", "manage an executive's schedule"]
+tags: [skill, archive, _archive]
+last_updated: 2026-05-21
 ---
 
 # Executive Assistant

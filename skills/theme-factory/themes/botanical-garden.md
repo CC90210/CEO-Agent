@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Botanical Garden
 
 A fresh and organic theme featuring vibrant garden-inspired colors for lively presentations.

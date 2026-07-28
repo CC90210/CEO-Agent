@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-06-03
+---
+
 # SunBiz VPS — Build Mission (3 backend builds + gap closure), turnkey
 
 > Paste the block below into a **Claude Code** session on the SunBiz VPS, launched from
@@ -130,3 +135,7 @@ at that time and drains recipients via send_gateway in dry-run (no real sends).
 
 If anything here conflicts with the live code, trust the code and tell CC the discrepancy before building.
 ```
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

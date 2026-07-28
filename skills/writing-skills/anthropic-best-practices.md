@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Skill authoring best practices
 
 > Learn how to write effective Skills that Claude can discover and use successfully.

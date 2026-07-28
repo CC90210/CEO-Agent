@@ -4,6 +4,7 @@ description: Build, deploy, and manage Python background daemons on Windows — 
 tags: [skill, automation, python, daemon, windows]
 triggers: ["python daemon automation", "use python daemon automation", "run python daemon automation"]
 tier: standard
+last_updated: 2026-07-09
 ---
 
 # Python Daemon Automation — Windows Background Process Management

@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-23
+---
+
 # Progressive Skill Loading Protocol
 
 ## Overview

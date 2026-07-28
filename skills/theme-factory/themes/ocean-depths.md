@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Ocean Depths
 
 A professional and calming maritime theme that evokes the serenity of deep ocean waters.

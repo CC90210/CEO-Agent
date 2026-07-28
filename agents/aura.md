@@ -7,6 +7,7 @@ role: Sensory / voice persona (peer profile)
 home: scripts/aura/
 status: live (2026-05-17)
 tags: [agent, peer-profile]
+last_updated: 2026-07-20
 ---
 
 # Aura — voice + sensory persona

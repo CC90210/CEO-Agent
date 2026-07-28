@@ -4,6 +4,7 @@ description: Spawn and coordinate Claude Code Agent Teams (experimental) — par
 tags: [skill, orchestration, agent-teams]
 triggers: ["agent teams", "use agent teams", "run agent teams"]
 tier: standard
+last_updated: 2026-06-20
 ---
 
 # Agent Teams — Parallel Subagent Coordination

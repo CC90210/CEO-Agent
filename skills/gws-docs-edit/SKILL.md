@@ -8,6 +8,8 @@ metadata:
   requires:
     bins: ["gws", "python"]
   cliHelp: "python scripts/integrations/gws_docs_edit.py --help"
+tags: [skill, gws-docs-edit]
+last_updated: 2026-06-12
 ---
 
 # gws-docs-edit — Edit Google Docs in place

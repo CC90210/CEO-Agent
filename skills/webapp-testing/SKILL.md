@@ -5,6 +5,8 @@ license: Complete terms in LICENSE.txt
 triggers: [webapp test, local app test, frontend test, browser test, UI test]
 tier: standard
 dependencies: [browser-automation]
+tags: [skill, webapp-testing]
+last_updated: 2026-05-21
 ---
 
 # Web Application Testing

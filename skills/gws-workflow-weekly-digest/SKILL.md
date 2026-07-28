@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws workflow +weekly-digest --help"
 triggers: ["gws workflow weekly digest", "use gws workflow weekly digest", "run gws workflow weekly digest"]
 tier: specialized
+tags: [skill, gws-workflow-weekly-digest]
+last_updated: 2026-06-20
 ---
 
 # workflow +weekly-digest

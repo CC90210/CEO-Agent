@@ -1,3 +1,8 @@
+---
+tags: [memory, daily]
+last_updated: 2026-04-27
+---
+
 # Content Scripts for Monday Creation Session
 
 ## 1. The Builder: PropFlow CRM

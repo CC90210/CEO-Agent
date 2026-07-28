@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws events +subscribe --help"
 triggers: ["gws events subscribe", "use gws events subscribe", "run gws events subscribe"]
 tier: specialized
+tags: [skill, gws-events-subscribe]
+last_updated: 2026-06-20
 ---
 
 # events +subscribe

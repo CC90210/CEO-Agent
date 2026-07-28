@@ -6,6 +6,7 @@ triggers: ["silver platter", "data audit", "data readiness audit", "audit my dat
 owner: bravo
 tier: T2
 risk: low
+last_updated: 2026-05-21
 ---
 
 # Silver Platter — Data-Readiness Audit

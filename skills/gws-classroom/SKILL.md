@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws classroom --help"
 triggers: ["gws classroom", "use gws classroom", "run gws classroom", "google classroom: manage classes"]
 tier: specialized
+tags: [skill, gws-classroom]
+last_updated: 2026-06-20
 ---
 
 # classroom (v1)

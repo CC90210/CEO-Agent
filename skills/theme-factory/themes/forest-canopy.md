@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Forest Canopy
 
 A natural and grounded theme featuring earth tones inspired by dense forest environments.

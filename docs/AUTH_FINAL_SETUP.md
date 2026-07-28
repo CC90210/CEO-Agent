@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-07-19
+---
+
 # OASIS Command Center — Auth Setup
 
 > **Architecture note (2026-04-30 PM):** the OASIS Command Center and the

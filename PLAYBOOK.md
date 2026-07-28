@@ -1,3 +1,8 @@
+---
+tags: [root]
+last_updated: 2026-07-19
+---
+
 # Bravo Playbook — How to Actually Use Your System
 
 > **For CC, not engineers.** If you're reading this looking for SQL schemas

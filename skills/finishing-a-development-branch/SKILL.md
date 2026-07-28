@@ -4,6 +4,8 @@ description: Use when implementation is complete, all tests pass, and you need t
 triggers: [finish branch, merge, PR, integrate, complete development, ship branch]
 tier: standard
 dependencies: [verification-before-completion]
+tags: [skill, finishing-a-development-branch]
+last_updated: 2026-05-21
 ---
 
 # Finishing a Development Branch

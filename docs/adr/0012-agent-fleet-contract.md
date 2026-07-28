@@ -6,6 +6,8 @@ date: 2026-07-19
 deciders: [bravo, cc]
 supersedes: null
 superseded_by: null
+tags: [docs, adr, decision]
+last_updated: 2026-07-20
 ---
 
 # ADR-0012 — Canonical agent contract: one schema, two dialects, scoped-by-default

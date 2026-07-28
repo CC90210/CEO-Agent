@@ -4,6 +4,8 @@ description: Send OASIS cold/follow-up outreach emails with branded HTML, bookin
 triggers: ["outreach send", "use outreach send", "run outreach send", "send oasis cold/follow-up outreach emails with branded html"]
 argument_hint: "Which lead(s)? (lead UUID, email address, or filter like 'all warm cold-2 days')"
 tier: specialized
+tags: [skill, outreach-send]
+last_updated: 2026-06-20
 ---
 
 # Outreach Send — Canonical Workflow

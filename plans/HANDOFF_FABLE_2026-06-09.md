@@ -1,3 +1,8 @@
+---
+tags: [plans]
+last_updated: 2026-06-09
+---
+
 # HANDOFF → Fable — Audit Remediation V1 complete (Business-Empire-Agent / Bravo)
 **Date:** 2026-06-09 · **Ships as:** V6.9.0 · **Branch:** `main` (pushed) · **Author:** Bravo (Opus 4.8)
 
@@ -144,3 +149,7 @@ per-phase records in `plans/MISSION_2026-06-09_PROGRESS.md`) stands as the revie
 - Original brief: `plans/MISSION_2026-06-09_AUDIT_REMEDIATION.md`
 - Retrospective + lessons: `memory/RETROSPECTIVE_2026-06-09_audit_remediation.md`
 - Security model (guards + send-surface compliance): `brain/SECURITY_MODEL.md` §9–10
+
+## Obsidian Links
+- [[brain/STATE]]
+- [[memory/INDEX]]

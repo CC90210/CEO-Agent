@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Arctic Frost
 
 A cool and crisp winter-inspired theme that conveys clarity, precision, and professionalism.

@@ -1,3 +1,8 @@
+---
+tags: [root]
+last_updated: 2026-07-20
+---
+
 # Changelog
 
 All notable changes to Business-Empire-Agent are documented in this file.

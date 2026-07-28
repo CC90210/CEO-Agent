@@ -135,3 +135,7 @@ SunBiz/Breeze development is open. Three SunBiz reps: **Matt** (owner, Submissio
 - **`server-only` + tsx** → `--conditions=react-server`.
 - **Native deps on Vercel** (signature feature) — verify the Linux build is green.
 - **State sync after work:** `python scripts/state/state_sync.py --note "…"`.
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

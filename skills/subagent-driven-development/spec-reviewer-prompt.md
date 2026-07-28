@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Spec Compliance Reviewer Prompt Template
 
 Use this template when dispatching a spec compliance reviewer subagent.

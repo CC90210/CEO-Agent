@@ -4,6 +4,7 @@ description: Structured daily plan for CC — content creation priorities, sched
 tags: [skill, ceo, planning, daily]
 triggers: ["daily planner", "use daily planner", "run daily planner", "structured daily plan for cc \u2014 content creation priorities"]
 tier: core
+last_updated: 2026-07-20
 ---
 
 # Daily Planner — CC's Morning Operating System

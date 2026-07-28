@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws keep --help"
 triggers: ["gws keep", "use gws keep", "run gws keep", "manage google keep notes"]
 tier: specialized
+tags: [skill, gws-keep]
+last_updated: 2026-06-20
 ---
 
 # keep (v1)

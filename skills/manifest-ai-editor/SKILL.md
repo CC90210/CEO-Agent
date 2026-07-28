@@ -11,6 +11,7 @@ argument_hint: "Which manifest section? (object_metadata / field_metadata / view
 requires:
   state: [database/070_object_field_metadata.sql, database/071_tenant_views.sql, database/072_workflow_engine.sql]
   env: [ANTHROPIC_API_KEY, BRAVO_SUPABASE_URL, BRAVO_SUPABASE_SERVICE_ROLE_KEY]
+last_updated: 2026-05-25
 ---
 
 # manifest-ai-editor — AI-assisted manifest editing (V6.9.4)

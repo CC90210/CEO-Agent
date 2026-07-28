@@ -6,6 +6,8 @@ date: 2026-05-25
 deciders: [bravo, cc]
 supersedes: null
 superseded_by: null
+tags: [docs, adr, decision]
+last_updated: 2026-05-25
 ---
 
 # ADR-0004 — Field-level permission model
@@ -89,3 +91,7 @@ Before persisting an inbound write:
 - Original audit: `memory/feedback_role_enum_needs_matrix.md` (2026-05-17 "Role enum needs enforced matrix")
 - Plan: `~/.claude/plans/i-m-dropping-you-a-magical-cat.md`
 - Source (patterns only): https://github.com/twentyhq/twenty
+
+## Obsidian Links
+- [[docs/adr/INDEX]]
+- [[CONTEXT]]

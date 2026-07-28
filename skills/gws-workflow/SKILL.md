@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws workflow --help"
 triggers: ["gws workflow", "use gws workflow", "run gws workflow", "google workflow: cross-service productivity workflows"]
 tier: specialized
+tags: [skill, gws-workflow]
+last_updated: 2026-06-20
 ---
 
 # workflow (v1)

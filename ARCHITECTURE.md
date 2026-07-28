@@ -1,3 +1,8 @@
+---
+tags: [root]
+last_updated: 2026-07-09
+---
+
 # ARCHITECTURE — Business-Empire-Agent V6.0
 
 > This document explains the engineering design of Bravo — not just what it is, but why every decision was made this way.

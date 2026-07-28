@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws calendar +agenda --help"
 triggers: ["gws calendar agenda", "use gws calendar agenda", "run gws calendar agenda", "google calendar: show upcoming events across all calendars"]
 tier: specialized
+tags: [skill, gws-calendar-agenda]
+last_updated: 2026-06-20
 ---
 
 # calendar +agenda

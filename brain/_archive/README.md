@@ -58,3 +58,7 @@ Rules:
 | `HANDOVER_TT_PER_AGENT_FOR_ADON.md` | `brain/HANDOVER_TT_PER_AGENT_FOR_ADON.md` | Completion evidence in `memory/SESSION_LOG.md` |
 | `MAC_SUNBIZ_CHAT_UPDATE_2026-06-26.md` | `brain/MAC_SUNBIZ_CHAT_UPDATE_2026-06-26.md` | `docs/VPS_SETUP_HANDOFF.md` |
 | `MONTREAL_HANDOVER_2026-06-25.md` | `brain/MONTREAL_HANDOVER_2026-06-25.md` | Durable outcomes in `memory/SESSION_LOG.md` |
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

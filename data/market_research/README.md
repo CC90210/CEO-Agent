@@ -1,5 +1,6 @@
 ---
 tags: [data, market-research]
+last_updated: 2026-04-27
 ---
 
 # Market Research Archive

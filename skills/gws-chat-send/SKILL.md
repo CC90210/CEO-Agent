@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws chat +send --help"
 triggers: ["gws chat send", "use gws chat send", "run gws chat send", "google chat: send a message to a space"]
 tier: specialized
+tags: [skill, gws-chat-send]
+last_updated: 2026-06-20
 ---
 
 # chat +send

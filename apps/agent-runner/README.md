@@ -1,3 +1,8 @@
+---
+tags: [apps]
+last_updated: 2026-07-09
+---
+
 # `apps/agent-runner/` — Design-Stage Scaffold
 
 Status: **scaffold only, not deployed.**

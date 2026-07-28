@@ -1,3 +1,8 @@
+---
+tags: [docs, deploy]
+last_updated: 2026-06-09
+---
+
 # VPS Non-Root Migration Prompt
 
 > Paste everything between the triple-dashes into your VPS Claude Code
@@ -239,3 +244,7 @@ to roll back, and if so what stopped you?
    half-migrated sunbiz setup. CC can re-run with a corrected procedure
    later.
 5. **Do not touch cloudflared.** It stays root-owned and untouched.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

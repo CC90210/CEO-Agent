@@ -34,7 +34,7 @@ verified: 2026-06-09
 - [[memory/ACTIVE_TASKS]] — Current task board
 - [[memory/SESSION_LOG]] — All agent activity (cross-AI)
 - `memory/LEAD_TRACKER.csv` — Pipeline (CSV)
-- [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) — Content Bible + outreach
+- `../CMO-Agent/brain/CONTENT_BIBLE` (Maven canonical) — Content Bible + outreach
 
 ### Knowledge Base
 - [[memory/PATTERNS]] — Validated patterns
@@ -82,11 +82,11 @@ verified: 2026-06-09
 ## Agent Registry (17 agents)
 | Agent | Model | File |
 |-------|-------|------|
-| Architect | Opus | [[agents/architect]] |
+| Architect | Opus | `.claude/agents/architect.md` |
 | Writer | Sonnet | [[agents/writer]] |
 | Reviewer | Sonnet | [[.claude/agents/code-reviewer]] |
-| Debugger | Sonnet | [[agents/debugger]] |
-| Researcher | Sonnet | [[agents/researcher]] |
+| Debugger | Sonnet | `.claude/agents/debugger.md` |
+| Researcher | Sonnet | `.claude/agents/researcher.md` |
 | Chief of Staff | Sonnet | [[agents/chief-of-staff]] |
 | Git Ops | Haiku | [[agents/git-ops]] |
 | Revenue Hunter | Sonnet | [[agents/revenue-hunter]] |

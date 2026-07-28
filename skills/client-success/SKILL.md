@@ -4,6 +4,7 @@ description: Client health scoring, churn prediction, retention playbooks, NPS f
 tags: [skill, client-success, retention]
 triggers: ["client success", "use client success", "run client success", "client health scoring"]
 tier: specialized
+last_updated: 2026-07-20
 ---
 
 # Client Success — Health Scoring and Retention System

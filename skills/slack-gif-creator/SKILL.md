@@ -5,6 +5,8 @@ license: Complete terms in LICENSE.txt
 triggers: [GIF, Slack GIF, animated GIF, animation]
 tier: specialized
 dependencies: []
+tags: [skill, slack-gif-creator]
+last_updated: 2026-05-21
 ---
 
 # Slack GIF Creator

@@ -272,7 +272,7 @@ npm install -g @carlrannaberg/claudekit
 
 ## 🔗 Obsidian Links
 - [[brain/SOUL]] | [[brain/APP_REGISTRY]] | [[brain/CAPABILITIES]] | [[brain/QUICK_REFERENCE]]
-- [[memory/MEMORY_INDEX]] | [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical)
+- [[memory/MEMORY_INDEX]] | `../CMO-Agent/brain/CONTENT_BIBLE` (Maven canonical)
 
 ---
 

@@ -4,6 +4,7 @@ description: Generate proposals, SOWs, and NDAs for OASIS AI Solutions. Covers d
 tags: [skill, proposal-generation, sales, client]
 triggers: ["proposal generation", "use proposal generation", "run proposal generation", "generate proposals"]
 tier: specialized
+last_updated: 2026-07-20
 ---
 
 # Proposal Generation — OASIS AI Solutions

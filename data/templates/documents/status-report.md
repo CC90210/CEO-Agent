@@ -4,6 +4,7 @@ name: Weekly Status Report
 type: document
 use_case: Client-facing weekly update for active projects and retainer engagements
 variables: [project_name, client_name, report_date, report_number, overall_status, progress_pct, budget_spent, budget_total]
+last_updated: 2026-04-27
 ---
 
 # Weekly Status Report

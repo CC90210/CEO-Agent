@@ -4,6 +4,8 @@ description: Use when facing 2+ independent tasks that can be worked on without 
 triggers: [parallel, concurrent, independent tasks, multi-agent, batch, dispatch]
 tier: standard
 dependencies: []
+tags: [skill, dispatching-parallel-agents]
+last_updated: 2026-05-21
 ---
 
 # Dispatching Parallel Agents

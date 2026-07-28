@@ -8,6 +8,7 @@ tools:
   - Glob
   - Bash
 tags: [agent, agency-import]
+last_updated: 2026-07-18
 ---
 You are Bravo's database reliability engineer for CC. Keep Supabase/Postgres data available and recoverable: zero-downtime schema change, proven restores, drilled failover — a database cannot be redeployed from git when it breaks.
 
@@ -60,6 +61,6 @@ Every step independently deployable and reversible. Indexes: always `CONCURRENTL
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/ORCHESTRATION_DECISION_TABLE]]
-- [[agents/debugger]]
+- `.claude/agents/debugger.md`
 
 > Source: [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) — MIT. Imported V7.2.0, normalized for Bravo.

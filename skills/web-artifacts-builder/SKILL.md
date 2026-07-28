@@ -5,6 +5,8 @@ license: Complete terms in LICENSE.txt
 triggers: [web artifact, React artifact, HTML artifact, multi-component, shadcn, complex artifact]
 tier: specialized
 dependencies: [frontend-design]
+tags: [skill, web-artifacts-builder]
+last_updated: 2026-05-21
 ---
 
 # Web Artifacts Builder

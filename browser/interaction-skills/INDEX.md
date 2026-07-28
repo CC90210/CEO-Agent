@@ -1,5 +1,6 @@
 ---
 tags: [browser, interaction, hub]
+last_updated: 2026-04-27
 ---
 
 # Interaction Skills

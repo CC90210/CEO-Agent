@@ -4,6 +4,7 @@ name: Monthly Client Check-In
 type: email
 use_case: Proactive monthly touchpoint with active retainer clients
 variables: [client_name, client_company, wins_this_month, metrics_summary, next_month_focus, open_questions, meeting_link]
+last_updated: 2026-04-27
 ---
 
 # Monthly Client Check-In Email

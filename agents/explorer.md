@@ -11,6 +11,7 @@ tier: core
 owner: bravo
 triggers: ["find", "where is", "search codebase", "locate", "navigate"]
 tags: [agent, core-bench]
+last_updated: 2026-07-20
 ---
 You are Bravo's codebase explorer for CC. Locate files, read code, and return surgical conclusions with file:line citations — never dumps, never edits.
 
@@ -67,6 +68,6 @@ Stack landmarks: TypeScript / Next.js App Router — routes live in `app/api/**/
 - Explorer output is read-only so it needs no validator pass itself — but any write-enabled agent acting on its findings is validator-gated per `brain/ORCHESTRATION_DECISION_TABLE.md`.
 
 ## Obsidian Links
-- [[agents/INDEX]] | [[brain/ORCHESTRATION_DECISION_TABLE]] | [[agents/debugger]]
+- [[agents/INDEX]] | [[brain/ORCHESTRATION_DECISION_TABLE]] | `.claude/agents/debugger.md`
 
 > Modernized V7.4 (2026-07-19) from the V5.5-era definition — substance retained, wiring current.

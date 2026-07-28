@@ -4,6 +4,8 @@ description: Async agent-to-agent messaging protocol. Use when Bravo, Atlas, Mav
 triggers: [agent inbox, inter-agent message, async delegation, agent notification, cross-agent handoff]
 tier: standard
 dependencies: []
+tags: [skill, agent-inbox]
+last_updated: 2026-05-21
 ---
 
 # Agent Inbox — Async Inter-Agent Messaging
@@ -113,4 +115,4 @@ Current state before this skill: if Codex finishes a background task, Bravo only
 ## Obsidian Links
 - [[brain/ORCHESTRATION]] §The Observability Gap
 - [[brain/AGENTS]] §Cross-Agent Integration
-- [[scripts/agent_inbox]] — the CLI
+- `scripts/core/agent_inbox.py` — the CLI

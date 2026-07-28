@@ -4,6 +4,8 @@ description: Use when implementing any feature or bugfix, before writing impleme
 triggers: [test, TDD, failing test, unit test, red green, test first]
 tier: standard
 dependencies: []
+tags: [skill, test-driven-development]
+last_updated: 2026-05-21
 ---
 
 # Test-Driven Development (TDD)

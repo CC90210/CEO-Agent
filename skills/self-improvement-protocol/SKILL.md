@@ -8,6 +8,8 @@ metadata:
   installs_in: [bravo, atlas, maven, aura]
   tier: full
 triggers: [self-heal, self-optimize, self-develop, self-improve, retrospective, reflexion, review-self, heal, optimize, evolve]
+tags: [skill, self-improvement-protocol]
+last_updated: 2026-04-27
 ---
 
 # SELF-IMPROVEMENT PROTOCOL — The 4-Loop

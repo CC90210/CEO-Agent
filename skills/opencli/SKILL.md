@@ -4,6 +4,8 @@ description: Turn any website into a CLI command via browser automation. Use for
 triggers: [opencli, website CLI, web automation, API discovery, browser CLI, explore website, synthesize adapter]
 tier: specialized
 dependencies: [browser-automation, cli-anything]
+tags: [skill, opencli]
+last_updated: 2026-06-20
 ---
 
 # OpenCLI — Website-to-CLI Automation

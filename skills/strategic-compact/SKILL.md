@@ -4,6 +4,8 @@ description: Use this skill whenever the user asks about the strategic compact, 
 triggers: [strategic compact, goals, business strategy, OKR, mission planning, operating principles]
 tier: specialized
 dependencies: []
+tags: [skill, strategic-compact]
+last_updated: 2026-05-21
 ---
 
 # Strategic Compact Skill

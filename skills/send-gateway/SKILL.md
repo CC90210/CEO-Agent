@@ -4,6 +4,8 @@ description: The single outbound chokepoint for every autonomous action Bravo pe
 disable-model-invocation: true
 triggers: ["send gateway", "use send gateway", "run send gateway"]
 tier: core
+tags: [skill, send-gateway]
+last_updated: 2026-07-09
 ---
 
 # Send Gateway — the only outbound path

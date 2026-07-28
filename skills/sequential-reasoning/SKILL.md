@@ -4,6 +4,8 @@ description: Enhanced multi-step reasoning protocol for complex problems. Combin
 triggers: [complex reasoning, multi-step analysis, architecture decision, strategic planning]
 tier: standard
 dependencies: []
+tags: [skill, sequential-reasoning]
+last_updated: 2026-05-21
 ---
 
 # Sequential Reasoning Skill

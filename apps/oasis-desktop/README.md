@@ -1,3 +1,8 @@
+---
+tags: [apps]
+last_updated: 2026-05-22
+---
+
 # OASIS AI Desktop
 
 OASIS AI Desktop is the installable shell for the Agent Command Center. It loads the existing Command Center UI and, when available, starts the local bridge sidecar so This desktop access can use approved local tools and files.
@@ -92,3 +97,7 @@ For production CI, set `OASIS_REQUIRE_WINDOWS_SIGNING=true` (or `OASIS_REQUIRE_M
 This is the first desktop shell, not the final production installer. Before broad client release, add code signing, auto-updates, OS keychain storage, bundled sidecar runtime, and per-agent local permission prompts.
 
 See `RELEASE.md` for the alpha, beta, and production gates.
+
+## Obsidian Links
+- [[brain/APP_REGISTRY]]
+- [[docs/INDEX]]

@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws people --help"
 triggers: ["gws people", "use gws people", "run gws people", "google people: manage contacts and profiles"]
 tier: specialized
+tags: [skill, gws-people]
+last_updated: 2026-06-20
 ---
 
 # people (v1)

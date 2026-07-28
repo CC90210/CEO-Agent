@@ -172,4 +172,4 @@ Paste the full report back to me here. I'll triage from the Windows side without
 - [[docs/deploy/MAC_SYNC_PROMPT]]
 - [[docs/deploy/MAC_COMMAND_CENTER_PROMPT]] — for connecting the Mac to the dashboard chat-server bridge (separate concern from this general sync prompt)
 - [[brain/CREDENTIALS_SCAFFOLD]]
-- [[memory/HANDOFF]]
+- [[memory/SESSION_LOG]] — the live cross-machine handoff record

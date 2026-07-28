@@ -4,6 +4,8 @@ description: Archived persona-* skills (customer-support, event-coordinator, exe
 status: archived
 archived_at: 2026-05-16
 superseded_by: memory/PERSONAS.md
+tags: [skill, archive]
+last_updated: 2026-05-16
 ---
 
 # Personas Archive

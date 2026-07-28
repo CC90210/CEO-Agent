@@ -5,6 +5,7 @@ triggers: [investor update, stakeholder update, advisory board, valuation, partn
 tier: specialized
 dependencies: [financial-modeling, investor-materials]
 tags: [skill, investor, communications]
+last_updated: 2026-06-20
 ---
 
 # Investor Communications Skill

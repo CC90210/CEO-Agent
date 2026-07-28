@@ -5,6 +5,8 @@ license: Complete terms in LICENSE.txt
 triggers: [MCP server, build MCP, FastMCP, MCP SDK, Model Context Protocol]
 tier: specialized
 dependencies: []
+tags: [skill, mcp-builder]
+last_updated: 2026-07-20
 ---
 
 # MCP Server Development Guide

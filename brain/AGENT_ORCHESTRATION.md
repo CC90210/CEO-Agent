@@ -194,5 +194,5 @@ This is the pattern Hermes already enforces (`brain/SOUL.md` immutable: "Local-f
 
 ## Obsidian Links
 - [[CLAUDE]] · [[brain/SOUL]] · [[brain/AGENTS]] · [[brain/CAPABILITIES]] · [[brain/QUICK_REFERENCE]]
-- [[../APPS/CFO-Agent/brain/AGENT_ORCHESTRATION]] · [[../CMO-Agent/brain/RESPONSIBILITY_BOUNDARIES]]
+- [[../APPS/CFO-Agent/brain/AGENT_ORCHESTRATION]] · `../CMO-Agent/brain/RESPONSIBILITY_BOUNDARIES`
 - [[memory/ACTIVE_TASKS]] · [[memory/SESSION_LOG]]

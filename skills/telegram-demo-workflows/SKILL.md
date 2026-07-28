@@ -3,6 +3,8 @@ name: telegram-demo-workflows
 description: 5 verified, rehearsed Telegram → MacBook demo workflows for filming content. Each is designed to work 100% of the time, look visually impressive on camera, and be completable in under 60 seconds. Use these when filming "AI takes over my computer" content.
 triggers: [demo, film, content, record, show, camera, telegram controls, computer control demo]
 tier: full
+tags: [skill, telegram-demo-workflows]
+last_updated: 2026-07-20
 ---
 
 # Telegram Demo Workflows — 5 Content-Ready Sequences

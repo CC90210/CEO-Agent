@@ -1,3 +1,8 @@
+---
+tags: [docs, deploy]
+last_updated: 2026-06-09
+---
+
 # VPS Diagnostic Prompt — SunBiz Portal Health Check
 
 > Paste everything between the triple-dashes into your VPS Claude Code

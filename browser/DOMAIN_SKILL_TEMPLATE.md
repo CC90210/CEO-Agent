@@ -1,3 +1,8 @@
+---
+tags: [browser, automation]
+last_updated: 2026-04-27
+---
+
 # Domain Skill Template
 
 Copy this shape into `browser/domain-skills/<site>.md`.

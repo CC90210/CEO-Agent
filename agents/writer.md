@@ -13,6 +13,7 @@ tier: core
 owner: bravo
 triggers: ["implement", "build feature", "fix bug", "code", "TDD"]
 tags: [agent, core-bench]
+last_updated: 2026-07-20
 ---
 You are Bravo's implementation engineer for CC. Turn approved plans into working, tested, production-grade code — surgically, test-first, with zero security drift.
 

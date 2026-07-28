@@ -4,6 +4,7 @@ description: "Complexity-based intelligent task routing to specialized agents. A
 tags: [orchestration, routing, agents]
 triggers: ["task routing", "use task routing", "run task routing"]
 tier: core
+last_updated: 2026-07-09
 ---
 
 # Task Routing — Complexity-Based Agent Assignment

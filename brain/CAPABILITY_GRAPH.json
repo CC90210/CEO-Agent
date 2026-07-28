@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-07-23T00:58:57.738747+00:00",
+  "generated_at": "2026-07-28T21:12:09.065797+00:00",
   "totals": {
     "skills": 152,
-    "scripts": 119,
+    "scripts": 124,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 362,
-    "edges_total": 135,
+    "nodes_total": 367,
+    "edges_total": 141,
     "drift_count": 0
   },
   "nodes": [
@@ -30,7 +30,10 @@
         "run agent forge",
         "use when cc asks to create a new agent"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "agent-forge"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -59,7 +62,10 @@
         "agent notification",
         "cross-agent handoff"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "agent-inbox"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -117,7 +123,10 @@
         "use agent runtime packaging",
         "run agent runtime packaging"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "agent-runtime-packaging"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -179,7 +188,10 @@
         "embedding",
         "vector"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "ai-integration"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -209,7 +221,10 @@
         "particle system",
         "creative coding"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "algorithmic-art"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -266,7 +281,10 @@
         "synthesize",
         "new auto-generated skill"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "auto-generated"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -329,7 +347,10 @@
         "appointment",
         "meeting"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "booking-management"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -360,7 +381,10 @@
         "design",
         "requirements"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "brainstorming"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -392,7 +416,10 @@
         "web research",
         "scrape"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "browser-automation"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -420,7 +447,10 @@
         "run browser harness",
         "use browser harness for direct chrome/edge browser control"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "browser-harness"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -451,7 +481,10 @@
         "PDF",
         "static design"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "canvas-design"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -550,7 +583,10 @@
         "CLI-anything",
         "agent-native CLI"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "cli-anything"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -659,7 +695,10 @@
         "pre-landing",
         "code review"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "code-review"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -878,7 +917,10 @@
         "batch",
         "dispatch"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "dispatching-parallel-agents"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -908,7 +950,10 @@
         "co-author",
         "writing docs"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "doc-coauthoring"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -939,7 +984,10 @@
         "letter",
         "template"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "docx"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -969,7 +1017,10 @@
         "full test",
         "playwright test"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "e2e-testing"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -996,7 +1047,10 @@
         "use email safety",
         "run email safety"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "email-safety"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1063,7 +1117,10 @@
         "implement plan",
         "batch execution"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "executing-plans"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -1127,7 +1184,10 @@
         "complete development",
         "ship branch"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "finishing-a-development-branch"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -1159,7 +1219,10 @@
         "dashboard",
         "frontend"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "frontend-design"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -1219,7 +1282,10 @@
         "run gws admin reports",
         "google workspace admin sdk: audit logs and usage reports"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-admin-reports"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1247,7 +1313,10 @@
         "run gws calendar",
         "google calendar: manage calendars and events"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-calendar"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1275,7 +1344,10 @@
         "run gws calendar agenda",
         "google calendar: show upcoming events across all calendars"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-calendar-agenda"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1303,7 +1375,10 @@
         "run gws calendar insert",
         "google calendar: create a new event"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-calendar-insert"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1331,7 +1406,10 @@
         "run gws chat",
         "google chat: manage chat spaces and messages"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-chat"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1359,7 +1437,10 @@
         "run gws chat send",
         "google chat: send a message to a space"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-chat-send"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1387,7 +1468,10 @@
         "run gws classroom",
         "google classroom: manage classes"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-classroom"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1415,7 +1499,10 @@
         "run gws docs",
         "read and write google docs"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-docs"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1446,7 +1533,10 @@
         "append to google doc",
         "overwrite google doc"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-docs-edit"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -1474,7 +1564,10 @@
         "run gws docs write",
         "google docs: append text to a document"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-docs-write"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1502,7 +1595,10 @@
         "run gws drive",
         "google drive: manage files"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-drive"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1530,7 +1626,10 @@
         "run gws drive upload",
         "google drive: upload a file with automatic metadata"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-drive-upload"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1558,7 +1657,10 @@
         "run gws events",
         "subscribe to google workspace events"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-events"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1585,7 +1687,10 @@
         "use gws events renew",
         "run gws events renew"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-events-renew"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1612,7 +1717,10 @@
         "use gws events subscribe",
         "run gws events subscribe"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-events-subscribe"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1640,7 +1748,10 @@
         "run gws forms",
         "read and write google forms"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-forms"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1668,7 +1779,10 @@
         "run gws gmail",
         "gmail: send"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-gmail"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1696,7 +1810,10 @@
         "run gws gmail forward",
         "gmail: forward a message to new recipients"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-gmail-forward"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1724,7 +1841,10 @@
         "run gws gmail read",
         "gmail: read a message and extract its body or headers"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-gmail-read"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1752,7 +1872,10 @@
         "run gws gmail reply",
         "gmail: reply to a message (handles threading automatically)"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-gmail-reply"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1779,7 +1902,10 @@
         "use gws gmail reply all",
         "run gws gmail reply all"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-gmail-reply-all"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1807,7 +1933,10 @@
         "run gws gmail send",
         "gmail: send an email"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-gmail-send"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1835,7 +1964,10 @@
         "run gws gmail triage",
         "gmail: show unread inbox summary (sender"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-gmail-triage"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1863,7 +1995,10 @@
         "run gws gmail watch",
         "gmail: watch for new emails and stream them as ndjson"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-gmail-watch"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1891,7 +2026,10 @@
         "run gws keep",
         "manage google keep notes"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-keep"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1919,7 +2057,10 @@
         "run gws meet",
         "manage google meet conferences"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-meet"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1947,7 +2088,10 @@
         "run gws modelarmor",
         "google model armor: filter user-generated content for safety"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-modelarmor"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -1975,7 +2119,10 @@
         "run gws modelarmor create template",
         "google model armor: create a new model armor template"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-modelarmor-create-template"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2002,7 +2149,10 @@
         "use gws modelarmor sanitize prompt",
         "run gws modelarmor sanitize prompt"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-modelarmor-sanitize-prompt"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2029,7 +2179,10 @@
         "use gws modelarmor sanitize response",
         "run gws modelarmor sanitize response"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-modelarmor-sanitize-response"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2057,7 +2210,10 @@
         "run gws people",
         "google people: manage contacts and profiles"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-people"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2085,7 +2241,10 @@
         "run gws shared",
         "gws cli: shared patterns for authentication"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-shared"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2113,7 +2272,10 @@
         "run gws sheets",
         "google sheets: read and write spreadsheets"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-sheets"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2141,7 +2303,10 @@
         "run gws sheets append",
         "google sheets: append a row to a spreadsheet"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-sheets-append"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2169,7 +2334,10 @@
         "run gws sheets read",
         "google sheets: read values from a spreadsheet"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-sheets-read"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2197,7 +2365,10 @@
         "run gws slides",
         "google slides: read and write presentations"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-slides"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2225,7 +2396,10 @@
         "run gws tasks",
         "google tasks: manage task lists and tasks"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-tasks"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2253,7 +2427,10 @@
         "run gws workflow",
         "google workflow: cross-service productivity workflows"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-workflow"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2280,7 +2457,10 @@
         "use gws workflow email to task",
         "run gws workflow email to task"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-workflow-email-to-task"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2308,7 +2488,10 @@
         "run gws workflow file announce",
         "google workflow: announce a drive file in a chat space"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-workflow-file-announce"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2336,7 +2519,10 @@
         "run gws workflow meeting prep",
         "google workflow: prepare for your next meeting: agenda"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-workflow-meeting-prep"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2363,7 +2549,10 @@
         "use gws workflow standup report",
         "run gws workflow standup report"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-workflow-standup-report"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2390,7 +2579,10 @@
         "use gws workflow weekly digest",
         "run gws workflow weekly digest"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "gws-workflow-weekly-digest"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -2420,7 +2612,10 @@
         "proactive",
         "autonomous"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "heartbeat"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -2554,7 +2749,10 @@
         "incident report",
         "update"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "internal-comms"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -2621,7 +2819,10 @@
         "raise",
         "investor materials"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "investor-materials"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -2797,7 +2998,10 @@
         "pricing analysis",
         "demographics"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "market-research"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -2826,7 +3030,10 @@
         "MCP SDK",
         "Model Context Protocol"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "mcp-builder"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -2858,7 +3065,10 @@
         "MCP",
         "tool failure"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "mcp-operations"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -2999,7 +3209,10 @@
         "fastembed",
         "LanceDB"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "memory-management"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3032,7 +3245,10 @@
         "create_workflow_from_code",
         "validate_workflow"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "n8n-mcp-integration"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -3064,7 +3280,10 @@
         "idempotency",
         "scheduled monitoring"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "n8n-patterns"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3093,7 +3312,10 @@
         "document study",
         "knowledge management"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "notebooklm"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3124,7 +3346,10 @@
         "explore website",
         "synthesize adapter"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "opencli"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3152,7 +3377,10 @@
         "run outreach send",
         "send oasis cold/follow-up outreach emails with branded html"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "outreach-send"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": "Which lead(s)? (lead UUID, email address, or filter like 'all warm cold-2 days')",
@@ -3183,7 +3411,10 @@
         "watermark",
         "PDF form"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "pdf"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3214,7 +3445,10 @@
         "pitch deck",
         "speaker notes"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "pptx"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3343,7 +3577,10 @@
         "suggestion",
         "requested changes"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "receiving-code-review"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3371,7 +3608,10 @@
         "pre-merge check",
         "self-review"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "requesting-code-review"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3480,7 +3720,10 @@
         "what shipped",
         "how did we do"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "retro"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -3513,7 +3756,10 @@
         "clients",
         "financial"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "revenue-operations"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3683,7 +3929,10 @@
         "rate this inbound lead",
         "what's the lead score"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "score-b2b-lead-quality"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3717,7 +3966,10 @@
         "leak",
         "gitguardian"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "security-protocol"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3748,7 +4000,10 @@
         "self-heal",
         "recovery"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "self-healing"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3782,7 +4037,10 @@
         "optimize",
         "evolve"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "self-improvement-protocol"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3848,7 +4106,10 @@
         "use send gateway",
         "run send gateway"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "send-gateway"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -3876,7 +4137,10 @@
         "architecture decision",
         "strategic planning"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "sequential-reasoning"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3906,7 +4170,10 @@
         "go live",
         "ship it"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "ship"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
@@ -3971,7 +4238,10 @@
         "skill eval",
         "skill performance"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "skill-creator"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -3999,7 +4269,10 @@
         "animated GIF",
         "animation"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "slack-gif-creator"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4028,7 +4301,10 @@
         "repeated task",
         "workflow template"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "sop-breakdown"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4089,7 +4365,10 @@
         "mission planning",
         "operating principles"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "strategic-compact"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4152,7 +4431,10 @@
         "task delegation",
         "subagent execution"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "subagent-driven-development"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4184,7 +4466,10 @@
         "postgres",
         "CRUD"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "supabase-patterns"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4216,7 +4501,10 @@
         "debug",
         "stack trace"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "systematic-debugging"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4312,7 +4600,10 @@
         "telegram controls",
         "computer control demo"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "telegram-demo-workflows"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4342,7 +4633,10 @@
         "red green",
         "test first"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "test-driven-development"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4372,7 +4666,10 @@
         "visual format",
         "artifact styling"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "theme-factory"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4401,7 +4698,10 @@
         "feature branch",
         "workspace"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "using-git-worktrees"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4430,7 +4730,10 @@
         "use skill",
         "skill invocation"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "using-superpowers"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4461,7 +4764,10 @@
         "before commit",
         "before PR"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "verification-before-completion"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4489,7 +4795,10 @@
         "run verticals",
         "namespace for vertical-specific playbooks (agency"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "verticals"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4519,7 +4828,10 @@
         "shadcn",
         "complex artifact"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "web-artifacts-builder"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4583,7 +4895,10 @@
         "browser test",
         "UI test"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "webapp-testing"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4612,7 +4927,10 @@
         "spec",
         "requirements"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "writing-plans"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": "What spec or requirements? (Drop the doc / Linear issue / paste the brief)",
@@ -4640,7 +4958,10 @@
         "skill authoring",
         "skill format"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "writing-skills"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4671,7 +4992,10 @@
         "tabular data",
         "chart"
       ],
-      "tags": [],
+      "tags": [
+        "skill",
+        "xlsx"
+      ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
@@ -4897,6 +5221,16 @@
       "name": "build_maven_env",
       "path": "scripts/build_maven_env.py",
       "description": "Generate Maven's clean .env.agents: - Copy shared-infra keys from Bravo - Drop SunBiz-specific keys (those stay in SunBiz-Marketing repo) - Add empty placeholders for Maven-specific OASIS/PropFlow/Nostalgic ad creds",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:capability_probe",
+      "kind": "script",
+      "name": "capability_probe",
+      "path": "scripts/capability_probe.py",
+      "description": "Credential-first capability probe \u2014 answer \"do I actually have access to X?\"",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5137,11 +5471,31 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:email_brain",
+      "kind": "script",
+      "name": "email_brain",
+      "path": "scripts/email_brain.py",
+      "description": "email_brain.py \u2014 native multi-brain inbound-email router.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:email_doctor",
       "kind": "script",
       "name": "email_doctor",
       "path": "scripts/email_doctor.py",
       "description": "Email-safety diagnostic \u2014 verifies the multi-AI safety surface is intact.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:email_playbook",
+      "kind": "script",
+      "name": "email_playbook",
+      "path": "scripts/email_playbook.py",
+      "description": "email_playbook.py \u2014 the OASIS inbound-email rulebook.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5214,6 +5568,16 @@
       "name": "fleet_health",
       "path": "scripts/fleet_health.py",
       "description": "fleet_health.py \u2014 Cross-agent health rollup.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:frontmatter_doctor",
+      "kind": "script",
+      "name": "frontmatter_doctor",
+      "path": "scripts/frontmatter_doctor.py",
+      "description": "Stamp canonical `tags:` + `last_updated:` frontmatter on vault knowledge notes.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5466,6 +5830,16 @@
       "name": "oasis_embed_server",
       "path": "scripts/oasis_embed_server.py",
       "description": "OASIS Town V6 Apex Phase 3 \u2014 embedding + retrieval bridge for the agent sim.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:obsidian_graph_doctor",
+      "kind": "script",
+      "name": "obsidian_graph_doctor",
+      "path": "scripts/obsidian_graph_doctor.py",
+      "description": "Obsidian vault graph doctor \u2014 broken links, orphan nodes, frontmatter hygiene.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6756,7 +7130,9 @@
         "Grep"
       ],
       "triggers": [],
-      "tags": [],
+      "tags": [
+        "agent"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6776,7 +7152,9 @@
         "WebSearch"
       ],
       "triggers": [],
-      "tags": [],
+      "tags": [
+        "agent"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6796,7 +7174,9 @@
         "WebSearch"
       ],
       "triggers": [],
-      "tags": [],
+      "tags": [
+        "agent"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -6814,7 +7194,9 @@
         "Glob"
       ],
       "triggers": [],
-      "tags": [],
+      "tags": [
+        "agent"
+      ],
       "discovery": "auto-frontmatter"
     },
     {
@@ -7786,6 +8168,31 @@
       "kind": "calls"
     },
     {
+      "from": "script:email_brain",
+      "to": "script:draft_critic",
+      "kind": "calls"
+    },
+    {
+      "from": "script:email_brain",
+      "to": "script:email_playbook",
+      "kind": "calls"
+    },
+    {
+      "from": "script:email_brain",
+      "to": "script:inbound_classifier",
+      "kind": "calls"
+    },
+    {
+      "from": "script:email_brain",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:email_brain",
+      "to": "script:send_gateway",
+      "kind": "calls"
+    },
+    {
       "from": "script:email_doctor",
       "to": "script:send_gateway",
       "kind": "calls"
@@ -7822,6 +8229,11 @@
     },
     {
       "from": "script:funnel_sync",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:inbound_classifier",
       "to": "script:notify",
       "kind": "calls"
     },

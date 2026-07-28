@@ -7,6 +7,7 @@ related: brain/AGENTIC_OS_REFERENCE.md (§3 — the principle), brain/CAPABILITI
 last_updated: 2026-06-09
 freshness_threshold_days: 90
 verified: 2026-06-09
+tags: [brain]
 ---
 # Data Taxonomy
 

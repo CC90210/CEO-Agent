@@ -6,6 +6,8 @@ date: 2026-05-23
 deciders: [bravo, cc]
 supersedes: null
 superseded_by: null
+tags: [docs, adr, decision]
+last_updated: 2026-05-23
 ---
 
 # ADR-0006 — Multi-employee tenant access to a shared admin bridge
@@ -135,3 +137,6 @@ Mechanics:
 - **Option C (Cloudflare Tunnel / Tailscale)** — admin's bridge gets a per-tenant public hostname; `bridge_pairings.public_url` carries it; `BRIDGE_CHAT_BASE` becomes tenant-dynamic.
 - Re-open this ADR when the cost of NOT shipping these exceeds the cost of building them.
 
+## Obsidian Links
+- [[docs/adr/INDEX]]
+- [[CONTEXT]]

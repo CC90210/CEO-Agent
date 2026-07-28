@@ -1,3 +1,8 @@
+---
+tags: [root]
+last_updated: 2026-05-21
+---
+
 # Security Policy — Bravo (CEO Agent)
 
 Security is a first-class concern for every OASIS AI agent. Bravo is the

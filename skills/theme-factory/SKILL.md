@@ -5,6 +5,8 @@ license: Complete terms in LICENSE.txt
 triggers: [theme, styling, brand colors, fonts, visual format, artifact styling]
 tier: specialized
 dependencies: []
+tags: [skill, theme-factory]
+last_updated: 2026-07-20
 ---
 
 

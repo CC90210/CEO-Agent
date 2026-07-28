@@ -6,6 +6,8 @@ date: 2026-07-17
 deciders: [bravo, cc]
 supersedes: null
 superseded_by: null
+tags: [docs, adr, decision]
+last_updated: 2026-07-17
 ---
 
 # ADR-0010 — External-resource catalog: Free-Tier Radar rows as capability-graph resource nodes
@@ -51,3 +53,7 @@ External-resource knowledge is cataloged as **structured table rows in `brain/TO
 - Sources: <https://github.com/ripienaar/free-for-dev> · <https://github.com/public-apis/public-apis> · <https://github.com/GokuMohandas/Made-With-ML>
 - Related: [ADR-0001 — skill dependency classification](0001-skill-dependency-classification.md) (resource-radar declares all-soft deps) · [ADR-0002 — CONTEXT.md canonical vocabulary](0002-context-md-canonical-vocabulary.md)
 - Code: `scripts/build_capability_graph.py` (`discover_resources`, `RADAR_STATUSES`) · `scripts/integrations/email_validate_tool.py` · `brain/TOOL_SHED.md` § Section 9
+
+## Obsidian Links
+- [[docs/adr/INDEX]]
+- [[CONTEXT]]

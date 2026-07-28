@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws gmail +reply --help"
 triggers: ["gws gmail reply", "use gws gmail reply", "run gws gmail reply", "gmail: reply to a message (handles threading automatically)"]
 tier: specialized
+tags: [skill, gws-gmail-reply]
+last_updated: 2026-06-20
 ---
 
 # gmail +reply

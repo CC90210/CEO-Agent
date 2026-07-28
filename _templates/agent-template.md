@@ -4,6 +4,7 @@ tags:
 model-tier: sonnet
 status: active
 created: "{{date:YYYY-MM-DD}}"
+last_updated: 2026-04-27
 ---
 
 # {{title}}

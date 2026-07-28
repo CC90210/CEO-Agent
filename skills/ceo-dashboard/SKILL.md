@@ -4,6 +4,7 @@ description: Unified KPI framework — North Star metrics, revenue dashboard, pi
 tags: [skill, ceo, dashboard, kpi, revenue, pipeline]
 triggers: ["ceo dashboard", "use ceo dashboard", "run ceo dashboard", "unified kpi framework \u2014 north star metrics"]
 tier: specialized
+last_updated: 2026-07-09
 ---
 
 # CEO Dashboard — Unified KPI Framework

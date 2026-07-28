@@ -91,3 +91,7 @@ Anthropic API dashboard shows ~zero extraction calls.
 `MAX_ATTEMPTS=3` · `CLI_TIMEOUT_SEC=200` · `STALE_PROCESSING_MIN=10` (crashed-job recovery) ·
 loop interval `8s`. Raise the timeout if real applications are large/multi-page; tune attempts
 to the real per-day volume.
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

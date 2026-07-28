@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-05-11
+---
+
 # Pause and Rollback
 
 Two principles drive the V6.0 architecture: **the agent should be safe by default**, and **you should always have a way to stop it**. This page is the kill-switch documentation.

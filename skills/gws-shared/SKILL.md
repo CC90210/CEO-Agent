@@ -10,6 +10,8 @@ metadata:
       bins: ["gws"]
 triggers: ["gws shared", "use gws shared", "run gws shared", "gws cli: shared patterns for authentication"]
 tier: specialized
+tags: [skill, gws-shared]
+last_updated: 2026-06-20
 ---
 
 # gws — Shared Reference

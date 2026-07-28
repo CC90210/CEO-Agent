@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws sheets --help"
 triggers: ["gws sheets", "use gws sheets", "run gws sheets", "google sheets: read and write spreadsheets"]
 tier: specialized
+tags: [skill, gws-sheets]
+last_updated: 2026-06-20
 ---
 
 # sheets (v4)

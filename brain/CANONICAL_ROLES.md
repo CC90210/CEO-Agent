@@ -409,4 +409,4 @@ the compound interest of self-improvement, small consistent signals accumulate i
 ## Obsidian Links
 - [[brain/C_SUITE_ARCHITECTURE]] | [[brain/SOUL]] | [[brain/STATE]]
 - [[brain/CEO_OPERATING_SYSTEM]] | [[brain/OKRs]] | [[brain/RISK_REGISTER]]
-- [[memory/ACTIVE_TASKS]] | [[memory/DECISIONS]] | [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical)
+- [[memory/ACTIVE_TASKS]] | [[memory/DECISIONS]] | `../CMO-Agent/brain/CONTENT_BIBLE` (Maven canonical)

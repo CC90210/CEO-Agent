@@ -4,6 +4,7 @@ description: "Formalized background worker system for automated audit, memory ma
 tags: [automation, workers, system-health]
 triggers: ["background workers", "use background workers", "run background workers"]
 tier: standard
+last_updated: 2026-07-09
 ---
 
 # Background Workers — Automated System Maintenance

@@ -1,3 +1,8 @@
+---
+tags: [browser, automation]
+last_updated: 2026-05-21
+---
+
 # Browser Harness Windows Patch
 
 The installed Browser Harness checkout at `C:\Users\User\APPS\browser-harness` has a local Windows compatibility patch.

@@ -4,6 +4,7 @@ description: "Claims-based access control for multi-agent coordination. Defines 
 tags: [security, orchestration, agents]
 triggers: ["agent permissions", "use agent permissions", "run agent permissions"]
 tier: standard
+last_updated: 2026-07-09
 ---
 
 # Agent Permissions — Claims-Based Access Control

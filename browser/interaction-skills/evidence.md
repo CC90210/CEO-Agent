@@ -1,3 +1,8 @@
+---
+tags: [browser, automation]
+last_updated: 2026-05-11
+---
+
 # Evidence Capture
 
 Use this when proving a browser action worked.

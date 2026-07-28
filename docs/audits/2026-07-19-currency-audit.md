@@ -44,3 +44,7 @@ Every HIGH finding is the same failure: **a fact materialized in N places, and t
 ## Re-run recipe
 
 `/currency-audit` — or follow `skills/currency-audit/SKILL.md` §How it works. Expected cost: 3 Explore agents + ~1-2h of fixes. Next scheduled sanity point: after the chore/montreal-turnkey-reset → main merge.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

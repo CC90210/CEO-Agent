@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # PptxGenJS Tutorial
 
 ## Setup & Basic Structure

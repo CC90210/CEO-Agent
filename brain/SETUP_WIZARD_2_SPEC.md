@@ -7,6 +7,7 @@ status: SPEC — implementation deferred to after SunBiz beta
 last_updated: 2026-06-09
 freshness_threshold_days: 90
 verified: 2026-06-09
+tags: [brain]
 ---
 # Setup Wizard 2.0
 
@@ -129,3 +130,7 @@ That's ~3 days, not 2 weeks. Worth waiting for the data.
 **Next action:** SunBiz beta runs Phases 1-7 for ~3 weeks. Reconvene
 2026-06-05 with operator feedback. Decide between full 2.0 vs the
 collapsed version above.
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

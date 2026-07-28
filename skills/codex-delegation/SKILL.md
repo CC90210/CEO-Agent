@@ -4,6 +4,7 @@ description: Intelligent routing between Bravo and Codex — decides when to del
 tags: [skill]
 triggers: ["codex delegation", "use codex delegation", "run codex delegation"]
 tier: core
+last_updated: 2026-07-09
 ---
 
 # Codex Delegation — Intelligent Dual-AI Routing

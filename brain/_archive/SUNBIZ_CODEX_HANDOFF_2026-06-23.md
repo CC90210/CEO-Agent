@@ -40,3 +40,7 @@ superseded_by: memory/SESSION_LOG.md
 ## Gotchas
 - Forms are **DB-driven** — seed edits are inert until `python scripts/run_reseed_sunbiz_forms.py --apply`.
 - A pre-existing failing test (`sunbiz-import-routing`, imported "Approved" → wrong stage) is APEX's `approved`-stage side effect, **not** these changes. 24/25 sunbiz tests pass.
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

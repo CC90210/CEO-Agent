@@ -4,6 +4,7 @@ description: Hiring framework, contractor onboarding, 1:1 templates, performance
 tags: [skill, team, management, hiring]
 triggers: ["team management", "use team management", "run team management", "hiring framework"]
 tier: standard
+last_updated: 2026-06-20
 ---
 
 # Team Management — Solo to Small Team Framework

@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **59 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **60 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -46,6 +46,7 @@ Auto-generated index of tracked `brain/*.md` — **59 files**. Each file's first
 - [DASHBOARD.md](DASHBOARD.md) — Command Center
 - [DATA_TAXONOMY.md](DATA_TAXONOMY.md) — Data Taxonomy
 - [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS AI (V1.0, 2026-04-30)
+- [EMAIL_PIPELINE.md](EMAIL_PIPELINE.md) — Inbound Email Pipeline — Runbook
 - [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) — EVENT BUS CONTRACT — V6 BUILD 3
 - [EXTERNAL_REVIEW_INTEGRATION.md](EXTERNAL_REVIEW_INTEGRATION.md) — EXTERNAL REVIEW INTEGRATION — Fold the Bots Into the Loop
 - [METRIC_AUDIT.md](METRIC_AUDIT.md) — Dashboard Metric Audit

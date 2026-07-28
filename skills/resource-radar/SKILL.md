@@ -8,6 +8,7 @@ triggers: ["free tier", "free API", "what service for", "replace paid tool", "do
 tags: [free-tier, radar, catalog, cost-reduction, integrations]
 status: '[NEW]'
 created_at: 2026-07-17T21:35:26.083403+00:00
+last_updated: 2026-07-17
 ---
 
 # Resource Radar

@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws chat --help"
 triggers: ["gws chat", "use gws chat", "run gws chat", "google chat: manage chat spaces and messages"]
 tier: specialized
+tags: [skill, gws-chat]
+last_updated: 2026-06-20
 ---
 
 # chat (v1)

@@ -1,3 +1,8 @@
+---
+tags: [infra]
+last_updated: 2026-05-21
+---
+
 # Bravo V6.0 — Infra Runbook
 
 > Deployment, operation, and recovery instructions for the Bravo production VPS.
@@ -253,4 +258,4 @@ from the Actions run log if you need to revert the previous release.
 
 ## Obsidian Links
 - [[docs/V6_ARCHITECTURE]] | [[brain/STATE]] | [[brain/ORCHESTRATION]]
-- [[memory/SESSION_LOG]] | [[memory/reference_vercel_deploy]]
+- [[memory/SESSION_LOG]] | Claude durable memory: `reference_vercel_deploy`

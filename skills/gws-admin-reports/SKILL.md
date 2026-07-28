@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws admin-reports --help"
 triggers: ["gws admin reports", "use gws admin reports", "run gws admin reports", "google workspace admin sdk: audit logs and usage reports"]
 tier: specialized
+tags: [skill, gws-admin-reports]
+last_updated: 2026-06-20
 ---
 
 # admin-reports (reports_v1)

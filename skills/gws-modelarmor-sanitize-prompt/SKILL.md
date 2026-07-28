@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws modelarmor +sanitize-prompt --help"
 triggers: ["gws modelarmor sanitize prompt", "use gws modelarmor sanitize prompt", "run gws modelarmor sanitize prompt"]
 tier: specialized
+tags: [skill, gws-modelarmor-sanitize-prompt]
+last_updated: 2026-06-20
 ---
 
 # modelarmor +sanitize-prompt

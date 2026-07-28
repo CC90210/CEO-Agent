@@ -1,3 +1,8 @@
+---
+tags: [template]
+last_updated: 2026-07-09
+---
+
 ### [P] [Pattern Name] ({{date:YYYY-MM-DD}})
 **Why:** <!-- The failure or friction this pattern prevents — cite the incident/evidence -->
 **How to apply:** <!-- Concrete, reusable steps + file references. End with the promotion condition -->

@@ -6,8 +6,9 @@ owner: bravo
 applies_to: [any Windows machine running scheduled/cron automations, agent hooks, PM2 daemons]
 related:
   - "[[skills/python-daemon-automation/SKILL]]"
-  - "[[scripts/lib/subprocess_helpers]]"
+  - "`scripts/lib/subprocess_helpers.py`"
   - "[[brain/CAPABILITIES]]"
+last_updated: 2026-07-22
 ---
 
 # SOP — Eliminating Random Terminal-Window Popups on Windows

@@ -1,3 +1,8 @@
+---
+tags: [root]
+last_updated: 2026-06-09
+---
+
 # Database Migration Notes
 
 Audit-compatible explanation of the two non-monotonic items in `database/`.

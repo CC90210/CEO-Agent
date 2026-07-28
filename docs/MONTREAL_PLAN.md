@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-06-20
+---
+
 # Montreal Trip — Roadmap + Pre-Flight
 
 > **2026-05-28 relocation note:** SunBiz daemons (`shop_out_sender.py`, `sequence_runner.py`, `lender_response_classifier.py`, `underwriting_orchestrator.py`, `renewal_reminder.py`, `follow_up_generator.py`, `cold_outreach_runner.py`, `daily_plan_generator.py`) and tools (`text_torrent_tool.py`, `kixie_tool.py`) now live in `~/SunBiz-Agent/scripts/`, not `~/CEO-Agent/scripts/`. PM2 entries for the daemons moved to `~/SunBiz-Agent/ecosystem.config.js` (run `pm2 start ecosystem.config.js` from each repo). Solara/Helios still invoke the same tools via the bridge's `run_script` — the bridge resolves the per-script `root` field automatically. Path-style references below mean "look in SunBiz-Agent" for the SunBiz tools/daemons.
@@ -187,3 +192,7 @@ If any of those four fail, that's the conversation to have with me before doing 
 Empire goal: **$10,000 USD Net MRR by 2026-09-30** ($5K achieved 2026-06-20 via the BreezeAdvance deal). Sun Biz Funding is the first real client tenant — every funded deal Ezra closes via Solara is a marker that the multi-tenant Agent Command Center pattern actually works. Get one real funded deal traced end-to-end (lead → underwriting → shop-out → offer → funded → renewal eligible) during this trip and the architecture has earned the right to scale.
 
 Safe travels.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

@@ -40,7 +40,7 @@ The V1.0 push closes that gap and then leapfrogs with the moat.
 - `bin/bravo` + `bin/bravo.cmd` shell launchers
 
 ### Phase 2 — Browser Harness Pack ✅
-- [[skills/browser-harness/SKILL]] + [[browser/SAFETY]] + [[browser/interaction-skills]] + [[browser/domain-skills]]
+- [[skills/browser-harness/SKILL]] + [[browser/SAFETY]] + `browser/interaction-skills` + `browser/domain-skills`
 - Wired into `bravo browser setup | doctor | learn <site>`
 - V5.6 outbound chokepoint preserved; writes gated on explicit approval
 

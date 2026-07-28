@@ -4,6 +4,7 @@ description: Executive morning briefing — pipeline, follow-ups, client health,
 tags: [skill, ceo, briefing, operations]
 triggers: ["ceo briefing", "use ceo briefing", "run ceo briefing", "executive morning briefing", "daily brief"]
 tier: standard
+last_updated: 2026-07-20
 ---
 
 # CEO Morning Briefing

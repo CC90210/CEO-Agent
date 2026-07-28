@@ -86,3 +86,7 @@ the `git pull` above, run `/srv/sunbiz/ceo-agent/.venv/bin/python scripts/tests/
 funder emails go live.
 
 ---
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

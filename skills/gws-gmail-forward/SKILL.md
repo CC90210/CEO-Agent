@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws gmail +forward --help"
 triggers: ["gws gmail forward", "use gws gmail forward", "run gws gmail forward", "gmail: forward a message to new recipients"]
 tier: specialized
+tags: [skill, gws-gmail-forward]
+last_updated: 2026-06-20
 ---
 
 # gmail +forward

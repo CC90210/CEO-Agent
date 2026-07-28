@@ -4,6 +4,8 @@ description: "ATLAS-OWNED domain — Bravo does not report MRR/revenue (Atlas is
 triggers: [revenue, MRR, forecast, Stripe, income, goal, monthly, clients, financial]
 tier: standard
 dependencies: []
+tags: [skill, revenue-operations]
+last_updated: 2026-07-09
 ---
 
 # Revenue Operations — MRR Tracking and Forecasting

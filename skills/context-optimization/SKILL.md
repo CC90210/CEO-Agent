@@ -4,6 +4,7 @@ description: Tiered context loading, transcript compaction, cost tracking, and m
 tags: [skill, performance, context]
 triggers: ["context optimization", "use context optimization", "run context optimization", "tiered context loading"]
 tier: standard
+last_updated: 2026-07-09
 ---
 
 # Context Optimization — Harness-Level Efficiency

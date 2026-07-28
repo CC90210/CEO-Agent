@@ -1,5 +1,6 @@
 ---
 tags: [course, framework, onboarding]
+last_updated: 2026-05-18
 ---
 
 # OASIS AI Solutions — Build Your Own AI Agency

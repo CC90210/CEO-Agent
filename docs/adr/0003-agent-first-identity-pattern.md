@@ -6,6 +6,8 @@ date: 2026-05-23
 deciders: [bravo, cc]
 supersedes: null
 superseded_by: null
+tags: [docs, adr, decision]
+last_updated: 2026-05-23
 ---
 
 # ADR-0003 — Agent-first identity across all CLI entry files
@@ -68,3 +70,7 @@ The Codex-as-adversarial-reviewer delegation lane is preserved via an **explicit
 - **Maven's GEMINI.md / ANTIGRAVITY.md**: scanned clean for the model-driven dispatch pattern on 2026-05-23. If a future audit finds drift, apply the same fix.
 - **Aura / Hermes**: not on the audit machine when this ADR was written. Same fix applies if those repos still have model-driven identity sections.
 - **Rule numbering across entry files**: the 5 sibling files have significantly drifted in their rule schemes (CLAUDE.md has Rules 0-10, AGENTS.md has different Rules 0-10, GEMINI.md uses decimal subrules 2.5/2.5.1/2.6, etc). The "lockstep" claim in those files is currently fiction. Separate ADR / cleanup needed; this ADR is scoped to identity only.
+
+## Obsidian Links
+- [[docs/adr/INDEX]]
+- [[CONTEXT]]

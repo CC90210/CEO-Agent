@@ -5,6 +5,7 @@ triggers: [close the deal, closing, objection, negotiate, final offer, contract,
 tier: strategic
 dependencies: [sales-methodology, proposal-generation, client-success]
 tags: [sales, closing, negotiation, revenue]
+last_updated: 2026-07-09
 ---
 
 # SALES CLOSING — The Final 20%

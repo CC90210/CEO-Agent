@@ -4,6 +4,7 @@ type: content
 use_case: LinkedIn posts for CC's personal brand (Conaugh McKenna / OASIS AI)
 variables: [hook, story, insight, cta]
 tags: [template, content, linkedin]
+last_updated: 2026-05-06
 ---
 
 # LinkedIn Post Templates

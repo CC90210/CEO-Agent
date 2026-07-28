@@ -4,6 +4,8 @@ description: Guide users through a structured workflow for co-authoring document
 triggers: [documentation, proposal, technical spec, decision doc, co-author, writing docs]
 tier: specialized
 dependencies: []
+tags: [skill, doc-coauthoring]
+last_updated: 2026-05-21
 ---
 
 # Doc Co-Authoring Workflow

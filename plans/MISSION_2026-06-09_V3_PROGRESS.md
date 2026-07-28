@@ -1,3 +1,8 @@
+---
+tags: [plans]
+last_updated: 2026-06-10
+---
+
 # MISSION V3 — PROGRESS (Evals, Adversarial Defense & Dispositions)
 Started 2026-06-09 · Bravo @ fleet scope · Brief: [MISSION_2026-06-09_V3.md](MISSION_2026-06-09_V3.md)
 > Resume: re-read AUDIT_REMEDIATION §0+§2 + this brief + this file, resume at first unchecked item. Per-repo isolation is law. ONE gate (Phase 1).
@@ -114,3 +119,7 @@ AURA     local_intent 5 · security_gate 7 · response_parse 5                 1
 - **Residual (CC action):** `refs/pull/*` still carry 2 pre-rewrite occurrences (git can't rewrite; binary blobs skipped) → **§7 GitHub Support ticket** (D3).
 - **Note:** GitHub flagged 1 high Dependabot vuln on default branch (security/dependabot/72) — separate dependency issue, out of mission scope; flagged to CC.
 - Commits: `3a8071c8` (scrub+harden), force-push `d6118a3b`. Mirror + fresh-clone + email scratch deleted; `state/pii_adjudication.txt` retained (gitignored).
+
+## Obsidian Links
+- [[brain/STATE]]
+- [[memory/INDEX]]

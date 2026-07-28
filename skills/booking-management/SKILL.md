@@ -4,6 +4,8 @@ description: Manage discovery call scheduling using booking_engine.py — a self
 triggers: [booking, calendar, schedule, discovery call, slot, reminder, appointment, meeting]
 tier: standard
 dependencies: [lead-management, email-marketing]
+tags: [skill, booking-management]
+last_updated: 2026-07-09
 ---
 
 # Booking Management — Self-Hosted Scheduling

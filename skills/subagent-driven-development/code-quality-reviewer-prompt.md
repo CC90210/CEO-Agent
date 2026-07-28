@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Code Quality Reviewer Prompt Template
 
 Use this template when dispatching a code quality reviewer subagent.

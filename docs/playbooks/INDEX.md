@@ -1,5 +1,6 @@
 ---
 tags: [docs, playbooks, index, hub, onboarding]
+last_updated: 2026-07-08
 ---
 
 # Operator Playbooks
