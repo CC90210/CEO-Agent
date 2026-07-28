@@ -79,13 +79,15 @@ def ensure_os_trust() -> str:
         import truststore  # type: ignore
 
         if not _done:
-            # Drop the ineffective bundle vars before injecting. requests/httpx
-            # read REQUESTS_CA_BUNDLE/SSL_CERT_FILE and pass the path down as an
-            # explicit verify= target, which would re-pin the very certifi store
-            # we just established cannot verify this box's chain — the OS-store
-            # injection alone would be silently overridden.
-            for var in ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE"):
-                os.environ.pop(var, None)
+            # Injection alone is enough — deliberately NO os.environ mutation.
+            # Measured 2026-07-28 on this box: with truststore injected, requests,
+            # httpx, and the supabase client all verify successfully even while
+            # SSL_CERT_FILE/REQUESTS_CA_BUNDLE still point at certifi. The
+            # inherited-env failure was never "the env var beat the injection" —
+            # it was the guard above returning early so nothing was injected AT
+            # ALL. Popping the vars would therefore buy nothing, while risking
+            # deletion of a real corporate bundle for this process and every
+            # child that inherits its environment.
             truststore.inject_into_ssl()
             _done = True
         return "truststore"

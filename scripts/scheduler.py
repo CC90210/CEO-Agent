@@ -504,9 +504,22 @@ def run_agent_self_improvement(env_vars: dict) -> str:
     Delegates to scripts/core/agent_self_improvement.py for the full digest, then
     sends it via notify() directly (wrapper truncates at 200 chars).
     """
-    out = run_script("agent_self_improvement.py", ["run"])
+    # 2026-07-28 — same reorg breakage already fixed once for the inbox sweep:
+    # the script lives at scripts/core/, but this pointed at scripts/, so
+    # run_script spawned a non-existent file and got "FAILED (exit 2)" on every
+    # run since the move.
+    #
+    # It reported GREEN the whole time. The only guard was `if not out`, and
+    # "FAILED (exit 2): ..." is non-empty — so the failure string sailed through
+    # into _send_digest and the handler returned its success phrase. cron_jobs
+    # showed "self-improvement-handled-by-digest", the dashboard showed green,
+    # and the health-check watchdog had nothing to flag. A silent green failure
+    # outlives a loud red one, so the FAILED check below is the real fix.
+    out = run_script("core/agent_self_improvement.py", ["run"])
     if not out or not out.strip():
         return "ERROR: agent_self_improvement returned empty output"
+    if out.startswith("FAILED"):
+        return f"ERROR: agent_self_improvement failed: {out[:300]}"
     return _send_digest(out.strip(), "system", "self-improvement-handled-by-digest")
 
 

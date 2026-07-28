@@ -28,6 +28,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. This one is
+# cron-wired through scheduler.run_lead_followup and was failing live with
+# CERTIFICATE_VERIFY_FAILED under the same AV TLS interception.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 
 # OASIS operator tenant. This is CC's personal CRM hub, but the leads table is
 # shared with the multi-tenant command-center DB — so an UNSCOPED read counts

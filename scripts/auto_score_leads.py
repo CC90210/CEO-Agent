@@ -42,6 +42,14 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
+# Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. Found by auditing
+# every cron-wired script rather than only the ones that happened to be failing
+# loudly: this one had the same latent AV-MITM break and died on its first
+# Supabase call with CERTIFICATE_VERIFY_FAILED.
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
