@@ -184,7 +184,7 @@ Persona instructions ("respect read_only — refuse writes") are documentation. 
 - Server-side data writes → tenant_id / storage_path / lead_id prefix checks at the route layer.
 - DB layer → CHECK constraints anchoring storage paths to their tenant prefix.
 
-For unauthenticated public-facing surfaces specifically: run `node codex-companion.mjs adversarial-review` BEFORE the "ready to ship" claim, not as a CC-prompted retrospective. Two passes minimum. Codex caught 9 real bugs across 2 passes on the 2026-05-18 forms diff — diff Bravo had twice declared production-ready.
+For unauthenticated public-facing surfaces specifically: run `node ~/.claude/codex-plugin/scripts/codex-companion.mjs adversarial-review --wait` BEFORE the "ready to ship" claim, not as a CC-prompted retrospective. Two passes minimum. Codex caught 9 real bugs across 2 passes on the 2026-05-18 forms diff — diff Bravo had twice declared production-ready.
 
 **Why this rule exists:** 2026-05-18 — shipped `read_only` role enforcement as a paragraph in Solara's persona. Cloud-tool palette still included `create_record`/`update_record`/`delete_record`. A jailbreak prompt would have executed writes under the service-role path with zero check. Server-side enforcement in `lib/role-gates.ts` is the actual boundary now. Full incident: `memory/MISTAKES.md` 2026-05-18 "Public-Form Share Infrastructure Shipped Without Adversarial Review".
 
@@ -227,6 +227,33 @@ Any time you add a `WHERE col = X` / `.eq(col, …)` / `.filter()` on a column t
 - The check is mechanical: filter a column on read → stamp it on every write in the module → **prove visibility in an isolated, rollback-safe test** — a throwaway/test database or a transaction that is rolled back, NEVER against live Supabase. Do not "insert one unscoped row to see if it disappears": that would create the exact NULL-partition row this rule exists to prevent, and could leave residue if the round-trip fails partway. For a production schema, the correct assertion is that an **unscoped insert is rejected** (by a NOT NULL / CHECK constraint or the write-path guard), not that it silently persists.
 
 **Why this rule exists:** the daily brief once under-counted leads because `lead_engine.py` reads were scoped to `OASIS_TENANT_ID` while `cmd_add`/bulk-import still inserted `tenant_id`-less rows — leads added via CLI were invisible to the pipeline the filter was meant to fix. Caught by Codex audit, not by the agent. Full incident: `memory/MISTAKES.md`.
+
+## 18. THE 8-STEP CLOSED LOOP — EVERY BUILD/FEATURE REQUEST (added 2026-07-28)
+
+A one-line request from CC ("add X", "fix Y", "ship Z") is a **closed loop**, not an edit.
+The loop is closed only when the change is live, machine-reviewed, and recorded. Run these
+eight steps in order for any build/feature request. Steps are non-blocking — do not stop to
+ask permission between them unless a step's own gate says to.
+
+| # | Step | Command / gate | Done when |
+|---|---|---|---|
+| 1 | **Intent & context resolution** | `python scripts/capability_query.py resolve "<request>"`; canonicalize domain terms against [[CONTEXT]] | you can name the skill/tool that owns this and the vocabulary is canonical |
+| 2 | **Credential & tool discovery** | `python scripts/capability_probe.py check <service>` | every service the plan touches reports AVAILABLE — never assume a gap (Tool Discipline #8) |
+| 3 | **Blueprint** | write the discrete mutation sequence into the Todo list | ≥3 steps are tracked, exactly one `in_progress` |
+| 4 | **Surgical mutation + local verify** | edit, then `python -m pytest scripts/tests -q` (or the module's own gate) | tests green, and their output is captured for the report |
+| 5 | **DB / state integrity gate** | `python scripts/apply_migration.py <file>` only if schema changed; else assert no migration needed | migration applied and re-queried, or explicitly N/A |
+| 6 | **Commit & push** | conventional commit; branch first if on `main` | pushed to the correct repo (RULE 7 — app work commits from the app's own repo) |
+| 7 | **CI/CD + machine review** | `gh pr checks <n> --repo <owner>/<repo>`; inline threads via `gh api --paginate repos/<owner>/<repo>/pulls/<n>/comments`; Vercel prod verified live, not just "deployed" | checks green **and** CodeRabbit/Codex findings triaged (Rule 16 — a bot finding you ignore is worse than one you never had) |
+| 8 | **State & memory sync** | `python scripts/state/state_sync.py --note "<summary>"`; `python scripts/integrations/agent_activity.py post` when a peer agent shares the surface | STATE/SESSION_LOG updated, peers notified, four-line report delivered |
+
+**Skipping a step is a reportable omission, not a shortcut.** If step 5 or 7 does not apply,
+say so explicitly in the report ("no schema change", "no remote CI on this repo") — silence
+reads as "done" and that is how a red check reaches `main`.
+
+**On big tasks** (≥3 commits, ≥5 files, or any user-facing change) step 7 also requires an
+independent audit: `python scripts/core/codex_review.py review --session "<slug>"`, presented
+verbatim alongside your own self-review. A self-review by the agent that wrote the code is
+necessary and never sufficient.
 
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
