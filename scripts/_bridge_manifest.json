@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-07-24T15:23:54.977024+00:00",
-  "script_count": 114,
-  "entry_count": 281,
+  "generated_at_iso": "2026-07-28T21:57:12.513030+00:00",
+  "script_count": 117,
+  "entry_count": 286,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -302,6 +302,30 @@
       "risk": "local_write",
       "project": "empire",
       "help": "CloakBrowser CLI Tool \u2014 Stealth Chromium for fresh-session work against bot-protected sites. \u2014 subcommand: download"
+    },
+    {
+      "key": "capability_probe_list",
+      "path": "scripts/capability_probe.py",
+      "root": "bravo",
+      "subcmd": "list",
+      "mutating": true,
+      "help": "Credential-first capability probe \u2014 answer \"do I actually have access to X?\" \u2014 subcommand: list"
+    },
+    {
+      "key": "capability_probe_check",
+      "path": "scripts/capability_probe.py",
+      "root": "bravo",
+      "subcmd": "check",
+      "mutating": true,
+      "help": "Credential-first capability probe \u2014 answer \"do I actually have access to X?\" \u2014 subcommand: check"
+    },
+    {
+      "key": "capability_probe_have",
+      "path": "scripts/capability_probe.py",
+      "root": "bravo",
+      "subcmd": "have",
+      "mutating": true,
+      "help": "Credential-first capability probe \u2014 answer \"do I actually have access to X?\" \u2014 subcommand: have"
     },
     {
       "key": "casl_compliance_check",
@@ -670,6 +694,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "fleet_health.py \u2014 Cross-agent health rollup."
+    },
+    {
+      "key": "frontmatter_doctor",
+      "path": "scripts/frontmatter_doctor.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Stamp canonical `tags:` + `last_updated:` frontmatter on vault knowledge notes."
     },
     {
       "key": "funnel_nurture",
@@ -1226,6 +1258,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "OASIS Town V6 Apex Phase 3 \u2014 embedding + retrieval bridge for the agent sim."
+    },
+    {
+      "key": "obsidian_graph_doctor",
+      "path": "scripts/obsidian_graph_doctor.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Obsidian vault graph doctor \u2014 broken links, orphan nodes, frontmatter hygiene."
     },
     {
       "key": "onboarding_diagnostics",
