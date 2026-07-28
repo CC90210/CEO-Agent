@@ -46,6 +46,14 @@ except Exception:
 from lib.secret_loader import bootstrap  # noqa: E402
 bootstrap()
 
+# Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. Without it this
+# watchdog died with CERTIFICATE_VERIFY_FAILED before it could read cron_jobs,
+# so the meta-cron that exists to surface broken crons was itself broken and
+# silent — exactly the failure mode it was built to prevent.
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 from supabase_tool import get_client, load_env  # noqa: E402
 
 

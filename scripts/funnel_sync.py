@@ -38,6 +38,13 @@ PYTHON = sys.executable
 sys.path.insert(0, str(SCRIPTS_DIR))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
+# Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. Without this the
+# AV TLS-scanner root is untrusted and every Supabase call raises
+# CERTIFICATE_VERIFY_FAILED, which this tool then reported as "non-JSON".
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 
 def load_env() -> dict[str, str]:
     env_path = PROJECT_ROOT / ".env.agents"

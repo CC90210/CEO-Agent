@@ -206,34 +206,67 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
     if len(full_message) > 4096:
         full_message = full_message[:4093] + "..."
 
-    try:
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        resp = requests.post(
-            url,
-            json={
-                "chat_id": chat_id,
-                "text": full_message,
-                "parse_mode": "HTML",
-                "disable_notification": silent,
-            },
-            timeout=5,  # V2 2026-04-11: 10s -> 5s to prevent scheduler loop stalls
-        )
-        ok = resp.json().get("ok", False)
-        if not ok:
-            # Log to stderr so scheduler's PM2 logs surface delivery failures
-            # (e.g., 403 bot blocked, 429 rate limit). Fail-closed visibility.
-            err_info = resp.json().get("description", f"HTTP {resp.status_code}")
-            print(f"[notify] Telegram send failed: {err_info}", file=sys.stderr)
-        return ok
-    except Exception as exc:
-        # Visible failure beats silent failure. PM2 logs catch this.
-        # SECURITY (2026-07-21): requests exceptions embed the request URL,
-        # which contains the bot token — redact before printing so a transient
-        # network error can't leak the credential into PM2 logs or operator
-        # context (it did exactly that during the go-live watch smoke test).
-        msg = str(exc).replace(token, "[REDACTED:BOT_TOKEN]")
-        print(f"[notify] Telegram send exception: {msg}", file=sys.stderr)
-        return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": full_message,
+        "parse_mode": "HTML",
+        "disable_notification": silent,
+    }
+
+    # Bounded transport retry (2026-07-28). The AV TLS-scanning filter driver on
+    # this box intermittently aborts the outbound socket mid-handshake, which
+    # requests surfaces as ConnectionError("Connection aborted.", PermissionError(13)).
+    # A single abort used to fail the whole cron job ("Daily Bravo Brief -> FAILED"),
+    # which then retried the ENTIRE job 5 times — so one dropped packet cost five
+    # brief re-computations. Retrying just the POST costs ~2s and absorbs it.
+    #
+    # Transport errors only. A well-formed HTTP response with ok=false (403 bot
+    # blocked, 429 rate limit) is a semantic answer, not a transient fault —
+    # retrying those would spam Telegram and worsen a 429.
+    transient = (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
+    max_attempts = 3
+    last_exc: Exception | None = None
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            resp = requests.post(
+                url,
+                json=payload,
+                timeout=5,  # V2 2026-04-11: 10s -> 5s to prevent scheduler loop stalls
+            )
+            ok = resp.json().get("ok", False)
+            if not ok:
+                # Log to stderr so scheduler's PM2 logs surface delivery failures
+                # (e.g., 403 bot blocked, 429 rate limit). Fail-closed visibility.
+                err_info = resp.json().get("description", f"HTTP {resp.status_code}")
+                print(f"[notify] Telegram send failed: {err_info}", file=sys.stderr)
+            return ok
+        except transient as exc:
+            last_exc = exc
+            if attempt < max_attempts:
+                # SECURITY: redact before logging — see the handler below.
+                msg = str(exc).replace(token, "[REDACTED:BOT_TOKEN]")
+                print(
+                    f"[notify] Telegram transport error (attempt {attempt}/{max_attempts}), "
+                    f"retrying: {msg}",
+                    file=sys.stderr,
+                )
+                time.sleep(0.5 * attempt)  # 0.5s, then 1.0s
+                continue
+            break
+        except Exception as exc:
+            last_exc = exc
+            break
+
+    # Visible failure beats silent failure. PM2 logs catch this.
+    # SECURITY (2026-07-21): requests exceptions embed the request URL,
+    # which contains the bot token — redact before printing so a transient
+    # network error can't leak the credential into PM2 logs or operator
+    # context (it did exactly that during the go-live watch smoke test).
+    msg = str(last_exc).replace(token, "[REDACTED:BOT_TOKEN]")
+    print(f"[notify] Telegram send exception: {msg}", file=sys.stderr)
+    return False
 
 
 def notify_error(engine: str, error: str) -> bool:

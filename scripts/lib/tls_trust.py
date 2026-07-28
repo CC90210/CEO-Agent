@@ -27,16 +27,57 @@ import os
 _done = False
 
 
+def _genuine_override() -> str | None:
+    """Return an operator-supplied CA bundle path worth honouring, else None.
+
+    The plain "is SSL_CERT_FILE set?" test was too permissive (2026-07-28
+    incident). Two paths do NOT represent operator intent and must not
+    suppress the OS-store fix:
+
+    * a path that no longer exists — a stale value inherited from a
+      long-running parent, not a live choice;
+    * certifi's own bundle — that is merely Python's default written out
+      explicitly, and on this fleet it is exactly what CANNOT verify the
+      AV-scanner-MITM'd chain.
+
+    A real corporate bundle (exists, and isn't certifi's) still wins.
+    """
+    raw = os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE")
+    if not raw:
+        return None
+    try:
+        candidate = os.path.realpath(raw)
+        if not os.path.isfile(candidate):
+            return None
+        try:
+            import certifi  # type: ignore
+
+            if candidate == os.path.realpath(certifi.where()):
+                return None
+        except ImportError:
+            pass
+        return raw
+    except OSError:
+        return None
+
+
 def ensure_os_trust() -> str:
     """Idempotent. Returns which path was taken: 'env-override' | 'truststore'
     | 'certifi' | 'none' (nothing available — system defaults apply)."""
     global _done
-    if os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE"):
+    if _genuine_override():
         return "env-override"
     try:
         import truststore  # type: ignore
 
         if not _done:
+            # Drop the ineffective bundle vars before injecting. requests/httpx
+            # read REQUESTS_CA_BUNDLE/SSL_CERT_FILE and pass the path down as an
+            # explicit verify= target, which would re-pin the very certifi store
+            # we just established cannot verify this box's chain — the OS-store
+            # injection alone would be silently overridden.
+            for var in ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE"):
+                os.environ.pop(var, None)
             truststore.inject_into_ssl()
             _done = True
         return "truststore"

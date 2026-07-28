@@ -24,6 +24,16 @@ import json
 import sys
 from pathlib import Path
 
+# Windows CA-bundle fix (2026-07-28). AVG's HTTPS scanner MITMs outbound TLS
+# with a root that lives in the OS store but NOT in Python's certifi bundle, so
+# every Supabase/Stripe call died with CERTIFICATE_VERIFY_FAILED. ensure_os_trust
+# points Python at the OS store. Must run before the first network call, and
+# before `supabase`/`requests` build their default SSL contexts.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 # -- Constants -----------------------------------------------------------------
 
 MRR_GOAL_USD = 10000.0

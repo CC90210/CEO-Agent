@@ -52,6 +52,9 @@ ENTRY_POINTS = ["CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md", "OPENCO
 # The germline seed's core block (stamped from PERSONAL.md by genome_sync.py).
 LOCKSTEP_MARKER = "LOCKSTEP:seed_core"
 REQUIRED_PM2 = {"bravo-scheduler", "bravo-telegram", "claude-bridge", "event-router", "bravo-coord"}
+# This eval's own cron_jobs row (cron_engine.SEED_JOBS). check_cron_health skips
+# it to avoid scoring itself — see the note there.
+_SELF_CRON_NAME = "Bravo — Nightly Harness Eval"
 
 
 def _run(cmd: list[str], timeout: int = 60, env_extra: dict | None = None) -> tuple[int, str, str]:
@@ -215,7 +218,15 @@ def check_cron_health():
         jobs = json.loads(out)
     except json.JSONDecodeError:
         return False, "cron_engine returned non-JSON"
+    # Exclude this eval's OWN cron row. It is scored by the very check it is
+    # running, which deadlocks (2026-07-28): one transient failure stamps
+    # last_result="ERROR: ... HARNESS EVAL ..." on the row, this check then sees
+    # that row and fails, which re-stamps ERROR — forever. The eval could never
+    # return to 10/10 on its own no matter how healthy the fleet actually was.
+    # Every OTHER cron is still scored; a real failure here still shows up as
+    # that job's own row.
     bad = [j["name"] for j in jobs if j.get("is_active")
+           and j.get("name") != _SELF_CRON_NAME
            and str(j.get("last_result") or "").upper().startswith(("ERROR", "FAILED"))]
     mrr_on = [j["name"] for j in jobs if j.get("is_active") and j.get("name") == "Weekly MRR Report"]
     if bad:

@@ -35,6 +35,14 @@ SCRIPTS_DIR = SCRIPT_DIR.parent
 sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+# Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. The inbox sweep
+# reads IMAP (unaffected) but then writes lead_interactions to Supabase over
+# HTTPS, which is where the AV TLS-scanner root broke it: the sweep printed
+# emails fine and then exited 1 on the DB write.
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 try:
     from notify import notify
 except ImportError:

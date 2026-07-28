@@ -19,6 +19,16 @@ import os
 import sys
 from pathlib import Path
 
+# Windows CA-bundle fix (2026-07-28). This module is the shared Supabase client
+# factory — every importer inherits its TLS posture. AVG's HTTPS scanner MITMs
+# outbound TLS with a root that exists in the Windows cert store but not in
+# Python's certifi bundle, so every call raised CERTIFICATE_VERIFY_FAILED.
+# Fixing it here rather than at each call site covers all importers at once.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 CAPABILITY_META = {
     "category": "data.supabase",
     "lifecycle": "active",

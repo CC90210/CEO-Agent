@@ -550,11 +550,17 @@ Rules:
 
 
 def _classify_via_haiku(content: str, channel: str,
-                         subject: Optional[str], from_identity: Optional[str],
-                         _env: dict[str, str]) -> dict:
+                         subject: Optional[str], from_identity: Optional[str]) -> dict:
     """Call Claude Haiku via the subscription `claude` CLI (lib.claude_cli) —
     never the metered ANTHROPIC_API_KEY (out of credits + banned per CC's
-    CLI-only rule). Returns the raw parsed dict or raises."""
+    CLI-only rule). Returns the raw parsed dict or raises.
+
+    2026-07-28: dropped a dead `_env` parameter. The caller passed `env=` while
+    the signature declared `_env`, so EVERY call raised TypeError and was
+    swallowed by the except below — the classifier had silently degraded to the
+    keyword fallback on every inbound email. The CLI path needs no env (it
+    shells out to the subscription `claude` binary), so the parameter is gone
+    rather than renamed."""
     from lib.claude_cli import run_claude_cli
 
     user_parts = [f"Channel: {channel}"]
@@ -619,7 +625,10 @@ def classify(
     e.g. a Stripe webhook failure notification gets sent to Atlas as a
     business expense instead of being routed as a technical alert.
     """
-    e = env if env is not None else load_env()
+    # `env` is retained on the signature for call-site compatibility but is no
+    # longer resolved here: the Haiku path shells out to the subscription
+    # `claude` CLI and needs no credentials, so the old eager load_env() was a
+    # dead file read on every inbound message.
 
     # Gate 0: platform sender pre-filter
     pf = _platform_prefilter(from_identity, subject, content)
@@ -634,7 +643,6 @@ def classify(
             channel=channel or "email",
             subject=subject,
             from_identity=from_identity,
-            env=e,
         )
         return _validate_and_normalize(raw)
     except Exception as exc:  # noqa: BLE001
