@@ -26,6 +26,9 @@ from pathlib import Path
 from typing import Iterator
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+from lib import frontmatter as _fm  # noqa: E402
 STATE_DIR = PROJECT_ROOT / "state"
 INDEX_DB = STATE_DIR / "memory_index.db"
 MIGRATIONS_DIR = STATE_DIR / "migrations"
@@ -72,7 +75,12 @@ CHUNK_HARD_MAX = 2400      # break beyond this regardless
 
 H2_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
 H3_RE = re.compile(r"^###\s+(.+?)\s*$", re.MULTILINE)
-FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
+# Frontmatter parsing comes from lib.frontmatter. The local regex used to be
+# `^---\n(.*?)\n---\n`, which cannot match a CRLF file — and 859 of this repo's
+# 1504 markdown files are CRLF. The result was silent: no tags indexed, no L1
+# abstract, and raw YAML leaking into the indexed body for 57% of the vault.
+# Every sibling parser in the repo carries `\s*` and absorbs the \r; this one
+# did not.
 TAGS_RE = re.compile(r"^tags:\s*\[?(.+?)\]?\s*$", re.MULTILINE)
 
 try:
@@ -132,10 +140,9 @@ def _hash_file(path: Path) -> str:
 
 
 def _extract_tags(text: str) -> str:
-    fm = FRONTMATTER_RE.match(text)
-    if not fm:
+    inner, _body, _eol = _fm.split(text)
+    if inner is None:
         return ""
-    inner = fm.group(1)
     m = TAGS_RE.search(inner)
     if not m:
         return ""
@@ -152,10 +159,10 @@ _DESC_RE = re.compile(r"^description:\s*(.+)$", re.MULTILINE)
 
 
 def _extract_description(text: str) -> str:
-    fm = FRONTMATTER_RE.match(text)
-    if not fm:
+    inner, _body, _eol = _fm.split(text)
+    if inner is None:
         return ""
-    m = _DESC_RE.search(fm.group(1))
+    m = _DESC_RE.search(inner)
     if not m:
         return ""
     desc = m.group(1).strip().strip('"').strip("'")
@@ -165,11 +172,10 @@ def _extract_description(text: str) -> str:
 
 
 def _strip_frontmatter(text: str) -> tuple[str, int]:
-    fm = FRONTMATTER_RE.match(text)
-    if not fm:
+    block, body, _eol = _fm.split(text)
+    if block is None:
         return text, 0
-    body = text[fm.end():]
-    line_offset = text[: fm.end()].count("\n")
+    line_offset = text[: len(text) - len(body)].count("\n")
     return body, line_offset
 
 

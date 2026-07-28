@@ -85,7 +85,11 @@ SERVICES: dict[str, tuple[list[list[str]], str]] = {
                  "python scripts/notify.py '<message>'"),
     "firecrawl": ([["FIRECRAWL_API_KEY"]],
                   "python scripts/research_fetch.py <url>   (auto-escalates)"),
-    "late": ([["LATE_API_KEY", "ZERNIO_"]], "python scripts/integrations/late_tool.py"),
+    # late_tool.py lives in Maven's repo, not here. Naming the local path would
+    # authorize the service and then hand the agent a No-such-file — the exact
+    # false positive this tool exists to prevent.
+    "late": ([["LATE_API_KEY", "ZERNIO_"]],
+             "python ../CMO-Agent/scripts/late_tool.py   (Maven's repo — route content to Maven)"),
     "lendsaas": ([["LENDSAAS_API_TOKEN", "LENDSAAS_"]],
                  "python scripts/integrations/lendsaas_tool.py"),
     "github": ([["GITHUB_TOKEN", "GITHUB_PERSONAL_ACCESS_TOKEN", "GH_TOKEN"]],
@@ -155,13 +159,19 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
+    # --json lives on a shared parent so it is accepted AFTER the subcommand,
+    # which is the form every doc and example uses. Registered only on the
+    # top-level parser, argparse rejects `check stripe --json` outright.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--json", action="store_true")
+    ap.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("list", help="status of every known service")
-    c = sub.add_parser("check", help="status of one service")
+    sub.add_parser("list", parents=[common], help="status of every known service")
+    c = sub.add_parser("check", parents=[common], help="status of one service")
     c.add_argument("service")
-    h = sub.add_parser("have", help="is one specific env key set?")
+    h = sub.add_parser("have", parents=[common], help="is one specific env key set?")
     h.add_argument("key")
-    ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
     have = present_keys()

@@ -213,6 +213,30 @@ class TestCapabilityProbe:
         assert sentinel not in repr(r), "probe leaked a credential VALUE"
         assert r["keys_present"] == ["STRIPE_ORG_KEY"], "only the NAME may escape"
 
+    def test_json_flag_works_after_the_subcommand(self):
+        """Every doc writes `check <svc> --json`. Registering --json only on the
+        top-level parser makes argparse reject that form outright."""
+        out = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "capability_probe.py"),
+             "check", "supabase", "--json"],
+            capture_output=True, text=True,
+        )
+        self_json = out.stdout.strip()
+        assert "unrecognized arguments" not in (out.stderr or "")
+        assert self_json.startswith("{"), f"expected JSON, got: {self_json[:80]!r}"
+
+    def test_invoke_paths_that_look_local_actually_exist(self):
+        """A probe that authorizes a service then names a nonexistent script is
+        the false positive this tool exists to prevent (late_tool.py had moved
+        to Maven's repo while the probe still pointed at scripts/integrations/)."""
+        import re as _re
+        missing = []
+        for name, (_groups, invoke) in probe.SERVICES.items():
+            for token in _re.findall(r"(?:^|\s)((?:scripts|bravo_cli)/[\w./-]+\.py)", invoke):
+                if not (REPO_ROOT / token).is_file():
+                    missing.append(f"{name} -> {token}")
+        assert not missing, "probe names local scripts that do not exist: " + ", ".join(missing)
+
     def test_cli_exit_code_signals_availability(self):
         """Exit 1 is the ONLY evidence that permits 'I don't have access'."""
         out = subprocess.run(
