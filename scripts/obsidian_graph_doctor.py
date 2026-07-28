@@ -190,7 +190,11 @@ def resolve_repo_file(target: str) -> str | None:
     Used by --fix-links to turn a permanently-red wikilink into an accurate
     inline code path. Returns a repo-relative POSIX path, or None if unknown.
     """
-    t = target.strip().replace("\\", "/")
+    # A source link written `[[path\]]` leaves a trailing backslash in the
+    # capture; normalizing it to "/" produced paths with a spurious trailing
+    # separator (`data/pulse/x.json/`), which still resolve on Windows and so
+    # were silently emitted into the docs. Strip trailing separators first.
+    t = target.strip().replace("\\", "/").rstrip("/")
     if t.startswith("../"):
         return t  # sibling repo — outside the vault, quote it literally
 
@@ -219,13 +223,21 @@ def plan_link_fixes(report: dict, by_path: dict[str, str]) -> dict[str, list[tup
     plans: dict[str, list[tuple[str, str, str]]] = {}
     for src, links in report["broken_links"].items():
         for raw in links:
-            t = raw.strip().replace("\\", "/")
-            # 1. Folder note: [[skills/foo]] -> [[skills/foo/SKILL]]
-            if (t.rstrip("/") + "/skill").lower() in by_path:
+            t = raw.strip().replace("\\", "/").rstrip("/")
+
+            # 1. Folder note: [[skills/foo]] -> [[skills/foo/SKILL]]. Also catches
+            #    the bare form [[foo]] when skills/foo/SKILL.md exists — writing a
+            #    skill by its own name is the common way these links get made.
+            folder = next(
+                (c for c in (t, f"skills/{t}") if (c + "/skill").lower() in by_path),
+                None,
+            )
+            if folder:
                 plans.setdefault(src, []).append(
-                    (raw, f"[[{t.rstrip('/')}/SKILL]]", "skill-dir")
+                    (raw, f"[[{folder}/SKILL]]", "skill-dir")
                 )
                 continue
+
             # 2 & 3. Real file/dir, or sibling repo -> accurate inline code path.
             actual = resolve_repo_file(t)
             if actual:

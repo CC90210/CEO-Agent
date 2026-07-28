@@ -33,21 +33,23 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from lib import frontmatter as fm  # noqa: E402
-from lib.vault_scope import is_ignored, is_protected, load_ignore_filters  # noqa: E402
+from lib.vault_scope import (  # noqa: E402
+    ARTIFACT_PREFIXES,
+    is_ignored,
+    is_protected,
+    load_ignore_filters,
+)
 
-# Trees that are not this vault's knowledge: generated bundles, other repos'
-# scaffolding, caches, third-party evidence dumps.
-EXCLUDE_PREFIXES = (
-    ".pytest_cache/",
-    "apps/oasis-desktop/resources/sidecar/",
-    "evals/",
+# Trees that are not this vault's knowledge. ARTIFACT_PREFIXES comes from
+# lib.vault_scope so the graph doctor and this tool share ONE per-repo list —
+# maintaining two drifted once already (CMO's `vendor/` was excluded from the
+# graph but still stamped here). Only genuinely tool-specific paths belong below.
+EXCLUDE_PREFIXES = ARTIFACT_PREFIXES + (
     "node_modules/",
     "templates/agent-scaffold/",  # copied into NEW agent repos; keep self-contained
     "browser/evidence/",
     "output/",
     "tmp/",
-    "dist/",
-    "build/",
 )
 
 # path prefix -> canonical tags. Longest prefix wins.

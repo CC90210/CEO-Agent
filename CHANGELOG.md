@@ -20,6 +20,40 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 
 ## [Unreleased]
 
+## [7.4.1] — 2026-07-28
+
+V7.4.1 — **Vault hygiene + credential-first execution (three-repo pass).** A patch-level
+hardening across Bravo, Maven and Atlas: the knowledge graph the agents retrieve from was
+lying, and agents were declaring false limits on themselves.
+
+- **Vault tooling (new, stdlib-only):** `obsidian_graph_doctor` (broken links, orphans,
+  weak nodes, frontmatter gaps; `--fix-links`, `--reconnect`, `--strict` CI gate),
+  `frontmatter_doctor` (tags + `last_updated` derived from `git log`, never today's date —
+  the staleness gate treats it as ground truth), `lib/vault_scope` (one definition of
+  in-the-vault / safe-to-write), `lib/frontmatter` (one parser), 34 regression tests.
+  `wiki_link_auditor` superseded: it resolved repo-root-relative, but Obsidian resolves by
+  **basename** and honours `userIgnoreFilters`, so it reported 20 broken links where 85
+  were real.
+- **Graph repaired in all three vaults:** Bravo 85→0 broken / 79→6 orphans; Maven 92→0
+  (and 653→305 real notes — `vendor/` was inflating the graph with 348 phantom orphans);
+  Atlas 23→0. ~750 notes stamped with git-derived frontmatter across the fleet.
+- **Credential-first protocol:** `capability_probe` reports service availability and the
+  exact command to run, **never values** — the answer to "do I have access?" without
+  reading the secret store. Required keys are ANY-OF groups where EVERY group must be
+  satisfied (a lone `SUPABASE_URL` is not access). Stamped into all six entry points via
+  `PERSONAL.md` `seed_core`.
+- **8-step closed loop** codified as `brain/EXECUTION_RULES.md` §18; Adon/APEX handover
+  SOP at `docs/sop/ADON_AGENT_PROTOCOL_SOP.md`; `docs/adr/INDEX.md` (13 ADRs had no index;
+  documents the 0003/0004 numbering collision without unilaterally renumbering).
+- **Version single-sourcing enforced for real:** all six entry points hardcoded `V7.3.3`
+  while `brain/STATE.md` said `V7.4.0`. The parity test only checked the H1, so an H2
+  drifted silently across every runtime. Entry points now defer to
+  `brain/STATE.md architecture_version`; the test checks all architecture headings and
+  inline current-version claims, while still allowing historical citations.
+- **Fixes:** `context_builder` TLS routed through the OS trust store (was dying with
+  CERTIFICATE_VERIFY_FAILED on every call); hardcoded LiteLLM master key replaced with an
+  env-var read and no fallback.
+
 ## [7.4.0] — 2026-07-20
 
 V7.4 — **Agent Fleet Modernization (the AOS pass).** The 13 core personas were V5.5-era

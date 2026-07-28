@@ -183,9 +183,9 @@ Guard modes via env var (all **enforce** as of the 2026-07-02 lockdown, set in `
 
 All guards write JSONL audit logs to `state/{guard}.log` and fail-**closed** in enforce. SessionStart runs `audit_mcp_secrets.py --quiet` (scans all MCP config paths incl. `%APPDATA%\Antigravity\User\mcp.json`) and writes `state/session_git_baseline.json` (the baseline the SubagentStop validator gate diffs against, so it never nags about pre-existing dirt).
 
-## Architecture (V6.0 → V7.3.3)
+## Architecture
 
-Full history + substrate detail (state DB · retrieval · guards · event bus · capability graph · agentic-OS hooks · vocabulary layer): **brain/V6_ARCHITECTURE.md** (current running version **V7.3.3**; the V6.9→V7.x deltas — audit remediation, reliability/observability, free-tier radar, persona bench, typed memory — are in **CHANGELOG.md**) — read on architecture/redesign turns. Operationally: resolve a skill with `python scripts/capability_query.py resolve "<intent>"` (router over `brain/CAPABILITY_GRAPH.json`); guard modes in **Safety & Hooks** above; state via `python scripts/state/state_sync.py`.
+Full history + substrate detail (state DB · retrieval · guards · event bus · capability graph · agentic-OS hooks · vocabulary layer): **brain/V6_ARCHITECTURE.md** (the running version is `architecture_version` in **brain/STATE.md** — single source of truth, never hardcoded here; the V6.9→V7.x deltas — audit remediation, reliability/observability, free-tier radar, persona bench, typed memory — are in **CHANGELOG.md**) — read on architecture/redesign turns. Operationally: resolve a skill with `python scripts/capability_query.py resolve "<intent>"` (router over `brain/CAPABILITY_GRAPH.json`); guard modes in **Safety & Hooks** above; state via `python scripts/state/state_sync.py`.
 
 ## Sub-Agent Orchestration
 

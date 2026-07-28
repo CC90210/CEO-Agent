@@ -1,6 +1,6 @@
 ---
 tags: [state, ephemeral, fable-5]
-architecture_version: V7.4.0
+architecture_version: V7.4.1
 last_updated: 2026-07-26
 freshness_threshold_days: 30
 verified: 2026-07-26
@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-28
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Extracted lib/frontmatter (one parser for both doctors); added 34 regression tests for vault tooling
+- **Result:** V7.4 AOS System Update: Source control triaged, multi-vault graph repaired, personal context modernized
 
 *Last updated: 2026-07-28*
 
