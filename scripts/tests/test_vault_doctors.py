@@ -163,12 +163,44 @@ class TestPrivateLinks:
         got = doctor.gitignored_targets({"memory/MISTAKES", "memory/PATTERNS"})
         assert got == {"memory/MISTAKES", "memory/PATTERNS"}
 
+    @pytest.mark.parametrize("target", ["tmp/foo", "output/report", "dist/x", "build/y"])
+    def test_gitignored_build_trees_stay_broken(self, target):
+        """`.gitignore` covers scratch and build trees too. Exempting everything
+        gitignored hides `[[tmp/foo]]` from CI — a false-green. Private status
+        requires an allowlisted note ROOT, not merely being ignored.
+        (Found by Codex adversarial review.)"""
+        assert doctor.gitignored_targets({target}) == set()
+
+    def test_basename_form_of_a_private_note_is_recognized(self):
+        """Obsidian resolves `[[MISTAKES]]` by basename. Probing only the literal
+        target judged the basename and path spellings of the SAME note
+        differently, so CI failed on `[[MISTAKES]]` while passing
+        `[[memory/MISTAKES]]`. (Found by Codex adversarial review.)"""
+        assert doctor.gitignored_targets({"MISTAKES"}) == {"MISTAKES"}
+        assert doctor.gitignored_targets({"memory/MISTAKES"}) == {"memory/MISTAKES"}
+
     def test_tracked_notes_are_not_classified_private(self):
         """A genuinely broken link must stay broken — this is the whole gate."""
         assert doctor.gitignored_targets({"brain/STATE", "docs/adr/INDEX"}) == set()
 
     def test_nonexistent_and_untracked_target_is_not_private(self):
         assert doctor.gitignored_targets({"brain/THIS_NOTE_NEVER_EXISTED"}) == set()
+
+    def test_dead_link_in_wildcard_ignored_dir_is_not_excused(self):
+        """`.gitignore` has wildcard rules (`APPS_CONTEXT/*`), so "git ignores it"
+        does not prove a note exists. A never-existed note inside a materialized
+        private dir must stay BROKEN — excusing it is a false-green gate, which is
+        worse than no gate."""
+        materialized = any((REPO_ROOT / "APPS_CONTEXT").glob("*.md"))
+        if not materialized:
+            pytest.skip("APPS_CONTEXT not materialized on this machine (clean checkout)")
+        got = doctor.gitignored_targets({"APPS_CONTEXT/TOTALLY_MADE_UP_NOTE"})
+        assert got == set(), "a dead link in a wildcard-ignored dir was excused as private"
+
+    def test_absent_dir_still_yields_private(self):
+        """In a clean checkout the private dir is absent entirely — absence is
+        expected there and must NOT fail the gate."""
+        assert doctor._dead_inside_materialized_dir("no_such_dir_here/x.md") is False
 
     def test_empty_input_short_circuits(self):
         assert doctor.gitignored_targets(set()) == set()

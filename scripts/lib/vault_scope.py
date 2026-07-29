@@ -66,6 +66,26 @@ VENDORED_PREFIXES: tuple[str, ...] = (
     ".harness/",
 )
 
+# Locations that intentionally hold operator-private notes: real knowledge that
+# is gitignored because it carries PII or business detail, exists on the
+# operator's disk, and is absent from every clean checkout.
+#
+# This is an ALLOWLIST on purpose. "git ignores it" is far too broad to mean
+# "private note" — `.gitignore` also covers `tmp/`, `output/`, `dist/` and other
+# scratch/build trees, so exempting everything gitignored would hide a broken
+# `[[tmp/foo]]` from CI. A link is excused only if it is gitignored AND lands in
+# one of these roots.
+PRIVATE_NOTE_PREFIXES: tuple[str, ...] = (
+    "memory/",
+    "APPS_CONTEXT/",
+)
+
+
+def is_private_note_location(rel_posix: str) -> bool:
+    """True if this path is an intentionally-private note location."""
+    return rel_posix.startswith(PRIVATE_NOTE_PREFIXES)
+
+
 # Runtime entry points. Stamped by scripts/genome_sync.py and mirrored
 # byte-identically into .gemini/rules/; test_entrypoint_parity.py gates them.
 # None of the six carries frontmatter today — adding it to one would break that

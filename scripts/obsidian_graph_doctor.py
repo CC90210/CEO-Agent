@@ -39,7 +39,9 @@ from lib import frontmatter as fm  # noqa: E402
 from lib.vault_scope import (  # noqa: E402
     ARTIFACT_PREFIXES,
     HARD_IGNORES,
+    PRIVATE_NOTE_PREFIXES,
     is_ignored,
+    is_private_note_location,
     is_protected,
     load_ignore_filters,
 )
@@ -359,7 +361,18 @@ def gitignored_targets(targets: set[str]) -> set[str]:
         clean = t.strip().replace("\\", "/").rstrip("/")
         if not clean or clean.startswith("../"):
             continue
-        candidates.setdefault(clean if clean.endswith(".md") else clean + ".md", t)
+        forms = [clean if clean.endswith(".md") else clean + ".md"]
+        if "/" not in clean:
+            # Obsidian resolves `[[MISTAKES]]` by basename. Probing only the
+            # literal target means the basename form is judged differently from
+            # `[[memory/MISTAKES]]` — same note, opposite verdict, and CI fails on
+            # the basename spelling. Try it under each private root too.
+            stem = clean.removesuffix(".md")
+            forms += [f"{p}{stem}.md" for p in PRIVATE_NOTE_PREFIXES]
+        for form in forms:
+            # Allowlist gate: gitignored is necessary but NOT sufficient.
+            if is_private_note_location(form):
+                candidates.setdefault(form, t)
     if not candidates:
         return set()
 
@@ -385,9 +398,58 @@ def gitignored_targets(targets: set[str]) -> set[str]:
             return set()
         for ln in proc.stdout.splitlines():
             key = ln.strip().replace("\\", "/")
-            if key in candidates:
+            if key in candidates and not _dead_inside_materialized_dir(key):
                 found.add(candidates[key])
     return found
+
+
+def _dead_inside_materialized_dir(rel_md: str) -> bool:
+    """True when a gitignored target is genuinely dead rather than merely private.
+
+    `.gitignore` rules are often wildcards (`APPS_CONTEXT/*`), so "git ignores
+    this path" does NOT prove a note exists behind it. Without this check, a link
+    to a note that never existed inside a wildcard-ignored directory is filed as
+    private and `--strict` stays green — a false-green gate, which is worse than
+    no gate at all.
+
+    The distinguishing signal is whether the *private* content is materialized —
+    not merely whether the directory is non-empty. A clean clone still contains
+    the TRACKED files of a partly-ignored directory (`APPS_CONTEXT/README.md`),
+    so "has siblings" wrongly reads as materialized and turns all 71 private
+    links red in CI. The question is narrower: does this directory hold at least
+    one note that is ITSELF gitignored? If so the operator's private set is here
+    and a missing member is dead; if not, we are in a clean checkout.
+    """
+    parent = (REPO_ROOT / rel_md).parent
+    if not parent.is_dir():
+        return False          # clean checkout — absence is expected
+    if (REPO_ROOT / rel_md).exists():
+        return False          # present; it would have resolved normally
+    return _has_materialized_private_note(parent)
+
+
+_PRIVATE_DIR_CACHE: dict[str, bool] = {}
+
+
+def _has_materialized_private_note(parent: Path) -> bool:
+    """Does `parent` hold at least one on-disk note that git ignores?"""
+    key = parent.as_posix()
+    if key in _PRIVATE_DIR_CACHE:
+        return _PRIVATE_DIR_CACHE[key]
+    siblings = [p for p in parent.glob("*.md")][:200]
+    result = False
+    if siblings:
+        rels = [p.relative_to(REPO_ROOT).as_posix() for p in siblings]
+        try:
+            proc = subprocess.run(
+                ["git", "check-ignore", "--"] + rels,
+                cwd=REPO_ROOT, capture_output=True, text=True,
+            )
+            result = proc.returncode == 0 and bool(proc.stdout.strip())
+        except (OSError, subprocess.SubprocessError):
+            result = False
+    _PRIVATE_DIR_CACHE[key] = result
+    return result
 
 
 def audit(include_artifacts: bool = False) -> dict:
