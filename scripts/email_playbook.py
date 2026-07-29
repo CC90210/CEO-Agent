@@ -144,46 +144,109 @@ def _local_and_domain(addr: str) -> tuple[str, str]:
     return local, domain
 
 
-def classify_sender(from_addr: str, subject: str = "", body: str = "") -> dict:
+def classify_sender(from_addr: str, subject: str = "", body: str = "",
+                    list_unsubscribe: Optional[str] = None) -> dict:
     """Deterministic sender triage — runs BEFORE any model call.
 
-    Returns {kind, is_automated, may_reply, reason} where kind is one of:
+    Returns {kind, is_automated, may_reply, is_bulk, reason} where kind is:
       owner     — CC himself (often forwarding something in to be processed)
       sibling   — another OASIS agent; never reply (loop risk)
       security  — scanner/verification mail; alert, never reply
       automated — machine-sent (no-reply, mass-mail platform); never reply,
                   but ALWAYS still classified (vendor receipts live here)
       human     — a real person; eligible for the reply brains
+
+    `list_unsubscribe` is the raw RFC-2369 List-Unsubscribe HEADER. Bulk senders
+    are legally obliged to set it and transactional mail (invoices, receipts,
+    password resets) essentially never does, which makes it the single most
+    reliable machine-readable "this is marketing" signal available.
+
+    Note it is a HEADER, not body text. Until 2026-07-29 this function tested
+    `"list-unsubscribe" in body` — which never matched anything, because headers
+    are not in the body. The check has been dead since it was written.
+
+    `body` is consequently unused today, but stays in the signature: callers
+    pass it positionally (email_engine passes body_full), and content-driven
+    triage rules are the obvious next thing to land here.
     """
     local, domain = _local_and_domain(from_addr)
     full = f"{local}@{domain}"
     subj = _lc(subject)
-    text = _lc(body)[:4000]
+    is_bulk = bool((list_unsubscribe or "").strip())
 
     if full in OWNER_EMAILS or (domain in OWNER_DOMAINS and local in ("cc", "conaugh")):
         return {"kind": "owner", "is_automated": False, "may_reply": False,
+                "is_bulk": is_bulk,
                 "reason": "from CC himself — treat as an instruction/forward, never reply"}
 
     if domain in OWNER_DOMAINS and any(s in local for s in SIBLING_LOCALPARTS):
         return {"kind": "sibling", "is_automated": True, "may_reply": False,
+                "is_bulk": is_bulk,
                 "reason": "sibling OASIS agent — replying would create an agent loop"}
 
     if (any(s in full for s in SECURITY_SIGNALS)
             or any(s in subj for s in SECURITY_SUBJECTS)):
         return {"kind": "security", "is_automated": True, "may_reply": False,
+                "is_bulk": is_bulk,
                 "reason": "security/verification mail — alert CC, never reply"}
 
     automated = (
         any(full.startswith(p.rstrip("@") + "@") or p in full for p in AUTOMATED_PREFIXES)
         or any(domain.endswith(d) for d in MASS_MAIL_DOMAINS)
-        or "list-unsubscribe" in text
+        or is_bulk
     )
     if automated:
+        why = ("bulk mail (List-Unsubscribe header present)" if is_bulk
+               else "machine-sent")
         return {"kind": "automated", "is_automated": True, "may_reply": False,
-                "reason": "machine-sent — classify it (vendor receipts live here) but never reply"}
+                "is_bulk": is_bulk,
+                "reason": f"{why} — classify it (vendor receipts live here) but never reply"}
 
     return {"kind": "human", "is_automated": False, "may_reply": True,
-            "reason": "real human sender"}
+            "is_bulk": is_bulk, "reason": "real human sender"}
+
+
+# ── Automated code-review notifications ─────────────────────────────────────
+#
+# CodeRabbit / Vercel / GitHub Actions mail is a NOTIFICATION, not content to
+# classify. The PR number is the only thing worth extracting: everything we act
+# on is then fetched live via `gh` (see scripts/review_harvest.py), because by
+# the time the email is read the thread may already be resolved.
+#
+# Deterministic on purpose — no model call. These are machine-shaped subjects.
+
+REVIEW_SENDER_DOMAINS = ("github.com", "vercel.com")
+REVIEW_SENDER_LOCALS = ("notifications@", "noreply@", "no-reply@")
+
+_PR_SUBJECT_RE = re.compile(
+    r"\[(?P<repo>[\w.-]+/[\w.-]+)\].*?(?:\(PR\s*#(?P<pr1>\d+)\)|#(?P<pr2>\d+))",
+    re.IGNORECASE | re.DOTALL)
+_RUN_FAILED_RE = re.compile(r"^\[(?P<repo>[\w.-]+/[\w.-]+)\]\s*Run failed:", re.IGNORECASE)
+
+
+def detect_review_notification(from_addr: str, subject: str) -> Optional[dict]:
+    """Return {repo, pr, kind} when this email is an automated-review ping.
+
+    kind ∈ {pr_review, run_failed}. Returns None for anything else, including
+    ordinary GitHub mail (releases, mentions, discussions) that carries no PR
+    number — those fall through to normal classification.
+    """
+    _, domain = _local_and_domain(from_addr)
+    if not any(domain == d or domain.endswith("." + d) for d in REVIEW_SENDER_DOMAINS):
+        return None
+
+    subj = (subject or "").replace("\r", " ").replace("\n", " ")
+
+    run_fail = _RUN_FAILED_RE.match(subj)
+    if run_fail:
+        return {"repo": run_fail.group("repo"), "pr": None, "kind": "run_failed"}
+
+    m = _PR_SUBJECT_RE.search(subj)
+    if m:
+        pr = m.group("pr1") or m.group("pr2")
+        if pr:
+            return {"repo": m.group("repo"), "pr": int(pr), "kind": "pr_review"}
+    return None
 
 
 def detect_red_flags(subject: str, body: str, from_addr: str = "") -> list[str]:

@@ -14,6 +14,8 @@ CANONICAL PATTERN for any script that talks HTTPS (requests/httpx/urllib):
     ensure_os_trust()   # call once, before the first network call
 
 Behavior (mirrors agent_heartbeat._configure_ca_bundle, the fullest copy):
+- Neutralizes a hostile/unusable SSLKEYLOGFILE (see below) — FIRST, because it
+  breaks context construction itself, before any CA question is reached.
 - Respects an operator override: if SSL_CERT_FILE or REQUESTS_CA_BUNDLE is
   already set, does nothing.
 - Prefers `truststore.inject_into_ssl()` (OS store — the real fix).
@@ -25,6 +27,98 @@ from __future__ import annotations
 import os
 
 _done = False
+_keylog_done = False
+
+# ── SSLKEYLOGFILE poisoning (2026-07-29 outage) ──────────────────────────────
+#
+# The local AV (AVG) sets SSLKEYLOGFILE to a kernel device handle so its TLS
+# scanner can log session keys:
+#
+#     SSLKEYLOGFILE=\\.\avgMonFltProxy\FFFF80838C28E160
+#
+# CPython's ssl.create_default_context() reads that var unconditionally and
+# does `context.keylog_filename = <value>` (Lib/ssl.py). The handle is issued
+# per AV session and goes STALE; opening it then raises PermissionError
+# [Errno 13] / FileNotFoundError [Errno 2] — from inside SSL context
+# construction, i.e. before a single byte is sent.
+#
+# PM2 makes this lethal rather than transient: the daemon captures the handle
+# that was live when IT started and hands that frozen value to every child it
+# spawns, forever. bravo-scheduler ran 25h on a dead handle, so every cron
+# child that built an httpx/requests client died at construction —
+# `Inbound Email Sweep` (31/145 runs), `Funnel Fast-Poll`, and, worst of all,
+# notify.py itself, which meant the failures could not even be alerted on.
+#
+# We never want TLS session keys written to disk in production anyway (anyone
+# holding that file can decrypt captured traffic), so the guard is aggressive:
+# drop the var unless it points at a path we can actually append to, and let
+# EMPIRE_ALLOW_SSLKEYLOG=1 opt back in for deliberate debugging.
+_KEYLOG_VAR = "SSLKEYLOGFILE"
+_DEVICE_PREFIXES = ("\\\\.\\", "\\\\?\\", "//./", "//?/")
+
+
+def _keylog_is_usable(raw: str) -> bool:
+    """True only if `raw` is a path Python can actually open for appending.
+
+    Deliberately does the real open() rather than inferring from the string:
+    the AV handle looks like a plain path to os.path, and a stale handle is
+    indistinguishable from a live one until you touch it.
+    """
+    if not raw:
+        return False
+    if raw.startswith(_DEVICE_PREFIXES):
+        return False
+    try:
+        parent = os.path.dirname(os.path.abspath(raw))
+        if parent and not os.path.isdir(parent):
+            return False
+        with open(raw, "a", encoding="utf-8"):
+            pass
+        return True
+    except OSError:
+        return False
+
+
+def neutralize_keylog() -> bool:
+    """Drop a hostile/unusable SSLKEYLOGFILE from os.environ.
+
+    Returns True if the variable was removed. Idempotent, never raises. Must
+    run BEFORE the first ssl.create_default_context() in the process.
+    """
+    global _keylog_done
+    try:
+        raw = os.environ.get(_KEYLOG_VAR)
+        if not raw:
+            _keylog_done = True
+            return False
+        if (os.environ.get("EMPIRE_ALLOW_SSLKEYLOG") or "").strip() == "1":
+            _keylog_done = True
+            return False
+        if _keylog_is_usable(raw):
+            _keylog_done = True
+            return False
+        os.environ.pop(_KEYLOG_VAR, None)
+        _keylog_done = True
+        return True
+    except Exception:  # noqa: BLE001 — a TLS helper must never break a caller
+        return False
+
+
+def tls_diagnostics() -> dict:
+    """Non-mutating snapshot for health checks (machine_parity, harness_eval).
+
+    Reports what the CURRENT process environment looks like — call before
+    ensure_os_trust() to see the inherited state, after to confirm the fix.
+    """
+    raw = os.environ.get(_KEYLOG_VAR)
+    return {
+        "keylog_present": bool(raw),
+        "keylog_value": raw,
+        "keylog_usable": _keylog_is_usable(raw) if raw else None,
+        "keylog_allowed": (os.environ.get("EMPIRE_ALLOW_SSLKEYLOG") or "").strip() == "1",
+        "trust_path": "truststore" if _done else None,
+        "ca_override": _genuine_override(),
+    }
 
 
 def _genuine_override() -> str | None:
@@ -71,8 +165,14 @@ def _genuine_override() -> str | None:
 
 def ensure_os_trust() -> str:
     """Idempotent. Returns which path was taken: 'env-override' | 'truststore'
-    | 'certifi' | 'none' (nothing available — system defaults apply)."""
+    | 'certifi' | 'none' (nothing available — system defaults apply).
+
+    Always neutralizes a hostile SSLKEYLOGFILE first — that failure mode kills
+    ssl.create_default_context() outright, so it has to be cleared before any
+    CA decision matters (and regardless of which CA branch we end up taking).
+    """
     global _done
+    neutralize_keylog()
     if _genuine_override():
         return "env-override"
     try:

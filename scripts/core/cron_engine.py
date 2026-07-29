@@ -20,11 +20,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+# scripts/ on sys.path so `lib.tls_trust` resolves when this is run as
+# `python scripts/core/cron_engine.py` (cwd-independent).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from lib.tls_trust import ensure_os_trust  # noqa: E402
 
 
 # -- Credential loading --------------------------------------------------------
@@ -69,27 +74,17 @@ def get_client(env_vars: dict[str, str]):
 
 
 def configure_ca_bundle() -> None:
-    """Use the OS trust store or certifi when Python has no default CA file.
+    """Delegate to the canonical TLS helper — kept as a named function because
+    call sites in this module already reference it.
 
-    Windows installs can report ssl cafile=None, which makes Supabase TLS fail
-    with CERTIFICATE_VERIFY_FAILED. Respect explicit operator env overrides.
+    Was an inline copy of the truststore/certifi dance. Promoted 2026-07-29:
+    lib/tls_trust also strips a poisoned SSLKEYLOGFILE, which this copy did not,
+    and cron_engine sits directly on the path that outage took down. The old
+    "is SSL_CERT_FILE set?" early-return also lived here — lib/tls_trust replaced
+    that with _genuine_override(), which ignores stale and certifi-pointing
+    values rather than treating them as operator intent.
     """
-    if os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE"):
-        return
-    try:
-        import truststore  # type: ignore
-    except ImportError:
-        pass
-    else:
-        truststore.inject_into_ssl()
-        return
-    try:
-        import certifi  # type: ignore
-    except ImportError:
-        return
-    ca_path = certifi.where()
-    os.environ.setdefault("SSL_CERT_FILE", ca_path)
-    os.environ.setdefault("REQUESTS_CA_BUNDLE", ca_path)
+    ensure_os_trust()
 
 
 # -- Seed definitions ----------------------------------------------------------
@@ -373,11 +368,40 @@ SEED_JOBS: list[dict] = [
         # ERROR / FAILED and Telegrams CC with a consolidated alert.
         # Self-monitoring: if THIS cron fails, its own FAILED row surfaces
         # in the dashboard's red-border treatment.
-        "name": "Bravo — Daily Cron Health Check",
-        "description": "Nightly 22:00 scan of cron_jobs for last_result starting with ERROR or FAILED. Telegrams CC with the failing job name + snippet. Meta-cron: guards every other cron so silent breakage doesn't sit dead for days.",
-        "schedule": "0 22 * * *",
+        # 2026-07-29: promoted from nightly (0 22 * * *) to hourly. A daily scan
+        # means up to 24h of latency, which is exactly how the SSLKEYLOGFILE
+        # outage ran unnoticed for a full working day — 31 failed inbox sweeps,
+        # zero alerts. Hourly + notify.py's 1h dedup means a broken job surfaces
+        # within the hour and then pings at most once an hour, not 12x a day.
+        "name": "Bravo — Hourly Cron Health Check",
+        "description": "Hourly scan of cron_jobs for last_result starting with ERROR or FAILED. Telegrams CC with the failing job name + snippet. Meta-cron: guards every other cron so silent breakage doesn't sit dead for days.",
+        "schedule": "0 * * * *",
         "action_type": "script_run",
         "action_config": {"script": "scripts/core/cron_health_check.py", "args": ["--alert"]},
+        "is_active": True,
+    },
+    {
+        # Added 2026-07-29 — the closed review loop CC asked for.
+        #
+        # CodeRabbit / Vercel / CI review our pushes and email CC about it; that
+        # signal used to die in a GitHub tab. The inbox sweep now detects those
+        # notifications deterministically (email_playbook.detect_review_notification)
+        # and queues (repo, pr) to tmp/review_harvest_queue.json; this job drains
+        # the queue: harvest live thread state via gh, apply the fix, run the
+        # repo's tests, push to the PR BRANCH, Telegram CC.
+        #
+        # NEVER merges, never pushes to main, never force-pushes, and skips
+        # migrations / credentials / CI files / send_gateway / anything
+        # money-adjacent (those escalate to CC). See scripts/review_fix.py.
+        #
+        # */15 not */5: each finding spawns a full Claude editing session plus a
+        # test run, so a 5-minute cadence would overlap itself. review_loop
+        # drains ONE PR per pass for the same reason.
+        "name": "Bravo — Review Harvest",
+        "description": "Every 15 min: drain the automated-review queue (CodeRabbit / Vercel / CI). Harvests UNRESOLVED review threads live via gh, applies the fix, runs tests, pushes to the PR branch, and Telegrams CC. Never merges or touches main.",
+        "schedule": "*/15 * * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/review_loop.py", "args": ["--once", "--json"]},
         "is_active": True,
     },
     # 'Bravo — Override Queue Cleanup' removed 2026-05-22 along with the

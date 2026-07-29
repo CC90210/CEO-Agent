@@ -73,6 +73,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+# TLS setup (added 2026-07-29). This module owns its own get_supabase() but had
+# NO trust setup — it only ever worked because email_engine.py imports
+# lib.tls_trust before importing this one. Its CLI entrypoint, and
+# email_brain's store_draft_row / handoff_to_atlas (which import get_supabase
+# from here), all reached SSL unprotected. That is the exact call that failed
+# 40/40 under the poisoned scheduler environment.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
@@ -391,14 +403,34 @@ Categories:
 2. Business Opportunities — new leads, cold/warm-email replies, referrals,
    introductions, discovery-call requests, inbound interest, anyone CC has been
    emailing in outreach. Usually needs a reply toward booking a call.
-3. Financial & Legal — invoices, receipts, bank statements, Stripe PAYMENT
-   notifications (payouts, charges, refunds, successful payments), CRA/tax
-   documents, contracts, legal notices — anything involving money or legal
-   implications. NOT webhook errors, API failures, or developer/technical alerts
-   from Stripe/Vercel/GitHub/etc. — those are Low Priority.
-4. Low Priority & Archive — newsletters, marketing, promotions, automated
-   notifications, no-reply updates, platform TECHNICAL alerts (webhook failures,
-   deploy errors, API deprecation), anything needing no response.
+3. Financial & Legal — a TRANSACTION that already happened or is formally due,
+   or a binding legal document. Concretely: invoices, receipts, bank/card
+   statements, Stripe payment notifications (payouts, charges, refunds,
+   successful payments), subscription renewal CONFIRMATIONS, CRA / Revenu
+   Québec / tax documents, signed contracts, legal notices.
+
+   THE TEST: has money actually moved, or is a specific amount formally owed?
+   If yes -> Financial & Legal. If the email merely TALKS about money -> not.
+
+   NOT Financial & Legal:
+     - a vendor announcing new or lower pricing ("Lindy is cutting prices by 4x
+       on average") — that is marketing, no matter how much money it mentions;
+     - plan/tier comparisons, upsells, upgrade nudges, discount promos;
+     - product launches that quote a price;
+     - webhook errors, API failures, deploy errors, or any developer/technical
+       alert from Stripe / Vercel / GitHub / Supabase — those are technical.
+   All of the above are Low Priority & Archive (or Client Technical Support if
+   an OASIS client is actually blocked).
+
+4. Low Priority & Archive — newsletters, marketing, promotions, pricing and
+   product announcements, automated notifications, no-reply updates, platform
+   TECHNICAL alerts (webhook failures, deploy errors, API deprecation),
+   anything needing no response.
+
+Getting #3 wrong is expensive in BOTH directions: a missed receipt loses a
+deductible expense, and a marketing blast misfiled as Financial books a fake
+expense in the operator's ledger. When money is discussed but no transaction
+occurred, choose Low Priority & Archive.
 
 Output ONLY a JSON object, no prose, no markdown:
 {"category": "<one of: Client Technical Support | Business Opportunities | Financial & Legal | Low Priority & Archive>", "confidence": <0.0-1.0>}"""
@@ -412,72 +444,250 @@ def _default_category_runner(prompt: str, system: Optional[str] = None,
 
 
 def _build_category_user_msg(content: str, subject: Optional[str],
-                             from_identity: Optional[str]) -> str:
+                             from_identity: Optional[str],
+                             is_bulk: bool = False) -> str:
     parts = []
     if from_identity:
         parts.append(f"From: {from_identity}")
     if subject:
         parts.append(f"Subject: {subject}")
+    if is_bulk:
+        # Hand the model the deterministic signal rather than hoping it infers
+        # "marketing" from tone. Bulk senders must set List-Unsubscribe;
+        # transactional mail (invoices, receipts, resets) essentially never does.
+        parts.append(
+            "Delivery: this message carries a List-Unsubscribe header, i.e. it "
+            "was sent as BULK/MARKETING mail. Transactional mail (real invoices, "
+            "receipts, payment confirmations) almost never carries this header. "
+            "Weigh this heavily against Financial & Legal."
+        )
     parts.append("")
     parts.append("Body:")
     parts.append((content or "")[:4000])
     return "\n".join(parts)
 
 
-def _parse_category_response(raw: str) -> Optional[dict]:
+def _parse_category_response(raw: str, evidence_text: str = "",
+                             is_bulk: bool = False) -> Optional[dict]:
     """Parse a runner response into {category, confidence, fallback, notes}.
+
     Tolerant: accepts a JSON object OR a bare category label. Returns None only
-    when the input is empty/whitespace."""
+    when the input is empty/whitespace.
+
+    Two DETERMINISTIC corrections are applied on top of the model's answer,
+    because the model is not stable enough to be the only vote. Measured
+    2026-07-29 on the exact Lindy price-cut email: identical input returned
+    "Low Priority & Archive" @0.95 on one call and "Financial & Legal" @0.6 on
+    the next. Money decisions cannot ride on that.
+
+      1. MARKETING VETO. A bulk-sent message (List-Unsubscribe header) or one
+         written in pricing-announcement language may NOT be Financial & Legal
+         unless there is actual transaction evidence. A vendor telling CC what
+         things cost is not a vendor charging CC.
+      2. EVIDENCE-WEIGHTED CONFIDENCE. When the model omits a confidence, the
+         old code invented a flat 0.6 — which sits below the hand-off threshold,
+         so genuine receipts silently failed to book (a missed deductible), while
+         still being high enough to look considered. Derive it from evidence
+         instead: transaction evidence present -> confident; absent -> not.
+    """
     text = strip_code_fence(raw)
     if not text:
         return None
     category_raw: Any = text
-    confidence: float = 0.6
+    confidence: Optional[float] = None
     try:
         obj = json.loads(text)
         if isinstance(obj, dict):
             category_raw = obj.get("category", "")
-            try:
-                confidence = float(obj.get("confidence", 0.6))
-            except (TypeError, ValueError):
-                confidence = 0.6
+            if obj.get("confidence") is not None:
+                try:
+                    confidence = float(obj["confidence"])
+                except (TypeError, ValueError):
+                    confidence = None
     except (json.JSONDecodeError, ValueError):
         pass  # treat the whole string as a bare label
+
+    category = normalize_category(category_raw)
+    has_txn = _has_transaction_evidence(evidence_text)
+    marketing = bool(_MARKETING_RE.search(evidence_text))
+    note = ""
+
+    if category == "financial_legal" and not has_txn and (is_bulk or marketing):
+        why = "bulk/List-Unsubscribe" if is_bulk else "pricing-announcement language"
+        category = "low_priority"
+        note = (f"model said Financial & Legal, overridden: {why} and no "
+                f"transaction evidence (no amount, invoice #, or payment phrase)")
+        confidence = 0.8
+
+    if confidence is None:
+        # No number from the model — derive one rather than inventing 0.6.
+        if category == "financial_legal":
+            confidence = 0.85 if has_txn else 0.45
+            note = note or ("confidence derived from transaction evidence"
+                            if has_txn else
+                            "no confidence from model and no transaction evidence "
+                            "-> low, will hold for review rather than book")
+        else:
+            confidence = 0.7
+
     return {
-        "category": normalize_category(category_raw),
+        "category": category,
         "confidence": max(0.0, min(1.0, confidence)),
         "fallback": False,
-        "notes": "",
+        "notes": note,
     }
+
+
+# ---- Degraded-mode keyword rubric -------------------------------------------
+#
+# 2026-07-29 rewrite. The previous version was unanchored substring matching
+# over subject+body with `fin` checked first:
+#
+#     fin = ("invoice", "receipt", "payment", "statement", "tax", "refund",
+#            "payout", "wire transfer", "paid", "billing", "subscription renew")
+#     if any(k in text for k in fin): cat, conf = "financial_legal", 0.5
+#
+# Every one of those is a false-positive generator on ordinary vendor mail:
+# "tax" matches syn**tax**, "paid" matches pre**paid**/un**paid**, and "billing"
+# appears in literally any SaaS pricing page footer. Combined with confidence
+# exactly 0.5 — the same value as email_brain's hand-off threshold, compared
+# with >= — a keyword guess was enough to book a real entry in CC's expense
+# ledger. That is how "Lindy is cutting prices by 4x on average" (a vendor
+# marketing blast) ended up filed under Receipts/2026/Business Expenses.
+#
+# New rule: a money-adjacent WORD is not evidence. A TRANSACTION is. Financial
+# requires either an explicit transaction phrase, or a currency amount sitting
+# next to receipt vocabulary. Marketing language actively vetoes it.
+
+_MONEY_AMOUNT_RE = re.compile(
+    r"(?:[$£€]\s?\d[\d,]*(?:\.\d{2})?)"          # $1,234.56
+    r"|(?:\b\d[\d,]*\.\d{2}\s?(?:usd|cad|eur|gbp)\b)",  # 1234.56 USD
+    re.IGNORECASE,
+)
+
+# Phrases that only occur when money actually moved or is formally due.
+_TXN_PHRASE_RE = re.compile(
+    r"\b(?:"
+    r"invoice\s*#|invoice\s+(?:no|number|attached|is\s+(?:due|ready))"
+    r"|receipt\s+(?:for|from|of|is\s+ready)|your\s+receipt"
+    r"|payment\s+(?:received|confirmation|failed|declined|due|of)"
+    r"|payout\s+(?:of|sent|initiated)|wire\s+transfer"
+    r"|(?:your\s+)?subscription\s+(?:has\s+)?renew(?:ed|s)"
+    r"|(?:auto[- ]?)?renewal\s+(?:notice|confirmation)"
+    r"|thanks?\s+for\s+your\s+(?:payment|purchase|order)"
+    r"|charged\s+to\s+your|we(?:'ve| have)\s+charged"
+    r"|statement\s+is\s+(?:ready|available)|account\s+statement"
+    r"|refund\s+(?:of|issued|processed)"
+    r"|amount\s+(?:due|paid)|balance\s+due|remittance"
+    r"|t4a?\b|\bcra\b|revenu\s+qu[ée]bec|notice\s+of\s+assessment"
+    r"|tax\s+(?:receipt|slip|return|invoice|document)"
+    r")",
+    re.IGNORECASE,
+)
+
+# Receipt vocabulary — weak alone, but promotes a bare currency amount.
+_RECEIPT_WORD_RE = re.compile(
+    r"\b(?:invoice|receipt|billed|charged|payment|payout|remittance|"
+    r"transaction|order\s+confirmation)\b",
+    re.IGNORECASE,
+)
+
+# Vendor marketing / pricing announcements. These VETO a financial read: a
+# company telling you what things cost is not a company charging you.
+_MARKETING_RE = re.compile(
+    r"\b(?:"
+    r"cutting\s+prices?|price\s+(?:cut|drop|change|increase|update)s?"
+    r"|new\s+pricing|pricing\s+(?:update|change|announcement)s?"
+    r"|now\s+(?:cheaper|free)|save\s+\d+%|\d+%\s+off|limited[- ]time"
+    r"|upgrade\s+(?:now|today)|introducing\b|announcing\b|early\s+access"
+    r"|webinar|newsletter|unsubscribe|view\s+in\s+browser|black\s+friday"
+    r"|deal\s+of\s+the|promo\s*code|coupon"
+    r")",
+    re.IGNORECASE,
+)
+
+_SUPPORT_RE = re.compile(
+    r"\b(?:broken|not\s+working|isn'?t\s+working|bug|outage|is\s+down|"
+    r"can'?t\s+access|cannot\s+access|please\s+help|issue\s+with|"
+    r"error\s+when|stopped\s+working|"
+    # Platform failure vocabulary. Without these a Stripe webhook-delivery
+    # failure fell through to _LOW_RE (which matches the bare word "webhook")
+    # and was filed as low-priority noise — the 2026-05-11 misroute in its
+    # degraded-mode form. "failed"/"failing" are safe here because the
+    # transaction check runs FIRST, so "payment failed" is already financial.
+    r"unable\s+to\s+deliver|failed\s+to\s+deliver|is\s+failing|"
+    r"action\s+required|delivery\s+attempts|build\s+failed|run\s+failed|"
+    r"returned\s+an?\s+(?:api\s+)?error)\b",
+    re.IGNORECASE,
+)
+
+_BIZ_RE = re.compile(
+    r"\b(?:demo|interested\s+in|proposal|partnership|introduc\w*|"
+    r"book\s+a\s+call|discovery\s+call|referral|get\s+a\s+quote|"
+    r"your\s+services|work\s+together)\b",
+    re.IGNORECASE,
+)
+
+_LOW_RE = re.compile(
+    r"\b(?:unsubscribe|newsletter|digest|promotion|webhook|deploy(?:ment)?\s+"
+    r"(?:error|failed)|deprecat\w*|no[- ]?reply)\b",
+    re.IGNORECASE,
+)
+
+# Degraded confidence. MUST stay below every threshold in email_brain
+# (DEFAULT_FINANCIAL_THRESHOLD, reply_threshold, archive_threshold) so a guess
+# can never trigger an irreversible action — a booked ledger entry, an
+# auto-sent reply, or a silent archive. email_brain ALSO hard-blocks hand-off
+# on fallback=True; this is the second lock on the same door.
+FALLBACK_CONFIDENCE = 0.35
+
+
+def _has_transaction_evidence(text: str) -> bool:
+    """True only when the text shows money actually moved or is formally due."""
+    if _TXN_PHRASE_RE.search(text):
+        return True
+    # A bare currency amount counts only alongside receipt vocabulary —
+    # "$49/mo" in a pricing blast is not a charge.
+    return bool(_MONEY_AMOUNT_RE.search(text) and _RECEIPT_WORD_RE.search(text))
 
 
 def _category_keyword_fallback(subject: Optional[str], content: Optional[str],
                                from_identity: Optional[str]) -> dict:
-    """Cheap degraded classifier when the CLI is unavailable. Financial signals
-    are checked FIRST so a payment receipt from a no-reply sender still routes to
-    financial_legal (n8n rubric)."""
-    text = ((subject or "") + " " + (content or "")).lower()
-    fin = ("invoice", "receipt", "payment", "statement", "tax", "refund",
-           "payout", "wire transfer", "paid", "billing", "subscription renew")
-    sup = ("broken", "error", "not working", "isn't working", "bug", "outage",
-           "down", "can't access", "cannot access", "please help", "issue with")
-    biz = ("demo", "interested", "quote", "pricing", "proposal", "partnership",
-           "introduc", "book a call", "discovery call", "referral")
-    low = ("unsubscribe", "newsletter", "digest", "promotion", "no-reply",
-           "noreply", "notifications@", "webhook", "deploy error", "deprecat")
+    """Cheap degraded classifier for when the Claude CLI is unavailable.
+
+    Financial is still checked first — a real payment receipt from a no-reply
+    sender must route to financial_legal (the n8n rubric) — but it now demands
+    transaction EVIDENCE rather than a money-adjacent word, and marketing
+    language vetoes it outright.
+    """
+    text = ((subject or "") + "\n" + (content or ""))
     sender = (from_identity or "").lower()
-    if any(k in text for k in fin):
-        cat, conf = "financial_legal", 0.5
-    elif any(k in text for k in sup):
-        cat, conf = "technical_support", 0.5
-    elif any(k in text for k in biz):
-        cat, conf = "business_opportunity", 0.45
-    elif any(k in text for k in low) or sender.startswith(("noreply", "no-reply", "notifications", "news")):
-        cat, conf = "low_priority", 0.5
+
+    has_txn = _has_transaction_evidence(text)
+    is_marketing = bool(_MARKETING_RE.search(text))
+
+    if has_txn and not is_marketing:
+        cat, note = "financial_legal", "transaction evidence"
+    elif _SUPPORT_RE.search(text):
+        cat, note = "technical_support", "support signal"
+    elif is_marketing:
+        # Explicit branch, above biz: a pricing announcement contains words the
+        # business-opportunity rubric likes ("pricing", "upgrade"), and the old
+        # ordering let those win.
+        cat, note = "low_priority", "vendor marketing / announcement"
+    elif _BIZ_RE.search(text):
+        cat, note = "business_opportunity", "inbound interest signal"
+    elif (_LOW_RE.search(text)
+            or sender.startswith(("noreply", "no-reply", "notifications", "news"))):
+        cat, note = "low_priority", "automated / bulk sender"
     else:
-        cat, conf = "low_priority", 0.3
-    return {"category": cat, "confidence": conf, "fallback": True,
-            "notes": "keyword fallback (CLI unavailable)"}
+        cat, note = "low_priority", "no signal"
+
+    if has_txn and is_marketing:
+        note += " (money words present but overridden by marketing language)"
+
+    return {"category": cat, "confidence": FALLBACK_CONFIDENCE, "fallback": True,
+            "notes": f"keyword fallback (CLI unavailable): {note}"}
 
 
 def classify_category(
@@ -486,6 +696,7 @@ def classify_category(
     from_identity: Optional[str] = None,
     *,
     runner: Any = None,
+    is_bulk: bool = False,
 ) -> dict:
     """Classify an inbound email into one of the 4 brain categories.
 
@@ -495,8 +706,35 @@ def classify_category(
 
     Returns {"category", "confidence": float, "fallback": bool, "notes": str}.
     """
+    # Deterministic platform pre-routing, BEFORE the model.
+    #
+    # PLATFORM_SENDERS + _platform_prefilter were added 2026-05-11 after a Stripe
+    # webhook-failure email was routed to Atlas as a business expense. But the
+    # prefilter was only ever called from classify() — never from here, the
+    # function that actually drives the 4-brain router and the Atlas hand-off.
+    # So the guard built to stop "platform mail -> expense" has never once run
+    # on the path where that mistake happens. Wired up 2026-07-29.
+    pf = _platform_prefilter(from_identity, subject, content)
+    if pf is not None:
+        route = pf.get("route_target") or ""
+        platform = pf.get("platform") or "platform"
+        if route == "ops_technical":
+            return {"category": "technical_support", "confidence": 0.8,
+                    "fallback": False,
+                    "notes": f"platform prefilter: technical alert from {platform}"}
+        if route == "financial":
+            # Known billing sender, but still require the model to agree this is
+            # a transaction — the prefilter only knows WHO sent it, not whether
+            # this particular message is a receipt or a pricing newsletter.
+            pass
+        else:
+            return {"category": "low_priority", "confidence": 0.75,
+                    "fallback": False,
+                    "notes": f"platform prefilter: routine {platform} notification"}
+
     _runner = runner if runner is not None else _default_category_runner
-    user_msg = _build_category_user_msg(content, subject, from_identity)
+    user_msg = _build_category_user_msg(content, subject, from_identity,
+                                        is_bulk=is_bulk)
     raw: Optional[str] = None
     try:
         raw = _runner(user_msg, system=CATEGORY_SYSTEM_PROMPT, model="haiku", timeout=60)
@@ -505,7 +743,11 @@ def classify_category(
               file=sys.stderr)
         raw = None
     if raw:
-        parsed = _parse_category_response(raw)
+        # The model's answer is checked against deterministic evidence drawn
+        # from the SAME text it was shown.
+        evidence_text = f"{subject or ''}\n{content or ''}"
+        parsed = _parse_category_response(raw, evidence_text=evidence_text,
+                                          is_bulk=is_bulk)
         if parsed is not None:
             return parsed
     return _category_keyword_fallback(subject, content, from_identity)

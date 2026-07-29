@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-07-28T21:12:09.065797+00:00",
+  "generated_at": "2026-07-29T18:23:46.921824+00:00",
   "totals": {
-    "skills": 152,
-    "scripts": 124,
+    "skills": 153,
+    "scripts": 128,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 367,
-    "edges_total": 141,
+    "nodes_total": 372,
+    "edges_total": 150,
     "drift_count": 0
   },
   "nodes": [
@@ -3773,6 +3773,49 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:review-harvest",
+      "kind": "skill",
+      "name": "review-harvest",
+      "path": "skills/review-harvest/SKILL.md",
+      "description": "Act on findings left by the automated bots \u2014 CodeRabbit inline comments, Vercel deployment checks, failing GitHub Actions runs. Harvests UNRESOLVED threads live via gh, applies the fix, runs tests, pushes to the PR branch, reports to CC. Use when CC mentions CodeRabbit, a red CI ",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "coderabbit",
+        "code rabbit",
+        "coderabbitai",
+        "vercel bot",
+        "failing check",
+        "run failed",
+        "substrate-eval failed",
+        "bot findings",
+        "harvest findings",
+        "pr comments from bots"
+      ],
+      "tags": [
+        "skill",
+        "review",
+        "github",
+        "coderabbit",
+        "vercel",
+        "ci",
+        "autonomy",
+        "closed-loop"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:risk-management",
       "kind": "skill",
       "name": "risk-management",
@@ -6061,6 +6104,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:repo_census",
+      "kind": "script",
+      "name": "repo_census",
+      "path": "scripts/repo_census.py",
+      "description": "Census every git repo AND worktree that an IDE could be counting.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:research_fetch",
       "kind": "script",
       "name": "research_fetch",
@@ -6086,6 +6139,36 @@
       "name": "revenue_engine",
       "path": "scripts/revenue_engine.py",
       "description": "Revenue Engine - OASIS Business Operations CLI Combines Stripe subscription data with Supabase manual tracking. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:review_fix",
+      "kind": "script",
+      "name": "review_fix",
+      "path": "scripts/review_fix.py",
+      "description": "review_fix.py \u2014 close the loop: apply a harvested review finding, test, push.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:review_harvest",
+      "kind": "script",
+      "name": "review_harvest",
+      "path": "scripts/review_harvest.py",
+      "description": "review_harvest.py \u2014 pull UNRESOLVED automated-review signal out of GitHub.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:review_loop",
+      "kind": "script",
+      "name": "review_loop",
+      "path": "scripts/review_loop.py",
+      "description": "review_loop.py \u2014 drain the review queue: harvest \u2192 fix \u2192 push \u2192 report.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -7999,6 +8082,11 @@
     },
     {
       "from": "runtime:cron_engine",
+      "to": "script:review_loop",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
       "to": "script:schedule_helpers",
       "kind": "calls"
     },
@@ -8290,6 +8378,31 @@
     {
       "from": "script:research_fetch",
       "to": "script:cloak_browser_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:review_fix",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:review_fix",
+      "to": "script:review_harvest",
+      "kind": "calls"
+    },
+    {
+      "from": "script:review_loop",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:review_loop",
+      "to": "script:review_fix",
+      "kind": "calls"
+    },
+    {
+      "from": "script:review_loop",
+      "to": "script:review_harvest",
       "kind": "calls"
     },
     {
@@ -8635,6 +8748,21 @@
     {
       "from": "skill:revenue-operations",
       "to": "script:revenue_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:review-harvest",
+      "to": "script:review_fix",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:review-harvest",
+      "to": "script:review_harvest",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:review-harvest",
+      "to": "script:review_loop",
       "kind": "uses"
     },
     {

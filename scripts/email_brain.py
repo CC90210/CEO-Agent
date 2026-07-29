@@ -39,7 +39,16 @@ DEFAULT_REPLY_THRESHOLD = 0.7
 DEFAULT_ARCHIVE_THRESHOLD = 0.6
 # A financial hand-off books a real ledger entry, so a weakly-classified
 # financial email is held for review rather than routed to Atlas on a guess.
-DEFAULT_FINANCIAL_THRESHOLD = 0.5
+#
+# 2026-07-29: was 0.5, and the keyword fallback returned exactly 0.5, and the
+# comparison below is `>=`. So `0.5 >= 0.5` was True and the degraded guess
+# cleared the guard this constant exists to enforce — that is how a Lindy
+# marketing blast got booked as a business expense. Raised to 0.65 (above the
+# fallback's 0.35 and above any "I'm not sure" model output) and the comparison
+# is now strict. The real lock is the fallback check in process_email(): a
+# degraded classification must NEVER book a ledger entry regardless of the
+# number attached to it.
+DEFAULT_FINANCIAL_THRESHOLD = 0.65
 
 
 # ---- Pure policy ------------------------------------------------------------
@@ -55,12 +64,18 @@ def decide_action(
     financial_threshold: float = DEFAULT_FINANCIAL_THRESHOLD,
     may_reply: bool = True,
     red_flags: Optional[list] = None,
+    degraded: bool = False,
 ) -> dict:
     """Decide the single action for a classified email. Pure — no I/O.
 
     Returns {brain, action, should_send, should_archive, hold_for_review, reason}.
     action ∈ {auto_reply, draft_hold, archive, handoff_atlas, review}.
     should_send and should_archive are never both True.
+
+    `degraded` is the classifier's own `fallback` flag — True when the model was
+    unreachable and a keyword rubric produced the category. A degraded read may
+    never take an irreversible action (book a ledger entry, auto-send, silently
+    archive); it can only hold for review. See the guard immediately below.
     """
     d = {
         "brain": category,
@@ -78,19 +93,41 @@ def decide_action(
     flags = [f for f in (red_flags or [])]
     d["red_flags"] = flags
 
+    # Degraded classification -> review, full stop. Highest-precedence guard.
+    #
+    # When the Claude CLI is unreachable, classify_category() falls back to a
+    # keyword rubric and sets fallback=True. That flag was returned all along
+    # and read by nobody, so a guess was treated exactly like a confident model
+    # read — and because the fallback's confidence (0.5) equalled the hand-off
+    # threshold (0.5, compared with >=), the guess cleared the guard and booked
+    # real entries in CC's expense ledger.
+    #
+    # Confidence numbers are not a safe defence here: a degraded classifier
+    # cannot meaningfully estimate its own confidence. So the flag itself is
+    # the gate, independent of the number.
+    if degraded:
+        d.update(action="review",
+                 reason=("classifier was in degraded keyword mode (model "
+                         "unavailable) — held for review; no auto-reply, no "
+                         "ledger hand-off, no silent archive."))
+        return d
+
     if not may_reply:
         # Machine-sent, sibling agent, security scanner, or CC himself. Never
         # generate a reply — but DO keep routing them, because vendor receipts
         # (CC's deductible expenses) arrive almost exclusively from no-reply
         # addresses and must still reach Atlas.
-        if category == "financial_legal" and confidence >= financial_threshold:
+        # Strict `>`, matching the main financial branch below. This is the
+        # branch that actually fires for vendor mail (no-reply senders are never
+        # reply-eligible), so it is the one that booked the Lindy blast.
+        if category == "financial_legal" and confidence > financial_threshold:
             d.update(action="handoff_atlas", hold_for_review=False,
                      reason="no-reply/automated sender -> Atlas (receipts live here); never reply.")
         elif category == "financial_legal":
             # Weakly classified as financial — don't book a ledger entry on a
             # guess; hold for CC.
             d.update(action="review",
-                     reason=f"financial but low confidence ({confidence:.2f} < {financial_threshold}); held for review.")
+                     reason=f"financial but low confidence ({confidence:.2f} <= {financial_threshold}); held for review.")
         elif category == "low_priority" and confidence >= archive_threshold:
             d.update(action="archive", should_archive=True, hold_for_review=False,
                      reason="automated sender, low priority -> archive silently.")
@@ -116,12 +153,12 @@ def decide_action(
         # Atlas owns CFO/legal. A confident financial classification hands off
         # (booking a ledger entry); a weak one is held so we don't book on a
         # guess. Never auto-reply either way.
-        if confidence >= financial_threshold:
+        if confidence > financial_threshold:
             d.update(action="handoff_atlas", hold_for_review=False,
                      reason="Financial & Legal -> hand off to Atlas (CFO owns money/legal); no auto-reply.")
         else:
             d.update(action="review",
-                     reason=f"financial but low confidence ({confidence:.2f} < {financial_threshold}); held for review.")
+                     reason=f"financial but low confidence ({confidence:.2f} <= {financial_threshold}); held for review.")
         return d
 
     if category == "low_priority":
@@ -189,9 +226,11 @@ def _resolve_config(config: Optional[dict]) -> dict:
     return resolved
 
 
-def _default_classifier(content=None, subject=None, from_identity=None) -> dict:
+def _default_classifier(content=None, subject=None, from_identity=None,
+                        is_bulk=False) -> dict:
     from inbound_classifier import classify_category
-    return classify_category(content=content, subject=subject, from_identity=from_identity)
+    return classify_category(content=content, subject=subject,
+                             from_identity=from_identity, is_bulk=is_bulk)
 
 
 def _noop(*_a: Any, **_kw: Any) -> None:
@@ -247,12 +286,31 @@ def process_email(
 
     try:
         sender = email.get("from") or email.get("from_identity")
-        cls = classify(content=email.get("body"), subject=email.get("subject"),
-                       from_identity=sender)
+        # is_bulk is passed opportunistically: `classifier` is an injection
+        # point, and existing test doubles / callers use the 3-arg signature.
+        # A TypeError here means an older classifier — degrade to the 3-arg
+        # call rather than failing the whole sweep over an optional hint.
+        _kw = dict(content=email.get("body"), subject=email.get("subject"),
+                   from_identity=sender)
+        try:
+            cls = classify(**_kw, is_bulk=bool(email.get("is_bulk")))
+        except TypeError:
+            cls = classify(**_kw)
         category = cls.get("category", "low_priority")
         confidence = float(cls.get("confidence", 0.0) or 0.0)
+        # True when the model was unreachable and a keyword rubric produced this
+        # category. Gates every irreversible action — see decide_action().
+        degraded = bool(cls.get("fallback"))
         out["category"] = category
         out["confidence"] = confidence
+        out["degraded"] = degraded
+
+        # `subj` is used by the force_review branch below AND by the action
+        # branches further down. It was assigned only after decide_action(), so
+        # the force_review branch raised UnboundLocalError on every forced
+        # review, got swallowed by this function's catch-all, and the
+        # human-review Telegram ping was never sent — silently. Hoisted here.
+        subj = email.get("subject") or "(no subject)"
 
         # Deterministic content guards (outage / frustrated / strategic /
         # opt-out / money). Computed here, before any send decision.
@@ -285,12 +343,12 @@ def process_email(
             # default True so a caller that doesn't triage keeps prior behavior.
             may_reply=bool(email.get("may_reply", True)),
             red_flags=red_flags,
+            degraded=degraded,
         )
         out["red_flags"] = decision.get("red_flags") or []
         out["action"] = decision["action"]
         out["reason"] = decision["reason"]
         action = decision["action"]
-        subj = email.get("subject") or "(no subject)"
 
         if action == "auto_reply":
             draft = get("draft_reply")(email, category)

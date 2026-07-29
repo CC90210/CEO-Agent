@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **152 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **153 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## agent-forge
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -578,6 +578,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **152 active skills**. Eac
 - **Use when:** ATLAS-OWNED domain — Bravo does not report MRR/revenue (Atlas is CFO). Invoke only on explicit CC request to run revenue_engine.py mechanics (log a revenue event, sync Stripe). For any 'what's my MRR / revenue / goal' question, defer to Atlas.
 - **Triggers:** revenue, MRR, forecast, Stripe, income, goal, monthly, clients, financial
 - **Path:** `skills/revenue-operations/SKILL.md` · tier `standard` · risk `low`
+
+## review-harvest
+- **Use when:** Act on findings left by the automated bots — CodeRabbit inline comments, Vercel deployment checks, failing GitHub Actions runs. Harvests UNRESOLVED threads live via gh, applies the fix, runs tests, pushes to the PR branch, reports to CC. Use when CC mentions CodeRabbit, a red CI
+- **Triggers:** coderabbit, code rabbit, coderabbitai, vercel bot, failing check, run failed, substrate-eval failed, bot findings, harvest findings, pr comments from bots
+- **Path:** `skills/review-harvest/SKILL.md` · tier `standard` · risk `low`
 
 ## risk-management
 - **Use when:** Business risk identification, assessment, monitoring, and mitigation for CC's empire — revenue concentration, operational, financial, reputation, legal, and technology risk

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-07-29T16:30:43.161203+00:00",
-  "script_count": 118,
-  "entry_count": 287,
+  "generated_at_iso": "2026-07-29T18:26:07.619021+00:00",
+  "script_count": 121,
+  "entry_count": 290,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1601,6 +1601,30 @@
       "subcmd": "goal",
       "mutating": true,
       "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: goal"
+    },
+    {
+      "key": "review_fix",
+      "path": "scripts/review_fix.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "review_fix.py \u2014 close the loop: apply a harvested review finding, test, push."
+    },
+    {
+      "key": "review_harvest",
+      "path": "scripts/review_harvest.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "review_harvest.py \u2014 pull UNRESOLVED automated-review signal out of GitHub."
+    },
+    {
+      "key": "review_loop",
+      "path": "scripts/review_loop.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "review_loop.py \u2014 drain the review queue: harvest \u2192 fix \u2192 push \u2192 report."
     },
     {
       "key": "rlhf_outreach_build_dataset",

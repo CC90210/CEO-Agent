@@ -26,7 +26,10 @@ module.exports = {
       max_restarts: 20,
       restart_delay: 10000,
       windowsHide: true,
-      env: { PYTHONIOENCODING: "utf-8", PYTHONUNBUFFERED: "1" },
+      // SSLKEYLOGFILE: "" — AV keylog-handle guard. This app was the ONLY other
+      // PM2 entry besides bravo-scheduler carrying AVG's poisoned handle. See
+      // the long note in ecosystem.config.js above V6_ENV.
+      env: { PYTHONIOENCODING: "utf-8", PYTHONUNBUFFERED: "1", SSLKEYLOGFILE: "" },
       log_date_format: "YYYY-MM-DD HH:mm:ss",
       error_file: "tmp/pm2-breeze-live-watch-error.log",
       out_file: "tmp/pm2-breeze-live-watch-out.log",

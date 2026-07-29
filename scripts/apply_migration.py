@@ -32,6 +32,16 @@ import re
 import sys
 from pathlib import Path
 
+# TLS setup. Without it the exec_sql RPC path dies with
+# CERTIFICATE_VERIFY_FAILED on this fleet (observed applying migration 105 on
+# 2026-07-29) and every migration silently downgrades to the Management API
+# fallback. Same canonical helper the rest of the network tools use.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MIGRATIONS_DIR = PROJECT_ROOT / "database"

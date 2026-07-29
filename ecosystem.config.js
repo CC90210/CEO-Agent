@@ -108,7 +108,25 @@ const NODE = 'node';
 // flip. Spread into every app's env below so all daemons inherit it uniformly
 // (non-uniform inheritance is the drift hazard the investigator flagged). Takes
 // effect on the next `pm2 restart ecosystem.config.js --update-env`.
-const V6_ENV = { EMPIRE_V6_MODE: "shadow" };
+// SSLKEYLOGFILE poisoning guard (2026-07-29 outage). The local AV (AVG) exports
+// SSLKEYLOGFILE=\\.\avgMonFltProxy\<kernel-handle> into process environments so
+// its TLS scanner can log session keys. PM2 captures whatever handle was live
+// when the DAEMON started and hands that frozen value to every child it spawns,
+// forever. Handles go stale; CPython's ssl.create_default_context() opens the
+// path unconditionally, so a stale handle raises PermissionError from inside SSL
+// context construction — before a single byte is sent.
+//
+// Result: bravo-scheduler ran 25h on a dead handle. Every cron child that built
+// an HTTPS client died at construction (Inbound Email Sweep failed 31/145 runs;
+// Funnel Fast-Poll likewise), and notify.py died the same way, so none of it
+// could be alerted on.
+//
+// Empty string is what matters — ssl.py tests `if keylogfile:`, so "" is falsy
+// and skips the assignment entirely. Deleting the key would NOT work: PM2 merges
+// the daemon's env underneath, and the poisoned value would resurface.
+// Defense in depth: lib/tls_trust.ensure_os_trust() strips it in-process too,
+// and scheduler.py scrubs it from every child env it spawns.
+const V6_ENV = { EMPIRE_V6_MODE: "shadow", SSLKEYLOGFILE: "" };
 
 // Presence check for a non-empty key in .env.agents WITHOUT echoing its value.
 // Used to gate the coordination bridge so it isn't crash-looped by PM2 before

@@ -79,17 +79,44 @@ def _dedup_should_send(category: str, message: str) -> bool:
     except Exception:  # noqa: BLE001
         return True
 
-# Windows CA-bundle fix (2026-07-21): python's bundled certifi store can't
-# verify api.telegram.org on this box (SSLCertVerificationError during the
-# go-live watch smoke test) — use the OS certificate store instead. Guarded:
-# if truststore isn't installed this is a no-op and behavior is unchanged.
-# Same validated fix as reference_windows_supabase_ca_bundle_fix.
+# Windows TLS setup (2026-07-21): python's bundled certifi store can't verify
+# api.telegram.org on this box (SSLCertVerificationError during the go-live
+# watch smoke test) — use the OS certificate store instead.
+#
+# 2026-07-29: promoted from a bare truststore.inject_into_ssl() to the canonical
+# helper, which ALSO strips a poisoned SSLKEYLOGFILE. This file is the alerting
+# chokepoint, and it was the second casualty of that outage: notify() ->
+# requests.post -> urllib3 create_urllib3_context() -> ssl.create_default_context()
+# raised PermissionError on AVG's stale keylog handle, the broad `except` at the
+# bottom of _send() swallowed it, and notify() returned False. So the cron
+# failures could not be alerted on by the very code meant to alert on them.
+#
+# Guarded import with the old block retained as fallback: notify.py does no
+# sys.path manipulation of its own (it relies on callers having added scripts/)
+# and is imported by nearly everything, so it must never fail to import.
 try:
-    import truststore
+    _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+    if _SCRIPTS_DIR not in sys.path:
+        sys.path.insert(0, _SCRIPTS_DIR)
+    from lib.tls_trust import ensure_os_trust
 
-    truststore.inject_into_ssl()
-except Exception:  # noqa: BLE001 - certifi fallback
-    pass
+    ensure_os_trust()
+except Exception:  # noqa: BLE001 — lib/ unreachable for this caller
+    try:
+        import truststore
+
+        truststore.inject_into_ssl()
+    except Exception:  # noqa: BLE001 - certifi fallback
+        pass
+    # Minimum viable form of the keylog guard, inlined so it still applies when
+    # the helper is unreachable. See lib/tls_trust.neutralize_keylog.
+    try:
+        _kl = os.environ.get("SSLKEYLOGFILE")
+        if _kl and (os.environ.get("EMPIRE_ALLOW_SSLKEYLOG") or "").strip() != "1":
+            if _kl.startswith(("\\\\.\\", "\\\\?\\", "//./", "//?/")):
+                os.environ.pop("SSLKEYLOGFILE", None)
+    except Exception:  # noqa: BLE001
+        pass
 
 # Load .env.agents
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -277,8 +304,25 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
 
 
 def notify_error(engine: str, error: str) -> bool:
-    """Send an error alert - always with sound."""
-    return notify(f"{engine} error: {error}", category="system", silent=False)
+    """Send an error alert — always with sound, always delivered.
+
+    force=True added 2026-07-29. Without it this function was a no-op: it sends
+    on category 'system', 'system' is in DEFAULT_BLOCKED, and notify() drops
+    blocked categories unless forced. So EVERY cron failure alert since the
+    category filter shipped was silently discarded — the scheduler dutifully
+    called notify_error() on each failed job and nothing ever reached CC. He
+    found the 25h inbound-email outage by noticing his own inbox was stale.
+
+    Compare notify_daemon_crash() below, which has passed force=True since
+    2026-05-16 for exactly this reason. Errors are operational-critical; the
+    block list exists to mute routine chatter, not failures.
+
+    Dedup still applies (notify.py DEDUP_WINDOW_SEC) — force bypasses the
+    category filter, not the repeat suppression, so a stuck job pings hourly
+    rather than every tick.
+    """
+    return notify(f"{engine} error: {error}", category="system",
+                  silent=False, force=True)
 
 
 def notify_daemon_crash(daemon: str, error: str, tick_id: str | None = None) -> bool:

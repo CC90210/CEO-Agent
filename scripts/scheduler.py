@@ -16,6 +16,8 @@ All credentials loaded from .env.agents (never hardcoded).
 """
 
 import json
+import os
+import re
 import subprocess
 import sys
 import time
@@ -52,6 +54,29 @@ CHECK_INTERVAL_SECONDS = 60  # How often to check for due jobs
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 PYTHON = sys.executable  # Use same Python that's running this script
+
+# Scrub this process's own env, then hand a sanitized copy to every child.
+#
+# 2026-07-29: the scheduler is a long-lived PM2 daemon, so it inherits whatever
+# AVG's TLS scanner exported into the PM2 daemon's environment — including
+# SSLKEYLOGFILE=\\.\avgMonFltProxy\<kernel-handle>. Those handles go stale, and
+# CPython opens the path inside ssl.create_default_context(), so every child
+# that built an HTTPS client died at construction with PermissionError.
+#
+# ecosystem.config.js now sets SSLKEYLOGFILE="" and lib/tls_trust strips it
+# in-process, but neither covers a child script that (a) doesn't import
+# tls_trust and (b) is launched after a `pm2 restart` that skipped --update-env.
+# This is the belt: every subprocess below gets CHILD_ENV, never the implicit
+# inherited environment.
+try:
+    from lib.tls_trust import ensure_os_trust as _ensure_os_trust
+
+    _ensure_os_trust()
+except Exception:  # noqa: BLE001 — never block daemon startup on the TLS helper
+    os.environ.pop("SSLKEYLOGFILE", None)
+
+CHILD_ENV = os.environ.copy()
+CHILD_ENV["SSLKEYLOGFILE"] = ""  # falsy -> ssl.py skips keylog_filename entirely
 
 # Boot-blast suppression (2026-06-06): when CC's PC has been off, the
 # scheduler comes back to a backlog of cron rows whose next_run_at is hours
@@ -268,6 +293,58 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
         return error_msg
 
 
+FAILURE_DUMP_DIR = PROJECT_ROOT / "tmp" / "cron_failures"
+FAILURE_DUMP_KEEP = 50
+
+
+def persist_failure(label: str, cmd: List[str], returncode: int,
+                    stderr: str, stdout: str = "") -> Optional[str]:
+    """Write a failed child's FULL stderr to tmp/cron_failures/ and return the path.
+
+    Everything upstream truncates: run_script caps stderr at 2000 chars,
+    cron_jobs.last_result at 500, the PM2 log line at 200. Diagnosing the
+    2026-07-29 SSLKEYLOGFILE outage required the frame BELOW the 500-char cut —
+    which existed nowhere on disk, so the root cause was invisible for 25h while
+    the job dutifully logged "FAILED (exit 1): Traceback (most recent call
+    last):" every five minutes.
+
+    Secrets are stripped before writing (a child traceback can embed a
+    connection string or a token-bearing URL). Ring-buffered so it can't grow
+    without bound. Best-effort: a dump failure must never mask the job failure.
+    """
+    try:
+        FAILURE_DUMP_DIR.mkdir(parents=True, exist_ok=True)
+        slug = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")[:48] or "job"
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        path = FAILURE_DUMP_DIR / f"{slug}-{ts}.log"
+
+        try:
+            from lib.redact import redact_secrets
+            env_vars = load_env()
+        except Exception:  # noqa: BLE001
+            def redact_secrets(t, _e=None):  # type: ignore[misc]
+                return t
+            env_vars = {}
+
+        body = (
+            f"job       : {label}\n"
+            f"when      : {datetime.now(timezone.utc).isoformat()}\n"
+            f"exit code : {returncode}\n"
+            f"command   : {' '.join(cmd)}\n"
+            f"{'-' * 72}\nSTDERR\n{'-' * 72}\n{redact_secrets(stderr or '(empty)', env_vars)}\n"
+            f"{'-' * 72}\nSTDOUT\n{'-' * 72}\n{redact_secrets((stdout or '(empty)')[:20000], env_vars)}\n"
+        )
+        path.write_text(body, encoding="utf-8")
+
+        dumps = sorted(FAILURE_DUMP_DIR.glob("*.log"))
+        for stale in dumps[:-FAILURE_DUMP_KEEP]:
+            stale.unlink(missing_ok=True)
+        return str(path)
+    except Exception as exc:  # noqa: BLE001
+        log(f"  [warn] could not persist failure dump for {label}: {exc}")
+        return None
+
+
 def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
     """Run a Python script from the scripts/ directory and return its output."""
     cmd = [PYTHON, str(SCRIPTS_DIR / script_name)] + args
@@ -278,12 +355,17 @@ def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
         encoding="utf-8",
         timeout=timeout,
         cwd=str(PROJECT_ROOT),
+        env=CHILD_ENV,
         creationflags=CREATE_NO_WINDOW,
     )
     output = result.stdout.strip()
     if result.returncode != 0:
         error = result.stderr.strip()
-        return f"FAILED (exit {result.returncode}): {error[:2000]}"
+        dump = persist_failure(script_name, cmd, result.returncode, error, output)
+        # Point at the full dump from inside the truncated string, so whoever
+        # reads last_result or the PM2 log knows where the rest of it lives.
+        hint = f" [full: {Path(dump).name}]" if dump else ""
+        return f"FAILED (exit {result.returncode}):{hint} {error[:2000]}"
     if not output:
         return "ok"
     # 2026-04-11: capped at 8000 chars to prevent runaway stdout. 2026-05-15:
@@ -583,6 +665,7 @@ def run_snapshot(config: dict) -> str:
             encoding="utf-8",
             timeout=300,
             cwd=str(PROJECT_ROOT),
+            env=CHILD_ENV,
             creationflags=CREATE_NO_WINDOW,
         )
     except subprocess.TimeoutExpired:
@@ -633,6 +716,7 @@ def run_script_action(config: dict) -> str:
             encoding="utf-8",
             timeout=300,
             cwd=str(PROJECT_ROOT),
+            env=CHILD_ENV,
             creationflags=CREATE_NO_WINDOW,
         )
     except subprocess.TimeoutExpired:
@@ -682,6 +766,7 @@ def run_morning_powwow(_env_vars: dict) -> str:
             encoding="utf-8",
             timeout=120,
             cwd=str(PROJECT_ROOT),
+            env=CHILD_ENV,
             creationflags=CREATE_NO_WINDOW,
         )
     except subprocess.TimeoutExpired:
@@ -1048,8 +1133,32 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                 next_run = calculate_next_run(job.get("schedule", ""))
                 log(f"  ERROR on {job_name}, 5 retries exhausted, waiting for next schedule")
                 fail_count = 0  # reset after giving up
+
+            # Repeat-failure escalation (2026-07-29). One bad tick is noise —
+            # a transient network blip resolves itself on the retry. TWO in a
+            # row is a broken job, and until now that state was invisible:
+            # fail_count never persisted (no column) so the counter reset every
+            # tick, and notify_error() was muted by the category filter. The
+            # Inbound Email Sweep failed 31 times over 25h without one alert.
+            #
+            # Fires at exactly 2 and at the give-up boundary, not on every tick;
+            # notify.py's disk-persisted dedup then collapses repeats of the
+            # same text to one per hour.
+            if fail_count == 2 or fail_count == 0:
+                stage = ("failing repeatedly" if fail_count == 2
+                         else "gave up after 5 attempts")
+                notify_error(
+                    job_name,
+                    f"{stage} — {result_msg[:220]}\n"
+                    f"Full traceback: tmp/cron_failures/ (most recent for this job)"
+                )
         else:
             next_run = calculate_next_run(job.get("schedule", ""))
+            # Recovery ping: if this job had been failing, say so. A silent
+            # recovery leaves CC unsure whether the earlier alert still stands.
+            if fail_count >= 2:
+                notify(f"{job_name}: recovered after {fail_count} failed run(s).",
+                       category="system", silent=True, force=True)
             fail_count = 0  # successful run resets the counter
 
         update_payload = {
@@ -1058,16 +1167,17 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "next_run_at": next_run,
             "last_result": result_msg[:500],
         }
-        # Only set fail_count if the column exists (graceful — some deployments
-        # may not have the migration yet). Catch the error if column missing.
-        try:
-            client.table("cron_jobs").update({
-                **update_payload,
-                "fail_count": fail_count,
-            }).eq("id", job_id).execute()
-        except Exception:
-            # Fall back to update without fail_count (column doesn't exist)
-            client.table("cron_jobs").update(update_payload).eq("id", job_id).execute()
+        # fail_count is a real column as of migration 105 (2026-07-29). It is
+        # NOT optional any more: the previous try/except-and-retry-without-it
+        # made a missing column indistinguishable from a successful write, so
+        # the counter silently never persisted for ~3.5 months — every failure
+        # logged "attempt 1/5", the give-up branch was unreachable, and no
+        # repeat-failure alert could ever fire. A write failure here must be
+        # loud, not quietly degraded.
+        client.table("cron_jobs").update({
+            **update_payload,
+            "fail_count": fail_count,
+        }).eq("id", job_id).execute()
 
         log(f"COMPLETED: {job_name} -> {result_msg[:200]}")
 

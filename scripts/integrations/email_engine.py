@@ -1000,6 +1000,47 @@ def _save_processed_msgids(seen: dict) -> None:
         print(f"[email_inbox] could not persist processed-msgid ledger: {exc}", file=sys.stderr)
 
 
+REVIEW_QUEUE_PATH = (Path(__file__).resolve().parent.parent.parent
+                     / "tmp" / "review_harvest_queue.json")
+
+
+def _enqueue_review_harvest(ping: dict, rfc_message_id: str) -> None:
+    """Queue a (repo, pr) for the review-harvest cron. Best-effort, never raises.
+
+    A queue rather than an inline harvest: the inbox sweep must stay fast and
+    must not block on gh + a fix run. The 'Review Harvest' cron drains this.
+    Keyed by repo#pr so ten CodeRabbit emails on one PR enqueue one job.
+    """
+    try:
+        queue = {}
+        if REVIEW_QUEUE_PATH.exists():
+            try:
+                loaded = json.loads(REVIEW_QUEUE_PATH.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    queue = loaded
+            except Exception:  # noqa: BLE001
+                queue = {}
+
+        key = f"{ping['repo']}#{ping['pr']}" if ping.get("pr") else ping["repo"]
+        entry = queue.get(key) or {"repo": ping["repo"], "pr": ping.get("pr"),
+                                   "kinds": [], "message_ids": [], "count": 0}
+        if ping["kind"] not in entry["kinds"]:
+            entry["kinds"].append(ping["kind"])
+        if rfc_message_id not in entry["message_ids"]:
+            entry["message_ids"] = (entry["message_ids"] + [rfc_message_id])[-10:]
+        entry["count"] = int(entry.get("count", 0)) + 1
+        entry["last_seen"] = datetime.now(timezone.utc).isoformat()
+        queue[key] = entry
+
+        REVIEW_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = REVIEW_QUEUE_PATH.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(queue, indent=2), encoding="utf-8")
+        os.replace(tmp, REVIEW_QUEUE_PATH)
+        print(f"[email_inbox] review queued: {key} ({ping['kind']})", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[email_inbox] could not queue review harvest: {exc}", file=sys.stderr)
+
+
 def _extract_email_address(from_header: str) -> str:
     """Given a From: header string like '"Jane Doe" <jane@acme.com>', return
     just the lowercased email address. Returns empty string on parse failure."""
@@ -1429,9 +1470,17 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             # to the envelope From when this isn't a recoverable forward.
             effective_from = forwarded_from or from_addr
 
+            # RFC-2369 bulk-mail header. Marketing blasts are legally obliged to
+            # set it; invoices, receipts and password resets essentially never
+            # do. Best single machine-readable "this is marketing, not a
+            # transaction" signal we have — and it's why a Lindy price-cut
+            # announcement should never have looked like an expense.
+            list_unsubscribe = (msg.get("List-Unsubscribe") or "").strip()
+
             try:
                 from email_playbook import classify_sender as _triage
-                sender_triage = _triage(effective_from, subject, body_full)
+                sender_triage = _triage(effective_from, subject, body_full,
+                                        list_unsubscribe=list_unsubscribe)
                 # A forwarded message is CC handing us something to process, not
                 # a stranger writing in — never auto-reply to the forwarded party.
                 if forwarded_from:
@@ -1440,7 +1489,28 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             except Exception as tri_err:  # noqa: BLE001
                 print(f"[email_inbox] triage warning: {tri_err}", file=sys.stderr)
                 sender_triage = {"kind": "human", "is_automated": False,
-                                 "may_reply": False, "reason": "triage failed"}
+                                 "may_reply": False,
+                                 "is_bulk": bool(list_unsubscribe),
+                                 "reason": "triage failed"}
+
+            # AUTOMATED-REVIEW NOTIFICATION (2026-07-29) — the closed loop.
+            #
+            # CodeRabbit / Vercel / GitHub Actions mail is a NOTIFICATION, not
+            # content to classify. Detecting it here, deterministically and
+            # before any model call, buys three things: no LLM spend on machine
+            # mail, no chance of a PR title like "Inbound financial consumer"
+            # being read as an expense (which is exactly what happened), and a
+            # concrete (repo, pr) to hand to review_harvest — which then reads
+            # the LIVE thread state rather than this email's stale snapshot.
+            review_ping = None
+            try:
+                from email_playbook import detect_review_notification
+                review_ping = detect_review_notification(from_addr, subject)
+            except Exception as rev_err:  # noqa: BLE001
+                print(f"[email_inbox] review-detect warning: {rev_err}", file=sys.stderr)
+
+            if review_ping:
+                _enqueue_review_harvest(review_ping, rfc_message_id)
 
             email_entry = {
                 "from": from_addr,
@@ -1671,6 +1741,10 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                         # eligible for a generated reply.
                         "sender_kind": sender_triage.get("kind"),
                         "may_reply": bool(sender_triage.get("may_reply")),
+                        # RFC-2369 List-Unsubscribe present => bulk/marketing.
+                        # Weighs against a Financial & Legal read in both the
+                        # model prompt and the keyword fallback.
+                        "is_bulk": bool(sender_triage.get("is_bulk")),
                         # An unresolvable forward goes straight to human review:
                         # no auto-reply, no archive, no financial hand-off.
                         "force_review": unresolved_forward,
