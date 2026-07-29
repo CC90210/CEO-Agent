@@ -56,7 +56,7 @@ constants are still Bravo's. Fix them before running anything with `--apply` or 
 | `scripts/lib/vault_scope.py` | `GENERATED_DOCS` | Lists Bravo's generated docs. **Maven's may differ** — find yours (anything a script re-emits) and list them, or the next bulk pass clobbers them. |
 | `scripts/lib/vault_scope.py` | `VENDORED_PREFIXES` | `.harness/` is correct here (your `harness.lock` pins `.harness/LOCKSTEP_*.md`). `brain/_canonical/` is Bravo's path — harmless but inert. |
 | `scripts/lib/vault_scope.py` | `ARTIFACT_PREFIXES` | Already carries `vendor/` — **keep it**. Removing it re-adds 348 third-party files and 348 phantom orphans. |
-| `scripts/frontmatter_doctor.py` | `TAG_MAP` | Bravo's folder taxonomy. Maven has `ad-engine/`, `campaigns/`, `content-studio/`, `brain/canon/`, `brain/clients/`, `brain/formats/`, `brain/video-style/` — none are mapped, so they all fall through to `[root]`. **Map them before `--apply`.** |
+| `scripts/frontmatter_doctor.py` | `TAG_MAP` | **Already fixed for you (2026-07-29).** `ad-engine/`, `campaigns/`, `content-studio/`, `scratch/` are mapped, and the 12 notes that had been stamped `[root]` were re-derived. If you add a NEW top-level directory, add it here and run `--retag-fallback --apply`, or every note in it tags as `[root]` and tag-based retrieval misses them. |
 
 Verify the adaptation held:
 

@@ -4,7 +4,7 @@ about: The installer failed, the wizard crashed, or bravo doctor is showing erro
 title: "[INSTALL] "
 labels: install, help wanted
 assignees: CC90210
-tags: [root]
+tags: [github, ci]
 last_updated: 2026-05-11
 ---
 

@@ -4,7 +4,7 @@ about: Suggest a new capability, integration, or improvement
 title: "[FEAT] "
 labels: enhancement
 assignees: CC90210
-tags: [root]
+tags: [github, ci]
 last_updated: 2026-05-11
 ---
 

@@ -86,6 +86,19 @@ TAG_MAP: list[tuple[str, list[str]]] = [
     ("state/", ["state"]),
     ("APPS_CONTEXT/", ["apps-context"]),
     ("apps/", ["apps"]),
+    (".github/", ["github", "ci"]),
+    ("runtime/", ["runtime"]),
+    ("database/", ["database", "migrations"]),
+    # Sibling-repo directories. Prefixes that don't exist here are inert, and
+    # carrying them means Maven/Atlas inherit a working taxonomy instead of
+    # tagging half their vault `[root]` the first time they run --apply.
+    ("ad-engine/", ["ad-engine", "ads"]),            # Maven
+    ("campaigns/", ["campaigns"]),                    # Maven
+    ("content-studio/", ["content-studio", "content"]),  # Maven
+    ("scratch/", ["scratch", "transient"]),           # Maven
+    ("research/quant/", ["research", "quant"]),       # Atlas
+    ("research/", ["research"]),                      # Atlas
+    ("archive/", ["archive"]),                        # Atlas (retired trading)
 ]
 
 
@@ -226,6 +239,41 @@ def apply(items: list[tuple[Path, list[str], str, list[str]]]) -> int:
     return changed
 
 
+FALLBACK_TAGS = "[root]"
+
+
+def retag_fallback(scopes: list[str], dry_run: bool) -> list[tuple[str, list[str]]]:
+    """Re-derive tags for notes stamped with the `[root]` fallback.
+
+    `plan()` never overwrites an existing `tags:`, which is the right default —
+    but it means a note stamped before TAG_MAP knew about its directory keeps a
+    meaningless `[root]` forever. Extending the map fixes nothing on its own.
+
+    Only touches notes whose CURRENT tag is exactly the fallback AND whose path
+    now maps to something better. A note genuinely at the repo root still
+    resolves to `[root]` and is left alone.
+    """
+    done: list[tuple[str, list[str]]] = []
+    for md in collect(scopes):
+        rel = md.relative_to(REPO_ROOT).as_posix()
+        with open(md, "r", encoding="utf-8", errors="replace", newline="") as fh:
+            text = fh.read()
+        block, _body, eol = fm.split(text)
+        if not block or f"tags: {FALLBACK_TAGS}" not in block:
+            continue
+        better = tags_for(rel)
+        if better == ["root"]:
+            continue  # genuinely a repo-root note
+        new_block = block.replace(
+            f"tags: {FALLBACK_TAGS}", f"tags: [{', '.join(better)}]", 1
+        )
+        if not dry_run:
+            with open(md, "w", encoding="utf-8", newline="") as fh:
+                fh.write(text.replace(block, new_block, 1))
+        done.append((rel, better))
+    return done
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--scope", action="append", default=[],
@@ -234,7 +282,21 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="list every planned change")
     ap.add_argument("--apply", action="store_true", help="write the changes")
     ap.add_argument("--limit", type=int, default=40)
+    ap.add_argument("--retag-fallback", action="store_true",
+                    help="re-derive tags for notes stamped [root] before TAG_MAP knew their dir")
     args = ap.parse_args()
+
+    if args.retag_fallback:
+        done = retag_fallback(args.scope, args.dry_run and not args.apply)
+        verb = "Would retag" if (args.dry_run and not args.apply) else "Retagged"
+        print(f"{verb} {len(done)} note(s) stamped with the [root] fallback\n")
+        for rel, tags in done[: args.limit]:
+            print(f"  {rel}\n      -> tags: [{', '.join(tags)}]")
+        if len(done) > args.limit:
+            print(f"  ... and {len(done) - args.limit} more")
+        if not done:
+            print("  none — every note either has a real tag or genuinely lives at the repo root")
+        return 0
 
     items = plan(args.scope)
     if not items:

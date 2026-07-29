@@ -60,7 +60,7 @@ Bravo's. Fix them before running anything with `--apply` or `--fix`.
 | `scripts/lib/vault_scope.py` | `GENERATED_DOCS` | Bravo's list. Find Atlas's own re-emitted docs and list them, or the next bulk pass overwrites a generated file. |
 | `scripts/lib/vault_scope.py` | `VENDORED_PREFIXES` | `.harness/` is correct — your `harness.lock` pins `.harness/LOCKSTEP_*.md`. |
 | `scripts/lib/vault_scope.py` | `ARTIFACT_PREFIXES` | Consider adding `archive/` — `archive/trading-automation/` is retired code (trading was archived 2026-04-14) and should not inflate the graph. |
-| `scripts/frontmatter_doctor.py` | `TAG_MAP` | Bravo's taxonomy. Atlas has `brain/accounts/`, `data/picks/`, `research/`, `research/quant/`, `docs/` (the ATLAS_* library) — map them, or everything tags as `[root]` and tag-based retrieval is useless. |
+| `scripts/frontmatter_doctor.py` | `TAG_MAP` | **Already fixed for you (2026-07-29).** `research/`, `research/quant/`, `archive/` are mapped, and the 12 notes that had been stamped `[root]` were re-derived. If you add a NEW top-level directory, add it here and run `--retag-fallback --apply`, or every note in it tags as `[root]` and tag-based retrieval misses them. |
 
 Also know these identity-hardcoded traps, confirmed live across the fleet — check each
 before copying any script from Bravo:
