@@ -32,8 +32,19 @@ outcome ──▶ bravo_sleep ──▶ memory/PATTERNS.md  [P] ──3 uses─�
                                     build_capability_graph.py  → routable by every agent
 ```
 
-`skills/self-improvement-protocol` owns the four *behavioural* loops (heal / optimise /
-develop / improve). This skill owns the single **artifact-producing** step: memory → capability.
+### How this relates to what already existed
+
+- **`.agents/workflows/evolve.md`** — the `/evolve` *procedure*: retrieval queries, candidate
+  classification, the Five-Gate filter, the report. It predates this skill and remains the
+  authority on **judgement**. It called for "create a new skill in skills/" but had no tool to
+  do it, and no way to measure gate 3 (REDUNDANCY) beyond reading. `evolve.py scan` is that
+  measurement; the workflow now opens with it as Step 0.
+- **`skills/self-improvement-protocol`** — the four *behavioural* loops (heal / optimise /
+  develop / improve). Broader, and not artifact-producing.
+- **This skill** — the single mechanical step: which validated patterns have no owner, and
+  scaffolding one when they don't.
+
+Three layers, not three copies: procedure (workflow) → measurement (this) → behaviour (protocol).
 
 ## Commands
 
