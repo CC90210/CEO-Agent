@@ -81,7 +81,7 @@ value-per-effort. Items marked **[safe-additive]** are read-only injections that
 1. **Predictive mistake-matching — added to the existing prompt hook** `[safe-additive]` — extend
    `user_prompt_submit.py` so that, in addition to relevant snippets, it pattern-matches the operation type
    (ship / migration / public-route / send) against `MISTAKES.md` and surfaces a red-flag banner:
-   *"This is a UI ship — a past one broke in incognito; check [[MISTAKES.md]] before shipping."* Turns Reflexion
+   *"This is a UI ship — a past one broke in incognito; check [[memory/MISTAKES]] before shipping."* Turns Reflexion
    from **reactive** (after failure) into **predictive** (before it). Cheap keyword match on top of a hook that
    already runs. **This is the highest-leverage genuinely-new item.**
 2. **North-Star alignment checkpoint** `[safe-additive]` — after every MODERATE+ task, compare the intent recorded

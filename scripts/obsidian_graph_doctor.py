@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -314,6 +315,57 @@ def reconnect_orphans(
     return done
 
 
+def gitignored_targets(targets: set[str]) -> set[str]:
+    """Of `targets`, which are absent BY POLICY rather than by mistake?
+
+    Operator-private notes (`memory/MISTAKES.md`, `APPS_CONTEXT/*_CLAUDE.md`, …)
+    are gitignored on purpose — they hold PII and business detail that must not
+    reach a public repo. They exist on the operator's disk and never in a clean
+    checkout, so a link to one is NOT a broken link; it is a private link.
+
+    Without this, `--strict` is unrunnable in CI: the first run of the gate on a
+    GitHub runner reported 71 "broken" links that are all perfectly resolvable on
+    the machine that owns the vault. A gate that fails for structural reasons
+    trains people to ignore it.
+    """
+    if not targets:
+        return set()
+    candidates: dict[str, str] = {}
+    for t in targets:
+        clean = t.strip().replace("\\", "/").rstrip("/")
+        if not clean or clean.startswith("../"):
+            continue
+        candidates.setdefault(clean if clean.endswith(".md") else clean + ".md", t)
+    if not candidates:
+        return set()
+
+    # Paths go as argv, NOT via `--stdin`: subprocess text mode translates "\n"
+    # to "\r\n" on Windows, so git received every path with a trailing CR and
+    # matched nothing — silently returning "no ignored paths" and failing CI.
+    found: set[str] = set()
+    names = list(candidates)
+    CHUNK = 200  # keep the command line well under the Windows 8191-char limit
+    for i in range(0, len(names), CHUNK):
+        batch = names[i: i + CHUNK]
+        try:
+            proc = subprocess.run(
+                ["git", "check-ignore", "--"] + batch,
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return set()
+        # 0 = some paths ignored, 1 = none ignored, 128 = not a repo
+        if proc.returncode not in (0, 1):
+            return set()
+        for ln in proc.stdout.splitlines():
+            key = ln.strip().replace("\\", "/")
+            if key in candidates:
+                found.add(candidates[key])
+    return found
+
+
 def audit(include_artifacts: bool = False) -> dict:
     filters = load_ignore_filters()
     notes = collect_vault_notes(filters, include_artifacts=include_artifacts)
@@ -352,6 +404,18 @@ def audit(include_artifacts: bool = False) -> dict:
         for tgt in targets:
             inbound[tgt].add(rel)
 
+    # Split "absent by policy" out of "broken". Operator-private notes are
+    # gitignored on purpose and are missing from every clean checkout.
+    private = gitignored_targets({raw for links in broken.values() for raw in links})
+    private_links: dict[str, list[str]] = {}
+    if private:
+        for rel in list(broken):
+            keep = [r for r in broken[rel] if r not in private]
+            hidden = [r for r in broken[rel] if r in private]
+            if hidden:
+                private_links[rel] = hidden
+            broken[rel] = keep
+
     orphans = sorted(
         rel for rel in outbound if not outbound[rel] and not inbound.get(rel)
     )
@@ -366,6 +430,10 @@ def audit(include_artifacts: bool = False) -> dict:
         "ignore_filters": filters,
         "broken_links": {k: v for k, v in broken.items() if v},
         "broken_count": sum(len(v) for v in broken.values()),
+        # Resolvable on the operator's machine; gitignored by policy. Reported,
+        # never failed on — `--strict` must be runnable in a clean checkout.
+        "private_links": private_links,
+        "private_count": sum(len(v) for v in private_links.values()),
         "orphans": orphans,
         "weak_nodes": weak,
         "frontmatter": frontmatter,
