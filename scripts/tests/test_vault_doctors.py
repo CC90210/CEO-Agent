@@ -191,9 +191,20 @@ class TestPrivateLinks:
         does not prove a note exists. A never-existed note inside a materialized
         private dir must stay BROKEN — excusing it is a false-green gate, which is
         worse than no gate."""
-        materialized = any((REPO_ROOT / "APPS_CONTEXT").glob("*.md"))
-        if not materialized:
-            pytest.skip("APPS_CONTEXT not materialized on this machine (clean checkout)")
+        # The skip guard MUST use the same predicate the code under test uses.
+        #
+        # This originally asked `any(glob("*.md"))`, i.e. "are there any notes
+        # here?". The code asks something narrower: "is at least one note here
+        # ITSELF gitignored?" — which is what proves the operator's private set
+        # is present rather than a clean checkout. Those two disagree exactly
+        # where it matters: a clean CI checkout still contains the TRACKED
+        # `APPS_CONTEXT/README.md`, so the loose guard read "materialized",
+        # declined to skip, and asserted operator-machine behaviour on a runner
+        # that could never satisfy it. substrate-eval went red on every push
+        # from cc3e7601 onward for that reason alone.
+        if not doctor._has_materialized_private_note(REPO_ROOT / "APPS_CONTEXT"):
+            pytest.skip("APPS_CONTEXT holds no gitignored note here "
+                        "(clean checkout — nothing to distinguish dead from private)")
         got = doctor.gitignored_targets({"APPS_CONTEXT/TOTALLY_MADE_UP_NOTE"})
         assert got == set(), "a dead link in a wildcard-ignored dir was excused as private"
 

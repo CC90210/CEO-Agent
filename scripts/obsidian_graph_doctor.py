@@ -432,7 +432,19 @@ _PRIVATE_DIR_CACHE: dict[str, bool] = {}
 
 
 def _has_materialized_private_note(parent: Path) -> bool:
-    """Does `parent` hold at least one on-disk note that git ignores?"""
+    """Does `parent` hold at least one on-disk note that git ignores?
+
+    `parent` may be relative or absolute; it is resolved against REPO_ROOT
+    either way. The relative_to() below raised ValueError on a relative input,
+    which mattered once this stopped being called only from
+    _dead_inside_materialized_dir (which always hands it an absolute path).
+    A directory outside the repo has no git-ignore status here, so it is False.
+    """
+    parent = parent if parent.is_absolute() else (REPO_ROOT / parent)
+    try:
+        parent.relative_to(REPO_ROOT)
+    except ValueError:
+        return False
     key = parent.as_posix()
     if key in _PRIVATE_DIR_CACHE:
         return _PRIVATE_DIR_CACHE[key]
