@@ -149,11 +149,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-28
+- **Date:** 2026-07-29
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** V7.4 AOS System Update: Source control triaged, multi-vault graph repaired, personal context modernized
+- **Result:** Repaired inbound email pipeline: AVG SSLKEYLOGFILE poisoning killed every HTTPS cron child (31/145 sweeps); notify.py had the same bug so nothing alerted; fixed expense misclassification (marketing booked as receipts); built the CodeRabbit/Vercel closed review loop.
 
-*Last updated: 2026-07-28*
+*Last updated: 2026-07-29*
 
 ## Manifest
 

@@ -37,7 +37,22 @@ _PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"bot\d{6,}:[A-Za-z0-9_-]{20,}"), "[REDACTED:BOT_TOKEN]"),
     (re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"), "[REDACTED:JWT]"),
     (re.compile(r"\b(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{16,}"), "[REDACTED:STRIPE_KEY]"),
-    (re.compile(r"(?i)\b(authorization|bearer|api[-_]?key|token)\b\s*[:=]\s*\S{12,}"),
+    # Credential-bearing headers and assignments.
+    #
+    # The first version required ':' or '=' IMMEDIATELY before the value, which
+    # missed `Authorization: Bearer <token>` — the single most common shape a
+    # requests exception embeds. Now the separator is optional and an explicit
+    # `Bearer ` prefix is consumed, so both `api_key=abc...` and
+    # `Authorization: Bearer abc...` are caught.
+    #
+    # The value must be >=20 chars from a token charset. That threshold is what
+    # keeps prose safe: "Authorization: administrator privileges" has no
+    # 20-char token-shaped run, so it survives intact. Real tokens are longer.
+    (re.compile(
+        r"(?i)\b(authorization|bearer|api[-_]?key|x-api-key|access[-_]?token|"
+        r"token|secret|password|passwd|pwd)\b"
+        r"\s*[:=]?\s*(?:bearer\s+)?"
+        r"([A-Za-z0-9+/=_.\-]{20,})"),
      r"\1=[REDACTED]"),
     # postgres://user:password@host — kill the password only, keep the shape.
     (re.compile(r"(://[^:/@\s]+:)[^@/\s]{6,}(@)"), r"\1[REDACTED]\2"),
