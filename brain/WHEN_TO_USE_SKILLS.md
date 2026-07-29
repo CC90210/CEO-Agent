@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **153 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## agent-forge
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -614,6 +614,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **153 active skills**. Eac
 - **Triggers:** secret, credential, API key, exposed, rotation, security, token, password, leak, gitguardian
 - **Path:** `skills/security-protocol/SKILL.md` · tier `core` · risk `low`
 
+## self-evolution
+- **Use when:** Promote a validated memory pattern into permanent, routable capability — a skill or an SOP. Use when CC says evolve, when a retro produces a lesson worth keeping, or when a pattern has been applied enough times that the next agent should not have to re-derive it.
+- **Triggers:** evolve, promote this pattern, make this a skill, turn this into an sop, what should be promoted, scan for promotion candidates
+- **Path:** `skills/self-evolution/SKILL.md` · tier `meta` · risk `low`
+
 ## self-healing
 - **Use when:** Multi-dimensional autonomous recovery and health maintenance. Triggers on errors, session boundaries, and infrastructure issues. Covers memory healing, context healing, skill healing, infrastructure healing, and relationship healing.
 - **Triggers:** heal, broken config, drift, inconsistent, stale, self-heal, recovery
@@ -738,6 +743,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **153 active skills**. Eac
 - **Use when:** Namespace for vertical-specific playbooks (agency, coaching, creator, ecommerce, local-service, saas). Load the matching sub-skill when CC onboards a client in a given vertical — each one will ship lead-gen, pricing, and delivery SOPs tailored to that vertical's economics.
 - **Triggers:** verticals, use verticals, run verticals, namespace for vertical-specific playbooks (agency
 - **Path:** `skills/verticals/SKILL.md` · tier `standard` · risk `low`
+
+## vibe-to-execution
+- **Use when:** Translate an informal brain dump or voice transcript into a turnkey, production-grade execution blueprint — resolved domain vocabulary, DB/API contracts, UI interaction design, and the exact CLI/tool routing. Use when CC describes what he wants in loose prose rather than a spec,
+- **Triggers:** vibe to execution, brain dump, voice note, turn this into a spec, translate this into a build, make this a system message, what i mean is, here is the vibe
+- **Path:** `skills/vibe-to-execution/SKILL.md` · tier `strategic` · risk `low`
 
 ## web-artifacts-builder
 - **Use when:** Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX ar

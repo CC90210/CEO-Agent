@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-07-29T19:03:39.925439+00:00",
+  "generated_at": "2026-07-29T19:17:35.005373+00:00",
   "totals": {
-    "skills": 153,
+    "skills": 155,
     "scripts": 128,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 372,
-    "edges_total": 150,
+    "nodes_total": 374,
+    "edges_total": 152,
     "drift_count": 0
   },
   "nodes": [
@@ -4026,6 +4026,42 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:self-evolution",
+      "kind": "skill",
+      "name": "self-evolution",
+      "path": "skills/self-evolution/SKILL.md",
+      "description": "Promote a validated memory pattern into permanent, routable capability \u2014 a skill or an SOP. Use when CC says evolve, when a retro produces a lesson worth keeping, or when a pattern has been applied enough times that the next agent should not have to re-derive it.",
+      "tier": "meta",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "evolve",
+        "promote this pattern",
+        "make this a skill",
+        "turn this into an sop",
+        "what should be promoted",
+        "scan for promotion candidates"
+      ],
+      "tags": [
+        "skill",
+        "self-improvement",
+        "evolution",
+        "memory",
+        "promotion"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:self-healing",
       "kind": "skill",
       "name": "self-healing",
@@ -4841,6 +4877,45 @@
       "tags": [
         "skill",
         "verticals"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:vibe-to-execution",
+      "kind": "skill",
+      "name": "vibe-to-execution",
+      "path": "skills/vibe-to-execution/SKILL.md",
+      "description": "Translate an informal brain dump or voice transcript into a turnkey, production-grade execution blueprint \u2014 resolved domain vocabulary, DB/API contracts, UI interaction design, and the exact CLI/tool routing. Use when CC describes what he wants in loose prose rather than a spec, ",
+      "tier": "strategic",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "vibe to execution",
+        "brain dump",
+        "voice note",
+        "turn this into a spec",
+        "translate this into a build",
+        "make this a system message",
+        "what i mean is",
+        "here is the vibe"
+      ],
+      "tags": [
+        "skill",
+        "translation",
+        "architecture",
+        "blueprint",
+        "prompt-engineering",
+        "anti-slop"
       ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
@@ -8776,6 +8851,11 @@
       "kind": "uses"
     },
     {
+      "from": "skill:self-evolution",
+      "to": "script:bravo_sleep",
+      "kind": "uses"
+    },
+    {
       "from": "skill:send-gateway",
       "to": "script:send_gateway",
       "kind": "uses"
@@ -8799,6 +8879,11 @@
       "from": "skill:strategic-planning",
       "to": "skill:financial-modeling",
       "kind": "requires"
+    },
+    {
+      "from": "skill:vibe-to-execution",
+      "to": "script:apply_migration",
+      "kind": "uses"
     },
     {
       "from": "skill:web-scraping",

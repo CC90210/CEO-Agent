@@ -274,6 +274,31 @@ python scripts/core/codex_review.py review --session "<task-slug>"
 The agent that wrote the code will undersell its mistakes and oversell its completeness.
 That is not a character flaw; it is why the second reviewer exists.
 
+### 3.2 The Anti-Slop Matrix — 7 defects to refuse (V8.0, added 2026-07-29)
+
+Every row below is a defect that has actually shipped from an AI agent on this fleet. If you
+are standing this protocol up in your own vault, copy this table into your entry point — it is
+the highest-value-per-line thing in this document.
+
+| # | DON'T | DO |
+|---|---|---|
+| 1 | Claim a tool or credential is missing from memory | Probe first: `python scripts/capability_probe.py check <service>`. AVAILABLE = authorized. "No access" is true only after a non-zero exit you can quote. Never read `.env*` yourself — the guard blocks it. |
+| 2 | Swallow errors — `except: pass`, a bare log, a broad catch returning a success shape | Fail loud; persist the full traceback. **The 2026-07-29 case:** the alerting chokepoint itself caught a TLS error and returned `False`, so a cron died 31 times over 25h with zero alerts. |
+| 3 | Ship mock data — sample arrays, placeholder metrics, fake rows behind real-looking UI | Live hydration or hard fail with a diagnostic naming the missing input. A plausible fake number gets trusted and acted on. |
+| 4 | Generic UI slop — gradient hero, centered everything, 3-icon grid | Deliberate palette, real type hierarchy, restrained motion. |
+| 5 | Drive-by refactoring of code the request never mentioned | Surgical precision. Spotted something else? Report it, don't fix it uninvited. |
+| 6 | Claim done without running anything | Put the ACTUAL command output in the report. Passing tests are not proof for daemon-run code — exercise the path the daemon takes. |
+| 7 | Guess a path, column, or signature | Read the source. A guessed column fails at runtime, in production, silently. |
+
+**The meta-rule:** rows 2, 6 and 7 share one shape — *something looked fine because the
+mechanism that would have reported the problem was itself broken or never run.* When you add a
+guard, a watchdog, or an alert, **make it fire once on purpose** before you trust it.
+
+Canonical source: `PERSONAL.md` LOCKSTEP block `anti_patterns`, stamped into every entry point
+by `python scripts/genome_sync.py`. Rationale and the incident behind each row:
+`brain/EXECUTION_RULES.md` § 19. Never hand-edit the block in an entry point — edit the seed
+and re-run the sync, or `test_entrypoint_parity.py` will fail.
+
 ---
 
 ## 4 · OASIS cross-agent coordination

@@ -255,6 +255,29 @@ independent audit: `python scripts/core/codex_review.py review --session "<slug>
 verbatim alongside your own self-review. A self-review by the agent that wrote the code is
 necessary and never sufficient.
 
+## 19. THE ANTI-SLOP MATRIX — 7 VIBE-CODING DEFECTS (added 2026-07-29)
+
+The matrix itself is a LOCKSTEP block in `PERSONAL.md`, stamped into all six entry points, so
+every runtime boots with it. This section is the **why** — each row is an incident, not a
+hypothetical, and knowing the incident is what makes the rule stick under pressure.
+
+**Edit the matrix in `PERSONAL.md`, then `python scripts/genome_sync.py`. Never hand-edit it
+in an entry point** (Rule 4 / `test_entrypoint_parity.py`).
+
+| # | The defect | The incident behind it |
+|---|---|---|
+| 1 | **False credential claim** | Agents repeatedly told CC "I don't have access to X" from parametric memory while the key sat in `.env.agents`. Each one cost an hour of manual work the agent was already wired to do. `capability_probe.py` exists precisely so this is a 2-second check. Note the probe reports **presence, never values** — you must not attempt to read `.env*` yourself; `secret_guard` blocks it and a bypass attempt is logged. |
+| 2 | **Silent error swallowing** | 2026-07-29: `notify.py` caught a TLS failure in a broad `except`, returned `False`, and the inbox sweep died 31 times over 25 hours with **zero alerts** — the alerting chokepoint swallowed the error that would have reported itself. Earlier the same year, `agent_self_improvement` returned its success phrase on top of a `FAILED (exit 2)` string and showed green for weeks. A hidden exception outlives a loud one. |
+| 3 | **Mock data in production** | A plausible fake number is indistinguishable from a real one on a dashboard, so it is trusted and acted on. The daily brief once under-counted leads and nobody noticed because the shape looked right. Fail closed with a diagnostic naming the missing input. |
+| 4 | **Generic UI slop** | The gradient-hero / centered-text / 3-icon-grid template reads as machine-authored and undermines every claim the page makes. See the AI Slop Detection block in the entry points for the full tell-list. |
+| 5 | **Drive-by refactoring** | A bulk vault sweep clobbered generated docs and hash-pinned LOCKSTEP blocks (2026-07-28) because the agent "tidied while it was there". Unrequested edits are unreviewed edits. |
+| 6 | **Unverified completion** | The recurring failure of this fleet. Passing tests are not proof for daemon-run code: on 2026-07-29 a fix passed 34 tests and worked from an interactive shell while the scheduler path would have SIGKILLed it at 300s and stored `}` as its result. **Exercise the path the daemon actually takes.** |
+| 7 | **Path / schema guessing** | `cron_jobs.fail_count` was written by the scheduler for ~3.5 months against a column that did not exist; the write threw into a fallback and the retry counter silently never persisted. One `select` would have caught it. |
+
+**The meta-rule:** rows 2, 6 and 7 share a failure shape — *something looked fine because the
+mechanism that would have reported the problem was itself broken or never run*. When you add a
+guard, a watchdog, or an alert, make it fire once on purpose before you trust it.
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]

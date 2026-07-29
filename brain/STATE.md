@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-29
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Self-review round 3: fixed 4 review-loop integration defects (script_run timeout, brace-only last_result, undrainable run_failed queue rows, hyphen parsing); extracted lib/json_ledger; corrected the stale EXTERNAL_REVIEW_INTEGRATION gap section. Verified via the real scheduler spawn path.
+- **Result:** V8.0 Upgrade: Codified Anti-Slop Matrix, upgraded Vibe-to-Execution prompt engine
 
 *Last updated: 2026-07-29*
 
