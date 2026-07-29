@@ -86,6 +86,33 @@ We already have the *ingredients* — we just never connected them:
 
 **What's missing:** a chokepoint + a store + a rollup. No `external_reviews` table, no `review_gateway`, no harvest cron, no memory file. A CodeRabbit finding like "N+1 in leads.tsx:42" is visible to CC only if he reads the PR; it never becomes a prevention rule.
 
+> ### ⚠️ SUPERSEDED 2026-07-29 — the loop is BUILT and RUNNING
+>
+> The gap above describes the state before 2026-07-29. What actually shipped differs
+> from the §4 design in one important way, so read this before building on that diagram.
+>
+> **Shipped:**
+> - `scripts/review_harvest.py` — reads UNRESOLVED review threads **live via `gh`**
+> - `scripts/review_fix.py` — applies the fix, baselines + re-runs tests, pushes to the PR branch
+> - `scripts/review_loop.py` — the cron entry point that drains the queue
+> - `email_playbook.detect_review_notification()` + `email_engine._enqueue_review_harvest()`
+> - `skills/review-harvest/SKILL.md`
+> - cron **`Bravo — Review Harvest`** (`*/15 * * * *`, `timeout: 1500`) — seeded and active
+>
+> **Design change vs §4 — no webhook, no `external_reviews` table.** §4 proposed a webhook
+> chokepoint writing findings into a table. We took the opposite approach: **the email is a
+> NOTIFICATION, the GitHub API is the SOURCE OF TRUTH.** A webhook payload and a DB row are
+> both point-in-time snapshots; by the time either is processed the thread may be resolved,
+> the line moved, or the comment edited. Acting on a stored snapshot re-litigates settled
+> code. So nothing is stored except a *seen-set* (`tmp/review_threads_seen.json`), and every
+> decision re-reads live `isResolved`/`isOutdated` state via GraphQL — the only place those
+> fields exist (REST does not expose them).
+>
+> **Still open from §4:** the `external_reviews` store, the `EXTERNAL_FEEDBACK.md` rollup, and
+> the nightly compounding into prevention rules (maturity level 3). Those remain worth building
+> — the harvester now produces the input they need. Branch protection (level 4) is still absent
+> on every repo, so all of this remains advisory.
+
 ---
 
 ## 4. The protocol (the design — build on CC's go)

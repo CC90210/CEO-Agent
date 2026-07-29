@@ -40,7 +40,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
@@ -50,6 +50,7 @@ from lib.tls_trust import ensure_os_trust  # noqa: E402
 ensure_os_trust()
 
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.json_ledger import load_ledger, save_ledger  # noqa: E402
 
 # Per-thread ledger. Without it a harvest run that fires every 15 minutes would
 # re-surface (and re-fix) the same comment forever — the exact runaway the
@@ -112,26 +113,11 @@ def gh(args: list[str], timeout: int = 90) -> tuple[int, str, str]:
 
 
 def load_seen() -> dict:
-    try:
-        if SEEN_PATH.exists():
-            d = json.loads(SEEN_PATH.read_text(encoding="utf-8"))
-            if isinstance(d, dict):
-                return d
-    except Exception:  # noqa: BLE001
-        pass
-    return {}
+    return load_ledger(SEEN_PATH)
 
 
 def save_seen(seen: dict) -> None:
-    try:
-        if len(seen) > SEEN_MAX:
-            seen = dict(sorted(seen.items(), key=lambda kv: kv[1], reverse=True)[:SEEN_MAX])
-        SEEN_PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp = SEEN_PATH.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(seen), encoding="utf-8")
-        tmp.replace(SEEN_PATH)
-    except Exception as exc:  # noqa: BLE001
-        print(f"[review_harvest] could not persist seen-ledger: {exc}", file=sys.stderr)
+    save_ledger(SEEN_PATH, seen, cap=SEEN_MAX)
 
 
 def severity_of(body: str) -> str:

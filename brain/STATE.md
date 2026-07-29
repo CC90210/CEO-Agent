@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-29
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Repaired inbound email pipeline: AVG SSLKEYLOGFILE poisoning killed every HTTPS cron child (31/145 sweeps); notify.py had the same bug so nothing alerted; fixed expense misclassification (marketing booked as receipts); built the CodeRabbit/Vercel closed review loop.
+- **Result:** Finalised: boot persistence live, substrate-eval CI green (first since cc3e7601), breeze-live-watch actually running after 5 dead days, Review Harvest cron seeded, CRITICAL CodeRabbit finding auto-fixed and pushed to CFO-Agent#2. Fleet 11/11, zero poisoned env, 23 crons all healthy.
 
 *Last updated: 2026-07-29*
 

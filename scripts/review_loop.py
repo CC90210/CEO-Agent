@@ -23,11 +23,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
@@ -37,7 +37,8 @@ from lib.tls_trust import ensure_os_trust  # noqa: E402
 ensure_os_trust()
 
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
-from review_harvest import canonical_repo, harvest_pr  # noqa: E402
+from lib.json_ledger import load_ledger, save_ledger  # noqa: E402
+from review_harvest import canonical_repo, gh, harvest_pr  # noqa: E402
 
 try:
     from notify import notify
@@ -53,24 +54,31 @@ MAX_FIXES_PER_PR = 3
 
 
 def load_queue() -> dict:
-    try:
-        if QUEUE_PATH.exists():
-            d = json.loads(QUEUE_PATH.read_text(encoding="utf-8"))
-            if isinstance(d, dict):
-                return d
-    except Exception:  # noqa: BLE001
-        pass
-    return {}
+    return load_ledger(QUEUE_PATH)
 
 
 def save_queue(q: dict) -> None:
+    # No cap: the queue is drained, not accumulated, and its values are dicts
+    # rather than sortable timestamps.
+    save_ledger(QUEUE_PATH, q, indent=2)
+
+
+def pr_for_branch(repo: str, branch: str) -> Optional[int]:
+    """Open PR whose HEAD is `branch`, or None.
+
+    A "Run failed:" notification names the workflow and the branch but never a
+    PR. This is the bridge from one to the other.
+    """
+    rc, out, _ = gh(["pr", "list", "--repo", canonical_repo(repo),
+                     "--head", branch, "--state", "open",
+                     "--json", "number", "--limit", "1"])
+    if rc != 0 or not out:
+        return None
     try:
-        QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp = QUEUE_PATH.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(q, indent=2), encoding="utf-8")
-        os.replace(tmp, QUEUE_PATH)
-    except Exception as exc:  # noqa: BLE001
-        print(f"[review_loop] could not persist queue: {exc}", file=sys.stderr)
+        data = json.loads(out)
+        return int(data[0]["number"]) if data else None
+    except (ValueError, KeyError, IndexError, TypeError):
+        return None
 
 
 def run_fixer(repo: str, pr: int, dry_run: bool) -> dict:
@@ -118,6 +126,40 @@ def main() -> None:
                 print(f"  {k:<44} {v.get('count', 0)} ping(s)  "
                       f"{', '.join(v.get('kinds') or [])}  last {v.get('last_seen', '')[:19]}")
         return
+
+    # Resolve branch-only entries (workflow-failure mail carries no PR number)
+    # to a PR before scheduling. Without this they were skipped by the `if
+    # v.get("pr")` filter below AND never removed — a queue entry that could
+    # never drain, accumulating one row per red CI run forever.
+    resolved_any = False
+    for key, entry in list(queue.items()):
+        if entry.get("pr"):
+            continue
+        if not entry.get("branch"):
+            # Neither a PR nor a branch — nothing here is addressable. This
+            # shape comes from run_failed mail enqueued before the branch was
+            # captured; keeping it means one dead row per red CI run, forever.
+            queue.pop(key, None)
+            resolved_any = True
+            if not args.json:
+                print(f"  dropped {key} — no PR and no branch to resolve")
+            continue
+        pr = pr_for_branch(entry["repo"], entry["branch"])
+        if pr:
+            entry["pr"] = pr
+            resolved_any = True
+            log_line = f"resolved {entry['repo']}@{entry['branch']} -> #{pr}"
+        else:
+            # No open PR for that branch (a push straight to a branch, or the PR
+            # was merged/closed). Nothing this loop can act on.
+            queue.pop(key, None)
+            resolved_any = True
+            log_line = (f"dropped {entry['repo']}@{entry['branch']} — "
+                        f"no open PR for that branch")
+        if not args.json:
+            print(f"  {log_line}")
+    if resolved_any and not args.dry_run:
+        save_queue(queue)
 
     # Oldest-first: a PR that has been waiting should not starve behind a chatty
     # one that keeps re-enqueuing.
@@ -192,9 +234,24 @@ def main() -> None:
         save_queue(queue)
 
     if args.json:
-        print(json.dumps({"drained": drained, "remaining": len(queue),
-                          "at": datetime.now(timezone.utc).isoformat(),
-                          "report": report}, indent=2))
+        # SINGLE LINE, deliberately. scheduler.run_script_action stores only the
+        # LAST stdout line in cron_jobs.last_result, so pretty-printed JSON makes
+        # last_result literally "}" — which is what "Event Bus Offline Drain -> }"
+        # in the PM2 log has been showing all along. Compact output means the
+        # dashboard and the health check see a real result, not a brace.
+        summary = {
+            "drained": drained,
+            "remaining": len(queue),
+            "fixed": sum(1 for r in report
+                         for x in (r.get("results") or []) if x["status"] == "fixed"),
+            "escalated": sum(1 for r in report
+                             for x in (r.get("results") or []) if x["status"] == "escalated"),
+            "errors": [f"{r['repo']}#{r['pr']}: {r['error'][:80]}"
+                       for r in report if r.get("error")],
+            "at": datetime.now(timezone.utc).isoformat(),
+            "report": report,
+        }
+        print(json.dumps(summary, separators=(",", ":")))
     else:
         for r in report:
             print(f"\n{r['repo']}#{r['pr']}")

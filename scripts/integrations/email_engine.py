@@ -1021,9 +1021,21 @@ def _enqueue_review_harvest(ping: dict, rfc_message_id: str) -> None:
             except Exception:  # noqa: BLE001
                 queue = {}
 
-        key = f"{ping['repo']}#{ping['pr']}" if ping.get("pr") else ping["repo"]
+        # A workflow-failure mail has no PR number, so it keys on repo+branch.
+        # review_loop resolves that branch to a PR via `gh pr list --head`; an
+        # entry with neither a PR nor a branch can never become actionable, so
+        # the loop drops it rather than letting it accumulate forever.
+        if ping.get("pr"):
+            key = f"{ping['repo']}#{ping['pr']}"
+        elif ping.get("branch"):
+            key = f"{ping['repo']}@{ping['branch']}"
+        else:
+            key = ping["repo"]
         entry = queue.get(key) or {"repo": ping["repo"], "pr": ping.get("pr"),
+                                   "branch": ping.get("branch"),
                                    "kinds": [], "message_ids": [], "count": 0}
+        if ping.get("branch") and not entry.get("branch"):
+            entry["branch"] = ping["branch"]
         if ping["kind"] not in entry["kinds"]:
             entry["kinds"].append(ping["kind"])
         if rfc_message_id not in entry["message_ids"]:

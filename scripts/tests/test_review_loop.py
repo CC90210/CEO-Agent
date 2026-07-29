@@ -38,7 +38,8 @@ from review_harvest import (  # noqa: E402
      {"repo": "CC90210/CFO-Agent", "pr": 2, "kind": "pr_review"}),
     ("notifications@github.com",
      "[CC90210/CEO-Agent] Run failed: substrate-eval - feat/native-email-classifier (cc3e760)",
-     {"repo": "CC90210/CEO-Agent", "pr": None, "kind": "run_failed"}),
+     {"repo": "CC90210/CEO-Agent", "pr": None, "kind": "run_failed",
+      "branch": "feat/native-email-classifier", "workflow": "substrate-eval"}),
     ("notifications@github.com",
      "Re: [CC90210/oasis-command-center] fix(offers): lender-reply classifier (PR #100)",
      {"repo": "CC90210/oasis-command-center", "pr": 100, "kind": "pr_review"}),
@@ -161,6 +162,44 @@ def test_escalated_findings_are_not_marked_seen():
         "escalated must stay out of the seen-ledger so it keeps surfacing")
     for terminal in ("fixed", "skipped", "no-op"):
         assert terminal in marked
+
+
+def test_run_failed_mail_yields_a_branch_to_resolve():
+    """A "Run failed:" notification carries no PR number. Without capturing the
+    BRANCH the queue entry could never be resolved to anything actionable — and
+    review_loop skipped PR-less entries WITHOUT removing them, so one row
+    accumulated per red CI run, forever."""
+    got = detect_review_notification(
+        "notifications@github.com",
+        "[CC90210/CEO-Agent] Run failed: substrate-eval - feat/native-email-classifier (cc3e760)")
+    assert got["kind"] == "run_failed"
+    assert got["pr"] is None
+    assert got["branch"] == "feat/native-email-classifier"
+    # Hyphens survive on BOTH sides of the " - " separator.
+    assert got["workflow"] == "substrate-eval"
+
+
+@pytest.mark.parametrize("subject,workflow,branch", [
+    ("[o/r] Run failed: substrate-eval - feat/native-email-classifier (abc1234)",
+     "substrate-eval", "feat/native-email-classifier"),
+    ("[o/r] Run failed: CI - main (deadbee)", "CI", "main"),
+    ("[o/r] Run failed: deploy-vps-prod - release-2026-07 (0011223)",
+     "deploy-vps-prod", "release-2026-07"),
+])
+def test_run_failed_parsing_keeps_hyphens_on_both_sides(subject, workflow, branch):
+    got = detect_review_notification("notifications@github.com", subject)
+    assert got["workflow"] == workflow
+    assert got["branch"] == branch
+
+
+def test_review_loop_resolves_or_drops_branch_only_entries():
+    import review_loop
+
+    src = Path(review_loop.__file__).read_text(encoding="utf-8")
+    assert "pr_for_branch" in src, "branch -> PR resolution must exist"
+    # And an unresolvable entry must be POPPED, not left to accumulate.
+    resolve_block = src.split("Resolve branch-only entries")[1].split("Oldest-first")[0]
+    assert "queue.pop(" in resolve_block
 
 
 def test_failing_checks_are_surfaced_not_silently_dropped():

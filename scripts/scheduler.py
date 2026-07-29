@@ -296,6 +296,12 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
 FAILURE_DUMP_DIR = PROJECT_ROOT / "tmp" / "cron_failures"
 FAILURE_DUMP_KEEP = 50
 
+# script_run timeout policy. Most jobs are quick; a few (Review Harvest) spawn a
+# model session plus a test suite and legitimately need longer. Per-job override
+# lives in action_config["timeout"].
+SCRIPT_RUN_DEFAULT_TIMEOUT = 300
+SCRIPT_RUN_MAX_TIMEOUT = 3600
+
 
 def persist_failure(label: str, cmd: List[str], returncode: int,
                     stderr: str, stdout: str = "") -> Optional[str]:
@@ -704,6 +710,18 @@ def run_script_action(config: dict) -> str:
     if not isinstance(args, list):
         return "ERROR: script_run config 'args' must be a list"
 
+    # Optional per-job timeout (2026-07-29). 300s was hardcoded, which is fine
+    # for a snapshot but fatal for a job that spawns work of its own: the Review
+    # Harvest loop runs a Claude editing session plus the target repo's full test
+    # suite, and being SIGKILLed halfway through can leave uncommitted edits in a
+    # client repo. A job that knows it is long declares it; everything else keeps
+    # the old default. Capped at an hour so a runaway can't occupy the scheduler.
+    try:
+        timeout_s = int(config.get("timeout") or SCRIPT_RUN_DEFAULT_TIMEOUT)
+    except (TypeError, ValueError):
+        timeout_s = SCRIPT_RUN_DEFAULT_TIMEOUT
+    timeout_s = max(10, min(timeout_s, SCRIPT_RUN_MAX_TIMEOUT))
+
     full_path = PROJECT_ROOT / script
     if not full_path.exists():
         return f"ERROR: script_run target not found: {script}"
@@ -714,13 +732,13 @@ def run_script_action(config: dict) -> str:
             capture_output=True,
             text=True,
             encoding="utf-8",
-            timeout=300,
+            timeout=timeout_s,
             cwd=str(PROJECT_ROOT),
             env=CHILD_ENV,
             creationflags=CREATE_NO_WINDOW,
         )
     except subprocess.TimeoutExpired:
-        return f"ERROR: script_run timed out (300s): {script}"
+        return f"ERROR: script_run timed out ({timeout_s}s): {script}"
     except Exception as exc:  # noqa: BLE001
         return f"ERROR: script_run failed: {exc}"
 

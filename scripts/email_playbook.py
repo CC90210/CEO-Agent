@@ -221,11 +221,22 @@ REVIEW_SENDER_LOCALS = ("notifications@", "noreply@", "no-reply@")
 _PR_SUBJECT_RE = re.compile(
     r"\[(?P<repo>[\w.-]+/[\w.-]+)\].*?(?:\(PR\s*#(?P<pr1>\d+)\)|#(?P<pr2>\d+))",
     re.IGNORECASE | re.DOTALL)
-_RUN_FAILED_RE = re.compile(r"^\[(?P<repo>[\w.-]+/[\w.-]+)\]\s*Run failed:", re.IGNORECASE)
+# "[owner/repo] Run failed: <workflow> - <branch> (<sha>)". The BRANCH is the
+# useful part: a workflow-failure mail carries no PR number, so without it the
+# queue entry could never be resolved to something actionable and would sit
+# there forever. review_loop maps branch -> PR via `gh pr list --head`.
+#
+# The separator is " - " WITH surrounding spaces. Splitting on a bare "-" breaks
+# on every hyphenated workflow name: "Run failed: substrate-eval - my-branch"
+# parsed as workflow="substrate", branch="eval". Requiring the spaces keeps
+# hyphens inside both the workflow and the branch name.
+_RUN_FAILED_RE = re.compile(
+    r"^\[(?P<repo>[\w.-]+/[\w.-]+)\]\s*Run failed:\s*(?P<workflow>.+?)\s+-\s+"
+    r"(?P<branch>\S+)", re.IGNORECASE)
 
 
 def detect_review_notification(from_addr: str, subject: str) -> Optional[dict]:
-    """Return {repo, pr, kind} when this email is an automated-review ping.
+    """Return {repo, pr, kind, branch?} when this email is an automated-review ping.
 
     kind ∈ {pr_review, run_failed}. Returns None for anything else, including
     ordinary GitHub mail (releases, mentions, discussions) that carries no PR
@@ -239,7 +250,10 @@ def detect_review_notification(from_addr: str, subject: str) -> Optional[dict]:
 
     run_fail = _RUN_FAILED_RE.match(subj)
     if run_fail:
-        return {"repo": run_fail.group("repo"), "pr": None, "kind": "run_failed"}
+        branch = (run_fail.group("branch") or "").strip().strip("()")
+        return {"repo": run_fail.group("repo"), "pr": None, "kind": "run_failed",
+                "branch": branch or None,
+                "workflow": (run_fail.group("workflow") or "").strip() or None}
 
     m = _PR_SUBJECT_RE.search(subj)
     if m:

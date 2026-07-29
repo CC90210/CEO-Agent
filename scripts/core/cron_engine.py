@@ -401,7 +401,12 @@ SEED_JOBS: list[dict] = [
         "description": "Every 15 min: drain the automated-review queue (CodeRabbit / Vercel / CI). Harvests UNRESOLVED review threads live via gh, applies the fix, runs tests, pushes to the PR branch, and Telegrams CC. Never merges or touches main.",
         "schedule": "*/15 * * * *",
         "action_type": "script_run",
-        "action_config": {"script": "scripts/review_loop.py", "args": ["--once", "--json"]},
+        # timeout: a fix is a Claude editing session plus the target repo's full
+        # test suite. The 300s script_run default would SIGKILL it mid-fix and
+        # could leave uncommitted edits in a client repo. review_loop drains ONE
+        # PR per pass, so 1500s is a ceiling, not an expectation.
+        "action_config": {"script": "scripts/review_loop.py",
+                          "args": ["--once", "--json"], "timeout": 1500},
         "is_active": True,
     },
     # 'Bravo — Override Queue Cleanup' removed 2026-05-22 along with the
