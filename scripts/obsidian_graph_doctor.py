@@ -247,6 +247,30 @@ def plan_link_fixes(report: dict, by_path: dict[str, str]) -> dict[str, list[tup
     return plans
 
 
+CODE_SPAN_RE = re.compile(r"(```.*?```|`[^`\n]*`)", re.DOTALL)
+
+
+def _sub_outside_code(text: str, pattern: re.Pattern[str], replacement: str) -> tuple[str, int]:
+    """Substitute only OUTSIDE fenced/inline code spans.
+
+    `extract_links()` deliberately ignores code spans — a `[[target]]` inside a
+    fence is a documented example, not a link. But the rewriter used a naive
+    global sub, so a note with the same target in prose AND in a code sample had
+    its example silently rewritten. Detection and repair have to agree on scope
+    or the tool corrupts the docs it is meant to clean.
+    """
+    out: list[str] = []
+    total = 0
+    for i, seg in enumerate(CODE_SPAN_RE.split(text)):
+        if i % 2:  # odd segments are the captured code spans — leave verbatim
+            out.append(seg)
+            continue
+        seg, n = pattern.subn(replacement, seg)
+        total += n
+        out.append(seg)
+    return "".join(out), total
+
+
 def apply_link_fixes(plans: dict[str, list[tuple[str, str, str]]]) -> int:
     """Rewrite planned links in place. Returns number of links changed."""
     changed = 0
@@ -263,7 +287,7 @@ def apply_link_fixes(plans: dict[str, list[tuple[str, str, str]]]) -> int:
             pattern = re.compile(
                 r"\[\[" + re.escape(raw) + r"(\|[^\]\[]*)?\]\]"
             )
-            text, n = pattern.subn(replacement, text)
+            text, n = _sub_outside_code(text, pattern, replacement)
             changed += n
         if text != original:
             with open(path, "w", encoding="utf-8", newline="") as fh:
@@ -549,6 +573,23 @@ def main() -> int:
         else:
             for src, links in sorted(
                 report["broken_links"].items(), key=lambda kv: -len(kv[1])
+            ):
+                print(f"  {src} ({len(links)})")
+                for link in cap(links):
+                    print(f"      [[{link}]]")
+            print()
+
+        # Surfaced, never failed on. Silently swallowing these would hide a real
+        # class of link: one that resolves for the operator and for nobody else.
+        if report["private_count"]:
+            print(
+                f"=== PRIVATE — resolve locally, gitignored by policy "
+                f"({report['private_count']}) ==="
+            )
+            print("  Not failures. These targets are operator-private (PII) and are")
+            print("  absent from every clean checkout, including CI.")
+            for src, links in sorted(
+                report["private_links"].items(), key=lambda kv: -len(kv[1])
             ):
                 print(f"  {src} ({len(links)})")
                 for link in cap(links):

@@ -151,6 +151,52 @@ class TestLinkExtraction:
         assert doctor.extract_links("```\n[[fenced]]\n```\n[[real]]") == ["real"]
 
 
+# ------------------------------------------------- private (gitignored) links
+class TestPrivateLinks:
+    """`gitignored_targets` decides whether CI goes red. It shipped untested and
+    its first CI run failed on 71 links that were fine — worth locking down."""
+
+    def test_operator_private_notes_are_not_broken(self):
+        """memory/MISTAKES.md is gitignored on purpose (PII). A link to it is
+        private, not broken — otherwise --strict can never pass in a clean
+        checkout, which is exactly what happened on the gate's first run."""
+        got = doctor.gitignored_targets({"memory/MISTAKES", "memory/PATTERNS"})
+        assert got == {"memory/MISTAKES", "memory/PATTERNS"}
+
+    def test_tracked_notes_are_not_classified_private(self):
+        """A genuinely broken link must stay broken — this is the whole gate."""
+        assert doctor.gitignored_targets({"brain/STATE", "docs/adr/INDEX"}) == set()
+
+    def test_nonexistent_and_untracked_target_is_not_private(self):
+        assert doctor.gitignored_targets({"brain/THIS_NOTE_NEVER_EXISTED"}) == set()
+
+    def test_empty_input_short_circuits(self):
+        assert doctor.gitignored_targets(set()) == set()
+
+    def test_cross_repo_targets_skipped(self):
+        """`../CMO-Agent/...` is outside this repo; check-ignore can't judge it."""
+        assert doctor.gitignored_targets({"../CMO-Agent/brain/CONTENT_BIBLE"}) == set()
+
+    def test_batches_survive_more_than_one_chunk(self):
+        """Paths go as argv in chunks of 200 (Windows 8191-char limit). A real
+        private target must still be found when it lands past the first chunk."""
+        filler = {f"brain/_no_such_note_{i}" for i in range(250)}
+        got = doctor.gitignored_targets(filler | {"memory/MISTAKES"})
+        assert "memory/MISTAKES" in got
+
+    def test_audit_separates_private_from_broken(self):
+        report = doctor.audit()
+        overlap = set(report["private_links"]) & {
+            k for k, v in report["broken_links"].items() if v
+        }
+        for src in overlap:
+            assert not (set(report["private_links"][src]) & set(report["broken_links"][src])), \
+                "a link cannot be both private and broken"
+        assert report["private_count"] == sum(
+            len(v) for v in report["private_links"].values()
+        )
+
+
 # ------------------------------------------------------------ CRLF integrity
 class TestRewriteIntegrity:
     def test_fix_links_preserves_crlf(self, tmp_path, monkeypatch):
@@ -163,6 +209,26 @@ class TestRewriteIntegrity:
         assert b"\r\n" in raw, "CRLF file was normalized to LF"
         assert raw.replace(b"\r\n", b"") .count(b"\n") == 0, "a bare LF was introduced"
         assert b"`scripts/foo.py`" in raw and b"[[scripts/foo]]" not in raw
+
+    def test_fix_links_leaves_code_samples_alone(self, tmp_path, monkeypatch):
+        """Detection ignores code spans, so repair must too — otherwise a note
+        with the same target in prose AND in a fence gets its example corrupted
+        (found by Codex audit)."""
+        target = tmp_path / "note.md"
+        target.write_text(
+            "Prose: [[scripts/foo]].\n\n```\nsee [[scripts/foo]] here\n```\n"
+            "inline `[[scripts/foo]]` too\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(doctor, "REPO_ROOT", tmp_path)
+        n = doctor.apply_link_fixes(
+            {"note.md": [("scripts/foo", "`scripts/foo.py`", "code-path")]}
+        )
+        out = target.read_text(encoding="utf-8")
+        assert n == 1, "only the prose occurrence should be rewritten"
+        assert "Prose: `scripts/foo.py`." in out
+        assert "see [[scripts/foo]] here" in out, "fenced example was corrupted"
+        assert "inline `[[scripts/foo]]` too" in out, "inline code span was corrupted"
 
     def test_fix_links_rewrites_aliased_form(self, tmp_path, monkeypatch):
         target = tmp_path / "note.md"
