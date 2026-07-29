@@ -56,6 +56,10 @@ STOPWORDS = {
     "agent", "bravo", "cc", "file", "code", "script", "check", "fix", "add",
 }
 MIN_TOKEN_LEN = 4
+# A scaffold may only claim a SINGLE-word trigger when the word is long enough to
+# be domain vocabulary rather than everyday English. Below this, emit the phrase
+# alone — see scaffold_triggers().
+SINGLE_WORD_MIN = 9
 
 
 def tokens(text: str) -> set[str]:
@@ -156,7 +160,7 @@ def scan() -> dict:
 SKILL_STUB = """---
 name: {slug}
 description: {desc}
-triggers: []
+triggers: [{triggers}]
 tier: standard
 mutability: EVOLVING
 tags: [skill, promoted, evolve]
@@ -181,9 +185,12 @@ a heuristic-written skill is mock data wearing documentation's clothes (Anti-Slo
 - [ ] **When to use** — the trigger conditions, and when NOT to (calibration)
 - [ ] **The procedure** — exact commands, with real paths verified against source
 - [ ] **The incident** — what actually went wrong that made this a pattern
-- [ ] **`triggers:`** — narrow phrases. Broad ones steal routes from other skills; verify with
-      `python scripts/capability_query.py resolve "<intent>"` and
-      `python -m pytest scripts/tests/test_routing_accuracy.py -q`
+- [ ] **`triggers:`** — the ones above are auto-derived from the title so the graph can route
+      this at all (a trigger-less skill is drift, and fails `harness_eval`). They are a
+      starting point, not a decision. Narrow or replace them, then verify BOTH directions:
+      `python scripts/capability_query.py resolve "<intent this should own>"` and
+      `python -m pytest scripts/tests/test_routing_accuracy.py -q` (the golden set must stay
+      green — a broad trigger steals routes from the skill that should have won)
 
 Then: `python scripts/build_capability_graph.py && python scripts/build_capability_graph.py --emit-docs`
 
@@ -204,6 +211,47 @@ def slugify(text: str) -> str:
     return "-".join(s.split("-")[:6])[:48] or "promoted-pattern"
 
 
+def scaffold_triggers(text: str) -> list[str]:
+    """Narrow, title-derived triggers so the scaffold is routable from birth.
+
+    `triggers: []` is NOT an option: build_capability_graph flags a trigger-less
+    skill as drift ("agent can't route to it"), which fails harness_eval's
+    capability-graph check. A tool whose own output turns the substrate red is
+    worse than no tool — caught by self-review 2026-07-29, after this shipped
+    emitting an empty list.
+
+    Equally, broad triggers steal routes: the resolver scores 2.0 per overlapping
+    WORD, so a generic term outbids the skill that should own it (review-harvest
+    stole "review the code before shipping" from code-review the same day). So:
+    derive from the TITLE's distinctive tokens only, longest-first, and cap at 3.
+    The TODO block still tells the author to refine them.
+    """
+    title = _slug_source(text)
+    words = [w for w in re.findall(r"[a-z]{4,}", title.lower()) if w not in STOPWORDS]
+    if not words:
+        return [slugify(text).replace("-", " ")]
+
+    # The multi-word phrase ONLY, plus at most one genuinely distinctive single
+    # word (>= SINGLE_WORD_MIN chars). An earlier version emitted any long-ish
+    # word, which produced triggers like "notify" — and "notify cc on telegram"
+    # promptly resolved to the stub over the real Telegram skills. The golden
+    # routing set did not catch it, because that phrase is not in the golden set:
+    # a regression suite is necessary, not sufficient. Short words are generic by
+    # nature; a 9+ character word is usually domain vocabulary.
+    out = [" ".join(words[:4])]
+    for w in sorted(set(words), key=len, reverse=True):
+        if len(w) >= SINGLE_WORD_MIN:
+            out.append(w)
+            break
+
+    seen, uniq = set(), []
+    for t in out:
+        if t and t not in seen:
+            seen.add(t)
+            uniq.append(t)
+    return uniq[:2]
+
+
 def promote(text: str, kind: str, apply: bool) -> dict:
     slug = slugify(text)
     today = date.today().isoformat()
@@ -213,6 +261,7 @@ def promote(text: str, kind: str, apply: bool) -> dict:
         target = SKILLS_DIR / slug / "SKILL.md"
         body = SKILL_STUB.format(
             slug=slug, today=today, title=title, text=text,
+            triggers=", ".join(f'"{t}"' for t in scaffold_triggers(text)),
             desc=(f"{text[:180]} Promoted from a validated memory pattern on {today}; "
                   f"see the TODO block before relying on it."))
     else:

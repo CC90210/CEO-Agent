@@ -149,7 +149,11 @@ def test_scaffold_carries_provenance_and_refuses_to_pretend_it_is_finished(tmp_p
     body = (tmp_path / "skills" / r["slug"] / "SKILL.md").read_text(encoding="utf-8")
     assert "PROMOTED FROM MEMORY" in body      # provenance
     assert "TODO" in body                       # not presented as complete
-    assert "triggers: []" in body               # must not claim routes it hasn't earned
+    # Triggers must be PRESENT (an empty list is graph drift and fails
+    # harness_eval) but narrow — see the scaffold-trigger tests above. This
+    # assertion previously demanded `triggers: []`, pinning the very defect
+    # self-review caught.
+    assert "triggers: [" in body and "triggers: []" not in body
 
 
 def test_promote_does_not_clobber_an_existing_skill(tmp_path, monkeypatch):
@@ -158,6 +162,43 @@ def test_promote_does_not_clobber_an_existing_skill(tmp_path, monkeypatch):
     again = evolve.promote("Dup Pattern", "skill", apply=True)
     assert again["applied"] is False
     assert again.get("skipped") == "already exists"
+
+
+# ── scaffold triggers ────────────────────────────────────────────────────────
+# Two opposing failure modes, both observed on 2026-07-29:
+#   empty  -> build_capability_graph flags drift, harness_eval goes red
+#   broad  -> the stub steals routes ("notify" pulled "notify cc on telegram")
+
+def test_scaffold_always_emits_at_least_one_trigger():
+    """triggers: [] is drift — a tool whose output turns the substrate red."""
+    for title in ["Idempotency And Notify Dedup For Cron Sweeps",
+                  "MCP Config Audit Discipline",
+                  "Zernio Posting",
+                  "A B C"]:
+        assert evolve.scaffold_triggers(title), f"no trigger for {title!r}"
+
+
+def test_scaffold_never_emits_a_short_generic_single_word():
+    """"notify" as a trigger made a promoted stub outrank the real Telegram
+    skills. Single words must be long enough to be domain vocabulary."""
+    for title in ["Idempotency And Notify Dedup For Cron Sweeps",
+                  "Send Email Retry Logic",
+                  "Check The Build Status"]:
+        for t in evolve.scaffold_triggers(title):
+            if " " not in t:
+                assert len(t) >= evolve.SINGLE_WORD_MIN, f"{t!r} too generic for {title!r}"
+
+
+def test_scaffold_keeps_the_distinctive_phrase():
+    tr = evolve.scaffold_triggers("Idempotency And Notify Dedup For Cron Sweeps")
+    assert any(" " in t for t in tr), "must include a multi-word phrase"
+    assert "notify" not in tr
+
+
+def test_scaffold_triggers_are_bounded():
+    tr = evolve.scaffold_triggers(
+        "A Very Long Pattern Title With Many Distinctive Domain Words Indeed")
+    assert len(tr) <= 2
 
 
 def test_scan_runs_against_the_real_repo():
