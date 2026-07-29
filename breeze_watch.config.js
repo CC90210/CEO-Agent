@@ -4,7 +4,16 @@
  * for onboarding week, not core Bravo substrate — remove when go-live settles:
  *   pm2 delete breeze-live-watch && pm2 save
  *
- * Start:  pm2 start breeze_watch.ecosystem.js && pm2 save
+ * Start:  pm2 start breeze_watch.config.js && pm2 save
+ *
+ * FILENAME IS LOAD-BEARING (2026-07-29). This was breeze_watch.ecosystem.js,
+ * and PM2 only treats a file as an ecosystem config when it ends in
+ * .config.js / .json / .yaml — anything else is started as a plain script. So
+ * `pm2 start breeze_watch.ecosystem.js` registered a process literally running
+ * `node breeze_watch.ecosystem.js`, which evaluates a module.exports object and
+ * does nothing. PM2 reported it "online" for 5 days while breeze_live_watch.py
+ * had never run once: no health polling, no failed-interaction alerts, through
+ * the whole of Breeze onboarding week. Do not rename this file back.
  * Args go through the `args` array (not `-- loop`) because PM2's CLI arg parser
  * mis-handles `--flags` after `--` on Windows PowerShell.
  */
