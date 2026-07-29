@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-07-28T21:57:12.513030+00:00",
-  "script_count": 117,
-  "entry_count": 286,
+  "generated_at_iso": "2026-07-29T16:30:43.161203+00:00",
+  "script_count": 118,
+  "entry_count": 287,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1497,6 +1497,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Reap duplicate MCP server processes from leaked editor sessions."
+    },
+    {
+      "key": "repo_census",
+      "path": "scripts/repo_census.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Census every git repo AND worktree that an IDE could be counting."
     },
     {
       "key": "research_fetch_fetch",
