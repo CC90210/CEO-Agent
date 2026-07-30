@@ -1069,6 +1069,14 @@ def run_funnel_sync(_env_vars: dict) -> str:
 def run_funnel_fast_poll(_env_vars: dict) -> str:
     """Fast-poll funnel_leads (last 2 minutes) for near-realtime CC alerts.
 
+    DORMANT, NOT DEAD (2026-07-30). Its cron row is is_active=False because
+    funnel_leads has had no writer since cc-funnel was retired 2026-06-18 — see
+    the note in cron_engine.py SEED_JOBS. The row still exists, so
+    `cron_engine.py toggle <id>` re-enables it in one command; deleting this
+    handler would turn that into a silent no-op at the worst possible moment.
+    Keep it until either the table gets a writer again or the row is deleted.
+    The same applies to run_nurture_check and run_funnel_sync.
+
     funnel_sync.py fast-poll mode fires a consolidated high-priority Telegram
     digest when new leads land. This handler returns a routine-silent phrase
     on empty runs so the scheduler doesn't spam CC every 60 seconds.
