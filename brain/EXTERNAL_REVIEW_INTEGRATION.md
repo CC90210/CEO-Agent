@@ -96,7 +96,7 @@ We already have the *ingredients* — we just never connected them:
 > - `scripts/review_fix.py` — applies the fix, baselines + re-runs tests, pushes to the PR branch
 > - `scripts/review_loop.py` — the cron entry point that drains the queue
 > - `email_playbook.detect_review_notification()` + `email_engine._enqueue_review_harvest()`
-> - `skills/review-harvest/SKILL.md`
+> - `[[skills/review-harvest/SKILL]]`
 > - cron **`Bravo — Review Harvest`** (`*/15 * * * *`, `timeout: 1500`) — seeded and active
 >
 > **Design change vs §4 — no webhook, no `external_reviews` table.** §4 proposed a webhook
@@ -147,7 +147,7 @@ scripts/core/review_harvest.py --digest       ← NEW: group unprocessed finding
 **Design decisions (locked defaults; override in build):**
 - **Store** structured `{severity, finding, file, line}` + `finding_hash` for dedup (not raw blobs). Dedup key is `(repo, pr_number, tool, finding_hash, commit_sha)` — `commit_sha` **must** be in both the schema and the key, so the *same* finding re-flagged on a *new* commit becomes a new occurrence row (an unresolved regression), while an identical re-post on the same commit is deduped. Without `commit_sha` in the key, later-commit re-flags get silently discarded and recurrence counts corrupt.
 - **Memory target** = a NEW `memory/EXTERNAL_FEEDBACK.md`, never hand-edited `MISTAKES.md` (keeps bot noise out of curated lessons; a promoted pattern graduates to MISTAKES/VALIDATION rules by hand).
-- **Harvest skill** (`skills/review-harvest/SKILL.md`) runs **CLI-only** (`disable_model_invocation`) — no LLM paraphrasing of what CodeRabbit said; structured JSON only, to prevent hallucinated findings.
+- **Harvest skill** ([[skills/review-harvest/SKILL]]) runs **CLI-only** (`disable_model_invocation`) — no LLM paraphrasing of what CodeRabbit said; structured JSON only, to prevent hallucinated findings.
 - **Latency** = hybrid: nightly cron for the compounding memory rollup; a webhook path for instant Telegram alert on a CRITICAL finding ("fix before shipping").
 - **Vercel** has no default outbound webhook → either enable GitHub Check-Runs integration or poll the Vercel API on the cron. Start with polling (simpler, one script).
 

@@ -879,7 +879,8 @@ def emit_when_to_use_skills(graph: dict[str, Any]) -> str:
         trig = ", ".join(s.get("triggers") or []) or "—"
         desc = (s.get("description") or "").strip() or "—"
         flag = " — _explicit `/command` only_" if s.get("disable_model_invocation") else ""
-        out.append(f"## {s['name']}{flag}")
+        link_target = s['path'].removesuffix('.md')
+        out.append(f"## [[{link_target}|{s['name']}]]{flag}")
         out.append(f"- **Use when:** {desc}")
         out.append(f"- **Triggers:** {trig}")
         out.append(f"- **Path:** `{s['path']}` · tier `{s.get('tier','specialized')}` · risk `{s.get('risk','low')}`")

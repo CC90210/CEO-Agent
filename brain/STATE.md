@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-30
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Codex audit closed out: 3 P1s fixed (rejected-fix patch preservation, queue no longer drops failed fixes, LiteLLM proxy fails closed) + an unimported notify_error NameError found while verifying. 724 tests, harness ALL GREEN.
+- **Result:** Diagnostic session: SESSION_LOG.md junk cleaned, 2 self-audit orphans wired, review-loop regression test fixed (was testing itself), harness 10/10 confirmed.
 
 *Last updated: 2026-07-30*
 

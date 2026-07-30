@@ -2,12 +2,13 @@
 
 # Memory Index
 
-Auto-generated index of tracked `memory/*.md` — **19 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `memory/*.md` — **20 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Files
 - [ACTIVE_TASKS.template.md](ACTIVE_TASKS.template.md) — ACTIVE TASKS — {{ preferred_name }}
 - [DECISIONS.template.md](DECISIONS.template.md) — DECISIONS — {{ preferred_name }}
 - [DISCOVERY_PLAYBOOK.md](DISCOVERY_PLAYBOOK.md) — UNIVERSAL DISCOVERY PLAYBOOK: OASIS AI SOLUTIONS
+- [HANDOVER_2026-07-30_diagnostic_fixes.md](HANDOVER_2026-07-30_diagnostic_fixes.md) — System Message — Post-Diagnostic Fixes (2026-07-30)
 - [INDEX.md](INDEX.md) — Memory Index
 - [LONG_TERM.md](LONG_TERM.md) — LONG-TERM MEMORY — High-Confidence Persistent Facts
 - [MEMORY_INDEX.md](MEMORY_INDEX.md) — Memory Index — moved

@@ -196,4 +196,7 @@ Reference commits in `Business-Empire-Agent`: `88a0e4ac` (storm root cause),
 [[docs/onboarding/MAVEN_VAULT_SYSTEM_MESSAGE]] ·
 [[docs/onboarding/ATLAS_VAULT_SYSTEM_MESSAGE]] ·
 [[docs/onboarding/MAVEN_FUNNEL_AND_CTA_HANDOVER]] ·
-[[docs/sop/ADON_AGENT_PROTOCOL_SOP]] · [[brain/EXECUTION_RULES]] (§19)
+[[docs/sop/ADON_AGENT_PROTOCOL_SOP]] · [[brain/EXECUTION_RULES]] (§19) ·
+[[docs/sop/AVG_TLS_EXCLUSION]] ·
+[[memory/HANDOVER_2026-07-30_diagnostic_fixes]] — same-day diagnostic pass from
+the OpenCode lane (SESSION_LOG frontmatter, skill-orphan generator fix)
