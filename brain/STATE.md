@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-30
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Fixed review loop branch mismatch, implemented Telegram alert deduplication, separated Bravo/Maven/Atlas bot channels, applied contract RPC migration
+- **Result:** CORRECTION to prior note: contract RPC migration 106b is NOT applied - apply_migration refuses GRANT/REVOKE by design, needs CC in the Supabase Dashboard. Delivered: review-loop storm killed (blocked!=error, queue drains, escalating dedup backoff), Bravo/Maven/Atlas bridge routing, contract send status split.
 
 *Last updated: 2026-07-30*
 
