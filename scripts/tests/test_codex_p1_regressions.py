@@ -73,8 +73,18 @@ def test_patch_dir_is_ring_buffered(tmp_path, monkeypatch):
 # a NEW review comment happened to arrive. Leaving the seen-ledger untouched
 # does not save it: nothing goes looking.
 
-TERMINAL = {"fixed", "skipped", "no-op", "escalated", "would-fix"}
+# IMPORTED, not redeclared. The first version of this file defined its own
+# TERMINAL set and asserted against it — so it tested the test, and would have
+# stayed green while review_loop's real set drifted. Import the thing you claim
+# to protect.
+TERMINAL = review_loop.TERMINAL_STATUSES
 RETRYABLE = {"failed", "reverted", "committed-not-pushed"}
+
+
+def test_the_terminal_set_is_the_one_the_code_uses():
+    """Guard the guard: prove this file is reading review_loop's own constant."""
+    assert TERMINAL is review_loop.TERMINAL_STATUSES
+    assert "fixed" in TERMINAL and "failed" not in TERMINAL
 
 
 def test_every_review_fix_status_is_classified():
@@ -109,6 +119,43 @@ def test_retry_is_bounded():
     """Unbounded retry is how the original storm happened; a silent drop is the
     bug that replaced it. The answer is neither — count, then give up loudly."""
     assert 1 < review_loop.RETRY_LIMIT <= 10, review_loop.RETRY_LIMIT
+
+
+# The classification tests above pin the SET. These exercise the DECISION the
+# loop actually makes with it — the arithmetic, not the constant.
+
+def _decide(statuses, attempts=0):
+    """Reproduce review_loop's drain/keep branch for a given result shape."""
+    retryable = [s for s in statuses if s not in review_loop.TERMINAL_STATUSES]
+    if not retryable:
+        return "drain"
+    return "giveup" if attempts + 1 >= review_loop.RETRY_LIMIT else "keep"
+
+
+@pytest.mark.parametrize("statuses,expected", [
+    (["fixed"], "drain"),
+    (["fixed", "skipped"], "drain"),
+    (["escalated"], "drain"),
+    ([], "drain"),                                   # nothing to do
+    (["failed"], "keep"),
+    (["committed-not-pushed"], "keep"),
+    (["reverted"], "keep"),
+    (["fixed", "failed"], "keep"),                   # ONE unlanded finding is enough
+    (["escalated", "committed-not-pushed"], "keep"),
+])
+def test_drain_decision(statuses, expected):
+    assert _decide(statuses) == expected, statuses
+
+
+def test_a_partly_successful_pass_is_still_kept():
+    """The subtle case. Three findings fixed and one push failure still means a
+    review thread nobody will ever look at again — so the PR stays queued."""
+    assert _decide(["fixed", "fixed", "fixed", "committed-not-pushed"]) == "keep"
+
+
+def test_retry_eventually_gives_up_instead_of_looping_forever():
+    assert _decide(["failed"], attempts=review_loop.RETRY_LIMIT - 1) == "giveup"
+    assert _decide(["failed"], attempts=0) == "keep"
 
 
 # ── P1-3 + the NameError found while verifying it ────────────────────────────

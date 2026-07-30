@@ -63,6 +63,27 @@ QUEUE_PATH = PROJECT_ROOT / "tmp" / "review_harvest_queue.json"
 # replaced it. At the */15 cadence this is ~45 minutes of trying before CC hears
 # about it once.
 RETRY_LIMIT = int(os.environ.get("REVIEW_LOOP_RETRY_LIMIT", "3") or "3")
+
+# Statuses meaning the fixer is DONE with a finding, whether or not it succeeded.
+# Anything review_fix can emit that is not here is treated as retryable.
+#
+#   fixed / skipped / no-op  — resolved, or deliberately not ours to touch
+#   would-fix                — dry-run output; nothing was attempted
+#   escalated                — operator-owned. Already Telegrammed, and left out
+#                              of the harvest seen-ledger, so a manual
+#                              `review_harvest.py --pr` still surfaces it.
+#                              Retrying every 15 min would only re-spam.
+#
+# Retryable (failed / reverted / committed-not-pushed) means NOTHING reached the
+# branch. Draining those loses the review permanently, because the only thing
+# that enqueues a PR is inbound review mail.
+#
+# MODULE SCOPE ON PURPOSE. This lived inside the loop body, so the test that was
+# supposed to pin it declared its own copy and asserted against that — it would
+# have passed while the real set drifted underneath. Same useless-guard shape as
+# the anti-slop drift test earlier the same day. A constant a test cannot import
+# is a constant no test protects.
+TERMINAL_STATUSES = frozenset({"fixed", "skipped", "no-op", "escalated", "would-fix"})
 # One PR per pass. The fixer spawns a full Claude session per finding; draining
 # ten PRs in one tick would run for an hour and overlap the next cron fire.
 MAX_PRS_PER_PASS = 1
@@ -262,16 +283,8 @@ def main() -> None:
         # goes looking. (Found by Codex; the claim held once I traced the only
         # enqueue path.)
         #
-        # Terminal = the fixer is done with it, whether or not it succeeded:
-        #   fixed / skipped / no-op  — resolved or deliberately not ours
-        #   escalated                — operator-owned; already Telegrammed, and
-        #                              left out of the seen-ledger so a manual
-        #                              `review_harvest.py --pr` still shows it
-        # Retryable = nothing landed and another pass could plausibly work:
-        #   failed / reverted / committed-not-pushed
-        TERMINAL = {"fixed", "skipped", "no-op", "escalated", "would-fix"}
         statuses = [r.get("status") for r in (result.get("results") or [])]
-        retryable = [s for s in statuses if s not in TERMINAL]
+        retryable = [s for s in statuses if s not in TERMINAL_STATUSES]
 
         if not args.dry_run and not result.get("error"):
             if not retryable:
