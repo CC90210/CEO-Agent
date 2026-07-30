@@ -345,27 +345,62 @@ def cmd_send(args) -> None:
         f"Conaugh McKenna\nOASIS AI Solutions\noasisai.work\n"
     )
 
-    if not args.apply:
-        print(f"DRY RUN — would email {c['client_email']}\n  subject: {subject}\n  link: {link}")
-        return
+    # V5.6 outbound chokepoint. NEVER smtplib directly — send_gateway owns CASL
+    # suppression, the dedup ledger, brand footers and the outbound log.
+    #
+    # Signature verified against the source, not recalled: send(channel,
+    # agent_source, *, to_email, subject, body_text, ...). An earlier draft of
+    # this file imported a `send_email` helper that does not exist — it would
+    # have raised ImportError at the exact moment CC tried to email a client a
+    # contract. Confirmed against the working call site in booking_engine.py.
+    from send_gateway import send as gateway_send  # noqa: E402
 
-    # V5.6 outbound chokepoint. Never smtplib directly — send_gateway owns CASL
-    # suppression, logging and the dedup ledger.
-    from send_gateway import send_email  # noqa: E402
-    res = send_email(
+    res = gateway_send(
+        "email",
+        "contract_send",
         to_email=c["client_email"],
         subject=subject,
-        body=body,
-        source="contract_send",
+        body_text=body,
+        lead_id=c.get("lead_id"),
+        # A contract a client asked for is transactional, not marketing. The
+        # wrong intent here would put a CASL marketing footer on a legal
+        # document and could route it through cold-outreach suppression.
+        intent="transactional",
+        metadata={"contract_id": c["id"], "contract_type": c["contract_type"]},
+        dry_run=not args.apply,
+        db=db,
     )
-    ok = bool(getattr(res, "ok", None) or (isinstance(res, dict) and res.get("ok")))
+
+    # send_gateway signals via `status`, never `ok`. Every return path in that
+    # module is one of: sent | dry_run | blocked | error. Reading a nonexistent
+    # `ok` key would have evaluated False on a SUCCESSFUL send, leaving the
+    # contract stuck at 'draft' while the client already had the email — a
+    # silent state divergence that only shows up in production. The dry run
+    # surfaced it because the returned dict had no `ok` in it at all.
+    status = res.get("status") if isinstance(res, dict) else None
+    ok = status == "sent"
+    if not args.apply:
+        print(f"DRY RUN — would email {c['client_email']}")
+        print(f"  subject : {subject}")
+        print(f"  link    : {link}")
+        print(f"  gateway : {str(res)[:220]}")
+        return
+
     if ok:
         db.table("contracts").update({
             "status": "sent",
             "sent_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", c["id"]).execute()
-    print(json.dumps({"sent": ok, "contract_id": c["id"], "result": str(res)[:300]}, indent=2))
+    else:
+        # blocked (CASL suppression / cooldown) and error are NOT the same as
+        # sent, and neither should look like success in the exit code.
+        print(f"NOT SENT — gateway status {status!r}", file=sys.stderr)
+
+    print(json.dumps({"sent": ok, "gateway_status": status,
+                      "contract_id": c["id"], "result": str(res)[:300]}, indent=2))
+    if not ok:
+        raise SystemExit(1)
 
 
 def cmd_status(args) -> None:
