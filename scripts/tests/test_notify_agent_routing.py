@@ -13,6 +13,7 @@ the alert entirely or delivers it unlabelled. Both are tested here.
 from __future__ import annotations
 
 import importlib
+import re
 import sys
 from pathlib import Path
 
@@ -35,16 +36,77 @@ def _fresh():
     ("content", "maven"),
     ("instagram", "maven"),
     ("outreach", "maven"),
-    ("lead", "maven"),
     ("revenue", "atlas"),
     ("invoice", "atlas"),
     ("stripe", "atlas"),
     ("system", "bravo"),
     ("email", "bravo"),
     ("booking", "bravo"),
+    ("lead", "bravo"),
 ])
 def test_category_routes_to_the_owning_agent(category, owner):
     assert nf.resolve_agent(category) == owner
+
+
+def test_lead_stays_on_the_operators_channel():
+    """Regression on a mapping written from taxonomy instead of call sites.
+
+    'Leads are marketing, so route lead -> maven' is wrong here. Both live
+    emitters need CC, not Maven: funnel_sync.py:302 is the "NEW FUNNEL LEAD"
+    push with name/email/notes (the operator has to phone them) and
+    autonomous_agent.py:762 is inside `_notify_cc_escalation`. A lead and the
+    booking that follows are one operator motion — routing them to different
+    bots halves the funnel.
+    """
+    assert nf.resolve_agent("lead") == nf.resolve_agent("booking") == "bravo"
+
+
+# Categories that ARE emitted but deliberately have no CATEGORY_OWNER row, so
+# they take DEFAULT_AGENT. Reviewed 2026-07-30: both are Bravo's own work and
+# Bravo is the default, so a row would be noise. Adding to this set is a
+# decision — that is the point of making it explicit.
+REVIEWED_DEFAULTS = {"low_priority", "ops"}
+
+_CATEGORY_LITERAL = re.compile(r"""category\s*=\s*["']([a-z_\-]+)["']""")
+
+
+def _emitted_categories() -> set[str]:
+    scripts_dir = Path(__file__).resolve().parent.parent
+    found: set[str] = set()
+    for py in scripts_dir.rglob("*.py"):
+        parts = set(py.parts)
+        if "tests" in parts or "_archive" in parts or "__pycache__" in parts:
+            continue
+        if py.name == "notify.py":          # its own docstring examples
+            continue
+        try:
+            src = py.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        found.update(_CATEGORY_LITERAL.findall(src))
+    return found
+
+
+def test_every_emitted_category_is_routed_or_consciously_defaulted():
+    """The mapping must be derived from real call sites, not invented.
+
+    Without this, someone adds notify(..., category="ad_spend") in a Maven-owned
+    path, it silently lands on Bravo's channel, and nobody finds out because the
+    alert still arrives — just on the wrong bot. Fails loudly instead: either
+    map it, or add it to REVIEWED_DEFAULTS having thought about it.
+    """
+    emitted = _emitted_categories()
+    assert emitted, "sweep found nothing — the regex or the path is wrong"
+    unaccounted = emitted - set(nf.CATEGORY_OWNER) - REVIEWED_DEFAULTS
+    assert not unaccounted, (
+        f"emitted but unrouted: {sorted(unaccounted)} — add to CATEGORY_OWNER "
+        f"or to REVIEWED_DEFAULTS")
+
+
+def test_the_sweep_would_actually_catch_a_new_category():
+    """Guard the guard — a regex that matches nothing passes vacuously."""
+    assert _CATEGORY_LITERAL.findall('notify("x", category="ad_spend")') == ["ad_spend"]
+    assert {"lead", "booking", "system"} <= _emitted_categories()
 
 
 def test_unknown_category_defaults_to_bravo():

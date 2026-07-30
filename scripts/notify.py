@@ -180,20 +180,34 @@ _env_cache: dict[str, str] = {}
 #
 # Routing is by CATEGORY, because the category is already threaded through every
 # call site in the fleet. No caller has to change.
+#
+# THE RULE IS "WHO MUST ACT", NOT "WHOSE DOMAIN IS THE SUBJECT". A first draft
+# routed `lead` to Maven on the reasoning that leads are marketing. Reading the
+# two live call sites killed that: funnel_sync.py:302 is the "🔥 NEW FUNNEL LEAD"
+# push carrying name/email/notes — the operator has to call them — and
+# autonomous_agent.py:762 sits inside a function literally named
+# `_notify_cc_escalation`. Both need CC, neither needs Maven. A lead and the
+# booking that follows it are one operator motion; splitting them across two
+# bots halves the funnel. Map from the call sites, not from the taxonomy.
+#
+# Categories with no live emit site in THIS repo are marked forward-looking:
+# they cost nothing, and they pin the contract for when Bravo does emit them.
 CATEGORY_OWNER: dict[str, str] = {
-    # Maven (CMO) — content, brand, ads, social, funnel/lead intake
-    "content": "maven",
-    "instagram": "maven",
-    "outreach": "maven",
-    "lead": "maven",
-    # Atlas (CFO) — money in all its forms
-    "revenue": "atlas",
-    "invoice": "atlas",
-    "stripe": "atlas",
-    # Bravo (CEO/COO/CTO) — everything operational
+    # Maven (CMO) — content, brand, ads, social. Maven ACTS on these.
+    "content": "maven",                 # forward-looking: no emit site here yet
+    "instagram": "maven",               # forward-looking
+    "outreach": "maven",                # live: send_gateway.py:605 daily-cap warning
+    # Atlas (CFO) — money in all its forms. Bravo never reports MRR (CLAUDE.md).
+    "revenue": "atlas",                 # forward-looking
+    "invoice": "atlas",                 # forward-looking
+    "stripe": "atlas",                  # forward-looking
+    # Bravo (CEO/COO/CTO) — everything the OPERATOR must act on.
     "system": "bravo",
     "email": "bravo",
-    "booking": "bravo",
+    "booking": "bravo",                 # live: booking_engine.py:1000,1161
+    "lead": "bravo",                    # live: funnel_sync.py:302 (hot inbound
+                                        # lead) + autonomous_agent.py:762
+                                        # (_notify_cc_escalation). See above.
     "skool-escalation": "bravo",
 }
 DEFAULT_AGENT = "bravo"
