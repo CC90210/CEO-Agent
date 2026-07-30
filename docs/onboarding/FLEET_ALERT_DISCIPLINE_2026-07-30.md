@@ -80,17 +80,9 @@ states; leave genuine news alone.
 **Your bridge.** Your `_resolve_token` already prefers
 `MAVEN_TELEGRAM_BOT_TOKEN` and falls back to Bravo's — keep that fallback, it is
 what makes a single-bot rig work. Bravo now routes content / instagram /
-outreach alerts to **your** bridge using exactly `MAVEN_TELEGRAM_BOT_TOKEN` +
-`MAVEN_TELEGRAM_ALLOWED_USERS`. Those two names are a contract between repos
-now — do not rename them without telling Bravo.
-
-**`lead` is deliberately NOT yours,** though a first draft of this document said
-it was. Bravo's two lead emitters are the "🔥 NEW FUNNEL LEAD" push carrying
-name/email/notes and a function named `_notify_cc_escalation`. Both need the
-operator to pick up a phone; neither is a Maven action. A lead and the booking
-that follows it are one motion, and routing them to two different bots halves
-the funnel. **Route by who must act, not by whose domain the subject belongs
-to** — apply that when you map your own categories.
+outreach / lead alerts to **your** bridge using exactly
+`MAVEN_TELEGRAM_BOT_TOKEN` + `MAVEN_TELEGRAM_ALLOWED_USERS`. Those two names are
+a contract between repos now — do not rename them without telling Bravo.
 
 Until CC sets those in Bravo's `.env.agents`, your alerts still land on CC's
 channel prefixed `[for maven — bridge not configured in this repo]`. That

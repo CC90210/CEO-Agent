@@ -106,9 +106,16 @@ def send_welcome_email(client, env_vars: dict[str, str], lead_email: str, lead_n
 
     vars_json = json.dumps({"first_name": first_name, "name": lead_name, "email": lead_email})
 
+    # scripts/email_engine.py moved to scripts/integrations/ on 2026-05-21
+    # (commit 7f47d0f8). scheduler.py's copy of this path was updated; this one
+    # was missed, so every welcome email since has died with "can't open file"
+    # — latent only because no real lead has arrived to trigger it.
+    engine = SCRIPTS_DIR / "integrations" / "email_engine.py"
+    if not engine.exists():                       # fail at the call, not silently
+        return f"email_engine_missing: {engine}"
     cmd = [
         PYTHON,
-        str(SCRIPTS_DIR / "email_engine.py"),
+        str(engine),
         "--json",
         "send-template",
         "--template-id", template_id,

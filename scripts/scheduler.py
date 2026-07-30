@@ -154,6 +154,13 @@ def get_client(env_vars: dict[str, str]):
 
 # ── Cron schedule parsing ─────────────────────────────────────────────────────
 
+# A job that runs at least this often gets another attempt before CC could
+# realistically act on a page, so its FIRST failure is noise, not signal.
+# Anything slower (hourly, daily) fails once and then stays broken for a long
+# time — for those the first failure is the only useful moment to alert.
+FAST_JOB_PERIOD = timedelta(minutes=15)
+
+
 def parse_cron_schedule(schedule: str) -> Optional[timedelta]:
     """
     Convert a cron schedule string to a timedelta for the next run interval.
@@ -1156,10 +1163,19 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         if result_is_error:
             fail_count += 1
             if fail_count < 5:
-                # Retry in 5 minutes
-                retry_dt = datetime.now(timezone.utc) + timedelta(minutes=5)
+                # Retry sooner than the schedule — but NEVER later than it.
+                # A flat 5-minute retry is a rescue for a daily job and a
+                # PUNISHMENT for a */1 job: on 2026-07-30 one transient 30s
+                # stall pushed the 60-second funnel poll out to 5 minutes,
+                # stretching its cadence 5x at the exact moment it was already
+                # degraded. Cap the delay at the job's own period.
+                period = parse_cron_schedule(job.get("schedule", "") or "")
+                delay = min(timedelta(minutes=5), period) if period else timedelta(minutes=5)
+                retry_dt = datetime.now(timezone.utc) + delay
                 next_run = retry_dt.isoformat()
-                log(f"  ERROR on {job_name}, retry scheduled in 5 min (attempt {fail_count}/5)")
+                mins = delay.total_seconds() / 60
+                log(f"  ERROR on {job_name}, retry scheduled in {mins:g} min "
+                    f"(attempt {fail_count}/5)")
             else:
                 # Give up, wait for next regular schedule
                 next_run = calculate_next_run(job.get("schedule", ""))
@@ -1182,7 +1198,12 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                 notify_error(
                     job_name,
                     f"{stage} — {result_msg[:220]}\n"
-                    f"Full traceback: tmp/cron_failures/ (most recent for this job)"
+                    f"Full traceback: tmp/cron_failures/ (most recent for this job)",
+                    # Distinct dedup identity from the per-tick page below.
+                    # They shared one key until 2026-07-30, so the noisy
+                    # first-failure alert consumed the slot and silenced THIS
+                    # one — the alert that actually means "the job is broken".
+                    stage="escalation",
                 )
         else:
             next_run = calculate_next_run(job.get("schedule", ""))
@@ -1313,7 +1334,23 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         owner = agent_for_action(action_type)
 
         if is_error:
-            notify_error(job_name, result_msg[:200], agent=owner)
+            # Don't page CC for ONE bad tick of a fast job. A */1 or */5 cron
+            # that fails once self-heals before he could act, and 130 lines
+            # above there is already a deliberate "escalate at 2 consecutive
+            # failures" policy — which this unconditional call silently
+            # defeated, paging on attempt 1/5 every time (2026-07-30).
+            #
+            # Slow jobs are the opposite: a daily brief that fails at 06:00
+            # will not retry for a day, so its first failure IS the signal.
+            # The cutoff is "will it try again before CC could reasonably
+            # act", not an arbitrary severity call.
+            period = parse_cron_schedule(job.get("schedule", "") or "")
+            self_healing = period is not None and period <= FAST_JOB_PERIOD
+            if self_healing:
+                log(f"  (transient failure on fast job {job_name} — "
+                    f"escalation at 2 consecutive owns this alert)")
+            else:
+                notify_error(job_name, result_msg[:200], agent=owner)
         elif not is_routine:
             notify(f"{job_name}: {result_msg[:200]}", category=cat, silent=True,
                    agent=owner)

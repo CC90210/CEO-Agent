@@ -47,6 +47,46 @@ AUTOMATED_PREFIXES = (
     "system@", "postmaster@", "mailer-daemon@", "bounce@", "bounces@",
 )
 
+# Machine local-parts, separators removed. Matching used to be
+# `full.startswith("noreply@") or "noreply@" in full`, which required the local
+# part to be EXACTLY one of these — so noreply-dmarc-support@google.com read as
+# a human, was triaged may_reply=True, and got a reply draft generated for it
+# (2026-07-30). Compound machine addresses are the norm, not the exception:
+# noreply-dmarc-support@, do_not_reply@, notifications.billing@.
+_MACHINE_WORDS = frozenset(
+    p.rstrip("@").replace("-", "").replace("_", "").replace(".", "")
+    for p in (
+        "noreply@", "no-reply@", "donotreply@", "do-not-reply@", "notifications@",
+        "notification@", "alerts@", "alert@", "mailer@", "automated@", "mailbot@",
+        "system@", "postmaster@", "mailer-daemon@", "bounce@", "bounces@",
+    )
+)
+_LOCAL_SEP = re.compile(r"[-._+]+")
+
+
+def _local_part_is_machine(address: str) -> bool:
+    """True when the local part LEADS with a machine word.
+
+    Token-aware on purpose. Matching a bare substring would classify
+    alerta@realcompany.com as automated and silently refuse to ever reply to a
+    real person — a worse failure than the one being fixed, because it is
+    invisible. So the leading tokens must JOIN to a machine word exactly:
+
+        noreply-dmarc-support -> "noreply"      machine
+        no-reply              -> "noreply"      machine
+        do_not_reply          -> "donotreply"   machine
+        alerta                -> "alerta"       human  (no false positive)
+    """
+    local = (address or "").split("@")[0].strip().lower()
+    if not local:
+        return False
+    tokens = [t for t in _LOCAL_SEP.split(local) if t]
+    for k in range(1, len(tokens) + 1):
+        if "".join(tokens[:k]) in _MACHINE_WORDS:
+            return True
+    return False
+
+
 # Cold-outreach / mass-mail platforms. Mail from these is marketing at CC, not
 # a real human conversation.
 MASS_MAIL_DOMAINS = (
@@ -191,7 +231,7 @@ def classify_sender(from_addr: str, subject: str = "", body: str = "",
                 "reason": "security/verification mail — alert CC, never reply"}
 
     automated = (
-        any(full.startswith(p.rstrip("@") + "@") or p in full for p in AUTOMATED_PREFIXES)
+        _local_part_is_machine(full)
         or any(domain.endswith(d) for d in MASS_MAIL_DOMAINS)
         or is_bulk
     )

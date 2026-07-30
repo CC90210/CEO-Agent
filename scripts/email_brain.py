@@ -373,7 +373,16 @@ def process_email(
             draft = get("draft_reply")(email, category)
             get("store_draft")(email, draft, category)
             out["drafted"] = True
-            get("notify")(_draft_notice(category, sender, subj, draft))
+            # Honour the draft's OWN verdict. This branch used to headline every
+            # held draft "Draft ready to send" regardless of ship, so a reply the
+            # copy critic REJECTED — for quoting a price, for a banned phrase —
+            # reached CC looking approved and ready to paste (2026-07-30).
+            # isinstance guard mirrors _draft_notice: draft_reply may be unwired
+            # and return None, and an AttributeError here would escape to the
+            # catch-all and turn a mislabelled alert into NO alert.
+            get("notify")(_draft_notice(
+                category, sender, subj, draft,
+                flagged=isinstance(draft, dict) and draft.get("ship") is False))
             out["notified"] = True
             # left unread so it stays visible for CC's review
         elif action == "archive":

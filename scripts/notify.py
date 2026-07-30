@@ -448,7 +448,8 @@ def notify(message: str, category: str = "system", silent: bool = False,
     return False
 
 
-def notify_error(engine: str, error: str, agent: Optional[str] = None) -> bool:
+def notify_error(engine: str, error: str, agent: Optional[str] = None,
+                 stage: Optional[str] = None) -> bool:
     """Send an error alert — always with sound, always delivered.
 
     force=True added 2026-07-29. Without it this function was a no-op: it sends
@@ -465,14 +466,23 @@ def notify_error(engine: str, error: str, agent: Optional[str] = None) -> bool:
     Dedup still applies (notify.py DEDUP_WINDOW_SEC) — force bypasses the
     category filter, not the repeat suppression, so a stuck job pings hourly
     rather than every tick.
+
+    `stage` (2026-07-30) separates DIFFERENT alerts about the same engine.
+    Without it the scheduler's two call sites collided on one identity: the
+    routine per-tick page and the "this job has failed twice / has given up"
+    escalation shared `engine_error:{job}`, so the noisy first alert won the
+    dedup slot and SUPPRESSED the one that actually says the job is broken.
+    The anti-noise design was inverted in practice — CC got the noise and not
+    the signal. Distinct stages are distinct incidents; keep them distinct.
     """
+    key = f"engine_error:{engine}" + (f":{stage}" if stage else "")
     return notify(f"{engine} error: {error}", category="system",
                   silent=False, force=True, agent=agent,
                   # Pin to the failing engine, not the error text. A cron whose
                   # message carries a changing count or timestamp would
                   # otherwise hash differently each tick and defeat dedup
                   # entirely — the review-loop storm in miniature.
-                  dedup_key=f"engine_error:{engine}")
+                  dedup_key=key)
 
 
 def notify_daemon_crash(daemon: str, error: str, tick_id: str | None = None) -> bool:
