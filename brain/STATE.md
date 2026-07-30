@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-30
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Fast-Poll page closed out: fleet restarted onto current code (daemon predated the fix commit by 29 min), 7 defects fixed across alerting/scheduler/email triage, timeout dumps now written. Harness 10/10, 697 tests green.
+- **Result:** Finalisation pass: ai-audit funnel now alerts CC + confirms to lead (PR #114), AVG socket-kill resilience (retries=2/25s), 2 dead crons retired, CVEs 10->0, AVG exclusion SOP for CC. 708 tests, harness ALL GREEN.
 
 *Last updated: 2026-07-30*
 
