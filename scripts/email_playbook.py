@@ -53,13 +53,11 @@ AUTOMATED_PREFIXES = (
 # a human, was triaged may_reply=True, and got a reply draft generated for it
 # (2026-07-30). Compound machine addresses are the norm, not the exception:
 # noreply-dmarc-support@, do_not_reply@, notifications.billing@.
+# Derived from AUTOMATED_PREFIXES above — NOT a second copy. A duplicated list
+# is a list that drifts: add "billing@" to one and the other silently disagrees.
 _MACHINE_WORDS = frozenset(
     p.rstrip("@").replace("-", "").replace("_", "").replace(".", "")
-    for p in (
-        "noreply@", "no-reply@", "donotreply@", "do-not-reply@", "notifications@",
-        "notification@", "alerts@", "alert@", "mailer@", "automated@", "mailbot@",
-        "system@", "postmaster@", "mailer-daemon@", "bounce@", "bounces@",
-    )
+    for p in AUTOMATED_PREFIXES
 )
 _LOCAL_SEP = re.compile(r"[-._+]+")
 

@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-30
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Self-review caught lead->maven misrouting: mapped from taxonomy not call sites; both emitters are operator escalations. Fixed to bravo, added call-site sweep test.
+- **Result:** Funnel Fast-Poll page root-caused: live daemon (PID 44260) predated the 07-29 TLS/CHILD_ENV/persist_failure commit — fleet restarted onto current code. Fixed ungated first-tick paging, dedup-key inversion, 5x retry penalty, 70-day-dead welcome-email path, compound no-reply matching, and the 'Draft ready to send' mislabel on critic-rejected drafts.
 
 *Last updated: 2026-07-30*
 

@@ -24,7 +24,7 @@ import time
 import traceback
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Optional, List
+from typing import Any, Optional, List
 
 # Shared Windows console-suppression flag — see scripts/_subprocess_helpers.
 # The constant lived in this file (and 5 others) before consolidation;
@@ -324,7 +324,18 @@ SCRIPT_RUN_DEFAULT_TIMEOUT = 300
 SCRIPT_RUN_MAX_TIMEOUT = 3600
 
 
-def persist_failure(label: str, cmd: List[str], returncode: int,
+def _as_text(raw: Any) -> str:
+    """Decode whatever subprocess handed back. TimeoutExpired.stdout/.stderr is
+    str under text=True, bytes if the child died before the decoder ran, and
+    None when nothing was captured — all three reach the dump writer."""
+    if raw is None:
+        return ""
+    if isinstance(raw, bytes):
+        return raw.decode("utf-8", errors="replace").strip()
+    return str(raw).strip()
+
+
+def persist_failure(label: str, cmd: List[str], returncode: "int | str",
                     stderr: str, stdout: str = "") -> Optional[str]:
     """Write a failed child's FULL stderr to tmp/cron_failures/ and return the path.
 
@@ -375,16 +386,35 @@ def persist_failure(label: str, cmd: List[str], returncode: int,
 def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
     """Run a Python script from the scripts/ directory and return its output."""
     cmd = [PYTHON, str(SCRIPTS_DIR / script_name)] + args
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=timeout,
-        cwd=str(PROJECT_ROOT),
-        env=CHILD_ENV,
-        creationflags=CREATE_NO_WINDOW,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=timeout,
+            cwd=str(PROJECT_ROOT),
+            env=CHILD_ENV,
+            creationflags=CREATE_NO_WINDOW,
+        )
+    except subprocess.TimeoutExpired as exc:
+        # A TIMEOUT is the failure mode that most needs a dump and was the only
+        # one that never produced one: subprocess.run raised straight past the
+        # persist_failure call below, so CC's 2026-07-30 "timed out after 30s"
+        # page pointed at tmp/cron_failures/ — which was empty. A hang leaves no
+        # traceback of its own, so whatever the child managed to emit before the
+        # wall is the ONLY evidence there will ever be. Capture it.
+        partial_out = _as_text(exc.stdout)
+        partial_err = _as_text(exc.stderr)
+        dump = persist_failure(
+            script_name, cmd, "TIMEOUT",
+            f"No exception — killed after {timeout}s with no exit.\n"
+            f"A hang produces no traceback; the partial output below is all\n"
+            f"the child emitted before the wall.\n\n{partial_err}",
+            partial_out,
+        )
+        hint = f" [full: {Path(dump).name}]" if dump else ""
+        return f"FAILED (timeout after {timeout}s):{hint} {partial_err[:1000]}"
     output = result.stdout.strip()
     if result.returncode != 0:
         error = result.stderr.strip()

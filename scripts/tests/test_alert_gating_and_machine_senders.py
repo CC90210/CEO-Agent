@@ -101,7 +101,53 @@ def test_retry_delay_never_exceeds_the_jobs_period(sched, expected_max_min):
         f"{sched}: retry of {delay} is slower than the job's own cadence")
 
 
-# ── 4. The two alert stages must not share a dedup identity ──────────────────
+# ── 4. A TIMEOUT must leave a dump — the mode that never did ─────────────────
+
+def test_scheduler_imports_cleanly():
+    """py_compile passes on an undefined annotation; import does not. A NameError
+    at module scope here takes the whole cron daemon down silently."""
+    import importlib
+    importlib.reload(scheduler)
+    assert callable(scheduler.run_script)
+
+
+@pytest.mark.parametrize("raw,expected", [
+    (b"  bytes out  ", "bytes out"),
+    ("  str out  ", "str out"),
+    (None, ""),
+])
+def test_as_text_handles_every_shape_subprocess_returns(raw, expected):
+    """TimeoutExpired.stdout is str under text=True, bytes if the child died
+    before the decoder ran, and None when nothing was captured."""
+    assert scheduler._as_text(raw) == expected
+
+
+def test_timeout_writes_a_dump_with_whatever_the_child_emitted(tmp_path, monkeypatch):
+    """THE GAP. run_script's persist_failure sat below `subprocess.run`, which
+    RAISES on timeout — so the one failure mode with no traceback of its own also
+    had no dump. CC's 11:53 page pointed at tmp/cron_failures/; it was empty."""
+    import subprocess as sp
+
+    monkeypatch.setattr(scheduler, "FAILURE_DUMP_DIR", tmp_path)
+
+    def _boom(*a, **kw):
+        raise sp.TimeoutExpired(cmd=["python", "funnel_sync.py"], timeout=30,
+                                output=b"partial stdout", stderr=b"partial stderr")
+
+    monkeypatch.setattr(scheduler.subprocess, "run", _boom)
+
+    result = scheduler.run_script("funnel_sync.py", ["fast-poll"], timeout=30)
+
+    assert "timeout after 30s" in result, result
+    dumps = list(tmp_path.glob("*.log"))
+    assert dumps, "a timeout still produced no dump"
+    body = dumps[0].read_text(encoding="utf-8")
+    assert "partial stderr" in body, "the child's last words were dropped"
+    assert "partial stdout" in body
+    assert "TIMEOUT" in body
+
+
+# ── 5. The two alert stages must not share a dedup identity ──────────────────
 
 def test_escalation_and_per_tick_alerts_have_distinct_dedup_keys():
     """THE INVERSION. Both scheduler call sites keyed on engine_error:{job}, so
