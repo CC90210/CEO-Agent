@@ -201,10 +201,17 @@ DEFAULT_AGENT = "bravo"
 # Per-agent bot token env keys. Bravo's is the plain TELEGRAM_BOT_TOKEN it has
 # always used. Maven's and Atlas's live in THEIR repos by design — separate
 # credentials, separate blast radius — so they are usually absent here.
+#
+# Key names READ FROM THE SIBLINGS' OWN SOURCE, not invented. A first draft
+# guessed MAVEN_TELEGRAM_CHAT_ID; Maven's notify.py actually resolves
+# MAVEN_TELEGRAM_ALLOWED_USERS (~/CMO-Agent/scripts/notify.py:99-106) and Atlas
+# uses ATLAS_TELEGRAM_TOKEN / ATLAS_TELEGRAM_CHAT_ID (cfo/setup_wizard.py).
+# Had CC added the key his sibling expects, Bravo would have looked for a
+# different one and silently fallen back forever.
 AGENT_TOKEN_KEYS: dict[str, tuple[str, str]] = {
     "bravo": ("TELEGRAM_BOT_TOKEN", "TELEGRAM_ALLOWED_USERS"),
-    "maven": ("MAVEN_TELEGRAM_BOT_TOKEN", "MAVEN_TELEGRAM_CHAT_ID"),
-    "atlas": ("ATLAS_TELEGRAM_BOT_TOKEN", "ATLAS_TELEGRAM_CHAT_ID"),
+    "maven": ("MAVEN_TELEGRAM_BOT_TOKEN", "MAVEN_TELEGRAM_ALLOWED_USERS"),
+    "atlas": ("ATLAS_TELEGRAM_TOKEN", "ATLAS_TELEGRAM_CHAT_ID"),
 }
 
 

@@ -74,6 +74,21 @@ def test_bravo_uses_the_historical_env_keys():
     assert nf.AGENT_TOKEN_KEYS["bravo"] == ("TELEGRAM_BOT_TOKEN", "TELEGRAM_ALLOWED_USERS")
 
 
+def test_sibling_key_names_match_the_siblings_own_source():
+    """These names are a CONTRACT with another repo, not a local choice.
+
+    Maven's notify.py resolves MAVEN_TELEGRAM_BOT_TOKEN +
+    MAVEN_TELEGRAM_ALLOWED_USERS; Atlas uses ATLAS_TELEGRAM_TOKEN +
+    ATLAS_TELEGRAM_CHAT_ID. A first draft here guessed
+    MAVEN_TELEGRAM_CHAT_ID — CC would have set the key Maven expects and Bravo
+    would have looked for a different one, falling back silently forever.
+    """
+    assert nf.AGENT_TOKEN_KEYS["maven"] == (
+        "MAVEN_TELEGRAM_BOT_TOKEN", "MAVEN_TELEGRAM_ALLOWED_USERS")
+    assert nf.AGENT_TOKEN_KEYS["atlas"] == (
+        "ATLAS_TELEGRAM_TOKEN", "ATLAS_TELEGRAM_CHAT_ID")
+
+
 # ── delivery + fallback ──────────────────────────────────────────────────────
 
 def _capture(monkeypatch, env: dict):
@@ -117,7 +132,7 @@ BRAVO_ENV = {"TELEGRAM_BOT_TOKEN": "bravo-token", "TELEGRAM_ALLOWED_USERS": "111
 def test_maven_alert_uses_mavens_bridge_when_configured(monkeypatch):
     env = {**BRAVO_ENV,
            "MAVEN_TELEGRAM_BOT_TOKEN": "maven-token",
-           "MAVEN_TELEGRAM_CHAT_ID": "222"}
+           "MAVEN_TELEGRAM_ALLOWED_USERS": "222"}
     sent = _capture(monkeypatch, env)
     assert nf.notify("post failed", category="content") is True
     assert "maven-token" in sent["url"], "did not use Maven's bot"
@@ -127,7 +142,7 @@ def test_maven_alert_uses_mavens_bridge_when_configured(monkeypatch):
 
 def test_atlas_alert_uses_atlas_bridge_when_configured(monkeypatch):
     env = {**BRAVO_ENV,
-           "ATLAS_TELEGRAM_BOT_TOKEN": "atlas-token",
+           "ATLAS_TELEGRAM_TOKEN": "atlas-token",
            "ATLAS_TELEGRAM_CHAT_ID": "333"}
     sent = _capture(monkeypatch, env)
     assert nf.notify("stripe sync failed", category="revenue") is True

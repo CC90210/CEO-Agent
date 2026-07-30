@@ -278,6 +278,16 @@ in an entry point** (Rule 4 / `test_entrypoint_parity.py`).
 mechanism that would have reported the problem was itself broken or never run*. When you add a
 guard, a watchdog, or an alert, make it fire once on purpose before you trust it.
 
+**Proven again 2026-07-30, twice in one night.** A review-loop guard correctly refused to edit
+the wrong branch but exited non-zero, so the orchestrator read "needs a human" as "retry later"
+and CC got the identical alert at 10:30, 11:30, 12:30 and 1:30 AM. Sweeping for the same shape
+then found `notify_daemon_crash` carrying a docstring that *claimed* rate-limiting applied — it
+did not, because the message embedded a changing `tick_id`. The comment is what stopped anyone
+checking. Three durable rules came out of it, written up as per-agent system messages in
+[[docs/onboarding/FLEET_ALERT_DISCIPLINE_2026-07-30]]: **a blocking condition exits 0 and
+drains**, **alerts decay and key on the condition, not the text**, and **never document a
+guarantee you have not made fire**.
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]
