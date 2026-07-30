@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-30
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Deployed OasisAI.work intake funnel, CRM ingestion, and Google Meet booking pipeline
+- **Result:** Maven funnel+CTA handover written; documented that UTM params are not captured by the public form
 
 *Last updated: 2026-07-30*
 
