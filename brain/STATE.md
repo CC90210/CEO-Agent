@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-30
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Finalisation pass: ai-audit funnel now alerts CC + confirms to lead (PR #114), AVG socket-kill resilience (retries=2/25s), 2 dead crons retired, CVEs 10->0, AVG exclusion SOP for CC. 708 tests, harness ALL GREEN.
+- **Result:** Codex audit closed out: 3 P1s fixed (rejected-fix patch preservation, queue no longer drops failed fixes, LiteLLM proxy fails closed) + an unimported notify_error NameError found while verifying. 724 tests, harness ALL GREEN.
 
 *Last updated: 2026-07-30*
 
