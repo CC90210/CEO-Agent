@@ -283,22 +283,40 @@ def main() -> None:
         print(f"harvest failed: {harvest['error']}", file=sys.stderr)
         sys.exit(1)
 
+    # ── Blocked vs failed ────────────────────────────────────────────────────
+    #
+    # These three conditions are NOT errors, they are "this needs a human".
+    # They will still be true on the next run, and the one after that.
+    #
+    # Until 2026-07-30 they all `sys.exit(1)`, which review_loop read as a
+    # retryable failure: the PR stayed queued, the cron retried every 15
+    # minutes, and notify's 1-hour dedup window kept expiring — so CC got the
+    # identical "refusing to edit the wrong branch" alert on the hour, all
+    # night. The guards were right; the exit code was wrong.
+    #
+    # Exit 0 with status "blocked" and a machine-readable reason. review_loop
+    # drains a blocked PR (it cannot progress) and escalates ONCE.
+    def blocked(reason: str, detail: str) -> None:
+        payload = {"repo": repo, "pr": int(num), "blocked": True,
+                   "reason": reason, "detail": detail, "results": []}
+        print(json.dumps(payload, indent=2) if args.json else f"BLOCKED ({reason}): {detail}")
+        raise SystemExit(0)
+
     branch = harvest.get("branch") or ""
     if not branch or branch.lower() in PROTECTED_BRANCHES:
-        print(f"refusing to operate on protected branch '{branch}'", file=sys.stderr)
-        sys.exit(1)
+        blocked("protected_branch",
+                f"PR head is '{branch}' — refusing to operate on a protected branch")
 
     repo_dir = REPO_PATHS.get(repo)
     if not repo_dir or not (repo_dir / ".git").exists():
-        print(f"no local checkout registered for {repo} "
-              f"(add it to REPO_PATHS)", file=sys.stderr)
-        sys.exit(1)
+        blocked("no_local_checkout",
+                f"no local checkout registered for {repo} (add it to REPO_PATHS)")
 
     rc, cur, _ = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], repo_dir)
     if rc != 0 or cur.strip() != branch:
-        print(f"local checkout is on '{cur}', PR branch is '{branch}' — "
-              f"refusing to edit the wrong branch", file=sys.stderr)
-        sys.exit(1)
+        blocked("branch_mismatch",
+                f"local checkout is on '{cur.strip()}', PR branch is '{branch}' — "
+                f"checkout the PR branch to let the fixer run")
 
     wanted = {s.strip().lower() for s in args.severity.split(",") if s.strip()}
     todo = [f for f in harvest["findings"]

@@ -28,6 +28,7 @@ import sys
 import time
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
 
 # ── Notification idempotency ──────────────────────────────────────────────────
 # A dead-letter / error alert that fires on every cron sweep becomes a Telegram
@@ -50,27 +51,72 @@ def _notify_disabled() -> bool:
     return "PYTEST_CURRENT_TEST" in os.environ
 
 
-def _dedup_should_send(category: str, message: str) -> bool:
-    """True if this exact alert hasn't been sent within DEDUP_WINDOW_SEC.
-    Records the send timestamp on success. Best-effort: any error → allow send
-    (fail-open, so dedup can never swallow a real alert)."""
+# A stuck condition is ONE problem, not N problems. A flat window turns it into
+# a metronome: the 2026-07-29 review-loop mismatch alerted at 10:30, 11:30,
+# 12:30, 1:30 — once per window, all night, same sentence. Each repeat is worth
+# strictly less than the one before, so the interval doubles: 1h, 2h, 4h, 8h,
+# capped at 24h. First occurrence is always immediate.
+DEDUP_BACKOFF = _env_flag_backoff = os.environ.get("NOTIFY_DEDUP_BACKOFF", "1").strip().lower() \
+    not in ("0", "false", "no", "off")
+DEDUP_MAX_WINDOW_SEC = int(os.environ.get("NOTIFY_DEDUP_MAX_WINDOW_SEC", str(24 * 3600)))
+# Repeats older than this are a NEW incident, not a continuation — reset the
+# escalation so a monthly recurrence is not silenced by last month's backoff.
+DEDUP_FORGET_SEC = int(os.environ.get("NOTIFY_DEDUP_FORGET_SEC", str(72 * 3600)))
+
+
+def _dedup_should_send(category: str, message: str,
+                       dedup_key: Optional[str] = None) -> bool:
+    """True if this alert hasn't been sent within its current backoff window.
+
+    `dedup_key` pins the identity to the CONDITION instead of the rendered text.
+    Without it, an alert that embeds a changing detail (a count, a timestamp, a
+    branch name) hashes differently every time and defeats dedup entirely —
+    which is the other half of how an alert storm happens.
+
+    Best-effort: any error → allow the send. Dedup must never swallow a real
+    alert, and a corrupt cache file is not a reason to go silent.
+    """
     if DEDUP_WINDOW_SEC <= 0:
         return True
     try:
-        key = hashlib.sha256(f"{category}\x00{message}".encode("utf-8")).hexdigest()[:32]
+        ident = dedup_key if dedup_key else message
+        key = hashlib.sha256(f"{category}\x00{ident}".encode("utf-8")).hexdigest()[:32]
         now = time.time()
+
         seen: dict = {}
         if _DEDUP_PATH.exists():
             try:
                 seen = json.loads(_DEDUP_PATH.read_text(encoding="utf-8")) or {}
             except Exception:  # noqa: BLE001
                 seen = {}
-        last = seen.get(key)
-        if last is not None and (now - float(last)) < DEDUP_WINDOW_SEC:
-            return False
-        # prune + record
-        seen = {k: v for k, v in seen.items() if (now - float(v)) < DEDUP_WINDOW_SEC}
-        seen[key] = now
+
+        rec = seen.get(key)
+        # Legacy rows are a bare float timestamp; normalise so an in-flight
+        # cache from the old format doesn't crash or lose its history.
+        if isinstance(rec, (int, float)):
+            rec = {"last": float(rec), "n": 1}
+        elif not isinstance(rec, dict):
+            rec = None
+
+        if rec:
+            last = float(rec.get("last", 0))
+            n = int(rec.get("n", 1))
+            if (now - last) >= DEDUP_FORGET_SEC:
+                rec = None                      # stale → treat as a new incident
+            else:
+                window = DEDUP_WINDOW_SEC
+                if DEDUP_BACKOFF:
+                    window = min(DEDUP_WINDOW_SEC * (2 ** (n - 1)), DEDUP_MAX_WINDOW_SEC)
+                if (now - last) < window:
+                    return False
+                rec = {"last": now, "n": n + 1}
+
+        if rec is None:
+            rec = {"last": now, "n": 1}
+
+        seen = {k: v for k, v in seen.items()
+                if now - float(v["last"] if isinstance(v, dict) else v) < DEDUP_FORGET_SEC}
+        seen[key] = rec
         _DEDUP_PATH.parent.mkdir(parents=True, exist_ok=True)
         tmp = _DEDUP_PATH.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(seen), encoding="utf-8")
@@ -169,7 +215,8 @@ CATEGORY_PREFIX = {
 }
 
 
-def notify(message: str, category: str = "system", silent: bool = False, force: bool = False) -> bool:
+def notify(message: str, category: str = "system", silent: bool = False,
+           force: bool = False, dedup_key: Optional[str] = None) -> bool:
     """
     Send a Telegram notification to CC.
 
@@ -178,6 +225,11 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
         category: One of lead/email/booking/content/revenue/outreach/instagram/system
         silent: If True, send without sound (disable_notification=True)
         force: If True, bypass category filtering (for critical alerts)
+        dedup_key: Pin repeat-suppression to the CONDITION rather than the
+            rendered text. Pass this whenever the message embeds something that
+            varies between otherwise-identical alerts (a count, a timestamp, a
+            branch name) — without it those hash differently every time and
+            dedup silently stops working, which is how an alert storm starts.
 
     Returns:
         True if sent successfully, False otherwise
@@ -195,7 +247,7 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
     # a per-sweep dead-letter/error alert fires ONCE, not every cron tick.
     # `force` does NOT bypass this — a forced alert is still deduped by content
     # (force is about category muting, not repeat suppression).
-    if not _dedup_should_send(category, message):
+    if not _dedup_should_send(category, message, dedup_key=dedup_key):
         return False
 
     # Auto-silence low-priority categories

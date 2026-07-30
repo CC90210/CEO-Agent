@@ -169,7 +169,7 @@ def main() -> None:
         print(json.dumps({"drained": 0}) if args.json else "review queue empty")
         return
 
-    report, drained = [], []
+    report, drained, blocked_out = [], [], []
     for entry in entries[:MAX_PRS_PER_PASS]:
         repo = canonical_repo(entry["repo"])
         pr = int(entry["pr"])
@@ -219,6 +219,20 @@ def main() -> None:
 
         result = run_fixer(repo, pr, args.dry_run)
         report.append({"repo": repo, "pr": pr, **result})
+
+        # A BLOCKED PR needs a human, not a retry. review_fix exits 0 with
+        # blocked=true for branch mismatch / protected branch / missing local
+        # checkout — conditions that will be equally true in 15 minutes.
+        # Draining is the whole point: the alternative is what CC actually got
+        # on 2026-07-29, an identical alert every hour through the night.
+        # Escalated once, below.
+        if result.get("blocked") and not args.dry_run:
+            for k in key_candidates:
+                queue.pop(k, None)
+            drained.append(f"{repo}#{pr}")
+            blocked_out.append(
+                f"{repo}#{pr}: {result.get('reason')} — {result.get('detail', '')[:140]}")
+            continue
         # Drain on a clean run even if every finding merely escalated: review_fix
         # has already Telegrammed CC about the escalations, and re-notifying
         # every 15 minutes would be spam. The finding is NOT lost — escalated
@@ -271,6 +285,18 @@ def main() -> None:
         notify("Review loop errors:\n" + "\n".join(
             f"  {r['repo']}#{r['pr']}: {r['error'][:120]}" for r in errored),
             category="system", silent=True, force=True)
+
+    # Blocked PRs: ONE actionable message naming the fix, then the queue is
+    # empty so it cannot repeat. dedup_key pins the alert to the blocking
+    # CONDITION rather than the message text, so re-blocking on the same reason
+    # within the window stays quiet even though the PR was re-queued by a new
+    # CodeRabbit email.
+    if blocked_out and not args.dry_run:
+        notify("Review loop — needs you (no retry will help):\n"
+               + "\n".join(f"  {b}" for b in blocked_out),
+               category="system", silent=True, force=True,
+               dedup_key="review_loop_blocked:" + "|".join(sorted(
+                   b.split(" — ")[0] for b in blocked_out)))
 
 
 if __name__ == "__main__":
