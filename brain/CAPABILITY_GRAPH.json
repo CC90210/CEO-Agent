@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-07-30T03:26:21.436099+00:00",
+  "generated_at": "2026-07-30T04:56:24.641331+00:00",
   "totals": {
     "skills": 155,
-    "scripts": 129,
+    "scripts": 130,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 375,
-    "edges_total": 152,
+    "nodes_total": 376,
+    "edges_total": 153,
     "drift_count": 0
   },
   "nodes": [
@@ -6668,6 +6668,31 @@
       }
     },
     {
+      "id": "script:contract_tool",
+      "kind": "script",
+      "name": "contract_tool",
+      "path": "scripts/integrations/contract_tool.py",
+      "description": "contract_tool.py \u2014 generate, send and track client contracts.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "sales.contracts",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "generate a contract",
+        "send a contract",
+        "client contract",
+        "signing link",
+        "contract status",
+        "retainer agreement"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
       "id": "script:send_gateway",
       "kind": "script",
       "name": "send_gateway",
@@ -8318,6 +8343,11 @@
     {
       "from": "script:computer_control",
       "to": "script:windows_control",
+      "kind": "calls"
+    },
+    {
+      "from": "script:contract_tool",
+      "to": "script:send_gateway",
       "kind": "calls"
     },
     {
