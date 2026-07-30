@@ -252,13 +252,25 @@ SEED_JOBS: list[dict] = [
         "action_config": {"auto_score": True, "hot_threshold": 70},
         "is_active": True,
     },
+    # RETIRED 2026-07-30, same root cause as 'Funnel Fast-Poll' below.
+    # funnel_nurture.py touches exactly one table — funnel_leads (:248 select,
+    # :267/:283/:294 update) — and nothing else, so with no writer feeding that
+    # table there is nothing to nurture. It has matched 0 rows every weekday.
+    #
+    # The sharper reason to stop it: this job SENDS (Day-2 / Day-5 via
+    # send_gateway). The single surviving funnel_leads row is CC's never-email
+    # test account, currently status 'nurtured'. It is excluded only because
+    # funnel_nurture.py:248 filters status in ("new","nurturing") — one status
+    # flip and a live cron emails an address that must never be emailed. A job
+    # with a send path and no legitimate audience is a loaded gun, not dead
+    # weight.
     {
         "name": "Nurture Sequence Check",
-        "description": "Process pending nurture sequence steps",
+        "description": "RETIRED 2026-07-30 — nurtures funnel_leads, which has had no writer since cc-funnel was retired 2026-06-18. Re-enable only once a live source writes that table again.",
         "schedule": "0 10 * * MON-FRI",
         "action_type": "nurture_check",
         "action_config": {"max_sends_per_run": 20},
-        "is_active": True,
+        "is_active": False,
     },
     {
         "name": "Monthly Metrics Snapshot",
@@ -304,13 +316,32 @@ SEED_JOBS: list[dict] = [
     # 'Funnel Lead Sync' removed 2026-05-22 — overlapped with 'Funnel
     # Fast-Poll' below. Fast-Poll runs every 1 min and covers the same
     # funnel_leads source; the 5-min job was an older safety net.
+    #
+    # RETIRED 2026-07-30 — it was polling a table nobody writes to.
+    #
+    # `funnel_leads` was cc-funnel's table. cc-funnel was retired 2026-06-18 and
+    # the poller was never repointed, so it has run 74,766 times against a table
+    # holding ONE row (CC's never-email test account) for zero output. Verified
+    # rather than assumed: a grep for `funnel_leads` across Business-Empire-Agent,
+    # oasis-command-center and CMO-Agent finds reads and status UPDATEs but NOT A
+    # SINGLE INSERT — and the Command Center, which serves the live funnel, never
+    # mentions the table at all. It writes `tenant_records`.
+    #
+    # Nothing is lost by stopping. The push path already does this job better:
+    # app/api/forms/submit/route.ts fires notifyOasisFunnelSubmission inline via
+    # after() — Telegram ping AND welcome email, synchronously on submit, gated
+    # to CC's exact tenant + slug. A poll can only ever be slower than the
+    # request that created the row.
+    #
+    # Kept as a row (is_active False) rather than deleted so the history, the
+    # run_count and this explanation stay attached to it.
     {
         "name": "Funnel Fast-Poll",
-        "description": "Near-realtime funnel_leads detection (2-minute window). Fires high-priority Telegram digest when new form submissions land, so CC knows within ~1 min of a lead filling out the CC Funnel on Instagram/social.",
+        "description": "RETIRED 2026-07-30 — polled funnel_leads, which has had no writer since cc-funnel was retired 2026-06-18. Superseded by the inline notify in oasis-command-center's form-submit route.",
         "schedule": "*/1 * * * *",
         "action_type": "funnel_fast_poll",
         "action_config": {"window_seconds": 120, "priority": True},
-        "is_active": True,
+        "is_active": False,
     },
     {
         "name": "Daily Briefing Snapshot",

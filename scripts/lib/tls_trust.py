@@ -163,6 +163,27 @@ def _genuine_override() -> str | None:
     return None
 
 
+def _harden_db() -> None:
+    """Give Supabase clients connection retries + a timeout under the caller's.
+
+    Hooked here because ensure_os_trust() is already the fleet's single "make
+    the network work on this machine" entry point, called at the top of every
+    module that talks to anything. AVG's TLS interception breaks CA
+    verification (handled above) AND kills live sockets (handled here) — same
+    cause, same place to fix it. See lib/db_resilience.py for the measurements.
+
+    No-ops unless supabase is already imported, so scripts that never touch the
+    database pay nothing. Never raises: hardening is an optimisation, and a
+    failure here must not take down every tool that calls this function.
+    """
+    try:
+        from lib.db_resilience import install
+
+        install()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def ensure_os_trust() -> str:
     """Idempotent. Returns which path was taken: 'env-override' | 'truststore'
     | 'certifi' | 'none' (nothing available — system defaults apply).
@@ -173,6 +194,7 @@ def ensure_os_trust() -> str:
     """
     global _done
     neutralize_keylog()
+    _harden_db()
     if _genuine_override():
         return "env-override"
     try:

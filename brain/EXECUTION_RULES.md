@@ -288,6 +288,16 @@ checking. Three durable rules came out of it, written up as per-agent system mes
 drains**, **alerts decay and key on the condition, not the text**, and **never document a
 guarantee you have not made fire**.
 
+**The environment is part of the system.** Chasing the above to its floor found the real
+producer of the noise: AVG's TLS interception, which had been cutting the fleet's HTTPS for
+nine days — 92 scheduler check-cycle failures, 58 of them `[WinError 10054] connection
+forcibly closed`. Three separate code fixes now absorb it (`lib/tls_trust.py` for the CA and
+the poisoned `SSLKEYLOGFILE`, `lib/db_resilience.py` for the killed sockets), and every one of
+them is a workaround. The fix that ends it is an antivirus exclusion a human has to click:
+[[docs/sop/AVG_TLS_EXCLUSION]]. When a defect keeps reappearing in different costumes, stop
+hardening the code and ask what on the machine is producing it — and say plainly which part of
+the answer you cannot do yourself.
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]
