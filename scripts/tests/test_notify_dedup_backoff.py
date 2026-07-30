@@ -179,6 +179,34 @@ def test_backoff_can_be_switched_off(tmp_path, monkeypatch):
     assert flat._dedup_should_send("system", "x") is True    # still flat, not 2h
 
 
+def test_daemon_crash_loop_does_not_storm(nf, monkeypatch):
+    """notify_daemon_crash embeds tick_id, which changes every tick — so before
+    the dedup_key fix a crash-looping PM2 daemon hashed differently every time
+    and dedup never fired once, despite the docstring claiming it did.
+
+    Asserts the KEY, not delivery: notify() is disabled under pytest.
+    """
+    seen_keys = []
+    monkeypatch.setattr(nf, "notify",
+                        lambda *a, **kw: seen_keys.append(kw.get("dedup_key")) or True)
+    for tick in range(5):
+        nf.notify_daemon_crash("event-router", f"boom at {tick}", tick_id=f"t{tick}")
+
+    assert all(k == "daemon_crash:event-router" for k in seen_keys), seen_keys
+    assert len(set(seen_keys)) == 1, "tick_id leaked into the dedup identity"
+
+
+def test_notify_error_dedups_on_the_engine_not_the_message(nf, monkeypatch):
+    """Same shape: a cron whose error text carries a changing count would
+    otherwise defeat dedup on every tick."""
+    seen_keys = []
+    monkeypatch.setattr(nf, "notify",
+                        lambda *a, **kw: seen_keys.append(kw.get("dedup_key")) or True)
+    nf.notify_error("Inbound Email Sweep", "FAILED: 3 of 7")
+    nf.notify_error("Inbound Email Sweep", "FAILED: 4 of 9")
+    assert seen_keys == ["engine_error:Inbound Email Sweep"] * 2
+
+
 def test_tests_never_touch_the_real_dedup_cache(nf):
     """Meta-guard. Every test here must run against tmp_path — a test that
     writes the live cache can silence a genuine production alert."""

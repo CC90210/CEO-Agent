@@ -56,7 +56,7 @@ def _notify_disabled() -> bool:
 # 12:30, 1:30 — once per window, all night, same sentence. Each repeat is worth
 # strictly less than the one before, so the interval doubles: 1h, 2h, 4h, 8h,
 # capped at 24h. First occurrence is always immediate.
-DEDUP_BACKOFF = _env_flag_backoff = os.environ.get("NOTIFY_DEDUP_BACKOFF", "1").strip().lower() \
+DEDUP_BACKOFF = os.environ.get("NOTIFY_DEDUP_BACKOFF", "1").strip().lower() \
     not in ("0", "false", "no", "off")
 DEDUP_MAX_WINDOW_SEC = int(os.environ.get("NOTIFY_DEDUP_MAX_WINDOW_SEC", str(24 * 3600)))
 # Repeats older than this are a NEW incident, not a continuation — reset the
@@ -466,8 +466,16 @@ def notify_daemon_crash(daemon: str, error: str, tick_id: str | None = None) -> 
     push the operator sees in real time.
 
     Category 'system' is normally blocked, but daemon crashes are
-    operational-critical so we pass force=True. The notify() helper's
-    rate-limiter still applies (no spam if a daemon restart-loops).
+    operational-critical so we pass force=True.
+
+    DEDUP CORRECTED 2026-07-30. This docstring used to claim "the notify()
+    rate-limiter still applies (no spam if a daemon restart-loops)". It did
+    NOT: the message embeds `tick_id`, which changes every tick, so a
+    crash-looping daemon produced a different hash every time and dedup never
+    fired once. Same defect that produced the overnight review-loop storm —
+    and here the comment actively asserted protection that did not exist,
+    which is worse than no comment. dedup_key now pins suppression to the
+    DAEMON, so a restart-loop alerts once and then backs off 1h/2h/4h/8h.
 
     Returns True on successful Telegram delivery, False on miss.
     Always best-effort — daemon crash handling must not depend on
@@ -478,7 +486,8 @@ def notify_daemon_crash(daemon: str, error: str, tick_id: str | None = None) -> 
         msg += f" (tick {tick_id})"
     msg += f"\n\nError: {error[:500]}"
     try:
-        return notify(msg, category="system", silent=False, force=True)
+        return notify(msg, category="system", silent=False, force=True,
+                      dedup_key=f"daemon_crash:{daemon}")
     except Exception:
         # Telegram itself can fail (network, token expiry); don't let
         # a notify failure cascade into the daemon's own error path.
