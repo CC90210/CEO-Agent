@@ -170,6 +170,51 @@ ENV_PATH = PROJECT_ROOT / ".env.agents"
 
 _env_cache: dict[str, str] = {}
 
+# ── Multi-agent bridge routing (2026-07-30) ─────────────────────────────────
+#
+# Each C-suite agent runs its OWN PM2 Telegram bridge with its OWN bot token in
+# its OWN repo: bravo-telegram, maven-telegram, atlas-telegram. Until now
+# notify() sent everything through Bravo's bridge regardless of subject, so CC's
+# executive channel carried Maven's post failures and Atlas's Stripe syncs
+# alongside actual OS health — which is how a channel stops being read.
+#
+# Routing is by CATEGORY, because the category is already threaded through every
+# call site in the fleet. No caller has to change.
+CATEGORY_OWNER: dict[str, str] = {
+    # Maven (CMO) — content, brand, ads, social, funnel/lead intake
+    "content": "maven",
+    "instagram": "maven",
+    "outreach": "maven",
+    "lead": "maven",
+    # Atlas (CFO) — money in all its forms
+    "revenue": "atlas",
+    "invoice": "atlas",
+    "stripe": "atlas",
+    # Bravo (CEO/COO/CTO) — everything operational
+    "system": "bravo",
+    "email": "bravo",
+    "booking": "bravo",
+    "skool-escalation": "bravo",
+}
+DEFAULT_AGENT = "bravo"
+
+# Per-agent bot token env keys. Bravo's is the plain TELEGRAM_BOT_TOKEN it has
+# always used. Maven's and Atlas's live in THEIR repos by design — separate
+# credentials, separate blast radius — so they are usually absent here.
+AGENT_TOKEN_KEYS: dict[str, tuple[str, str]] = {
+    "bravo": ("TELEGRAM_BOT_TOKEN", "TELEGRAM_ALLOWED_USERS"),
+    "maven": ("MAVEN_TELEGRAM_BOT_TOKEN", "MAVEN_TELEGRAM_CHAT_ID"),
+    "atlas": ("ATLAS_TELEGRAM_BOT_TOKEN", "ATLAS_TELEGRAM_CHAT_ID"),
+}
+
+
+def resolve_agent(category: str, agent: Optional[str] = None) -> str:
+    """Which agent's bridge owns this alert. Explicit `agent` always wins."""
+    if agent:
+        return agent.strip().lower()
+    return CATEGORY_OWNER.get((category or "").strip().lower(), DEFAULT_AGENT)
+
+
 # Categories that are blocked from Telegram by default.
 # CC only wants: new leads, DMs needing attention, booked meetings, errors.
 DEFAULT_BLOCKED = {"content", "instagram", "system"}
@@ -216,7 +261,8 @@ CATEGORY_PREFIX = {
 
 
 def notify(message: str, category: str = "system", silent: bool = False,
-           force: bool = False, dedup_key: Optional[str] = None) -> bool:
+           force: bool = False, dedup_key: Optional[str] = None,
+           agent: Optional[str] = None) -> bool:
     """
     Send a Telegram notification to CC.
 
@@ -230,6 +276,10 @@ def notify(message: str, category: str = "system", silent: bool = False,
             varies between otherwise-identical alerts (a count, a timestamp, a
             branch name) — without it those hash differently every time and
             dedup silently stops working, which is how an alert storm starts.
+        agent: Override the owning bridge ("bravo" | "maven" | "atlas").
+            Normally leave unset — the category resolves the owner via
+            CATEGORY_OWNER. Pass it when the category is generic (a cron
+            failure is category="system" but may belong to Maven).
 
     Returns:
         True if sent successfully, False otherwise
@@ -255,19 +305,35 @@ def notify(message: str, category: str = "system", silent: bool = False,
         silent = True
 
     env = _load_env()
-    token = env.get("TELEGRAM_BOT_TOKEN")
+
+    # Route to the owning agent's bridge (2026-07-30). Maven's and Atlas's
+    # tokens live in THEIR repos, so they are normally absent here — in that
+    # case fall back to Bravo's bridge with a visible "[for maven]" marker
+    # rather than dropping the alert. Degrade loudly, never silently: a
+    # misrouted alert CC can see beats a correct one he never gets.
+    target_agent = resolve_agent(category, agent)
+    tok_key, chat_key = AGENT_TOKEN_KEYS.get(target_agent, AGENT_TOKEN_KEYS[DEFAULT_AGENT])
+    token = (env.get(tok_key) or "").strip()
+    raw_users = env.get(chat_key, "")
+    routed_home = True
+
+    if not token and target_agent != DEFAULT_AGENT:
+        routed_home = False
+        tok_key, chat_key = AGENT_TOKEN_KEYS[DEFAULT_AGENT]
+        token = (env.get(tok_key) or "").strip()
+        raw_users = env.get(chat_key, "")
+
     # V2.1 2026-04-11: Guarded chat_id parsing. Old code used
     # `.split(",")[0].strip()` which returned "" on empty/whitespace env
     # and silently failed at Telegram send. Now we filter valid IDs and
     # log a visible error when none are found.
-    raw_users = env.get("TELEGRAM_ALLOWED_USERS", "")
     chat_ids = [c.strip() for c in raw_users.split(",") if c.strip()]
 
     if not token:
-        print("[notify] TELEGRAM_BOT_TOKEN missing in .env.agents", file=sys.stderr)
+        print(f"[notify] {tok_key} missing in .env.agents", file=sys.stderr)
         return False
     if not chat_ids:
-        print("[notify] TELEGRAM_ALLOWED_USERS empty or malformed in .env.agents", file=sys.stderr)
+        print(f"[notify] {chat_key} empty or malformed in .env.agents", file=sys.stderr)
         return False
     chat_id = chat_ids[0]
 
@@ -280,6 +346,12 @@ def notify(message: str, category: str = "system", silent: bool = False,
     # Old: "[REVENUE] Stripe Revenue Sync: Stripe sync complete.\n  Inserted: 0 new event(s)\n  Skipped: 4 duplicate(s)\n-- 17:34"
     # New: "Revenue\n$800 payment from a retainer client\n\n12:34 PM"
     prefix = CATEGORY_PREFIX.get(category, "Bravo")
+    # When an alert belongs to Maven or Atlas but their bridge token is not
+    # configured here, it lands on Bravo's channel — say so in the message.
+    # An unmarked misroute is how CC ends up believing his executive channel is
+    # the only channel, which is the state this routing exists to end.
+    if not routed_home:
+        prefix = f"{prefix}  ·  [for {target_agent} — bridge not configured in this repo]"
     timestamp = datetime.now().strftime("%#I:%M %p")  # 12-hour format, no leading zero
     full_message = f"{prefix}\n{message}\n\n{timestamp}"
     if len(full_message) > 4096:
@@ -355,7 +427,7 @@ def notify(message: str, category: str = "system", silent: bool = False,
     return False
 
 
-def notify_error(engine: str, error: str) -> bool:
+def notify_error(engine: str, error: str, agent: Optional[str] = None) -> bool:
     """Send an error alert — always with sound, always delivered.
 
     force=True added 2026-07-29. Without it this function was a no-op: it sends
@@ -374,7 +446,12 @@ def notify_error(engine: str, error: str) -> bool:
     rather than every tick.
     """
     return notify(f"{engine} error: {error}", category="system",
-                  silent=False, force=True)
+                  silent=False, force=True, agent=agent,
+                  # Pin to the failing engine, not the error text. A cron whose
+                  # message carries a changing count or timestamp would
+                  # otherwise hash differently each tick and defeat dedup
+                  # entirely — the review-loop storm in miniature.
+                  dedup_key=f"engine_error:{engine}")
 
 
 def notify_daemon_crash(daemon: str, error: str, tick_id: str | None = None) -> bool:

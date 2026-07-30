@@ -100,6 +100,30 @@ RETIRED_ACTIONS: frozenset[str] = frozenset({
     "lead_outreach_batch",  # retired 2026-05-16 — see feedback_no_cold_outreach_cron.md
 })
 
+# ── Who owns which cron ──────────────────────────────────────────────────────
+#
+# These two sets already existed as LOCALS inside execute_job, used only to emit
+# a "moved_to_maven" marker. Hoisted to module scope 2026-07-30 so the alert
+# router can reuse the same ownership map — one source of truth for "whose job
+# is this", rather than a second copy that drifts.
+MAVEN_DOMAIN_ACTIONS: frozenset[str] = frozenset({
+    "content_post", "ig_research", "ig_dm_check", "ig_auto_reply",
+    "content_generate", "content_repurpose", "content_planning",
+    "maven_token_check",
+})
+ATLAS_DOMAIN_ACTIONS: frozenset[str] = frozenset({
+    "atlas_wealth_refresh", "stripe_sync", "revenue_report", "monthly_snapshot",
+})
+
+
+def agent_for_action(action_type: str) -> str:
+    """Which C-suite agent's Telegram bridge owns alerts for this cron."""
+    if action_type in ATLAS_DOMAIN_ACTIONS:
+        return "atlas"
+    if action_type in MAVEN_DOMAIN_ACTIONS:
+        return "maven"
+    return "bravo"
+
 
 # ── Credential loading ────────────────────────────────────────────────────────
 
@@ -216,21 +240,11 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
         # content_repurpose, content_planning) were moved to Maven on 2026-04-26.
         # If a legacy DB row still has one of those types, route it to a
         # human-readable "moved" marker rather than failing silently.
-        MAVEN_DOMAIN_ACTIONS = {
-            "content_post", "ig_research", "ig_dm_check", "ig_auto_reply",
-            "content_generate", "content_repurpose", "content_planning",
-            # Phase 9.1 — Maven Token Expiry Check ships from CMO-Agent.
-            # Was emitting "unknown_action_type" on this dashboard's
-            # bravo-scheduler because the row exists empire-side but the
-            # handler doesn't. Mark as moved so the Health page shows a
-            # clean "moved_to_maven" instead of red.
-            "maven_token_check",
-        }
-        # Atlas-domain actions ship from APPS/CFO-Agent. Same rationale
-        # as MAVEN_DOMAIN_ACTIONS — bridge rows that have no local handler.
-        ATLAS_DOMAIN_ACTIONS = {
-            "atlas_wealth_refresh",
-        }
+        # MAVEN_DOMAIN_ACTIONS / ATLAS_DOMAIN_ACTIONS now live at module scope
+        # (shared with agent_for_action, which routes alerts by owner). Phase
+        # 9.1: Maven Token Expiry Check ships from CMO-Agent — the row exists
+        # empire-side but the handler does not, so it is marked moved rather
+        # than showing red on the Health page.
         if action_type in ATLAS_DOMAIN_ACTIONS:
             return f"moved_to_atlas: {action_type} is now owned by CFO-Agent"
         if action_type in MAVEN_DOMAIN_ACTIONS:
@@ -1292,10 +1306,17 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         )
         is_error = "ERROR" in result_msg or "FAILED" in result_msg
 
+        # Route the alert to the agent that OWNS the job, not to Bravo by
+        # default (2026-07-30). A failed content_post is Maven's problem and a
+        # failed stripe_sync is Atlas's; putting both on CC's executive channel
+        # alongside real OS health is how that channel stops being read.
+        owner = agent_for_action(action_type)
+
         if is_error:
-            notify_error(job_name, result_msg[:200])
+            notify_error(job_name, result_msg[:200], agent=owner)
         elif not is_routine:
-            notify(f"{job_name}: {result_msg[:200]}", category=cat, silent=True)
+            notify(f"{job_name}: {result_msg[:200]}", category=cat, silent=True,
+                   agent=owner)
 
     return len(due_jobs)
 

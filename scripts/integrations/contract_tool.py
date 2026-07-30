@@ -378,7 +378,19 @@ def cmd_send(args) -> None:
     # silent state divergence that only shows up in production. The dry run
     # surfaced it because the returned dict had no `ok` in it at all.
     status = res.get("status") if isinstance(res, dict) else None
-    ok = status == "sent"
+
+    # TWO different questions, deliberately not one flag:
+    #   delivered — did an email actually reach the client? Gates the DB write.
+    #   failed    — should this command exit non-zero? A dry run is not a
+    #               failure; `blocked` (CASL suppression / cooldown) and
+    #               `error` are.
+    # Collapsing them into a single `status in ("sent","dry_run")` would mark a
+    # DRY RUN as sent in the database — a contract recorded as delivered that
+    # the client never received. The early return below also guards that, but
+    # relying on control flow for a correctness property is how the guard gets
+    # deleted in a later refactor.
+    delivered = status == "sent"
+    failed = status not in ("sent", "dry_run")
     if not args.apply:
         print(f"DRY RUN — would email {c['client_email']}")
         print(f"  subject : {subject}")
@@ -386,20 +398,20 @@ def cmd_send(args) -> None:
         print(f"  gateway : {str(res)[:220]}")
         return
 
-    if ok:
+    if delivered:
         db.table("contracts").update({
             "status": "sent",
             "sent_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", c["id"]).execute()
     else:
-        # blocked (CASL suppression / cooldown) and error are NOT the same as
-        # sent, and neither should look like success in the exit code.
+        # blocked (CASL suppression / cooldown) and error are NOT delivery, and
+        # neither should read as success.
         print(f"NOT SENT — gateway status {status!r}", file=sys.stderr)
 
-    print(json.dumps({"sent": ok, "gateway_status": status,
+    print(json.dumps({"sent": delivered, "gateway_status": status,
                       "contract_id": c["id"], "result": str(res)[:300]}, indent=2))
-    if not ok:
+    if failed:
         raise SystemExit(1)
 
 
