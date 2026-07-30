@@ -4,7 +4,7 @@
 
 Auto-generated from `brain/CAPABILITY_GRAPH.json` — **31 agent personas**. Each entry: what it's for → trigger phrases → model/tools scoping → path. Resolve at runtime with `python scripts/capability_query.py resolve "<intent>" --kind agent`. Cross-agent delegation (Maven/Atlas/Codex/apps) stays in `brain/ORCHESTRATION_DECISION_TABLE.md` §A — this file covers spawnable personas only.
 
-## api-designer
+## [[agents/voltagent/api-designer|api-designer]]
 - **Use when:** Use this agent when designing new APIs, creating API specifications, or refactoring existing API architecture for scalability and developer experience. Invoke when you need REST/GraphQL endpoint design, OpenAPI documentation, authentication patterns, or API versioning strategies.
 - **Triggers:** —
 - **Scoping:** model `sonnet` · tools: Read, Write, Edit, Bash, Glob, Grep
@@ -16,13 +16,13 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **31 agent personas**. Eac
 - **Scoping:** model `opus` · tools: Read, Grep, Glob, Bash
 - **Path:** `.claude/agents/architect.md` · tier `strategic`
 
-## aura
+## [[agents/aura|aura]]
 - **Use when:** PEER-AGENT PROFILE, not a spawnable persona (ADR-0012 §3) — Aura is the home/ambient sibling agent; route home/voice work to ~/AURA. This file documents her Bravo-side voice surface only.
 - **Triggers:** —
 - **Scoping:** model `inherit` · tools: (unscoped — full default surface)
 - **Path:** `agents/aura.md` · tier `specialized`
 
-## chief-of-staff
+## [[agents/chief-of-staff|chief-of-staff]]
 - **Use when:** Communications triage and client-health chief of staff that classifies inbound signals, scores churn risk against the ledger, and produces approval-gated drafts — MUST BE USED for client health checks, churn-risk scoring, meeting prep, onboarding, and follow-up drafts.
 - **Triggers:** client health, churn risk, meeting prep, onboarding, follow-up draft, team management
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
@@ -34,13 +34,13 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **31 agent personas**. Eac
 - **Scoping:** model `sonnet` · tools: Read, Grep, Glob, Bash
 - **Path:** `.claude/agents/code-reviewer.md` · tier `core`
 
-## codex-agent
+## [[agents/codex-agent|codex-agent]]
 - **Use when:** OpenAI Codex delegation layer — Bravo's second AI coding engine; MUST BE USED for backend-heavy implementation, deep debugging with stack traces, adversarial/second-opinion reviews, and any "get Codex to..." request.
 - **Triggers:** codex, backend implementation, adversarial review, second opinion, deep debugging
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
 - **Path:** `agents/codex-agent.md` · tier `core`
 
-## competitive-analyst
+## [[agents/voltagent/competitive-analyst|competitive-analyst]]
 - **Use when:** Use when you need to analyze direct and indirect competitors, benchmark against market leaders, or develop strategies to strengthen competitive positioning and market advantage.
 - **Triggers:** —
 - **Scoping:** model `sonnet` · tools: Read, Grep, Glob, WebFetch, WebSearch
@@ -58,61 +58,61 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **31 agent personas**. Eac
 - **Scoping:** model `sonnet` · tools: Read, Grep, Glob, Bash, Edit
 - **Path:** `.claude/agents/debugger.md` · tier `core`
 
-## documenter
+## [[agents/documenter|documenter]]
 - **Use when:** Writes and maintains documentation, READMEs, changelogs, session logs, memory files, and Obsidian wiki-links — MUST BE USED for any documentation, technical-writing, or memory-file task.
 - **Triggers:** documentation, changelog, session log, readme, wiki-links
 - **Scoping:** model `haiku` · tools: (unscoped — full default surface)
 - **Path:** `agents/documenter.md` · tier `core`
 
-## engineering-database-reliability-engineer
+## [[agents/engineering-database-reliability-engineer|engineering-database-reliability-engineer]]
 - **Use when:** MUST BE USED for Postgres/Supabase reliability: zero-downtime migration design, RLS-safe schema evolution, backup/DR strategy. Proposes SQL — the main agent applies it.
 - **Triggers:** —
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
 - **Path:** `agents/engineering-database-reliability-engineer.md` · tier `specialized`
 
-## engineering-devops-automator
+## [[agents/engineering-devops-automator|engineering-devops-automator]]
 - **Use when:** MUST BE USED for CI/CD pipeline design: GitHub Actions workflows, deploy gates, environment promotion, rollback strategy.
 - **Triggers:** —
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
 - **Path:** `agents/engineering-devops-automator.md` · tier `specialized`
 
-## engineering-incident-response-commander
+## [[agents/engineering-incident-response-commander|engineering-incident-response-commander]]
 - **Use when:** MUST BE USED when an incident spans multiple services (crons, PM2, VPS, Vercel, DB): triage severity, coordinate containment, run the timeline, draft the blameless post-mortem. Coordinates — never applies fixes itself.
 - **Triggers:** —
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
 - **Path:** `agents/engineering-incident-response-commander.md` · tier `specialized`
 
-## explorer
+## [[agents/explorer|explorer]]
 - **Use when:** Read-only codebase navigator that finds files and code and reports exact file:line citations — MUST BE USED for any find / where-is / codebase-search request before a write-enabled agent touches code.
 - **Triggers:** find, where is, search codebase, locate, navigate
 - **Scoping:** model `haiku` · tools: (unscoped — full default surface)
 - **Path:** `agents/explorer.md` · tier `core`
 
-## git-ops
+## [[agents/git-ops|git-ops]]
 - **Use when:** Git operations specialist for commits, branches, pushes, and pull requests — MUST BE USED for any git mutation (commit, branch, push, PR) in Bravo-managed repos.
 - **Triggers:** commit, branch, push, pull request, git
 - **Scoping:** model `haiku` · tools: (unscoped — full default surface)
 - **Path:** `agents/git-ops.md` · tier `core`
 
-## market-researcher
+## [[agents/voltagent/market-researcher|market-researcher]]
 - **Use when:** Use this agent when you need to analyze markets, understand consumer behavior, assess competitive landscapes, and size opportunities to inform business strategy and market entry decisions.
 - **Triggers:** —
 - **Scoping:** model `sonnet` · tools: Read, Grep, Glob, WebFetch, WebSearch
 - **Path:** `agents/voltagent/market-researcher.md` · tier `specialized`
 
-## meta-agent
+## [[agents/meta-agent|meta-agent]]
 - **Use when:** Generates and modernizes subagent definitions on the ADR-0012 canonical contract — MUST BE USED whenever CC describes a new capability no existing agent covers, or asks to scaffold, define, or import an agent persona.
 - **Triggers:** new agent, create subagent, agent definition, scaffold agent
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
 - **Path:** `agents/meta-agent.md` · tier `meta`
 
-## product-manager
+## [[agents/product-manager|product-manager]]
 - **Use when:** MUST BE USED for product lifecycle work: discovery synthesis, roadmaps with owner/metric/time-horizon per item, PRDs, outcome measurement across the app portfolio.
 - **Triggers:** —
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
 - **Path:** `agents/product-manager.md` · tier `specialized`
 
-## project-management-project-shepherd
+## [[agents/project-management-project-shepherd|project-management-project-shepherd]]
 - **Use when:** MUST BE USED for cross-project status shepherding: dependency tracking, stalled-item surfacing, and status rollups across the 15+ concurrently open projects. Read-only.
 - **Triggers:** —
 - **Scoping:** model `haiku` · tools: (unscoped — full default surface)
@@ -124,25 +124,25 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **31 agent personas**. Eac
 - **Scoping:** model `sonnet` · tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 - **Path:** `.claude/agents/researcher.md` · tier `core`
 
-## revenue-hunter
+## [[agents/revenue-hunter|revenue-hunter]]
 - **Use when:** Pipeline-motion agent for INBOUND leads — scores, nurtures, and sequences warm leads toward booked calls. MUST BE USED for pipeline reviews, lead scoring, nurture planning, and follow-up sequences.
 - **Triggers:** pipeline, lead scoring, nurture, revenue strategy, warm lead, follow-up sequence
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
 - **Path:** `agents/revenue-hunter.md` · tier `core`
 
-## sales-discovery-coach
+## [[agents/sales-discovery-coach|sales-discovery-coach]]
 - **Use when:** Use when preparing for a qualification/discovery call with an INBOUND lead already in the pipeline: question frameworks, call structure, objection prep. Advisory only — never does outreach.
 - **Triggers:** —
 - **Scoping:** model `haiku` · tools: (unscoped — full default surface)
 - **Path:** `agents/sales-discovery-coach.md` · tier `specialized`
 
-## security-ai-generated-code-auditor
+## [[agents/security-ai-generated-code-auditor|security-ai-generated-code-auditor]]
 - **Use when:** MUST BE USED to audit AI-authored diffs for injected vulnerabilities, hardcoded secrets, and plausible-but-wrong logic. Read-only by design.
 - **Triggers:** —
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
 - **Path:** `agents/security-ai-generated-code-auditor.md` · tier `specialized`
 
-## security-auditor
+## [[agents/voltagent/security-auditor|security-auditor]]
 - **Use when:** Use this agent when conducting comprehensive security audits, compliance assessments, or risk evaluations across systems, infrastructure, and processes. Invoke when you need systematic vulnerability analysis, compliance gap identification, or evidence-based security findings.
 - **Triggers:** —
 - **Scoping:** model `opus` · tools: Read, Grep, Glob
@@ -154,19 +154,19 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **31 agent personas**. Eac
 - **Scoping:** model `sonnet` · tools: Read, Grep, Glob
 - **Path:** `.claude/agents/security-reviewer.md` · tier `specialized`
 
-## specialized-mcp-builder
+## [[agents/specialized-mcp-builder|specialized-mcp-builder]]
 - **Use when:** MUST BE USED for designing, building, and auditing MCP server integrations end to end (config shape, auth wrapper pattern, cross-config sync per Rule 4).
 - **Triggers:** —
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
 - **Path:** `agents/specialized-mcp-builder.md` · tier `specialized`
 
-## testing-accessibility-auditor
+## [[agents/testing-accessibility-auditor|testing-accessibility-auditor]]
 - **Use when:** MUST BE USED to audit live UIs and components for WCAG/Section 508 accessibility. Audits and reports — never edits code directly.
 - **Triggers:** —
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
 - **Path:** `agents/testing-accessibility-auditor.md` · tier `specialized`
 
-## testing-test-automation-engineer
+## [[agents/testing-test-automation-engineer|testing-test-automation-engineer]]
 - **Use when:** MUST BE USED for designing/repairing E2E and integration test suites, root-causing flaky tests, and CI test architecture (Playwright-first).
 - **Triggers:** —
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
@@ -178,13 +178,13 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **31 agent personas**. Eac
 - **Scoping:** model `haiku` · tools: Read, Grep, Glob, Bash
 - **Path:** `.claude/agents/validator.md` · tier `specialized`
 
-## workflow-builder
+## [[agents/workflow-builder|workflow-builder]]
 - **Use when:** MUST BE USED for n8n workflow creation, automation building, webhook wiring, and workflow debugging — builds via the n8n-mcp SDK code-first flow with n8n_tool.py CLI fallback.
 - **Triggers:** n8n, workflow, automation build, webhook
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)
 - **Path:** `agents/workflow-builder.md` · tier `specialized`
 
-## writer
+## [[agents/writer|writer]]
 - **Use when:** Bravo's implementation engineer — MUST BE USED for feature implementation, bug fixes, and any production code-writing task (TDD default on the TS/Next.js/Supabase + Python house stack).
 - **Triggers:** implement, build feature, fix bug, code, TDD
 - **Scoping:** model `sonnet` · tools: (unscoped — full default surface)

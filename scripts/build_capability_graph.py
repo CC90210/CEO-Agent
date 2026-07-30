@@ -888,6 +888,22 @@ def emit_when_to_use_skills(graph: dict[str, Any]) -> str:
     return "\n".join(out) + "\n"
 
 
+def _agent_heading(a: dict[str, Any]) -> str:
+    """Heading for one agent: a wikilink when the file is a vault note.
+
+    Obsidian (and obsidian_graph_doctor, which mirrors its resolution rules)
+    skips dot-directories, so `.claude/agents/*.md` are not notes. Linking them
+    creates edges that can never resolve. Those keep a backticked path, which is
+    exactly as invisible to the link analyzer as before — accepted knowingly,
+    because the alternative is a permanently red graph check.
+    """
+    path = a["path"]
+    in_vault = not any(part.startswith(".") for part in Path(path).parts[:-1])
+    if in_vault:
+        return f"[[{path.removesuffix('.md')}|{a['name']}]]"
+    return f"{a['name']}"
+
+
 def emit_when_to_use_agents(graph: dict[str, Any]) -> str:
     # V7.4: agents get the same generated routing surface skills have had since
     # V6.6 — hand-maintained delegation matrices drift (the 2026-07-19 currency
@@ -905,7 +921,22 @@ def emit_when_to_use_agents(graph: dict[str, Any]) -> str:
         desc = (a.get("description") or "").strip() or "—"
         tools = ", ".join(a.get("tools") or []) or "(unscoped — full default surface)"
         model = a.get("model") or "inherit"
-        out.append(f"## {a['name']}")
+        # Wikilink heading, same as the skills emitter above. The link analyzer
+        # sees only [[wikilinks]] and [markdown](links) — a plain heading and a
+        # backticked path are both invisible, and `_strip_code()` removes code
+        # spans before analysis. Skills were fixed on 2026-07-30 after two of
+        # them surfaced as orphans; every agent had the identical problem in
+        # this function and was missed, surviving only on secondary references
+        # from brain/AGENTS.md. Same bug, same fix — an agent should not depend
+        # on someone remembering to mention it somewhere else.
+        #
+        # ...but ONLY for agents that live inside the vault. Obsidian ignores
+        # dot-directories, so the six personas under `.claude/agents/` are not
+        # notes at all — wikilinking them produced six permanently broken edges
+        # on the first run of this change. A link that can never resolve is
+        # worse than the plain heading it replaced: it fails the graph doctor
+        # forever and trains everyone to ignore its output.
+        out.append(f"## {_agent_heading(a)}")
         out.append(f"- **Use when:** {desc}")
         out.append(f"- **Triggers:** {trig}")
         out.append(f"- **Scoping:** model `{model}` · tools: {tools}")
