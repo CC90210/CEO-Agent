@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-07-30
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Funnel Fast-Poll page root-caused: live daemon (PID 44260) predated the 07-29 TLS/CHILD_ENV/persist_failure commit — fleet restarted onto current code. Fixed ungated first-tick paging, dedup-key inversion, 5x retry penalty, 70-day-dead welcome-email path, compound no-reply matching, and the 'Draft ready to send' mislabel on critic-rejected drafts.
+- **Result:** Fast-Poll page closed out: fleet restarted onto current code (daemon predated the fix commit by 29 min), 7 defects fixed across alerting/scheduler/email triage, timeout dumps now written. Harness 10/10, 697 tests green.
 
 *Last updated: 2026-07-30*
 
