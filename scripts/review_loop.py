@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -40,13 +41,28 @@ from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 from lib.json_ledger import load_ledger, save_ledger  # noqa: E402
 from review_harvest import canonical_repo, gh, harvest_pr  # noqa: E402
 
+# notify_error was USED at the escalation site below but never imported — a
+# NameError that would have fired at the exact moment the loop tried to tell CC
+# something was wrong, and only then. Same shape as the missing `Optional` in
+# notify.py (2026-07-30). Import what you call; a test now imports this module
+# and asserts both names are bound.
 try:
-    from notify import notify
+    from notify import notify, notify_error
 except ImportError:  # pragma: no cover
     def notify(*_a, **_kw):
         return False
 
+    def notify_error(*_a, **_kw):
+        return False
+
 QUEUE_PATH = PROJECT_ROOT / "tmp" / "review_harvest_queue.json"
+
+# How many times a PR whose fix did not land may be retried before the loop
+# gives up and escalates. Bounded on purpose: unbounded retry is what produced
+# the 2026-07-30 overnight alert storm, and dropping it silently is the bug that
+# replaced it. At the */15 cadence this is ~45 minutes of trying before CC hears
+# about it once.
+RETRY_LIMIT = int(os.environ.get("REVIEW_LOOP_RETRY_LIMIT", "3") or "3")
 # One PR per pass. The fixer spawns a full Claude session per finding; draining
 # ten PRs in one tick would run for an hour and overlap the next cron fire.
 MAX_PRS_PER_PASS = 1
@@ -169,7 +185,7 @@ def main() -> None:
         print(json.dumps({"drained": 0}) if args.json else "review queue empty")
         return
 
-    report, drained, blocked_out = [], [], []
+    report, drained, blocked_out, kept = [], [], [], []
     for entry in entries[:MAX_PRS_PER_PASS]:
         repo = canonical_repo(entry["repo"])
         pr = int(entry["pr"])
@@ -233,16 +249,60 @@ def main() -> None:
             blocked_out.append(
                 f"{repo}#{pr}: {result.get('reason')} — {result.get('detail', '')[:140]}")
             continue
-        # Drain on a clean run even if every finding merely escalated: review_fix
-        # has already Telegrammed CC about the escalations, and re-notifying
-        # every 15 minutes would be spam. The finding is NOT lost — escalated
-        # threads are deliberately left out of the harvest's seen-ledger, so
-        # `review_harvest.py --pr ...` still surfaces them until they are
-        # genuinely resolved.
+        # Drain only when the pass reached a TERMINAL state for every finding.
+        #
+        # Draining on any clean exit (2026-07-30, fixing the overnight storm)
+        # over-corrected: review_fix exits 0 while reporting per-finding
+        # `failed` / `reverted` / `committed-not-pushed` inside results. Nothing
+        # landed on the branch in those cases, and the ONLY thing that enqueues
+        # a PR is inbound review mail (email_engine._enqueue_review_harvest) —
+        # there is no independent sweep of open PRs. So a drained-but-unfixed PR
+        # was never looked at again until a NEW review comment happened to
+        # arrive. Leaving the seen-ledger untouched does not save it: no reader
+        # goes looking. (Found by Codex; the claim held once I traced the only
+        # enqueue path.)
+        #
+        # Terminal = the fixer is done with it, whether or not it succeeded:
+        #   fixed / skipped / no-op  — resolved or deliberately not ours
+        #   escalated                — operator-owned; already Telegrammed, and
+        #                              left out of the seen-ledger so a manual
+        #                              `review_harvest.py --pr` still shows it
+        # Retryable = nothing landed and another pass could plausibly work:
+        #   failed / reverted / committed-not-pushed
+        TERMINAL = {"fixed", "skipped", "no-op", "escalated", "would-fix"}
+        statuses = [r.get("status") for r in (result.get("results") or [])]
+        retryable = [s for s in statuses if s not in TERMINAL]
+
         if not args.dry_run and not result.get("error"):
-            for k in key_candidates:
-                queue.pop(k, None)
-            drained.append(f"{repo}#{pr}")
+            if not retryable:
+                for k in key_candidates:
+                    queue.pop(k, None)
+                drained.append(f"{repo}#{pr}")
+            else:
+                # Bounded retry, then give up LOUDLY. An unbounded retry is how
+                # the original storm happened; a silent drop is what we just
+                # fixed. Neither is acceptable, so: count, retry, escalate once.
+                entry = queue.get(key_candidates[0]) or {}
+                attempts = int(entry.get("fix_attempts") or 0) + 1
+                if attempts >= RETRY_LIMIT:
+                    for k in key_candidates:
+                        queue.pop(k, None)
+                    drained.append(f"{repo}#{pr}")
+                    blocked_out.append(
+                        f"{repo}#{pr}: gave up after {attempts} attempts — "
+                        f"unresolved: {', '.join(sorted(set(retryable)))}")
+                    notify_error(
+                        "Review Loop",
+                        f"{repo}#{pr}: {attempts} attempts, still unresolved "
+                        f"({', '.join(sorted(set(retryable)))}). Needs you.",
+                        stage=f"giveup:{repo}#{pr}",
+                    )
+                else:
+                    for k in key_candidates:
+                        if k in queue:
+                            queue[k]["fix_attempts"] = attempts
+                    kept.append(f"{repo}#{pr} ({attempts}/{RETRY_LIMIT}: "
+                                f"{', '.join(sorted(set(retryable)))})")
 
     if not args.dry_run:
         save_queue(queue)
@@ -255,6 +315,10 @@ def main() -> None:
         # dashboard and the health check see a real result, not a brace.
         summary = {
             "drained": drained,
+            # Surfaced so a PR being retried is VISIBLE rather than looking
+            # identical to one that succeeded. A silent retry and a silent drop
+            # read the same from outside.
+            "kept": kept,
             "remaining": len(queue),
             "fixed": sum(1 for r in report
                          for x in (r.get("results") or []) if x["status"] == "fixed"),
@@ -276,7 +340,9 @@ def main() -> None:
                 print(f"  {r['status']}")
             for item in r.get("results", []):
                 print(f"  [{item['status']:<20}] {item.get('path') or '(PR)'}")
-        print(f"\ndrained {len(drained)}, {len(queue)} still queued")
+        for k in kept:
+            print(f"  retrying: {k}")
+        print(f"\ndrained {len(drained)}, kept {len(kept)}, {len(queue)} still queued")
 
     # review_fix already Telegrams per-PR on a successful fix; only speak here
     # when the LOOP itself failed, so CC isn't double-pinged.

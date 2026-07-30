@@ -32,8 +32,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -56,6 +58,53 @@ except ImportError:  # pragma: no cover
         return False
 
 PROTECTED_BRANCHES = {"main", "master", "prod", "production", "release"}
+
+# Rejected fixes are written here before the working tree is reverted, so a
+# discarded change is recoverable with `git apply`. Ring-buffered.
+REJECTED_PATCH_DIR = PROJECT_ROOT / "tmp" / "review_rejected_patches"
+REJECTED_PATCH_KEEP = 40
+
+
+def _save_patch(repo_dir: Path, finding: dict) -> str:
+    """Persist the uncommitted diff before it is thrown away. Returns the path.
+
+    Findings are processed in a loop against ONE working tree, so a rejected fix
+    genuinely has to be reverted or it corrupts every later fix in the same run.
+    That made reverting correct and destroying the work incidental — the diff
+    existed nowhere else, so a proposed change the operator might have wanted
+    was simply gone (Codex P1, 2026-07-30).
+
+    Best-effort: this runs on the failure path, and a problem saving the patch
+    must not mask the failure it is trying to preserve.
+    """
+    try:
+        REJECTED_PATCH_DIR.mkdir(parents=True, exist_ok=True)
+        rc, diff, _ = run(["git", "diff"], repo_dir)
+        if rc != 0 or not (diff or "").strip():
+            return ""
+        slug = re.sub(r"[^a-z0-9]+", "-",
+                      f"{finding.get('path') or 'pr'}-{finding.get('thread_id', '')}"
+                      .lower()).strip("-")[:60] or "finding"
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        path = REJECTED_PATCH_DIR / f"{slug}-{ts}.patch"
+        path.write_text(diff, encoding="utf-8")
+
+        stale = sorted(REJECTED_PATCH_DIR.glob("*.patch"))[:-REJECTED_PATCH_KEEP]
+        for old in stale:
+            try:
+                old.unlink()
+            except OSError:
+                pass
+        # Relative is nicer to read in a Telegram alert, but never lose the
+        # reference over a path quirk: relative_to() raises when the dir is not
+        # under PROJECT_ROOT, which would report "not saved" for a file that
+        # WAS saved — the caller then tells CC the work is gone when it isn't.
+        try:
+            return str(path.relative_to(PROJECT_ROOT))
+        except ValueError:
+            return str(path)
+    except Exception:  # noqa: BLE001
+        return ""
 
 # Where each repo lives locally. review_fix only ever edits a checkout it owns.
 REPO_PATHS = {
@@ -234,13 +283,27 @@ def fix_one(finding: dict, repo_dir: Path, branch: str, *, dry_run: bool) -> dic
                               f"reverted: {(terr or tout)[-250:]}")
             return out
         if trc != 0:
-            # Already red before we touched it. Don't revert good work over
-            # somebody else's failure, but don't claim a green build either —
-            # escalate so CC decides whether the pre-existing breakage matters.
+            # Already red before we touched it. The fix is neither proven good
+            # (the suite can't tell us) nor proven harmful, so it must not be
+            # pushed into a red branch — but it must not be thrown away either.
+            #
+            # The comment here used to say "don't revert good work" directly
+            # above a line that reverted it (Codex P1, 2026-07-30). The revert
+            # itself is necessary: findings are processed in a loop against one
+            # working tree, so leaving it dirty corrupts every later fix in the
+            # same run. What was missing is that the work was destroyed with no
+            # way back. Save the patch FIRST, then revert, and tell CC where it
+            # went — reverting is fine, losing it is not.
+            patch_ref = _save_patch(repo_dir, finding)
             run(["git", "checkout", "--", "."], repo_dir)
             out.update(status="escalated",
                        detail="repo's tests were ALREADY failing before this fix; "
-                              "not pushing into a red branch — fix the suite first")
+                              "not pushing into a red branch — fix the suite first. "
+                              f"Proposed diff preserved at {patch_ref}"
+                              if patch_ref else
+                              "repo's tests were ALREADY failing before this fix; "
+                              "not pushing into a red branch — fix the suite first "
+                              "(diff could not be saved)")
             return out
         out["tests"] = "passed" + ("" if baseline_green else " (baseline was red, now green)")
     else:

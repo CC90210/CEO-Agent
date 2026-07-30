@@ -44,15 +44,34 @@ EOF
 ollama create "$MODEL_NAME" -f Modelfile
 
 # 4. Start LiteLLM Proxy with API key enforcement
+#
+# litellm_config.yaml reads master_key from $LITELLM_MASTER_KEY. Nothing here
+# used to set it, so a fresh deployment came up with NO key enforcement while
+# printing a key that would not authenticate — the config was hardened without
+# the launcher that feeds it. Fail closed instead: an unauthenticated LLM proxy
+# on an open port is worse than a deployment that refuses to start.
+if [ -z "${LITELLM_MASTER_KEY:-}" ]; then
+    echo "[!] LITELLM_MASTER_KEY is not set — refusing to start an unauthenticated proxy."
+    echo ""
+    echo "    Generate one and put it in your environment (NOT in this repo):"
+    echo "      export LITELLM_MASTER_KEY=\"sk-\$(openssl rand -hex 24)\""
+    echo ""
+    echo "    Then add the SAME value to .env.agents as CUSTOM_LLM_API_KEY."
+    exit 1
+fi
+
 echo "[*] Launching LiteLLM API Proxy on port $PORT..."
-litellm --config litellm_config.yaml --port $PORT &
+LITELLM_MASTER_KEY="$LITELLM_MASTER_KEY" litellm --config litellm_config.yaml --port $PORT &
 
 sleep 3
 echo "[OK] Deployment complete!"
 echo "     API Endpoint: http://localhost:$PORT/v1"
 echo "     Model Name: bravo-custom-llm"
-echo "     Master Key: sk-oasis-master-key-9988776655"
+# The key is deliberately NOT echoed. It used to be printed literally here and
+# on the .env line below, which put a live shared secret in this file, in every
+# terminal scrollback, and in any CI log that ran this script.
+echo "     Master Key: (from \$LITELLM_MASTER_KEY — ${#LITELLM_MASTER_KEY} chars, not shown)"
 echo ""
 echo "Add to .env.agents:"
 echo "CUSTOM_LLM_BASE_URL=http://localhost:$PORT/v1"
-echo "CUSTOM_LLM_API_KEY=sk-oasis-master-key-9988776655"
+echo "CUSTOM_LLM_API_KEY=<the same value as \$LITELLM_MASTER_KEY>"
