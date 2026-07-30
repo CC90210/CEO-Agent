@@ -29,6 +29,28 @@ Usage:
 """
 from __future__ import annotations
 
+CAPABILITY_META = {
+    "category": "sales.booking",
+    "lifecycle": "active",
+    # external_write, not read_only: `book --apply` creates a calendar event AND
+    # emails the attendee a Google invite — an outward effect on a real
+    # prospect. `slots` and `brief` are read-only, but a module is classified by
+    # its most dangerous path, not its safest.
+    # (Valid values are destructive | external_write | local_write | read_only —
+    # read from the graph validator, after an invented "mutating" was rejected.)
+    "risk": "external_write",
+    "triggers": [
+        "book a discovery call", "check my availability", "free slots",
+        "pre-call brief", "lead brief", "schedule a google meet",
+    ],
+    "owner": "bravo",
+    "project": "oasis",
+    # Deliberately hidden from the bridge tool surface: booking a call on CC's
+    # calendar and inviting a prospect must go through operator intent, not a
+    # chat turn. Run it from the CLI or a cron with an explicit --apply.
+    "bridge": {"visible": False},
+}
+
 import argparse
 import json
 import re
@@ -94,12 +116,21 @@ def busy_windows(days: int) -> list[tuple[datetime, datetime]]:
     if rc != 0:
         print(f"[book] calendar read failed: {err[:200]}", file=sys.stderr)
         return []
+
+    # `days` is a real filter, not decoration: `calendar list` returns whatever
+    # is next on the calendar, which on a sparse calendar reaches months ahead.
+    # Carrying those forward makes every clash check scan irrelevant windows.
+    now = datetime.now(TZ)
+    horizon = (now + timedelta(days=days + 1)).replace(hour=23, minute=59)
+
     busy: list[tuple[datetime, datetime]] = []
     for line in out.splitlines():
         m = re.match(r"\s*(\d{4}-\d{2}-\d{2})\s+(.*)", line)
         if not m:
             continue
         day = datetime.fromisoformat(m.group(1)).replace(tzinfo=TZ)
+        if day > horizon or day < now - timedelta(days=1):
+            continue
         busy.append((day.replace(hour=0, minute=0),
                      day.replace(hour=23, minute=59)))
     return busy
