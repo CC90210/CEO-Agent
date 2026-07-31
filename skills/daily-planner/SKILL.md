@@ -4,6 +4,7 @@ description: Structured daily plan for CC — content creation priorities, sched
 tags: [skill, ceo, planning, daily]
 triggers: ["daily planner", "use daily planner", "run daily planner", "structured daily plan for cc \u2014 content creation priorities"]
 tier: core
+last_updated: 2026-07-20
 ---
 
 # Daily Planner — CC's Morning Operating System
@@ -74,7 +75,7 @@ Things Bravo does WITHOUT CC:
 - Email nurture sequences
 - Supabase/Stripe monitoring
 - Memory sync, state updates
-- Social media engagement replies (Skool engine, IG engine)
+- Social media engagement replies (IG engine)
 
 Things that need CC's quick approval:
 - Outgoing emails to clients (draft → CC approves → send)
@@ -112,7 +113,7 @@ CC's batch upload day. CC uploads video/files, Bravo schedules 1 piece/day acros
 - Bravo handles all post-production scheduling
 
 ### Weekend (Nicky's Donuts + Rest)
-- Automated systems run (Skool engine, content calendar, nurture sequences)
+- Automated systems run (IG engine, content calendar, nurture sequences)
 - Bravo logs any overnight events for Monday briefing
 - No active tasks pushed to CC unless CRITICAL
 
@@ -152,4 +153,4 @@ Three agents, one empire.
 
 ## Obsidian Links
 - [[skills/ceo-briefing/SKILL.md]] | [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
-- [[../../CMO-Agent/skills/content-engine/SKILL]] | [[brain/USER]]
+- [[../../../CMO-Agent/skills/content-engine/SKILL]] | [[brain/USER]]

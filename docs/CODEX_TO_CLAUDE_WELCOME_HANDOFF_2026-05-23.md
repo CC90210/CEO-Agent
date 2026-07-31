@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-05-23
+---
+
 # Codex To Claude Handoff - OASIS Welcome Scroll Assembly
 
 Date: 2026-05-23  
@@ -141,3 +146,7 @@ Claude/Codex should continue from the larger desktop checklist:
 - DMG/ZIP distribution
 
 Apple Developer Program status remains unknown and may block production notarization.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

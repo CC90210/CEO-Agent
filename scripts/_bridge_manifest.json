@@ -1,8 +1,8 @@
 {
-  "version": 1,
-  "generated_at_iso": "2026-07-06T19:54:40.911704+00:00",
-  "script_count": 108,
-  "entry_count": 265,
+  "version": 2,
+  "generated_at_iso": "2026-07-31T19:46:41.628664+00:00",
+  "script_count": 122,
+  "entry_count": 291,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -11,6 +11,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Add `from __future__ import annotations` to Python files that use PEP 604"
+    },
+    {
+      "key": "agent_genome",
+      "path": "scripts/agent_genome.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "agent_genome.py \u2014 verify an agent repo fully expresses the genome."
     },
     {
       "key": "apply_migration",
@@ -25,7 +33,7 @@
       "path": "scripts/audit_mcp_secrets.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Audit MCP config files for plaintext live secrets."
     },
     {
@@ -33,7 +41,7 @@
       "path": "scripts/audit_no_visible_subprocess.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Audit every Python file in the repo for subprocess calls that could"
     },
     {
@@ -41,7 +49,7 @@
       "path": "scripts/audit_rls_coverage.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Audit tenant-scoped Supabase tables for basic RLS coverage."
     },
     {
@@ -49,7 +57,7 @@
       "path": "scripts/auto_score_leads.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Auto-score OASIS leads \u2014 daily cron."
     },
     {
@@ -57,7 +65,7 @@
       "path": "scripts/autonomous_agent.py",
       "root": "bravo",
       "subcmd": "tick",
-      "mutating": false,
+      "mutating": true,
       "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: tick"
     },
     {
@@ -65,7 +73,7 @@
       "path": "scripts/autonomous_agent.py",
       "root": "bravo",
       "subcmd": "daemon",
-      "mutating": false,
+      "mutating": true,
       "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: daemon"
     },
     {
@@ -73,7 +81,7 @@
       "path": "scripts/autonomous_agent.py",
       "root": "bravo",
       "subcmd": "status",
-      "mutating": false,
+      "mutating": true,
       "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: status"
     },
     {
@@ -81,7 +89,7 @@
       "path": "scripts/autonomous_agent.py",
       "root": "bravo",
       "subcmd": "decisions",
-      "mutating": false,
+      "mutating": true,
       "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: decisions"
     },
     {
@@ -89,7 +97,7 @@
       "path": "scripts/booking_engine.py",
       "root": "bravo",
       "subcmd": "slots",
-      "mutating": false,
+      "mutating": true,
       "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: slots"
     },
     {
@@ -113,7 +121,7 @@
       "path": "scripts/booking_engine.py",
       "root": "bravo",
       "subcmd": "list",
-      "mutating": false,
+      "mutating": true,
       "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: list"
     },
     {
@@ -145,7 +153,7 @@
       "path": "scripts/booking_engine.py",
       "root": "bravo",
       "subcmd": "view",
-      "mutating": false,
+      "mutating": true,
       "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: view"
     },
     {
@@ -153,7 +161,7 @@
       "path": "scripts/booking_engine.py",
       "root": "bravo",
       "subcmd": "available",
-      "mutating": false,
+      "mutating": true,
       "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: available"
     },
     {
@@ -161,7 +169,7 @@
       "path": "scripts/booking_engine.py",
       "root": "bravo",
       "subcmd": "remind",
-      "mutating": false,
+      "mutating": true,
       "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: remind"
     },
     {
@@ -185,7 +193,7 @@
       "path": "scripts/booking_engine.py",
       "root": "bravo",
       "subcmd": "generate-link",
-      "mutating": false,
+      "mutating": true,
       "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: generate-link"
     },
     {
@@ -209,15 +217,27 @@
       "path": "scripts/bravo_sleep.py",
       "root": "bravo",
       "subcmd": "status",
-      "mutating": false,
+      "mutating": true,
       "help": "bravo_sleep \u2014 Nightly memory consolidation by an LLM judge. \u2014 subcommand: status"
+    },
+    {
+      "key": "break_glass_drill",
+      "path": "scripts/break_glass_drill.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "category": "governance.resilience",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
+      "help": "break_glass_drill \u2014 quarterly dry-run of the emergency runbook."
     },
     {
       "key": "bridge_lock_acquire",
       "path": "scripts/bridge_lock.py",
       "root": "bravo",
       "subcmd": "acquire",
-      "mutating": false,
+      "mutating": true,
       "help": "Bridge Lock \u2014 multi-machine arbitration for Telegram (and future Discord/Slack) \u2014 subcommand: acquire"
     },
     {
@@ -225,7 +245,7 @@
       "path": "scripts/bridge_lock.py",
       "root": "bravo",
       "subcmd": "heartbeat",
-      "mutating": false,
+      "mutating": true,
       "help": "Bridge Lock \u2014 multi-machine arbitration for Telegram (and future Discord/Slack) \u2014 subcommand: heartbeat"
     },
     {
@@ -233,7 +253,7 @@
       "path": "scripts/bridge_lock.py",
       "root": "bravo",
       "subcmd": "release",
-      "mutating": false,
+      "mutating": true,
       "help": "Bridge Lock \u2014 multi-machine arbitration for Telegram (and future Discord/Slack) \u2014 subcommand: release"
     },
     {
@@ -241,15 +261,78 @@
       "path": "scripts/bridge_lock.py",
       "root": "bravo",
       "subcmd": "status",
-      "mutating": false,
+      "mutating": true,
       "help": "Bridge Lock \u2014 multi-machine arbitration for Telegram (and future Discord/Slack) \u2014 subcommand: status"
+    },
+    {
+      "key": "cloak_browser_scrape",
+      "path": "scripts/browser/cloak_browser_tool.py",
+      "root": "bravo",
+      "subcmd": "scrape",
+      "mutating": false,
+      "category": "browser.research",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "project": "empire",
+      "confirm_args": [
+        "--screenshot"
+      ],
+      "help": "CloakBrowser CLI Tool \u2014 Stealth Chromium for fresh-session work against bot-protected sites. \u2014 subcommand: scrape"
+    },
+    {
+      "key": "cloak_browser_check_stealth",
+      "path": "scripts/browser/cloak_browser_tool.py",
+      "root": "bravo",
+      "subcmd": "check-stealth",
+      "mutating": false,
+      "category": "browser.research",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "project": "empire",
+      "help": "CloakBrowser CLI Tool \u2014 Stealth Chromium for fresh-session work against bot-protected sites. \u2014 subcommand: check-stealth"
+    },
+    {
+      "key": "cloak_browser_download",
+      "path": "scripts/browser/cloak_browser_tool.py",
+      "root": "bravo",
+      "subcmd": "download",
+      "mutating": true,
+      "category": "browser.research",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "project": "empire",
+      "help": "CloakBrowser CLI Tool \u2014 Stealth Chromium for fresh-session work against bot-protected sites. \u2014 subcommand: download"
+    },
+    {
+      "key": "capability_probe_list",
+      "path": "scripts/capability_probe.py",
+      "root": "bravo",
+      "subcmd": "list",
+      "mutating": true,
+      "help": "Credential-first capability probe \u2014 answer \"do I actually have access to X?\" \u2014 subcommand: list"
+    },
+    {
+      "key": "capability_probe_check",
+      "path": "scripts/capability_probe.py",
+      "root": "bravo",
+      "subcmd": "check",
+      "mutating": true,
+      "help": "Credential-first capability probe \u2014 answer \"do I actually have access to X?\" \u2014 subcommand: check"
+    },
+    {
+      "key": "capability_probe_have",
+      "path": "scripts/capability_probe.py",
+      "root": "bravo",
+      "subcmd": "have",
+      "mutating": true,
+      "help": "Credential-first capability probe \u2014 answer \"do I actually have access to X?\" \u2014 subcommand: have"
     },
     {
       "key": "casl_compliance_check",
       "path": "scripts/casl_compliance.py",
       "root": "bravo",
       "subcmd": "check",
-      "mutating": false,
+      "mutating": true,
       "help": "CASL compliance helpers for all outgoing cold email and SMS. \u2014 subcommand: check"
     },
     {
@@ -265,7 +348,7 @@
       "path": "scripts/casl_compliance.py",
       "root": "bravo",
       "subcmd": "footer",
-      "mutating": false,
+      "mutating": true,
       "help": "CASL compliance helpers for all outgoing cold email and SMS. \u2014 subcommand: footer"
     },
     {
@@ -289,7 +372,7 @@
       "path": "scripts/ceo_dashboard.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "CEO Dashboard \u2014 Unified KPI Aggregator"
     },
     {
@@ -298,6 +381,10 @@
       "root": "bravo",
       "subcmd": null,
       "mutating": false,
+      "category": "governance.knowledge",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
       "help": "Brain freshness checker (audit Phase 9)."
     },
     {
@@ -305,7 +392,7 @@
       "path": "scripts/client_health.py",
       "root": "bravo",
       "subcmd": "report",
-      "mutating": false,
+      "mutating": true,
       "help": "Client health \u2014 provides load env. \u2014 subcommand: report"
     },
     {
@@ -313,7 +400,7 @@
       "path": "scripts/client_health.py",
       "root": "bravo",
       "subcmd": "score",
-      "mutating": false,
+      "mutating": true,
       "help": "Client health \u2014 provides load env. \u2014 subcommand: score"
     },
     {
@@ -321,7 +408,7 @@
       "path": "scripts/client_health.py",
       "root": "bravo",
       "subcmd": "alerts",
-      "mutating": false,
+      "mutating": true,
       "help": "Client health \u2014 provides load env. \u2014 subcommand: alerts"
     },
     {
@@ -329,7 +416,7 @@
       "path": "scripts/client_health.py",
       "root": "bravo",
       "subcmd": "trends",
-      "mutating": false,
+      "mutating": true,
       "help": "Client health \u2014 provides load env. \u2014 subcommand: trends"
     },
     {
@@ -345,7 +432,7 @@
       "path": "scripts/competitive_intel.py",
       "root": "bravo",
       "subcmd": "list",
-      "mutating": false,
+      "mutating": true,
       "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: list"
     },
     {
@@ -353,7 +440,7 @@
       "path": "scripts/competitive_intel.py",
       "root": "bravo",
       "subcmd": "view",
-      "mutating": false,
+      "mutating": true,
       "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: view"
     },
     {
@@ -369,7 +456,7 @@
       "path": "scripts/competitive_intel.py",
       "root": "bravo",
       "subcmd": "battlecard",
-      "mutating": false,
+      "mutating": true,
       "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: battlecard"
     },
     {
@@ -377,7 +464,7 @@
       "path": "scripts/competitive_intel.py",
       "root": "bravo",
       "subcmd": "report",
-      "mutating": false,
+      "mutating": true,
       "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: report"
     },
     {
@@ -385,7 +472,7 @@
       "path": "scripts/competitive_intel.py",
       "root": "bravo",
       "subcmd": "matrix",
-      "mutating": false,
+      "mutating": true,
       "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: matrix"
     },
     {
@@ -397,19 +484,47 @@
       "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: delete"
     },
     {
-      "key": "consolidate_mca_phone_sheet",
-      "path": "scripts/consolidate_mca_phone_sheet.py",
+      "key": "agent_inbox_send",
+      "path": "scripts/core/agent_inbox.py",
       "root": "bravo",
-      "subcmd": null,
+      "subcmd": "post",
+      "mutating": true,
+      "category": "orchestration.messaging",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "agent_inbox \u2014 Async agent-to-agent messaging (mcp_agent_mail-inspired pattern). \u2014 subcommand: post"
+    },
+    {
+      "key": "agent_inbox_inbox",
+      "path": "scripts/core/agent_inbox.py",
+      "root": "bravo",
+      "subcmd": "list",
       "mutating": false,
-      "help": "Consolidate CC's 2026-06-24 MCA lead phone sheet."
+      "category": "orchestration.messaging",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "agent_inbox \u2014 Async agent-to-agent messaging (mcp_agent_mail-inspired pattern). \u2014 subcommand: list"
+    },
+    {
+      "key": "agent_inbox_ack",
+      "path": "scripts/core/agent_inbox.py",
+      "root": "bravo",
+      "subcmd": "read",
+      "mutating": true,
+      "category": "orchestration.messaging",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "agent_inbox \u2014 Async agent-to-agent messaging (mcp_agent_mail-inspired pattern). \u2014 subcommand: read"
     },
     {
       "key": "cost_audit",
       "path": "scripts/cost_audit.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Cron cost audit \u2014 for each active cron job, traces its handler chain"
     },
     {
@@ -417,7 +532,7 @@
       "path": "scripts/cost_tracker.py",
       "root": "bravo",
       "subcmd": "log",
-      "mutating": false,
+      "mutating": true,
       "help": "Cost Tracker \u2014 Per-Operation Label:Units Tracking for Business-Empire-Agent \u2014 subcommand: log"
     },
     {
@@ -425,7 +540,7 @@
       "path": "scripts/cost_tracker.py",
       "root": "bravo",
       "subcmd": "summary",
-      "mutating": false,
+      "mutating": true,
       "help": "Cost Tracker \u2014 Per-Operation Label:Units Tracking for Business-Empire-Agent \u2014 subcommand: summary"
     },
     {
@@ -433,7 +548,7 @@
       "path": "scripts/cost_tracker.py",
       "root": "bravo",
       "subcmd": "session",
-      "mutating": false,
+      "mutating": true,
       "help": "Cost Tracker \u2014 Per-Operation Label:Units Tracking for Business-Empire-Agent \u2014 subcommand: session"
     },
     {
@@ -441,7 +556,7 @@
       "path": "scripts/cost_tracker.py",
       "root": "bravo",
       "subcmd": "budget",
-      "mutating": false,
+      "mutating": true,
       "help": "Cost Tracker \u2014 Per-Operation Label:Units Tracking for Business-Empire-Agent \u2014 subcommand: budget"
     },
     {
@@ -449,7 +564,7 @@
       "path": "scripts/critic_template_check.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Regression test: every OASIS email template rendered against a synthetic"
     },
     {
@@ -465,7 +580,7 @@
       "path": "scripts/daily_brief.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Daily Bravo Brief \u2014 AI-narrated morning summary to CC's Telegram."
     },
     {
@@ -473,15 +588,23 @@
       "path": "scripts/dashboard_email_consumer.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Dashboard outbound-email consumer daemon."
+    },
+    {
+      "key": "dashboard_email_queue_monitor",
+      "path": "scripts/dashboard_email_queue_monitor.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Dashboard-email queue monitor \u2014 catches a silent outbound stall."
     },
     {
       "key": "dns_reputation",
       "path": "scripts/dns_reputation.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "DNS reputation checks for the outbound sender domain."
     },
     {
@@ -489,7 +612,7 @@
       "path": "scripts/draft_critic.py",
       "root": "bravo",
       "subcmd": "critique",
-      "mutating": false,
+      "mutating": true,
       "help": "Draft Critic \u2014 the adversarial second-opinion reviewer that runs on every \u2014 subcommand: critique"
     },
     {
@@ -497,7 +620,7 @@
       "path": "scripts/draft_critic.py",
       "root": "bravo",
       "subcmd": "revise",
-      "mutating": false,
+      "mutating": true,
       "help": "Draft Critic \u2014 the adversarial second-opinion reviewer that runs on every \u2014 subcommand: revise"
     },
     {
@@ -505,7 +628,7 @@
       "path": "scripts/drift_autofix.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Deterministic drift auto-fix \u2014 adds missing `triggers:` to skills and"
     },
     {
@@ -513,7 +636,7 @@
       "path": "scripts/email_doctor.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Email-safety diagnostic \u2014 verifies the multi-AI safety surface is intact."
     },
     {
@@ -521,7 +644,7 @@
       "path": "scripts/enrich_oasis_leads.py",
       "root": "bravo",
       "subcmd": "audit",
-      "mutating": false,
+      "mutating": true,
       "help": "enrich_oasis_leads.py \u2014 fill missing phone + first name on OASIS leads. \u2014 subcommand: audit"
     },
     {
@@ -533,19 +656,11 @@
       "help": "enrich_oasis_leads.py \u2014 fill missing phone + first name on OASIS leads. \u2014 subcommand: run"
     },
     {
-      "key": "enrich_sheet_inplace",
-      "path": "scripts/enrich_sheet_inplace.py",
-      "root": "bravo",
-      "subcmd": null,
-      "mutating": false,
-      "help": "enrich_sheet_inplace.py \u2014 enrich CC's live 'Leads - Sheet31' in place."
-    },
-    {
       "key": "financial_model_unit_economics",
       "path": "scripts/financial_model.py",
       "root": "bravo",
       "subcmd": "unit-economics",
-      "mutating": false,
+      "mutating": true,
       "help": "Financial Modeling Engine \u2014 CEO Dashboard Component \u2014 subcommand: unit-economics"
     },
     {
@@ -553,7 +668,7 @@
       "path": "scripts/financial_model.py",
       "root": "bravo",
       "subcmd": "forecast",
-      "mutating": false,
+      "mutating": true,
       "help": "Financial Modeling Engine \u2014 CEO Dashboard Component \u2014 subcommand: forecast"
     },
     {
@@ -561,7 +676,7 @@
       "path": "scripts/financial_model.py",
       "root": "bravo",
       "subcmd": "scenario",
-      "mutating": false,
+      "mutating": true,
       "help": "Financial Modeling Engine \u2014 CEO Dashboard Component \u2014 subcommand: scenario"
     },
     {
@@ -569,7 +684,7 @@
       "path": "scripts/financial_model.py",
       "root": "bravo",
       "subcmd": "concentration",
-      "mutating": false,
+      "mutating": true,
       "help": "Financial Modeling Engine \u2014 CEO Dashboard Component \u2014 subcommand: concentration"
     },
     {
@@ -577,7 +692,7 @@
       "path": "scripts/financial_model.py",
       "root": "bravo",
       "subcmd": "runway",
-      "mutating": false,
+      "mutating": true,
       "help": "Financial Modeling Engine \u2014 CEO Dashboard Component \u2014 subcommand: runway"
     },
     {
@@ -585,15 +700,23 @@
       "path": "scripts/fleet_health.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "fleet_health.py \u2014 Cross-agent health rollup."
+    },
+    {
+      "key": "frontmatter_doctor",
+      "path": "scripts/frontmatter_doctor.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Stamp canonical `tags:` + `last_updated:` frontmatter on vault knowledge notes."
     },
     {
       "key": "funnel_nurture",
       "path": "scripts/funnel_nurture.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Funnel Lead Nurture Engine"
     },
     {
@@ -609,7 +732,7 @@
       "path": "scripts/gateway_admin.py",
       "root": "bravo",
       "subcmd": "start",
-      "mutating": false,
+      "mutating": true,
       "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: start"
     },
     {
@@ -617,7 +740,7 @@
       "path": "scripts/gateway_admin.py",
       "root": "bravo",
       "subcmd": "stop",
-      "mutating": false,
+      "mutating": true,
       "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: stop"
     },
     {
@@ -625,7 +748,7 @@
       "path": "scripts/gateway_admin.py",
       "root": "bravo",
       "subcmd": "status",
-      "mutating": false,
+      "mutating": true,
       "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: status"
     },
     {
@@ -641,7 +764,7 @@
       "path": "scripts/gateway_admin.py",
       "root": "bravo",
       "subcmd": "test-connection",
-      "mutating": false,
+      "mutating": true,
       "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: test-connection"
     },
     {
@@ -649,7 +772,7 @@
       "path": "scripts/gateway_admin.py",
       "root": "bravo",
       "subcmd": "list-adapters",
-      "mutating": false,
+      "mutating": true,
       "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: list-adapters"
     },
     {
@@ -657,15 +780,23 @@
       "path": "scripts/generate_changelog.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Generate a conventional-commits \u2192 CHANGELOG.md draft from `git log`."
+    },
+    {
+      "key": "genome_sync",
+      "path": "scripts/genome_sync.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "genome_sync.py \u2014 stamp the germline seed (PERSONAL.md) into every runtime entry point."
     },
     {
       "key": "gnn_skill_router_export_graph",
       "path": "scripts/gnn_skill_router.py",
       "root": "bravo",
       "subcmd": "export-graph",
-      "mutating": false,
+      "mutating": true,
       "help": "GNN Skill Router -- graph-based next-skill prediction over the Obsidian vault. \u2014 subcommand: export-graph"
     },
     {
@@ -673,7 +804,7 @@
       "path": "scripts/gnn_skill_router.py",
       "root": "bravo",
       "subcmd": "train",
-      "mutating": false,
+      "mutating": true,
       "help": "GNN Skill Router -- graph-based next-skill prediction over the Obsidian vault. \u2014 subcommand: train"
     },
     {
@@ -681,7 +812,7 @@
       "path": "scripts/gnn_skill_router.py",
       "root": "bravo",
       "subcmd": "predict",
-      "mutating": false,
+      "mutating": true,
       "help": "GNN Skill Router -- graph-based next-skill prediction over the Obsidian vault. \u2014 subcommand: predict"
     },
     {
@@ -689,55 +820,23 @@
       "path": "scripts/gnn_skill_router.py",
       "root": "bravo",
       "subcmd": "evaluate",
-      "mutating": false,
+      "mutating": true,
       "help": "GNN Skill Router -- graph-based next-skill prediction over the Obsidian vault. \u2014 subcommand: evaluate"
     },
     {
-      "key": "harness_plugin_list",
-      "path": "scripts/harness_plugin.py",
+      "key": "harness_eval",
+      "path": "scripts/harness_eval.py",
       "root": "bravo",
-      "subcmd": "list",
-      "mutating": false,
-      "help": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation. \u2014 subcommand: list"
-    },
-    {
-      "key": "harness_plugin_capabilities",
-      "path": "scripts/harness_plugin.py",
-      "root": "bravo",
-      "subcmd": "capabilities",
-      "mutating": false,
-      "help": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation. \u2014 subcommand: capabilities"
-    },
-    {
-      "key": "harness_plugin_health",
-      "path": "scripts/harness_plugin.py",
-      "root": "bravo",
-      "subcmd": "health",
-      "mutating": false,
-      "help": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation. \u2014 subcommand: health"
-    },
-    {
-      "key": "harness_plugin_handoff",
-      "path": "scripts/harness_plugin.py",
-      "root": "bravo",
-      "subcmd": "handoff",
-      "mutating": false,
-      "help": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation. \u2014 subcommand: handoff"
-    },
-    {
-      "key": "harness_plugin_resolve",
-      "path": "scripts/harness_plugin.py",
-      "root": "bravo",
-      "subcmd": "resolve",
-      "mutating": false,
-      "help": "Harness Plugin \u2014 unified chassis interface for multi-model agent operation. \u2014 subcommand: resolve"
+      "subcmd": null,
+      "mutating": true,
+      "help": "harness_eval.py \u2014 deterministic eval suite for the Bravo agent harness."
     },
     {
       "key": "inbound_classifier_classify",
       "path": "scripts/inbound_classifier.py",
       "root": "bravo",
       "subcmd": "classify",
-      "mutating": false,
+      "mutating": true,
       "help": "Inbound Classifier \u2014 the second half of V5.6's chokepoint. \u2014 subcommand: classify"
     },
     {
@@ -745,15 +844,147 @@
       "path": "scripts/inbound_classifier.py",
       "root": "bravo",
       "subcmd": "stats",
-      "mutating": false,
+      "mutating": true,
       "help": "Inbound Classifier \u2014 the second half of V5.6's chokepoint. \u2014 subcommand: stats"
+    },
+    {
+      "key": "send_gateway_send",
+      "path": "scripts/integrations/send_gateway.py",
+      "root": "bravo",
+      "subcmd": "send",
+      "mutating": true,
+      "category": "outbound.gateway",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: send"
+    },
+    {
+      "key": "send_gateway_can_act",
+      "path": "scripts/integrations/send_gateway.py",
+      "root": "bravo",
+      "subcmd": "can-act",
+      "mutating": false,
+      "category": "outbound.gateway",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: can-act"
+    },
+    {
+      "key": "send_gateway_history",
+      "path": "scripts/integrations/send_gateway.py",
+      "root": "bravo",
+      "subcmd": "history",
+      "mutating": false,
+      "category": "outbound.gateway",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: history"
+    },
+    {
+      "key": "send_gateway_stats",
+      "path": "scripts/integrations/send_gateway.py",
+      "root": "bravo",
+      "subcmd": "stats",
+      "mutating": false,
+      "category": "outbound.gateway",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: stats"
+    },
+    {
+      "key": "send_gateway_doctor",
+      "path": "scripts/integrations/send_gateway.py",
+      "root": "bravo",
+      "subcmd": "doctor",
+      "mutating": false,
+      "category": "outbound.gateway",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: doctor"
+    },
+    {
+      "key": "supabase_tool_list_projects",
+      "path": "scripts/integrations/supabase_tool.py",
+      "root": "bravo",
+      "subcmd": "list-projects",
+      "mutating": false,
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "destructive",
+      "project": "empire",
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: list-projects"
+    },
+    {
+      "key": "supabase_tool_list_tables",
+      "path": "scripts/integrations/supabase_tool.py",
+      "root": "bravo",
+      "subcmd": "list-tables",
+      "mutating": false,
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "destructive",
+      "project": "empire",
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: list-tables"
+    },
+    {
+      "key": "supabase_sql",
+      "path": "scripts/integrations/supabase_tool.py",
+      "root": "bravo",
+      "subcmd": "query",
+      "mutating": true,
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "destructive",
+      "project": "empire",
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: query"
+    },
+    {
+      "key": "supabase_select",
+      "path": "scripts/integrations/supabase_tool.py",
+      "root": "bravo",
+      "subcmd": "select",
+      "mutating": false,
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "destructive",
+      "project": "empire",
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: select"
+    },
+    {
+      "key": "supabase_insert",
+      "path": "scripts/integrations/supabase_tool.py",
+      "root": "bravo",
+      "subcmd": "insert",
+      "mutating": true,
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "destructive",
+      "project": "empire",
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: insert"
+    },
+    {
+      "key": "supabase_update",
+      "path": "scripts/integrations/supabase_tool.py",
+      "root": "bravo",
+      "subcmd": "update",
+      "mutating": true,
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "destructive",
+      "project": "empire",
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: update"
     },
     {
       "key": "lead_engine_list",
       "path": "scripts/lead_engine.py",
       "root": "bravo",
       "subcmd": "list",
-      "mutating": false,
+      "mutating": true,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: list"
     },
     {
@@ -769,7 +1000,7 @@
       "path": "scripts/lead_engine.py",
       "root": "bravo",
       "subcmd": "view",
-      "mutating": false,
+      "mutating": true,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: view"
     },
     {
@@ -785,7 +1016,7 @@
       "path": "scripts/lead_engine.py",
       "root": "bravo",
       "subcmd": "score",
-      "mutating": false,
+      "mutating": true,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: score"
     },
     {
@@ -793,7 +1024,7 @@
       "path": "scripts/lead_engine.py",
       "root": "bravo",
       "subcmd": "interact",
-      "mutating": false,
+      "mutating": true,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: interact"
     },
     {
@@ -801,7 +1032,7 @@
       "path": "scripts/lead_engine.py",
       "root": "bravo",
       "subcmd": "followups",
-      "mutating": false,
+      "mutating": true,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: followups"
     },
     {
@@ -809,7 +1040,7 @@
       "path": "scripts/lead_engine.py",
       "root": "bravo",
       "subcmd": "pipeline",
-      "mutating": false,
+      "mutating": true,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: pipeline"
     },
     {
@@ -817,7 +1048,7 @@
       "path": "scripts/lead_engine.py",
       "root": "bravo",
       "subcmd": "search",
-      "mutating": false,
+      "mutating": true,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: search"
     },
     {
@@ -825,7 +1056,7 @@
       "path": "scripts/lead_engine.py",
       "root": "bravo",
       "subcmd": "bulk-import",
-      "mutating": false,
+      "mutating": true,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: bulk-import"
     },
     {
@@ -833,7 +1064,7 @@
       "path": "scripts/lead_engine.py",
       "root": "bravo",
       "subcmd": "funnel",
-      "mutating": false,
+      "mutating": true,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: funnel"
     },
     {
@@ -841,7 +1072,7 @@
       "path": "scripts/machine_parity.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "machine_parity.py \u2014 bring any machine to full agentic parity, reproducibly."
     },
     {
@@ -849,7 +1080,7 @@
       "path": "scripts/maml_onboard.py",
       "root": "bravo",
       "subcmd": "build-tasks",
-      "mutating": false,
+      "mutating": true,
       "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: build-tasks"
     },
     {
@@ -857,7 +1088,7 @@
       "path": "scripts/maml_onboard.py",
       "root": "bravo",
       "subcmd": "train",
-      "mutating": false,
+      "mutating": true,
       "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: train"
     },
     {
@@ -865,7 +1096,7 @@
       "path": "scripts/maml_onboard.py",
       "root": "bravo",
       "subcmd": "adapt",
-      "mutating": false,
+      "mutating": true,
       "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: adapt"
     },
     {
@@ -873,7 +1104,7 @@
       "path": "scripts/maml_onboard.py",
       "root": "bravo",
       "subcmd": "predict",
-      "mutating": false,
+      "mutating": true,
       "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: predict"
     },
     {
@@ -881,7 +1112,7 @@
       "path": "scripts/maml_onboard.py",
       "root": "bravo",
       "subcmd": "evaluate",
-      "mutating": false,
+      "mutating": true,
       "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: evaluate"
     },
     {
@@ -889,16 +1120,8 @@
       "path": "scripts/md_to_gdoc.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
-      "help": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling."
-    },
-    {
-      "key": "migrate_lender_industry_restrictions_key",
-      "path": "scripts/migrate_lender_industry_restrictions_key.py",
-      "root": "bravo",
-      "subcmd": null,
       "mutating": true,
-      "help": "migrate_lender_industry_restrictions_key.py \u2014 one-shot key rename across lender rows."
+      "help": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling."
     },
     {
       "key": "migrate_subprocess_calls",
@@ -913,7 +1136,7 @@
       "path": "scripts/model_router.py",
       "root": "bravo",
       "subcmd": "list-providers",
-      "mutating": false,
+      "mutating": true,
       "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: list-providers"
     },
     {
@@ -921,7 +1144,7 @@
       "path": "scripts/model_router.py",
       "root": "bravo",
       "subcmd": "test",
-      "mutating": false,
+      "mutating": true,
       "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: test"
     },
     {
@@ -929,7 +1152,7 @@
       "path": "scripts/model_router.py",
       "root": "bravo",
       "subcmd": "switch",
-      "mutating": false,
+      "mutating": true,
       "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: switch"
     },
     {
@@ -937,7 +1160,7 @@
       "path": "scripts/model_router.py",
       "root": "bravo",
       "subcmd": "show-config",
-      "mutating": false,
+      "mutating": true,
       "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: show-config"
     },
     {
@@ -945,7 +1168,7 @@
       "path": "scripts/model_router.py",
       "root": "bravo",
       "subcmd": "route",
-      "mutating": false,
+      "mutating": true,
       "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: route"
     },
     {
@@ -953,7 +1176,7 @@
       "path": "scripts/model_router.py",
       "root": "bravo",
       "subcmd": "call",
-      "mutating": false,
+      "mutating": true,
       "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: call"
     },
     {
@@ -961,7 +1184,7 @@
       "path": "scripts/neural_memory.py",
       "root": "bravo",
       "subcmd": "init",
-      "mutating": false,
+      "mutating": true,
       "help": "Neural Memory \u2014 differentiable memory store backed by a Neural Turing Machine. \u2014 subcommand: init"
     },
     {
@@ -969,7 +1192,7 @@
       "path": "scripts/neural_memory.py",
       "root": "bravo",
       "subcmd": "read",
-      "mutating": false,
+      "mutating": true,
       "help": "Neural Memory \u2014 differentiable memory store backed by a Neural Turing Machine. \u2014 subcommand: read"
     },
     {
@@ -977,7 +1200,7 @@
       "path": "scripts/neural_memory.py",
       "root": "bravo",
       "subcmd": "write",
-      "mutating": false,
+      "mutating": true,
       "help": "Neural Memory \u2014 differentiable memory store backed by a Neural Turing Machine. \u2014 subcommand: write"
     },
     {
@@ -985,7 +1208,7 @@
       "path": "scripts/neural_memory.py",
       "root": "bravo",
       "subcmd": "train",
-      "mutating": false,
+      "mutating": true,
       "help": "Neural Memory \u2014 differentiable memory store backed by a Neural Turing Machine. \u2014 subcommand: train"
     },
     {
@@ -993,7 +1216,7 @@
       "path": "scripts/neural_memory.py",
       "root": "bravo",
       "subcmd": "inspect",
-      "mutating": false,
+      "mutating": true,
       "help": "Neural Memory \u2014 differentiable memory store backed by a Neural Turing Machine. \u2014 subcommand: inspect"
     },
     {
@@ -1001,7 +1224,7 @@
       "path": "scripts/neuro_symbolic_gate.py",
       "root": "bravo",
       "subcmd": "rules",
-      "mutating": false,
+      "mutating": true,
       "help": "Neuro-Symbolic Compliance Gate \u2014 rule-based + neural outbound email verifier. \u2014 subcommand: rules"
     },
     {
@@ -1009,7 +1232,7 @@
       "path": "scripts/neuro_symbolic_gate.py",
       "root": "bravo",
       "subcmd": "verify",
-      "mutating": false,
+      "mutating": true,
       "help": "Neuro-Symbolic Compliance Gate \u2014 rule-based + neural outbound email verifier. \u2014 subcommand: verify"
     },
     {
@@ -1017,7 +1240,7 @@
       "path": "scripts/neuro_symbolic_gate.py",
       "root": "bravo",
       "subcmd": "explain",
-      "mutating": false,
+      "mutating": true,
       "help": "Neuro-Symbolic Compliance Gate \u2014 rule-based + neural outbound email verifier. \u2014 subcommand: explain"
     },
     {
@@ -1033,7 +1256,7 @@
       "path": "scripts/neuro_symbolic_gate.py",
       "root": "bravo",
       "subcmd": "trace",
-      "mutating": false,
+      "mutating": true,
       "help": "Neuro-Symbolic Compliance Gate \u2014 rule-based + neural outbound email verifier. \u2014 subcommand: trace"
     },
     {
@@ -1041,15 +1264,23 @@
       "path": "scripts/oasis_embed_server.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "OASIS Town V6 Apex Phase 3 \u2014 embedding + retrieval bridge for the agent sim."
+    },
+    {
+      "key": "obsidian_graph_doctor",
+      "path": "scripts/obsidian_graph_doctor.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Obsidian vault graph doctor \u2014 broken links, orphan nodes, frontmatter hygiene."
     },
     {
       "key": "onboarding_diagnostics",
       "path": "scripts/onboarding_diagnostics.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Bravo onboarding diagnostics."
     },
     {
@@ -1057,7 +1288,7 @@
       "path": "scripts/outreach_eligible.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Pick leads eligible for the next outreach send."
     },
     {
@@ -1073,7 +1304,7 @@
       "path": "scripts/outreach_engine.py",
       "root": "bravo",
       "subcmd": "list",
-      "mutating": false,
+      "mutating": true,
       "help": "Outreach Engine - Personalized email outreach with Google Meet + .ics invite. \u2014 subcommand: list"
     },
     {
@@ -1081,7 +1312,7 @@
       "path": "scripts/outreach_engine.py",
       "root": "bravo",
       "subcmd": "stats",
-      "mutating": false,
+      "mutating": true,
       "help": "Outreach Engine - Personalized email outreach with Google Meet + .ics invite. \u2014 subcommand: stats"
     },
     {
@@ -1089,7 +1320,11 @@
       "path": "scripts/pause_controller.py",
       "root": "bravo",
       "subcmd": "pause",
-      "mutating": false,
+      "mutating": true,
+      "category": "outbound.safety",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "sunbiz",
       "help": "pause_controller.py \u2014 operator kill switches + operating mode toggles \u2014 subcommand: pause"
     },
     {
@@ -1097,7 +1332,11 @@
       "path": "scripts/pause_controller.py",
       "root": "bravo",
       "subcmd": "resume",
-      "mutating": false,
+      "mutating": true,
+      "category": "outbound.safety",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "sunbiz",
       "help": "pause_controller.py \u2014 operator kill switches + operating mode toggles \u2014 subcommand: resume"
     },
     {
@@ -1106,6 +1345,10 @@
       "root": "bravo",
       "subcmd": "status",
       "mutating": false,
+      "category": "outbound.safety",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "sunbiz",
       "help": "pause_controller.py \u2014 operator kill switches + operating mode toggles \u2014 subcommand: status"
     },
     {
@@ -1114,6 +1357,10 @@
       "root": "bravo",
       "subcmd": "set-mode",
       "mutating": true,
+      "category": "outbound.safety",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "sunbiz",
       "help": "pause_controller.py \u2014 operator kill switches + operating mode toggles \u2014 subcommand: set-mode"
     },
     {
@@ -1122,6 +1369,10 @@
       "root": "bravo",
       "subcmd": "get-mode",
       "mutating": false,
+      "category": "outbound.safety",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "sunbiz",
       "help": "pause_controller.py \u2014 operator kill switches + operating mode toggles \u2014 subcommand: get-mode"
     },
     {
@@ -1129,7 +1380,7 @@
       "path": "scripts/pii_scrubber.py",
       "root": "bravo",
       "subcmd": "scrub",
-      "mutating": false,
+      "mutating": true,
       "help": "Bravo V6.0 \u2014 PII Scrubber \u2014 subcommand: scrub"
     },
     {
@@ -1137,7 +1388,7 @@
       "path": "scripts/pii_scrubber.py",
       "root": "bravo",
       "subcmd": "unscrub",
-      "mutating": false,
+      "mutating": true,
       "help": "Bravo V6.0 \u2014 PII Scrubber \u2014 subcommand: unscrub"
     },
     {
@@ -1145,7 +1396,7 @@
       "path": "scripts/pii_scrubber.py",
       "root": "bravo",
       "subcmd": "audit",
-      "mutating": false,
+      "mutating": true,
       "help": "Bravo V6.0 \u2014 PII Scrubber \u2014 subcommand: audit"
     },
     {
@@ -1154,6 +1405,17 @@
       "root": "bravo",
       "subcmd": null,
       "mutating": false,
+      "category": "security.privacy",
+      "lifecycle": "active",
+      "risk": "destructive",
+      "project": "empire",
+      "deny_args": [
+        "--rewrite",
+        "--strings"
+      ],
+      "fixed_args": [
+        "."
+      ],
       "help": "Content-keyed PII sweep (audit V2/V3). Sweep a repo by OPERATOR-ADJUDICATED"
     },
     {
@@ -1169,7 +1431,7 @@
       "path": "scripts/proposal_generator.py",
       "root": "bravo",
       "subcmd": "list",
-      "mutating": false,
+      "mutating": true,
       "help": "Proposal Generator \u2014 OASIS AI Solutions \u2014 subcommand: list"
     },
     {
@@ -1177,7 +1439,7 @@
       "path": "scripts/proposal_generator.py",
       "root": "bravo",
       "subcmd": "templates",
-      "mutating": false,
+      "mutating": true,
       "help": "Proposal Generator \u2014 OASIS AI Solutions \u2014 subcommand: templates"
     },
     {
@@ -1185,7 +1447,7 @@
       "path": "scripts/provision_secrets.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "provision_secrets.py \u2014 materialize a tenant's integration secrets onto this host."
     },
     {
@@ -1201,7 +1463,7 @@
       "path": "scripts/pulse_publish.py",
       "root": "bravo",
       "subcmd": "validate",
-      "mutating": false,
+      "mutating": true,
       "help": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json. \u2014 subcommand: validate"
     },
     {
@@ -1209,7 +1471,7 @@
       "path": "scripts/pulse_publish.py",
       "root": "bravo",
       "subcmd": "status",
-      "mutating": false,
+      "mutating": true,
       "help": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json. \u2014 subcommand: status"
     },
     {
@@ -1233,7 +1495,7 @@
       "path": "scripts/quest_publisher.py",
       "root": "bravo",
       "subcmd": "loop",
-      "mutating": false,
+      "mutating": true,
       "help": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table. \u2014 subcommand: loop"
     },
     {
@@ -1241,15 +1503,23 @@
       "path": "scripts/reap_orphan_mcps.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Reap duplicate MCP server processes from leaked editor sessions."
+    },
+    {
+      "key": "repo_census",
+      "path": "scripts/repo_census.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Census every git repo AND worktree that an IDE could be counting."
     },
     {
       "key": "research_fetch_fetch",
       "path": "scripts/research_fetch.py",
       "root": "bravo",
       "subcmd": "fetch",
-      "mutating": false,
+      "mutating": true,
       "help": "research_fetch \u2014 Unified research-tier fetcher with auto-escalation + site-reputation memory. \u2014 subcommand: fetch"
     },
     {
@@ -1257,7 +1527,7 @@
       "path": "scripts/research_fetch.py",
       "root": "bravo",
       "subcmd": "reputation",
-      "mutating": false,
+      "mutating": true,
       "help": "research_fetch \u2014 Unified research-tier fetcher with auto-escalation + site-reputation memory. \u2014 subcommand: reputation"
     },
     {
@@ -1265,7 +1535,7 @@
       "path": "scripts/research_fetch.py",
       "root": "bravo",
       "subcmd": "reputation-clear",
-      "mutating": false,
+      "mutating": true,
       "help": "research_fetch \u2014 Unified research-tier fetcher with auto-escalation + site-reputation memory. \u2014 subcommand: reputation-clear"
     },
     {
@@ -1273,7 +1543,7 @@
       "path": "scripts/revenue_engine.py",
       "root": "bravo",
       "subcmd": "mrr",
-      "mutating": false,
+      "mutating": true,
       "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: mrr"
     },
     {
@@ -1281,7 +1551,7 @@
       "path": "scripts/revenue_engine.py",
       "root": "bravo",
       "subcmd": "dashboard",
-      "mutating": false,
+      "mutating": true,
       "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: dashboard"
     },
     {
@@ -1297,7 +1567,7 @@
       "path": "scripts/revenue_engine.py",
       "root": "bravo",
       "subcmd": "log-revenue",
-      "mutating": false,
+      "mutating": true,
       "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: log-revenue"
     },
     {
@@ -1305,7 +1575,7 @@
       "path": "scripts/revenue_engine.py",
       "root": "bravo",
       "subcmd": "log-month",
-      "mutating": false,
+      "mutating": true,
       "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: log-month"
     },
     {
@@ -1313,7 +1583,7 @@
       "path": "scripts/revenue_engine.py",
       "root": "bravo",
       "subcmd": "history",
-      "mutating": false,
+      "mutating": true,
       "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: history"
     },
     {
@@ -1321,7 +1591,7 @@
       "path": "scripts/revenue_engine.py",
       "root": "bravo",
       "subcmd": "forecast",
-      "mutating": false,
+      "mutating": true,
       "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: forecast"
     },
     {
@@ -1329,7 +1599,7 @@
       "path": "scripts/revenue_engine.py",
       "root": "bravo",
       "subcmd": "clients",
-      "mutating": false,
+      "mutating": true,
       "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: clients"
     },
     {
@@ -1337,15 +1607,39 @@
       "path": "scripts/revenue_engine.py",
       "root": "bravo",
       "subcmd": "goal",
-      "mutating": false,
+      "mutating": true,
       "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: goal"
+    },
+    {
+      "key": "review_fix",
+      "path": "scripts/review_fix.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "review_fix.py \u2014 close the loop: apply a harvested review finding, test, push."
+    },
+    {
+      "key": "review_harvest",
+      "path": "scripts/review_harvest.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "review_harvest.py \u2014 pull UNRESOLVED automated-review signal out of GitHub."
+    },
+    {
+      "key": "review_loop",
+      "path": "scripts/review_loop.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "review_loop.py \u2014 drain the review queue: harvest \u2192 fix \u2192 push \u2192 report."
     },
     {
       "key": "rlhf_outreach_build_dataset",
       "path": "scripts/rlhf_outreach.py",
       "root": "bravo",
       "subcmd": "build-dataset",
-      "mutating": false,
+      "mutating": true,
       "help": "RLHF Outreach -- dataset builder, DPO training skeleton, and fast draft scorer. \u2014 subcommand: build-dataset"
     },
     {
@@ -1353,7 +1647,7 @@
       "path": "scripts/rlhf_outreach.py",
       "root": "bravo",
       "subcmd": "train",
-      "mutating": false,
+      "mutating": true,
       "help": "RLHF Outreach -- dataset builder, DPO training skeleton, and fast draft scorer. \u2014 subcommand: train"
     },
     {
@@ -1361,7 +1655,7 @@
       "path": "scripts/rlhf_outreach.py",
       "root": "bravo",
       "subcmd": "score",
-      "mutating": false,
+      "mutating": true,
       "help": "RLHF Outreach -- dataset builder, DPO training skeleton, and fast draft scorer. \u2014 subcommand: score"
     },
     {
@@ -1369,7 +1663,7 @@
       "path": "scripts/rlhf_outreach.py",
       "root": "bravo",
       "subcmd": "evaluate",
-      "mutating": false,
+      "mutating": true,
       "help": "RLHF Outreach -- dataset builder, DPO training skeleton, and fast draft scorer. \u2014 subcommand: evaluate"
     },
     {
@@ -1385,7 +1679,7 @@
       "path": "scripts/scan_secrets.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Secret scanner \u2014 hunt for leaked credentials before they hit GitHub."
     },
     {
@@ -1393,7 +1687,7 @@
       "path": "scripts/scrape_firecrawl_leads.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Lead scraper using Firecrawl API (replaces slow Playwright + Google Maps flow)."
     },
     {
@@ -1401,7 +1695,7 @@
       "path": "scripts/security_audit.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Empire-wide security audit. Seven independent scans, one report."
     },
     {
@@ -1421,19 +1715,11 @@
       "help": "seed_profile.py \u2014 seed (or update) the OASIS Command Center operator profile."
     },
     {
-      "key": "seed_sunbiz_application_form_fields",
-      "path": "scripts/seed_sunbiz_application_form_fields.py",
-      "root": "bravo",
-      "subcmd": null,
-      "mutating": true,
-      "help": "seed_sunbiz_application_form_fields.py \u2014 add SOP \u00a74 inputs to SunBiz intake forms."
-    },
-    {
       "key": "skill_metrics_track",
       "path": "scripts/skill_metrics.py",
       "root": "bravo",
       "subcmd": "track",
-      "mutating": false,
+      "mutating": true,
       "help": "Skill Metrics \u2014 usage tracking and promotion for auto-generated skills. \u2014 subcommand: track"
     },
     {
@@ -1441,7 +1727,7 @@
       "path": "scripts/skill_metrics.py",
       "root": "bravo",
       "subcmd": "promote",
-      "mutating": false,
+      "mutating": true,
       "help": "Skill Metrics \u2014 usage tracking and promotion for auto-generated skills. \u2014 subcommand: promote"
     },
     {
@@ -1449,7 +1735,7 @@
       "path": "scripts/skill_metrics.py",
       "root": "bravo",
       "subcmd": "top",
-      "mutating": false,
+      "mutating": true,
       "help": "Skill Metrics \u2014 usage tracking and promotion for auto-generated skills. \u2014 subcommand: top"
     },
     {
@@ -1457,7 +1743,7 @@
       "path": "scripts/skill_metrics.py",
       "root": "bravo",
       "subcmd": "report",
-      "mutating": false,
+      "mutating": true,
       "help": "Skill Metrics \u2014 usage tracking and promotion for auto-generated skills. \u2014 subcommand: report"
     },
     {
@@ -1466,6 +1752,10 @@
       "root": "bravo",
       "subcmd": "scan",
       "mutating": false,
+      "category": "security.agent_governance",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
       "help": "SkillSpector \u2014 skill vulnerability scanner inspired by NVIDIA's SkillSpector. \u2014 subcommand: scan"
     },
     {
@@ -1474,6 +1764,10 @@
       "root": "bravo",
       "subcmd": "audit",
       "mutating": false,
+      "category": "security.agent_governance",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
       "help": "SkillSpector \u2014 skill vulnerability scanner inspired by NVIDIA's SkillSpector. \u2014 subcommand: audit"
     },
     {
@@ -1482,6 +1776,10 @@
       "root": "bravo",
       "subcmd": "summary",
       "mutating": false,
+      "category": "security.agent_governance",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
       "help": "SkillSpector \u2014 skill vulnerability scanner inspired by NVIDIA's SkillSpector. \u2014 subcommand: summary"
     },
     {
@@ -1489,7 +1787,7 @@
       "path": "scripts/skill_synthesizer.py",
       "root": "bravo",
       "subcmd": "scan",
-      "mutating": false,
+      "mutating": true,
       "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: scan"
     },
     {
@@ -1497,7 +1795,7 @@
       "path": "scripts/skill_synthesizer.py",
       "root": "bravo",
       "subcmd": "extract",
-      "mutating": false,
+      "mutating": true,
       "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: extract"
     },
     {
@@ -1505,7 +1803,7 @@
       "path": "scripts/skill_synthesizer.py",
       "root": "bravo",
       "subcmd": "generate",
-      "mutating": false,
+      "mutating": true,
       "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: generate"
     },
     {
@@ -1513,7 +1811,7 @@
       "path": "scripts/skill_synthesizer.py",
       "root": "bravo",
       "subcmd": "register",
-      "mutating": false,
+      "mutating": true,
       "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: register"
     },
     {
@@ -1521,7 +1819,7 @@
       "path": "scripts/skill_synthesizer.py",
       "root": "bravo",
       "subcmd": "validate",
-      "mutating": false,
+      "mutating": true,
       "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: validate"
     },
     {
@@ -1529,7 +1827,7 @@
       "path": "scripts/skill_synthesizer.py",
       "root": "bravo",
       "subcmd": "synthesize",
-      "mutating": false,
+      "mutating": true,
       "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: synthesize"
     },
     {
@@ -1537,7 +1835,7 @@
       "path": "scripts/smoke_n8n_inbound_rpc.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "smoke_n8n_inbound_rpc.py \u2014 end-to-end smoke test for the n8n inbound bridge."
     },
     {
@@ -1545,7 +1843,7 @@
       "path": "scripts/system_health.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "system_health \u2014 the Loud-Failures probe (V7 EPIC 7)."
     },
     {
@@ -1553,7 +1851,7 @@
       "path": "scripts/tft_forecast.py",
       "root": "bravo",
       "subcmd": "build-dataset",
-      "mutating": false,
+      "mutating": true,
       "help": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting. \u2014 subcommand: build-dataset"
     },
     {
@@ -1561,7 +1859,7 @@
       "path": "scripts/tft_forecast.py",
       "root": "bravo",
       "subcmd": "train",
-      "mutating": false,
+      "mutating": true,
       "help": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting. \u2014 subcommand: train"
     },
     {
@@ -1569,7 +1867,7 @@
       "path": "scripts/tft_forecast.py",
       "root": "bravo",
       "subcmd": "forecast",
-      "mutating": false,
+      "mutating": true,
       "help": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting. \u2014 subcommand: forecast"
     },
     {
@@ -1577,7 +1875,7 @@
       "path": "scripts/tft_forecast.py",
       "root": "bravo",
       "subcmd": "backtest",
-      "mutating": false,
+      "mutating": true,
       "help": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting. \u2014 subcommand: backtest"
     },
     {
@@ -1585,7 +1883,7 @@
       "path": "scripts/tft_forecast.py",
       "root": "bravo",
       "subcmd": "feature-importance",
-      "mutating": false,
+      "mutating": true,
       "help": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting. \u2014 subcommand: feature-importance"
     },
     {
@@ -1593,7 +1891,7 @@
       "path": "scripts/transcribe.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Voice Note Transcriber \u2014 converts audio to text using OpenAI Whisper (local)."
     },
     {
@@ -1609,7 +1907,7 @@
       "path": "scripts/wire_all_templates.py",
       "root": "bravo",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Wire OASIS outreach templates in the Bravo Supabase project."
     },
     {
@@ -1621,19 +1919,43 @@
       "help": "SunBiz \u2014 interactive seeder for lender restricted_states + restricted_industries"
     },
     {
+      "key": "agent_sleep_run",
+      "path": "scripts/agent_sleep.py",
+      "root": "sunbiz",
+      "subcmd": "run",
+      "mutating": true,
+      "help": "agent_sleep \u2014 Nightly memory consolidation by an LLM judge. \u2014 subcommand: run"
+    },
+    {
+      "key": "agent_sleep_status",
+      "path": "scripts/agent_sleep.py",
+      "root": "sunbiz",
+      "subcmd": "status",
+      "mutating": true,
+      "help": "agent_sleep \u2014 Nightly memory consolidation by an LLM judge. \u2014 subcommand: status"
+    },
+    {
       "key": "api_server",
       "path": "scripts/api_server.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Sun Biz Agent hosted API surface."
+    },
+    {
+      "key": "backfill_dedupe_scrub_candidates",
+      "path": "scripts/backfill_dedupe_scrub_candidates.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": true,
+      "help": "backfill_dedupe_scrub_candidates.py \u2014 collapse duplicate review cards."
     },
     {
       "key": "backfill_sunbiz_stages",
       "path": "scripts/backfill_sunbiz_stages.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "backfill_sunbiz_stages.py \u2014 one-shot migration of pre-2026-05-17 stage values."
     },
     {
@@ -1641,7 +1963,7 @@
       "path": "scripts/cold_outreach_runner.py",
       "root": "sunbiz",
       "subcmd": "loop",
-      "mutating": false,
+      "mutating": true,
       "help": "cold_outreach_runner.py \u2014 drain cold_outreach_campaigns through send_gateway. \u2014 subcommand: loop"
     },
     {
@@ -1649,7 +1971,7 @@
       "path": "scripts/cold_outreach_runner.py",
       "root": "sunbiz",
       "subcmd": "tail",
-      "mutating": false,
+      "mutating": true,
       "help": "cold_outreach_runner.py \u2014 drain cold_outreach_campaigns through send_gateway. \u2014 subcommand: tail"
     },
     {
@@ -1657,7 +1979,7 @@
       "path": "scripts/cold_outreach_runner.py",
       "root": "sunbiz",
       "subcmd": "once",
-      "mutating": false,
+      "mutating": true,
       "help": "cold_outreach_runner.py \u2014 drain cold_outreach_campaigns through send_gateway. \u2014 subcommand: once"
     },
     {
@@ -1665,7 +1987,7 @@
       "path": "scripts/daily_plan_generator.py",
       "root": "sunbiz",
       "subcmd": "loop",
-      "mutating": false,
+      "mutating": true,
       "help": "daily_plan_generator.py \u2014 build today's daily_plan_items for the operator's Daily Plan tab. \u2014 subcommand: loop"
     },
     {
@@ -1673,7 +1995,7 @@
       "path": "scripts/daily_plan_generator.py",
       "root": "sunbiz",
       "subcmd": "tail",
-      "mutating": false,
+      "mutating": true,
       "help": "daily_plan_generator.py \u2014 build today's daily_plan_items for the operator's Daily Plan tab. \u2014 subcommand: tail"
     },
     {
@@ -1681,7 +2003,7 @@
       "path": "scripts/daily_plan_generator.py",
       "root": "sunbiz",
       "subcmd": "once",
-      "mutating": false,
+      "mutating": true,
       "help": "daily_plan_generator.py \u2014 build today's daily_plan_items for the operator's Daily Plan tab. \u2014 subcommand: once"
     },
     {
@@ -1689,7 +2011,7 @@
       "path": "scripts/doctor.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Sun Biz Agent runtime doctor."
     },
     {
@@ -1697,7 +2019,7 @@
       "path": "scripts/email_blast.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "SunBiz Funding \u2014 Production-Grade Gmail Email Blast Engine"
     },
     {
@@ -1705,7 +2027,7 @@
       "path": "scripts/enrich_leads.py",
       "root": "sunbiz",
       "subcmd": "audit",
-      "mutating": false,
+      "mutating": true,
       "help": "enrich_leads.py \u2014 Google Sheets lead-enrichment workflow tool. \u2014 subcommand: audit"
     },
     {
@@ -1713,7 +2035,7 @@
       "path": "scripts/enrich_leads.py",
       "root": "sunbiz",
       "subcmd": "writeback",
-      "mutating": false,
+      "mutating": true,
       "help": "enrich_leads.py \u2014 Google Sheets lead-enrichment workflow tool. \u2014 subcommand: writeback"
     },
     {
@@ -1721,7 +2043,7 @@
       "path": "scripts/enrich_leads.py",
       "root": "sunbiz",
       "subcmd": "status",
-      "mutating": false,
+      "mutating": true,
       "help": "enrich_leads.py \u2014 Google Sheets lead-enrichment workflow tool. \u2014 subcommand: status"
     },
     {
@@ -1729,7 +2051,7 @@
       "path": "scripts/follow_up_generator.py",
       "root": "sunbiz",
       "subcmd": "loop",
-      "mutating": false,
+      "mutating": true,
       "help": "follow_up_generator.py \u2014 generate follow_up_tasks for stuck/missing-info/no-response leads. \u2014 subcommand: loop"
     },
     {
@@ -1737,7 +2059,7 @@
       "path": "scripts/follow_up_generator.py",
       "root": "sunbiz",
       "subcmd": "tail",
-      "mutating": false,
+      "mutating": true,
       "help": "follow_up_generator.py \u2014 generate follow_up_tasks for stuck/missing-info/no-response leads. \u2014 subcommand: tail"
     },
     {
@@ -1745,7 +2067,7 @@
       "path": "scripts/follow_up_generator.py",
       "root": "sunbiz",
       "subcmd": "once",
-      "mutating": false,
+      "mutating": true,
       "help": "follow_up_generator.py \u2014 generate follow_up_tasks for stuck/missing-info/no-response leads. \u2014 subcommand: once"
     },
     {
@@ -1753,7 +2075,7 @@
       "path": "scripts/import_lender_catalog.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "import_lender_catalog.py \u2014 bulk import / update known_funding_companies."
     },
     {
@@ -1761,7 +2083,7 @@
       "path": "scripts/import_mca_leads.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "import_mca_leads.py \u2014 bulk-import Adon's MCA web-form lead list into the"
     },
     {
@@ -1769,7 +2091,7 @@
       "path": "scripts/kixie_tool.py",
       "root": "sunbiz",
       "subcmd": "call",
-      "mutating": false,
+      "mutating": true,
       "help": "Kixie CLI Tool \u2014 outbound dialer + click-to-call + live transfer. \u2014 subcommand: call"
     },
     {
@@ -1777,7 +2099,7 @@
       "path": "scripts/kixie_tool.py",
       "root": "sunbiz",
       "subcmd": "click-to-call",
-      "mutating": false,
+      "mutating": true,
       "help": "Kixie CLI Tool \u2014 outbound dialer + click-to-call + live transfer. \u2014 subcommand: click-to-call"
     },
     {
@@ -1785,7 +2107,7 @@
       "path": "scripts/kixie_tool.py",
       "root": "sunbiz",
       "subcmd": "transfer",
-      "mutating": false,
+      "mutating": true,
       "help": "Kixie CLI Tool \u2014 outbound dialer + click-to-call + live transfer. \u2014 subcommand: transfer"
     },
     {
@@ -1793,7 +2115,7 @@
       "path": "scripts/kixie_tool.py",
       "root": "sunbiz",
       "subcmd": "agents",
-      "mutating": false,
+      "mutating": true,
       "help": "Kixie CLI Tool \u2014 outbound dialer + click-to-call + live transfer. \u2014 subcommand: agents"
     },
     {
@@ -1801,7 +2123,7 @@
       "path": "scripts/kixie_tool.py",
       "root": "sunbiz",
       "subcmd": "status",
-      "mutating": false,
+      "mutating": true,
       "help": "Kixie CLI Tool \u2014 outbound dialer + click-to-call + live transfer. \u2014 subcommand: status"
     },
     {
@@ -1809,7 +2131,7 @@
       "path": "scripts/lender_response_classifier.py",
       "root": "sunbiz",
       "subcmd": "once",
-      "mutating": false,
+      "mutating": true,
       "help": "lender_response_classifier.py \u2014 close the loop on lender shop-out. \u2014 subcommand: once"
     },
     {
@@ -1817,7 +2139,7 @@
       "path": "scripts/lender_response_classifier.py",
       "root": "sunbiz",
       "subcmd": "loop",
-      "mutating": false,
+      "mutating": true,
       "help": "lender_response_classifier.py \u2014 close the loop on lender shop-out. \u2014 subcommand: loop"
     },
     {
@@ -1825,7 +2147,7 @@
       "path": "scripts/lender_response_classifier.py",
       "root": "sunbiz",
       "subcmd": "tail",
-      "mutating": false,
+      "mutating": true,
       "help": "lender_response_classifier.py \u2014 close the loop on lender shop-out. \u2014 subcommand: tail"
     },
     {
@@ -1833,7 +2155,7 @@
       "path": "scripts/mca_lead_scrubber.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "mca_lead_scrubber.py \u2014 the \"Breeze UW Entry Sheet\" automation."
     },
     {
@@ -1849,7 +2171,7 @@
       "path": "scripts/no_contact_24h_monitor.py",
       "root": "sunbiz",
       "subcmd": "loop",
-      "mutating": false,
+      "mutating": true,
       "help": "no_contact_24h_monitor.py \u2014 Build 1: active-deal 24h-no-contact follow-up. \u2014 subcommand: loop"
     },
     {
@@ -1857,7 +2179,7 @@
       "path": "scripts/no_contact_24h_monitor.py",
       "root": "sunbiz",
       "subcmd": "once",
-      "mutating": false,
+      "mutating": true,
       "help": "no_contact_24h_monitor.py \u2014 Build 1: active-deal 24h-no-contact follow-up. \u2014 subcommand: once"
     },
     {
@@ -1865,7 +2187,7 @@
       "path": "scripts/populate_sunbiz_lender_catalog.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "populate_sunbiz_lender_catalog.py \u2014 load the SOP-curated SunBiz lender"
     },
     {
@@ -1873,7 +2195,7 @@
       "path": "scripts/reconcile_sunbiz_sequences.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Reconcile drip_sequences in the live Sun Biz tenant against the"
     },
     {
@@ -1881,7 +2203,7 @@
       "path": "scripts/renewal_reminder.py",
       "root": "sunbiz",
       "subcmd": "loop",
-      "mutating": false,
+      "mutating": true,
       "help": "renewal_reminder.py \u2014 daily sweep of funded deals approaching renewal window. \u2014 subcommand: loop"
     },
     {
@@ -1889,7 +2211,7 @@
       "path": "scripts/renewal_reminder.py",
       "root": "sunbiz",
       "subcmd": "tail",
-      "mutating": false,
+      "mutating": true,
       "help": "renewal_reminder.py \u2014 daily sweep of funded deals approaching renewal window. \u2014 subcommand: tail"
     },
     {
@@ -1897,7 +2219,7 @@
       "path": "scripts/renewal_reminder.py",
       "root": "sunbiz",
       "subcmd": "once",
-      "mutating": false,
+      "mutating": true,
       "help": "renewal_reminder.py \u2014 daily sweep of funded deals approaching renewal window. \u2014 subcommand: once"
     },
     {
@@ -1905,7 +2227,7 @@
       "path": "scripts/repair_sunbiz_sequence_bodies.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "repair_sunbiz_sequence_bodies.py \u2014 one-off repair for the 2026-05-25 seeding"
     },
     {
@@ -1913,7 +2235,7 @@
       "path": "scripts/sentinel.py",
       "root": "sunbiz",
       "subcmd": "loop",
-      "mutating": false,
+      "mutating": true,
       "help": "sentinel.py \u2014 merchant-reply sentiment scorer + auto-pause arbiter. \u2014 subcommand: loop"
     },
     {
@@ -1921,7 +2243,7 @@
       "path": "scripts/sentinel.py",
       "root": "sunbiz",
       "subcmd": "once",
-      "mutating": false,
+      "mutating": true,
       "help": "sentinel.py \u2014 merchant-reply sentiment scorer + auto-pause arbiter. \u2014 subcommand: once"
     },
     {
@@ -1929,7 +2251,7 @@
       "path": "scripts/sentinel.py",
       "root": "sunbiz",
       "subcmd": "score",
-      "mutating": false,
+      "mutating": true,
       "help": "sentinel.py \u2014 merchant-reply sentiment scorer + auto-pause arbiter. \u2014 subcommand: score"
     },
     {
@@ -1937,7 +2259,7 @@
       "path": "scripts/sequence_runner.py",
       "root": "sunbiz",
       "subcmd": "once",
-      "mutating": false,
+      "mutating": true,
       "help": "sequence_runner.py \u2014 drip-campaign daemon (Phase 4.3 of SunBiz CRM). \u2014 subcommand: once"
     },
     {
@@ -1945,7 +2267,7 @@
       "path": "scripts/sequence_runner.py",
       "root": "sunbiz",
       "subcmd": "loop",
-      "mutating": false,
+      "mutating": true,
       "help": "sequence_runner.py \u2014 drip-campaign daemon (Phase 4.3 of SunBiz CRM). \u2014 subcommand: loop"
     },
     {
@@ -1953,7 +2275,7 @@
       "path": "scripts/sequence_runner.py",
       "root": "sunbiz",
       "subcmd": "tail",
-      "mutating": false,
+      "mutating": true,
       "help": "sequence_runner.py \u2014 drip-campaign daemon (Phase 4.3 of SunBiz CRM). \u2014 subcommand: tail"
     },
     {
@@ -1961,7 +2283,7 @@
       "path": "scripts/setup.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "Sun Biz Agent setup script."
     },
     {
@@ -1969,7 +2291,7 @@
       "path": "scripts/setup_check.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "setup_check.py \u2014 SunBiz Day-1 readiness gate."
     },
     {
@@ -1977,7 +2299,7 @@
       "path": "scripts/shop_out_sender.py",
       "root": "sunbiz",
       "subcmd": "once",
-      "mutating": false,
+      "mutating": true,
       "help": "shop_out_sender.py \u2014 Phase 6.3-bis + migration 069 (2026-05-25). \u2014 subcommand: once"
     },
     {
@@ -1985,7 +2307,7 @@
       "path": "scripts/shop_out_sender.py",
       "root": "sunbiz",
       "subcmd": "loop",
-      "mutating": false,
+      "mutating": true,
       "help": "shop_out_sender.py \u2014 Phase 6.3-bis + migration 069 (2026-05-25). \u2014 subcommand: loop"
     },
     {
@@ -1993,7 +2315,7 @@
       "path": "scripts/shop_out_sender.py",
       "root": "sunbiz",
       "subcmd": "tail",
-      "mutating": false,
+      "mutating": true,
       "help": "shop_out_sender.py \u2014 Phase 6.3-bis + migration 069 (2026-05-25). \u2014 subcommand: tail"
     },
     {
@@ -2017,7 +2339,7 @@
       "path": "scripts/sms_engine.py",
       "root": "sunbiz",
       "subcmd": "status",
-      "mutating": false,
+      "mutating": true,
       "help": "Sun Biz Agent \u2014 Multi-Provider SMS Engine (V1). \u2014 subcommand: status"
     },
     {
@@ -2025,7 +2347,7 @@
       "path": "scripts/sms_engine.py",
       "root": "sunbiz",
       "subcmd": "providers",
-      "mutating": false,
+      "mutating": true,
       "help": "Sun Biz Agent \u2014 Multi-Provider SMS Engine (V1). \u2014 subcommand: providers"
     },
     {
@@ -2033,7 +2355,7 @@
       "path": "scripts/sunbiz_health_check.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "sunbiz_health_check.py \u2014 standing read-only auditor for the SunBiz backend."
     },
     {
@@ -2041,7 +2363,7 @@
       "path": "scripts/text_torrent_tool.py",
       "root": "sunbiz",
       "subcmd": "blast",
-      "mutating": false,
+      "mutating": true,
       "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: blast"
     },
     {
@@ -2057,7 +2379,7 @@
       "path": "scripts/text_torrent_tool.py",
       "root": "sunbiz",
       "subcmd": "lists",
-      "mutating": false,
+      "mutating": true,
       "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: lists"
     },
     {
@@ -2065,7 +2387,7 @@
       "path": "scripts/text_torrent_tool.py",
       "root": "sunbiz",
       "subcmd": "list-stats",
-      "mutating": false,
+      "mutating": true,
       "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: list-stats"
     },
     {
@@ -2073,7 +2395,7 @@
       "path": "scripts/text_torrent_tool.py",
       "root": "sunbiz",
       "subcmd": "purchase-number",
-      "mutating": false,
+      "mutating": true,
       "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: purchase-number"
     },
     {
@@ -2081,7 +2403,7 @@
       "path": "scripts/text_torrent_tool.py",
       "root": "sunbiz",
       "subcmd": "numbers",
-      "mutating": false,
+      "mutating": true,
       "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: numbers"
     },
     {
@@ -2089,15 +2411,23 @@
       "path": "scripts/text_torrent_tool.py",
       "root": "sunbiz",
       "subcmd": "status",
-      "mutating": false,
+      "mutating": true,
       "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: status"
+    },
+    {
+      "key": "tps_probe",
+      "path": "scripts/tps_probe.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": true,
+      "help": "tps_probe.py \u2014 diagnose the TruePeopleSearch contact-enrichment path."
     },
     {
       "key": "underwriting_orchestrator_loop",
       "path": "scripts/underwriting_orchestrator.py",
       "root": "sunbiz",
       "subcmd": "loop",
-      "mutating": false,
+      "mutating": true,
       "help": "underwriting_orchestrator.py \u2014 automatic underwriting daemon. \u2014 subcommand: loop"
     },
     {
@@ -2105,7 +2435,7 @@
       "path": "scripts/underwriting_orchestrator.py",
       "root": "sunbiz",
       "subcmd": "tail",
-      "mutating": false,
+      "mutating": true,
       "help": "underwriting_orchestrator.py \u2014 automatic underwriting daemon. \u2014 subcommand: tail"
     },
     {
@@ -2113,7 +2443,7 @@
       "path": "scripts/underwriting_orchestrator.py",
       "root": "sunbiz",
       "subcmd": "once",
-      "mutating": false,
+      "mutating": true,
       "help": "underwriting_orchestrator.py \u2014 automatic underwriting daemon. \u2014 subcommand: once"
     },
     {
@@ -2121,7 +2451,7 @@
       "path": "scripts/uw_lead_enricher.py",
       "root": "sunbiz",
       "subcmd": null,
-      "mutating": false,
+      "mutating": true,
       "help": "uw_lead_enricher.py - keep approved Breeze UW leads complete."
     }
   ]

@@ -1,0 +1,5 @@
+{
+  "name": "bravo",
+  "entry_points": ["CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md", "OPENCODE.md", "ZCODE.md"],
+  "mirror_dir": ".gemini/rules"
+}

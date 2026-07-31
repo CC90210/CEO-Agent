@@ -28,8 +28,8 @@ Author: Bravo · 2026-05-22
 from __future__ import annotations
 
 import argparse
+import html
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -45,6 +45,14 @@ except Exception:
 
 from lib.secret_loader import bootstrap  # noqa: E402
 bootstrap()
+
+# Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. Without it this
+# watchdog died with CERTIFICATE_VERIFY_FAILED before it could read cron_jobs,
+# so the meta-cron that exists to surface broken crons was itself broken and
+# silent — exactly the failure mode it was built to prevent.
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
 
 from supabase_tool import get_client, load_env  # noqa: E402
 
@@ -75,34 +83,31 @@ def find_bad_crons() -> list[dict]:
 
 
 def telegram_alert(bad: list[dict]) -> tuple[bool, str]:
-    """Best-effort Telegram send. Returns (sent, message). Quiet if no
-    token configured — caller decides whether that's an error."""
-    token = os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("BRAVO_TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID") or os.environ.get("BRAVO_TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
-        return False, "telegram_not_configured"
+    """Ship a consolidated failure alert through the same notify() path the
+    rest of the fleet uses. Returns (sent, detail).
 
+    The old path read TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID straight off
+    os.environ and built its own urllib send. But under the PYTHONW scheduler
+    those creds live in .env.agents (loaded by secret_loader), NOT the process
+    env, and the real chat id is TELEGRAM_ALLOWED_USERS — so the watchdog
+    always returned 'telegram_not_configured' and CC never saw a single failure
+    alert (the watchdog was itself the silently-broken cron). notify() loads via
+    secret_loader, resolves the chat id, and uses parse_mode=HTML — so we
+    html-escape the tracebacks (which contain <module> etc.)."""
     lines = [f"🚨 {len(bad)} cron(s) failing:\n"]
     for b in bad[:10]:
-        snippet = b["last_result"][:120].replace("\n", " ")
-        lines.append(f"• *{b['name']}*")
-        lines.append(f"  `{snippet}`")
+        name = html.escape(str(b["name"]), quote=False)
+        snippet = html.escape(b["last_result"][:120].replace("\n", " "), quote=False)
+        lines.append(f"• {name}")
+        lines.append(f"  {snippet}")
     if len(bad) > 10:
         lines.append(f"... and {len(bad) - 10} more.")
     text = "\n".join(lines)
 
-    import urllib.parse
-    import urllib.request
-    payload = urllib.parse.urlencode({
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "Markdown",
-    }).encode("utf-8")
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, data=payload), timeout=10) as resp:
-            ok = resp.status == 200
-            return ok, "sent" if ok else f"telegram_{resp.status}"
+        from notify import notify  # type: ignore
+        ok = notify(text, category="system", silent=False, force=True)
+        return ok, "sent" if ok else "notify_failed"
     except Exception as exc:  # noqa: BLE001
         return False, f"telegram_error:{type(exc).__name__}:{str(exc)[:80]}"
 
@@ -146,6 +151,14 @@ def main() -> int:
         if args.alert and not args.dry_run:
             print(f"  telegram_alert: {send_detail}")
 
+    # If we found failures and TRIED to alert but the send didn't land, the
+    # watchdog itself must go RED (nonzero exit → cron_jobs.last_result starts
+    # with ERROR). Otherwise the meta-cron shows green while CC gets no alert —
+    # the exact silent-failure this guard exists to prevent.
+    if bad and args.alert and not args.dry_run and not sent:
+        print(f"ERROR: cron failures detected but alert delivery failed "
+              f"({send_detail})", file=sys.stderr)
+        return 1
     return 0
 
 

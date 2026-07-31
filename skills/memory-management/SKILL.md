@@ -4,6 +4,8 @@ description: MemoryBox system for preventing bloat, scoring confidence, compress
 triggers: [memory, bloat, archive, compress, session log, confidence, MemoryBox, retrieval, hybrid search, semantic, embedding, RRF, fastembed, LanceDB]
 tier: core
 dependencies: []
+tags: [skill, memory-management]
+last_updated: 2026-05-21
 ---
 
 # Memory Management (MemoryBox)

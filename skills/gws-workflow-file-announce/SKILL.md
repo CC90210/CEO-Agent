@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws workflow +file-announce --help"
 triggers: ["gws workflow file announce", "use gws workflow file announce", "run gws workflow file announce", "google workflow: announce a drive file in a chat space"]
 tier: specialized
+tags: [skill, gws-workflow-file-announce]
+last_updated: 2026-06-20
 ---
 
 # workflow +file-announce

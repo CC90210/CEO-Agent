@@ -1,8 +1,8 @@
 ---
 tags: [knowledge, wiki, tech-stack, tools, infrastructure]
 sources: [brain/CAPABILITIES.md, brain/STATE.md]
-last_updated: 2026-04-06
-confidence: 0.90
+last_updated: 2026-07-19
+confidence: 0.92
 ---
 
 # Tech Stack — Full Technology Inventory
@@ -21,7 +21,7 @@ confidence: 0.90
 | Database | Supabase (PostgreSQL) | — | 3 projects, 28 tables |
 | Hosting | Vercel | — | Auto-deploy from git |
 | Payments | Stripe | — | 3 brand accounts |
-| Automation | n8n | — | 47 workflows on Hostinger VPS |
+| Automation | n8n | — | self-hosted on Hostinger VPS (workflow count lives in n8n, not here) |
 
 **Platform:** Windows 11 (primary desktop), bash shell
 
@@ -29,24 +29,18 @@ confidence: 0.90
 
 | Model | Provider | Role |
 |-------|---------|------|
-| Claude Opus/Sonnet 4.6 | Anthropic | Bravo (CEO/COO/CTO), Skool engine, content pipeline |
-| Gemini 1.5 Pro/Flash | Google | Gemini CLI — diagnostics, fast inference, fallback |
-| GPT-4o / GPT-OSS 120B | OpenAI | Codex (backend executor, code review) |
-| Codex (external AI) | OpenAI | Dual-AI backend executor via codex-companion.mjs |
+| Claude Fable 5 (`claude-fable-5`) | Anthropic | Standard for top-tier reasoning + main agent loop (since 2026-06-12) |
+| Claude Opus 4.8 / Sonnet 4.6 / Haiku 4.5 | Anthropic | Heavy code / general / cheap classification tiers — canonical map: `scripts/lib/model_registry.py` |
+| Gemini 3.x | Google | Gemini CLI runtime — diagnostics, fast inference, fallback |
+| GPT-5.x | OpenAI | Codex — dual-AI backend executor + adversarial review via codex-companion.mjs |
 
-## MCP Servers (4 Working)
+All model calls from automations route through the LOCAL `claude` CLI on subscription OAuth (`scripts/lib/claude_cli.py`, prompts via stdin) — never the metered API key.
 
-These are stateless — they don't need credentials and never break.
+## MCP Servers (9 registered in `.claude/mcp.json`; 13 across all configs)
 
-| Server | Purpose | Key Tools |
-|--------|---------|-----------|
-| Playwright | Browser automation, web research, Skool | navigate, snapshot, click, type |
-| Context7 | Live library documentation | resolve-library-id, query-docs |
-| Memory | Persistent knowledge graph | create_entities, search_nodes |
-| Sequential Thinking | Multi-step structured reasoning | sequentialthinking |
+Registered: Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph, GitHub, Firecrawl, Obsidian, Filesystem. Four more (Supabase, n8n, Stripe, Late) ride via `enabledMcpjsonServers`. Authoritative config-path registry: `scripts/audit_mcp_secrets.py`.
 
-**Note:** 4 credential MCPs (n8n, Late/Zernio, Supabase, Stripe) were replaced with Python CLI
-tools because credential passing through MCP breaks frequently.
+**Note:** credentialed services (n8n, Late/Zernio, Supabase, Stripe, GWS) are used by agents via Python CLI wrappers — credential passing through MCP breaks frequently, so CLIs are the primary interface.
 
 ## CLI Tools (Primary Interface — More Reliable Than MCPs)
 
@@ -87,9 +81,9 @@ All scripts: support `--json` flag, read credentials from `.env.agents`, Supabas
 | Grape Vine Cottage | Vite, React 18 | `APPS/Grape-Vine-Cottage` |
 | Mindset Companion | Next.js 16, React 19 | `APPS/MINDSET COMPANION APP/cc-mindset` |
 | On The Hill | Vite, React 19 | `APPS/ON-THE-HILL-WEBSITE` |
-| Atlas (CFO) | Python 3.11+, CCXT, Claude API | `APPS/CFO-Agent` |
+| Atlas (CFO) | Python, local Claude CLI (pivoted from trading/CCXT 2026-04-14) | `APPS/CFO-Agent` |
 | TIKTIK | Next.js 14, Supabase, Tailwind | `APPS/tiktik` |
-| CC Funnel | Next.js 14, Supabase, Tailwind | `APPS/cc-funnel` |
+| CC Funnel (RETIRED 2026-06-18) | replaced by native funnel at oasisai.work/f/ | — |
 | Shopify Ad Engine | Remotion 4, React 19, Three.js | `APPS/shopify-ad-engine` |
 | Lafreniere PM | Next.js 16, Supabase, Stripe | `APPS/lafreniere-pm` |
 | AURA | Claude Code agent, ESP32, Home Assistant | `AURA` |
@@ -100,7 +94,7 @@ All scripts: support `--json` flag, read credentials from `.env.agents`, Supabas
 |--------|------|---------|
 | Community management | Skool engine | V2 research-enhanced, post-reply only, DMs disabled |
 | Social scheduling | Zernio (formerly Late) | 8 connected accounts, `https://zernio.com/api/v1/` |
-| Workflow automation | n8n | 47 workflows, Hostinger VPS |
+| Workflow automation | n8n | self-hosted, Hostinger VPS |
 | Process scheduling | PM2 | Pinned to `.venv` Python, silent |
 | Telegram bridge | telegram_agent.js | V11.0, 25 max turns, loads full brain context |
 | Email | Google Workspace | `google_tool.py`, SMTP fallback, oasisaisolutions@gmail.com |
@@ -113,14 +107,11 @@ Raw iPhone video → `../CMO-Agent/scripts/content_pipeline.py` → Whisper word
 karaoke captions → FFmpeg encode (1080×1920, CRF 18) → Codex image insertion →
 thumbnail generation → Zernio schedule across 6 platforms.
 
-## Skill and Workflow Counts (2026-03-31)
+## Skill and Workflow Counts (2026-07-19 — live source: `brain/CAPABILITY_GRAPH.json` totals; never trust a wiki snapshot over the graph)
 
-- Skills: 180 (81 core + 42 GWS + 41 recipes + 10 personas + 6 context-optimization)
-- Workflows: 30 active (`.agents/workflows/`)
-- Scripts: 37 CLI engines and system tools
-- Agents: 17 including Codex as external executor
-- MCP servers: 4 working + 4 replaced by CLI
-- Hooks: 4 active (2 PreToolUse safety, 1 PostToolUse audit, 1 Notification)
+- Skills: 151 · Script nodes: 116 · Agent nodes: 32 (incl. the V7.2 agency-import bench) · Workflows: 35 · Resource nodes (V7.1 Free-Tier Radar): 14
+- MCP servers: 9 registered (13 across configs)
+- Hooks: full PreToolUse guard chain (secret/exec/state/anti-pattern/subprocess) + SessionStart/UserPromptSubmit/PreCompact/PostToolUse/SubagentStop orchestration — see `.claude/settings.hooks.template.json`
 
 ## Sources
 - `brain/CAPABILITIES.md` — complete tool and integration registry

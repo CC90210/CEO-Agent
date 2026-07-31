@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Desert Rose
 
 A soft and sophisticated theme with dusty, muted tones perfect for elegant presentations.

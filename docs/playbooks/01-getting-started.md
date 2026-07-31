@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-05-21
+---
+
 # Getting Started
 
 Welcome. Your AI agent is now installed and watching its own back via the V6.0 guardrail layer. This page is the 30-second orientation; the next three pages cover safety, escalation, and pause.

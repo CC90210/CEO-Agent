@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Testing CLAUDE.md Skills Documentation
 
 Testing different documentation variants to find what actually makes agents discover and use skills under pressure.

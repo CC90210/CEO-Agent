@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-06-03
+---
+
 # SunBiz VPS — Turnkey Bring-up System Message (audit-revised 2026-06-03)
 
 > Paste the block below as the first message to a **Claude Code** session on the
@@ -71,3 +76,7 @@ reporting concise evidence after each:
 
 If anything here conflicts with the live code, trust the code and tell CC the discrepancy.
 ```
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

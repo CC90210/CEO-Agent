@@ -6,6 +6,8 @@ date: 2026-05-23
 deciders: [bravo, cc]
 supersedes: null
 superseded_by: null
+tags: [docs, adr, decision]
+last_updated: 2026-05-23
 ---
 
 # ADR-0005 — Bridge PATH enrichment for GUI-launched subprocess CLIs
@@ -91,3 +93,7 @@ Implementation commits:
 
 - ADR-0004 (entry-file lockstep policy) — codified the broader "shared helpers must stay in parallel" pattern.
 - `claudekit` dependency (commit `cd80601c`) — separate but related: `.claude/settings.json` declares Stop hooks that call `claudekit-hooks`; install.sh / install.ps1 now install it explicitly so the hook doesn't fail silently.
+
+## Obsidian Links
+- [[docs/adr/INDEX]]
+- [[CONTEXT]]

@@ -4,6 +4,8 @@ description: Secrets and authentication management. Ensures API keys, tokens, an
 triggers: [secret, credential, API key, exposed, rotation, security, token, password, leak, gitguardian]
 tier: core
 dependencies: []
+tags: [skill, security-protocol]
+last_updated: 2026-06-21
 ---
 
 # SECRETS AND AUTHENTICATION MANAGEMENT
@@ -132,5 +134,5 @@ When spawning subagents that need API access, pass secrets via environment varia
 
 ## Obsidian Links
 - [[skills/INDEX.md]] | [[brain/CAPABILITIES]] | [[memory/MISTAKES]]
-- [[scripts/scan_secrets]] (the detection tool)
-- [[templates/agent-scaffold/.gitignore]] (the baseline)
+- `scripts/scan_secrets.py` (the detection tool)
+- `templates/agent-scaffold/.gitignore` (the baseline)

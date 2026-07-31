@@ -1,6 +1,7 @@
 ---
+description: "Operating manual with decision tree to route CC's questions to correct agent: Bravo (CEO), Atlas (CFO), Maven (CMO), Aura (Life/personal) by domain"
 tags: [operating-manual, how-to, c-suite, life]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -173,7 +174,7 @@ Aura reads all 3 pulses → suppresses takeout nudges that week (lean mode)
 CC → Bravo: "Should I hire a VA?"
 Bravo reads: cfo_pulse (runway), cmo_pulse (ad ROAS), ceo_pulse (client pipeline)
 Bravo computes: cost of hire vs. time freed vs. pipeline load
-Bravo answers: "Not yet — wait until MRR hits $5K, then we hire for XYZ specifically"
+Bravo answers: "Not yet — wait until MRR hits $10K, then we hire for XYZ specifically"
 Bravo writes reasoning to ceo_pulse for future sessions
 ```
 

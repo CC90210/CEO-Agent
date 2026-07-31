@@ -1,3 +1,8 @@
+---
+tags: [root]
+last_updated: 2026-07-20
+---
+
 # Changelog
 
 All notable changes to Business-Empire-Agent are documented in this file.
@@ -8,11 +13,135 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 - **Major** — breaking changes to the cross-agent substrate (state DB schema,
   event-bus contract, sibling-agent ABI).
-- **Minor** — new V6.x epic landing (V6.5 multi-machine bridge,
-  V6.6 capability graph, V6.7 agentic-OS orchestration, V6.8 vocabulary layer).
+- **Minor** — a new epic landing (e.g. V6.5 multi-machine bridge, V6.6
+  capability graph, V6.7 agentic-OS orchestration, V6.8 vocabulary layer,
+  V7.0 reliability/observability, V7.2 persona bench, V7.3 typed memory).
 - **Patch** — production-hardening passes, doc syncs, test repairs.
 
 ## [Unreleased]
+
+## [7.4.1] — 2026-07-28
+
+V7.4.1 — **Vault hygiene + credential-first execution (three-repo pass).** A patch-level
+hardening across Bravo, Maven and Atlas: the knowledge graph the agents retrieve from was
+lying, and agents were declaring false limits on themselves.
+
+- **Vault tooling (new, stdlib-only):** `obsidian_graph_doctor` (broken links, orphans,
+  weak nodes, frontmatter gaps; `--fix-links`, `--reconnect`, `--strict` CI gate),
+  `frontmatter_doctor` (tags + `last_updated` derived from `git log`, never today's date —
+  the staleness gate treats it as ground truth), `lib/vault_scope` (one definition of
+  in-the-vault / safe-to-write), `lib/frontmatter` (one parser), 34 regression tests.
+  `wiki_link_auditor` superseded: it resolved repo-root-relative, but Obsidian resolves by
+  **basename** and honours `userIgnoreFilters`, so it reported 20 broken links where 85
+  were real.
+- **Graph repaired in all three vaults:** Bravo 85→0 broken / 79→6 orphans; Maven 92→0
+  (and 653→305 real notes — `vendor/` was inflating the graph with 348 phantom orphans);
+  Atlas 23→0. ~750 notes stamped with git-derived frontmatter across the fleet.
+- **Credential-first protocol:** `capability_probe` reports service availability and the
+  exact command to run, **never values** — the answer to "do I have access?" without
+  reading the secret store. Required keys are ANY-OF groups where EVERY group must be
+  satisfied (a lone `SUPABASE_URL` is not access). Stamped into all six entry points via
+  `PERSONAL.md` `seed_core`.
+- **8-step closed loop** codified as `brain/EXECUTION_RULES.md` §18; Adon/APEX handover
+  SOP at `docs/sop/ADON_AGENT_PROTOCOL_SOP.md`; `docs/adr/INDEX.md` (13 ADRs had no index;
+  documents the 0003/0004 numbering collision without unilaterally renumbering).
+- **Version single-sourcing enforced for real:** all six entry points hardcoded `V7.3.3`
+  while `brain/STATE.md` said `V7.4.0`. The parity test only checked the H1, so an H2
+  drifted silently across every runtime. Entry points now defer to
+  `brain/STATE.md architecture_version`; the test checks all architecture headings and
+  inline current-version claims, while still allowing historical citations.
+- **Fixes:** `context_builder` TLS routed through the OS trust store (was dying with
+  CERTIFICATE_VERIFY_FAILED on every call); hardcoded LiteLLM master key replaced with an
+  env-var read and no fallback.
+
+## [7.4.0] — 2026-07-20
+
+V7.4 — **Agent Fleet Modernization (the AOS pass).** The 13 core personas were V5.5-era
+next to the modern V7.2 imports; four frontmatter dialects; shadowed duplicate files;
+hand-maintained routing that drifted; agent nodes the resolver couldn't score. This ties
+the fleet into one system.
+
+- **Wiring (code):** `discover_agents()` now carries triggers/tags/model/tools into the
+  capability graph (edges 49→134) + a **generated `brain/WHEN_TO_USE_AGENTS.md`**
+  (frontmatter-derived, freshness-tested — can't drift); `capability_query.py --kind any`
+  genuinely searches all kinds (was silently skills-only) so agents resolve by trigger
+  ("review this diff" → code-reviewer, score 11.5); `register.py agent` emits the
+  ADR-0012 canonical schema **scoped read-only by default** (was full Write/Edit/Bash).
+- **Personas (content):** all 13 modernized to one contract
+  (name/description/model/tools/tier/owner/triggers/tags + Rules/Success Metrics/
+  Collaboration) with current facts (model_registry tiers, send_gateway-only,
+  INBOUND-first, Atlas-owned MRR, graph-deferred counts). 4 shadowed duplicates deleted;
+  `reviewer` consolidated into native `code-reviewer`; `aura` marked peer-profile.
+- **Governance:** ADR-0012 (canonical contract, two-dialects-one-schema, canonical-home
+  rule); `agents/INDEX.md` rewritten to reality; `brain/AGENTS.md` stale per-persona
+  deep-list + fictional-name matrix (Coder/Planner/Content Creator) collapsed to a pointer
+  at the generated doc. Fleet SCHEMA propagates to siblings; personas stay per-agent.
+
+## [7.3.5] — 2026-07-19
+
+V7.3.5 — **System currency sweep.** Three-lens audit for semantic staleness (prose
+contradicting live reality — the rot class freshness gates can't see): 6 HIGH / 14 MED /
+10 LOW findings, all fixed. Suga fully retired from the brain (Solara + Helios
+canonicalized in CONTEXT.md); STATE.md body no longer claims V6 Apex; Montreal QC
+propagated across entry points + siblings; model tables mirror model_registry;
+knowledge wiki refreshed; agent-forge scaffold gap closed; README stats check wired
+into pre-commit (blocked its own shipping commit as live proof). Reference:
+`docs/audits/2026-07-19-currency-audit.md` · repeatable via `skills/currency-audit`.
+
+
+## [7.3.3] — 2026-07-18
+
+V7.2 + V7.3 — **Persona Bench & Typed Memory.** Two-repo integration audit
+(msitarzewski/agency-agents MIT · volcengine/OpenViking AGPLv3-patterns-only)
+shipped as two epics, eight layer commits, per `prompts/INTEGRATE_NEW_TOOL.md`.
+
+- **V7.2.0–V7.2.3 Persona Bench:** 10 hand-scoped personas into `agents/`
+  (QA/test engineering, accessibility, DB reliability, DevOps, incident command,
+  AI-code audit, product mgmt, project shepherd, MCP builder, inbound discovery
+  coach — every file explicit `tools:`/`model:`; validator 100/100);
+  `discover_agents()` now recursive with stem-dedup (`.claude/agents` wins) —
+  voltagent/ graph-visible for the first time since April; routing rows in
+  AGENTS.md + ORCHESTRATION_DECISION_TABLE; counts read from graph totals;
+  sibling shards committed: Maven +2 (SEO, email-nurture strategy — ccb8f6b),
+  Atlas +2 (FP&A, tax w/ CRA+Revenu Québec transition framing — 777e6be; the
+  validator caught stale Ontario residency, live-verified against USER.md).
+- **V7.3.0–V7.3.3 Typed Memory:** bravo_sleep dedup state machine
+  (cooldown → retrieval near-dup probe → judged create/skip; merge deliberately
+  not adopted) + `state/memory_diff/` per-run audit artifacts + anti-pollution
+  input filter; retriever L1 abstract column (migration 003, FTS5+LanceDB) with
+  `description:` backfill across 79 files (abstract coverage 163→242/267
+  sources) + freshness-decay ranking (memory_aging inputs finally reach
+  retrieval); ADR-0011 registry of per-file update semantics; mem0 verified
+  already flag-gated (verdict recorded, no new stores).
+- **Explicitly not done:** no bulk persona import (untyped tools vs guard
+  model), no OpenViking server/code (AGPL + cloud-VLM dependency + would be a
+  4th vector store), no knowledge/ vector-indexing, vendor benchmarks not
+  cited as fact.
+
+## [7.1.3] — 2026-07-17
+
+V7.1 — **Free-Tier & Knowledge Radar.** Six-repo integration audit (free-for-dev,
+public-apis, free-programming-books, LLMs-from-scratch, ML-From-Scratch, Made-With-ML)
+shipped as four layer commits per `prompts/INTEGRATE_NEW_TOOL.md`. External-service
+knowledge is now cataloged, machine-queryable, and governed; the harness eval gained
+per-slice scoring + run history. (The V7.1 roadmap items captured by the V7.0 research
+sweep — stuck-loop detector, outcome-state verification, etc. — remain open; they were
+not part of this drop.)
+
+- **V7.1.0 substrate:** `brain/TOOL_SHED.md` § 9 Free-Tier Radar (14 curated rows:
+  1 adopted, 1 rejected, 1 policy, 11 candidates awaiting CC signups);
+  `discover_resources()` → `resource:` capability-graph nodes + status-enum drift check;
+  `skills/resource-radar` lookup skill (all-soft deps); `scripts/integrations/
+  email_validate_tool.py` zero-key Disify wrapper (verified live: disposable
+  detection, batch mode); `harness_eval.py` named slices + `state/
+  harness_eval_history.jsonl` run records (Made-With-ML patterns, MIT).
+- **V7.1.1 conventions:** ADR-0010 (one catalog, row contract, link-don't-vendor,
+  keyed-adoption path, closed slots); ENV_KEYS_TEMPLATE "Radar adoptions" section.
+- **V7.1.2 vocabulary:** CONTEXT.md — Free-Tier Radar / Resource node / Slice-based
+  eval; TOOL_SHED § 10 Learning & R&D references (honest one-liners incl. the own-LLM
+  future recipes in LLMs-from-scratch Appendix E/ch06/ch07).
+- **V7.1.3 distribution:** plugin.json exclusion note (resource-radar is empire-
+  specific, not distributed); STATE.md version bump; this entry.
 
 ## [7.0.0] — 2026-06-10
 

@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Implementer Subagent Prompt Template
 
 Use this template when dispatching an implementer subagent.

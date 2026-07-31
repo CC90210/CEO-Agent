@@ -1,66 +1,155 @@
 #!/usr/bin/env python3
-"""
-Self-Audit — Bravo's automated health check.
+"""Bravo's read-only structural health audit.
 
-Scans the knowledge graph for orphans, broken wiring, stale docs, and
-undocumented scripts. Runs fast (seconds), emits a health score + action list.
+The audit distinguishes active knowledge from archives, canonical harness
+artifacts, templates, and private/operator-local documents. It validates the
+live capability graph and generated routing documents without regenerating or
+otherwise mutating them.
 
 Usage:
-    python scripts/core/self_audit.py              # human-readable report
-    python scripts/core/self_audit.py --json       # agent-readable JSON
-    python scripts/core/self_audit.py --fix-links  # auto-add reconnection TODOs to orphans
+    python scripts/core/self_audit.py
+    python scripts/core/self_audit.py --json
 
 Exit codes:
-    0 = healthy (score >= 85)
-    1 = warnings (score 70-84)
-    2 = degraded (score < 70)
+    0 = healthy (100/100, no failures or warnings)
+    1 = warnings or actionable failures (score 70-99)
+    2 = degraded (score below 70)
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import posixpath
 import re
+import sqlite3
+import subprocess
 import sys
-from dataclasses import dataclass, field, asdict
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass, field
+from datetime import date, datetime
+from enum import Enum
 from pathlib import Path
+from typing import Any, Callable, Iterable, Iterator
+from urllib.parse import unquote
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
-# --- Scan scope -------------------------------------------------------------
+# Directories containing knowledge files that participate in the audit. Files
+# with non-active roles are deliberately collected too: the link analyzer must
+# be able to detect an active document pointing across an archive boundary.
+AUDIT_DIRS = [
+    "brain",
+    "memory",
+    "skills",
+    "agents",
+    ".agents/workflows",
+    ".agents/commands",
+    ".agents/plans",
+    "APPS_CONTEXT",
+]
+SKIP_PATH_PARTS = {
+    ".git",
+    ".claude/worktrees",
+    "node_modules",
+    "worktrees",
+    "tmp",
+    "__pycache__",
+}
 
-AUDIT_DIRS = ["brain", "memory", "skills", "agents", ".agents/workflows",
-              ".agents/commands", ".agents/plans", "APPS_CONTEXT"]
-SKIP_DIRS = {"ARCHIVES", "node_modules", ".git", "worktrees", "tmp",
-             "__pycache__", ".claude/worktrees"}
-
-# Directories whose contents are historical archives by design — not expected
-# to have inbound wiki-links. Skipped for orphan checks.
-ARCHIVE_PATH_PARTS = {"outreach_archive", "daily", "research", "content"}
-
-# Files that are allowed to be "orphans" because they're entry points,
-# IDE-loaded at boot, or reachable via @import rather than [[wiki-link]].
+# These are true boot/runtime exceptions, not a mechanism for hiding missing
+# wiring. Generated documents, templates, private records, and archives are
+# handled by their typed roles instead of this allowlist.
 ORPHAN_ALLOWLIST = {
-    "brain/SOUL.md", "brain/USER.md", "brain/STATE.md",
-    "brain/DASHBOARD.md", "brain/CAPABILITIES.md", "brain/QUICK_REFERENCE.md",
-    "brain/AGENTS.md", "brain/APP_REGISTRY.md", "brain/BRAIN_LOOP.md",
-    "brain/INTERACTION_PROTOCOL.md", "brain/HEARTBEAT.md", "brain/GROWTH.md",
-    "brain/CHANGELOG.md", "brain/ORCHESTRATION.md", "brain/PERSONALITY.md",
-    "memory/ACTIVE_TASKS.md", "memory/SESSION_LOG.md",
-    "memory/MISTAKES.md", "memory/PATTERNS.md", "memory/DECISIONS.md",
-    "memory/MEMORY_INDEX.md", "memory/content-strategy.md",
+    "brain/SOUL.md",
+    "brain/USER.md",
+    "brain/STATE.md",
+    "brain/DASHBOARD.md",
+    "brain/CAPABILITIES.md",
+    "brain/QUICK_REFERENCE.md",
+    "brain/AGENTS.md",
+    "brain/APP_REGISTRY.md",
+    "brain/BRAIN_LOOP.md",
+    "brain/INTERACTION_PROTOCOL.md",
+    "brain/HEARTBEAT.md",
+    "brain/GROWTH.md",
+    "brain/CHANGELOG.md",
+    "brain/ORCHESTRATION.md",
+    "brain/PERSONALITY.md",
     "brain/SETUP_WIZARD_2_SPEC.md",
     "brain/V68_AGENT_OS_PATTERNS.md",
+    "memory/ACTIVE_TASKS.md",
+    "memory/SESSION_LOG.md",
+    "memory/MISTAKES.md",
+    "memory/PATTERNS.md",
+    "memory/DECISIONS.md",
+    "memory/MEMORY_INDEX.md",
+    "memory/content-strategy.md",
     "memory/feedback_browser_ladder_mandatory.md",
     "memory/feedback_skill_routing_disable_invocation.md",
     "memory/reference_cloakbrowser.md",
     "memory/RETROSPECTIVE_2026-05-14_rearchitecture.md",
+    "memory/OPERATIONAL_STATE.md",
     "agents/aura.md",
 }
 
 SKILL_DIR_ALLOWLIST = {"in-progress", "_archive"}
+DEFAULT_ENTRY_POINTS = (
+    "CLAUDE.md",
+    "GEMINI.md",
+    "ANTIGRAVITY.md",
+    "AGENTS.md",
+    "OPENCODE.md",
+    "ZCODE.md",
+)
 
-# ---------------------------------------------------------------------------
+# These files are loaded directly by the operating contract. Staleness for
+# other brain documents remains visible but advisory; otherwise an unrelated
+# old note would make the structural audit permanently unshippable.
+REQUIRED_CORE_DOCS = {
+    "brain/SOUL.md",
+    "brain/STATE.md",
+    "brain/AGENT_ROUTER.md",
+    "brain/EXECUTION_RULES.md",
+    "brain/INTENTS.md",
+    "brain/WHEN_TO_USE_SKILLS.md",
+    "brain/CAPABILITIES.md",
+    "brain/QUICK_REFERENCE.md",
+    "brain/ORCHESTRATION.md",
+}
+
+GENERATED_MARKER = "GENERATED by scripts/build_capability_graph.py"
+FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+WIKI_LINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
+AT_IMPORT_RE = re.compile(r"(?<![\w@])@([a-zA-Z0-9_./\\-]+\.md)\b")
+MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
+FENCED_CODE_RE = re.compile(r"```.*?```|~~~.*?~~~", re.DOTALL)
+INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+class PathRole(str, Enum):
+    """Knowledge lifecycle roles used by routing and reachability checks."""
+
+    ACTIVE = "active"
+    ARCHIVE = "archive"
+    CANONICAL = "canonical"
+    TEMPLATE = "template"
+    PRIVATE = "private"
+
+
+@dataclass
+class LinkAnalysis:
+    """Resolved active-knowledge edges and boundary findings."""
+
+    inbound: dict[str, set[str]] = field(default_factory=dict)
+    outbound: dict[str, set[str]] = field(default_factory=dict)
+    roles: dict[str, PathRole] = field(default_factory=dict)
+    broken_links: list[tuple[str, str]] = field(default_factory=list)
+    archive_boundary_violations: list[tuple[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -69,398 +158,1278 @@ class AuditResult:
     orphans: list[str] = field(default_factory=list)
     leaves: list[str] = field(default_factory=list)
     broken_links: list[tuple[str, str]] = field(default_factory=list)
+    archive_boundary_violations: list[tuple[str, str]] = field(default_factory=list)
+    archive_metadata_issues: list[str] = field(default_factory=list)
     skills_total: int = 0
     skills_missing_skill_md: list[str] = field(default_factory=list)
     skills_missing_frontmatter: list[str] = field(default_factory=list)
     scripts_total: int = 0
+    # Kept for JSON compatibility; this now means "missing from the structured
+    # capability graph", not "name absent from a prose document".
     scripts_undocumented: list[str] = field(default_factory=list)
+    script_metadata_issues: list[str] = field(default_factory=list)
     mcp_configs_in_sync: bool = True
     mcp_servers: list[str] = field(default_factory=list)
     capability_drift_count: int = 0
+    graph_matches_disk: bool = True
+    graph_drift_details: list[str] = field(default_factory=list)
+    generated_docs_drift: list[str] = field(default_factory=list)
+    retrieval_missing_sources: list[str] = field(default_factory=list)
+    freshness_stale: list[str] = field(default_factory=list)
+    freshness_missing_dates: list[str] = field(default_factory=list)
+    freshness_required_stale: list[str] = field(default_factory=list)
+    freshness_required_missing_dates: list[str] = field(default_factory=list)
+    freshness_required_missing: list[str] = field(default_factory=list)
+    freshness_required_inactive: list[str] = field(default_factory=list)
+    gate_errors: list[str] = field(default_factory=list)
     health_score: int = 0
+    mandatory_gate_passed: bool = False
+    mandatory_gate_failures: list[str] = field(default_factory=list)
+    healthy: bool = False
     warnings: list[str] = field(default_factory=list)
 
 
-def collect_markdown_files() -> list[Path]:
+@dataclass(frozen=True)
+class _TargetDocument:
+    rel: str
+    role: PathRole
+    path: Path
+
+
+def _relative(path: Path, repo_root: Path) -> str:
+    try:
+        return path.relative_to(repo_root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _frontmatter(text: str) -> dict[str, str]:
+    match = FRONTMATTER_RE.match(text)
+    if not match:
+        return {}
+    values: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        if ":" not in line or line.lstrip().startswith("#"):
+            continue
+        key, _, value = line.partition(":")
+        values[key.strip()] = value.strip().strip("'\"")
+    return values
+
+
+def classify_path(path: Path, repo_root: Path = REPO_ROOT) -> PathRole:
+    """Classify a knowledge path without treating canonical data as archive."""
+
+    rel = _relative(path, repo_root)
+    parts = [part.casefold() for part in Path(rel).parts]
+    name = path.name.casefold()
+
+    if any(part in {"_archive", "archives", "outreach_archive"} for part in parts):
+        return PathRole.ARCHIVE
+    if "_canonical" in parts:
+        return PathRole.CANONICAL
+    if name.endswith(".template.md"):
+        return PathRole.TEMPLATE
+
+    # APPS_CONTEXT is operator/client-local except for its tracked contract.
+    if parts and parts[0] == "apps_context" and name != "readme.md":
+        return PathRole.PRIVATE
+    if len(parts) >= 2 and parts[0] == "memory":
+        if parts[1] in {"daily", "research", "content", "private"}:
+            return PathRole.PRIVATE
+        if name.startswith("project_"):
+            return PathRole.PRIVATE
+    if "private" in parts:
+        return PathRole.PRIVATE
+
+    # A private status marker is useful for operator-local files whose names do
+    # not fit a stable path convention. Only "private" is honored here;
+    # archiving still requires moving the record across the archive boundary.
+    if path.is_file():
+        try:
+            status = _frontmatter(
+                path.read_text(encoding="utf-8", errors="ignore")[:4096]
+            ).get("status", "").casefold()
+            if status == "private":
+                return PathRole.PRIVATE
+        except OSError:
+            pass
+    return PathRole.ACTIVE
+
+
+def collect_markdown_files(repo_root: Path = REPO_ROOT) -> list[Path]:
+    """Collect knowledge documents, including typed non-active boundaries."""
+
     files: list[Path] = []
-    for d in AUDIT_DIRS:
-        base = REPO_ROOT / d
+    skip_names = {part.casefold() for part in SKIP_PATH_PARTS}
+    for dirname in AUDIT_DIRS:
+        base = repo_root / dirname
         if not base.exists():
             continue
-        for p in base.rglob("*.md"):
-            if any(skip in p.parts for skip in SKIP_DIRS):
+        for path in base.rglob("*.md"):
+            rel_parts = {part.casefold() for part in path.relative_to(repo_root).parts}
+            if rel_parts & skip_names:
                 continue
-            files.append(p)
-    return files
+            files.append(path)
+    return sorted(set(files), key=lambda path: _relative(path, repo_root).casefold())
 
 
-WIKI_LINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]")
-AT_IMPORT_RE = re.compile(r"@([a-zA-Z0-9_\-/.]+\.md)")
+def _repo_relative_metadata_path(value: str) -> str | None:
+    """Normalize a governed metadata path or reject absolute/traversal input."""
+    raw = value.strip().replace("\\", "/")
+    if (
+        not raw
+        or raw.startswith("/")
+        or re.match(r"^[a-zA-Z]:", raw)
+    ):
+        return None
+    normalized = posixpath.normpath(raw)
+    if normalized in {"", ".", ".."} or normalized.startswith("../"):
+        return None
+    return normalized
 
 
-def _find_leaves(md_files: list[Path], inbound: dict[str, set[str]]) -> list[str]:
-    """Files with degree <= 1 (1 inbound + 0 outbound, OR 0 inbound + 1 outbound).
+def check_archive_metadata(
+    result: AuditResult,
+    repo_root: Path = REPO_ROOT,
+    markdown_files: Iterable[Path] | None = None,
+) -> None:
+    """Enforce the managed ``brain/_archive`` lifecycle contract.
 
-    Same allowlist as orphan detection — entry points and historical
-    archives are exempt. These show up as perimeter dots in Obsidian's
-    force-directed graph, indistinguishable from orphans visually. Flag
-    them so future drift surfaces in self_audit before the user notices.
+    Other typed archive lanes (for example condensed private memory and
+    archived skills) have separate lifecycle contracts. The brain manifest is
+    the authoritative inventory for operating documents removed from active
+    routing, so every record there must carry explicit provenance metadata.
     """
-    leaves: list[str] = []
-    for f in md_files:
-        rel = str(f.relative_to(REPO_ROOT)).replace("\\", "/")
-        if rel in ORPHAN_ALLOWLIST:
-            continue
-        if any(part in ARCHIVE_PATH_PARTS for part in rel.split("/")):
-            continue
-        filename = rel.split("/")[-1]
-        # Inbound count (any of the three forms self_audit indexes)
-        in_count = (
-            len(inbound.get(rel, set()))
-            + len(inbound.get(filename, set()))
-            + len(inbound.get(rel.removesuffix(".md"), set()))
+    archive_root = repo_root / "brain" / "_archive"
+    manifest = archive_root / "README.md"
+    if not archive_root.exists():
+        return
+    manifest_rows: dict[str, tuple[str, str]] = {}
+    if not manifest.is_file():
+        result.archive_metadata_issues.append(
+            "brain/_archive/README.md: missing archive manifest"
         )
-        # Outbound count: count wiki-links that resolve to other md files
-        try:
-            text = f.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
+    else:
+        manifest_text = manifest.read_text(encoding="utf-8", errors="replace")
+        for line in manifest_text.splitlines():
+            if not line.lstrip().startswith("|"):
+                continue
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if len(cells) < 3:
+                continue
+            record_codes = re.findall(r"`([^`]+)`", cells[0])
+            origin_codes = re.findall(r"`([^`]+)`", cells[1])
+            successor_codes = re.findall(r"`([^`]+)`", cells[2])
+            if not record_codes or not record_codes[0].casefold().endswith(".md"):
+                continue
+            record = record_codes[0].replace("\\", "/")
+            if _repo_relative_metadata_path(record) is None:
+                result.archive_metadata_issues.append(
+                    f"brain/_archive/README.md: invalid archive record path: {record}"
+                )
+                continue
+            if record in manifest_rows:
+                result.archive_metadata_issues.append(
+                    f"brain/_archive/README.md: duplicate manifest row for {record}"
+                )
+                continue
+            if not origin_codes or not successor_codes:
+                result.archive_metadata_issues.append(
+                    f"brain/_archive/README.md: incomplete provenance row for {record}"
+                )
+                continue
+            manifest_rows[record] = (
+                origin_codes[0].replace("\\", "/"),
+                successor_codes[0].replace("\\", "/"),
+            )
+
+    # Always enumerate recursively from the managed archive itself. A caller's
+    # partial knowledge-file list must not hide an unmanifested nested record.
+    candidates = list(archive_root.rglob("*.md"))
+    required = (
+        "status",
+        "archived_on",
+        "archived_from",
+        "archive_reason",
+        "superseded_by",
+    )
+    archived_records: set[str] = set()
+    for path in sorted(candidates, key=lambda item: _relative(item, repo_root).casefold()):
+        rel = _relative(path, repo_root)
+        if path == manifest:
             continue
-        out_count = 0
-        for m in WIKI_LINK_RE.findall(text):
-            target = m.strip()
-            if not target.endswith(".md"):
-                target = target + ".md"
-            # Only count if target is an indexed file (avoid phantom links)
-            if target in inbound or target.split("/")[-1] in inbound:
-                out_count += 1
-        if (in_count + out_count) <= 1:
-            leaves.append(rel)
-    return leaves
+        record = path.relative_to(archive_root).as_posix()
+        archived_records.add(record)
+        metadata = _frontmatter(path.read_text(encoding="utf-8", errors="replace"))
+        for field_name in required:
+            if not metadata.get(field_name, "").strip():
+                result.archive_metadata_issues.append(
+                    f"{rel}: missing {field_name}"
+                )
+        if metadata.get("status", "").casefold() != "archived":
+            result.archive_metadata_issues.append(
+                f"{rel}: status must be archived"
+            )
+        archived_on = metadata.get("archived_on", "")
+        if archived_on:
+            try:
+                date.fromisoformat(archived_on)
+            except ValueError:
+                result.archive_metadata_issues.append(
+                    f"{rel}: archived_on must be YYYY-MM-DD"
+                )
+        archived_from = metadata.get("archived_from", "")
+        normalized_origin = _repo_relative_metadata_path(archived_from)
+        if archived_from and normalized_origin is None:
+            result.archive_metadata_issues.append(
+                f"{rel}: archived_from must be a repository-relative path"
+            )
+        elif normalized_origin and classify_path(
+            repo_root / normalized_origin, repo_root
+        ) is PathRole.ARCHIVE:
+            result.archive_metadata_issues.append(
+                f"{rel}: archived_from cannot point into an archive"
+            )
+        successor = metadata.get("superseded_by", "")
+        if successor:
+            normalized_successor = _repo_relative_metadata_path(successor)
+            if normalized_successor is None:
+                result.archive_metadata_issues.append(
+                    f"{rel}: superseded_by must be a repository-relative path"
+                )
+            else:
+                successor_path = repo_root / normalized_successor
+            if normalized_successor is not None and not successor_path.is_file():
+                result.archive_metadata_issues.append(
+                    f"{rel}: superseded_by target does not exist: {successor}"
+                )
+            elif normalized_successor is not None and classify_path(
+                successor_path, repo_root
+            ) is not PathRole.ACTIVE:
+                result.archive_metadata_issues.append(
+                    f"{rel}: superseded_by must point to an active file: {successor}"
+                )
+        manifest_provenance = manifest_rows.get(record)
+        if manifest_provenance is None:
+            result.archive_metadata_issues.append(
+                f"{rel}: missing from brain/_archive/README.md manifest"
+            )
+        else:
+            manifest_origin, manifest_successor = manifest_provenance
+            if normalized_origin and normalized_origin != manifest_origin:
+                result.archive_metadata_issues.append(
+                    f"{rel}: archived_from does not match manifest ({manifest_origin})"
+                )
+            normalized_successor = _repo_relative_metadata_path(successor)
+            if normalized_successor and normalized_successor != manifest_successor:
+                result.archive_metadata_issues.append(
+                    f"{rel}: superseded_by does not match manifest ({manifest_successor})"
+                )
+
+    for record in sorted(set(manifest_rows) - archived_records):
+        result.archive_metadata_issues.append(
+            f"brain/_archive/README.md: manifest record does not exist: {record}"
+        )
+
+
+def _git_ignored_relpaths(paths: Iterable[Path], repo_root: Path) -> set[str]:
+    """Return ignored paths in one read-only git call; failures are neutral."""
+
+    if not (repo_root / ".git").exists():
+        return set()
+    relpaths = sorted({_relative(path, repo_root) for path in paths})
+    if not relpaths:
+        return set()
+    try:
+        completed = safe_run(
+            ["git", "-c", "core.quotepath=false", "check-ignore", "-z", "--stdin"],
+            cwd=repo_root,
+            input=("\0".join(relpaths) + "\0").encode("utf-8"),
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    if completed.returncode not in (0, 1):
+        return set()
+    output = completed.stdout.decode("utf-8", errors="replace")
+    return {
+        value.strip().replace("\\", "/")
+        for value in output.split("\0")
+        if value.strip()
+    }
+
+
+def discover_entry_points(repo_root: Path = REPO_ROOT) -> list[Path]:
+    """Discover live runtime entrypoints from genome.json, with a safe fallback."""
+
+    names: Iterable[str] = DEFAULT_ENTRY_POINTS
+    manifest = repo_root / "genome.json"
+    if manifest.exists():
+        try:
+            configured = json.loads(manifest.read_text(encoding="utf-8")).get("entry_points")
+            if isinstance(configured, list) and all(isinstance(item, str) for item in configured):
+                names = configured
+        except (OSError, json.JSONDecodeError):
+            pass
+    return [repo_root / name for name in names if (repo_root / name).is_file()]
+
+
+def _default_link_sources(repo_root: Path) -> list[Path]:
+    sources = discover_entry_points(repo_root)
+    for name in ("README.md", "CONTEXT.md", "PERSONAL.md"):
+        path = repo_root / name
+        if path.is_file() and path not in sources:
+            sources.append(path)
+    return sources
+
+
+def _strip_code(text: str) -> str:
+    without_comments = HTML_COMMENT_RE.sub("", text)
+    return INLINE_CODE_RE.sub("", FENCED_CODE_RE.sub("", without_comments))
+
+
+def _markdown_destination(raw: str) -> str:
+    value = raw.strip()
+    if value.startswith("<") and ">" in value:
+        return value[1:value.index(">")]
+    # Markdown titles follow whitespace after the destination.
+    return value.split(maxsplit=1)[0] if value else value
+
+
+def _iter_link_targets(text: str) -> Iterator[tuple[str, str]]:
+    clean = _strip_code(text)
+    for target in WIKI_LINK_RE.findall(clean):
+        yield "wiki", target.strip()
+    for target in AT_IMPORT_RE.findall(clean):
+        yield "at", target.strip()
+    for target in MARKDOWN_LINK_RE.findall(clean):
+        destination = _markdown_destination(target)
+        if destination:
+            yield "markdown", destination
+
+
+def _clean_link_target(raw: str) -> str | None:
+    target = unquote(raw.strip().strip("<>"))
+    if not target or target.startswith("#"):
+        return None
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target):
+        return None
+    target = target.split("#", 1)[0].split("?", 1)[0].replace("\\", "/").strip()
+    return target or None
+
+
+def _normal_rel(value: str) -> str:
+    normalized = posixpath.normpath(value.replace("\\", "/"))
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized.lstrip("/")
+
+
+def _aliases_for(rel: str, role: PathRole) -> set[str]:
+    aliases = {rel, rel.removesuffix(".md"), posixpath.basename(rel)}
+    aliases.add(posixpath.basename(rel).removesuffix(".md"))
+    if posixpath.basename(rel).casefold() == "skill.md":
+        skill_dir = posixpath.dirname(rel)
+        aliases.update({skill_dir, posixpath.basename(skill_dir)})
+    if role is PathRole.TEMPLATE and rel.casefold().endswith(".template.md"):
+        live_rel = rel[: -len(".template.md")] + ".md"
+        aliases.update(
+            {
+                live_rel,
+                live_rel.removesuffix(".md"),
+                posixpath.basename(live_rel),
+                posixpath.basename(live_rel).removesuffix(".md"),
+            }
+        )
+    return {alias.casefold() for alias in aliases if alias}
+
+
+def _candidate_keys(raw: str, kind: str, source_rel: str) -> list[str]:
+    target = _clean_link_target(raw)
+    if target is None:
+        return []
+    if kind == "markdown" and not target.casefold().endswith(".md"):
+        return []
+    explicit_suffix = Path(target).suffix.casefold()
+    if kind == "wiki" and explicit_suffix and explicit_suffix != ".md":
+        return []
+    bare_target: str | None = None
+    if kind in {"wiki", "at"} and not target.casefold().endswith(".md"):
+        bare_target = target
+        target += ".md"
+
+    candidates: list[str] = []
+    if kind == "markdown":
+        candidates.append(_normal_rel(posixpath.join(posixpath.dirname(source_rel), target)))
+        candidates.append(_normal_rel(target))
+    elif kind == "at":
+        candidates.append(_normal_rel(target))
+        candidates.append(_normal_rel(posixpath.join(posixpath.dirname(source_rel), target)))
+    else:
+        candidates.append(_normal_rel(target))
+        if bare_target is not None:
+            candidates.insert(0, _normal_rel(bare_target))
+    candidates.extend([posixpath.basename(item) for item in list(candidates)])
+
+    ordered: list[str] = []
+    for candidate in candidates:
+        key = candidate.casefold()
+        if key not in ordered:
+            ordered.append(key)
+    return ordered
+
+
+def _outside_reference_paths(
+    raw: str,
+    kind: str,
+    source_rel: str,
+    repo_root: Path,
+) -> list[Path]:
+    """Return concrete filesystem candidates for a non-catalog reference."""
+
+    target = _clean_link_target(raw)
+    if target is None:
+        return []
+    bases = [repo_root / _normal_rel(target)]
+    if kind in {"wiki", "markdown"}:
+        bases.insert(
+            0,
+            repo_root / _normal_rel(posixpath.join(posixpath.dirname(source_rel), target)),
+        )
+    candidates: list[Path] = []
+    for base in bases:
+        candidates.append(base)
+        if not base.suffix:
+            candidates.extend(
+                [base.with_suffix(".md"), base.with_suffix(".py"), base / "SKILL.md"]
+            )
+    return list(dict.fromkeys(candidates))
+
+
+def _outside_archive_target(
+    raw: str,
+    kind: str,
+    source_rel: str,
+    repo_root: Path,
+) -> str | None:
+    for candidate in _outside_reference_paths(raw, kind, source_rel, repo_root):
+        if candidate.exists() and classify_path(candidate, repo_root) is PathRole.ARCHIVE:
+            return _relative(candidate, repo_root)
+    return None
+
+
+def _reference_exists_outside_graph(
+    raw: str,
+    kind: str,
+    source_rel: str,
+    repo_root: Path,
+) -> bool:
+    """Recognize valid non-archive code, directory, and sibling references."""
+
+    target = _clean_link_target(raw)
+    if target is None:
+        return True
+    for candidate in _outside_reference_paths(raw, kind, source_rel, repo_root):
+        if (
+            candidate.exists()
+            and classify_path(candidate, repo_root) is not PathRole.ARCHIVE
+        ):
+            return True
+
+    normalized = _normal_rel(target)
+    if normalized.startswith("scripts/") and not Path(normalized).suffix:
+        stem = posixpath.basename(normalized)
+        matches = [
+            path for path in (repo_root / "scripts").rglob(f"{stem}.py")
+            if classify_path(path, repo_root) is not PathRole.ARCHIVE
+        ]
+        if len(matches) == 1:
+            return True
+    if normalized.startswith("agents/") and not Path(normalized).suffix:
+        agent = posixpath.basename(normalized)
+        if (repo_root / ".claude" / "agents" / f"{agent}.md").is_file():
+            return True
+    return False
+
+
+def _choose_target(
+    candidate_keys: list[str],
+    aliases: dict[str, set[str]],
+    catalog: dict[str, _TargetDocument],
+) -> _TargetDocument | None:
+    for key in candidate_keys:
+        matches = aliases.get(key, set())
+        if not matches:
+            continue
+        if len(matches) == 1:
+            return catalog[next(iter(matches))]
+        active = [rel for rel in matches if catalog[rel].role is PathRole.ACTIVE]
+        if len(active) == 1:
+            return catalog[active[0]]
+        private = [rel for rel in matches if catalog[rel].role is PathRole.PRIVATE]
+        if len(private) == 1:
+            # A local personalized file takes precedence over its public
+            # template, but remains outside the active graph.
+            return catalog[private[0]]
+        non_archive = [rel for rel in matches if catalog[rel].role is not PathRole.ARCHIVE]
+        if len(non_archive) == 1:
+            return catalog[non_archive[0]]
+        # Ambiguous basenames are intentionally unresolved; silently choosing a
+        # same-named file would manufacture a false inbound edge.
+        return None
+    return None
+
+
+def analyze_links(
+    md_files: list[Path],
+    repo_root: Path = REPO_ROOT,
+    *,
+    entry_points: list[Path] | None = None,
+) -> LinkAnalysis:
+    """Resolve active Markdown/wiki/@ links without archive/private leakage."""
+
+    link_sources = _default_link_sources(repo_root) if entry_points is None else entry_points
+    all_paths = list(dict.fromkeys([*md_files, *link_sources]))
+    ignored = _git_ignored_relpaths(all_paths, repo_root)
+
+    catalog: dict[str, _TargetDocument] = {}
+    roles: dict[str, PathRole] = {}
+    for path in all_paths:
+        rel = _relative(path, repo_root)
+        role = classify_path(path, repo_root)
+        if role is PathRole.ACTIVE and rel in ignored:
+            role = PathRole.PRIVATE
+        roles[rel] = role
+        catalog[rel] = _TargetDocument(rel, role, path)
+
+    aliases: dict[str, set[str]] = {}
+    for rel, document in catalog.items():
+        for alias in _aliases_for(rel, document.role):
+            aliases.setdefault(alias, set()).add(rel)
+
+    analysis = LinkAnalysis(roles=roles)
+    for rel, role in roles.items():
+        if role is PathRole.ACTIVE:
+            analysis.inbound.setdefault(rel, set())
+            analysis.outbound.setdefault(rel, set())
+
+    broken: set[tuple[str, str]] = set()
+    archive_crossings: set[tuple[str, str]] = set()
+    for source_path in all_paths:
+        source_rel = _relative(source_path, repo_root)
+        if roles.get(source_rel) is not PathRole.ACTIVE:
+            continue
+        try:
+            text = source_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for kind, raw_target in _iter_link_targets(text):
+            keys = _candidate_keys(raw_target, kind, source_rel)
+            if not keys:
+                continue
+            target = _choose_target(keys, aliases, catalog)
+            if target is None:
+                outside_archive = _outside_archive_target(
+                    raw_target, kind, source_rel, repo_root
+                )
+                if outside_archive is not None:
+                    archive_crossings.add((source_rel, outside_archive))
+                    continue
+                # Existing Markdown outside the audited knowledge directories is
+                # valid, but does not enter the active knowledge graph.
+                if _reference_exists_outside_graph(raw_target, kind, source_rel, repo_root):
+                    continue
+                # Missing references into known private namespaces remain
+                # intentionally opaque rather than being advertised as broken.
+                if any(
+                    key.startswith(("apps_context/", "memory/research/", "memory/private/"))
+                    for key in keys
+                ):
+                    continue
+                broken.add((source_rel, _clean_link_target(raw_target) or raw_target))
+                continue
+            if target.role is PathRole.ARCHIVE:
+                archive_crossings.add((source_rel, target.rel))
+                continue
+            if target.role is not PathRole.ACTIVE or target.rel == source_rel:
+                continue
+            analysis.inbound.setdefault(target.rel, set()).add(source_rel)
+            analysis.outbound.setdefault(source_rel, set()).add(target.rel)
+
+    analysis.broken_links = sorted(broken)
+    analysis.archive_boundary_violations = sorted(archive_crossings)
+    return analysis
 
 
 def build_link_index(md_files: list[Path]) -> dict[str, set[str]]:
-    """Map 'brain/SOUL.md' -> {set of files that link to it}."""
-    inbound: dict[str, set[str]] = {}
-    # Also check CLAUDE.md, GEMINI.md, ANTIGRAVITY.md for @imports
-    entry_points = [REPO_ROOT / n for n in
-                    ("CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md", "README.md")]
-    for ep in entry_points:
-        if ep.exists():
-            md_files = md_files + [ep]
+    """Compatibility wrapper returning the normalized active inbound index."""
 
-    for f in md_files:
-        try:
-            text = f.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
+    return analyze_links(md_files, REPO_ROOT).inbound
+
+
+def find_orphans(
+    md_files: list[Path],
+    links: LinkAnalysis,
+    repo_root: Path = REPO_ROOT,
+    *,
+    allowlist: set[str] | None = None,
+) -> list[str]:
+    allowed = ORPHAN_ALLOWLIST if allowlist is None else allowlist
+    orphans: list[str] = []
+    for path in md_files:
+        rel = _relative(path, repo_root)
+        role = links.roles.get(rel, classify_path(path, repo_root))
+        if role is not PathRole.ACTIVE or rel in allowed:
             continue
-        source = str(f.relative_to(REPO_ROOT)).replace("\\", "/")
-
-        for m in WIKI_LINK_RE.findall(text):
-            target = m.strip()
-            if not target.endswith(".md"):
-                target = target + ".md"
-            # Obsidian links may omit directory prefix — try both forms
-            inbound.setdefault(target, set()).add(source)
-            inbound.setdefault(target.split("/")[-1], set()).add(source)
-
-        for m in AT_IMPORT_RE.findall(text):
-            inbound.setdefault(m.strip(), set()).add(source)
-            inbound.setdefault(m.strip().split("/")[-1], set()).add(source)
-    return inbound
+        if not links.inbound.get(rel):
+            orphans.append(rel)
+    return sorted(set(orphans))
 
 
-def check_skills(result: AuditResult) -> None:
-    skills_dir = REPO_ROOT / "skills"
+def _find_leaves(
+    md_files: list[Path],
+    links: LinkAnalysis,
+    repo_root: Path = REPO_ROOT,
+) -> list[str]:
+    leaves: list[str] = []
+    for path in md_files:
+        rel = _relative(path, repo_root)
+        role = links.roles.get(rel, classify_path(path, repo_root))
+        if role is not PathRole.ACTIVE or rel in ORPHAN_ALLOWLIST:
+            continue
+        degree = len(links.inbound.get(rel, set())) + len(links.outbound.get(rel, set()))
+        if degree <= 1:
+            leaves.append(rel)
+    return sorted(set(leaves))
+
+
+def check_skills(result: AuditResult, repo_root: Path = REPO_ROOT) -> None:
+    skills_dir = repo_root / "skills"
     if not skills_dir.exists():
         return
-    for sub in skills_dir.iterdir():
-        if not sub.is_dir() or sub.name.startswith(".") or sub.name in SKILL_DIR_ALLOWLIST:
+    for subdir in sorted(skills_dir.iterdir()):
+        if not subdir.is_dir() or subdir.name.startswith(".") or subdir.name in SKILL_DIR_ALLOWLIST:
             continue
         result.skills_total += 1
-        skill_md = sub / "SKILL.md"
+        skill_md = subdir / "SKILL.md"
         if not skill_md.exists():
-            result.skills_missing_skill_md.append(str(sub.relative_to(REPO_ROOT)))
+            result.skills_missing_skill_md.append(_relative(subdir, repo_root))
             continue
-        text = skill_md.read_text(encoding="utf-8", errors="ignore")
-        # Rough frontmatter check: must have --- at top + name: + description:
-        head = text[:800]
+        head = skill_md.read_text(encoding="utf-8", errors="ignore")[:800]
         if not (head.startswith("---") and "name:" in head and "description:" in head):
-            result.skills_missing_frontmatter.append(str(skill_md.relative_to(REPO_ROOT)))
+            result.skills_missing_frontmatter.append(_relative(skill_md, repo_root))
 
 
-def check_scripts(result: AuditResult) -> None:
-    scripts_dir = REPO_ROOT / "scripts"
+SCRIPT_NODE_FIELDS = {"id", "kind", "name", "path", "description", "tier", "owner", "discovery"}
+GOVERNANCE_FIELDS = {"category", "lifecycle", "risk", "triggers", "owner", "project", "bridge"}
+
+
+def _script_node_issues(path: str, node: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    missing = sorted(field for field in SCRIPT_NODE_FIELDS if field not in node)
+    if missing:
+        issues.append(f"{path}: graph node missing fields: {', '.join(missing)}")
+    if node.get("kind") != "script":
+        issues.append(f"{path}: graph node kind is not script")
+    if node.get("description") in (None, "", "(no docstring)"):
+        issues.append(f"{path}: graph node has no usable description")
+
+    has_governance = node.get("discovery") == "auto-capability-meta" or any(
+        field in node for field in GOVERNANCE_FIELDS - {"owner"}
+    )
+    if has_governance:
+        missing_governance = sorted(field for field in GOVERNANCE_FIELDS if field not in node)
+        if missing_governance:
+            issues.append(f"{path}: capability metadata missing fields: {', '.join(missing_governance)}")
+        triggers = node.get("triggers")
+        if not isinstance(triggers, list) or not triggers or not all(
+            isinstance(item, str) and item.strip() for item in triggers
+        ):
+            issues.append(f"{path}: capability metadata triggers must be non-empty strings")
+        if not isinstance(node.get("bridge"), dict):
+            issues.append(f"{path}: capability metadata bridge must be an object")
+    return issues
+
+
+def check_scripts(
+    result: AuditResult,
+    repo_root: Path = REPO_ROOT,
+    graph: dict[str, Any] | None = None,
+) -> None:
+    """Check top-level live scripts against structured graph nodes.
+
+    ``scripts/_archive`` is intentionally outside the top-level discovery
+    contract and therefore cannot create false missing-node findings.
+    """
+
+    scripts_dir = repo_root / "scripts"
     if not scripts_dir.exists():
         return
-    # Collect reference text from the docs agents actually read
-    doc_text = ""
-    for ref_doc in ("brain/CAPABILITIES.md", "brain/QUICK_REFERENCE.md", "CLAUDE.md"):
-        p = REPO_ROOT / ref_doc
-        if p.exists():
-            doc_text += p.read_text(encoding="utf-8", errors="ignore")
-    # Also scan skills for references
-    for skill_md in (REPO_ROOT / "skills").rglob("SKILL.md"):
-        doc_text += skill_md.read_text(encoding="utf-8", errors="ignore")
+    scripts = sorted(
+        path for path in scripts_dir.glob("*.py")
+        if not path.name.startswith("_") and not path.name.startswith("test_")
+    )
+    result.scripts_total = len(scripts)
 
-    for py in scripts_dir.glob("*.py"):
-        if py.name.startswith("_") or py.name.startswith("test_"):
+    nodes_by_path: dict[str, dict[str, Any]] = {}
+    duplicates: set[str] = set()
+    for node in (graph or {}).get("nodes", []):
+        if node.get("kind") != "script" or not isinstance(node.get("path"), str):
             continue
-        result.scripts_total += 1
-        if py.name not in doc_text and py.stem not in doc_text:
-            result.scripts_undocumented.append(str(py.relative_to(REPO_ROOT)))
+        rel = node["path"].replace("\\", "/")
+        if rel in nodes_by_path:
+            duplicates.add(rel)
+        nodes_by_path[rel] = node
+    for rel in sorted(duplicates):
+        result.script_metadata_issues.append(f"{rel}: duplicate script graph nodes")
+
+    for script in scripts:
+        rel = _relative(script, repo_root)
+        node = nodes_by_path.get(rel)
+        if node is None:
+            result.scripts_undocumented.append(rel)
+            continue
+        result.script_metadata_issues.extend(_script_node_issues(rel, node))
 
 
-def check_mcp_sync(result: AuditResult) -> None:
-    """Sync rule: project-level configs (.claude/mcp.json + .vscode/mcp.json)
-    must agree exactly. The user-level ~/.gemini/settings.json is shared
-    across every project on the machine, so it's allowed to be a SUPERSET
-    of the project's required servers — extras don't count as drift."""
+def check_mcp_sync(result: AuditResult, repo_root: Path = REPO_ROOT) -> None:
+    """Require project MCP configs to match; user config may be a superset."""
+
     project_configs = {
-        ".claude/mcp.json": REPO_ROOT / ".claude" / "mcp.json",
-        ".vscode/mcp.json": REPO_ROOT / ".vscode" / "mcp.json",
+        ".claude/mcp.json": repo_root / ".claude" / "mcp.json",
+        ".vscode/mcp.json": repo_root / ".vscode" / "mcp.json",
     }
-    user_config_label = "~/.gemini/settings.json"
-    user_config_path = Path.home() / ".gemini" / "settings.json"
-
     project_sets: dict[str, set[str]] = {}
     for label, path in project_configs.items():
         if not path.exists():
-            # CI checkouts and fresh clones may omit editor-local MCP config
-            # files. Warn so humans can repair their local toolchain, but do
-            # not mark the repository unhealthy unless existing configs drift.
             result.warnings.append(f"MCP config missing: {label}")
             continue
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as e:
-            result.warnings.append(f"MCP config unreadable: {label} ({e})")
+            project_sets[label] = set((data.get("mcpServers") or data.get("servers") or {}).keys())
+        except (OSError, json.JSONDecodeError) as exc:
             result.mcp_configs_in_sync = False
-            continue
-        project_sets[label] = set((data.get("mcpServers") or data.get("servers") or {}).keys())
+            result.warnings.append(f"MCP config unreadable: {label} ({exc})")
 
-    if project_sets:
-        ref = next(iter(project_sets.values()))
-        for label, s in project_sets.items():
-            if s != ref:
+    if not project_sets:
+        return
+    reference = next(iter(project_sets.values()))
+    for label, servers in project_sets.items():
+        if servers != reference:
+            result.mcp_configs_in_sync = False
+            result.warnings.append(
+                f"MCP drift in {label}: missing={sorted(reference - servers)} "
+                f"extra={sorted(servers - reference)}"
+            )
+    result.mcp_servers = sorted(reference)
+
+    user_config = Path.home() / ".gemini" / "settings.json"
+    if user_config.exists():
+        try:
+            data = json.loads(user_config.read_text(encoding="utf-8"))
+            user_servers = set((data.get("mcpServers") or data.get("servers") or {}).keys())
+            missing = reference - user_servers
+            if missing:
                 result.mcp_configs_in_sync = False
-                missing = ref - s
-                extra = s - ref
-                result.warnings.append(
-                    f"MCP drift in {label}: missing={sorted(missing)} extra={sorted(extra)}"
-                )
-        result.mcp_servers = sorted(ref)
-
-        # User-level gemini settings: must be SUPERSET, not exact match.
-        # Extras don't count as drift — they're for other projects on the machine.
-        if user_config_path.exists():
-            try:
-                udata = json.loads(user_config_path.read_text(encoding="utf-8"))
-                user_servers = set((udata.get("mcpServers") or udata.get("servers") or {}).keys())
-                missing_in_user = ref - user_servers
-                if missing_in_user:
-                    result.mcp_configs_in_sync = False
-                    result.warnings.append(
-                        f"MCP missing from {user_config_label}: {sorted(missing_in_user)}"
-                    )
-            except Exception as e:
-                result.warnings.append(f"MCP config unreadable: {user_config_label} ({e})")
+                result.warnings.append(f"MCP missing from ~/.gemini/settings.json: {sorted(missing)}")
+        except (OSError, json.JSONDecodeError) as exc:
+            result.warnings.append(f"MCP config unreadable: ~/.gemini/settings.json ({exc})")
 
 
-def compute_health_score(r: AuditResult) -> int:
-    score = 100
-    score -= min(len(r.orphans) * 2, 20)          # cap orphan penalty at 20
-    score -= len(r.broken_links) * 3
-    score -= len(r.skills_missing_skill_md) * 5
-    score -= len(r.skills_missing_frontmatter) * 2
-    score -= min(len(r.scripts_undocumented), 10)  # cap undocumented at 10
-    if not r.mcp_configs_in_sync:
-        score -= 10
-    # Capability graph drift: each unwired skill/script costs 0.05 points,
-    # capped at 5. Means 100 drift items = -5 (visible), but legacy repos
-    # with hundreds aren't crushed. The cap forces the count to surface in
-    # warnings; growth in drift becomes the leading indicator, not the level.
-    score -= min(int(r.capability_drift_count * 0.05), 5)
-    return max(0, score)
+def normalize_graph(graph: dict[str, Any]) -> dict[str, Any]:
+    """Return the complete deterministic graph, ignoring only generated_at."""
+
+    normalized = json.loads(json.dumps(graph, sort_keys=True, default=str))
+    normalized.pop("generated_at", None)
+    if isinstance(normalized.get("nodes"), list):
+        normalized["nodes"] = sorted(
+            normalized["nodes"],
+            key=lambda item: (
+                item.get("id", "") if isinstance(item, dict) else "",
+                json.dumps(item, sort_keys=True),
+            ),
+        )
+    if isinstance(normalized.get("edges"), list):
+        normalized["edges"] = sorted(
+            normalized["edges"], key=lambda item: json.dumps(item, sort_keys=True)
+        )
+    if isinstance(normalized.get("drift"), list):
+        normalized["drift"] = sorted(
+            normalized["drift"], key=lambda item: json.dumps(item, sort_keys=True)
+        )
+    return normalized
 
 
-def _check_readme_stats(r: AuditResult) -> None:
-    """Verify README.md stat counts (skills/scripts/sub-agents/workflows/MCPs)
-    match what's actually on disk. Stale README = warning. The system should
-    never lie about its own size. Logic delegates to update_readme_stats.py
-    so there's a single source of truth for what 'stale' means."""
+def _load_graph_builder() -> Any:
+    scripts_dir = str(REPO_ROOT / "scripts")
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    import build_capability_graph as builder  # type: ignore
+
+    return builder
+
+
+@contextmanager
+def _builder_at_root(builder: Any, repo_root: Path) -> Iterator[None]:
+    old_root = builder.PROJECT_ROOT
+    old_graph_path = builder.GRAPH_PATH
+    builder.PROJECT_ROOT = repo_root
+    builder.GRAPH_PATH = repo_root / "brain" / "CAPABILITY_GRAPH.json"
     try:
-        sys.path.insert(0, str(REPO_ROOT / "scripts"))
-        import update_readme_stats as urs  # type: ignore
-        stats = urs.collect_stats()
-        changed, _diff = urs.rewrite_readme(stats, dry_run=True)
+        yield
+    finally:
+        builder.PROJECT_ROOT = old_root
+        builder.GRAPH_PATH = old_graph_path
+
+
+def _graph_diff_details(disk: dict[str, Any], expected: dict[str, Any]) -> list[str]:
+    disk_nodes = {node.get("id"): node for node in disk.get("nodes", [])}
+    expected_nodes = {node.get("id"): node for node in expected.get("nodes", [])}
+    added = sorted(set(expected_nodes) - set(disk_nodes))
+    removed = sorted(set(disk_nodes) - set(expected_nodes))
+    changed = sorted(
+        node_id for node_id in set(disk_nodes) & set(expected_nodes)
+        if disk_nodes[node_id] != expected_nodes[node_id]
+    )
+    details = [
+        f"nodes: {len(added)} added, {len(removed)} removed, {len(changed)} changed"
+    ]
+    if disk.get("edges", []) != expected.get("edges", []):
+        details.append("edges differ")
+    if disk.get("drift", []) != expected.get("drift", []):
+        details.append("drift findings differ")
+    disk_other = {key: value for key, value in normalize_graph(disk).items() if key not in {"nodes", "edges", "drift"}}
+    expected_other = {
+        key: value for key, value in normalize_graph(expected).items()
+        if key not in {"nodes", "edges", "drift"}
+    }
+    if disk_other != expected_other:
+        details.append("graph metadata/totals differ")
+    return details
+
+
+def check_capability_graph(
+    result: AuditResult,
+    repo_root: Path = REPO_ROOT,
+    *,
+    builder: Any | None = None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Compare the entire live graph with disk without writing either one."""
+
+    try:
+        graph_builder = builder or _load_graph_builder()
+        with _builder_at_root(graph_builder, repo_root):
+            expected = graph_builder.build()
+    except Exception as exc:  # noqa: BLE001 - gate errors must be surfaced
+        result.graph_matches_disk = False
+        result.gate_errors.append(f"capability graph build failed: {exc}")
+        return None, None
+
+    result.capability_drift_count = len(expected.get("drift") or [])
+    graph_path = repo_root / "brain" / "CAPABILITY_GRAPH.json"
+    if not graph_path.exists():
+        result.graph_matches_disk = False
+        result.graph_drift_details.append("brain/CAPABILITY_GRAPH.json is missing")
+        return None, expected
+    try:
+        disk = json.loads(graph_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        result.graph_matches_disk = False
+        result.gate_errors.append(f"CAPABILITY_GRAPH.json unreadable: {exc}")
+        return None, expected
+
+    if normalize_graph(disk) != normalize_graph(expected):
+        result.graph_matches_disk = False
+        result.graph_drift_details.extend(_graph_diff_details(disk, expected))
+    return disk, expected
+
+
+def check_generated_docs(
+    result: AuditResult,
+    repo_root: Path,
+    graph: dict[str, Any],
+    *,
+    renderer: Callable[[dict[str, Any]], dict[str, str]] | None = None,
+) -> None:
+    """Compare generated docs in memory; never invoke their mutating emitter."""
+
+    try:
+        if renderer is not None:
+            rendered = renderer(graph)
+        else:
+            builder = _load_graph_builder()
+            with _builder_at_root(builder, repo_root):
+                rendered = builder.render_generated_docs(graph)
+    except Exception as exc:  # noqa: BLE001
+        result.gate_errors.append(f"generated-doc render failed: {exc}")
+        return
+
+    for rel, expected in sorted(rendered.items()):
+        path = repo_root / rel
+        try:
+            actual = path.read_text(encoding="utf-8") if path.is_file() else None
+        except OSError:
+            actual = None
+        if actual != expected:
+            result.generated_docs_drift.append(rel)
+
+
+def check_retrieval_sources(
+    result: AuditResult,
+    repo_root: Path = REPO_ROOT,
+    db_path: Path | None = None,
+) -> None:
+    """Detect source rows whose files disappeared, using SQLite read-only."""
+
+    database = db_path or repo_root / "state" / "memory_index.db"
+    if not database.exists():
+        result.warnings.append(f"retrieval index missing: {_relative(database, repo_root)}")
+        return
+    uri = f"file:{database.resolve().as_posix()}?mode=ro"
+    try:
+        connection = sqlite3.connect(uri, uri=True)
+        try:
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+            }
+            rows: list[tuple[Any]] = []
+            source_tables = 0
+            for table in ("source_state", "memory_chunks", "chunk_meta"):
+                if table not in tables:
+                    continue
+                columns = {
+                    row[1] for row in connection.execute(
+                        f'PRAGMA table_info("{table}")'
+                    )
+                }
+                source_column = (
+                    "source" if "source" in columns
+                    else "source_file" if "source_file" in columns
+                    else None
+                )
+                if source_column is None:
+                    continue
+                source_tables += 1
+                rows.extend(
+                    connection.execute(
+                        f'SELECT DISTINCT "{source_column}" FROM "{table}"'
+                    ).fetchall()
+                )
+            if source_tables == 0:
+                raise sqlite3.DatabaseError(
+                    "no retrieval table with a source/source_file column"
+                )
+        finally:
+            connection.close()
+    except (OSError, sqlite3.Error) as exc:
+        result.gate_errors.append(f"retrieval source check failed: {exc}")
+        return
+
+    missing: set[str] = set()
+    invalid_rows = 0
+    for (source,) in rows:
+        if not isinstance(source, str) or not source.strip():
+            invalid_rows += 1
+            continue
+        source_path = Path(source)
+        if not source_path.is_absolute():
+            source_path = repo_root / source.replace("\\", "/")
+        if not source_path.is_file():
+            missing.add(source.replace("\\", "/"))
+    if invalid_rows:
+        result.gate_errors.append(
+            f"retrieval index contains {invalid_rows} blank/non-string source row(s)"
+        )
+    result.retrieval_missing_sources.extend(sorted(missing))
+
+
+def _parse_date(value: str) -> date | None:
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(value.strip()[:10], fmt).date()
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def check_freshness(
+    result: AuditResult,
+    repo_root: Path = REPO_ROOT,
+    *,
+    today: date | None = None,
+    required_core: set[str] | None = None,
+) -> None:
+    """Gate stale required docs while reporting other aging as advisory."""
+
+    current_day = today or date.today()
+    required = REQUIRED_CORE_DOCS if required_core is None else required_core
+    result.freshness_required_missing.extend(
+        sorted(rel for rel in required if not (repo_root / rel).is_file())
+    )
+    result.freshness_required_inactive.extend(
+        sorted(
+            rel for rel in required
+            if (repo_root / rel).is_file()
+            and classify_path(repo_root / rel, repo_root) is not PathRole.ACTIVE
+        )
+    )
+    stale: list[str] = []
+    missing_dates: list[str] = []
+    brain = repo_root / "brain"
+    if not brain.exists():
+        result.gate_errors.append("brain directory is missing")
+        return
+    for path in sorted(brain.glob("*.md")):
+        if classify_path(path, repo_root) is not PathRole.ACTIVE:
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        if GENERATED_MARKER in text:
+            continue
+        rel = _relative(path, repo_root)
+        metadata = _frontmatter(text)
+        last_updated = _parse_date(metadata.get("last_updated", "") or metadata.get("verified", ""))
+        if last_updated is None:
+            missing_dates.append(rel)
+            continue
+        try:
+            threshold = int(metadata.get("freshness_threshold_days", "30").split()[0])
+        except (ValueError, IndexError):
+            threshold = 30
+        if (current_day - last_updated).days > threshold:
+            stale.append(rel)
+
+    result.freshness_stale.extend(stale)
+    result.freshness_missing_dates.extend(missing_dates)
+    result.freshness_required_stale.extend(sorted(set(stale) & required))
+    result.freshness_required_missing_dates.extend(sorted(set(missing_dates) & required))
+
+    advisory_stale = sorted(set(stale) - required)
+    advisory_missing = sorted(set(missing_dates) - required)
+    if advisory_stale or advisory_missing:
+        result.warnings.append(
+            "brain freshness advisory: "
+            f"{len(advisory_stale)} stale and {len(advisory_missing)} missing-date "
+            "non-core document(s)"
+        )
+
+
+def check_personalization(result: AuditResult, repo_root: Path = REPO_ROOT) -> None:
+    profile = repo_root / "brain" / "operator.profile.json"
+    if not profile.exists():
+        result.warnings.append(
+            "operator.profile.json missing - run `python scripts/setup_wizard.py` "
+            "to personalize this clone"
+        )
+
+
+def _check_readme_stats(result: AuditResult) -> None:
+    """Run the README stat check in dry-run mode only."""
+
+    try:
+        scripts_dir = str(REPO_ROOT / "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import update_readme_stats as stats_module  # type: ignore
+
+        stats = stats_module.collect_stats()
+        changed, _diff = stats_module.rewrite_readme(stats, dry_run=True)
         if changed:
-            r.warnings.append(
+            result.warnings.append(
                 "README.md stats are stale. Run "
                 "`python scripts/update_readme_stats.py --apply` to refresh."
             )
     except Exception as exc:  # noqa: BLE001
-        r.warnings.append(f"README stats check failed: {exc}")
+        result.warnings.append(f"README stats check failed: {exc}")
 
 
-def run_audit() -> AuditResult:
-    result = AuditResult()
-    md_files = collect_markdown_files()
-    result.total_md_files = len(md_files)
-    inbound = build_link_index(md_files)
+def mandatory_failure_labels(result: AuditResult) -> list[str]:
+    labels: list[str] = []
+    checks = (
+        (result.orphans, "active knowledge orphans"),
+        (result.broken_links, "broken active links"),
+        (result.archive_boundary_violations, "archive-boundary violations"),
+        (result.archive_metadata_issues, "invalid archive metadata"),
+        (result.skills_missing_skill_md, "skills missing SKILL.md"),
+        (result.skills_missing_frontmatter, "skills missing frontmatter"),
+        (result.scripts_undocumented, "scripts missing graph nodes"),
+        (result.script_metadata_issues, "invalid script graph metadata"),
+        (result.graph_drift_details, "capability graph drift"),
+        (result.generated_docs_drift, "generated-doc drift"),
+        (result.retrieval_missing_sources, "retrieval ghost sources"),
+        (result.freshness_required_stale, "stale required documents"),
+        (result.freshness_required_missing_dates, "undated required documents"),
+        (result.freshness_required_missing, "missing required documents"),
+        (result.freshness_required_inactive, "inactive required documents"),
+        (result.gate_errors, "audit gate errors"),
+    )
+    for value, label in checks:
+        if value:
+            labels.append(label)
+    if not result.mcp_configs_in_sync:
+        labels.append("MCP config drift")
+    if result.capability_drift_count:
+        labels.append("capability metadata drift")
+    if not result.graph_matches_disk and "capability graph drift" not in labels:
+        labels.append("capability graph drift")
+    return labels
 
-    for f in md_files:
-        rel = str(f.relative_to(REPO_ROOT)).replace("\\", "/")
-        if rel in ORPHAN_ALLOWLIST:
-            continue
-        # Historical archive directories don't need inbound links
-        if any(part in ARCHIVE_PATH_PARTS for part in rel.split("/")):
-            continue
-        filename = rel.split("/")[-1]
-        # An orphan has no inbound refs under any form we index
-        if not inbound.get(rel) and not inbound.get(filename) and not inbound.get(rel.removesuffix(".md")):
-            result.orphans.append(rel)
 
-    # Leaf detection: files with degree <= 1 (one inbound, zero outbound)
-    # cluster on the perimeter of the Obsidian force-directed graph and
-    # look like orphans visually even though they have a link. Flag them
-    # so future drift gets caught early. Counted SEPARATELY from orphans
-    # — leaves don't reduce the health score (they're well-formed
-    # technically), they're just a UI quality signal.
-    result.leaves = _find_leaves(md_files, inbound)
+def compute_health_score(result: AuditResult) -> int:
+    score = 100
+    score -= min(len(result.orphans) * 2, 20)
+    score -= min(len(result.broken_links) * 3, 18)
+    score -= min(len(result.archive_boundary_violations) * 4, 16)
+    score -= min(len(result.archive_metadata_issues) * 3, 15)
+    score -= len(result.skills_missing_skill_md) * 5
+    score -= len(result.skills_missing_frontmatter) * 2
+    score -= min(len(result.scripts_undocumented) * 2, 12)
+    score -= min(len(result.script_metadata_issues) * 2, 12)
+    score -= min(result.capability_drift_count * 2, 12)
+    score -= min(len(result.generated_docs_drift) * 3, 15)
+    score -= min(len(result.retrieval_missing_sources) * 2, 16)
+    score -= min(
+        (
+            len(result.freshness_required_stale)
+            + len(result.freshness_required_missing_dates)
+            + len(result.freshness_required_missing)
+            + len(result.freshness_required_inactive)
+        ) * 2,
+        12,
+    )
+    score -= min(len(result.gate_errors) * 5, 15)
+    if not result.mcp_configs_in_sync:
+        score -= 10
+    if not result.graph_matches_disk:
+        score -= 8
 
-    check_skills(result)
-    check_scripts(result)
-    check_mcp_sync(result)
-    check_personalization(result)
-    check_capability_graph(result)
-    _check_readme_stats(result)
+    mandatory = mandatory_failure_labels(result)
+    if mandatory:
+        score = min(score, 84)
+    elif result.warnings or result.freshness_stale or result.freshness_missing_dates:
+        score = min(score, 99)
+    return max(0, score)
+
+
+def finalize_audit_result(result: AuditResult) -> AuditResult:
+    """Populate the public verdict fields after every gate has run."""
     result.health_score = compute_health_score(result)
+    result.mandatory_gate_failures = mandatory_failure_labels(result)
+    result.mandatory_gate_passed = not result.mandatory_gate_failures
+    result.healthy = (
+        result.health_score == 100
+        and result.mandatory_gate_passed
+        and not result.warnings
+    )
     return result
 
 
-def check_capability_graph(r: AuditResult) -> None:
-    """Warn when brain/CAPABILITY_GRAPH.json shows drift (skills missing
-    triggers/descriptions, scripts missing docstrings). Capped penalty so a
-    repo with many legacy unwired skills still ships, but the count is
-    visible and growth in drift is surfaced.
-    """
-    graph_path = REPO_ROOT / "brain" / "CAPABILITY_GRAPH.json"
-    if not graph_path.exists():
-        r.warnings.append(
-            "brain/CAPABILITY_GRAPH.json missing — run `python scripts/build_capability_graph.py` "
-            "to generate the canonical capability registry."
-        )
+def run_audit(repo_root: Path = REPO_ROOT) -> AuditResult:
+    result = AuditResult()
+    markdown_files = collect_markdown_files(repo_root)
+    result.total_md_files = len(markdown_files)
+    links = analyze_links(markdown_files, repo_root)
+    result.orphans = find_orphans(markdown_files, links, repo_root)
+    result.leaves = _find_leaves(markdown_files, links, repo_root)
+    result.broken_links = links.broken_links
+    result.archive_boundary_violations = links.archive_boundary_violations
+    check_archive_metadata(result, repo_root, markdown_files)
+
+    check_skills(result, repo_root)
+    disk_graph, expected_graph = check_capability_graph(result, repo_root)
+    check_scripts(result, repo_root, disk_graph)
+    if expected_graph is not None:
+        check_generated_docs(result, repo_root, expected_graph)
+    check_mcp_sync(result, repo_root)
+    check_personalization(result, repo_root)
+    check_retrieval_sources(result, repo_root)
+    check_freshness(result, repo_root)
+    if repo_root == REPO_ROOT:
+        _check_readme_stats(result)
+
+    return finalize_audit_result(result)
+
+
+def _append_items(lines: list[str], title: str, items: Iterable[Any], *, limit: int = 20) -> None:
+    values = list(items)
+    if not values:
         return
-    try:
-        graph = json.loads(graph_path.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001
-        r.warnings.append(f"CAPABILITY_GRAPH.json unreadable: {exc}")
-        return
-    drift = graph.get("drift") or []
-    if drift:
-        # Cap the penalty contribution. We don't want a repo with 100 legacy
-        # unwired skills to score 0/100 on drift alone — the existing
-        # orphan/script penalties already cover related concerns. Drift
-        # surfaces the next-pass cleanup target without blocking ship.
-        r.capability_drift_count = len(drift)
-        r.warnings.append(
-            f"capability graph: {len(drift)} drift item(s) "
-            f"(skills missing triggers/descriptions, scripts missing docstrings). "
-            f"Run `python scripts/capability_query.py drift` to see them."
-        )
+    lines.append(f"  {title} ({len(values)}):")
+    for value in values[:limit]:
+        if isinstance(value, (tuple, list)) and len(value) == 2:
+            lines.append(f"    - {value[0]} -> {value[1]}")
+        else:
+            lines.append(f"    - {value}")
+    if len(values) > limit:
+        lines.append(f"    ... +{len(values) - limit} more")
 
 
-def check_personalization(r: AuditResult) -> None:
-    """Warn (don't fail) when operator.profile.json is missing.
+def render_human(result: AuditResult) -> str:
+    failures = mandatory_failure_labels(result)
+    if failures:
+        verdict = "DEGRADED" if result.health_score < 70 else "WARNING"
+    elif result.warnings:
+        verdict = "WARNING"
+    else:
+        verdict = "HEALTHY"
 
-    A fresh clone hasn't run the wizard yet. The agent works without a
-    profile but can't be personalized — surface that as a warning so the
-    operator knows to run `python scripts/setup_wizard.py`.
-    """
-    profile_path = REPO_ROOT / "brain" / "operator.profile.json"
-    if not profile_path.exists():
-        r.warnings.append(
-            "operator.profile.json missing — run `python scripts/setup_wizard.py` "
-            "to personalize this clone (or `python scripts/personalize.py seed` "
-            "to seed a manual profile)."
-        )
-
-
-def render_human(r: AuditResult) -> str:
     lines = [
         "",
-        "=" * 64,
-        f" BRAVO SELF-AUDIT   |   health score: {r.health_score}/100",
-        "=" * 64,
-        f"  Markdown files scanned : {r.total_md_files}",
-        f"  Skills registered      : {r.skills_total}",
-        f"  Scripts (non-internal) : {r.scripts_total}",
-        f"  MCP servers in sync    : {'YES' if r.mcp_configs_in_sync else 'NO — drift detected'}",
-        f"  MCP servers registered : {len(r.mcp_servers)} ({', '.join(r.mcp_servers)})",
+        "=" * 68,
+        f" BRAVO SELF-AUDIT | score {result.health_score}/100 | {verdict}",
+        "=" * 68,
+        f"  Markdown files scanned : {result.total_md_files}",
+        f"  Skills registered      : {result.skills_total}",
+        f"  Live scripts           : {result.scripts_total}",
+        f"  Capability graph       : {'MATCH' if result.graph_matches_disk else 'DRIFT'}",
+        f"  MCP configs            : {'IN SYNC' if result.mcp_configs_in_sync else 'DRIFT'}",
         "",
     ]
-    if r.orphans:
-        lines.append(f"  ORPHANS ({len(r.orphans)}) — no inbound links, not allowlisted:")
-        for o in sorted(r.orphans):
-            lines.append(f"    - {o}")
+    if failures:
+        lines.append("  MANDATORY GATES FAILED: " + ", ".join(failures))
     else:
-        lines.append("  ORPHANS: none OK")
-    if r.leaves:
-        lines.append(f"  LEAVES ({len(r.leaves)}) — degree <= 1, cluster on graph perimeter (not penalized, UI signal):")
-        for o in sorted(r.leaves)[:15]:
-            lines.append(f"    - {o}")
-        if len(r.leaves) > 15:
-            lines.append(f"    ... +{len(r.leaves) - 15} more")
-    else:
-        lines.append("  LEAVES: none OK (graph is dense)")
-    lines.append("")
-    if r.skills_missing_skill_md:
-        lines.append(f"  SKILLS missing SKILL.md ({len(r.skills_missing_skill_md)}):")
-        for s in r.skills_missing_skill_md:
-            lines.append(f"    - {s}")
-    if r.skills_missing_frontmatter:
-        lines.append(f"  SKILLS missing frontmatter ({len(r.skills_missing_frontmatter)}):")
-        for s in r.skills_missing_frontmatter:
-            lines.append(f"    - {s}")
-    if r.scripts_undocumented:
-        lines.append(f"  SCRIPTS not referenced by CAPABILITIES/QUICK_REFERENCE/skills ({len(r.scripts_undocumented)}):")
-        for s in r.scripts_undocumented[:15]:
-            lines.append(f"    - {s}")
-        if len(r.scripts_undocumented) > 15:
-            lines.append(f"    - (+{len(r.scripts_undocumented)-15} more)")
-    if r.warnings:
-        lines.append("")
+        lines.append("  MANDATORY GATES: PASS")
+
+    _append_items(lines, "ACTIVE ORPHANS", result.orphans)
+    _append_items(lines, "BROKEN ACTIVE LINKS", result.broken_links)
+    _append_items(lines, "ARCHIVE BOUNDARY VIOLATIONS", result.archive_boundary_violations)
+    _append_items(lines, "ARCHIVE METADATA ISSUES", result.archive_metadata_issues)
+    _append_items(lines, "SCRIPTS MISSING GRAPH NODES", result.scripts_undocumented)
+    _append_items(lines, "SCRIPT METADATA ISSUES", result.script_metadata_issues)
+    _append_items(lines, "GRAPH DRIFT", result.graph_drift_details)
+    _append_items(lines, "GENERATED DOCS DRIFT", result.generated_docs_drift)
+    _append_items(lines, "RETRIEVAL GHOST SOURCES", result.retrieval_missing_sources)
+    _append_items(lines, "STALE REQUIRED DOCS", result.freshness_required_stale)
+    _append_items(lines, "UNDATED REQUIRED DOCS", result.freshness_required_missing_dates)
+    _append_items(lines, "MISSING REQUIRED DOCS", result.freshness_required_missing)
+    _append_items(lines, "INACTIVE REQUIRED DOCS", result.freshness_required_inactive)
+    _append_items(lines, "AUDIT GATE ERRORS", result.gate_errors)
+    _append_items(lines, "LEAVES (advisory)", result.leaves, limit=15)
+    if result.warnings:
         lines.append("  WARNINGS:")
-        for w in r.warnings:
-            lines.append(f"    ! {w}")
-    lines.append("")
-    if r.health_score >= 85:
-        verdict = "HEALTHY — ship it."
-    elif r.health_score >= 70:
-        verdict = "WARN — reconnect orphans, document scripts."
-    else:
-        verdict = "DEGRADED — stop and clean up."
-    lines.append(f"  VERDICT: {verdict}")
-    lines.append("=" * 64)
+        for warning in result.warnings:
+            lines.append(f"    ! {warning}")
+    lines.extend(["", f"  VERDICT: {verdict}", "=" * 68])
     return "\n".join(lines)
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Bravo self-audit")
-    p.add_argument("--json", action="store_true", help="emit JSON instead of text")
-    args = p.parse_args()
+    parser = argparse.ArgumentParser(description="Bravo read-only self-audit")
+    parser.add_argument("--json", action="store_true", help="emit JSON instead of text")
+    args = parser.parse_args()
 
     result = run_audit()
     if args.json:
-        print(json.dumps(asdict(result), default=list, indent=2))
+        print(json.dumps(asdict(result), indent=2, default=list))
     else:
         print(render_human(result))
 
-    if result.health_score >= 85:
+    if result.healthy:
         return 0
-    if result.health_score >= 70:
-        return 1
-    return 2
+    return 1 if result.health_score >= 70 else 2
 
 
 if __name__ == "__main__":

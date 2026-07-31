@@ -1,3 +1,8 @@
+---
+tags: [docs, deploy]
+last_updated: 2026-06-20
+---
+
 # VPS Kixie Agent Turnkey — Paste into Claude Code on the SunBiz VPS
 
 > **For CC:** Copy the fenced block below into the Claude Code session running
@@ -189,3 +194,7 @@ Begin Phase 1 now.
 3. **Verify live:** Log in as each agent (Ezra, Alex), open a lead, click the
    phone number → the Kixie widget should initiate the call from their assigned
    number.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

@@ -4,6 +4,7 @@ description: Intelligent routing between Bravo and Codex — decides when to del
 tags: [skill]
 triggers: ["codex delegation", "use codex delegation", "run codex delegation"]
 tier: core
+last_updated: 2026-07-09
 ---
 
 # Codex Delegation — Intelligent Dual-AI Routing
@@ -43,7 +44,7 @@ CC → Bravo (Claude Opus 4.6)           CC → Codex (GPT-5.4)
 | Content creation (posts, copy) | Bravo owns CC's authentic voice |
 | Business strategy & client comms | Bravo has full business context |
 | Memory/state/orchestration | Bravo's infrastructure — Codex has no access |
-| Skool/social media automation | Bravo has the MCP and CLI integrations |
+| Social media automation | Bravo has the MCP and CLI integrations |
 | Cross-file sync (brain/, memory/) | Bravo's domain knowledge required |
 | Simple fixes (< 3 files) | Delegation overhead > task effort |
 

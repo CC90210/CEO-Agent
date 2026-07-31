@@ -53,18 +53,45 @@ class TestEntrypointParity(unittest.TestCase):
         self.assertTrue(m.group(1).strip(), "architecture_version must be non-empty")
 
     def test_entry_points_are_version_agnostic(self):
-        # The H1 title of each entry point must NOT hardcode a version — the
-        # version lives only in brain/STATE.md. (AGENTS.md/OPENCODE.md never had
-        # one; CLAUDE/GEMINI/ANTIGRAVITY were de-versioned in Phase 5.)
+        """No entry point may hardcode the CURRENT architecture version.
+
+        Checks EVERY heading level, not just H1. Until 2026-07-28 this only
+        looked at H1, so `## Architecture (V6.0 → V7.3.3)` drifted silently in
+        all six files while brain/STATE.md said V7.4.0 — the gate passed and the
+        docs lied. A stale version in a doc six runtimes boot from is worse than
+        no version at all.
+
+        Two things stay legal, because neither claims to be the current version:
+          * historical citations — "V7.2.0 agency imports"
+          * proper nouns — "RULE 10: V6 Coherence Gate"
+        So the heading check is scoped to headings that are ABOUT the
+        architecture, which is where the drift actually happens.
+        """
+        banned_phrases = ("current running version", "current version is")
         for name in ENTRY_POINTS:
-            first_heading = next(
-                (ln for ln in _read(name).splitlines() if ln.lstrip().startswith("# ")),
-                "",
-            )
-            self.assertIsNone(
-                VERSION_IN_HEADING.search(first_heading),
-                f"{name} H1 hardcodes a version ({first_heading!r}) — version is single-sourced in brain/STATE.md",
-            )
+            text = _read(name)
+            for ln in text.splitlines():
+                stripped = ln.lstrip()
+                if not stripped.startswith("#"):
+                    continue
+                if "architecture" not in stripped.lower():
+                    continue
+                self.assertIsNone(
+                    VERSION_IN_HEADING.search(stripped),
+                    f"{name} architecture heading hardcodes a version ({stripped.strip()!r}) — "
+                    "the version is single-sourced in brain/STATE.md",
+                )
+            lowered = text.lower()
+            for phrase in banned_phrases:
+                idx = lowered.find(phrase)
+                if idx == -1:
+                    continue
+                window = text[idx: idx + 160]
+                self.assertIsNone(
+                    VERSION_IN_HEADING.search(window),
+                    f"{name} states a current version inline ({window.strip()!r:.90}) — "
+                    "point at brain/STATE.md `architecture_version` instead",
+                )
 
     def test_each_references_context_md(self):
         for name in ENTRY_POINTS:

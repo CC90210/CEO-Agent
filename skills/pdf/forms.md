@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 **CRITICAL: You MUST complete these steps in order. Do not skip ahead to writing code.**
 
 If you need to fill out a PDF form, first check to see if the PDF has fillable form fields. Run this script from this file's directory:

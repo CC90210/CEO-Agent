@@ -1,5 +1,6 @@
 ---
 tags: [research, intelligence, architecture]
+last_updated: 2026-05-21
 ---
 
 # Deep Research Intelligence Report — 2026-04-06

@@ -46,6 +46,12 @@ from typing import Any, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 GRAPH_PATH = PROJECT_ROOT / "brain" / "CAPABILITY_GRAPH.json"
+
+try:  # Windows console defaults to cp1252 — descriptions carry em-dashes/emoji
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:  # noqa: BLE001
+    pass
 DAEMON_FRESHNESS_SEC = 120  # PID file must have been touched within 2 minutes
 RRF_K = 60  # Reciprocal Rank Fusion constant (matches memory_retriever)
 
@@ -306,7 +312,11 @@ def main() -> int:
 
     pr = sub.add_parser("resolve", help="Resolve intent to top-N skills/tools")
     pr.add_argument("intent", help="Natural-language intent, e.g. 'draft outreach email'")
-    pr.add_argument("--kind", default="skill", choices=["skill", "script", "agent", "workflow", "any"])
+    pr.add_argument(
+        "--kind",
+        default="skill",
+        choices=["skill", "script", "agent", "workflow", "resource", "runtime", "any"],
+    )
     pr.add_argument("--limit", type=int, default=5)
     pr.add_argument("--include-disabled", action="store_true",
                     help="Include skills with disable-model-invocation: true (auto-generated CLI refs).")
@@ -347,9 +357,11 @@ def main() -> int:
     out_json = getattr(args, "output_json", False)
 
     if args.command == "resolve":
+        # V7.4 fix: "any" used to collapse back to "skill" via `kind or "skill"` —
+        # resolve_intent already treats kind=None as all-kinds; pass it through.
         kind = None if args.kind == "any" else args.kind
         results = g.resolve_intent(
-            args.intent, kind=kind or "skill", limit=args.limit,
+            args.intent, kind=kind, limit=args.limit,
             include_disabled=getattr(args, "include_disabled", False),
             include_archived=getattr(args, "include_archived", False),
         )

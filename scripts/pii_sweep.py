@@ -28,6 +28,21 @@ from __future__ import annotations
 import argparse, re, subprocess, sys, tempfile, os
 from pathlib import Path
 
+CAPABILITY_META = {
+    "category": "security.privacy",
+    "lifecycle": "active",
+    "risk": "destructive",
+    "triggers": ["scan repository for pii", "audit pii history", "check redaction carriers"],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {
+        "visible": True,
+        "confirm": False,
+        "fixed_args": ["."],
+        "deny_args": ["--rewrite", "--strings"],
+    },
+}
+
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 # Generic infrastructure / own-domain tokens excluded from the email heuristic.
 # These are NOT redacted strings — they are exclusions — so the standing law does

@@ -1,3 +1,8 @@
+---
+tags: [docs, deploy]
+last_updated: 2026-06-09
+---
+
 # VPS AI-CLI Bypass-Permissions Setup
 
 > Paste everything between the triple-dashes into your VPS Claude Code

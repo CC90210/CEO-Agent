@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws gmail +reply-all --help"
 triggers: ["gws gmail reply all", "use gws gmail reply all", "run gws gmail reply all"]
 tier: specialized
+tags: [skill, gws-gmail-reply-all]
+last_updated: 2026-06-20
 ---
 
 # gmail +reply-all

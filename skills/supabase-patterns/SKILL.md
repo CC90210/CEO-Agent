@@ -4,6 +4,8 @@ description: Use this skill whenever the user asks about Supabase, database desi
 triggers: [Supabase, SQL, migration, RLS, schema, database, postgres, CRUD]
 tier: standard
 dependencies: []
+tags: [skill, supabase-patterns]
+last_updated: 2026-05-21
 ---
 
 # Supabase Patterns — Skill Reference

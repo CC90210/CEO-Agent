@@ -1,15 +1,16 @@
 ---
 name: AGENT ROUTER
-description: The chat agent's routing-by-intent table. Loaded after CLAUDE.md as the second-stage boot file. Tells the agent which deeper file to read for each kind of operator request.
+description: Runtime-agnostic routing-by-intent table, loaded after the active entry point for operational requests.
 mutability: SEMI-MUTABLE
 tags: [brain, router, rag-entry, agent-only]
-last_updated: 2026-06-09
+last_updated: 2026-07-19
 freshness_threshold_days: 30
-verified: 2026-06-09
+verified: 2026-07-19
 ---
 # AGENT ROUTER — How to Decide What to Read
 
-> Loaded by the chat agent after `CLAUDE.md`. Everything else is lazy-loaded
+> Loaded after the active entry point (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`,
+> `ANTIGRAVITY.md`, `OPENCODE.md`, or `ZCODE.md`) for operational turns. Everything else is lazy-loaded
 > via `read_file` based on what the operator asks for.
 > Stay under ~250 lines so it always fits in the boot prompt.
 
@@ -29,13 +30,13 @@ Every operator turn, do this in order:
 
 ## Operator-specific facts
 
-The operator's profile (name, brand, north-star MRR target, manifesto) lives in `brain/USER.md`. **Read it once on the first operator turn** of a session — it's small and high-value. After that, trust your prompt unless the operator says something changed.
+The operator's profile (name, brand, manifesto) lives in `brain/USER.md`. Read it when the request needs operator-specific context; casual and self-contained turns do not require it. (MRR / revenue targets are Atlas-owned — Bravo does not track or report them.)
 
-The operator also has a profile row in Supabase `user_profiles` keyed by `auth_user_id`. Use `python scripts/integrations/supabase_tool.py select user_profiles --eq '{"id":"<id>"}'` if you need the live values (mrr_current_usd, mrr_target_usd, primary_agent, agents_enabled).
+The operator also has a profile row in Supabase `user_profiles` keyed by `auth_user_id`. Use `python scripts/integrations/supabase_tool.py select user_profiles --eq '{"id":"<id>"}'` if you need the live values (primary_agent, agents_enabled).
 
 ## Where you run
 
-On the operator's machine via `bravo bridge serve`. You have full read access to this repo's tree, scoped by `under_root()` to prevent path traversal.
+The runtime may be the guarded `bravo bridge serve` chat server or any of the six direct CLI/IDE entry points above. Bridge-launched script paths are scoped by `under_root()`; direct runtimes follow their own filesystem guardrails.
 
 **Peer agents (the C-Suite + life — the canonical 4):**
 
@@ -60,12 +61,13 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Identity / voice / who you are | (already in your prompt) | `brain/SOUL.md` |
 | Operator's profile | `brain/USER.md` | — |
 | What CLI tools you have | `brain/CAPABILITIES.md` | `brain/QUICK_REFERENCE.md` |
-| Which sub-agent owns a task | `brain/AGENTS.md` | `brain/AGENT_ORCHESTRATION.md` |
+| Which sub-agent owns a task | `brain/WHEN_TO_USE_AGENTS.md` | run `python scripts/capability_query.py resolve "<intent>" --kind agent` |
 | Today's plan / current focus | `memory/ACTIVE_TASKS.md` | `brain/STATE.md` |
 | Recent context / what just happened | `memory/SESSION_LOG.md` | `memory/DECISIONS.md` |
 | Past mistakes to avoid | `memory/MISTAKES.md` | — |
 | Validated patterns to reuse | `memory/PATTERNS.md` | — |
-| Send an email or DM | `skills/outreach-send/SKILL.md` | `brain/QUICK_REFERENCE.md` |
+| Send a cold/follow-up OUTREACH email (on-demand only — outbound is NOT the default motion) | `skills/outreach-send/SKILL.md` | `brain/QUICK_REFERENCE.md` |
+| Inbound lead reply / nurture (the PRIMARY motion: funnel, DMs, social → nurture → book call) | `scripts/integrations/send_gateway.py` (same confirm-gated send steps as INTENTS.md, minus outreach framing) | `brain/QUICK_REFERENCE.md` |
 | What's deployed / live | `memory/OPERATIONAL_STATE.md` (7d threshold) | `brain/STATE.md` (stable arch), `brain/CHANGELOG.md` |
 | Pricing / offers / deal shape | `brain/DEAL_ARCHITECTURE.md` | `brain/CLIENT_PLAYBOOK.md` |
 | OKRs / strategy | `brain/OKRs.md` | `brain/CEO_OPERATING_SYSTEM.md` |
@@ -82,7 +84,7 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | **Audit the system / health check** | (run `python scripts/core/self_audit.py`) | `brain/ORCHESTRATION.md` |
 | **Clean up the repo / delete junk** | (run `python scripts/core/system_cleanup.py` — dry-run by default) | `brain/EXECUTION_RULES.md` Rule 9 |
 | **Current date / day-of-week / time** | (run the date snippet in `brain/EXECUTION_RULES.md` Rule 11 — never quote from prompt) | `brain/STATE.md` |
-| **Create a new skill / agent / workflow** | `skills/agent-forge/SKILL.md` | `skills/<name>/SKILL.md` after `python scripts/register_skill.py create` |
+| **Create a new skill / agent / workflow** | `skills/agent-forge/SKILL.md` | use the matching `python scripts/register.py skill|agent|workflow ...` contract |
 | **Diagnose why you made a mistake** | `memory/MISTAKES.md` | `brain/BRAIN_LOOP.md` (Reflexion section) |
 | **Check whether memories are stale** | (run `python scripts/core/memory_aging.py stale --days 7 --json`) | `brain/EXECUTION_RULES.md` Rule 11 |
 | **Update memory** | `brain/EXECUTION_RULES.md` Rule 0 | (write to `memory/<file>.md`, then `python scripts/state/state_sync.py --note "<summary>"`) |
@@ -91,32 +93,31 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 
 ## Intent → which TOOL to call (when you should act, not just read)
 
-**In the dashboard chat (bridge mode), you have a `run_script` tool.** Allowlisted scripts execute with their stdout returned to you. Mutating scripts require `confirm: true` AND the operator must have asked for the action in the same turn. Off-list scripts fall back to surfacing the command for the operator to run.
+**In dashboard chat (bridge mode), you have a `run_script` tool.** Its generated manifest comes from static `CAPABILITY_META` declarations. Mutating entries require `confirm: true` and same-turn operator intent. Unreviewed legacy entries fail closed as confirmation-required; hidden/off-list scripts are not bridge-callable.
 
 | Operator wants... | run_script key (or how to act) | Consult first |
 |---|---|---|
-| Get current MRR | `revenue_engine_mrr` | `brain/STATE.md` |
-| CEO daily briefing | `ceo_dashboard` | — |
+| Get current MRR | ATLAS-OWNED — do not self-serve; defer to Atlas (read Atlas cfo_pulse/STATE.md READ-ONLY if CC insists) | `brain/C_SUITE_ARCHITECTURE.md` |
+| CEO daily briefing | `ceo_dashboard` (legacy fail-closed; currently needs `confirm: true`) | — |
 | Read a Supabase table | `supabase_select` (args: table, --eq, --limit) | `brain/CAPABILITIES.md` |
 | Write to Supabase | `supabase_insert` / `supabase_update` (mutating; needs `confirm: true`) | `brain/CAPABILITIES.md` |
-| List leads | `lead_engine_list` (args: --status, --limit) | `brain/STATE.md` |
-| Score a lead | `lead_engine_score` (args: --lead-id) | — |
+| List leads | `lead_engine_list` (args: --status, --limit; legacy fail-closed confirmation) | `brain/STATE.md` |
+| Score a lead | `lead_engine_score` (positional lead UUID; legacy fail-closed confirmation) | — |
 | Add a lead | `lead_engine_add` (mutating; needs `confirm: true`) | `skills/outreach-send/SKILL.md` |
 | Pre-flight a send | `send_gateway_can_act` (args: --lead-id, --channel) | `skills/outreach-send/SKILL.md` |
 | Send an email | `send_gateway_send` (mutating; needs `confirm: true`; passes 8 safety gates) | `skills/outreach-send/SKILL.md` |
-| Send-gateway state | `send_gateway_status` | — |
-| Search the web | `firecrawl_search` (args: "query") | — |
-| **Fetch a URL (DEFAULT — auto-escalates Firecrawl→Cloak + remembers per-domain)** | `research_fetch_fetch` (args: "url" "--json") · also: `research_fetch_reputation`, `research_fetch_reputation_clear` | `skills/research-fetch/SKILL.md` |
-| Scrape a public unprotected page (when you want Firecrawl-specific features like extract/map/crawl) | `firecrawl_scrape` (args: "url") | — |
-| Scrape a bot-protected page directly (interactive goto/screenshot or force-tier) | `cloak_browser_tool_scrape` (args: "url" "--json") · also: `cloak_browser_tool_check_stealth`, `cloak_browser_tool_goto` | `skills/cloak-browser/SKILL.md` |
-| Read sibling-agent inbox | `agent_inbox_list` (args: --to bravo|atlas|maven|aura|hermes) | — |
-| Post to sibling agent | `agent_inbox_post` (mutating; needs `confirm: true`) | `brain/AGENTS.md` |
+| Send-gateway records / health | `send_gateway_history`, `send_gateway_stats`, or `send_gateway_doctor` | — |
+| **Fetch/search a URL (DEFAULT — auto-escalates Firecrawl→Cloak + records domain reputation)** | `research_fetch_fetch` (positional URL, optional `--json`; currently confirmation-gated because it writes local reputation state) | `skills/research-fetch/SKILL.md` |
+| Inspect or clear fetch reputation | `research_fetch_reputation` / `research_fetch_reputation_clear` (currently confirmation-gated pending metadata review) | `skills/research-fetch/SKILL.md` |
+| Scrape a bot-protected page directly | `cloak_browser_scrape` (read-only unless `--screenshot`, which requires confirmation); `cloak_browser_check_stealth`; `cloak_browser_download` (confirmation) | `skills/cloak-browser/SKILL.md` |
+| Read sibling-agent inbox | `agent_inbox_inbox` (args: --to bravo|atlas|maven|aura|hermes) | — |
+| Post to / acknowledge sibling-agent inbox | `agent_inbox_send` / `agent_inbox_ack` (mutating; need `confirm: true`) | `brain/AGENTS.md` |
 | Update operator dashboard data | emit `<dashboard-action type="…">{…}</dashboard-action>` marker (separate path; not run_script) | `oasis-command-center:lib/agent-actions.ts` |
 | Apply a SQL migration | (off run_script allowlist; surface `python scripts/apply_migration.py <path>` for operator approval) | `database/` for next migration number |
 | Push to Vercel | (off allowlist; `git push` auto-deploys; verify with `npx vercel ls`) | — |
 | Set a Vercel env var | (off allowlist; surface `npx vercel env add NAME production`) | `oasis-command-center:ENV_SETUP.md` |
 
-To add a new script to the allowlist: edit `SCRIPT_ALLOWLIST` in `bravo_cli/bridge_chat_server.py`. Format: friendly key → `{path, subcmd, mutating, help}`. Run-only scripts run freely; mutating require `confirm: true` from the operator.
+To expose or change a script, add or update its literal `CAPABILITY_META`, then regenerate with `python scripts/build_bridge_manifest.py`. Per-subcommand visibility, fixed arguments, denied arguments, and confirmation policy belong in that contract; do not hand-edit the generated manifest.
 
 ---
 

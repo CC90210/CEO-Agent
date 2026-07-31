@@ -1,19 +1,18 @@
 ---
+description: "Navigation hub for Bravo's brain files, operational state, agents, active tasks, knowledge base, and CEO Operating System; agents use it to discover system resources"
 tags:
   - dashboard
   - pinned
 aliases:
   - Home
   - HQ
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
 # Command Center
 
-> **North Star:** $10,000 USD Net MRR by September 30, 2026 ($5K ACHIEVED 2026-06-20 — BreezeAdvance deal, $6,000/mo net recurring)
-> **Current Net MRR (contracted recurring):** ~$6,000 USD (BreezeAdvance — CC's 60% of $10K/mo) | **Gap to $10K:** ~$4,000
-> **Status (2026-06-20):** BreezeAdvance deal CLOSED (David + Adon). Trial month $8K (CC net $5,600 at 70/30) converts to $10K/mo recurring (CC net $6,000 at 60/40). $5K North Star ACHIEVED; SunBiz/Breeze development OPEN (paying client).
+> Revenue / MRR → Atlas (CFO-Agent) owns reporting. This file is navigation only.
 
 ---
 
@@ -35,7 +34,7 @@ verified: 2026-06-09
 - [[memory/ACTIVE_TASKS]] — Current task board
 - [[memory/SESSION_LOG]] — All agent activity (cross-AI)
 - `memory/LEAD_TRACKER.csv` — Pipeline (CSV)
-- [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) — Content Bible + outreach
+- `../CMO-Agent/brain/CONTENT_BIBLE` (Maven canonical) — Content Bible + outreach
 
 ### Knowledge Base
 - [[memory/PATTERNS]] — Validated patterns
@@ -76,18 +75,18 @@ verified: 2026-06-09
 
 ### Resources
 - [[proposals/README]] — Generated proposals directory
-- [[memory/ARCHIVES/references-setup/awesome-claude-skills/README]] — Claude Skills reference library
+- [[skills/INDEX]] — Active skills registry
 
 ---
 
 ## Agent Registry (17 agents)
 | Agent | Model | File |
 |-------|-------|------|
-| Architect | Opus | [[agents/architect]] |
+| Architect | Opus | `.claude/agents/architect.md` |
 | Writer | Sonnet | [[agents/writer]] |
-| Reviewer | Sonnet | [[agents/reviewer]] |
-| Debugger | Sonnet | [[agents/debugger]] |
-| Researcher | Sonnet | [[agents/researcher]] |
+| Reviewer | Sonnet | [[.claude/agents/code-reviewer]] |
+| Debugger | Sonnet | `.claude/agents/debugger.md` |
+| Researcher | Sonnet | `.claude/agents/researcher.md` |
 | Chief of Staff | Sonnet | [[agents/chief-of-staff]] |
 | Git Ops | Haiku | [[agents/git-ops]] |
 | Revenue Hunter | Sonnet | [[agents/revenue-hunter]] |

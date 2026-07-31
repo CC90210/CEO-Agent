@@ -1,9 +1,10 @@
 ---
+description: "CC's daily schedule with time blocks for movement, outreach, client delivery, content creation, building; agents reference for understanding daily priorities"
 tags: [schedule, accountability, daily, non-negotiable]
 purpose: CC's optimized daily schedule starting April 13, 2026. Last shift at Nicky's Donuts was April 12. Free-range now. This is the structure.
 owner: CC (Conaugh McKenna)
 created: 2026-04-12
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -38,7 +39,7 @@ verified: 2026-06-09
 - Coffee, snack, step outside. Reset.
 
 ### 9:45 AM - DEEP WORK BLOCK 2: CLIENT DELIVERY (90 min)
-- Work on active client projects (OASIS retainers, primary community).
+- Work on active client projects (OASIS retainers).
 - Build features, fix bugs, deliver value to paying clients.
 - If no active clients yet: work on the CC Funnel, Gritly, or OASIS platform.
 
@@ -65,10 +66,10 @@ verified: 2026-06-09
 - Study: sales (NEPQ, closing), cybersecurity (TryHackMe), financial literacy.
 - Review competitor content. Study chase.h.ai hooks.
 - Read Atlas CFO reports on investment positions.
-- Plan tomorrow's outreach targets.
+- Plan tomorrow's outreach targets *(inbound-first: review inbound funnel + nurture queue; outbound only if CC directed)*.
 
 ### 4:30 PM - ADMIN + CLEANUP (30 min)
-- Respond to emails, DMs, Skool community.
+- Respond to emails, DMs.
 - Update ACTIVE_TASKS.md if priorities shifted.
 - Handle any loose ends from the day.
 

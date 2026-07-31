@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Tech Innovation
 
 A bold and modern theme with high-contrast colors perfect for cutting-edge technology presentations.

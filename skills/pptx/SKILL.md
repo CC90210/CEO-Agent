@@ -5,6 +5,8 @@ license: Proprietary. LICENSE.txt has complete terms
 triggers: [PowerPoint, pptx, slides, presentation, deck, pitch deck, speaker notes]
 tier: specialized
 dependencies: []
+tags: [skill, pptx]
+last_updated: 2026-05-21
 ---
 
 # PPTX Skill

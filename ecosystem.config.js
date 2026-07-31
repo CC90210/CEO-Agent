@@ -102,6 +102,32 @@ const PYTHONW = IS_WIN
 // Mac has nvm node v24+, Windows has whatever the user installed.
 const NODE = 'node';
 
+// V6 staged cutover (2026-07-18): shadow = state_sync dual-writes flat files
+// AND the state DB. Shadow NEVER runs the `on`-mode export, so flat files stay
+// authoritative and nothing is clobbered — a safe soak before any future `on`
+// flip. Spread into every app's env below so all daemons inherit it uniformly
+// (non-uniform inheritance is the drift hazard the investigator flagged). Takes
+// effect on the next `pm2 restart ecosystem.config.js --update-env`.
+// SSLKEYLOGFILE poisoning guard (2026-07-29 outage). The local AV (AVG) exports
+// SSLKEYLOGFILE=\\.\avgMonFltProxy\<kernel-handle> into process environments so
+// its TLS scanner can log session keys. PM2 captures whatever handle was live
+// when the DAEMON started and hands that frozen value to every child it spawns,
+// forever. Handles go stale; CPython's ssl.create_default_context() opens the
+// path unconditionally, so a stale handle raises PermissionError from inside SSL
+// context construction — before a single byte is sent.
+//
+// Result: bravo-scheduler ran 25h on a dead handle. Every cron child that built
+// an HTTPS client died at construction (Inbound Email Sweep failed 31/145 runs;
+// Funnel Fast-Poll likewise), and notify.py died the same way, so none of it
+// could be alerted on.
+//
+// Empty string is what matters — ssl.py tests `if keylogfile:`, so "" is falsy
+// and skips the assignment entirely. Deleting the key would NOT work: PM2 merges
+// the daemon's env underneath, and the poisoned value would resurface.
+// Defense in depth: lib/tls_trust.ensure_os_trust() strips it in-process too,
+// and scheduler.py scrubs it from every child env it spawns.
+const V6_ENV = { EMPIRE_V6_MODE: "shadow", SSLKEYLOGFILE: "" };
+
 // Presence check for a non-empty key in .env.agents WITHOUT echoing its value.
 // Used to gate the coordination bridge so it isn't crash-looped by PM2 before
 // CC has provisioned the dedicated bot token.
@@ -136,6 +162,18 @@ if (IS_WIN) {
         env: {
             PYTHONIOENCODING: "utf-8",
             PYTHONUNBUFFERED: "1",
+            // Native inbound email brain — the n8n "OASIS Inbound Qualifier"
+            // replacement (2026-07-23). ENABLED turns on the 4-brain router in
+            // email_engine.cmd_check_inbox (driven by the "Inbound Email Sweep"
+            // cron every 5 min). AUTO_SEND permits the ONE guarded auto-reply
+            // path: technical support -> KNOWN client, confidence >= 0.7,
+            // draft-critic approved. Hot leads, Financial & Legal, unknown
+            // senders and low-confidence reads always draft-and-hold for CC,
+            // and every auto-reply fires a Telegram alert.
+            // KILL SWITCH: set either to "0", then
+            //   pm2 restart bravo-scheduler --update-env
+            EMAIL_BRAIN_ENABLED: "1",
+            EMAIL_BRAIN_AUTO_SEND: "1",
         },
         log_date_format: "YYYY-MM-DD HH:mm:ss",
         error_file: "tmp/pm2-scheduler-error.log",
@@ -458,6 +496,14 @@ if (IS_LINUX) {
         merge_logs: true,
         max_size: "10M",
     });
+}
+
+// Uniformly stamp the V6 cutover mode onto every daemon's env (base layer, so
+// any app-specific env key still wins). Applied here rather than in each block
+// so a future daemon can't accidentally ship without it — non-uniform
+// inheritance across state-writers is the drift hazard we're avoiding.
+for (const app of apps) {
+    app.env = { ...V6_ENV, ...(app.env || {}) };
 }
 
 module.exports = { apps };

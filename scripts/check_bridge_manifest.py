@@ -4,7 +4,7 @@
 Builds the manifest in-memory and compares against the checked-in JSON.
 Exit codes:
   0 — manifest is in sync with scripts/
-  1 — drift detected (added/removed entries OR mutating-flag changed)
+  1 — drift detected (added/removed entries OR any stable entry policy changed)
   2 — manifest file missing
 
 Wire as a pre-commit hook to prevent shipping a bridge that disagrees
@@ -49,13 +49,14 @@ fi
 
 
 def _diff(live: dict, on_disk: dict) -> dict:
-    """Return {added, removed, mutating_changed} between two manifests."""
+    """Return entry and policy drift between two manifests."""
     live_keys = {e["key"]: e for e in live.get("entries", [])}
     disk_keys = {e["key"]: e for e in on_disk.get("entries", [])}
 
     added = sorted(set(live_keys) - set(disk_keys))
     removed = sorted(set(disk_keys) - set(live_keys))
     mutating_changed = []
+    policy_changed = []
     for k in set(live_keys) & set(disk_keys):
         if bool(live_keys[k].get("mutating")) != bool(disk_keys[k].get("mutating")):
             mutating_changed.append({
@@ -63,7 +64,15 @@ def _diff(live: dict, on_disk: dict) -> dict:
                 "from": disk_keys[k].get("mutating"),
                 "to": live_keys[k].get("mutating"),
             })
-    return {"added": added, "removed": removed, "mutating_changed": mutating_changed}
+        if live_keys[k] != disk_keys[k]:
+            policy_changed.append(k)
+    return {
+        "added": added,
+        "removed": removed,
+        "mutating_changed": mutating_changed,
+        "policy_changed": sorted(policy_changed),
+        "version_changed": live.get("version") != on_disk.get("version"),
+    }
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -75,11 +84,18 @@ def cmd_check(args: argparse.Namespace) -> int:
     on_disk = json.loads(manifest_path.read_text(encoding="utf-8"))
     live = bbm.build_manifest()
     diff = _diff(live, on_disk)
-    if not diff["added"] and not diff["removed"] and not diff["mutating_changed"]:
+    if (
+        not diff["added"]
+        and not diff["removed"]
+        and not diff["policy_changed"]
+        and not diff["version_changed"]
+    ):
         if args.verbose:
             print(f"[bridge-manifest] in sync — {len(live['entries'])} entries")
         return 0
     print("[bridge-manifest] DRIFT DETECTED:", file=sys.stderr)
+    if diff["version_changed"]:
+        print("  Manifest schema version changed", file=sys.stderr)
     if diff["added"]:
         print(f"  Added ({len(diff['added'])}):", file=sys.stderr)
         for k in diff["added"][:20]:
@@ -96,6 +112,11 @@ def cmd_check(args: argparse.Namespace) -> int:
         print(f"  Mutating-flag flipped ({len(diff['mutating_changed'])}):", file=sys.stderr)
         for c in diff["mutating_changed"][:10]:
             print(f"    ~ {c['key']}: {c['from']} -> {c['to']}", file=sys.stderr)
+    other_policy = sorted(set(diff["policy_changed"]) - {c["key"] for c in diff["mutating_changed"]})
+    if other_policy:
+        print(f"  Entry policy changed ({len(other_policy)}):", file=sys.stderr)
+        for key in other_policy[:20]:
+            print(f"    ~ {key}", file=sys.stderr)
     print("\nRun: python scripts/build_bridge_manifest.py", file=sys.stderr)
     print("Then: git add scripts/_bridge_manifest.json", file=sys.stderr)
     return 1

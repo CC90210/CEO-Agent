@@ -1,3 +1,8 @@
+---
+tags: [plans]
+last_updated: 2026-06-10
+---
+
 # HANDOFF → Fable — Evals, Adversarial Defense & Dispositions (V3) complete
 **Date:** 2026-06-09 · **Author:** Bravo · **Scope:** the OASIS fleet · **Sequel to:** Fleet Harmonization V2
 
@@ -97,3 +102,7 @@ make *change* visible — a future regression in any of these paths goes red.
 - Brief: `plans/MISSION_2026-06-09_V3.md` · Full record: `plans/MISSION_2026-06-09_V3_PROGRESS.md`
 - Substrate: `CC90210/empire-harness` v1.1.0 (`FLEET.md`, `evals/README.md`, `docs/BREAK_GLASS.md`)
 - Prior: `plans/HANDOFF_FABLE_FLEET_V2_2026-06-09.md` (V2), `plans/HANDOFF_FABLE_2026-06-09.md` (V1)
+
+## Obsidian Links
+- [[brain/STATE]]
+- [[memory/INDEX]]

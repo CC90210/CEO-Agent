@@ -4,6 +4,7 @@ description: Lightweight project management for OASIS client engagements. Projec
 tags: [skill, project-management, clients, oasis, delivery]
 triggers: ["project management", "use project management", "run project management", "lightweight project management for oasis client engagements"]
 tier: standard
+last_updated: 2026-06-20
 ---
 
 # Project Management — Lightweight Client Delivery Framework

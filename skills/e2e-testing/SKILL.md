@@ -4,6 +4,8 @@ description: Comprehensive end-to-end application testing using Playwright MCP. 
 triggers: [end-to-end, E2E, user journey, integration test, full test, playwright test]
 tier: standard
 dependencies: [browser-automation, systematic-debugging]
+tags: [skill, e2e-testing]
+last_updated: 2026-05-21
 ---
 
 # End-to-End Application Testing

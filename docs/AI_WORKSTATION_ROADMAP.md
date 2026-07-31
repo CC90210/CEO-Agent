@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-04-27
+---
+
 # AI Workstation Roadmap
 
 This machine is the Windows production node for the agent stack. The goal is a powerful, symbiotic AI workstation: fast enough for heavy browser automation now, ready for GPU-accelerated local models later, and guarded enough to avoid accidental destructive control.

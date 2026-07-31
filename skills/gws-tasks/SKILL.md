@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws tasks --help"
 triggers: ["gws tasks", "use gws tasks", "run gws tasks", "google tasks: manage task lists and tasks"]
 tier: specialized
+tags: [skill, gws-tasks]
+last_updated: 2026-06-20
 ---
 
 # tasks (v1)

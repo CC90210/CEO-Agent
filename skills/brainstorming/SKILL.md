@@ -4,6 +4,8 @@ description: "You MUST use this before any creative work - creating features, bu
 triggers: [brainstorm, ideate, explore, creative work, new feature, design, requirements]
 tier: standard
 dependencies: []
+tags: [skill, brainstorming]
+last_updated: 2026-05-21
 ---
 
 # Brainstorming Ideas Into Designs

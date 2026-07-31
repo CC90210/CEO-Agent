@@ -36,12 +36,19 @@ import json
 import os
 import sys
 import time
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+
+# Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. Found by auditing
+# every cron-wired script rather than only the ones that happened to be failing
+# loudly: this one had the same latent AV-MITM break and died on its first
+# Supabase call with CERTIFICATE_VERIFY_FAILED.
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -49,11 +56,15 @@ try:
 except Exception:
     pass
 
-ANTHROPIC_VERSION = "2023-06-01"
-MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 400
+from lib.claude_cli import run_claude_cli  # noqa: E402
+
+# Model calls run through the LOCAL claude CLI on CC's subscription OAuth
+# (lib.claude_cli) — the metered ANTHROPIC_API_KEY is out of credits and
+# banned for automations (2026-07-09 migration; same fix as daily_brief.py).
+MODEL_CLI = "sonnet"       # CLI alias — matches the dashboard path's tier
+CLI_TIMEOUT_SEC = 60
 MAX_PER_RUN_DEFAULT = 25
-THROTTLE_SEC = 1.0  # gap between Anthropic calls so we don't burst-rate-limit
+THROTTLE_SEC = 1.0  # gap between model calls so we don't burst the CLI
 
 # Default OASIS tenant slug. CC's empire tenant lives at slug "oasis-ai-cc"
 # (auto-generated when the auth profile was created). Override with
@@ -94,20 +105,14 @@ def _client():
     env = load_env()
     url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
     key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "").strip()
-    api_key = (env.get("BRAVO_ANTHROPIC_API_KEY")
-               or env.get("ANTHROPIC_API_KEY")
-               or os.environ.get("BRAVO_ANTHROPIC_API_KEY", "")).strip()
     if not url or not key:
         sys.stderr.write("ERROR: missing Supabase credentials\n")
         sys.exit(2)
-    if not api_key:
-        sys.stderr.write("ERROR: missing Anthropic key\n")
-        sys.exit(2)
     from supabase import create_client
-    return create_client(url, key), api_key
+    return create_client(url, key)
 
 
-def _score_one(api_key: str, lead_data: dict) -> tuple[int, str] | None:
+def _score_one(lead_data: dict) -> tuple[int, str] | None:
     """Returns (score, reasoning) or None on any failure. Never raises.
 
     2026-06-06 prompt update: the shared SYSTEM_PROMPT now references an
@@ -127,32 +132,13 @@ def _score_one(api_key: str, lead_data: dict) -> tuple[int, str] | None:
         "[none recorded — score from lead data only, note 'limited signal' in reasoning if so]"
     )
 
-    body = json.dumps({
-        "model": MODEL,
-        "max_tokens": MAX_TOKENS,
-        "system": SYSTEM_PROMPT,
-        "messages": [{"role": "user", "content": user_prompt}],
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=body,
-        headers={
-            "content-type": "application/json",
-            "x-api-key": api_key,
-            "anthropic-version": ANTHROPIC_VERSION,
-        },
-        method="POST",
+    text = run_claude_cli(
+        user_prompt, system=SYSTEM_PROMPT,
+        model=MODEL_CLI, timeout=CLI_TIMEOUT_SEC,
     )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
-            payload = json.loads(resp.read().decode("utf-8"))
-    except Exception as e:  # noqa: BLE001
-        sys.stderr.write(f"  anthropic call failed: {e}\n")
+    if not text:
+        sys.stderr.write("  claude CLI call failed (see [claude_cli] stderr)\n")
         return None
-
-    blocks = payload.get("content") or []
-    text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
     cleaned = text
     if cleaned.startswith("```"):
         cleaned = cleaned.replace("```json", "").replace("```", "").strip()
@@ -241,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
                    help="print what would be scored, no Anthropic calls or writes")
     args = p.parse_args(argv)
 
-    client, api_key = _client()
+    client = _client()
     leads = _unscored_oasis_leads(client, args.limit, args.tenant_slug)
 
     if not leads:
@@ -261,7 +247,7 @@ def main(argv: list[str] | None = None) -> int:
         d = lead["data"]
         name_preview = (d.get("name") or "?")[:30]
         print(f"  [{i}/{len(leads)}] {lead['id'][:8]} {name_preview}...", end="", flush=True)
-        result = _score_one(api_key, d)
+        result = _score_one(d)
         if not result:
             print(" FAIL")
             failed += 1

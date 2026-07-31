@@ -34,13 +34,9 @@ If already run, load the output and proceed.
 
 ## Step 2: Pull Quarterly Financial Data
 
-```bash
-python scripts/revenue_engine.py history --months 3 --json
-python scripts/financial_model.py unit-economics --json
-python scripts/financial_model.py concentration --json
-```
+> Numbers from Atlas (CFO) — Bravo consumes, does not compute. Request the quarterly financials from Atlas instead of running revenue_engine/financial_model directly.
 
-Calculate for the quarter:
+From Atlas's numbers, capture for the quarter:
 - Starting MRR vs ending MRR
 - Total revenue collected
 - Total expenses (3 × monthly overhead)
@@ -110,7 +106,7 @@ Using `skills/strategic-planning/SKILL.md` QBR template, generate the full repor
 ```markdown
 ## QBR — Q[X] [YEAR] — [Date]
 
-### Financial Performance
+### Financial Performance (numbers from Atlas — Bravo consumes, does not compute)
 [Revenue table: start MRR, end MRR, growth %, expenses, net profit]
 
 ### Pipeline Performance

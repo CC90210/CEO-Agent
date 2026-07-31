@@ -1,6 +1,12 @@
+---
+tags: [docs]
+last_updated: 2026-07-20
+---
+
 # VPS Agent Handoff — SunBiz Production
 
 > Created: 2026-06-01
+> Updated: 2026-07-19 (CLI-backed document extraction runbook consolidated here)
 >
 > Audience: Claude Code, Codex CLI, or Gemini CLI running directly on
 > `srv1723601`.
@@ -362,6 +368,45 @@ architecture explicitly calls for that.
 
 After PM2 is stable, persist it with `pm2 save` and configure reboot startup.
 
+#### CLI-Backed Document Extraction
+
+SunBiz application extraction is an asynchronous VPS responsibility. The dashboard queues a
+`document_extraction_jobs` row; the CEO-Agent worker
+`scripts/integrations/extraction_consumer.py` claims it, uses the locally authenticated Claude
+CLI subscription, and posts the result to `/api/internal/apply-extraction` with HMAC
+authentication. The metered API is break-glass fallback only.
+
+Before starting the worker:
+
+1. Confirm there is exactly one intended `extraction-consumer` process. Do not start a second
+   consumer alongside an already healthy PM2 process.
+2. Confirm the VPS `.env.agents` contains, by key name only, `BRAVO_SUPABASE_URL`, the Bravo
+   service-role key, a dashboard URL (`PUBLIC_APP_URL` or `OASIS_DASHBOARD_URL`), and
+   `OASIS_OUTBOUND_HMAC_SECRET`. The HMAC value must match the dashboard deployment value.
+3. Confirm Claude subscription authentication. If the CLI credential is missing or expired, run
+   `claude setup-token` interactively; never substitute an Anthropic API key for this path.
+4. Run the worker's read-only readiness check:
+
+   ```bash
+   cd /srv/sunbiz/ceo-agent
+   python scripts/integrations/extraction_consumer.py doctor
+   ```
+
+   Do not continue unless it reports Claude OAuth, HMAC configuration, dashboard URL, and
+   Supabase access as ready.
+5. Start and persist only the verified worker:
+
+   ```bash
+   pm2 start ecosystem.config.js --only extraction-consumer
+   pm2 save
+   ```
+
+For end-to-end verification, submit one operator-approved signed PDF or photo application and
+observe the job transition `queued -> processing -> extracted -> applied`. Confirm
+`used_fallback = false`, inspect `pm2 logs extraction-consumer` without exposing document PII,
+and verify that application fields, the branded PDF, and signature confirmation appear in the
+dashboard. A worker process showing `online` is not proof of a functioning HMAC callback.
+
 ### Phase 8: Pair The Bridge
 
 The Vercel dashboard must know this VPS is online. Follow the live bridge pairing
@@ -455,3 +500,9 @@ The VPS setup is complete only when:
 6. Secrets remain protected.
 7. Real outbound remains disabled until CC deliberately approves activation.
 8. Kixie inbound remains disabled until its handler is implemented and verified.
+9. The single extraction consumer passes its doctor and a real-document callback test without
+   metered-API fallback.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

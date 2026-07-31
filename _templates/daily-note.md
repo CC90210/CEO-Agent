@@ -2,6 +2,7 @@
 tags:
   - daily
 date: "{{date:YYYY-MM-DD}}"
+last_updated: 2026-05-11
 ---
 
 # {{date:YYYY-MM-DD, dddd}}

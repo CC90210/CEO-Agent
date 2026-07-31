@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-07-09
+---
+
 # V7.0 STRUCTURAL OPTIMIZATION PLAN
 
 > **Generated:** 2026-05-21 · **Last revised:** 2026-06-06
@@ -271,7 +276,7 @@ scripts/
 │   ├── ai_operator.ps1
 │   ├── ai_workstation_doctor.ps1
 │   ├── bravo_console_launcher.vbs
-│   ├── bravo_startup.pyw
+│   ├── bravo_startup.pyw   # archived 2026-07-09 → scripts/_archive/ (fleet boot is PM2-managed)
 │   ├── fix_watchdog_task.ps1
 │   ├── harden_powershell_profile.ps1
 │   ├── harden_windows.ps1
@@ -1267,3 +1272,6 @@ Phase 7H: Document the canonical "no silent failures" rule in CLAUDE.md
 - Inject a deliberate PM2 path mismatch; verify system_health.py flags it red
 - Run for 30 days; zero "silent failure surfaced manually by accident" incidents
 
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

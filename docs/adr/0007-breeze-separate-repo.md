@@ -7,6 +7,8 @@ deciders: CC, Bravo
 supersedes: —
 superseded_by: —
 related: ADR-0001 (skill dependency classification — Breeze is a hard-deps product, not a soft-deps skill), CONTEXT.md "MCA / Lending"
+tags: [docs, adr, decision]
+last_updated: 2026-06-08
 ---
 
 # ADR-0007 — Breeze ships as a separate repo with its own Supabase project
@@ -71,3 +73,7 @@ ls ~/APPS/breeze-portal/package.json
 # Empire docs reference it
 grep -l "Breeze" brain/APP_REGISTRY.md CONTEXT.md
 ```
+
+## Obsidian Links
+- [[docs/adr/INDEX]]
+- [[CONTEXT]]

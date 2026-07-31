@@ -1,14 +1,10 @@
 ---
 name: task-routing
-description: >
-  Complexity-based intelligent task routing to specialized agents. Analyzes incoming tasks
-  for file count, domain signals, estimated steps, and risk level, then auto-assigns to
-  the optimal agent or agent team. Use when: any non-trivial task arrives, multi-file changes,
-  unclear which agent should handle work. Skip when: trivial single-file edits, CC explicitly
-  names the agent to use.
+description: "Complexity-based intelligent task routing to specialized agents. Analyzes incoming tasks for file count, domain signals, estimated steps, and risk level, then auto-assigns to the optimal agent or agent team. Use when any non-trivial task arrives, multi-file changes, or it's unclear which agent should handle work. Skip for trivial single-file edits or when CC explicitly names the agent."
 tags: [orchestration, routing, agents]
 triggers: ["task routing", "use task routing", "run task routing"]
 tier: core
+last_updated: 2026-07-09
 ---
 
 # Task Routing — Complexity-Based Agent Assignment
@@ -63,7 +59,7 @@ Scan the task for domain keywords to identify the primary domain:
 | **Database** | schema, migration, table, query, Supabase, RPC | architect |
 | **Content** | post, copy, caption, pillar, brand voice | content-creator |
 | **Outreach** | email, lead, follow-up, client, proposal | chief-of-staff |
-| **Revenue** | pricing, Stripe, invoice, subscription, MRR | revenue-hunter |
+| **Revenue** | pricing, Stripe, invoice, subscription, MRR | Atlas (CFO-Agent) — defer, do not self-serve |
 | **Workflow** | n8n, automation, trigger, webhook | workflow-builder |
 | **Video** | FFmpeg, Remotion, caption, render, audio | video-editor |
 | **Research** | investigate, compare, analyze market, documentation | researcher |
@@ -71,7 +67,6 @@ Scan the task for domain keywords to identify the primary domain:
 | **Documentation** | docs, README, update memory, changelog | documenter |
 | **Git** | commit, branch, PR, merge, rebase | git-ops |
 | **Social** | post, schedule, Zernio, Late, cross-post, publish | social-publisher |
-| **Skool** | lesson, course, classroom, community | writer (+ skool-automation skill) |
 | **Exploration** | find, where is, search, locate, navigate | explorer |
 
 ### Step 3: Agent Assignment

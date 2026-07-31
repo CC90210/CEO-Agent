@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-05-21
+---
+
 # N8N Inbound → Bravo Ledger Integration
 
 > **One-time setup. ~3 minutes. Zero code changes to your existing workflow.**

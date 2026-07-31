@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-06-20
+---
+
 # OASIS Agent ↔ Agent Coordination Spec (Bravo ↔ APEX)
 
 **For: Adon / APEX (KNUT).  From: CC / Bravo.  v1 — 2026-06-19.**
@@ -164,3 +169,7 @@ shared oasis-command-center surfaces.
 
 Once APEX is writing to the table, ping CC — Bravo will confirm it sees APEX's
 first row, and we're live both ways.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

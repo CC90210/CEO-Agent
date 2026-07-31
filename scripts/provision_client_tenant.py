@@ -1,4 +1,4 @@
-"""
+r"""
 Provision a client tenant in Supabase: create the auth user with email
 pre-confirmed, then create/patch a tenant + user_profile using the same
 brand-hint provisioning logic as the dashboard's /api/auth/provision route

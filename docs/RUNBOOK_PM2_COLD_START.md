@@ -3,6 +3,8 @@ title: PM2 cold-start runbook for CC's Windows machine
 date: 2026-05-16
 audience: CC (operator) + anyone troubleshooting the SunBiz CRM substrate
 status: ACTIVE
+tags: [docs]
+last_updated: 2026-07-19
 ---
 
 # Cold-start procedure
@@ -21,14 +23,12 @@ When CC reboots his Windows machine (CCPC), the 9 PM2 daemons that drive the Sun
 | `sequence-runner` | SunBiz drip-campaign engine | Yes |
 | `lender-response-classifier` | Gmail thread classifier | Yes |
 
-Plus the standalone Skool daemon (NOT in PM2 — owns its own DaemonLock; auto-managed by the `SkoolWatchdog` Windows scheduled task).
-
 ## After a reboot
 
 1. **Wait 30 seconds** after login — Windows takes a moment to settle services.
 2. **Auto-start should run:** the `PM2 Resurrect` scheduled task replays the saved process list from `~/.pm2/dump.pm2`.
 3. **Verify manually if needed:** `pm2 list` — every row should show `status: online`.
-4. **Optional sanity ping:** open `https://agent-dashboard-cc90210.vercel.app/automations` — the Background Workers panel shows green for all 9 daemons within 60 seconds (next heartbeat tick).
+4. **Optional sanity ping:** open `https://oasisai.work/automations` — the Background Workers panel shows green for all 9 daemons within 60 seconds (next heartbeat tick).
 
 If any daemon shows `errored` or `stopped`:
 - `pm2 logs <name> --lines 50` — check the most recent stderr.
@@ -83,7 +83,7 @@ Register-ScheduledTask -TaskName "PM2 Resurrect" -Action $action -Trigger $trigg
 The old duplicate task **"PM2 Resurrect on Login"** must stay disabled. It used
 `cmd.exe /c pm2.cmd resurrect ...` directly and was the popup-prone path.
 
-### Task 2: "SkoolWatchdog"
+### Task 2: "SkoolWatchdog" [ARCHIVED 2026-05-18 — do not re-register; see scripts/_archive/skool/README.md]
 The Skool daemon is standalone (NOT in PM2 - owns its own DaemonLock). It is
 managed by **"SkoolWatchdog"**, which runs every 5 minutes through
 `pythonw.exe` and starts/restarts `skool_engine.py` with the no-console

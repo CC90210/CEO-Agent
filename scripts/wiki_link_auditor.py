@@ -1,10 +1,24 @@
 #!/usr/bin/env python3
-"""Audit broken Obsidian [[wikilinks]] in brain/ and memory/ directories."""
+"""Audit broken Obsidian [[wikilinks]] in brain/ and memory/ directories.
+
+SUPERSEDED (2026-07-28) by `scripts/obsidian_graph_doctor.py`. Kept working for
+any existing caller, but do not trust its output for a clean-graph claim:
+
+  * It resolves links repo-root-relative only. Obsidian resolves by BASENAME
+    anywhere in the vault, so `[[QUICK_REFERENCE]]` is reported broken here
+    while Obsidian resolves it fine  -> false positives.
+  * It scans brain/ and memory/ only, and ignores `.obsidian/app.json`
+    userIgnoreFilters, so links into vault-excluded dirs (`.claude/`, `tmp/`)
+    look fine here and are red in Obsidian  -> false negatives.
+  * It has no orphan, weak-node, or frontmatter detection.
+
+Measured on this repo the same day: this script reported 20 broken links; the
+doctor found 85 real ones across the whole vault. Use the doctor.
+"""
 
 from __future__ import annotations
 
 import re
-import sys
 from collections import defaultdict
 from pathlib import Path
 

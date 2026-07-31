@@ -5,6 +5,7 @@ type: project
 author: Conaugh McKenna
 date_written: 2026-04-30
 tags: [manifesto, content, sales-narrative, philosophy]
+last_updated: 2026-04-30
 ---
 
 # Sub-Agents & Collective Intelligence

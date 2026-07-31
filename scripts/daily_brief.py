@@ -6,9 +6,13 @@ Phase 5c of the OASIS HQ redesign. Two layers:
      MRR / pipeline / follow-ups / client health into a single JSON blob.
      We read state/snapshots/latest_briefing.json (regenerate if stale).
 
-  2. Narration layer: hand the JSON to Claude with a tight prompt — return
-     a 5-bullet brief in CC's voice. No fluff, no "I hope this finds you
-     well", no recommendations Claude wasn't asked for.
+  2. Narration layer: hand the JSON to the LOCAL claude CLI (CC's Claude Code
+     SUBSCRIPTION / OAuth — never the metered ANTHROPIC_API_KEY, per the
+     CLI-only rule) with a tight prompt → a 5-bullet brief in CC's voice.
+     If narration is unavailable (no CLI, expired token, timeout) we fall
+     back to a deterministic brief built straight from the snapshot — always
+     accurate, never the old empty "—" message. Revenue/MRR is intentionally
+     omitted from Bravo's brief: that's Atlas's (CFO) job.
 
   3. Delivery: notify.notify(message, category="system", force=True) ships
      it to CC's Telegram. Same path daemon crash alerts use, so we know
@@ -25,17 +29,18 @@ Cron: register as a cron_jobs SEED entry at 06:00 daily.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 import subprocess
 import sys
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.claude_cli import run_claude_cli  # noqa: E402
 
 # Windows console defaults to cp1252; the brief includes 🌅 + bullet
 # glyphs. Reconfigure to UTF-8 so --dry-run prints don't UnicodeEncodeError.
@@ -46,9 +51,19 @@ except Exception:
     pass
 
 SNAPSHOT_PATH = PROJECT_ROOT / "state" / "snapshots" / "latest_briefing.json"
-ANTHROPIC_VERSION = "2023-06-01"
-NARRATION_MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 600
+
+# Narration runs through the LOCAL claude CLI on CC's subscription OAuth
+# (see _narrate_via_cli) — NEVER the metered ANTHROPIC_API_KEY. The old path
+# POSTed to api.anthropic.com with an x-api-key header, which (a) 400'd on the
+# model id and (b) violated CC's iron "CLI-only, no API keys in automations"
+# rule — so every brief fell through to the fallback and read "AI narration
+# unavailable". Set BRAVO_BRIEF_NARRATE=0 to skip narration and ship the
+# deterministic brief directly (fully offline, zero AI dependency).
+NARRATION_MODEL_CLI = "sonnet"          # CLI alias — always resolves
+# Kept comfortably below the scheduler's outer run_script timeout for
+# daily_brief (150s) so the inner narration bails to the deterministic brief
+# BEFORE the scheduler kills the whole process. Observed narration ~22s.
+CLI_NARRATION_TIMEOUT_SEC = 60
 SNAPSHOT_STALENESS_SEC = 5 * 60  # 5 min — was 24h, but CC's revenue events
 # (subscription_start / cancel logged manually) change throughout the day. A
 # 24h-old snapshot caused the 2026-05-18 15:15 brief to report MRR $3,322 / 12d
@@ -57,40 +72,45 @@ SNAPSHOT_STALENESS_SEC = 5 * 60  # 5 min — was 24h, but CC's revenue events
 # the brief regenerates from fresh CLIs on any non-trivial wait, while still
 # avoiding regeneration cost on rapid-fire manual re-runs.
 
-SYSTEM_PROMPT = """You are Bravo, CC's lead architect. Each morning you turn last 24h's empire data into a 5-bullet brief CC can read in 30 seconds before he starts his day.
+SYSTEM_PROMPT = """You are Bravo — CC's CEO/COO/CTO in one. Each morning you turn the last 24h of empire data into a 5-bullet operational brief CC can read in 30 seconds before his day starts.
+
+Scope: pipeline, follow-ups, execution, client health, and system/ops. Revenue and MRR are Atlas's job (CFO) — do NOT report MRR or revenue figures. If money is relevant to a bullet, point to Atlas rather than quoting a number.
 
 Style:
   - Five bullets. Five exactly. Never more.
   - Each bullet leads with the metric or fact, then the why-it-matters in <12 words.
   - No greetings, no sign-off, no "hope this helps".
   - Use CC's voice: direct, no corporate hedging, no "as an AI" disclaimers.
-  - Numbers stay precise (don't round $4,237 to $4K).
+  - Numbers stay precise.
   - If something's broken or stuck, lead with it — bad news first.
 
 Bullet shape: "<METRIC> — <one short clause of why>."
-Example: "MRR $2,840 — flat vs yesterday, still $2,160 from the May goal."
+Example: "1 qualified lead (score 70) — ready to move, follow-up overdue."
 
 Output the bullets only, one per line, prefixed with `• `. Nothing else."""
 
 
-def _load_env() -> dict[str, str]:
-    from lib.secret_loader import load_env  # noqa: E402
-    return load_env()
-
-
 def _read_snapshot(regenerate: bool) -> dict | None:
-    """Read the latest briefing snapshot. Regenerate if missing or stale."""
+    """Read the latest briefing snapshot. Regenerate if missing or stale.
+
+    If regeneration was needed but FAILED while an old snapshot is on disk, the
+    numbers are stale — flag them (`_stale`) so the brief says so rather than
+    shipping yesterday's data as if it were fresh."""
+    attempted = regen_ok = False
     if regenerate or not SNAPSHOT_PATH.exists():
-        _regenerate_snapshot()
+        attempted, regen_ok = True, _regenerate_snapshot()
     elif _is_stale(SNAPSHOT_PATH):
-        _regenerate_snapshot()
+        attempted, regen_ok = True, _regenerate_snapshot()
 
     if not SNAPSHOT_PATH.exists():
         return None
     try:
-        return json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        snap = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
+    if attempted and not regen_ok and _is_stale(SNAPSHOT_PATH):
+        snap["_stale"] = True
+    return snap
 
 
 def _is_stale(path: Path) -> bool:
@@ -101,11 +121,12 @@ def _is_stale(path: Path) -> bool:
         return True
 
 
-def _regenerate_snapshot() -> None:
+def _regenerate_snapshot() -> bool:
     # Phase 9.4 — windowless flag prevents the briefing snapshot
-    # subprocess from flashing a console every 06:00.
+    # subprocess from flashing a console every 06:00. Returns True only on a
+    # clean regen so the caller can tell "fresh" from "kept the old file".
     try:
-        subprocess.run(
+        r = subprocess.run(
             [sys.executable, "scripts/snapshots/briefing_snapshot.py"],
             cwd=str(PROJECT_ROOT),
             timeout=60,
@@ -113,101 +134,177 @@ def _regenerate_snapshot() -> None:
             text=True,
             creationflags=WINDOWLESS_FLAGS,
         )
+        if r.returncode != 0:
+            sys.stderr.write(
+                f"[daily_brief] snapshot regen exit {r.returncode}: "
+                f"{(r.stderr or '').strip()[:200]}\n")
+            return False
+        return True
     except (subprocess.TimeoutExpired, OSError) as e:
         sys.stderr.write(f"[daily_brief] snapshot regen failed: {e}\n")
+        return False
 
 
-def _narrate(snapshot: dict, env: dict[str, str]) -> str | None:
-    """Hand the snapshot to Claude → 5-bullet brief. Returns None on any
-    failure (caller decides whether to fall back to a dumb summary)."""
-    api_key = (env.get("BRAVO_ANTHROPIC_API_KEY")
-               or env.get("ANTHROPIC_API_KEY")
-               or os.environ.get("BRAVO_ANTHROPIC_API_KEY", "")).strip()
-    if not api_key:
-        sys.stderr.write("[daily_brief] BRAVO_ANTHROPIC_API_KEY missing\n")
-        return None
+def _narrate_via_cli(snapshot: dict) -> str | None:
+    """Hand the operational snapshot to the LOCAL claude CLI → 5-bullet brief.
 
-    # Strip noisy fields before sending to Claude. The snapshot has full
-    # error blobs from sub-engine failures; those waste tokens.
-    cleaned = {
-        k: v for k, v in snapshot.items()
-        if k not in ("snapshot_type", "ts")
-    }
+    Routes through lib.claude_cli.run_claude_cli (CC's Claude Code SUBSCRIPTION
+    OAuth, never the metered API key). Returns None on any failure; caller falls
+    back to the deterministic brief, so a missing CLI / expired token / timeout
+    degrades to accurate numbers rather than the old "AI narration unavailable"
+    dead-end."""
+    # Strip revenue/cash (Atlas's domain) + noisy fields before narrating.
+    # Also drop briefing.pipeline: ceo_dashboard computes it UNSCOPED (counts
+    # other tenants), whereas snapshot.pipeline is the tenant-scoped lead_engine
+    # truth. Sending both would let the narrator quote the wrong (inflated) count.
+    cleaned = {k: v for k, v in snapshot.items()
+               if k not in ("snapshot_type", "ts", "revenue")}
+    if isinstance(cleaned.get("briefing"), dict):
+        cleaned["briefing"] = {k: v for k, v in cleaned["briefing"].items()
+                               if k not in ("mrr", "cash", "pipeline")}
     user_prompt = (
-        f"Today is {snapshot.get('date', 'today')}. "
-        f"Here's the aggregate empire state from the last 24h:\n\n"
+        f"Today is {snapshot.get('date', 'today')}. Operational empire state "
+        f"(revenue omitted — that's Atlas's brief):\n\n"
         f"{json.dumps(cleaned, indent=2, default=str)[:6000]}\n\n"
-        f"Write CC's 5-bullet brief."
+        f"Write CC's 5-bullet operational brief."
     )
-
-    body = json.dumps({
-        "model": NARRATION_MODEL,
-        "max_tokens": MAX_TOKENS,
-        "system": SYSTEM_PROMPT,
-        "messages": [{"role": "user", "content": user_prompt}],
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=body,
-        headers={
-            "content-type": "application/json",
-            "x-api-key": api_key,
-            "anthropic-version": ANTHROPIC_VERSION,
-        },
-        method="POST",
+    text = run_claude_cli(
+        user_prompt, system=SYSTEM_PROMPT,
+        model=NARRATION_MODEL_CLI, timeout=CLI_NARRATION_TIMEOUT_SEC,
     )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
-            payload = json.loads(resp.read().decode("utf-8"))
-    except Exception as e:  # noqa: BLE001
-        sys.stderr.write(f"[daily_brief] anthropic call failed: {e}\n")
+    if not text:
         return None
+    # notify() ships with parse_mode=HTML and has NO plain-text fallback, so a
+    # stray <, >, or & in the model's prose ("score > 70", "A & B") would make
+    # Telegram reject the whole message → CC gets nothing. Escape the three
+    # HTML-special chars; they render as literal glyphs.
+    return html.escape(text, quote=False)
 
-    blocks = payload.get("content") or []
-    text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
-    return text or None
+
+def _count_stage(pipe: dict, stage: str) -> int:
+    """Count for one pipeline stage, tolerant of both snapshot shapes:
+    {stage: {count: N}} (raw lead_engine) and {stage: N} (aggregated)."""
+    v = pipe.get(stage)
+    if isinstance(v, dict):
+        return int(v.get("count") or 0)
+    if isinstance(v, (int, float)):
+        return int(v)
+    return 0
 
 
-def _dumb_fallback(snapshot: dict) -> str:
-    """Pre-AI fallback. If Claude is unreachable, at least ship the numbers
-    so CC knows the brief tried to fire."""
-    rev = (snapshot.get("revenue") or {}).get("mrr") or {}
-    pipe = snapshot.get("pipeline") or {}
-    followups = snapshot.get("followups_due") or {}
-    alerts = snapshot.get("client_health_alerts") or {}
+_PIPELINE_STAGES = ("new", "contacted", "qualified", "proposal", "won", "lost")
+_ACTIVE_STAGES = ("new", "contacted", "qualified", "proposal")
 
-    def _scalar(d, *keys, default="—"):
-        v = d
-        for k in keys:
-            if not isinstance(v, dict):
-                return default
-            v = v.get(k)
-            if v is None:
-                return default
-        return v
 
-    return (
-        f"📊 Daily brief ({snapshot.get('date', 'today')}) — AI narration unavailable\n\n"
-        f"• MRR: {_scalar(rev, 'net_mrr_cad', default=_scalar(rev, 'net_mrr_usd'))}\n"
-        f"• Pipeline total: {_scalar(pipe, 'total')}\n"
-        f"• Follow-ups due: {_scalar(followups, 'total')}\n"
-        f"• Client health alerts: {_scalar(alerts, 'total')}\n"
-        f"• Snapshot ts: {snapshot.get('ts')}"
-    )
+def _is_failed_block(v) -> bool:
+    """briefing_snapshot._call marks a failed/unparseable sub-engine call with
+    an _error or _raw key. Treat those as 'no data' — never as zero/green. A
+    silent 0 is a worse lie than an honest 'unavailable'."""
+    return isinstance(v, dict) and ("_error" in v or "_raw" in v)
+
+
+def _render_brief(snapshot: dict) -> str:
+    """Deterministic operational brief — always accurate, no AI, no API key.
+
+    Reads the ACTUAL snapshot schema (the old fallback read keys that never
+    existed → every field '—'). A DEGRADED sub-engine renders '⚠️ unavailable',
+    never a false zero/green. MRR/cash omitted — revenue is Atlas's (CFO) job.
+    Output is HTML-escaped for Telegram's parse_mode=HTML."""
+    date = snapshot.get("date", "today")
+    brief = snapshot.get("briefing") if isinstance(snapshot.get("briefing"), dict) else {}
+    lines = [f"🌅 Bravo brief · {date}", ""]
+
+    # --- Pipeline: prefer the raw lead_engine block (authoritative), then the
+    #     ceo_dashboard aggregate; 'unavailable' if BOTH are degraded ---
+    raw_pipe = snapshot.get("pipeline")
+    brief_pipe = brief.get("pipeline") if isinstance(brief.get("pipeline"), dict) else {}
+    by_stage = None
+    if isinstance(raw_pipe, dict) and raw_pipe and not _is_failed_block(raw_pipe):
+        by_stage = {s: _count_stage(raw_pipe, s) for s in _PIPELINE_STAGES}
+    elif isinstance(brief_pipe.get("by_stage"), dict) and brief_pipe["by_stage"]:
+        by_stage = {s: int(brief_pipe["by_stage"].get(s) or 0) for s in _PIPELINE_STAGES}
+
+    if by_stage is None:
+        lines.append("🎯 Pipeline — ⚠️ unavailable (snapshot degraded)")
+    else:
+        active = sum(int(by_stage.get(s) or 0) for s in _ACTIVE_STAGES)
+        qualified = int(by_stage.get("qualified") or 0)
+        stage_bits = " · ".join(
+            f"{int(by_stage.get(s) or 0)} {label}"
+            for s, label in (("new", "new"), ("contacted", "contacted"),
+                             ("qualified", "qualified"), ("won", "won"))
+            if int(by_stage.get(s) or 0)
+        )
+        lines.append(f"🎯 Pipeline — {active} active")
+        if stage_bits:
+            lines.append(f"   {stage_bits}")
+        if qualified:
+            lines.append(f"   → {qualified} qualified lead{'s' if qualified != 1 else ''} ready to move")
+
+    # --- Follow-ups due: a list = real data; anything else = unavailable ---
+    followups = snapshot.get("followups_due")
+    lines.append("")
+    if isinstance(followups, list):
+        lines.append(f"📞 Follow-ups due: {len(followups)}")
+        for lead in followups[:5]:
+            if not isinstance(lead, dict):
+                continue
+            name = lead.get("name") or "—"
+            company = lead.get("company") or ""
+            score = lead.get("score")
+            tail = f" · {company}" if company else ""
+            if score is not None:
+                tail += f" (score {score})"
+            lines.append(f"   • {name}{tail}")
+    else:
+        lines.append("📞 Follow-ups due: ⚠️ unavailable")
+
+    # --- Client health: honour the '0 monitored' truth-note; degraded = unavailable
+    ch_raw = brief.get("client_health")
+    alerts = snapshot.get("client_health_alerts")
+    ch = ch_raw if isinstance(ch_raw, dict) else None
+    lines.append("")
+    if ch is None or _is_failed_block(ch_raw) or _is_failed_block(alerts):
+        lines.append("🩺 Client health: ⚠️ unavailable")
+    else:
+        monitored = ch.get("monitored")
+        at_risk = ch.get("at_risk")
+        if at_risk is None and isinstance(alerts, dict):
+            at_risk = len(alerts.get("at_risk_clients") or [])
+        if monitored == 0:
+            lines.append("🩺 Client health: ⚠️ 0 clients monitored")
+            lines.append("   CRM gap — paying subscribers aren't tagged status='client'.")
+        elif at_risk:
+            lines.append(f"🩺 Client health: ⚠️ {at_risk} at risk")
+        else:
+            lines.append("🩺 Client health: ✅ all green")
+
+    # --- footer: prove the brief ran + how fresh the data is ---
+    ts = snapshot.get("ts") or ""
+    hhmm = ts[11:16] if len(ts) >= 16 else ts
+    lines.append("")
+    if snapshot.get("_stale"):
+        lines.append("⚠️ data may be stale — snapshot refresh failed")
+    lines.append(f"⏱ snapshot {hhmm} UTC" if hhmm else "⏱ snapshot generated")
+    return html.escape("\n".join(lines), quote=False)
 
 
 def build_brief(regenerate: bool = False) -> str:
-    env = _load_env()
     snapshot = _read_snapshot(regenerate)
     if not snapshot:
         return "Daily brief: snapshot unreadable. Run `python scripts/snapshots/briefing_snapshot.py` manually."
 
-    narrated = _narrate(snapshot, env)
-    if narrated:
-        date_str = snapshot.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
-        return f"🌅 Bravo brief · {date_str}\n\n{narrated}"
-    return _dumb_fallback(snapshot)
+    deterministic = _render_brief(snapshot)
+    # Narration is best-effort polish ON TOP of the deterministic brief. If the
+    # CLI is missing, the token's expired, or it times out, CC still gets the
+    # accurate deterministic brief — never the old empty "—" message.
+    # BRAVO_BRIEF_NARRATE=0 skips narration entirely (pure deterministic).
+    if os.environ.get("BRAVO_BRIEF_NARRATE", "1").strip() != "0":
+        narrated = _narrate_via_cli(snapshot)
+        if narrated:
+            date_str = snapshot.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+            return f"🌅 Bravo brief · {date_str}\n\n{narrated}"
+    return deterministic
 
 
 def send_brief(message: str) -> bool:

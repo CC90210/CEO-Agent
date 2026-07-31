@@ -5,6 +5,7 @@ triggers: [ingest, query knowledge, lint knowledge, compile knowledge, knowledge
 tier: specialized
 dependencies: [knowledge-management, memory-management]
 tags: [skill, knowledge, compilation, wiki, ingest]
+last_updated: 2026-05-21
 ---
 
 # Knowledge Compilation Skill

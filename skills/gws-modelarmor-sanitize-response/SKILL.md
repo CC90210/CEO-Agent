@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws modelarmor +sanitize-response --help"
 triggers: ["gws modelarmor sanitize response", "use gws modelarmor sanitize response", "run gws modelarmor sanitize response"]
 tier: specialized
+tags: [skill, gws-modelarmor-sanitize-response]
+last_updated: 2026-06-20
 ---
 
 # modelarmor +sanitize-response

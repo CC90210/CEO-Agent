@@ -43,7 +43,7 @@ Produce 3 genuinely distinct approaches. Score each: completeness (0-10), human-
 Ask: double-click, network drop mid-request, scale (10k → 10M rows), malicious input, concurrent modification, dependency misconfigured.
 
 ### Phase 5 — COORDINATE
-Check `~/.claude/AGENT_COORDINATION.md` for overlap with sibling Claude agents. Check existing skills/utils for reuse. Never fork silently.
+Check `~/.claude/AGENT_COORDINATION.md` for overlap with sibling Claude agents. Check existing skills/ + scripts/lib/ for reuse. Never fork silently.
 
 ### Phase 6 — DECIDE
 Pick winner in one sentence. Document killers (abort conditions) and rollback path.

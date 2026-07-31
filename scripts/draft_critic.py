@@ -227,24 +227,17 @@ OUTPUT SCHEMA — JSON ONLY:
 Output only the JSON object."""
 
 
-def _call_haiku(system_prompt: str, user_msg: str, env: dict[str, str],
+def _call_haiku(system_prompt: str, user_msg: str, _env: dict[str, str],
                 max_tokens: int = 600) -> str:
-    """Return the raw text response from Haiku."""
-    try:
-        import anthropic
-    except ImportError:
-        raise RuntimeError("anthropic SDK not installed")
-    api_key = env.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY missing in .env.agents")
-    client = anthropic.Anthropic(api_key=api_key)
-    resp = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=max_tokens,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_msg}],
-    )
-    text = "".join(b.text for b in resp.content if hasattr(b, "text")).strip()
+    """Return the raw text response from Haiku via the subscription `claude` CLI
+    (lib.claude_cli) — never the metered ANTHROPIC_API_KEY (out of credits +
+    banned per CC's CLI-only rule). max_tokens is kept for signature stability;
+    the CLI manages its own output length."""
+    from lib.claude_cli import run_claude_cli
+    text = run_claude_cli(user_msg, system=system_prompt, model="haiku", timeout=90)
+    if text is None:
+        raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")
+    text = text.strip()
     if text.startswith("```"):
         text = re.sub(r"^```[a-z]*\n", "", text)
         text = re.sub(r"\n```\s*$", "", text)

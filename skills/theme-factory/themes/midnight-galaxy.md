@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Midnight Galaxy
 
 A dramatic and cosmic theme with deep purples and mystical tones for impactful presentations.

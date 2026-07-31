@@ -5,6 +5,7 @@ triggers: [remember, recall, preferences, semantic search, mem0, memory search, 
 tier: standard
 dependencies: [memory-management, knowledge-management]
 tags: [skill, memory, semantic, mem0, vector, embeddings]
+last_updated: 2026-05-21
 ---
 
 # Semantic Memory Skill

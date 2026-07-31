@@ -3,7 +3,9 @@
     "_comment": "V6 guard enforcement modes (audit Phase 3, 2026-06-09). Read by scripts/state/{secret,exec,state}_guard.py via EMPIRE_HOOK_* (enforce|report|off). Tracked here so all machines inherit; VPS daemons also read these keys from .env.agents.",
     "EMPIRE_HOOK_SECRET_GUARD": "enforce",
     "EMPIRE_HOOK_EXEC_GUARD": "enforce",
-    "EMPIRE_HOOK_STATE_GUARD": "enforce"
+    "EMPIRE_HOOK_STATE_GUARD": "enforce",
+    "_comment_v6_mode": "V6 staged cutover (2026-07-18): shadow = state_sync dual-writes flat files + the state DB. Shadow NEVER runs the `on`-mode export, so flat files stay authoritative and nothing is clobbered — a safe soak before any future `on` flip. Read by scripts/state/state_sync.py. Daemons inherit the same value from ecosystem.config.js on their next PM2 restart.",
+    "EMPIRE_V6_MODE": "shadow"
   },
   "hooks": {
     "PreToolUse": [

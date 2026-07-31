@@ -5,6 +5,8 @@ license: Proprietary. LICENSE.txt has complete terms
 triggers: [PDF, merge PDF, split PDF, read PDF, OCR, watermark, PDF form]
 tier: specialized
 dependencies: []
+tags: [skill, pdf]
+last_updated: 2026-05-21
 ---
 
 # PDF Processing Guide

@@ -1,3 +1,8 @@
+---
+tags: [prompts]
+last_updated: 2026-05-25
+---
+
 # INTEGRATE_NEW_TOOL — paste this whole block as your prompt
 
 > **Works in** Claude Code, Antigravity, OpenCode, Codex CLI, Cursor, Gemini CLI, or any tool that opens one of CC's agent repos.
@@ -224,3 +229,7 @@ If you skipped any step, your integration is paperwork, not progress. Loop back.
 - Pattern logged: `memory/PATTERNS.md` § "Substrate-Layer-First Import from AGPL Reference Repos" (V6.9 confirms the V6.8 pattern at larger surface — 3 migrations + 6 step types + 2 ADRs + 6 glossary entries shipped across 8 commits).
 
 This is the bar. Match it.
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/CAPABILITIES]]

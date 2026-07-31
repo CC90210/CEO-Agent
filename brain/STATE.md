@@ -1,12 +1,21 @@
 ---
 tags: [state, ephemeral, fable-5]
-architecture_version: V7.0.0
-last_updated: 2026-07-07
+architecture_version: V7.4.1
+last_updated: 2026-07-26
 freshness_threshold_days: 30
-verified: 2026-07-07
+verified: 2026-07-26
 model_standard: fable-5
 ---
 # STATE — Current Operational State
+
+> **2026-07-26 — Inbound email automation is LIVE.** The n8n "OASIS Inbound
+> Qualifier" is replaced by a native pipeline (classifier + `email_brain` +
+> `email_playbook` + Atlas financial hand-off), subscription-CLI only, running
+> as the "Inbound Email Sweep" cron (`*/5`) with Hybrid auto-send. Runbook:
+> `brain/EMAIL_PIPELINE.md`. Kill switch: `EMAIL_BRAIN_ENABLED`/`_AUTO_SEND` in
+> `ecosystem.config.js`. Code is on `feat/native-email-classifier` (CEO-Agent) +
+> `feat/inbound-financial-consumer` (CFO-Agent) — landing to main/master is a
+> pending CC decision (divergent notify.py on main; Atlas master would pull Qlib).
 
 <!-- CANONICAL VERSION: `architecture_version` above is the SINGLE SOURCE OF TRUTH
      for the empire's architecture version. The five entry points (CLAUDE/GEMINI/
@@ -15,7 +24,7 @@ model_standard: fable-5
      scripts/tests/test_entrypoint_parity.py. Released versions live in CHANGELOG.md. -->
 
 
-> Updated 2026-06-06 (system re-engineering pass — tmp/ 6 GB→5 MB, retriever_postedit silent-failure fixed, 3 hygiene crons added, 5 entry points re-synced; see [memory/ACTIVE_TASKS#system-re-engineering-2026-06-06](../memory/ACTIVE_TASKS.md)) | **V6 OPTIMIZATION PROJECT — 100% COMPLETE.** Apex Phases 1-3 shipped 2026-05-10. V6.1 scaffolding mechanism + V6.0.3 polish + V6.0 foundation all intact. Self-audit health: run `python scripts/core/self_audit.py` for the live score (as of 2026-07-07 the point-losers are graph-hygiene items — orphans / undocumented scripts — not broken links, which are at 0). Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
+> Updated 2026-07-20 (V7.4 fleet modernization) | **Architecture is V7.4.0** — V6 (state DB, retrieval, guards, capability graph, vocabulary layer) remains the foundation, and V7.0–V7.4 shipped on top: reliability/observability (Loud Failures, sliced harness eval + history, substrate-eval CI), Free-Tier Radar (`resource:` graph nodes, ADR-0010), the V7.2 persona bench, typed memory (ADR-0011: dedup + memory_diff audits, retriever abstract layer + freshness ranking), and the V7.4 agent-fleet canonical contract (ADR-0012: 13 personas modernized, one schema, generated agent routing, resolver scores agents by trigger). Full narrative: `CHANGELOG.md`. Self-audit health: run `python scripts/core/self_audit.py` for the live score. Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
 >
 > **V6 Apex (2026-05-10 — closes the V6 architecture epic):**
 >   - **Phase 1** — `/api/state-health` two-tier read path: state-api passthrough preferred, Supabase mirror fallback for Vercel. The page renders a `via state-api` / `via supabase-mirror` tag so operators see which side served the payload.
@@ -38,7 +47,7 @@ model_standard: fable-5
 
 | Dimension | Level | Notes |
 |-----------|-------|-------|
-| **Version** | V6 Apex (P1+P2+P3) | V6 Optimization Project 100% complete (2026-05-10). Architecture phase closed. |
+| **Version** | **V7.4.0** (frontmatter `architecture_version` is canonical) | V6 foundation + V7.0 reliability + V7.1 Radar + V7.2 persona bench + V7.3 typed memory + V7.4 agent-fleet contract. Released history: CHANGELOG.md. |
 | **Position**| EXECUTING — PAID CLIENT WORK | SunBiz + Breeze (BreezeAdvance) are active paying-client development. Deal terms and revenue are tracked by Atlas (CFO). Top priority: deliver the client work that keeps them retained. |
 | **Confidence** | 0.80 | Core automations production-grade and verified running (Montreal fleet reset 2026-07-07). SunBiz/Breeze delivered at spec. |
 | **Focus Area** | **HARNESS INTEGRITY + ONGOING CLIENT DELIVERY** | Montreal turnkey reset (2026-07-07): fleet persistence + identity truth. SunBiz / Breeze delivery continues. |
@@ -110,9 +119,9 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 ## Agent Runner Backend (2026-05-05)
 
 **Design + scaffold shipped, not deployed yet**
-- `docs/AGENT_RUNNER_DESIGN.md` written â€” direct `runner.oasisai.work` architecture for the Command Center chat widget. Decision set: Node/TypeScript runner, session-scoped workers, SSE streaming, Supabase JWT verification on-runner, libsodium app-layer key encryption, BYOK enforcement for non-CC tenants, read-only file tree with approval-gated writes.
-- `apps/agent-runner/` scaffold added â€” `server.ts`, `sessions.ts`, `spawner.ts`, `auth.ts`, `files.ts`, `sse.ts`, plus isolated `package.json` + `tsconfig.json`.
-- `database/020_agent_runner.sql` added â€” `agent_model_config`, `chat_sessions`, `chat_messages`, `audit_log`, plus managed-auth guardrail on `tenants.custom_fields.managed_auth_allowed`.
+- `docs/AGENT_RUNNER_DESIGN.md` written — direct `runner.oasisai.work` architecture for the Command Center chat widget. Decision set: Node/TypeScript runner, session-scoped workers, SSE streaming, Supabase JWT verification on-runner, libsodium app-layer key encryption, BYOK enforcement for non-CC tenants, read-only file tree with approval-gated writes.
+- `apps/agent-runner/` scaffold added — `server.ts`, `sessions.ts`, `spawner.ts`, `auth.ts`, `files.ts`, `sse.ts`, plus isolated `package.json` + `tsconfig.json`.
+- `database/020_agent_runner.sql` (planned — never landed; see `apps/agent-runner/`) — `agent_model_config`, `chat_sessions`, `chat_messages`, `audit_log`, plus managed-auth guardrail on `tenants.custom_fields.managed_auth_allowed`.
 - **Operator note:** local worktree already contains untracked `database/020_chat_widget_and_pairings.sql`; it overlaps migration numbering and scope. Choose one migration lineage before applying anything to Supabase.
 
 ## Obsidian Links
@@ -135,37 +144,37 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[skills/ethical-hacking/SKILL]] | [[skills/sales-closing/SKILL]]
 - [[knowledge/index]] | [[knowledge/SCHEMA]]
 - [[brain/DASHBOARD]]
-- **Hubs (graph spine):** [[skills/INDEX]] · [[docs/INDEX]] · [[browser/README]] · [[browser/domain-skills/README]] · [[browser/interaction-skills/INDEX]] · [oasis-command-center](https://github.com/CC90210/oasis-command-center) (external) · [[data/pulse/README]] · [[memory/outreach_archive/INDEX]] · [[memory/daily/INDEX]] · [[.gemini/INDEX]] · [[templates/agent-scaffold/README]]
+- **Hubs (graph spine):** [[skills/INDEX]] · [[docs/INDEX]] · [[browser/README]] · [[browser/domain-skills/README]] · [[browser/interaction-skills/INDEX]] · [oasis-command-center](https://github.com/CC90210/oasis-command-center) (external) · [[data/pulse/README]] · [[memory/daily/INDEX]] · [[.gemini/INDEX]] · [[templates/agent-scaffold/README]]
 - **Top-level:** [[PLAYBOOK]] · [[SECURITY]] · [[brain/CLIENT_READY]]
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-07
+- **Date:** 2026-07-30
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** SunBiz drip/background worker diagnostic complete; handover posted to OASIS coordination bridge row 2c08f54c-fd05-405a-8bc0-d60cc6f697d7. Findings: sequence definitions and VPS heartbeats healthy, but no proven sequence sends; follow_up backlog not enrolled; lead timezone/contact data blocks SMS/email; reconcile tool import broken; next step is dry-run backfill + revive plan after cadence decision.
+- **Result:** Diagnostic session: SESSION_LOG.md junk cleaned, 2 self-audit orphans wired, review-loop regression test fixed (was testing itself), harness 10/10 confirmed.
 
-*Last updated: 2026-07-07*
+*Last updated: 2026-07-30*
 
 ## Manifest
 
 <!-- MANIFEST:BEGIN -->
 _Auto-generated by `scripts/catalog_sync.py` — do not edit this block manually._
-_Last synced: 2026-07-07T16:02:44.401846+00:00_
+_Last synced: 2026-07-28T15:15:04.526117+00:00_
 
 | Type | Count |
 |---|---:|
-| Python scripts | 113 |
+| Python scripts | 117 |
 | PowerShell scripts | 10 |
 | Shell scripts | 4 |
-| **Total scripts** | **127** |
-| Skills | 150 (45 destructive) |
-| Agents | 21 |
+| **Total scripts** | **131** |
+| Skills | 152 (45 destructive) |
+| Agents | 27 |
 | Workflows | 34 |
 
 **Scripts by category:**
 
-- Other: 88
-- Communication: 11
+- Other: 90
+- Communication: 13
 - Data & Memory: 9
 - System: 6
 - Content: 5

@@ -38,6 +38,13 @@ PYTHON = sys.executable
 sys.path.insert(0, str(SCRIPTS_DIR))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
+# Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. Without this the
+# AV TLS-scanner root is untrusted and every Supabase call raises
+# CERTIFICATE_VERIFY_FAILED, which this tool then reported as "non-JSON".
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 
 def load_env() -> dict[str, str]:
     env_path = PROJECT_ROOT / ".env.agents"
@@ -99,9 +106,16 @@ def send_welcome_email(client, env_vars: dict[str, str], lead_email: str, lead_n
 
     vars_json = json.dumps({"first_name": first_name, "name": lead_name, "email": lead_email})
 
+    # scripts/email_engine.py moved to scripts/integrations/ on 2026-05-21
+    # (commit 7f47d0f8). scheduler.py's copy of this path was updated; this one
+    # was missed, so every welcome email since has died with "can't open file"
+    # — latent only because no real lead has arrived to trigger it.
+    engine = SCRIPTS_DIR / "integrations" / "email_engine.py"
+    if not engine.exists():                       # fail at the call, not silently
+        return f"email_engine_missing: {engine}"
     cmd = [
         PYTHON,
-        str(SCRIPTS_DIR / "email_engine.py"),
+        str(engine),
         "--json",
         "send-template",
         "--template-id", template_id,

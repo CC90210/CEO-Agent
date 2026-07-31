@@ -16,13 +16,15 @@ All credentials loaded from .env.agents (never hardcoded).
 """
 
 import json
+import os
+import re
 import subprocess
 import sys
 import time
 import traceback
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Optional, List
+from typing import Any, Optional, List
 
 # Shared Windows console-suppression flag — see scripts/_subprocess_helpers.
 # The constant lived in this file (and 5 others) before consolidation;
@@ -53,6 +55,29 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 PYTHON = sys.executable  # Use same Python that's running this script
 
+# Scrub this process's own env, then hand a sanitized copy to every child.
+#
+# 2026-07-29: the scheduler is a long-lived PM2 daemon, so it inherits whatever
+# AVG's TLS scanner exported into the PM2 daemon's environment — including
+# SSLKEYLOGFILE=\\.\avgMonFltProxy\<kernel-handle>. Those handles go stale, and
+# CPython opens the path inside ssl.create_default_context(), so every child
+# that built an HTTPS client died at construction with PermissionError.
+#
+# ecosystem.config.js now sets SSLKEYLOGFILE="" and lib/tls_trust strips it
+# in-process, but neither covers a child script that (a) doesn't import
+# tls_trust and (b) is launched after a `pm2 restart` that skipped --update-env.
+# This is the belt: every subprocess below gets CHILD_ENV, never the implicit
+# inherited environment.
+try:
+    from lib.tls_trust import ensure_os_trust as _ensure_os_trust
+
+    _ensure_os_trust()
+except Exception:  # noqa: BLE001 — never block daemon startup on the TLS helper
+    os.environ.pop("SSLKEYLOGFILE", None)
+
+CHILD_ENV = os.environ.copy()
+CHILD_ENV["SSLKEYLOGFILE"] = ""  # falsy -> ssl.py skips keylog_filename entirely
+
 # Boot-blast suppression (2026-06-06): when CC's PC has been off, the
 # scheduler comes back to a backlog of cron rows whose next_run_at is hours
 # old. Without this guard, every due job fires in sequence — CC gets
@@ -74,6 +99,30 @@ STALE_FIRE_THRESHOLD_MINUTES = 30
 RETIRED_ACTIONS: frozenset[str] = frozenset({
     "lead_outreach_batch",  # retired 2026-05-16 — see feedback_no_cold_outreach_cron.md
 })
+
+# ── Who owns which cron ──────────────────────────────────────────────────────
+#
+# These two sets already existed as LOCALS inside execute_job, used only to emit
+# a "moved_to_maven" marker. Hoisted to module scope 2026-07-30 so the alert
+# router can reuse the same ownership map — one source of truth for "whose job
+# is this", rather than a second copy that drifts.
+MAVEN_DOMAIN_ACTIONS: frozenset[str] = frozenset({
+    "content_post", "ig_research", "ig_dm_check", "ig_auto_reply",
+    "content_generate", "content_repurpose", "content_planning",
+    "maven_token_check",
+})
+ATLAS_DOMAIN_ACTIONS: frozenset[str] = frozenset({
+    "atlas_wealth_refresh", "stripe_sync", "revenue_report", "monthly_snapshot",
+})
+
+
+def agent_for_action(action_type: str) -> str:
+    """Which C-suite agent's Telegram bridge owns alerts for this cron."""
+    if action_type in ATLAS_DOMAIN_ACTIONS:
+        return "atlas"
+    if action_type in MAVEN_DOMAIN_ACTIONS:
+        return "maven"
+    return "bravo"
 
 
 # ── Credential loading ────────────────────────────────────────────────────────
@@ -104,6 +153,13 @@ def get_client(env_vars: dict[str, str]):
 
 
 # ── Cron schedule parsing ─────────────────────────────────────────────────────
+
+# A job that runs at least this often gets another attempt before CC could
+# realistically act on a page, so its FIRST failure is noise, not signal.
+# Anything slower (hourly, daily) fails once and then stays broken for a long
+# time — for those the first failure is the only useful moment to alert.
+FAST_JOB_PERIOD = timedelta(minutes=15)
+
 
 def parse_cron_schedule(schedule: str) -> Optional[timedelta]:
     """
@@ -191,21 +247,11 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
         # content_repurpose, content_planning) were moved to Maven on 2026-04-26.
         # If a legacy DB row still has one of those types, route it to a
         # human-readable "moved" marker rather than failing silently.
-        MAVEN_DOMAIN_ACTIONS = {
-            "content_post", "ig_research", "ig_dm_check", "ig_auto_reply",
-            "content_generate", "content_repurpose", "content_planning",
-            # Phase 9.1 — Maven Token Expiry Check ships from CMO-Agent.
-            # Was emitting "unknown_action_type" on this dashboard's
-            # bravo-scheduler because the row exists empire-side but the
-            # handler doesn't. Mark as moved so the Health page shows a
-            # clean "moved_to_maven" instead of red.
-            "maven_token_check",
-        }
-        # Atlas-domain actions ship from APPS/CFO-Agent. Same rationale
-        # as MAVEN_DOMAIN_ACTIONS — bridge rows that have no local handler.
-        ATLAS_DOMAIN_ACTIONS = {
-            "atlas_wealth_refresh",
-        }
+        # MAVEN_DOMAIN_ACTIONS / ATLAS_DOMAIN_ACTIONS now live at module scope
+        # (shared with agent_for_action, which routes alerts by owner). Phase
+        # 9.1: Maven Token Expiry Check ships from CMO-Agent — the row exists
+        # empire-side but the handler does not, so it is marked moved rather
+        # than showing red on the Health page.
         if action_type in ATLAS_DOMAIN_ACTIONS:
             return f"moved_to_atlas: {action_type} is now owned by CFO-Agent"
         if action_type in MAVEN_DOMAIN_ACTIONS:
@@ -268,22 +314,115 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
         return error_msg
 
 
+FAILURE_DUMP_DIR = PROJECT_ROOT / "tmp" / "cron_failures"
+FAILURE_DUMP_KEEP = 50
+
+# script_run timeout policy. Most jobs are quick; a few (Review Harvest) spawn a
+# model session plus a test suite and legitimately need longer. Per-job override
+# lives in action_config["timeout"].
+SCRIPT_RUN_DEFAULT_TIMEOUT = 300
+SCRIPT_RUN_MAX_TIMEOUT = 3600
+
+
+def _as_text(raw: Any) -> str:
+    """Decode whatever subprocess handed back. TimeoutExpired.stdout/.stderr is
+    str under text=True, bytes if the child died before the decoder ran, and
+    None when nothing was captured — all three reach the dump writer."""
+    if raw is None:
+        return ""
+    if isinstance(raw, bytes):
+        return raw.decode("utf-8", errors="replace").strip()
+    return str(raw).strip()
+
+
+def persist_failure(label: str, cmd: List[str], returncode: "int | str",
+                    stderr: str, stdout: str = "") -> Optional[str]:
+    """Write a failed child's FULL stderr to tmp/cron_failures/ and return the path.
+
+    Everything upstream truncates: run_script caps stderr at 2000 chars,
+    cron_jobs.last_result at 500, the PM2 log line at 200. Diagnosing the
+    2026-07-29 SSLKEYLOGFILE outage required the frame BELOW the 500-char cut —
+    which existed nowhere on disk, so the root cause was invisible for 25h while
+    the job dutifully logged "FAILED (exit 1): Traceback (most recent call
+    last):" every five minutes.
+
+    Secrets are stripped before writing (a child traceback can embed a
+    connection string or a token-bearing URL). Ring-buffered so it can't grow
+    without bound. Best-effort: a dump failure must never mask the job failure.
+    """
+    try:
+        FAILURE_DUMP_DIR.mkdir(parents=True, exist_ok=True)
+        slug = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")[:48] or "job"
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        path = FAILURE_DUMP_DIR / f"{slug}-{ts}.log"
+
+        try:
+            from lib.redact import redact_secrets
+            env_vars = load_env()
+        except Exception:  # noqa: BLE001
+            def redact_secrets(t, _e=None):  # type: ignore[misc]
+                return t
+            env_vars = {}
+
+        body = (
+            f"job       : {label}\n"
+            f"when      : {datetime.now(timezone.utc).isoformat()}\n"
+            f"exit code : {returncode}\n"
+            f"command   : {' '.join(cmd)}\n"
+            f"{'-' * 72}\nSTDERR\n{'-' * 72}\n{redact_secrets(stderr or '(empty)', env_vars)}\n"
+            f"{'-' * 72}\nSTDOUT\n{'-' * 72}\n{redact_secrets((stdout or '(empty)')[:20000], env_vars)}\n"
+        )
+        path.write_text(body, encoding="utf-8")
+
+        dumps = sorted(FAILURE_DUMP_DIR.glob("*.log"))
+        for stale in dumps[:-FAILURE_DUMP_KEEP]:
+            stale.unlink(missing_ok=True)
+        return str(path)
+    except Exception as exc:  # noqa: BLE001
+        log(f"  [warn] could not persist failure dump for {label}: {exc}")
+        return None
+
+
 def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
     """Run a Python script from the scripts/ directory and return its output."""
     cmd = [PYTHON, str(SCRIPTS_DIR / script_name)] + args
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=timeout,
-        cwd=str(PROJECT_ROOT),
-        creationflags=CREATE_NO_WINDOW,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=timeout,
+            cwd=str(PROJECT_ROOT),
+            env=CHILD_ENV,
+            creationflags=CREATE_NO_WINDOW,
+        )
+    except subprocess.TimeoutExpired as exc:
+        # A TIMEOUT is the failure mode that most needs a dump and was the only
+        # one that never produced one: subprocess.run raised straight past the
+        # persist_failure call below, so CC's 2026-07-30 "timed out after 30s"
+        # page pointed at tmp/cron_failures/ — which was empty. A hang leaves no
+        # traceback of its own, so whatever the child managed to emit before the
+        # wall is the ONLY evidence there will ever be. Capture it.
+        partial_out = _as_text(exc.stdout)
+        partial_err = _as_text(exc.stderr)
+        dump = persist_failure(
+            script_name, cmd, "TIMEOUT",
+            f"No exception — killed after {timeout}s with no exit.\n"
+            f"A hang produces no traceback; the partial output below is all\n"
+            f"the child emitted before the wall.\n\n{partial_err}",
+            partial_out,
+        )
+        hint = f" [full: {Path(dump).name}]" if dump else ""
+        return f"FAILED (timeout after {timeout}s):{hint} {partial_err[:1000]}"
     output = result.stdout.strip()
     if result.returncode != 0:
         error = result.stderr.strip()
-        return f"FAILED (exit {result.returncode}): {error[:2000]}"
+        dump = persist_failure(script_name, cmd, result.returncode, error, output)
+        # Point at the full dump from inside the truncated string, so whoever
+        # reads last_result or the PM2 log knows where the rest of it lives.
+        hint = f" [full: {Path(dump).name}]" if dump else ""
+        return f"FAILED (exit {result.returncode}):{hint} {error[:2000]}"
     if not output:
         return "ok"
     # 2026-04-11: capped at 8000 chars to prevent runaway stdout. 2026-05-15:
@@ -425,7 +564,19 @@ def _send_digest(msg: str, category: str, skip_phrase: str) -> str:
 
 
 def run_revenue_report(env_vars: dict) -> str:
-    """Generate MRR dashboard summary as a clean Telegram message."""
+    """MRR reporting is ATLAS-OWNED (CFO) — Bravo does not send revenue digests.
+
+    Handler-level enforcement (2026-07-09): the 'Weekly MRR Report' cron was
+    disabled in both the DB and SEED_JOBS, but that's a toggle anyone could flip
+    back on. This is the backstop — even if a revenue_report row fires, Bravo
+    refuses to build/send an MRR figure to Telegram. Set BRAVO_ALLOW_REVENUE_REPORT=1
+    ONLY for a deliberate one-off; the digest belongs to Atlas.
+    """
+    import os as _os
+    if (env_vars.get("BRAVO_ALLOW_REVENUE_REPORT")
+            or _os.environ.get("BRAVO_ALLOW_REVENUE_REPORT") or "").strip() != "1":
+        return ("revenue-report skipped: MRR reporting is Atlas-owned (CFO). "
+                "Re-home this job to Atlas or set BRAVO_ALLOW_REVENUE_REPORT=1 for a one-off.")
     raw = run_script("revenue_engine.py", ["--json", "dashboard"])
     if not raw or not raw.strip().startswith("{"):
         return f"ERROR: revenue dashboard returned non-JSON: {raw[:200]}"
@@ -492,22 +643,40 @@ def run_agent_self_improvement(env_vars: dict) -> str:
     Delegates to scripts/core/agent_self_improvement.py for the full digest, then
     sends it via notify() directly (wrapper truncates at 200 chars).
     """
-    out = run_script("agent_self_improvement.py", ["run"])
+    # 2026-07-28 — same reorg breakage already fixed once for the inbox sweep:
+    # the script lives at scripts/core/, but this pointed at scripts/, so
+    # run_script spawned a non-existent file and got "FAILED (exit 2)" on every
+    # run since the move.
+    #
+    # It reported GREEN the whole time. The only guard was `if not out`, and
+    # "FAILED (exit 2): ..." is non-empty — so the failure string sailed through
+    # into _send_digest and the handler returned its success phrase. cron_jobs
+    # showed "self-improvement-handled-by-digest", the dashboard showed green,
+    # and the health-check watchdog had nothing to flag. A silent green failure
+    # outlives a loud red one, so the FAILED check below is the real fix.
+    out = run_script("core/agent_self_improvement.py", ["run"])
     if not out or not out.strip():
         return "ERROR: agent_self_improvement returned empty output"
+    if out.startswith("FAILED"):
+        return f"ERROR: agent_self_improvement failed: {out[:300]}"
     return _send_digest(out.strip(), "system", "self-improvement-handled-by-digest")
 
 
 def run_daily_brief(_env_vars: dict) -> str:
-    """Phase 5c — daily AI-narrated brief to CC's Telegram.
+    """Phase 5c — daily operational brief to CC's Telegram.
 
     scripts/daily_brief.py reads the latest briefing snapshot (regenerating
-    if >24h stale), hands the JSON to Claude Sonnet for a 5-bullet
-    narration, and ships it to Telegram via notify(force=True). The brief
-    self-ships — this handler just invokes the script and returns the
-    stdout so cron_jobs.last_result captures whether it landed.
+    if >5min stale), narrates a 5-bullet brief via the LOCAL claude CLI on
+    CC's subscription (falling back to a deterministic brief on any failure),
+    and ships it to Telegram via notify(force=True). Revenue/MRR is omitted —
+    that's Atlas's brief. The script self-ships; this handler just invokes it
+    and returns stdout so cron_jobs.last_result captures whether it landed.
+
+    Timeout 150s > daily_brief's inner CLI-narration timeout (60s) + snapshot
+    regen (60s) so the script always reaches its own graceful fallback before
+    the scheduler force-kills it.
     """
-    out = run_script("daily_brief.py", [], timeout=90)
+    out = run_script("daily_brief.py", [], timeout=150)
     if not out or not out.strip():
         return "ERROR: daily_brief returned empty output"
     first_line = out.strip().splitlines()[0]
@@ -553,6 +722,7 @@ def run_snapshot(config: dict) -> str:
             encoding="utf-8",
             timeout=300,
             cwd=str(PROJECT_ROOT),
+            env=CHILD_ENV,
             creationflags=CREATE_NO_WINDOW,
         )
     except subprocess.TimeoutExpired:
@@ -591,6 +761,18 @@ def run_script_action(config: dict) -> str:
     if not isinstance(args, list):
         return "ERROR: script_run config 'args' must be a list"
 
+    # Optional per-job timeout (2026-07-29). 300s was hardcoded, which is fine
+    # for a snapshot but fatal for a job that spawns work of its own: the Review
+    # Harvest loop runs a Claude editing session plus the target repo's full test
+    # suite, and being SIGKILLed halfway through can leave uncommitted edits in a
+    # client repo. A job that knows it is long declares it; everything else keeps
+    # the old default. Capped at an hour so a runaway can't occupy the scheduler.
+    try:
+        timeout_s = int(config.get("timeout") or SCRIPT_RUN_DEFAULT_TIMEOUT)
+    except (TypeError, ValueError):
+        timeout_s = SCRIPT_RUN_DEFAULT_TIMEOUT
+    timeout_s = max(10, min(timeout_s, SCRIPT_RUN_MAX_TIMEOUT))
+
     full_path = PROJECT_ROOT / script
     if not full_path.exists():
         return f"ERROR: script_run target not found: {script}"
@@ -601,12 +783,13 @@ def run_script_action(config: dict) -> str:
             capture_output=True,
             text=True,
             encoding="utf-8",
-            timeout=300,
+            timeout=timeout_s,
             cwd=str(PROJECT_ROOT),
+            env=CHILD_ENV,
             creationflags=CREATE_NO_WINDOW,
         )
     except subprocess.TimeoutExpired:
-        return f"ERROR: script_run timed out (300s): {script}"
+        return f"ERROR: script_run timed out ({timeout_s}s): {script}"
     except Exception as exc:  # noqa: BLE001
         return f"ERROR: script_run failed: {exc}"
 
@@ -652,6 +835,7 @@ def run_morning_powwow(_env_vars: dict) -> str:
             encoding="utf-8",
             timeout=120,
             cwd=str(PROJECT_ROOT),
+            env=CHILD_ENV,
             creationflags=CREATE_NO_WINDOW,
         )
     except subprocess.TimeoutExpired:
@@ -812,22 +996,36 @@ def run_monthly_snapshot(env_vars: dict) -> str:
     except (json.JSONDecodeError, TypeError) as exc:
         return f"ERROR: monthly snapshot JSON parse failed: {exc}"
 
-    stripe_mrr = float(data.get("stripe_mrr", 0) or 0)
-    manual_mrr = float(data.get("manual_mrr", 0) or 0)
-    total_mrr = float(data.get("total_mrr", stripe_mrr + manual_mrr) or 0)
+    # 2026-07-09 Atlas boundary: Bravo does NOT report MRR/revenue figures to
+    # CC — that's Atlas's (CFO) brief. The engine still runs above so the
+    # snapshot data lands in the revenue DB (plumbing Atlas reads) and a
+    # broken engine still surfaces as ERROR — but the message CC sees (this
+    # return string doubles as last_result AND the Telegram digest) carries
+    # no dollar figures.
     subs = data.get("stripe_subs") or []
     active_subs = sum(1 for s in subs if isinstance(s, dict) and s.get("status") == "active")
 
     return (
-        f"Monthly snapshot: ${total_mrr:,.0f} MRR "
-        f"(Stripe ${stripe_mrr:,.0f} + manual ${manual_mrr:,.0f}) · "
-        f"{active_subs} active sub{'s' if active_subs != 1 else ''}"
+        f"Monthly snapshot captured — revenue data logged for Atlas (CFO) · "
+        f"{active_subs} active Stripe sub{'s' if active_subs != 1 else ''} · "
+        f"details in the revenue DB, reporting via Atlas"
     )
 
 
 def run_email_inbox_check(env_vars: dict) -> str:
-    """Check Gmail inbox for unread emails, notify CC, mark as read."""
-    return run_script("email_engine.py", ["--json", "check-inbox"], timeout=60)
+    """Sweep the Gmail inbox: classify, route through the multi-brain email
+    router (when EMAIL_BRAIN_ENABLED), draft/send/hand-off/archive, notify CC.
+
+    2026-07-23 — two turnkey fixes:
+      * PATH: email_engine.py moved to scripts/integrations/ in the 2026-05
+        reorg but this handler still pointed at scripts/email_engine.py, so
+        run_script resolved a non-existent file and every run returned
+        "FAILED (exit 2)". The inbox sweep has been dead since the reorg.
+      * TIMEOUT: 60s was sized for the old notify-and-mark-read path. With the
+        brain enabled each email costs a Haiku classify plus (for replies) a
+        Sonnet draft + critic pass, so a multi-email sweep needs real headroom.
+    """
+    return run_script("integrations/email_engine.py", ["--json", "check-inbox"], timeout=300)
 
 
 def run_funnel_sync(_env_vars: dict) -> str:
@@ -870,6 +1068,14 @@ def run_funnel_sync(_env_vars: dict) -> str:
 
 def run_funnel_fast_poll(_env_vars: dict) -> str:
     """Fast-poll funnel_leads (last 2 minutes) for near-realtime CC alerts.
+
+    DORMANT, NOT DEAD (2026-07-30). Its cron row is is_active=False because
+    funnel_leads has had no writer since cc-funnel was retired 2026-06-18 — see
+    the note in cron_engine.py SEED_JOBS. The row still exists, so
+    `cron_engine.py toggle <id>` re-enables it in one command; deleting this
+    handler would turn that into a silent no-op at the worst possible moment.
+    Keep it until either the table gets a writer again or the row is deleted.
+    The same applies to run_nurture_check and run_funnel_sync.
 
     funnel_sync.py fast-poll mode fires a consolidated high-priority Telegram
     digest when new leads land. This handler returns a routine-silent phrase
@@ -995,17 +1201,55 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         if result_is_error:
             fail_count += 1
             if fail_count < 5:
-                # Retry in 5 minutes
-                retry_dt = datetime.now(timezone.utc) + timedelta(minutes=5)
+                # Retry sooner than the schedule — but NEVER later than it.
+                # A flat 5-minute retry is a rescue for a daily job and a
+                # PUNISHMENT for a */1 job: on 2026-07-30 one transient 30s
+                # stall pushed the 60-second funnel poll out to 5 minutes,
+                # stretching its cadence 5x at the exact moment it was already
+                # degraded. Cap the delay at the job's own period.
+                period = parse_cron_schedule(job.get("schedule", "") or "")
+                delay = min(timedelta(minutes=5), period) if period else timedelta(minutes=5)
+                retry_dt = datetime.now(timezone.utc) + delay
                 next_run = retry_dt.isoformat()
-                log(f"  ERROR on {job_name}, retry scheduled in 5 min (attempt {fail_count}/5)")
+                mins = delay.total_seconds() / 60
+                log(f"  ERROR on {job_name}, retry scheduled in {mins:g} min "
+                    f"(attempt {fail_count}/5)")
             else:
                 # Give up, wait for next regular schedule
                 next_run = calculate_next_run(job.get("schedule", ""))
                 log(f"  ERROR on {job_name}, 5 retries exhausted, waiting for next schedule")
                 fail_count = 0  # reset after giving up
+
+            # Repeat-failure escalation (2026-07-29). One bad tick is noise —
+            # a transient network blip resolves itself on the retry. TWO in a
+            # row is a broken job, and until now that state was invisible:
+            # fail_count never persisted (no column) so the counter reset every
+            # tick, and notify_error() was muted by the category filter. The
+            # Inbound Email Sweep failed 31 times over 25h without one alert.
+            #
+            # Fires at exactly 2 and at the give-up boundary, not on every tick;
+            # notify.py's disk-persisted dedup then collapses repeats of the
+            # same text to one per hour.
+            if fail_count == 2 or fail_count == 0:
+                stage = ("failing repeatedly" if fail_count == 2
+                         else "gave up after 5 attempts")
+                notify_error(
+                    job_name,
+                    f"{stage} — {result_msg[:220]}\n"
+                    f"Full traceback: tmp/cron_failures/ (most recent for this job)",
+                    # Distinct dedup identity from the per-tick page below.
+                    # They shared one key until 2026-07-30, so the noisy
+                    # first-failure alert consumed the slot and silenced THIS
+                    # one — the alert that actually means "the job is broken".
+                    stage="escalation",
+                )
         else:
             next_run = calculate_next_run(job.get("schedule", ""))
+            # Recovery ping: if this job had been failing, say so. A silent
+            # recovery leaves CC unsure whether the earlier alert still stands.
+            if fail_count >= 2:
+                notify(f"{job_name}: recovered after {fail_count} failed run(s).",
+                       category="system", silent=True, force=True)
             fail_count = 0  # successful run resets the counter
 
         update_payload = {
@@ -1014,16 +1258,17 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "next_run_at": next_run,
             "last_result": result_msg[:500],
         }
-        # Only set fail_count if the column exists (graceful — some deployments
-        # may not have the migration yet). Catch the error if column missing.
-        try:
-            client.table("cron_jobs").update({
-                **update_payload,
-                "fail_count": fail_count,
-            }).eq("id", job_id).execute()
-        except Exception:
-            # Fall back to update without fail_count (column doesn't exist)
-            client.table("cron_jobs").update(update_payload).eq("id", job_id).execute()
+        # fail_count is a real column as of migration 105 (2026-07-29). It is
+        # NOT optional any more: the previous try/except-and-retry-without-it
+        # made a missing column indistinguishable from a successful write, so
+        # the counter silently never persisted for ~3.5 months — every failure
+        # logged "attempt 1/5", the give-up branch was unreachable, and no
+        # repeat-failure alert could ever fire. A write failure here must be
+        # loud, not quietly degraded.
+        client.table("cron_jobs").update({
+            **update_payload,
+            "fail_count": fail_count,
+        }).eq("id", job_id).execute()
 
         log(f"COMPLETED: {job_name} -> {result_msg[:200]}")
 
@@ -1120,10 +1365,33 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         )
         is_error = "ERROR" in result_msg or "FAILED" in result_msg
 
+        # Route the alert to the agent that OWNS the job, not to Bravo by
+        # default (2026-07-30). A failed content_post is Maven's problem and a
+        # failed stripe_sync is Atlas's; putting both on CC's executive channel
+        # alongside real OS health is how that channel stops being read.
+        owner = agent_for_action(action_type)
+
         if is_error:
-            notify_error(job_name, result_msg[:200])
+            # Don't page CC for ONE bad tick of a fast job. A */1 or */5 cron
+            # that fails once self-heals before he could act, and 130 lines
+            # above there is already a deliberate "escalate at 2 consecutive
+            # failures" policy — which this unconditional call silently
+            # defeated, paging on attempt 1/5 every time (2026-07-30).
+            #
+            # Slow jobs are the opposite: a daily brief that fails at 06:00
+            # will not retry for a day, so its first failure IS the signal.
+            # The cutoff is "will it try again before CC could reasonably
+            # act", not an arbitrary severity call.
+            period = parse_cron_schedule(job.get("schedule", "") or "")
+            self_healing = period is not None and period <= FAST_JOB_PERIOD
+            if self_healing:
+                log(f"  (transient failure on fast job {job_name} — "
+                    f"escalation at 2 consecutive owns this alert)")
+            else:
+                notify_error(job_name, result_msg[:200], agent=owner)
         elif not is_routine:
-            notify(f"{job_name}: {result_msg[:200]}", category=cat, silent=True)
+            notify(f"{job_name}: {result_msg[:200]}", category=cat, silent=True,
+                   agent=owner)
 
     return len(due_jobs)
 

@@ -4,6 +4,7 @@ name: Follow-Up Sequence (5-touch)
 type: email_sequence
 use_case: Following up after cold outreach or discovery call
 variables: [prospect_name, prospect_company, original_topic, value_add_link, case_study_link, calendar_link]
+last_updated: 2026-04-27
 ---
 
 # Follow-Up Email Sequence — 5 Touches

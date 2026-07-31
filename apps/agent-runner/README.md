@@ -1,3 +1,8 @@
+---
+tags: [apps]
+last_updated: 2026-07-09
+---
+
 # `apps/agent-runner/` — Design-Stage Scaffold
 
 Status: **scaffold only, not deployed.**
@@ -14,7 +19,7 @@ documented and the scaffold compiles. Production traffic has not been
 routed to it yet, but the artifact is intentional and waiting for the next
 infra push.
 
-**Operator note:** local worktree currently contains untracked
+**Operator note:** the repo contains a tracked
 `database/020_chat_widget_and_pairings.sql` that overlaps migration
 numbering and scope with the scaffold's intended schema. Choose one
 migration lineage before applying anything to Supabase.

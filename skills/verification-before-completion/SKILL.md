@@ -4,6 +4,8 @@ description: Use when about to claim work is complete, fixed, or passing, before
 triggers: [verify, complete, done, passing, evidence, before commit, before PR]
 tier: standard
 dependencies: []
+tags: [skill, verification-before-completion]
+last_updated: 2026-05-21
 ---
 
 # Verification Before Completion

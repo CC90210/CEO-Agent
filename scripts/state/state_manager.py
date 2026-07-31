@@ -109,8 +109,12 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
     if not MIGRATIONS_DIR.exists():
         return
     for path in sorted(MIGRATIONS_DIR.glob("0*.sql")):
-        # 002_memory_index.sql is the FTS5 index, owned by memory_retriever.py.
-        if path.name.startswith("002_"):
+        # *_memory_*.sql migrations (002_memory_index, 003_memory_abstract, …)
+        # belong to the FTS5 retrieval DB and are owned/applied by
+        # memory_retriever.py — running them here crashes against the state DB
+        # (V7.3.0 lesson: 003 assumed 002's tables and broke 4 tests when the
+        # old `002_`-only skip let it through).
+        if "_memory_" in path.name:
             continue
         sql = path.read_text(encoding="utf-8")
         conn.executescript(sql)

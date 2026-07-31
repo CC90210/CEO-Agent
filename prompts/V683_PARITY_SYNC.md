@@ -1,3 +1,8 @@
+---
+tags: [prompts]
+last_updated: 2026-05-22
+---
+
 # V6.8.3 Production Hardening — Cross-Repo Parity Sync
 
 > **Paste this into any sibling agent's IDE terminal** (Maven, Atlas, Hermes,
@@ -151,3 +156,7 @@ identical; the file list per phase is yours to discover.
 - [ ] `memory/SESSION_LOG.md` updated
 - [ ] State-sync script ran successfully (heartbeat ✅ if applicable)
 - [ ] Local commit landed; no `git push`
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/CAPABILITIES]]

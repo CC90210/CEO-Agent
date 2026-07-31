@@ -1,4 +1,5 @@
 ---
+description: "Reference defining CEO, Operational CEO, CTO, COO functions in CC's operating model; guides Bravo on strategic decisions, OKRs, and client health at solo scale"
 tags: [brain, c-suite, canonical, roles, frameworks]
 last_updated: 2026-06-09
 freshness_threshold_days: 90
@@ -408,4 +409,4 @@ the compound interest of self-improvement, small consistent signals accumulate i
 ## Obsidian Links
 - [[brain/C_SUITE_ARCHITECTURE]] | [[brain/SOUL]] | [[brain/STATE]]
 - [[brain/CEO_OPERATING_SYSTEM]] | [[brain/OKRs]] | [[brain/RISK_REGISTER]]
-- [[memory/ACTIVE_TASKS]] | [[memory/DECISIONS]] | [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical)
+- [[memory/ACTIVE_TASKS]] | [[memory/DECISIONS]] | `../CMO-Agent/brain/CONTENT_BIBLE` (Maven canonical)

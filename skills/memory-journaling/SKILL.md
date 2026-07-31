@@ -6,6 +6,7 @@ triggers: ["log a decision", "journal this", "memory journal", "log this pattern
 owner: documenter
 tier: T1
 risk: low
+last_updated: 2026-05-21
 ---
 
 # Memory Journaling — Structured Decision + Pattern Logging

@@ -4,6 +4,7 @@ description: claude-mem plugin — automatic cross-session memory compression an
 tags: [skill, memory, plugin, claude-mem]
 triggers: ["memory compression", "use memory compression", "run memory compression"]
 tier: standard
+last_updated: 2026-06-20
 ---
 
 # Memory Compression (claude-mem)

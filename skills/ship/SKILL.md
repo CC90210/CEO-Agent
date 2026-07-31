@@ -5,6 +5,8 @@ triggers: [ship, deploy, push live, release, go live, ship it]
 tier: standard
 dependencies: [verification-before-completion, code-review, finishing-a-development-branch]
 disable-model-invocation: true
+tags: [skill, ship]
+last_updated: 2026-06-20
 ---
 
 # Ship — Full Deployment Pipeline

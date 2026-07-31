@@ -4,6 +4,7 @@ name: Project Brief
 type: document
 use_case: Kicking off a new client project — aligns scope, timeline, and expectations before work begins
 variables: [project_name, client_name, client_company, start_date, end_date, objective, budget, stakeholder_list]
+last_updated: 2026-04-27
 ---
 
 # Project Brief: {{project_name}}

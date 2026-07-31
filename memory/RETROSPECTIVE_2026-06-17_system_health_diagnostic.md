@@ -1,4 +1,5 @@
 ---
+description: "Retrospective of system health diagnostic + ZCode integration with verified live outputs: capability-graph drift closure, entry-point registry updates, audits"
 tags: [retrospective, health-diagnostic, integrity, auto-fix, capability-graph, zcode-entry-point]
 last_updated: 2026-06-17
 freshness_threshold_days: 365
@@ -111,3 +112,7 @@ Live-credential probes reported by an earlier pass; I did not re-run them. Re-co
 2. **Decide the `verify_deploy.py` marker drift** (pre-existing issue #1) — update the V6.5–V6.8 marker check to match the slimmed entry points, or re-add the markers. This is the only thing keeping the deploy gate red on entry points.
 3. **Settle `CLAUDE.md:94` "49 CLI tools"** (pre-existing issue #2) — confirm the intended metric, then sync the number.
 4. **Optional:** generalize `brain/ORCHESTRATION.md`'s 3-tier model table (Haiku/Sonnet/Opus) to capability tiers (fast/reasoning/critical) now that a non-Anthropic chassis (GLM-5) is in the family. `scripts/model_router.py` already supports multi-provider routing.
+
+## Obsidian Links
+- [[memory/INDEX]]
+- [[brain/STATE]]

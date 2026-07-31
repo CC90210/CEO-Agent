@@ -4,6 +4,8 @@ description: Proactive autonomous monitoring and session management. Runs at ses
 triggers: [heartbeat, health check, session start, monitoring, proactive, autonomous]
 tier: core
 dependencies: [self-healing, memory-management]
+tags: [skill, heartbeat]
+last_updated: 2026-05-21
 ---
 
 # Heartbeat Skill

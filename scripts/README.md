@@ -1,3 +1,8 @@
+---
+tags: [scripts]
+last_updated: 2026-05-21
+---
+
 # scripts/ — Categorized Tool Directory
 
 > **STRICT DIRECTIVE:** This directory is migrating from a flat structure to a categorized layout to prevent context bloat for smaller AI models.
@@ -23,3 +28,7 @@
 ## Legacy Root Scripts
 
 Scripts still living at the root level are pending migration. They remain fully functional. Do not delete or rename them without CC approval.
+
+## Obsidian Links
+- [[brain/CAPABILITIES]]
+- [[brain/QUICK_REFERENCE]]

@@ -7,6 +7,8 @@ deciders: CC, Bravo
 supersedes: —
 superseded_by: —
 related: ADR-0001 (skill dependency classification), Codex round-7 audit 2026-06-09
+tags: [docs, adr, decision]
+last_updated: 2026-06-09
 ---
 
 # ADR-0008 — leads (tenant_id, lower(email)) unique constraint + atomic upsert
@@ -102,3 +104,7 @@ This ADR should move from `proposed` → `accepted` when ONE of:
 3. A real duplicate-lead incident occurs in production.
 
 Earliest pre-emptive scheduling: alongside the multi-tenant scaffolding work CC's currently planning.
+
+## Obsidian Links
+- [[docs/adr/INDEX]]
+- [[CONTEXT]]

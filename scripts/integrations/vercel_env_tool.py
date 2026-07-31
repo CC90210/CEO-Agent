@@ -38,6 +38,13 @@ except ImportError:
     print("ERROR: 'requests' package not installed. Run: pip install requests", file=sys.stderr)
     sys.exit(1)
 
+REPO_SCRIPTS = str(Path(__file__).resolve().parents[1])
+if REPO_SCRIPTS not in sys.path:
+    sys.path.insert(0, REPO_SCRIPTS)
+from lib.tls_trust import ensure_os_trust  # noqa: E402 — Windows CA-bundle fix
+
+ensure_os_trust()
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 VERCEL_API = "https://api.vercel.com"

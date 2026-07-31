@@ -1,4 +1,5 @@
 ---
+description: "Three-tier deal framework (One-Off Automation, Custom Software, C-Suite Consulting) with free-trial conversion model and partner recruitment layer for scaling"
 tags: [sales, deals, partners, canonical]
 last_updated: 2026-06-09
 freshness_threshold_days: 90

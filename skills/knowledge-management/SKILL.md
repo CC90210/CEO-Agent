@@ -5,6 +5,7 @@ triggers: [knowledge management, second brain, PARA, capture notes, organize inf
 tier: specialized
 dependencies: [memory-management]
 tags: [skill, knowledge, management]
+last_updated: 2026-06-20
 ---
 
 # Knowledge Management Skill

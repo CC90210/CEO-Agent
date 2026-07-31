@@ -4,11 +4,12 @@ description: Business risk identification, assessment, monitoring, and mitigatio
 tags: [skill, risk, management, ceo]
 triggers: ["risk management", "use risk management", "run risk management", "business risk identification"]
 tier: standard
+last_updated: 2026-07-09
 ---
 
 # Risk Management — Business Continuity & Threat Monitoring
 
-> **Note (2026-05-18):** R-001 (primary retainer concentration = 94% of MRR) **MATERIALIZED** when the primary retainer ended. The playbook below is now the **active recovery framework**, not a hypothetical. Current state: brain/STATE.md (~$371 confirmed). Risk register: brain/RISK_REGISTER.md.
+> **Note (2026-05-18):** R-001 (primary retainer concentration = 94% of MRR) **MATERIALIZED** when the primary retainer ended. The playbook below is now the **active recovery framework**, not a hypothetical. Current revenue state: Atlas (CFO) owns it — defer, don't quote a number. Risk register: brain/RISK_REGISTER.md.
 
 ## Overview
 
@@ -137,7 +138,7 @@ Since the primary retainer represents 94% of revenue, this scenario gets its own
 
 **If the Primary Retainer Churns:**
 1. Immediate: Cut non-essential expenses, preserve 3-month runway
-2. Week 1: Contact all warm leads, launch 25+ cold outreach emails
+2. Week 1: Contact all warm leads; propose an operator-approved outreach burst to CC + accelerate inbound (funnel/content) — outbound requires CC sign-off
 3. Week 2: Offer reduced-rate "onboarding special" to fast-track new clients
 4. Week 3-4: Close 2-3 clients at $500-$1,000/mo each
 5. Month 2-3: Rebuild to $5K MRR diversified across 8-10 clients

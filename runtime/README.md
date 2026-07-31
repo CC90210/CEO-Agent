@@ -1,3 +1,8 @@
+---
+tags: [runtime]
+last_updated: 2026-04-27
+---
+
 # Bravo Runtime Layer
 
 This directory is the future home for the shared runtime that sits under Bravo, Atlas, Maven, Aura, and Hermes.

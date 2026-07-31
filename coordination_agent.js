@@ -366,7 +366,18 @@ const spawnClaude = (prompt, { trusted }) => new Promise((resolve) => {
         if (fs.existsSync(mcpConfig)) args.push('--mcp-config', mcpConfig);
         env = (cSuite && cSuite.buildClaudeSpawnEnv)
             ? cSuite.buildClaudeSpawnEnv({ extras: { CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' } })
-            : { ...process.env, CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' };
+            : (() => {
+                // Fallback when scripts/c_suite_context.js failed to require: build the
+                // trusted env ourselves but STRIP the metered Anthropic keys so the local
+                // claude CLI falls through to subscription OAuth. Without this, a
+                // dotenv-loaded (dead/banned) ANTHROPIC_API_KEY leaks into the spawn and
+                // surfaces a raw 401 in the OASIS group (2026-07-20 incident; the
+                // b72b7ac9 dead-key purge covered the other bridges but missed this one).
+                const e = { ...process.env, CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' };
+                delete e.ANTHROPIC_API_KEY;
+                delete e.ANTHROPIC_AUTH_TOKEN;
+                return e;
+              })();
     } else {
         // UNTRUSTED: NO file/exec/network tools (text-only reply) + NO mcp-config +
         // secret-stripped env + sandboxed cwd. Four independent walls so a parser

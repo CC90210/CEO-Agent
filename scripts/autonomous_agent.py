@@ -658,16 +658,11 @@ def execute_decisions(
     return decisions
 
 
-def _draft_body_for_decision(d: Decision, env: dict[str, str]) -> tuple[Optional[str], Optional[str]]:
-    """Produce subject+body for decisions that want to send. Imports
-    Anthropic lazily so modules without network still load."""
-    try:
-        import anthropic
-    except ImportError:
-        return None, None
-    api_key = env.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        return None, None
+def _draft_body_for_decision(d: Decision, _env: dict[str, str]) -> tuple[Optional[str], Optional[str]]:
+    """Produce subject+body for decisions that want to send. Routes model calls
+    through the subscription `claude` CLI (lib.claude_cli) — never the metered
+    ANTHROPIC_API_KEY (out of credits + banned per CC's CLI-only rule)."""
+    from lib.claude_cli import run_claude_cli
 
     md = d.metadata or {}
     # Block placeholder lead.name from leaking into the LLM prompt → email.
@@ -703,17 +698,11 @@ Rules:
 
 Output ONLY the email."""
 
-    try:
-        client = anthropic.Anthropic(api_key=api_key)
-        msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        text = "".join(b.text for b in msg.content if hasattr(b, "text")).strip()
-    except Exception as exc:  # noqa: BLE001
-        print(f"[autonomous_agent] draft generation failed: {exc}", file=sys.stderr)
+    text = run_claude_cli(prompt, model="haiku", timeout=90)
+    if text is None:
+        print("[autonomous_agent] draft generation failed (claude CLI unavailable)", file=sys.stderr)
         return None, None
+    text = text.strip()
 
     lines = text.splitlines()
     subject = ""

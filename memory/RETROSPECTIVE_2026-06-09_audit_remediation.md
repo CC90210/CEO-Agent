@@ -1,4 +1,5 @@
 ---
+description: "Audit remediation retrospective (2026-06-09, V6.9.0) — 10-phase mission record with shipped fixes, deliberately deferred work, lessons, replication notes"
 tags: [retrospective, audit, security, harness, v6.9.0]
 last_updated: 2026-06-09
 freshness_threshold_days: 365

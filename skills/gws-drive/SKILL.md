@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws drive --help"
 triggers: ["gws drive", "use gws drive", "run gws drive", "google drive: manage files"]
 tier: specialized
+tags: [skill, gws-drive]
+last_updated: 2026-06-20
 ---
 
 # drive (v3)

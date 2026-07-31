@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-07-19
+---
+
 # OASIS Command Center — Auth Setup
 
 > **Architecture note (2026-04-30 PM):** the OASIS Command Center and the
@@ -9,7 +14,7 @@
 
 | | OASIS AI Platform | Agent Command Center |
 |---|---|---|
-| URL | https://oasisai.work | https://agent-dashboard-cc90210.vercel.app |
+| URL | https://oasisai.work | https://oasisai.work |
 | Repo | `CC90210/oasis-ai-platform` | `CC90210/CEO-Agent` (subfolder `apps/command-center`) |
 | Vercel project | `oasis-ai-platform` | `agent-dashboard` |
 | Supabase | `oasis-ai-platform` (separate DB) | `bravo` (`phctllmtsogkovoilwos`) |
@@ -17,7 +22,7 @@
 
 ## Sign in to the Command Center
 
-Go to: https://agent-dashboard-cc90210.vercel.app/login
+Go to: https://oasisai.work/login
 
 You have three options to authenticate:
 
@@ -28,7 +33,7 @@ Click **Continue with Google** → consent → you land on the Today dashboard.
 Enter `conaugh@oasisai.work` + your password → Sign in.
 
 ### Option 3 — First time? Set a password
-1. Visit https://agent-dashboard-cc90210.vercel.app/forgot-password
+1. Visit https://oasisai.work/forgot-password
 2. Enter `conaugh@oasisai.work`
 3. Click the link Supabase emails you
 4. You land on `/auth/reset-password` → set a password
@@ -36,9 +41,9 @@ Enter `conaugh@oasisai.work` + your password → Sign in.
 
 ## Supabase Auth config (already set, do not change unless you know why)
 
-- **Site URL:** `https://agent-dashboard-cc90210.vercel.app`
+- **Site URL:** `https://oasisai.work`
 - **Redirect URLs allow-list:**
-  - `https://agent-dashboard-cc90210.vercel.app/**`
+  - `https://oasisai.work/**`
   - `http://localhost:3100/**`
 - **Providers enabled:** email/password + Google OAuth (Client ID + Secret in Supabase dashboard)
 

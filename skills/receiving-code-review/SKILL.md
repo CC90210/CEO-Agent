@@ -4,6 +4,8 @@ description: Use when receiving code review feedback, before implementing sugges
 triggers: [feedback, review feedback, code review response, suggestion, requested changes]
 tier: standard
 dependencies: [code-review]
+tags: [skill, receiving-code-review]
+last_updated: 2026-05-21
 ---
 
 # Code Review Reception

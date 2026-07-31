@@ -77,6 +77,15 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
+# The local AV MITMs TLS, so certifi's bundle cannot verify the intercepted
+# chain and every Supabase call raised CERTIFICATE_VERIFY_FAILED. Route trust
+# through the OS store — same one-liner already carried by supabase_tool,
+# send-path engines, and the crons fixed in 9b96d50e.
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 
 # ---- Env + DB (same pattern as send_gateway.py) -----------------------------
 

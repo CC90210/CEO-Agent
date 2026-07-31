@@ -38,10 +38,17 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 HOME = Path.home()
+
+# `_subprocess_helpers` lives in scripts/, but this module is scripts/core/, so
+# the sibling dir has to be on sys.path first. Until 2026-07-28 the import sat
+# ABOVE the PROJECT_ROOT assignment with no path setup at all, so this tool
+# raised ModuleNotFoundError on every invocation — the cleanup utility was
+# entirely unrunnable.
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 
 def _dir_size(path: Path) -> int:

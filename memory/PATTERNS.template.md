@@ -1,4 +1,5 @@
 ---
+description: "Template for logging validated patterns (working approaches proven through re-use); agents reference to recall when/why to apply them"
 tags: [memory, patterns, template]
 last_updated: 2026-06-09
 freshness_threshold_days: 30

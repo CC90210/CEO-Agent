@@ -1,3 +1,8 @@
+---
+tags: [plans]
+last_updated: 2026-06-09
+---
+
 # FLEET V2 — PROGRESS
 Started 2026-06-09 · Bravo @ fleet scope · Brief: [MISSION_2026-06-09_FLEET_V2.md](MISSION_2026-06-09_FLEET_V2.md)
 > Resume: re-read brief + this file, resume at first unchecked item. Per-repo isolation is law.
@@ -63,3 +68,7 @@ gh authed; 17 repos located (kli-hub JIT); fresh CEO bundle; dirty repos noted f
 
 ### P3-FINAL summary (2026-06-09)
 empire-harness v1.0.0 shipped; 8 repos adopted (CEO+SunBiz+CFO+CMO+hermes+Aura+command-center); fleet_doctor table in handoff; P6 documented (CC live/dead), P8 deferred to V2.1 (bridge flags + RPC mock + send_gateway). Full handoff: plans/HANDOFF_FABLE_FLEET_V2_2026-06-09.md. CEO -> 6.9.1.
+
+## Obsidian Links
+- [[brain/STATE]]
+- [[memory/INDEX]]

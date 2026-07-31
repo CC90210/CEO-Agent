@@ -1,4 +1,5 @@
 ---
+description: "Agent routing guide: maps CC's requests (communications, CRM, sales, content, finance, scheduling) to the correct CLI tool and command"
 tags: [reference, tools, routing]
 last_updated: 2026-06-09
 freshness_threshold_days: 90
@@ -34,14 +35,17 @@ verified: 2026-06-09
 ### Social Media & Content
 | CC Says | Tool | Command |
 |---------|------|---------|
-| Post to social media (quick) | `late_tool.py` | `create --text "..." --account <id>`, `cross-post` |
+| Post to social media (quick) | **Maven** (`../CMO-Agent/scripts/late_tool.py`) | `create --text "..." --account <id>`, `cross-post` |
 | "Make this a post" / full video pipeline | **Maven** (`../CMO-Agent/scripts/content_pipeline.py`) | Route to Maven — Bravo does not own video production |
 | Content calendar / brand voice / captions | **Maven** | All copywriting + scheduling + brand voice lives in CMO-Agent |
-| Generate AI images | `codex_image_gen.py` | `generate "<prompt>" --style branded` |
+| Generate AI images | **Maven** (`../CMO-Agent/scripts/codex_image_gen.py`) | `generate "<prompt>" --style branded` |
 | Instagram engagement (DMs/replies) | `instagram_engine.py` | `daemon`, `check-dms`, `auto-reply` |
 | LinkedIn — research a profile (read-only) | Browser Harness on CC's logged-in Chrome | n/a — there is no LinkedIn outreach automation by design. CC drafts LinkedIn messages by hand. |
 
 ### Sales & CRM
+> **Primary CRM motion is INBOUND** (funnel, DMs, social content → nurture → book a call). Cold outbound is on-demand only, never the default. `lead_engine.py` `pipeline`/`followups` are tenant-scoped to `OASIS_TENANT_ID` (2026-07-09).
+> **Inbound email is automated** — the native "OASIS Inbound Qualifier" replacement classifies/routes/replies (Hybrid auto-send) via the "Inbound Email Sweep" cron. Operate/enable/kill it via **`brain/EMAIL_PIPELINE.md`** (runbook). Any inbound-email question → read that first.
+
 | CC Says | Tool | Command |
 |---------|------|---------|
 | Leads / pipeline / CRM | `lead_engine.py` | `list`, `add`, `score`, `pipeline`, `followups`, `funnel` |
@@ -52,12 +56,14 @@ verified: 2026-06-09
 | Pick leads ready to email | `outreach_eligible.py` | `--limit 20`, `--mark-dormant`, `--json` |
 
 ### Revenue & Finance
+> **ATLAS-OWNED domain.** Bravo does not report MRR/revenue — "what's my MRR" → defer to Atlas. The tools below stay for on-demand mechanics on explicit CC request only.
+
 | CC Says | Tool | Command |
 |---------|------|---------|
-| MRR / revenue / dashboard | `revenue_engine.py` | `mrr`, `dashboard`, `sync-stripe`, `forecast`, `goal` |
+| MRR / revenue (ATLAS-owned — defer; mechanics on explicit CC ask only) | `revenue_engine.py` | `mrr`, `dashboard`, `sync-stripe`, `forecast`, `goal` |
 | Stripe (balance, invoices, subs) | `stripe_tool.py` | `balance`, `customers`, `invoices`, `subscriptions`, `payment-links` |
 | Financial modeling / unit economics | `financial_model.py` | `unit-economics`, `forecast`, `scenario`, `runway` |
-| CEO briefing / KPIs | `ceo_dashboard.py` | `briefing`, `revenue`, `pipeline`, `full` |
+| CEO briefing / KPIs (no revenue — Atlas's brief) | `ceo_dashboard.py` | `briefing`, `pipeline`, `full` |
 
 ### Database & Infrastructure
 | CC Says | Tool | Command |
@@ -111,8 +117,9 @@ verified: 2026-06-09
 | CC Says | Tool | Command |
 |---------|------|---------|
 | Backend implementation / deep debug | Codex CLI | `node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<task>"` |
-| Code review (second opinion) | Codex CLI | `codex-companion.mjs review` |
-| Adversarial review | Codex CLI | `codex-companion.mjs adversarial-review "<focus>"` |
+| Code review (second opinion — RECORDS the verdict) | `scripts/core/codex_review.py` | `python scripts/core/codex_review.py review [--session <slug>]` — runs codex-companion --wait, prints verbatim, records verdict to task_outcomes (the telemetry loop) |
+| Adversarial review (records verdict) | `scripts/core/codex_review.py` | `python scripts/core/codex_review.py adversarial-review "<focus>"` |
+| First-pass success dashboard | `scripts/core/task_outcomes.py` | `rate` — verdicts (validator self-records since 2026-07-10) + guard-catch counts |
 
 ## Routing Priority Rules
 
@@ -120,11 +127,15 @@ When multiple tools could handle a request, use this precedence:
 
 1. **One-off email** → `google_tool.py` | **Email sequence/template** → `email_engine.py`
 2. **Any "fetch URL X" task** → **`research_fetch.py` (default, auto-escalates + remembers per-domain)**. Specific tiers only when you need their unique features: `firecrawl_tool.py` (crawl / extract / map / search), `cloak_browser_tool.py` (interactive goto / screenshot / direct Cloak), Playwright MCP (interactive flow on unprotected), Browser Harness (act as CC under CC's login).
-3. **Quick post** → `late_tool.py` | **Full content pipeline** → Maven (`../CMO-Agent/scripts/content_pipeline.py`)
-4. **Simple DB query** → `supabase_tool.py` | **Business metrics** → `revenue_engine.py` or `ceo_dashboard.py`
+3. **Quick post** → Maven (`../CMO-Agent/scripts/late_tool.py`) | **Full content pipeline** → Maven (`../CMO-Agent/scripts/content_pipeline.py`)
+4. **Simple DB query** → `supabase_tool.py` | **Operational metrics (pipeline/health)** → `ceo_dashboard.py` | **MRR/revenue** → ATLAS-owned, defer
 5. **Structured memory** → markdown files | **Fuzzy recall** → `mem0_tool.py`
+6. **Model call from ANY automation/script** → `scripts/lib/claude_cli.py` `run_claude_cli()` — local `claude` CLI on CC's subscription OAuth, toolless. NEVER call api.anthropic.com / `ANTHROPIC_API_KEY` from an automation (key is out of credits AND banned — CLI-only rule).
+7. **Is the harness itself healthy? (ANY runtime, session-start on unfamiliar machines, after substrate changes)** → `python scripts/harness_eval.py` — 10 deterministic checks (entry-point lockstep, skill routing, Atlas boundary, guards, crons, PM2, tenant scoping); `--json` for machines, `--with-model` adds a live claude-CLI probe. All-green = turnkey. Nightly cron runs it at 03:30 and Telegrams CC on any red.
+8. **Identity/wiring change across runtimes** → edit `PERSONAL.md` (germline seed) → `python scripts/genome_sync.py` (stamps all 6 entry points + mirrors). Verify expression anywhere: `python scripts/agent_genome.py [--repo <sibling>]` — 10-gene score (fleet: Bravo/Atlas/Maven 10/10, SunBiz 8/10 by design, Breeze 5/10 product).
+9. **Associative recall (2026-07-10)** → `memory_retriever.py query` now spreads activation over the vault's `[[wiki-link]]` graph — well-connected notes rank up, and 1-hop neighbors of strong matches surface as `kind: associative` extras. Engine: `scripts/core/graph_activation.py` (`build` / `status` / `neighbors <rel>` / `query "<q>"`); cache `state/graph_adjacency.json` (6h TTL). Opt-out per-call env `EMPIRE_GRAPH_BOOST=0`; hard fallback to plain hybrid on any failure. This is WHY every markdown file needs ≥2 wiki-links (RULE 6) — links are the agent's associations, not just human navigation.
 
-## MCP Servers (7 Active — Stateless Only)
+## MCP Servers (9 registered in `.claude/mcp.json` — the 7 stateless ones below are the agent-usable set; +4 via `enabledMcpjsonServers` = 13 across configs)
 
 | MCP | Purpose | Notes |
 |-----|---------|-------|
@@ -160,21 +171,21 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | `outreach_engine.py` | Outreach campaign automation | CLI tool |
 | `scrape_firecrawl_leads.py` | Firecrawl lead scraping (canonical) | CLI tool |
 | `outreach_eligible.py` | Pick leads ready to email + cadence enforcement | CLI tool |
-| **--- Revenue & Finance ---** | | |
-| `revenue_engine.py` | MRR tracking, Stripe sync | CLI tool |
+| **--- Revenue & Finance (ATLAS-OWNED — mechanics on explicit CC ask only) ---** | | |
+| `revenue_engine.py` | MRR tracking, Stripe sync (Atlas-owned; Bravo never reports MRR) | CLI tool |
 | `stripe_tool.py` | Payments, invoices, subscriptions | CLI tool |
 | `financial_model.py` | Unit economics, forecasting | CLI tool |
 | `ceo_dashboard.py` | KPI aggregator, briefings | CLI tool |
-| **--- Content & Social ---** | | |
-| `late_tool.py` | Social posting (Zernio) | CLI tool |
-| `content_engine.py` | Content calendar, planning | CLI tool |
-| `content_pipeline.py` | Video production (master) | CLI tool |
-| `content_repurposer.py` | Cross-platform content | CLI tool |
-| `content_generator.py` | Claude API content generation | CLI tool |
-| `codex_image_gen.py` | AI image generation | CLI tool |
+| **--- Content & Social (Maven-owned — tools live in `../CMO-Agent/scripts/`) ---** | | |
+| `../CMO-Agent/scripts/late_tool.py` | Social posting (Zernio) | CLI tool (Maven) |
+| `../CMO-Agent/scripts/content_engine.py` | Content calendar, planning | CLI tool (Maven) |
+| `../CMO-Agent/scripts/content_pipeline.py` | Video production (master) | CLI tool (Maven) |
+| `../CMO-Agent/scripts/content_repurposer.py` | Cross-platform content | CLI tool (Maven) |
+| `../CMO-Agent/scripts/content_generator.py` | Claude API content generation | CLI tool (Maven) |
+| `../CMO-Agent/scripts/codex_image_gen.py` | AI image generation | CLI tool (Maven) |
 | `generate_covers.py` | Cover art generation | Script |
-| `edit_content_v2.py` | Whisper transcription + captions | CLI tool |
-| `render_video.py` | Remotion video rendering | Script |
+| `../CMO-Agent/scripts/edit_content_v2.py` | Whisper transcription + captions | CLI tool (Maven) |
+| `../CMO-Agent/scripts/render_video.py` | Remotion video rendering | Script (Maven) |
 | `transcribe.py` | Whisper audio transcription | Script |
 | **--- Platform Automation ---** | | |
 | `instagram_engine.py` | Instagram DM/engagement | Daemon |

@@ -1,6 +1,7 @@
 ---
+description: "Operational playbook for CC's client conversations, pitches, and meetings; positioning statements, security model, AI education, and sales plays"
 tags: [client-facing, playbook, meeting, security, positioning, shareable]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -299,7 +300,7 @@ CC said: "We also predict small trends, but I want some material I can use."
 - [[brain/USER]] — your profile + mission
 - [[brain/SOUL]] — identity + values
 - [[brain/TOOL_SHED]] — repos + tools you can point clients to
-- [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) — voice, hook bank, pacing rules
+- `../CMO-Agent/brain/CONTENT_BIBLE` (Maven canonical) — voice, hook bank, pacing rules
 - [[memory/feedback_objection_handling]] — pricing pushback playbook
 - [[memory/feedback_outreach_signature]] — email signature standard
 - [[memory/feedback_power_dynamics]] — never defer to prospects on scheduling/framing

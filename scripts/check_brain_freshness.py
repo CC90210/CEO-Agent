@@ -24,6 +24,16 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
+CAPABILITY_META = {
+    "category": "governance.knowledge",
+    "lifecycle": "active",
+    "risk": "read_only",
+    "triggers": ["check brain freshness", "find stale brain docs", "knowledge freshness audit"],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {"visible": True, "confirm": False},
+}
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:

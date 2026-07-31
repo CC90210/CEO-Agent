@@ -1,6 +1,7 @@
 ---
+description: "Maps OpenCLI platform adapters to lead-gen use cases; prioritizes 46 platforms by business impact tier toward MRR north star"
 tags: [strategy, opencli, lead-gen]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -177,7 +178,7 @@ gws gmail +send --to prospect@hvacbiz.com --template "48h_followup"
 
 ## OBSIDIAN LINKS
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/USER]]
-- [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) | [[APPS_CONTEXT/OASIS_AI_CLAUDE]]
+- `../CMO-Agent/brain/CONTENT_BIBLE` (Maven canonical) | [[APPS_CONTEXT/OASIS_AI_CLAUDE]]
 
 ---
 

@@ -1,3 +1,8 @@
+---
+tags: [docs, deploy]
+last_updated: 2026-06-18
+---
+
 # SunBiz VPS — Rebuild Runbook
 
 **Purpose:** rebuild the entire SunBiz VPS from scratch after total box loss.
@@ -109,3 +114,7 @@ Supabase Managed Point-In-Time-Recovery could not be read/toggled from the box
 (no `SUPABASE_ACCESS_TOKEN` Management-API credential present). Verify the plan's
 PITR tier in the Supabase dashboard and enable it if available — it complements
 (does not replace) these tenant-scoped logical backups.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

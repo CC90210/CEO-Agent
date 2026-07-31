@@ -9,6 +9,8 @@ status: '[NEW]'
 generated_at: 2026-05-01T23:14:33.463288+00:00
 confidence: 0.78
 source_decision_id: 34008c17-4efa-422b-99e0-01f1196f437f
+tags: [skill, auto-generated]
+last_updated: 2026-05-01
 ---
 
 # Score B2b Lead Quality

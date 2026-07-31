@@ -1,5 +1,12 @@
+---
+tags: [docs]
+last_updated: 2026-07-09
+---
+
 # Agent Command Center — Architecture & Capabilities Handoff
 
+> 📜 **HISTORICAL HANDOFF (2026-05-25 state)** — MRR is Atlas-owned and CRM is inbound-first since 2026-07-09; see `brain/STATE.md` for current.
+>
 > **2026-05-28 relocation note:** All SunBiz-specific Python scripts (sequence_runner, lender_response_classifier, underwriting_orchestrator, shop_out_sender, renewal_reminder, text_torrent_tool, kixie_tool, migrate_leads_to_tenant_records, the underwriting/ submodules, etc.) and database migrations (042-070 SunBiz CRM lane, plus 045/046/049/055 sequence-state + reconstructor, plus 071-075 stage-model / merchant_summary / funder-catalog set) now live in `~/SunBiz-Agent`, not `~/CEO-Agent`. The bridge daemon scans both repos and dispatches via a `root` field in `_bridge_manifest.json`. Solara/Helios still invoke them via `run_script` with the manifest KEY (e.g. `sequence_runner_once`, `text_torrent_tool_blast`, `lender_response_classifier_loop`). References below to `scripts/<name>.py` for SunBiz tools mean "look in SunBiz-Agent/scripts/" — this doc was authored before the split.
 >
 > Briefing document for an external AI agent that's evaluating an open-source project and needs to cross-reference what the OASIS Agent Command Center already does. Written 2026-05-25 after a multi-session product expansion for our first real client tenant (Sun Biz Funding).
@@ -436,3 +443,7 @@ If you have limited context budget, read these in this order:
 **External AI working on the new repo:** This handoff document is for you. If you need to reach the human operator with a question, surface it as text — the agent reading this doc will route it to CC. Don't assume you can make architecture decisions independently — propose, get a yes, then build.
 
 **Update cadence for this document:** Re-write at the end of any session that changes the manifest schema, adds a tenant, adds a page kind, or ships a substrate migration (V6.x bump). Last updated: 2026-05-25 evening.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

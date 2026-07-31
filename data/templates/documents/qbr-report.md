@@ -4,6 +4,7 @@ type: document
 use_case: Quarterly strategic review — financial, pipeline, client, competitive, OKR grading
 variables: [quarter, year, report_date]
 tags: [template, document, qbr, strategy]
+last_updated: 2026-04-27
 ---
 
 # Quarterly Business Review — {{quarter}} {{year}}

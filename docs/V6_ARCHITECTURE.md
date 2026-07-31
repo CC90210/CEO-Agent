@@ -5,6 +5,7 @@ status: DRAFT — pending CC review
 date: 2026-04-22
 supersedes: V5.7 (file-based LLM-OS)
 tags: [architecture, v6, infrastructure, security, rag, event-driven, docker]
+last_updated: 2026-07-20
 ---
 
 # Bravo V6.0 — Principal Architect's Response
@@ -82,7 +83,7 @@ python scripts/core/memory_query.py \
   --format markdown
 ```
 
-Returns: 8 most relevant chunks across all memory, each prefixed with provenance (`### from memory/project_alejandro_andrade.md § Retainer Pitch`), with always-included files appended verbatim. Total output bounded by `--max-tokens`.
+Returns: 8 most relevant chunks across all memory, each prefixed with provenance (`### from memory/project_<client_slug>.md § Retainer Pitch`), with always-included files appended verbatim. Total output bounded by `--max-tokens`.
 
 ### What still loads at boot (unchanged)
 

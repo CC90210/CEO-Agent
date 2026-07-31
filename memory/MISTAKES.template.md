@@ -1,4 +1,5 @@
 ---
+description: "Failures log template with root-cause and prevention rules; ships as schema so inbound memory links resolve in fresh clones"
 tags: [memory, mistakes, template]
 last_updated: 2026-06-09
 freshness_threshold_days: 30

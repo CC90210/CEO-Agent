@@ -6,10 +6,11 @@ Usage: python scripts/integrations/breeze_run_script.py <script-relative-to-bree
 """
 import sys
 import os
-import subprocess
 
 sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import supabase_tool as t  # noqa: E402
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
 BREEZE_PORTAL = r"C:\Users\User\APPS\breeze-portal"
 
@@ -31,7 +32,7 @@ def main():
     child["BREEZE_SUPABASE_SERVICE_ROLE_KEY"] = svc
     child["NEXT_PUBLIC_SUPABASE_URL"] = url
     child["NEXT_PUBLIC_SUPABASE_ANON_KEY"] = anon or ""
-    r = subprocess.run(
+    r = safe_run(
         ["npx", "tsx", *sys.argv[1:]], cwd=BREEZE_PORTAL, env=child, shell=True
     )
     sys.exit(r.returncode)

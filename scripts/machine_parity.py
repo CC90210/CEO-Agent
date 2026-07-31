@@ -45,6 +45,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 IS_WINDOWS = os.name == "nt"
@@ -544,6 +545,125 @@ def check_env_agents() -> tuple[str, bool, str, str]:
     return ("env.agents", True, detail, "")
 
 
+def check_tls_keylog() -> tuple[str, bool, str, str]:
+    """Fail if this process inherited an unusable SSLKEYLOGFILE.
+
+    The 2026-07-29 outage: AVG exports SSLKEYLOGFILE=\\\\.\\avgMonFltProxy\\<handle>
+    into process environments. CPython's ssl.create_default_context() opens that
+    path, and once the handle goes stale it raises PermissionError from inside
+    SSL context construction — killing every HTTPS client at build time. PM2
+    froze one such handle into bravo-scheduler and 31 of 145 inbox sweeps died
+    over 25h, silently, because notify.py died the same way.
+
+    lib/tls_trust.ensure_os_trust() strips it in-process; this check reports
+    whether the AMBIENT environment is still handing it out, which is what
+    tells us a PM2 restart or a shell would re-acquire it.
+    """
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        from lib.tls_trust import tls_diagnostics
+    except Exception as exc:  # noqa: BLE001
+        return ("tls-keylog", False, f"lib/tls_trust unavailable: {exc}",
+                "check scripts/lib/tls_trust.py exists and imports")
+
+    ambient = tls_diagnostics()
+
+    # The DEFENCE is what we assert, not the absence of the AV. AVG will keep
+    # exporting a fresh handle into every new process for as long as it is
+    # installed — a check that fails on its mere presence would be red forever
+    # and get ignored. What actually matters:
+    #   1. ensure_os_trust() can build an SSL context despite a poisoned value;
+    #   2. no long-lived PM2 daemon is CARRYING a poisoned value (that is the
+    #      state that took the fleet down — a frozen, stale handle).
+    try:
+        import ssl
+
+        from lib.tls_trust import ensure_os_trust
+        prior = os.environ.get("SSLKEYLOGFILE")
+        os.environ["SSLKEYLOGFILE"] = r"\\.\avgMonFltProxy\DEADBEEFCAFE0000"
+        try:
+            ensure_os_trust()
+            ssl.create_default_context()
+        finally:
+            if prior is not None:
+                os.environ["SSLKEYLOGFILE"] = prior
+            else:
+                os.environ.pop("SSLKEYLOGFILE", None)
+    except Exception as exc:  # noqa: BLE001
+        return ("tls-keylog", False,
+                f"ensure_os_trust does NOT survive a poisoned SSLKEYLOGFILE: {exc}",
+                "scripts/lib/tls_trust.py neutralize_keylog is broken - "
+                "run pytest scripts/tests/test_tls_trust.py")
+
+    poisoned: list[str] = []
+    if platform.system() == "Windows" and _which("pm2"):
+        try:
+            raw = subprocess.run(["pm2", "jlist"], capture_output=True, text=True,
+                                 timeout=30, shell=True).stdout
+            for app in json.loads(raw):
+                v = app.get("pm2_env", {}).get("SSLKEYLOGFILE")
+                if v and not str(v).strip() == "":
+                    poisoned.append(app.get("name", "?"))
+        except Exception:  # noqa: BLE001 — pm2 absent or not running is not a parity failure
+            pass
+
+    if poisoned:
+        return ("tls-keylog", False,
+                f"PM2 apps carrying a frozen SSLKEYLOGFILE: {', '.join(poisoned)}",
+                "add SSLKEYLOGFILE: \"\" to that app's env, then "
+                "`pm2 restart <app> --update-env`")
+
+    note = "guard active" + (
+        f"; ambient env is poisoned ({ambient['keylog_value']}) but neutralized"
+        if ambient["keylog_present"] and not ambient["keylog_usable"] else "")
+    return ("tls-keylog", True, note, "")
+
+
+def check_pm2_persistence() -> tuple[str, bool, str, str]:
+    """Will the PM2 fleet come back after an UNATTENDED reboot?
+
+    Three independent ways this silently fails, all found on 2026-07-29:
+      * the resurrect task triggers 'At logon time' only -> nothing restarts
+        after a power cut or an overnight Windows Update until CC logs in;
+      * 'No Start On Batteries' -> on a laptop it will not start at all;
+      * dump.pm2 goes stale -> it resurrects an old fleet, missing whatever was
+        added since the last `pm2 save` (it was 8 days behind when checked).
+    """
+    if platform.system() != "Windows":
+        return ("pm2-persistence", True, "not Windows - resurrect task is a Windows concern", "")
+
+    dump = Path.home() / ".pm2" / "dump.pm2"
+    problems: list[str] = []
+
+    if not dump.exists():
+        problems.append("dump.pm2 missing (never ran `pm2 save`)")
+    else:
+        age_days = (time.time() - dump.stat().st_mtime) / 86400
+        if age_days > 7:
+            problems.append(f"dump.pm2 is {age_days:.0f}d stale")
+
+    try:
+        out = subprocess.run(
+            ["schtasks", "/query", "/tn", "PM2 Resurrect", "/fo", "LIST", "/v"],
+            capture_output=True, text=True, timeout=20,
+        ).stdout
+    except Exception:  # noqa: BLE001
+        out = ""
+
+    if not out.strip():
+        problems.append("no 'PM2 Resurrect' scheduled task (run `pm2 startup`)")
+    else:
+        if "At logon time" in out and "At system start up" not in out:
+            problems.append("logon-trigger only - fleet stays down until CC logs in")
+        if "No Start On Batteries" in out:
+            problems.append("will not start on battery")
+
+    if problems:
+        return ("pm2-persistence", False, "; ".join(problems),
+                "run elevated: scripts/ops/fix_pm2_boot_persistence.ps1  (then `pm2 save`)")
+    return ("pm2-persistence", True, "boot trigger + battery-safe + fresh dump.pm2", "")
+
+
 ALL_CHECKS = [
     check_hooks,
     check_python_deps,
@@ -553,6 +673,8 @@ ALL_CHECKS = [
     check_global_claude_md,
     check_plugins,
     check_env_agents,
+    check_tls_keylog,
+    check_pm2_persistence,
 ]
 
 # Cheap, no-subprocess subset for the SessionStart hook (pure file reads, <5ms).

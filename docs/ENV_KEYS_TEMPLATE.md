@@ -1,6 +1,6 @@
 ---
 tags: [onboarding, deployment, credentials, template]
-last_updated: 2026-05-03
+last_updated: 2026-07-09
 freshness_threshold_days: 60
 ---
 
@@ -24,7 +24,8 @@ For client deployments (deploying Hermes / a sibling agent for someone else), co
 
 | Variable | Provider | Notes |
 |----------|----------|-------|
-| `ANTHROPIC_API_KEY` | Anthropic | Primary — Claude Sonnet 4.6 / Opus 4.7 |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Anthropic | **Primary** — Claude Code subscription OAuth. Generate with `claude setup-token`; automations call the local `claude` CLI via `scripts/lib/claude_cli.py` |
+| `ANTHROPIC_API_KEY` | Anthropic | **DEPRECATED for CC's deployment** (out of credits + CLI-only rule) — fork-only |
 | `OPENAI_API_KEY` | OpenAI | Codex delegation, fallback |
 | `OPENROUTER_API_KEY` | OpenRouter | Multi-model routing fallback |
 | `DEEPSEEK_API_KEY` | DeepSeek | Optional, cheap-tier routing |
@@ -152,6 +153,12 @@ When OASIS deploys a sibling agent (e.g., Hermes) for a client:
 5. Hermes already enforces this architecturally (local SQLite, no cloud)
 
 Per-client isolation contract: `brain/AGENT_ORCHESTRATION.md` § "Per-client API key isolation".
+
+---
+
+## Free-Tier Radar adoptions (V7.1)
+
+When CC greenlights a `candidate` row from `brain/TOOL_SHED.md` § "Free-Tier Radar" (uptime probes, error tracking, dead-man pings, coverage, SAST, …), its key lands here FIRST as a documented row, then CC signs up for the service and hand-adds the key to `.env.agents` — agents never create, see, or paste keys (ADR-0010 rule 4). No keys are pre-registered for candidates; this section gains rows only per adoption. Currently adopted from the Radar: **Disify** (`email_validate_tool.py`) — no-auth, no key needed.
 
 ---
 

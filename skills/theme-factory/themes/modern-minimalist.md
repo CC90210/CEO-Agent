@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # Modern Minimalist
 
 A clean and contemporary theme with a sophisticated grayscale palette for maximum versatility.

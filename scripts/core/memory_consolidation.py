@@ -134,14 +134,6 @@ def get_supabase(env: Optional[dict[str, str]] = None):
     return create_client(url, key)
 
 
-def get_anthropic_key(env: Optional[dict[str, str]] = None) -> str:
-    e = env if env is not None else load_env()
-    key = e.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
-    if not key:
-        raise RuntimeError("ANTHROPIC_API_KEY missing in .env.agents")
-    return key
-
-
 # ---- Embedding (re-use memory_ingest pattern) --------------------------------
 
 def _embed(texts: list[str], env: dict[str, str]) -> list[list[float]]:
@@ -254,27 +246,20 @@ Return ONLY the JSON. No markdown fences, no explanation.
 def classify_item(
     content: str,
     section: str,
-    api_key: str,
+    _api_key: str = "",
 ) -> dict[str, Any]:
-    """Call Claude Haiku to score importance and classify one memory item."""
-    try:
-        import anthropic  # type: ignore
-    except ImportError:
-        raise RuntimeError("anthropic SDK not installed — pip install anthropic")
+    """Call Claude Haiku via the subscription `claude` CLI (lib.claude_cli) to
+    score importance and classify one memory item — never the metered
+    ANTHROPIC_API_KEY (out of credits + banned per CC's CLI-only rule)."""
+    from lib.claude_cli import run_claude_cli
 
-    client = anthropic.Anthropic(api_key=api_key)
-    message = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=256,
-        system=_CLASSIFY_SYSTEM,
-        messages=[
-            {
-                "role": "user",
-                "content": f"Section: {section}\n\nContent:\n{content[:1000]}",
-            }
-        ],
+    raw = run_claude_cli(
+        f"Section: {section}\n\nContent:\n{content[:1000]}",
+        system=_CLASSIFY_SYSTEM, model="haiku", timeout=90,
     )
-    raw = message.content[0].text.strip()
+    if raw is None:
+        raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")
+    raw = raw.strip()
     raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
     raw = re.sub(r"\s*```$", "", raw, flags=re.MULTILINE)
 
@@ -420,12 +405,10 @@ def consolidate(
         result["message"] = "WORKING.md has no content to consolidate."
         return result
 
-    api_key = get_anthropic_key(e)
-
     classified: list[dict[str, Any]] = []
     for item in items:
         try:
-            classification = classify_item(item["content"], item["section"], api_key)
+            classification = classify_item(item["content"], item["section"])
         except Exception as exc:  # noqa: BLE001
             classification = {"importance": 0.4, "type": "noise", "summary": item["content"][:80]}
             classification["classify_error"] = str(exc)
@@ -478,6 +461,19 @@ def consolidate(
         except Exception as exc:  # noqa: BLE001
             result["db_error"] = str(exc)
 
+    # Fail-closed: if EVERY item failed classification (e.g. a total model/CLI
+    # outage — run_claude_cli returned None for all of them, so classify_item
+    # raised and each item was forced to type="noise"), do NOT archive+reset
+    # WORKING.md. Resetting here would silently drop the whole session of working
+    # memory (nothing was promoted). Leave the buffer intact so the next run
+    # retries once the model is back. Restores the guard the SDK->CLI migration
+    # removed (the old get_anthropic_key() preflight raised up front).
+    if classified and all("classify_error" in c for c in classified):
+        result["aborted"] = True
+        result["message"] = ("classification unavailable for all items (model/CLI "
+                              "outage) — WORKING.md left intact for retry")
+        return result
+
     # Archive and reset.
     original_content = WORKING_MD.read_text(encoding="utf-8") if WORKING_MD.exists() else ""
     archive_path = _archive_working(original_content)
@@ -493,6 +489,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         result = consolidate(dry_run=args.dry_run, env=env)
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: consolidate failed: {exc}", file=sys.stderr)
+        return 1
+
+    if result.get("aborted"):
+        print(f"ABORTED: {result.get('message')}", file=sys.stderr)
         return 1
 
     if args.output_json:

@@ -11,39 +11,39 @@
       "query": "path:brain",
       "color": {
         "a": 1,
-        "rgb": 16729156
+        "rgb": 327424
       }
     },
     {
       "query": "path:memory",
       "color": {
         "a": 1,
-        "rgb": 4439167
+        "rgb": 129525
       }
     },
     {
       "query": "path:skills",
       "color": {
         "a": 1,
-        "rgb": 3394611
+        "rgb": 270321
       }
     },
     {
       "query": "path:agents",
       "color": {
         "a": 1,
-        "rgb": 16753920
+        "rgb": 16711914
       }
     },
     {
       "query": "path:APPS_CONTEXT",
       "color": {
         "a": 1,
-        "rgb": 10494192
+        "rgb": 16711680
       }
     }
   ],
-  "collapse-display": false,
+  "collapse-display": true,
   "showArrow": true,
   "textFadeMultiplier": -1.5,
   "nodeSizeMultiplier": 1.12083333333333,
@@ -53,6 +53,6 @@
   "repelStrength": 11.25,
   "linkStrength": 0.203125,
   "linkDistance": 500,
-  "scale": 0.05932617187499984,
+  "scale": 0.021528718442430164,
   "close": false
 }

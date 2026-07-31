@@ -1,4 +1,5 @@
 ---
+description: "Setup Wizard 2.0 spec covering hosting options (OASIS/local/self-hosted), agent templates, credentials, and tenant provisioning flow"
 title: Setup Wizard 2.0 — Spec
 date: 2026-05-15
 phase: 8 (of SunBiz CRM build)
@@ -6,6 +7,7 @@ status: SPEC — implementation deferred to after SunBiz beta
 last_updated: 2026-06-09
 freshness_threshold_days: 90
 verified: 2026-06-09
+tags: [brain]
 ---
 # Setup Wizard 2.0
 
@@ -55,7 +57,7 @@ the OASIS SaaS plan). The new wizard answers:
      prompts + manifest.
 
 3. **What credentials do you have?**
-   - Required: Anthropic API key.
+   - Required: Claude Code subscription OAuth (`claude setup-token`) — automations call the local CLI via `scripts/lib/claude_cli.py`; an Anthropic API key is NOT required (retired for automations).
    - Optional (per industry): Stripe, Twilio, TextTorrent, Kixie,
      Gmail OAuth, Supabase key (if self-hosted), Turso key (if
      self-hosted with data sovereignty).
@@ -128,3 +130,7 @@ That's ~3 days, not 2 weeks. Worth waiting for the data.
 **Next action:** SunBiz beta runs Phases 1-7 for ~3 weeks. Reconvene
 2026-06-05 with operator feedback. Decide between full 2.0 vs the
 collapsed version above.
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

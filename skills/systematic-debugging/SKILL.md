@@ -4,6 +4,8 @@ description: Use when encountering any bug, test failure, or unexpected behavior
 triggers: [bug, error, failure, crash, broken, not working, debug, stack trace]
 tier: core
 dependencies: []
+tags: [skill, systematic-debugging]
+last_updated: 2026-05-21
 ---
 
 # Systematic Debugging

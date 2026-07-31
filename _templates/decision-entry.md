@@ -1,3 +1,8 @@
+---
+tags: [template]
+last_updated: 2026-04-27
+---
+
 ### {{date:YYYY-MM-DD}} — [Decision Name]
 **Context:**
 **Options considered:**

@@ -1,3 +1,8 @@
+---
+tags: [root]
+last_updated: 2026-07-09
+---
+
 # ARCHITECTURE — Business-Empire-Agent V6.0
 
 > This document explains the engineering design of Bravo — not just what it is, but why every decision was made this way.
@@ -60,7 +65,7 @@ Three Claude Code `PreToolUse` hooks wired in `.claude/settings.local.json`:
 - **`exec_guard.py`** — layered policy gate. Layer 1: hard-blocklist regex (DROP, TRUNCATE, ALTER DROP COLUMN, DELETE-no-WHERE, `rm -rf /` outside tmp, force-push to main, `git reset --hard <ref>`, `git clean -fdx`, fork bombs, `dd-to-disk`, `xargs rm`, bare `rm -rf` followed by pipe/EOL). Layer 2: SQL AST validation via `sqlglot` for any command containing `psql`/`sqlite3`/`supabase_tool execute-sql`. Layer 3: irreversible-op allowlist (`git push`, `vercel --prod`, `stripe charge/refund`, `supabase apply_migration`, `n8n publish_workflow`) — logged but not blocked in Phase 1. Layer 4: read-only CLI fast-path that **disables itself if the command contains `&&`, `||`, `;`, `|`, backticks, `$()`, `<()`, or `>()`** — Codex caught the chained-command leak.
 - **`state_guard.py`** — denies Edit on auto-generated mirrors AND denies Bash commands that mutate them (redirects `>`/`>>`, `tee`, `cp`/`mv`/`rsync`, `sed -i`, `dd of=`, `python -c open(…, 'w')`). Anchored on the FULL relative path (`memory/SESSION_LOG.md`), not just basename, so a homonym like `backups/SESSION_LOG.md` correctly passes.
 
-Each guard has three modes via env var (`enforce` / `report` / `off`). Default safe-mode for fresh installs: `secret_guard=enforce`, `exec_guard=report` (soak), `state_guard=off` (until `EMPIRE_V6_MODE=on` cutover). Cloud installs flip all three to `enforce` by default. Every block writes a JSONL audit row to `state/{guard}.log`. The full bypass surface is locked behind a 109-test regression suite at `tests/test_hook_regression.py` — including all three Codex Critical bypasses and five self-review follow-ups.
+Each guard has three modes via env var (`enforce` / `report` / `off`). Default safe-mode for fresh installs: `secret_guard=enforce`, `exec_guard=report` (soak), `state_guard=off` (until `EMPIRE_V6_MODE=on` cutover). Cloud installs flip all three to `enforce` by default. Reference deployment: all three enforce since the 2026-07-02 lockdown. Every block writes a JSONL audit row to `state/{guard}.log`. The full bypass surface is locked behind a 109-test regression suite at `tests/test_hook_regression.py` — including all three Codex Critical bypasses and five self-review follow-ups.
 
 ### Pillar 5 — Cross-agent event bus (`scripts/core/event_bus.py` + Supabase `agent_events`)
 
@@ -151,7 +156,7 @@ Every autonomous outbound action now routes through a single entry point: `scrip
 - `database/003_unified_interaction_ledger.sql` — adds `cooldown_until`, `agent_source`, `metadata` columns + four indexes to `lead_interactions`. Purely additive, safe to apply mid-traffic.
 - `scripts/apply_migration.py` — Management API runner for SQL migrations.
 - `scripts/core/context_builder.py` — `get_entity_context(lead_id)` returns relationship stage, sentiment trajectory, and a compose-ready prompt block. Foundation for persona-aware LLM drafts.
-- `scripts/test_send_gateway.py` — 17 tests covering golden, suppression, cooldown, daily cap, dry-run, input validation, SMTP failure, brand identity, auto-create lead, sentiment, stage inference. Must pass before any gateway change ships.
+- `scripts/tests/test_send_gateway.py` — 91 tests covering golden, suppression, cooldown, daily cap, dry-run, input validation, SMTP failure, brand identity, auto-create lead, sentiment, stage inference. Must pass before any gateway change ships.
 - `skills/send-gateway/SKILL.md` — full caller contract and extension guide.
 
 **Engines rewired (four):** `outreach_engine`, `email_engine`, `funnel_nurture`, `booking_engine`. Each delegates physical send + CASL + logging to the gateway; each keeps only its business-specific logic (template rendering, .ics generation). The fifth engine, `outreach_batch` (semi-auto cold-outreach with Telegram approval), was retired 2026-05-16 — CC opted out of auto-drafted cold outreach; inbound notifications now flow through `funnel_fast_poll` instead.
@@ -159,6 +164,8 @@ Every autonomous outbound action now routes through a single entry point: `scrip
 **Still outside the chokepoint (tracked):** The N8N `OASIS Inbound Qualifier` workflow writes replies directly via Gmail node — closing this is a one-node N8N change (add a Supabase write to `lead_interactions` with `agent_source='n8n_inbound'`). Documented as follow-on work.
 
 ---
+
+> **Historical (V5.x) narrative below** — superseded by the V6.0 pillars above and `brain/V6_ARCHITECTURE.md`; where they conflict (e.g. files-win-on-conflict), the V6 doc is authoritative.
 
 ## 1. System Overview
 

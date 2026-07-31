@@ -4,6 +4,7 @@ description: Query the Obsidian vault as a live knowledge graph — PageRank, co
 tags: [skill, mcp, knowledge, obsidian, graph, search]
 triggers: ["knowledge graph", "use knowledge graph", "run knowledge graph"]
 tier: standard
+last_updated: 2026-06-20
 ---
 
 # Knowledge Graph — Vault as Queryable Graph

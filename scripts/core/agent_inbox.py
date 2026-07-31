@@ -36,6 +36,40 @@ import uuid
 from pathlib import Path
 from datetime import datetime, timezone
 
+CAPABILITY_META = {
+    "category": "orchestration.messaging",
+    "lifecycle": "active",
+    "risk": "external_write",
+    "triggers": [
+        "send a message to another agent",
+        "list agent inbox messages",
+        "acknowledge an agent message",
+    ],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {
+        "visible": True,
+        "confirm": True,
+        "subcommands": {
+            "post": {
+                "key": "agent_inbox_send",
+                "visible": True,
+                "confirm": True,
+            },
+            "list": {
+                "key": "agent_inbox_inbox",
+                "visible": True,
+                "confirm": False,
+            },
+            "read": {
+                "key": "agent_inbox_ack",
+                "visible": True,
+                "confirm": True,
+            },
+        },
+    },
+}
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 INBOX_ROOT = REPO_ROOT / "tmp" / "agent_inbox"
 INBOX_DIR = INBOX_ROOT / "inbox"

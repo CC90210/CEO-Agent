@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws modelarmor +create-template --help"
 triggers: ["gws modelarmor create template", "use gws modelarmor create template", "run gws modelarmor create template", "google model armor: create a new model armor template"]
 tier: specialized
+tags: [skill, gws-modelarmor-create-template]
+last_updated: 2026-06-20
 ---
 
 # modelarmor +create-template

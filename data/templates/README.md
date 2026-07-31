@@ -1,5 +1,6 @@
 ---
 tags: [data, templates]
+last_updated: 2026-04-27
 ---
 
 # Template Library

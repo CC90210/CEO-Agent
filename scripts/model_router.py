@@ -362,6 +362,20 @@ def _openai_like(provider: str, model: str, api_key: str, base_url: Optional[str
         return {"text": text, "tokens_in": tokens_in, "tokens_out": tokens_out}
 
 
+def _cli_alias(model: str) -> str:
+    """Map an Anthropic API model id → a `claude` CLI alias (sonnet|haiku|opus).
+    The CLI resolves aliases to the current model, unlike a dated API id, and is
+    what the subscription-OAuth fallback in the claude branch spawns. Fable/unknown
+    degrade to 'sonnet' (the CLI has no 'fable' alias) — a deliberate, logged
+    down-tier that beats failing when the metered key is dead."""
+    m = (model or "").lower()
+    if "haiku" in m:
+        return "haiku"
+    if "opus" in m:
+        return "opus"
+    return "sonnet"
+
+
 def call(messages: list[dict], agent: str | None = None, model: str | None = None, max_tokens: int = 1024) -> dict[str, Any]:
     """Unified call interface across Anthropic, OpenAI-compatible, and Ollama."""
     load_env()
@@ -370,29 +384,54 @@ def call(messages: list[dict], agent: str | None = None, model: str | None = Non
     chosen_model = model or route["model"]
     start = time.perf_counter()
     if provider == "claude":
-        import anthropic  # type: ignore
-
         system_prompt, chat = _messages_to_text(messages)
-        kwargs: dict[str, Any] = {
-            "model": chosen_model,
-            "max_tokens": max_tokens,
-            "messages": chat,
-        }
-        if system_prompt:
-            kwargs["system"] = system_prompt
-        resp = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]).messages.create(**kwargs)
-        # Fable 5 (and Opus 4.7+) can decline via a safety classifier: HTTP 200 with
-        # stop_reason="refusal" and an empty content array — no exception is raised.
-        # Fail loud (matches the module's "structured errors, no silent half-working
-        # fallbacks" design) so the caller can retry on a fallback candidate instead
-        # of silently receiving "".
-        if getattr(resp, "stop_reason", None) == "refusal":
-            details = getattr(resp, "stop_details", None)
-            cat = getattr(details, "category", None) if details else None
-            raise RuntimeError(f"model {chosen_model} refused (stop_reason=refusal, category={cat})")
-        text = "".join(block.text for block in resp.content if hasattr(block, "text")).strip()
-        tokens_in = int(getattr(resp.usage, "input_tokens", 0) or 0)
-        tokens_out = int(getattr(resp.usage, "output_tokens", 0) or 0)
+        api_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+        # CC's iron rule (CLAUDE.md "Model calls from automations"): automations
+        # use the subscription `claude` CLI on OAuth, NEVER the metered
+        # ANTHROPIC_API_KEY (out of credits + banned). So the claude branch runs
+        # the CLI by DEFAULT. The metered API path below is opt-in only — set
+        # MODEL_ROUTER_ALLOW_METERED_API=1 with a live key (e.g. a machine whose
+        # credits were restored). 2026-07-18 V7 cleanup: before this, the branch
+        # hit api.anthropic.com unconditionally and every call failed on the dead
+        # key. Token counts aren't reported by the CLI (flat-rate sub), so cost=$0.
+        use_metered = bool(api_key) and os.environ.get(
+            "MODEL_ROUTER_ALLOW_METERED_API", "").strip().lower() in ("1", "true", "yes")
+        if not use_metered:
+            from lib.claude_cli import run_claude_cli  # lazy — no import cost on the metered path
+            cli_prompt = (
+                "\n\n".join(f"{m['role']}: {m['content']}" for m in chat)
+                if len(chat) > 1 else (chat[0]["content"] if chat else "")
+            )
+            text = run_claude_cli(cli_prompt, system=system_prompt or None, model=_cli_alias(chosen_model))
+            if text is None:
+                raise RuntimeError(
+                    f"claude subscription CLI failed for '{chosen_model}' "
+                    "(claude CLI missing/timed out/unauthenticated — run `claude setup-token`)"
+                )
+            tokens_in = tokens_out = 0
+        else:
+            import anthropic  # type: ignore
+
+            kwargs: dict[str, Any] = {
+                "model": chosen_model,
+                "max_tokens": max_tokens,
+                "messages": chat,
+            }
+            if system_prompt:
+                kwargs["system"] = system_prompt
+            resp = anthropic.Anthropic(api_key=api_key).messages.create(**kwargs)
+            # Fable 5 (and Opus 4.7+) can decline via a safety classifier: HTTP 200 with
+            # stop_reason="refusal" and an empty content array — no exception is raised.
+            # Fail loud (matches the module's "structured errors, no silent half-working
+            # fallbacks" design) so the caller can retry on a fallback candidate instead
+            # of silently receiving "".
+            if getattr(resp, "stop_reason", None) == "refusal":
+                details = getattr(resp, "stop_details", None)
+                cat = getattr(details, "category", None) if details else None
+                raise RuntimeError(f"model {chosen_model} refused (stop_reason=refusal, category={cat})")
+            text = "".join(block.text for block in resp.content if hasattr(block, "text")).strip()
+            tokens_in = int(getattr(resp.usage, "input_tokens", 0) or 0)
+            tokens_out = int(getattr(resp.usage, "output_tokens", 0) or 0)
     elif provider == "openai":
         payload = _openai_like(provider, chosen_model, os.environ["OPENAI_API_KEY"], None, messages, max_tokens)
         text, tokens_in, tokens_out = payload["text"], payload["tokens_in"], payload["tokens_out"]

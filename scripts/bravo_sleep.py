@@ -28,14 +28,14 @@ Design notes
 - Each entry gets its own git commit so it's auditable + reversible
 - A 7-day cooldown per (file, topic-hash) prevents the same lesson getting
   re-logged every night when no genuinely new activity has happened
-- Refuses to run if `ANTHROPIC_API_KEY` is missing (fail closed)
+- Model calls run through the local `claude` CLI on CC's Claude Code
+  subscription (lib.claude_cli) — never the metered ANTHROPIC_API_KEY
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
-import os
 import re
 import sqlite3
 import subprocess
@@ -52,6 +52,21 @@ LAST_RUN_PATH = PROJECT_ROOT / "state" / "sleep_agent_last_run.txt"
 
 VALID_TARGETS = {"MISTAKES", "PATTERNS", "DECISIONS"}
 COOLDOWN_DAYS = 7
+MEMORY_DIFF_DIR = PROJECT_ROOT / "state" / "memory_diff"
+
+# V7.3.0 anti-pollution guard (OpenViking plugin lesson): never let injected
+# retrieval/system context that leaked into a logged note be re-captured as if
+# it were new activity — that's a self-referential memory loop.
+_POLLUTION_MARKERS = ("<system-reminder", "## Relevant Memory", "<openviking", "<relevant-memories")
+
+DEDUP_PROMPT = """You are Bravo's sleep agent running a dedup pass. For each CANDIDATE lesson
+below, existing memory snippets that look similar are shown. Decide per candidate:
+- "create" — genuinely new lesson (or the existing snippet covers a different point)
+- "skip"   — the existing memory already captures this lesson
+
+Return ONLY a JSON array: [{{"title": "<candidate title>", "decision": "create"|"skip", "reason": "<one line>"}}]
+
+{blocks}"""
 
 PROMPT_TEMPLATE = """You are Bravo's sleep agent. You run nightly to consolidate what was learned.
 
@@ -124,7 +139,13 @@ def _recent_session_log(hours: int) -> str:
         ).fetchall()
     if not rows:
         return "(no entries in window)"
-    return "\n".join(f"- [{r['ts']}] ({r['agent']}) {r['note']}" for r in rows)
+    lines = []
+    for r in rows:
+        note = str(r["note"] or "")
+        if any(m in note for m in _POLLUTION_MARKERS):
+            continue  # injected-context leakage — data, not activity
+        lines.append(f"- [{r['ts']}] ({r['agent']}) {note}")
+    return "\n".join(lines) if lines else "(no entries in window)"
 
 
 def _recent_git_log(hours: int) -> str:
@@ -144,25 +165,16 @@ def _recent_git_log(hours: int) -> str:
 
 
 def _call_model(prompt: str) -> str:
+    # Local claude CLI on CC's subscription OAuth (lib.claude_cli), NOT the
+    # metered ANTHROPIC_API_KEY. The old path used model_router.call() + the
+    # API key, which now 400s ("credit balance too low") and violates the
+    # CLI-only rule — the exact failure that left this nightly job dead. Haiku
+    # alias: cheapest tier is correct for a nightly daemon.
     sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-    try:
-        import model_router  # type: ignore
-    except ImportError:
-        raise RuntimeError("model_router not importable — fix that first")
-    # Pin Haiku explicitly — nightly daemon, cheapest tier is correct
-    result = model_router.call(
-        messages=[{"role": "user", "content": prompt}],
-        agent="bravo",
-        model="claude-haiku-4-5",
-        max_tokens=2000,
-    )
-    if not isinstance(result, dict):
-        raise RuntimeError(f"model_router returned non-dict: {result!r}")
-    if result.get("error"):
-        raise RuntimeError(f"model call failed: {result.get('error')}")
-    text = result.get("text", "").strip()
+    from lib.claude_cli import run_claude_cli  # type: ignore
+    text = run_claude_cli(prompt, model="haiku", timeout=120)
     if not text:
-        raise RuntimeError(f"model returned empty text; full payload: {result!r}")
+        raise RuntimeError("claude CLI returned no text (missing CLI / expired token / timeout)")
     return text
 
 
@@ -223,17 +235,68 @@ def _git_commit(target: Path, kind: str, title: str, dry_run: bool) -> None:
         print(f"[warn] git commit failed for {target.name}: {e}", file=sys.stderr)
 
 
+def _near_duplicates(title: str, body: str) -> list[dict]:
+    """Lexical near-dup probe against the memory index (deterministic, no embed
+    cost). Returns hit dicts ({ref, snippet}) or [] on any failure — dedup is an
+    enhancement, never a blocker."""
+    try:
+        sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+        from core.memory_retriever import query as _mq  # type: ignore
+        hits = _mq(f"{title} {body[:200]}", limit=3, kind="memory", mode="lexical")
+        return [{"ref": h.get("ref", ""), "snippet": h.get("snippet", "")[:220]} for h in hits]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _judge_duplicates(candidates: list[tuple[dict, list[dict]]]) -> dict[str, str]:
+    """One batched model call deciding create/skip for candidates that have
+    near-dup evidence (OpenViking two-level dedup pattern, candidate level —
+    'merge' deliberately not adopted: this pipeline is append-only by design,
+    see ADR-0011). Returns {title: decision}; on any failure, everything
+    defaults to 'create' (the 7-day cooldown still backstops)."""
+    if not candidates:
+        return {}
+    blocks = []
+    for p, hits in candidates:
+        ev = "\n".join(f"  - existing [{h['ref']}]: {h['snippet']}" for h in hits)
+        blocks.append(f"CANDIDATE ({p['file']}): {p['title']}\n{p['body'][:400]}\nSIMILAR EXISTING:\n{ev}")
+    try:
+        raw = _call_model(DEDUP_PROMPT.format(blocks="\n\n".join(blocks)))
+        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
+        data = json.loads(cleaned)
+        out = {}
+        for d in data if isinstance(data, list) else []:
+            if isinstance(d, dict) and d.get("decision") in ("create", "skip"):
+                out[str(d.get("title", "")).strip()] = d["decision"]
+        return out
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _write_memory_diff(record: dict, dry_run: bool) -> None:
+    """Per-run audit artifact (OpenViking memory_diff pattern): every run writes
+    a JSON record — even an empty one — so memory mutations are auditable and
+    reversible. Best-effort: the sleep pass never fails because the audit did."""
+    try:
+        MEMORY_DIFF_DIR.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        suffix = "-dry" if dry_run else ""
+        (MEMORY_DIFF_DIR / f"{stamp}{suffix}.json").write_text(
+            json.dumps(record, indent=2, default=str), encoding="utf-8")
+    except Exception as e:  # noqa: BLE001
+        print(f"[bravo_sleep] memory_diff write failed: {e}", file=sys.stderr)
+
+
 def cmd_run(args: argparse.Namespace) -> int:
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        try:
-            sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "lib"))
-            from secret_loader import bootstrap  # type: ignore
-            bootstrap()
-        except Exception as e:
-            print(f"[bravo_sleep] secret_loader bootstrap failed: {e}", file=sys.stderr)
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("[bravo_sleep] no ANTHROPIC_API_KEY — refusing to run", file=sys.stderr)
-        return 2
+    # Model calls go through the local claude CLI on CC's subscription (see
+    # _call_model); no ANTHROPIC_API_KEY required. Bootstrap secrets anyway so
+    # the state DB / git paths resolve under the PYTHONW scheduler.
+    try:
+        sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "lib"))
+        from secret_loader import bootstrap  # type: ignore
+        bootstrap()
+    except Exception as e:
+        print(f"[bravo_sleep] secret_loader bootstrap failed: {e}", file=sys.stderr)
 
     prompt = PROMPT_TEMPLATE.format(
         hours=args.window_hours,
@@ -246,34 +309,67 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"[bravo_sleep] model call failed: {e}", file=sys.stderr)
         return 3
     proposals = _parse_proposals(raw)
+    audit: dict = {"run_ts": datetime.now(timezone.utc).isoformat(),
+                   "window_hours": args.window_hours, "dry_run": args.dry_run,
+                   "proposals": []}
     if not proposals:
         print(f"[bravo_sleep] no proposals (model returned: {raw[:120]!r})")
+        _write_memory_diff(audit, args.dry_run)
         LAST_RUN_PATH.parent.mkdir(parents=True, exist_ok=True)
         LAST_RUN_PATH.write_text(datetime.now(timezone.utc).isoformat(), encoding="utf-8")
         return 0
 
+    # V7.3.0 dedup state machine: cooldown (cheap) → retrieval near-dup probe →
+    # batched judge decision (create/skip) for candidates with evidence.
     cooldowns = _load_cooldowns()
-    written = 0
-    skipped = 0
+    staged: list[tuple[dict, list[dict], str]] = []  # (proposal, dup_evidence, state)
+    needs_judgment: list[tuple[dict, list[dict]]] = []
     for p in proposals:
         if _on_cooldown(p["file"], p["title"], cooldowns):
+            staged.append((p, [], "skipped-cooldown"))
+            continue
+        dups = _near_duplicates(p["title"], p["body"])
+        if dups:
+            needs_judgment.append((p, dups))
+            staged.append((p, dups, "pending-judgment"))
+        else:
+            staged.append((p, [], "create"))
+    verdicts = _judge_duplicates(needs_judgment)
+
+    written = 0
+    skipped = 0
+    for p, dups, state in staged:
+        if state == "pending-judgment":
+            state = "skipped-duplicate" if verdicts.get(p["title"]) == "skip" else "create"
+        entry = {"file": p["file"], "title": p["title"], "decision": state,
+                 "dup_evidence": dups}
+        if state == "create":
+            target = MEMORY_DIR / f"{p['file']}.md"
+            if not target.exists():
+                entry["decision"] = "skipped-missing-target"
+                print(f"[warn] target {target} missing — skipping", file=sys.stderr)
+            else:
+                _append_entry(target, p["title"], p["body"], args.dry_run)
+                _git_commit(target, p["file"].lower(), p["title"], args.dry_run)
+                cooldowns[_topic_hash(p["file"], p["title"])] = datetime.now(timezone.utc).isoformat()
+                entry["body"] = p["body"]
+                entry["decision"] = "created"
+                written += 1
+        if entry["decision"].startswith("skipped"):
             skipped += 1
-            continue
-        target = MEMORY_DIR / f"{p['file']}.md"
-        if not target.exists():
-            print(f"[warn] target {target} missing — skipping", file=sys.stderr)
-            continue
-        _append_entry(target, p["title"], p["body"], args.dry_run)
-        _git_commit(target, p["file"].lower(), p["title"], args.dry_run)
-        cooldowns[_topic_hash(p["file"], p["title"])] = datetime.now(timezone.utc).isoformat()
-        written += 1
+        audit["proposals"].append(entry)
+
+    audit["written"] = written
+    audit["skipped"] = skipped
+    _write_memory_diff(audit, args.dry_run)
 
     if not args.dry_run:
         _save_cooldowns(cooldowns)
         LAST_RUN_PATH.parent.mkdir(parents=True, exist_ok=True)
         LAST_RUN_PATH.write_text(datetime.now(timezone.utc).isoformat(), encoding="utf-8")
 
-    print(f"[bravo_sleep] wrote {written}, skipped {skipped} (cooldown), dry_run={args.dry_run}")
+    print(f"[bravo_sleep] wrote {written}, skipped {skipped} "
+          f"(cooldown/duplicate — see state/memory_diff/), dry_run={args.dry_run}")
     return 0
 
 

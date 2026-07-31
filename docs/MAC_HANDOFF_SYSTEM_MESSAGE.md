@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-06-20
+---
+
 # System message for the AI operating on CC's Mac
 
 > Paste everything between the BEGIN/END markers below into the system prompt
@@ -205,3 +210,7 @@ The Mac AI will then have:
 - The list of Ezra-only items so it doesn't try to populate placeholders autonomously
 
 If anything in this message becomes stale (new commits land, new crons get seeded, Codex finds new bugs), update this file via a PR or direct push to `CEO-Agent/docs/MAC_HANDOFF_SYSTEM_MESSAGE.md` and re-pull on the Mac. Treat it as a living spec until the trip is over.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

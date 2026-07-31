@@ -4,6 +4,8 @@ description: Use when completing tasks, implementing major features, or before m
 triggers: [request review, verify work, pre-merge check, self-review]
 tier: standard
 dependencies: [code-review, verification-before-completion]
+tags: [skill, requesting-code-review]
+last_updated: 2026-05-21
 ---
 
 # Requesting Code Review

@@ -97,7 +97,6 @@ def main():
     section("CC Social Accounts (content posting)", [
         "INSTAGRAM_USERNAME", "INSTAGRAM_PASSWORD",
         "LINKEDIN_EMAIL", "LINKEDIN_PASSWORD",
-        "SKOOL_EMAIL", "SKOOL_PASSWORD",
     ], bravo)
 
     sections.append("""

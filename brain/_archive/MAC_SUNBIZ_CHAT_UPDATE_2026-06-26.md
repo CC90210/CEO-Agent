@@ -1,3 +1,14 @@
+---
+description: "Historical Mac chat catch-up for the completed SunBiz CLI document-extraction rollout"
+tags: [sunbiz, mac, extraction, handoff, archived]
+last_updated: 2026-06-26
+freshness_threshold_days: 365
+status: archived
+archived_on: 2026-07-19
+archived_from: brain/MAC_SUNBIZ_CHAT_UPDATE_2026-06-26.md
+archive_reason: "Point-in-time chat bootstrap was superseded by maintained VPS deployment documentation."
+superseded_by: docs/VPS_SETUP_HANDOFF.md
+---
 # Mac SunBiz chat — catch-up message (2026-06-26)
 
 > Paste into the Mac SunBiz Claude Code chat so it's current before Montreal. This
@@ -56,3 +67,7 @@ push (main is shared with APEX); Codex audit anything touching money/legal/the s
 verify against live code, don't trust a snapshot.
 
 ---
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

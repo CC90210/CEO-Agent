@@ -34,6 +34,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from name_utils import safe_first_name
 
+# Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. Must precede the
+# first Supabase call or it dies with CERTIFICATE_VERIFY_FAILED.
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 
 def get_supabase():
     url = os.environ.get("BRAVO_SUPABASE_URL", "")

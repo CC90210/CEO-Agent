@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws gmail --help"
 triggers: ["gws gmail", "use gws gmail", "run gws gmail", "gmail: send"]
 tier: specialized
+tags: [skill, gws-gmail]
+last_updated: 2026-06-20
 ---
 
 # gmail (v1)

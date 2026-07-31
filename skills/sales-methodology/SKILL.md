@@ -4,6 +4,7 @@ description: NEPQ-based sales framework for OASIS AI Solutions — discovery cal
 tags: [skill, sales, methodology, nepq]
 triggers: ["sales methodology", "use sales methodology", "run sales methodology"]
 tier: specialized
+last_updated: 2026-07-20
 ---
 
 # Sales Methodology — NEPQ Framework for OASIS AI
@@ -383,5 +384,5 @@ After every deal outcome (won or lost), log this within 24 hours. Patterns compo
 
 ## Obsidian Links
 - [[skills/proposal-generation/SKILL.md]] | [[skills/client-success/SKILL.md]] | [[brain/CAPABILITIES]]
-- [[skills/meeting-automation/SKILL.md]] | [[../../CMO-Agent/skills/lead-management/SKILL]]
+- [[skills/meeting-automation/SKILL.md]] | [[../../../CMO-Agent/skills/lead-management/SKILL]]
 - [[brain/CEO_OPERATING_SYSTEM]] | [[brain/USER]]

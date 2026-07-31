@@ -4,6 +4,7 @@ name: Win-Back Email
 type: email
 use_case: Re-engaging churned or paused clients (30–180 days since last engagement)
 variables: [client_name, client_company, time_since_churn, churn_reason_hypothesis, new_capability, specific_improvement, special_offer]
+last_updated: 2026-04-27
 ---
 
 # Win-Back Email

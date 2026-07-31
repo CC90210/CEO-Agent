@@ -4,6 +4,8 @@ description: Archived Skool community comment/reply automation — paused 2026-0
 type: archive
 archived_on: 2026-05-18
 archived_reason: Primary retainer ended 2026-05-18; CC does not own the Skool community the automation was posting into. Will be revived for CC's own community in the future.
+tags: [scripts]
+last_updated: 2026-05-18
 ---
 
 # Skool Automation — Archived
@@ -41,3 +43,7 @@ Paused 2026-05-18. The daemon was posting replies/comments into a Skool communit
 ## What was NOT archived
 
 The Skool *content publishing* path (skill `skool-automation` for editing lessons + About page, and the `/skool-edit` and `/skool-push` workflows) is the same Playwright session as the comment daemon. They're archived together — restore as a unit.
+
+## Obsidian Links
+- [[brain/CAPABILITIES]]
+- [[brain/QUICK_REFERENCE]]

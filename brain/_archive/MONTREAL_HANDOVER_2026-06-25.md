@@ -1,3 +1,14 @@
+---
+description: "Historical Windows-to-Mac session handover captured before CC's Montreal move"
+tags: [handover, mac, montreal, operations, archived]
+last_updated: 2026-06-25
+freshness_threshold_days: 365
+status: archived
+archived_on: 2026-07-19
+archived_from: brain/MONTREAL_HANDOVER_2026-06-25.md
+archive_reason: "Point-in-time machine transition handover is complete; durable outcomes live in the canonical session log."
+superseded_by: memory/SESSION_LOG.md
+---
 # Session Handover — Montreal / MacBook (2026-06-25)
 
 > **For: a fresh Claude Code chat on CC's MacBook.** CC is moving to Montreal Saturday
@@ -124,3 +135,7 @@ SunBiz/Breeze development is open. Three SunBiz reps: **Matt** (owner, Submissio
 - **`server-only` + tsx** → `--conditions=react-server`.
 - **Native deps on Vercel** (signature feature) — verify the Linux build is green.
 - **State sync after work:** `python scripts/state/state_sync.py --note "…"`.
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

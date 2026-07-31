@@ -1,3 +1,8 @@
+---
+tags: [apps]
+last_updated: 2026-05-13
+---
+
 # OASIS Desktop Release Playbook
 
 This playbook turns the desktop alpha into repeatable release work. It is intentionally practical: every gate either passes locally or becomes a visible blocker.
@@ -86,3 +91,7 @@ If the signing variable is off, CI reports signature status but allows unsigned 
 - The sidecar starts from this repo when it can find `bravo_cli.local_bridge`; it is not bundled yet.
 - macOS and Linux artifacts should be generated through CI or native builders.
 - The app icon still needs final branded `.ico`, `.icns`, and `.png` assets.
+
+## Obsidian Links
+- [[brain/APP_REGISTRY]]
+- [[docs/INDEX]]

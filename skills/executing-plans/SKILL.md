@@ -4,6 +4,8 @@ description: Use when you have a written implementation plan to execute in a sep
 triggers: [execute plan, run plan, implement plan, batch execution]
 tier: standard
 dependencies: [writing-plans, using-git-worktrees]
+tags: [skill, executing-plans]
+last_updated: 2026-05-21
 ---
 
 # Executing Plans

@@ -4,6 +4,7 @@ type: document
 use_case: Monthly email update to investors, advisors, or stakeholders
 variables: [month, year, headline, mrr, arr_growth, clients, pipeline_value, biggest_win, biggest_challenge, asks]
 tags: [template, document, investor]
+last_updated: 2026-04-27
 ---
 
 # {{month}} {{year}} Update — OASIS AI Solutions

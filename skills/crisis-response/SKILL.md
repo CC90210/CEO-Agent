@@ -4,6 +4,7 @@ description: Structured crisis response protocols for business emergencies — P
 tags: [skill, crisis, response, ceo]
 triggers: ["crisis response", "use crisis response", "run crisis response"]
 tier: standard
+last_updated: 2026-07-09
 ---
 
 # Crisis Response — Emergency Protocols
@@ -44,7 +45,7 @@ When things go wrong, speed and clarity matter more than perfection. This skill 
 2. **Preserve:** Cut non-essential expenses immediately
 3. **Activate:** Launch emergency pipeline activation:
    - Contact all warm leads in pipeline
-   - Send 25+ cold outreach emails
+   - Propose an operator-approved outreach burst to CC + accelerate inbound (funnel/content) — outbound requires CC sign-off
    - Offer fast-track onboarding incentive
    - Reach out to Adon's network for referrals
 4. **Diversify:** Never let any client exceed 40% of revenue again

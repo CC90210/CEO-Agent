@@ -11,6 +11,8 @@ metadata:
       bins: ["gws"]
       skills: ["gws-drive", "gws-docs", "gws-sheets", "gws-gmail"]
 triggers: ["persona researcher", "use persona researcher", "run persona researcher", "organize research \u2014 manage references"]
+tags: [skill, archive, _archive]
+last_updated: 2026-05-21
 ---
 
 # Researcher

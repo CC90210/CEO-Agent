@@ -1,3 +1,8 @@
+---
+tags: [skill]
+last_updated: 2026-05-21
+---
+
 # JSON Schemas
 
 This document defines the JSON schemas used by skill-creator.

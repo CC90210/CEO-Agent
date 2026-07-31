@@ -1,3 +1,8 @@
+---
+tags: [browser, automation]
+last_updated: 2026-05-21
+---
+
 # Connection And Attach
 
 Use this when Browser Harness is installed but not attached to Chrome/Edge.

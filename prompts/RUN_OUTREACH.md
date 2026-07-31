@@ -1,3 +1,8 @@
+---
+tags: [prompts]
+last_updated: 2026-06-19
+---
+
 # RUN_OUTREACH — paste this whole block as your prompt
 
 > Works in **Antigravity, OpenCode, Codex CLI, Cursor**, or any tool that opens this repo. Paste the entire file as your first message.

@@ -1,3 +1,8 @@
+---
+tags: [deploy]
+last_updated: 2026-06-17
+---
+
 # VPS auto-sync — "Vercel for the SunBiz VPS"
 
 Keeps the VPS daemon repos in sync with GitHub so they never drift again. The
@@ -47,3 +52,7 @@ systemctl list-timers vps_autosync.timer
 - A `WARN ahead N` line means the VPS has local commits to push to origin (the
   inverse drift — back them up). A repo authored on the VPS should be pushed so
   the sync can fast-forward it cleanly from then on.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws workflow +meeting-prep --help"
 triggers: ["gws workflow meeting prep", "use gws workflow meeting prep", "run gws workflow meeting prep", "google workflow: prepare for your next meeting: agenda"]
 tier: specialized
+tags: [skill, gws-workflow-meeting-prep]
+last_updated: 2026-06-20
 ---
 
 # workflow +meeting-prep

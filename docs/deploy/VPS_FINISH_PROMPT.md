@@ -1,3 +1,12 @@
+---
+tags: [docs, deploy]
+last_updated: 2026-07-09
+---
+
+> ⚠️ **SUPERSEDED 2026-07-09** — do NOT paste `ANTHROPIC_API_KEY` into any env.
+> Auth = `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` (see memory `reference_claude_code_headless_vps_auth`).
+> MRR reporting is Atlas-owned.
+
 # VPS Finish Prompt — last-mile paste to finalize Adon Phase 2 deploy
 
 > Use this prompt AFTER the unified deploy prompt
@@ -130,3 +139,7 @@ Begin Step A now.
 3. `<FILL_IN_BUSINESS_ADDRESS>` — SunBiz's legal mailing address for the CASL footer. Format like `Sun Biz Funding, 123 Main St, City, ST 12345, USA`. Without this, SunBiz commercial emails will keep getting blocked at the placeholder check.
 
 Substitute those 3 strings inline, then paste the whole block (everything between the dashes) to your VPS Claude Code chat. The agent will run Steps A–E and write you a final report.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

@@ -1,3 +1,8 @@
+---
+tags: [media]
+last_updated: 2026-04-27
+---
+
 # Cold Email Strategy — OASIS AI Solutions
 
 > Strategic, personalized outreach that provides value before asking for anything.

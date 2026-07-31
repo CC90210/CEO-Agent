@@ -7,6 +7,8 @@ risk: low
 status: '[VALIDATED]'
 disable-model-invocation: true
 triggers: [synthesize, new auto-generated skill]
+tags: [skill, auto-generated]
+last_updated: 2026-05-06
 ---
 
 # Auto-Generated Skills Container
@@ -30,4 +32,4 @@ This is the parent skill directory for runtime-synthesized skills. Children appe
 - `skills/auto-generated/README.md` — operator-facing lifecycle docs
 
 ## Obsidian Links
-- [[skills/auto-generated/README]] | [[scripts/skill_synthesizer]] | [[scripts/skill_metrics]]
+- [[skills/auto-generated/README]] | `scripts/skill_synthesizer.py` | `scripts/skill_metrics.py`

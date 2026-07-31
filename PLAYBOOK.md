@@ -1,3 +1,8 @@
+---
+tags: [root]
+last_updated: 2026-07-19
+---
+
 # Bravo Playbook — How to Actually Use Your System
 
 > **For CC, not engineers.** If you're reading this looking for SQL schemas
@@ -20,7 +25,7 @@ These are the five things you'll actually do 80% of days. Bookmark this section.
 | **See what the AI did today** | "show me today's activity" (Telegram or IDE) — or: `python scripts/autonomous_agent.py decisions --today` | Prints the reasoning loop's decision tape: every send, every escalation, every lead it touched, with the *why* |
 | **Check if anything needs your attention right now** | "what's pending?" — or: `python scripts/autonomous_agent.py status` | Shows the agent's current state snapshot + any escalations waiting for you |
 | **Trigger the reasoning loop on demand** | `python scripts/autonomous_agent.py tick` | One cycle of the brain loop. Prints plain-English summary. |
-| **See your MRR / pipeline / revenue right now** | "what's my pipeline?" — or: `python scripts/ceo_dashboard.py briefing` | The CEO briefing: MRR, pipeline counts by stage, #1 priority |
+| **See your pipeline right now** | "what's my pipeline?" — or: `python scripts/ceo_dashboard.py briefing` | The CEO briefing: pipeline counts by stage, #1 priority. **MRR / revenue is Atlas's (CFO) — ask Atlas or read its cfo_pulse; Bravo's brief deliberately excludes MRR (2026-07-09).** |
 | **Ask a general business question** | Just ask in Telegram or IDE — plain English | The agent routes to the right tool and answers in plain English. You don't need to know which tool. |
 | **Integrate a new GitHub repo / open-source tool / research doc** | Open `/playbook/prompts` → click **"Integrate a new tool / repo / research"** → paste the URL or content at the end. Or paste the contents of [prompts/INTEGRATE_NEW_TOOL.md](prompts/INTEGRATE_NEW_TOOL.md) as your first message. | Bravo (or the right sibling) runs the canonical 6-phase audit: identify → cross-reference → plan → execute → verify → commit + propagate. Output is load-bearing code across the relevant agents. The mattpocock/skills V6.8 import is the reference case. |
 
@@ -306,7 +311,7 @@ In alphabetical order. Skip this unless you're unsure about a specific word.
 - **Gateway** — the send gateway. `scripts/integrations/send_gateway.py`. Every outbound email/DM/call passes through it.
 - **Intent** — what the AI thinks the inbound message is about: booking, pricing, objection, unsubscribe, etc. Assigned by the inbound classifier.
 - **Ledger** — the `lead_interactions` table. Every interaction (outbound + inbound) with every lead, across every channel.
-- **MCP** — Model Context Protocol. How Claude connects to external tools (Playwright, Context7, GitHub, etc.). You have 8 active MCP servers.
+- **MCP** — Model Context Protocol. How Claude connects to external tools (Playwright, Context7, GitHub, etc.). You have 9 registered in `.claude/mcp.json` (13 across all configs) — authoritative registry: `scripts/audit_mcp_secrets.py`.
 - **Policy** — rules for when the AI can auto-act vs when it must ask you. Currently hard-coded; Build #5+ will move to a YAML policy file.
 - **Pulse** — `.json` files in `data/pulse/` where Atlas/Bravo/Maven write their current status. How agents see each other.
 - **Relationship stage** — where a lead sits in the pipeline from the AI's view: cold → contacted → warm → engaged → active_client → dormant → lost. Computed automatically by `context_builder`.

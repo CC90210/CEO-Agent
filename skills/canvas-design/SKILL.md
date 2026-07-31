@@ -5,6 +5,8 @@ license: Complete terms in LICENSE.txt
 triggers: [poster, visual art, design, canvas, PNG, PDF, static design]
 tier: specialized
 dependencies: []
+tags: [skill, canvas-design]
+last_updated: 2026-05-21
 ---
 
 These are instructions for creating design philosophies - aesthetic movements that are then EXPRESSED VISUALLY. Output only .md files, .pdf files, and .png files.

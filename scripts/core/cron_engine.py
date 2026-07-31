@@ -25,6 +25,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+# scripts/ on sys.path so `lib.tls_trust` resolves when this is run as
+# `python scripts/core/cron_engine.py` (cwd-independent).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
 
 # -- Credential loading --------------------------------------------------------
 
@@ -47,6 +53,7 @@ def load_env() -> dict[str, str]:
 
 def get_client(env_vars: dict[str, str]):
     """Create a Supabase client for the bravo project."""
+    configure_ca_bundle()
     try:
         from supabase import create_client
     except ImportError:
@@ -66,6 +73,20 @@ def get_client(env_vars: dict[str, str]):
     return create_client(url, key)
 
 
+def configure_ca_bundle() -> None:
+    """Delegate to the canonical TLS helper — kept as a named function because
+    call sites in this module already reference it.
+
+    Was an inline copy of the truststore/certifi dance. Promoted 2026-07-29:
+    lib/tls_trust also strips a poisoned SSLKEYLOGFILE, which this copy did not,
+    and cron_engine sits directly on the path that outage took down. The old
+    "is SSL_CERT_FILE set?" early-return also lived here — lib/tls_trust replaced
+    that with _genuine_override(), which ignores stale and certifi-pointing
+    values rather than treating them as operator intent.
+    """
+    ensure_os_trust()
+
+
 # -- Seed definitions ----------------------------------------------------------
 
 SEED_JOBS: list[dict] = [
@@ -76,13 +97,30 @@ SEED_JOBS: list[dict] = [
     # 'Lead Follow-up Check' removed 2026-05-22 — superseded by 'Nurture
     # Sequence Check' (both ran the same overdue-follow-up logic).
     {
-        # Phase 5c — OASIS HQ daily AI brief. Sonnet narrates the
+        # 2026-07-23 — the native replacement for the n8n "OASIS Inbound
+        # Qualifier (Bravo Aware)" 5-minute Gmail sweep. NOTHING scheduled the
+        # inbox check before this: scheduler.py has always had an
+        # 'email_inbox_check' handler, but no cron_jobs row ever invoked it, so
+        # inbound email was handled ONLY by the n8n workflow. This row is what
+        # makes the native multi-brain router (email_brain.py) actually run.
+        # Requires EMAIL_BRAIN_ENABLED (set in ecosystem.config.js for
+        # bravo-scheduler); without it the handler falls back to the legacy
+        # notify-and-mark-read behavior.
+        "name": "Inbound Email Sweep",
+        "description": "Every 5 min: classify unread Gmail into 4 brains (support/opportunity/financial/low-priority), draft replies via send_gateway, hand Financial & Legal to Atlas, archive noise. Native n8n replacement.",
+        "schedule": "*/5 * * * *",
+        "action_type": "email_inbox_check",
+        "action_config": {},
+        "is_active": True,
+    },
+    {
+        # Phase 5c — OASIS HQ daily AI brief. Local claude CLI narrates the
         # briefing_snapshot into a 5-bullet morning summary, shipped to
-        # CC's Telegram via notify(force=True). Empty MRR / pipeline data
-        # still produces a brief that says "nothing happened" — the cron's
-        # job is to fire reliably, not to gate on activity.
+        # CC's Telegram via notify(force=True). No MRR — revenue reporting
+        # is Atlas's (CFO). Empty pipeline data still produces a brief that
+        # says "nothing happened" — the cron's job is to fire reliably.
         "name": "Daily Bravo Brief",
-        "description": "AI-narrated morning brief — pipeline, MRR, follow-ups — sent to CC's Telegram",
+        "description": "AI-narrated morning brief — pipeline, follow-ups, client health — sent to CC's Telegram (no MRR; Atlas owns revenue)",
         "schedule": "0 6 * * *",
         "action_type": "daily_brief",
         "action_config": {"notify_channel": "telegram"},
@@ -151,7 +189,11 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 8 * * *",
         "action_type": "morning_powwow",
         "action_config": {"voice": "aura", "agent": "aura"},
-        "is_active": True,
+        # 2026-07-09: matches live DB state (disabled since 2026-05-21) AND
+        # scripts/aura/brain.py still drafts via the dead metered API key —
+        # a reseed must not resurrect a job whose model call cannot succeed.
+        # Re-enable only after porting aura/brain.py to lib/claude_cli.
+        "is_active": False,
     },
     {
         "name": "Booking Reminders",
@@ -192,11 +234,15 @@ SEED_JOBS: list[dict] = [
     },
     {
         "name": "Weekly MRR Report",
-        "description": "Generate and log weekly MRR dashboard",
+        "description": "Generate and log weekly MRR dashboard — ATLAS-OWNED reporting; disabled 2026-07-09 (Bravo does not report MRR). Re-home to Atlas (CFO-Agent) if CC wants the weekly digest back.",
         "schedule": "0 9 * * MON",
         "action_type": "revenue_report",
         "action_config": {"report_type": "mrr_weekly", "notify_channel": "telegram"},
-        "is_active": True,
+        # 2026-07-09: toggled off in the live DB (row 68e3e96e) same day —
+        # keep seed in lockstep so a reseed doesn't resurrect Bravo-sent
+        # MRR digests. Data plumbing (Stripe Revenue Sync, Daily MRR
+        # Auto-Sync) stays active — Atlas reads those tables.
+        "is_active": False,
     },
     {
         "name": "Weekly Pipeline Review",
@@ -206,13 +252,25 @@ SEED_JOBS: list[dict] = [
         "action_config": {"auto_score": True, "hot_threshold": 70},
         "is_active": True,
     },
+    # RETIRED 2026-07-30, same root cause as 'Funnel Fast-Poll' below.
+    # funnel_nurture.py touches exactly one table — funnel_leads (:248 select,
+    # :267/:283/:294 update) — and nothing else, so with no writer feeding that
+    # table there is nothing to nurture. It has matched 0 rows every weekday.
+    #
+    # The sharper reason to stop it: this job SENDS (Day-2 / Day-5 via
+    # send_gateway). The single surviving funnel_leads row is CC's never-email
+    # test account, currently status 'nurtured'. It is excluded only because
+    # funnel_nurture.py:248 filters status in ("new","nurturing") — one status
+    # flip and a live cron emails an address that must never be emailed. A job
+    # with a send path and no legitimate audience is a loaded gun, not dead
+    # weight.
     {
         "name": "Nurture Sequence Check",
-        "description": "Process pending nurture sequence steps",
+        "description": "RETIRED 2026-07-30 — nurtures funnel_leads, which has had no writer since cc-funnel was retired 2026-06-18. Re-enable only once a live source writes that table again.",
         "schedule": "0 10 * * MON-FRI",
         "action_type": "nurture_check",
         "action_config": {"max_sends_per_run": 20},
-        "is_active": True,
+        "is_active": False,
     },
     {
         "name": "Monthly Metrics Snapshot",
@@ -222,19 +280,68 @@ SEED_JOBS: list[dict] = [
         "action_config": {"tables": ["revenue_events", "leads", "content_calendar"]},
         "is_active": True,
     },
+    {
+        # Genome fitness loop (2026-07-09) — the verifiable-reward wire. Runs
+        # the deterministic harness eval nightly at 03:30 (before Sleep Agent
+        # at 04:00, so a red substrate is on record before consolidation) and
+        # alerts CC's Telegram on any failing check. Closes the frontier gap
+        # "the eval exists but feeds nothing" — the score now has a consumer.
+        "name": "Bravo — Nightly Harness Eval",
+        "description": "Deterministic 10-check harness eval (genome fitness) — Telegram alert on any red check",
+        "schedule": "30 3 * * *",
+        "action_type": "script_run",
+        # NO --json here: the script_run wrapper stores the LAST stdout line as
+        # last_result, and pretty JSON's last line is just "}" (the exact
+        # 2026-06-06 Daily-MRR-Auto-Sync lesson). Plain mode ends with
+        # "ALL GREEN — harness is turnkey for any runtime." on success and
+        # exits 1 on any red check → notify_on nonzero_exit fires.
+        "action_config": {"script": "scripts/harness_eval.py", "args": [], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
+        "is_active": True,
+    },
+    {
+        # In the live DB since 2026-06 (row bb0d5f2b) but was never seeded —
+        # a fresh-machine reseed would silently lose it. Added 2026-07-09.
+        # Runs the cross-agent self-improvement sweep (Bravo + Atlas + Maven
+        # digest via scripts/core/agent_self_improvement.py).
+        "name": "Cross-Agent Self-Improvement Sweep",
+        "description": "Nightly cross-agent self-improvement sweep — mistakes/patterns digest across Bravo, Atlas, Maven",
+        "schedule": "0 4 * * *",
+        "action_type": "agent_self_improvement",
+        "action_config": {},
+        "is_active": True,
+    },
     # SunBiz cron entries live in SunBiz-Agent/scripts/core/cron_registry.py
     # and seed into tenant_cron_jobs. Adding any here puts them in the
     # empire cron_jobs table where they leak into CC's /automations view.
     # 'Funnel Lead Sync' removed 2026-05-22 — overlapped with 'Funnel
     # Fast-Poll' below. Fast-Poll runs every 1 min and covers the same
     # funnel_leads source; the 5-min job was an older safety net.
+    #
+    # RETIRED 2026-07-30 — it was polling a table nobody writes to.
+    #
+    # `funnel_leads` was cc-funnel's table. cc-funnel was retired 2026-06-18 and
+    # the poller was never repointed, so it has run 74,766 times against a table
+    # holding ONE row (CC's never-email test account) for zero output. Verified
+    # rather than assumed: a grep for `funnel_leads` across Business-Empire-Agent,
+    # oasis-command-center and CMO-Agent finds reads and status UPDATEs but NOT A
+    # SINGLE INSERT — and the Command Center, which serves the live funnel, never
+    # mentions the table at all. It writes `tenant_records`.
+    #
+    # Nothing is lost by stopping. The push path already does this job better:
+    # app/api/forms/submit/route.ts fires notifyOasisFunnelSubmission inline via
+    # after() — Telegram ping AND welcome email, synchronously on submit, gated
+    # to CC's exact tenant + slug. A poll can only ever be slower than the
+    # request that created the row.
+    #
+    # Kept as a row (is_active False) rather than deleted so the history, the
+    # run_count and this explanation stay attached to it.
     {
         "name": "Funnel Fast-Poll",
-        "description": "Near-realtime funnel_leads detection (2-minute window). Fires high-priority Telegram digest when new form submissions land, so CC knows within ~1 min of a lead filling out the CC Funnel on Instagram/social.",
+        "description": "RETIRED 2026-07-30 — polled funnel_leads, which has had no writer since cc-funnel was retired 2026-06-18. Superseded by the inline notify in oasis-command-center's form-submit route.",
         "schedule": "*/1 * * * *",
         "action_type": "funnel_fast_poll",
         "action_config": {"window_seconds": 120, "priority": True},
-        "is_active": True,
+        "is_active": False,
     },
     {
         "name": "Daily Briefing Snapshot",
@@ -292,11 +399,45 @@ SEED_JOBS: list[dict] = [
         # ERROR / FAILED and Telegrams CC with a consolidated alert.
         # Self-monitoring: if THIS cron fails, its own FAILED row surfaces
         # in the dashboard's red-border treatment.
-        "name": "Bravo — Daily Cron Health Check",
-        "description": "Nightly 22:00 scan of cron_jobs for last_result starting with ERROR or FAILED. Telegrams CC with the failing job name + snippet. Meta-cron: guards every other cron so silent breakage doesn't sit dead for days.",
-        "schedule": "0 22 * * *",
+        # 2026-07-29: promoted from nightly (0 22 * * *) to hourly. A daily scan
+        # means up to 24h of latency, which is exactly how the SSLKEYLOGFILE
+        # outage ran unnoticed for a full working day — 31 failed inbox sweeps,
+        # zero alerts. Hourly + notify.py's 1h dedup means a broken job surfaces
+        # within the hour and then pings at most once an hour, not 12x a day.
+        "name": "Bravo — Hourly Cron Health Check",
+        "description": "Hourly scan of cron_jobs for last_result starting with ERROR or FAILED. Telegrams CC with the failing job name + snippet. Meta-cron: guards every other cron so silent breakage doesn't sit dead for days.",
+        "schedule": "0 * * * *",
         "action_type": "script_run",
         "action_config": {"script": "scripts/core/cron_health_check.py", "args": ["--alert"]},
+        "is_active": True,
+    },
+    {
+        # Added 2026-07-29 — the closed review loop CC asked for.
+        #
+        # CodeRabbit / Vercel / CI review our pushes and email CC about it; that
+        # signal used to die in a GitHub tab. The inbox sweep now detects those
+        # notifications deterministically (email_playbook.detect_review_notification)
+        # and queues (repo, pr) to tmp/review_harvest_queue.json; this job drains
+        # the queue: harvest live thread state via gh, apply the fix, run the
+        # repo's tests, push to the PR BRANCH, Telegram CC.
+        #
+        # NEVER merges, never pushes to main, never force-pushes, and skips
+        # migrations / credentials / CI files / send_gateway / anything
+        # money-adjacent (those escalate to CC). See scripts/review_fix.py.
+        #
+        # */15 not */5: each finding spawns a full Claude editing session plus a
+        # test run, so a 5-minute cadence would overlap itself. review_loop
+        # drains ONE PR per pass for the same reason.
+        "name": "Bravo — Review Harvest",
+        "description": "Every 15 min: drain the automated-review queue (CodeRabbit / Vercel / CI). Harvests UNRESOLVED review threads live via gh, applies the fix, runs tests, pushes to the PR branch, and Telegrams CC. Never merges or touches main.",
+        "schedule": "*/15 * * * *",
+        "action_type": "script_run",
+        # timeout: a fix is a Claude editing session plus the target repo's full
+        # test suite. The 300s script_run default would SIGKILL it mid-fix and
+        # could leave uncommitted edits in a client repo. review_loop drains ONE
+        # PR per pass, so 1500s is a ceiling, not an expectation.
+        "action_config": {"script": "scripts/review_loop.py",
+                          "args": ["--once", "--json"], "timeout": 1500},
         "is_active": True,
     },
     # 'Bravo — Override Queue Cleanup' removed 2026-05-22 along with the
@@ -475,6 +616,10 @@ def cmd_add(client, args, output_json: bool) -> None:
         "is_active": True,
         "run_count": 0,
         "created_at": now,
+        # cron_jobs.tenant_id is NOT NULL; cmd_seed always stamped it but
+        # cmd_add never did, so every `add` failed 23502 (latent since the
+        # column landed — caught 2026-07-09 wiring the harness-eval cron).
+        "tenant_id": CC_EMPIRE_TENANT_ID,
     }
     if args.description:
         payload["description"] = args.description

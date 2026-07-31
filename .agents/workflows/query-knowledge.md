@@ -68,7 +68,7 @@ If answering from a page with:
 
 | CC Asks | Pages to Read | Expected Answer Type |
 |---------|--------------|---------------------|
-| "What's our net MRR right now?" | `wiki/revenue-model` | Specific number + breakdown |
+| "What's our net MRR right now?" | — | Route to Atlas (finance numbers in a wiki are always stale) |
 | "What's OASIS AI's ideal client?" | `wiki/ai-automation-agency` | ICP description |
 | "How does our top-client rev share work?" | `wiki/revenue-model` | Deal structure |
 | "What tools does Bravo use for social?" | `wiki/tech-stack` | Zernio + ../CMO-Agent/scripts/late_tool.py |

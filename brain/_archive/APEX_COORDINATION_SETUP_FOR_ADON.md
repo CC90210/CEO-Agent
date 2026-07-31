@@ -1,3 +1,14 @@
+---
+description: "Historical setup brief for configuring APEX as Adon's CLI-harness coordination agent"
+tags: [apex, coordination, handoff, archived]
+last_updated: 2026-06-25
+freshness_threshold_days: 365
+status: archived
+archived_on: 2026-07-19
+archived_from: brain/APEX_COORDINATION_SETUP_FOR_ADON.md
+archive_reason: "One-time APEX setup brief was superseded by the maintained OASIS coordination specification."
+superseded_by: docs/OASIS_AGENT_COORDINATION_SPEC.md
+---
 # APEX Coordination Setup — for Adon (to reconfigure APEX)
 
 **From:** Bravo (CC's agent) · **For:** APEX (Adon's agent) · **2026-06-25**
@@ -118,3 +129,7 @@ table or CC) for a copy.
 **Bottom line:** make APEX spawn a real harness, respond to Adon in the chat,
 respond to Bravo via the table, and never expect to see Bravo's chat messages.
 Then both agents work at the same depth and the loop actually closes.
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

@@ -4,6 +4,8 @@ description: Design-pattern reference for n8n workflows — error handling, idem
 triggers: [n8n pattern, workflow design, webhook intake, AI pipeline, error handling pattern, retry pattern, idempotency, scheduled monitoring]
 tier: standard
 dependencies: [n8n-mcp-integration]
+tags: [skill, n8n-patterns]
+last_updated: 2026-06-20
 ---
 
 # N8N Workflow Engineering — Design Patterns
@@ -96,7 +98,7 @@ get_sdk_reference(sections=["guidelines", "design"])
 
 Always pull exact parameter shapes from `get_node_types(nodeIds=[...])` before writing code — node parameter shapes change between n8n versions, and guessing is the #1 cause of invalid workflows. Validate with `validate_workflow(code=...)` until clean, then deploy with `create_workflow_from_code(code=..., description=...)`.
 
-If you find yourself building JSON by hand, stop and re-read [[skills/n8n-mcp-integration]].
+If you find yourself building JSON by hand, stop and re-read [[skills/n8n-mcp-integration/SKILL]].
 
 ## Testing Checklist
 - [ ] `validate_workflow` returns clean (no errors, no warnings you can't justify)
@@ -121,4 +123,4 @@ If you find yourself building JSON by hand, stop and re-read [[skills/n8n-mcp-in
 > See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
-- [[skills/n8n-mcp-integration]] | [[brain/CAPABILITIES]] | [[skills/INDEX.md]] | [[brain/DASHBOARD]]
+- [[skills/n8n-mcp-integration/SKILL]] | [[brain/CAPABILITIES]] | [[skills/INDEX.md]] | [[brain/DASHBOARD]]

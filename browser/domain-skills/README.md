@@ -1,3 +1,8 @@
+---
+tags: [browser, automation]
+last_updated: 2026-04-27
+---
+
 # Domain Skills
 
 Domain skills are site-specific browser memory. They capture durable map knowledge for web apps Bravo and the C-Suite use repeatedly.

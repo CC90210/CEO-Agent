@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws events +renew --help"
 triggers: ["gws events renew", "use gws events renew", "run gws events renew"]
 tier: specialized
+tags: [skill, gws-events-renew]
+last_updated: 2026-06-20
 ---
 
 # events +renew

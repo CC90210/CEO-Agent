@@ -1,3 +1,12 @@
+---
+tags: [docs, deploy]
+last_updated: 2026-07-09
+---
+
+> ⚠️ **SUPERSEDED 2026-07-09** — do NOT paste `ANTHROPIC_API_KEY` into any env.
+> Auth = `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` (see memory `reference_claude_code_headless_vps_auth`).
+> MRR reporting is Atlas-owned.
+
 # VPS Full Verify Prompt — end-to-end check that everything is wired
 
 > Paste between the dashes into your VPS Claude Code chat. No inputs
@@ -270,3 +279,7 @@ the dashboard).
   here (or vice versa). The two values MUST match.
 
 Begin Step 1 now.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

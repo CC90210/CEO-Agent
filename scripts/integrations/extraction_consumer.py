@@ -47,6 +47,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
 from lib.claude_auth import (  # noqa: E402
     build_claude_spawn_env,
@@ -203,10 +204,17 @@ def _extract_via_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, dict | 
         prompt,
         "--output-format",
         "text",
+        # SCOPED Read (2026-07-23). This previously passed a BARE "Read", which
+        # does NOT confine the tool to cwd — it will read any absolute path on
+        # the machine (verified: it read a repo file from an unrelated cwd).
+        # These documents are untrusted merchant uploads, so a prompt-injection
+        # payload inside a PDF could have walked the filesystem. The
+        # Read(<abs-dir>/**) form is the only real boundary; escape attempts
+        # come back BLOCKED. `--permission-mode` was also dropped: it is
+        # silently ignored under CLAUDE_CODE_SUBPROCESS_ENV_SCRUB, so it was
+        # never providing the guarantee its presence implied.
         "--allowedTools",
-        "Read",
-        "--permission-mode",
-        "acceptEdits",
+        f"Read({doc_path.parent.as_posix()}/**)",
         "--max-turns",
         "6",
     ]
@@ -216,7 +224,7 @@ def _extract_via_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, dict | 
         extras={"CI": "true", "NONINTERACTIVE": "true", "PAGER": "cat", "NO_COLOR": "1", "FORCE_COLOR": "0"},
     )
     try:
-        proc = subprocess.run(
+        proc = safe_run(
             args,
             cwd=str(doc_path.parent),
             env=spawn_env,
@@ -241,7 +249,19 @@ def _extract_via_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, dict | 
 
 def _extract_via_api(env: dict[str, str], raw_bytes: bytes, mime: str) -> tuple[bool, dict | None, str]:
     """Break-glass fallback: replicate ai-document-extractor.ts against the
-    metered Anthropic API. Returns (ok, fields|None, error)."""
+    metered Anthropic API. Returns (ok, fields|None, error).
+
+    RETIRED 2026-07-09: the metered key is out of credits, so this fallback
+    cannot succeed — every attempt 4xx'd while callers believed a safety net
+    existed. Short-circuit with an honest error (callbacks report it verbatim)
+    instead of a confusing api_error:HTTP 400. Set
+    EXTRACTION_ALLOW_API_FALLBACK=1 to re-arm after the key is funded."""
+    # Honour the re-arm flag from EITHER the loaded .env.agents dict (where the
+    # Anthropic key itself lives) OR the process env — not just os.environ.
+    allow = (env.get("EXTRACTION_ALLOW_API_FALLBACK")
+             or os.environ.get("EXTRACTION_ALLOW_API_FALLBACK") or "").strip()
+    if allow != "1":
+        return False, None, "fallback_retired_dead_api_key (CLI path is primary; see lib/claude_cli)"
     api_key = (env.get("BRAVO_ANTHROPIC_API_KEY") or env.get("ANTHROPIC_API_KEY") or "").strip()
     if not api_key:
         return False, None, "anthropic_key_missing"

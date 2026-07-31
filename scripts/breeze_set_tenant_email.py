@@ -8,11 +8,13 @@ per-tenant path David will later use with his own mailbox — swapping to
 admin@breezeadvance.com is the same form, no redeploy.
 
 Usage:
-  python scripts/breeze_set_tenant_email.py           # set creds + save
-  python scripts/breeze_set_tenant_email.py --test    # also click "Send test email"
+  python scripts/breeze_set_tenant_email.py                  # plan only; no login/write
+  python scripts/breeze_set_tenant_email.py --apply          # set creds + save
+  python scripts/breeze_set_tenant_email.py --apply --test   # also send test email
 """
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 import time
@@ -22,23 +24,54 @@ from lib.secret_loader import load_env  # noqa: E402
 
 from playwright.sync_api import sync_playwright  # noqa: E402
 
+CAPABILITY_META = {
+    "category": "client.onboarding",
+    "lifecycle": "one_off",
+    "risk": "external_write",
+    "triggers": ["configure breeze tenant email", "set breeze sender", "breeze email setup"],
+    "owner": "bravo",
+    "project": "breeze",
+    "bridge": {"visible": False},
+}
+
 BASE = "https://breeze-portal-mu.vercel.app"
-QA_FUNDER = "qa.funder@oasisai.work"
-QA_PASSWORD = os.environ.get("QA_PASSWORD", "QaTest!2026")
 
 
 def main() -> int:
-    send_test = "--test" in sys.argv
-    env = load_env(required=["GMAIL_USER", "GMAIL_APP_PASSWORD"])
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--apply", action="store_true", help="log in and save the sealed sender credentials"
+    )
+    parser.add_argument(
+        "--test", action="store_true", help="send a test email after saving (requires --apply)"
+    )
+    args = parser.parse_args()
+    if args.test and not args.apply:
+        parser.error("--test requires --apply")
+    if not args.apply:
+        print("dry_run=true writes_skipped=true target=breeze_tenant_email_settings")
+        return 0
+
+    send_test = args.test
+    env = load_env(
+        required=[
+            "GMAIL_USER",
+            "GMAIL_APP_PASSWORD",
+            "BREEZE_QA_FUNDER_EMAIL",
+            "BREEZE_QA_FUNDER_PASSWORD",
+        ]
+    )
     gmail_user = env["GMAIL_USER"]
     gmail_pass = env["GMAIL_APP_PASSWORD"]
+    qa_funder = env["BREEZE_QA_FUNDER_EMAIL"]
+    qa_password = env["BREEZE_QA_FUNDER_PASSWORD"]
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(f"{BASE}/funder-login", wait_until="networkidle")
-        page.fill('input[type="email"]', QA_FUNDER)
-        page.fill('input[type="password"]', QA_PASSWORD)
+        page.fill('input[type="email"]', qa_funder)
+        page.fill('input[type="password"]', qa_password)
         page.click('button[type="submit"]')
         page.wait_for_url("**/lender/**", timeout=30000)
         print("[ok] funder session established")

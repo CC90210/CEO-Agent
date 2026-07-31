@@ -55,6 +55,17 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib.subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
+# TLS setup. Without it every HTTPS call this module makes outside the `gws`
+# subprocess dies with CERTIFICATE_VERIFY_FAILED on this fleet — observed live
+# 2026-07-29 as "[integration_health] profile lookup warning: [SSL:
+# CERTIFICATE_VERIFY_FAILED]" on `calendar list`. The AV MITMs TLS and certifi
+# cannot verify the intercepted chain; ensure_os_trust injects the OS store
+# (and strips a poisoned SSLKEYLOGFILE). Same canonical helper the rest of the
+# network tools use.
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
 # V6.8.3 reliability — @retry transient gws CLI failures. The gws binary
 # can flake on network re-auth refreshes; one retry with backoff cleanly
 # masks that for callers. We retry the parent run_gws return-value rather

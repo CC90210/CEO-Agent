@@ -1,6 +1,7 @@
 ---
+description: "Specifies lead routing: Tier 1 (inbound nurture via email_engine.py + draft_critic), Tier 2 (customer management); cold outreach operator-initiated"
 tags: [strategy, crm, outreach, leads]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -8,11 +9,12 @@ verified: 2026-06-09
 
 To maintain system integrity and focus on high-conversion leads, we distinguish between two operational CRM states:
 
-## 1. Outreach CRM (Tier 1)
-*   **Purpose:** Cold outreach, lead discovery, and "testing the waters."
-*   **Target:** Mass-scraped or web-searched leads with minimal initial context.
-*   **Success Metric:** Response rate and qualification.
-*   **Process:** Leads are added here first to "play ball." We use automated outreach sequences via [[skills/outreach-send/SKILL]] (`email_engine.py send-template`) to gauge interest. Eligibility + cadence is managed by `scripts/outreach_eligible.py`. Auto-flagged drafts go through `scripts/draft_critic.py` before SMTP.
+## 1. Outreach CRM (Tier 1) — INBOUND capture
+*   **Purpose:** Capture and nurture INBOUND leads — funnel submissions, DMs, and social-content responses → nurture sequence → book a call.
+*   **Target:** Leads who raised their hand: native funnel (oasisai.work/f/oasis-ai-cc/start), Instagram/LinkedIn DMs, and content-driven inquiries.
+*   **Success Metric:** Booked calls and qualification rate from inbound volume.
+*   **Process:** Inbound leads land here first and enter nurture sequences via [[skills/outreach-send/SKILL]] (`email_engine.py send-template`). Eligibility + cadence is managed by `scripts/outreach_eligible.py`. Auto-flagged drafts go through `scripts/draft_critic.py` before SMTP.
+*   **Cold outbound (demoted — on-demand only):** Cold/scraped lists are NOT the default motion. Cold batches run only when CC explicitly directs one (operator-initiated, never cron'd — see the no-cold-outreach-cron decision). Same send rail, same critic gates.
 
 ## 2. Legit CRM (Tier 2)
 *   **Purpose:** High-leverage management of actual paying customers and highly qualified opportunities.
@@ -22,7 +24,7 @@ To maintain system integrity and focus on high-conversion leads, we distinguish 
 
 ---
 
-**Note:** This distinction prevents our primary business management systems from being cluttered with cold/unresponsive data while allowing for high-volume top-of-funnel activity. Anchored to the [[brain/STATE]] of $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20).
+**Note:** This distinction prevents our primary business management systems from being cluttered with unqualified/unresponsive data while Tier 1 absorbs the inbound top-of-funnel (plus the occasional operator-approved cold batch). Anchored to the North Star — $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20; target owned by Atlas, CFO-Agent).
 
 ## Related
 - [[brain/STATE]] — current MRR + pipeline state

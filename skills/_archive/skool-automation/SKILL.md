@@ -5,6 +5,8 @@ triggers: [Skool, lesson, classroom, community, Tiptap, course, Skool edit]
 tier: specialized
 dependencies: [browser-automation]
 disable-model-invocation: true
+tags: [skill, archive, _archive]
+last_updated: 2026-05-21
 ---
 
 # Skool Automation — Community Content Management

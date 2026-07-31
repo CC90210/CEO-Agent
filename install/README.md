@@ -1,3 +1,8 @@
+---
+tags: [install]
+last_updated: 2026-07-20
+---
+
 # Install — Bravo One-Command Setup
 
 Idempotent installers for Windows, macOS, Linux, and WSL. Safe to re-run.
@@ -127,6 +132,6 @@ bravo agent list   # see the 20 registered sub-agents
 - The `bravo` shim is a thin launcher, not a reimplementation.
 
 ## Related
-- [[runtime/profile_home]] — ensure_home implementation
-- [[bravo_cli/main]] — the CLI the installer wires up
-- [[brain/BRAVO_PRODUCT_ROADMAP]] — where this install path fits
+- `runtime/profile_home.py` — ensure_home implementation
+- `bravo_cli/main.py` — the CLI the installer wires up
+- [[brain/PRODUCT_ARCHITECTURE]] — where this install path fits

@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws calendar --help"
 triggers: ["gws calendar", "use gws calendar", "run gws calendar", "google calendar: manage calendars and events"]
 tier: specialized
+tags: [skill, gws-calendar]
+last_updated: 2026-06-20
 ---
 
 # calendar (v3)

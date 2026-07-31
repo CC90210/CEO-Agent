@@ -1,3 +1,8 @@
+---
+tags: [browser, automation]
+last_updated: 2026-05-11
+---
+
 # Browser Safety Rules
 
 Browser automation touches real logged-in accounts. Treat every click like it can affect production.

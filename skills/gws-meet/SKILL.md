@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws meet --help"
 triggers: ["gws meet", "use gws meet", "run gws meet", "manage google meet conferences"]
 tier: specialized
+tags: [skill, gws-meet]
+last_updated: 2026-06-20
 ---
 
 # meet (v2)

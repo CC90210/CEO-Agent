@@ -1,12 +1,13 @@
 ---
+description: "Registry of Bravo's MCP servers, integrations, and CLI tools auto-synced by catalog_sync.py; agents use it to route tasks to capabilities"
 tags: [capabilities, tools]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
-verified: 2026-06-09
+verified: 2026-07-22
 ---
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Last reviewed: 2026-05-06 (V6.1 era).
+> Complete inventory of what Bravo can do. Last reviewed: 2026-07-19 (V7.3.3 currency sweep).
 >
 > **Counts are live — read them, do not quote them.** Hardcoding counts in this header is a known regression vector. The MANIFEST block at the bottom of this file is auto-synced by `scripts/catalog_sync.py`. For absolute live truth: `python scripts/core/self_audit.py --json`.
 >
@@ -18,25 +19,25 @@ verified: 2026-06-09
 
 ## MCP Servers (By Interface)
 
-### Claude Code (Opus 4.6 — Bravo: CEO/COO/CTO)
-| Server | Purpose | Key Tools |
-|--------|---------|-----------|
-| **Playwright** | Browser automation, ALL web research, scraping, testing | navigate, snapshot, click, type, evaluate |
-| **Context7** | Live library documentation lookup | resolve-library-id, query-docs |
-| **Memory** | Persistent knowledge graph across sessions | create_entities, search_nodes, open_nodes |
-| **Sequential Thinking** | Structured multi-step reasoning | sequentialthinking |
-| **Knowledge Graph** | Obsidian vault as graph — PageRank, communities, semantic search, path-finding | kg_search, kg_node, kg_central, kg_bridges, kg_paths, kg_communities, kg_index |
+### Claude Code (Opus 4.8 / Fable 5 — Bravo: CEO/COO/CTO)
+| Server                  | Purpose                                                                        | Key Tools                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| **Playwright**          | Browser automation, ALL web research, scraping, testing                        | navigate, snapshot, click, type, evaluate                                      |
+| **Context7**            | Live library documentation lookup                                              | resolve-library-id, query-docs                                                 |
+| **Memory**              | Persistent knowledge graph across sessions                                     | create_entities, search_nodes, open_nodes                                      |
+| **Sequential Thinking** | Structured multi-step reasoning                                                | sequentialthinking                                                             |
+| **Knowledge Graph**     | Obsidian vault as graph — PageRank, communities, semantic search, path-finding | kg_search, kg_node, kg_central, kg_bridges, kg_paths, kg_communities, kg_index |
 
 ### OpenCode (big-pickle — Bravo, same identity)
 - **Identity:** Full **Bravo** — CC's right hand: CEO, COO, and CTO in one. Same persona, voice, capabilities as Claude-powered Bravo.
-- **Access:** Full read/write to all 150 active skills in `skills/`, all 105 top-level Python CLI tools in `scripts/` (238 total inc. subpackages), all brain/ and memory/ files, all subagent definitions.
+- **Access:** Full read/write to every active skill in `skills/` and every Python CLI tool in `scripts/` (live counts: `CAPABILITY_GRAPH.json` totals — 151 skills / 116 scripts as of 2026-07-19), all brain/ and memory/ files, all subagent definitions.
 - **Entry Point:** `AGENTS.md` (shared with Codex/Cursor/Windsurf). Identity routing at lines 13-15.
 - **MCP Servers:** Same 9 servers as Claude Code (Playwright, Context7, Memory, Sequential Thinking, GitHub, Firecrawl, Obsidian, Filesystem, Knowledge Graph) when available via OpenCode.
 - **Tool routing:** Same CLI-first rules — `scripts/integrations/send_gateway.py`, `scripts/integrations/supabase_tool.py`, `scripts/integrations/stripe_tool.py`, `scripts/integrations/google_tool.py`, `scripts/integrations/n8n_tool.py`.
 
 ### Anti-Gravity IDE (Native Local Agent — Multi-Model)
 
-Models: Gemini 3.1 Pro High/Low, Gemini 3 Flash, Claude Sonnet/Opus 4.6, GPT-OSS 120B Medium
+Models: Gemini 3.1 Pro High/Low, Gemini 3 Flash, Claude Sonnet 4.6 / Opus 4.8, GPT-OSS 120B Medium
 Entry Point: `ANTIGRAVITY.md` | Config: `.vscode/mcp.json`
 Workflows: `.agents/workflows/` (35 active workflows: post, status, health, prime, content, commit, n8n, sync, research, debug, client-onboard, cli-anything, evolve, briefing, client-health-report, generate-proposal, strategic-review, competitive-report, qbr, onboard-team-member, meeting-prep, investor-update, knowledge-maintenance, review, ship, retro, create-prd, opencli, ingest, query-knowledge, lint-knowledge, browser-harness, close-review, e2e-testing, sop). Archived: skool-edit, skool-push (2026-05-18, see `.agents/workflows/_archive/`).
 
@@ -352,7 +353,8 @@ docker compose -f infra/docker-compose.cloud.yml up -d --build
 | **Lead scrape (preferred)** | `scripts/scrape_firecrawl_leads.py` | Firecrawl-based search + structured extract. Pulls owner first name + email + phone from business websites. Inserts to Supabase. | `--target 50 --cities "X,Y" --niches "A,B"` |
 | **Booking** | `scripts/booking_engine.py` | Self-hosted Cal.com replacement, slot management | `slots open/open-week/list/close`, `book`, `cancel`, `available`, `remind`, `complete` |
 | **Content** | `../CMO-Agent/scripts/content_engine.py` | Content calendar, templates, multi-platform posting | `calendar`, `create`, `create-multi`, `templates list/create/render`, `due`, `week-plan`, `stats` |
-| **Revenue** | `scripts/revenue_engine.py` | MRR tracking, Stripe sync, forecasting | `mrr`, `dashboard`, `sync-stripe`, `log-revenue`, `history`, `forecast`, `clients`, `goal` |
+| **Revenue (ATLAS-OWNED)** | `scripts/revenue_engine.py` | MRR tracking, Stripe sync, forecasting — Bravo does NOT report MRR (Atlas is CFO); run only on explicit CC request | `mrr`, `dashboard`, `sync-stripe`, `log-revenue`, `history`, `forecast`, `clients`, `goal` |
+| **Model call (automations)** | `scripts/lib/claude_cli.py` | `run_claude_cli()` — THE blessed model-call path for every automation: local `claude` CLI on CC's subscription OAuth, toolless (`--allowed-tools ""`), lean boot. Never api.anthropic.com / ANTHROPIC_API_KEY (out of credits + banned) | import `from lib.claude_cli import run_claude_cli` |
 | **Competitive Intel** | `scripts/competitive_intel.py` | Competitor profiles, battlecards, landscape reports | `add`, `list`, `view`, `update`, `battlecard`, `report`, `matrix`, `delete` |
 | **Financial Model** | `scripts/financial_model.py` | Unit economics, scenario modeling, concentration risk | `unit-economics`, `forecast`, `scenario`, `concentration`, `runway` |
 | **Cron** | `scripts/core/cron_engine.py` + `scripts/core/cron_dispatcher.py` | Automated job registry plus allowlisted script-backed execution for Atlas/Maven jobs | `cron_engine.py list/add/toggle/due/seed`; `cron_dispatcher.py due --execute`, `run <job_id>` |
@@ -596,7 +598,7 @@ Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-pr
 | Lead Follow-up Check | Weekdays 8am | lead_followup |
 | Booking Reminders | Daily 6pm | booking_reminder |
 | Stripe Revenue Sync | Daily 6am | stripe_sync |
-| Weekly MRR Report | Monday 9am | revenue_report |
+| Weekly MRR Report | Monday 9am | revenue_report (ATLAS-boundary conflict — flagged 2026-07-09 to move to Atlas or disable; pending CC) |
 | Weekly Pipeline Review | Monday 10am | pipeline_review |
 | Nurture Sequence Check | Weekdays 10am | nurture_check |
 | Monthly Metrics Snapshot | 1st of month 9am | monthly_snapshot |
@@ -633,7 +635,7 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 
 | Command | Cadence | Purpose |
 |---------|---------|---------|
-| /briefing | Daily | CEO morning briefing — MRR, pipeline, client health, #1 priority |
+| /briefing | Daily | CEO morning briefing — pipeline, follow-ups, client health, #1 priority (no MRR — Atlas's brief) |
 | /cli-anything | On-demand | Generate CLI wrapper for any software/API/service |
 | /client-health | Weekly (Fri) | Client health scoring, churn risk alerts, retention actions |
 | /client-onboard | On-demand | New OASIS client setup |
@@ -806,28 +808,31 @@ Top-level `scripts/` entries that aren't surfaced under a major capability above
 | `scripts/security_audit.py` | Empire-wide security audit — seven independent scans, one report | CLI (manual / deploy gate) |
 | `scripts/set_secret.py` | Safely set keys in `.env.agents` without an editor | CLI (manual) |
 | `scripts/smoke_n8n_inbound_rpc.py` | End-to-end smoke test for the n8n inbound bridge | CLI (manual) |
-| `scripts/wiki_link_auditor.py` | Audit broken Obsidian `[[wikilinks]]` in brain/ and memory/ | CLI (manual) |
+| `scripts/obsidian_graph_doctor.py` | Vault graph health — broken links, orphans, weak nodes, frontmatter gaps; `--fix-links` / `--reconnect` / `--strict` | CLI (manual / CI gate) |
+| `scripts/frontmatter_doctor.py` | Stamp canonical `tags:` + git-derived `last_updated:` on knowledge notes | CLI (manual) |
+| `scripts/capability_probe.py` | "Do I actually have access to X?" — env key presence + the command to run, never values | CLI (pre-execution check) |
+| `scripts/wiki_link_auditor.py` | **Superseded by `obsidian_graph_doctor.py`** — scans only brain/+memory/ and lacks Obsidian basename resolution, so it reports resolvable links as broken and misses links into vault-ignored dirs | CLI (legacy) |
 
 ## Manifest
 
 <!-- MANIFEST:BEGIN -->
 _Auto-generated by `scripts/catalog_sync.py` — do not edit this block manually._
-_Last synced: 2026-07-07T16:02:44.401846+00:00_
+_Last synced: 2026-07-28T15:15:04.526117+00:00_
 
 | Type | Count |
 |---|---:|
-| Python scripts | 113 |
+| Python scripts | 117 |
 | PowerShell scripts | 10 |
 | Shell scripts | 4 |
-| **Total scripts** | **127** |
-| Skills | 150 (45 destructive) |
-| Agents | 21 |
+| **Total scripts** | **131** |
+| Skills | 152 (45 destructive) |
+| Agents | 27 |
 | Workflows | 34 |
 
 **Scripts by category:**
 
-- Other: 88
-- Communication: 11
+- Other: 90
+- Communication: 13
 - Data & Memory: 9
 - System: 6
 - Content: 5

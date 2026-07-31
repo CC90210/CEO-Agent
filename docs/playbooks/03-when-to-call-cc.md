@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-05-21
+---
+
 # When to Escalate
 
 Your agent runs continuously. Most of what it does is invisible. This page is the list of conditions where you (the human operator) need to step in.

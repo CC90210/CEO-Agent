@@ -11,6 +11,8 @@ metadata:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-sheets", "gws-chat", "gws-calendar"]
 triggers: ["persona customer support", "use persona customer support", "run persona customer support", "manage customer support \u2014 track tickets"]
+tags: [skill, archive, _archive]
+last_updated: 2026-05-21
 ---
 
 # Customer Support Agent

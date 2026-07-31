@@ -3,9 +3,9 @@ name: EXECUTION RULES
 description: Non-negotiables for the chat agent. Never tell the operator to run commands you can run yourself. Self-execute, audit, confirm.
 mutability: IMMUTABLE
 tags: [brain, agent-only, iron-law]
-last_updated: 2026-06-09
+last_updated: 2026-07-20
 freshness_threshold_days: 30
-verified: 2026-06-09
+verified: 2026-07-20
 ---
 # EXECUTION RULES — The Iron Law
 
@@ -121,7 +121,7 @@ Before quoting **any** of the following, compute or read live. Never infer from 
 | Today's day-of-week (Monday, Tuesday…) | `python -c "from datetime import date; print(date.today().strftime('%A'))"` |
 | Today's date | `python -c "from datetime import date; print(date.today().isoformat())"` |
 | Days remaining to a deadline | `python -c "from datetime import date; print((date(YYYY,M,D)-date.today()).days)"` |
-| Current MRR / revenue | `python scripts/revenue_engine.py mrr --json` |
+| Current MRR / revenue | ATLAS-OWNED — Bravo does not report MRR. Defer to Atlas; read Atlas's pulse/STATE.md READ-ONLY if CC explicitly asks |
 | Current pipeline state | `python scripts/lead_engine.py pipeline --json` |
 | Active tasks | `read_file("memory/ACTIVE_TASKS.md")` AND verify its `last_updated` against today |
 | Recent activity | `read_file("memory/SESSION_LOG.md")` |
@@ -184,7 +184,7 @@ Persona instructions ("respect read_only — refuse writes") are documentation. 
 - Server-side data writes → tenant_id / storage_path / lead_id prefix checks at the route layer.
 - DB layer → CHECK constraints anchoring storage paths to their tenant prefix.
 
-For unauthenticated public-facing surfaces specifically: run `node codex-companion.mjs adversarial-review` BEFORE the "ready to ship" claim, not as a CC-prompted retrospective. Two passes minimum. Codex caught 9 real bugs across 2 passes on the 2026-05-18 forms diff — diff Bravo had twice declared production-ready.
+For unauthenticated public-facing surfaces specifically: run `node ~/.claude/codex-plugin/scripts/codex-companion.mjs adversarial-review --wait` BEFORE the "ready to ship" claim, not as a CC-prompted retrospective. Two passes minimum. Codex caught 9 real bugs across 2 passes on the 2026-05-18 forms diff — diff Bravo had twice declared production-ready.
 
 **Why this rule exists:** 2026-05-18 — shipped `read_only` role enforcement as a paragraph in Solara's persona. Cloud-tool palette still included `create_record`/`update_record`/`delete_record`. A jailbreak prompt would have executed writes under the service-role path with zero check. Server-side enforcement in `lib/role-gates.ts` is the actual boundary now. Full incident: `memory/MISTAKES.md` 2026-05-18 "Public-Form Share Infrastructure Shipped Without Adversarial Review".
 
@@ -205,6 +205,100 @@ Operator-facing CLIs where a visible window IS the intended UX (rare): annotate 
 
 **Why this rule exists:** 2026-05-18 — CC reported terminal pop-ups for the 4th+ time. Root cause was `bravo_cli/bridge_tools.py:171` (`subprocess.run(cmd, shell=True, …)` without creationflags) firing on every Telegram-bridge bash tool call. PM2 daemons all had `pythonw` + `windowsHide`; the cockpit was already configured (`bravo_console_launcher.vbs`, WindowStyle=7). The leak was always at the subprocess layer one level below. Audit found 68 unflagged calls across 36 files at the time the rule was written; codemod migrated them in one pass.
 
+## 16. EXTERNAL REVIEW SIGNAL IS PART OF THE LOOP (added 2026-07-20)
+
+Every push is reviewed by machines — CodeRabbit reads the diff, Dependabot watches dependencies, Vercel builds + checks the deploy, GitHub Actions runs CI. **That signal is not optional background noise; it is input to the loop.** A CodeRabbit CRITICAL, a red CI check, or a high-severity Dependabot alert is a finding you must see and triage, not a comment that dies in a PR page.
+
+- When you push or open a PR on a bot-reviewed repo, **check the review signal before calling it done** — and **always pass `--repo <owner>/<repo>`** (this workspace's default remote is not the repo you're triaging):
+  - CI / Vercel checks: `gh pr checks <n> --repo <owner>/<repo>`
+  - Security: `gh api repos/<owner>/<repo>/dependabot/alerts --paginate`
+  - **CodeRabbit / human review — inline threads, not just the top-level comments.** `gh pr view --comments` shows conversation comments but **misses line-level review threads** (the 2026-07-20 bounce-cron CRITICAL lived in an inline thread). Fetch inline findings with `gh api --paginate repos/<owner>/<repo>/pulls/<n>/comments`, and use the GraphQL `reviewThreads` field when you need each thread's *resolved/unresolved* state.
+- A finding a bot already produced that you ignore is worse than one you never had — the reviewer did its job and you dropped it. Surface it, fix it, or explicitly defer it with a reason.
+- Findings that recur become prevention rules, not repeat mistakes. The harvest protocol and per-repo scopes live in [[brain/EXTERNAL_REVIEW_INTEGRATION]]. Read it when wiring or triaging review signal.
+- **No branch protection currently gates any repo**, so this signal is advisory — which means *your discipline* is the only gate until protection is added. Treat a red check as blocking even when GitHub won't.
+
+**Why this rule exists:** 2026-07-20 audit found a CodeRabbit-flagged CRITICAL bug (empty-IMAP-search 500 in the oasis-command-center bounce cron) still live on `main` because its PR was closed unmerged and the finding was never re-applied; CI red on the last 5 merges; and 4 high Dependabot alerts with bump-PRs sitting unmerged. All were caught by bots, none reached a human decision.
+
+## 17. WRITE WHAT YOU FILTER (added 2026-07-20)
+
+Any time you add a `WHERE col = X` / `.eq(col, …)` / `.filter()` on a column to a **read** path, grep the same module for every `.insert(` / `.upsert(` and confirm that column is **populated on the write side too.** A read filter without a matching write stamp is a silent data-hiding bug: the rows exist but become invisible to the very query you just "fixed."
+
+- The class: scope reads to `tenant_id` (or any partition key) but leave `cmd_add` / bulk-import inserting rows with that column NULL → the new rows never appear in the scoped read.
+- The check is mechanical: filter a column on read → stamp it on every write in the module → **prove visibility in an isolated, rollback-safe test** — a throwaway/test database or a transaction that is rolled back, NEVER against live Supabase. Do not "insert one unscoped row to see if it disappears": that would create the exact NULL-partition row this rule exists to prevent, and could leave residue if the round-trip fails partway. For a production schema, the correct assertion is that an **unscoped insert is rejected** (by a NOT NULL / CHECK constraint or the write-path guard), not that it silently persists.
+
+**Why this rule exists:** the daily brief once under-counted leads because `lead_engine.py` reads were scoped to `OASIS_TENANT_ID` while `cmd_add`/bulk-import still inserted `tenant_id`-less rows — leads added via CLI were invisible to the pipeline the filter was meant to fix. Caught by Codex audit, not by the agent. Full incident: `memory/MISTAKES.md`.
+
+## 18. THE 8-STEP CLOSED LOOP — EVERY BUILD/FEATURE REQUEST (added 2026-07-28)
+
+A one-line request from CC ("add X", "fix Y", "ship Z") is a **closed loop**, not an edit.
+The loop is closed only when the change is live, machine-reviewed, and recorded. Run these
+eight steps in order for any build/feature request. Steps are non-blocking — do not stop to
+ask permission between them unless a step's own gate says to.
+
+| # | Step | Command / gate | Done when |
+|---|---|---|---|
+| 1 | **Intent & context resolution** | `python scripts/capability_query.py resolve "<request>"`; canonicalize domain terms against [[CONTEXT]] | you can name the skill/tool that owns this and the vocabulary is canonical |
+| 2 | **Credential & tool discovery** | `python scripts/capability_probe.py check <service>` | every service the plan touches reports AVAILABLE — never assume a gap (Tool Discipline #8) |
+| 3 | **Blueprint** | write the discrete mutation sequence into the Todo list | ≥3 steps are tracked, exactly one `in_progress` |
+| 4 | **Surgical mutation + local verify** | edit, then `python -m pytest scripts/tests -q` (or the module's own gate) | tests green, and their output is captured for the report |
+| 5 | **DB / state integrity gate** | `python scripts/apply_migration.py <file>` only if schema changed; else assert no migration needed | migration applied and re-queried, or explicitly N/A |
+| 6 | **Commit & push** | conventional commit; branch first if on `main` | pushed to the correct repo (RULE 7 — app work commits from the app's own repo) |
+| 7 | **CI/CD + machine review** | `gh pr checks <n> --repo <owner>/<repo>`; inline threads via `gh api --paginate repos/<owner>/<repo>/pulls/<n>/comments`; Vercel prod verified live, not just "deployed" | checks green **and** CodeRabbit/Codex findings triaged (Rule 16 — a bot finding you ignore is worse than one you never had) |
+| 8 | **State & memory sync** | `python scripts/state/state_sync.py --note "<summary>"`; `python scripts/integrations/agent_activity.py post` when a peer agent shares the surface | STATE/SESSION_LOG updated, peers notified, four-line report delivered |
+
+**Skipping a step is a reportable omission, not a shortcut.** If step 5 or 7 does not apply,
+say so explicitly in the report ("no schema change", "no remote CI on this repo") — silence
+reads as "done" and that is how a red check reaches `main`.
+
+**On big tasks** (≥3 commits, ≥5 files, or any user-facing change) step 7 also requires an
+independent audit: `python scripts/core/codex_review.py review --session "<slug>"`, presented
+verbatim alongside your own self-review. A self-review by the agent that wrote the code is
+necessary and never sufficient.
+
+## 19. THE ANTI-SLOP MATRIX — 7 VIBE-CODING DEFECTS (added 2026-07-29)
+
+The matrix itself is a LOCKSTEP block in `PERSONAL.md`, stamped into all six entry points, so
+every runtime boots with it. This section is the **why** — each row is an incident, not a
+hypothetical, and knowing the incident is what makes the rule stick under pressure.
+
+**Edit the matrix in `PERSONAL.md`, then `python scripts/genome_sync.py`. Never hand-edit it
+in an entry point** (Rule 4 / `test_entrypoint_parity.py`).
+
+| # | The defect | The incident behind it |
+|---|---|---|
+| 1 | **False credential claim** | Agents repeatedly told CC "I don't have access to X" from parametric memory while the key sat in `.env.agents`. Each one cost an hour of manual work the agent was already wired to do. `capability_probe.py` exists precisely so this is a 2-second check. Note the probe reports **presence, never values** — you must not attempt to read `.env*` yourself; `secret_guard` blocks it and a bypass attempt is logged. |
+| 2 | **Silent error swallowing** | 2026-07-29: `notify.py` caught a TLS failure in a broad `except`, returned `False`, and the inbox sweep died 31 times over 25 hours with **zero alerts** — the alerting chokepoint swallowed the error that would have reported itself. Earlier the same year, `agent_self_improvement` returned its success phrase on top of a `FAILED (exit 2)` string and showed green for weeks. A hidden exception outlives a loud one. |
+| 3 | **Mock data in production** | A plausible fake number is indistinguishable from a real one on a dashboard, so it is trusted and acted on. The daily brief once under-counted leads and nobody noticed because the shape looked right. Fail closed with a diagnostic naming the missing input. |
+| 4 | **Generic UI slop** | The gradient-hero / centered-text / 3-icon-grid template reads as machine-authored and undermines every claim the page makes. See the AI Slop Detection block in the entry points for the full tell-list. |
+| 5 | **Drive-by refactoring** | A bulk vault sweep clobbered generated docs and hash-pinned LOCKSTEP blocks (2026-07-28) because the agent "tidied while it was there". Unrequested edits are unreviewed edits. |
+| 6 | **Unverified completion** | The recurring failure of this fleet. Passing tests are not proof for daemon-run code: on 2026-07-29 a fix passed 34 tests and worked from an interactive shell while the scheduler path would have SIGKILLed it at 300s and stored `}` as its result. **Exercise the path the daemon actually takes.** |
+| 7 | **Path / schema guessing** | `cron_jobs.fail_count` was written by the scheduler for ~3.5 months against a column that did not exist; the write threw into a fallback and the retry counter silently never persisted. One `select` would have caught it. |
+
+**The meta-rule:** rows 2, 6 and 7 share a failure shape — *something looked fine because the
+mechanism that would have reported the problem was itself broken or never run*. When you add a
+guard, a watchdog, or an alert, make it fire once on purpose before you trust it.
+
+**Proven again 2026-07-30, twice in one night.** A review-loop guard correctly refused to edit
+the wrong branch but exited non-zero, so the orchestrator read "needs a human" as "retry later"
+and CC got the identical alert at 10:30, 11:30, 12:30 and 1:30 AM. Sweeping for the same shape
+then found `notify_daemon_crash` carrying a docstring that *claimed* rate-limiting applied — it
+did not, because the message embedded a changing `tick_id`. The comment is what stopped anyone
+checking. Three durable rules came out of it, written up as per-agent system messages in
+[[docs/onboarding/FLEET_ALERT_DISCIPLINE_2026-07-30]]: **a blocking condition exits 0 and
+drains**, **alerts decay and key on the condition, not the text**, and **never document a
+guarantee you have not made fire**.
+
+**The environment is part of the system.** Chasing the above to its floor found the real
+producer of the noise: AVG's TLS interception, which had been cutting the fleet's HTTPS for
+nine days — 92 scheduler check-cycle failures, 58 of them `[WinError 10054] connection
+forcibly closed`. Three separate code fixes now absorb it (`lib/tls_trust.py` for the CA and
+the poisoned `SSLKEYLOGFILE`, `lib/db_resilience.py` for the killed sockets), and every one of
+them is a workaround. The fix that ends it is an antivirus exclusion a human has to click:
+[[docs/sop/AVG_TLS_EXCLUSION]]. When a defect keeps reappearing in different costumes, stop
+hardening the code and ask what on the machine is producing it — and say plainly which part of
+the answer you cannot do yourself.
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]
+- [[brain/EXTERNAL_REVIEW_INTEGRATION]] | [[brain/SUBCONSCIOUS_LAYER]]

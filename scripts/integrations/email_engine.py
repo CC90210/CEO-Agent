@@ -20,8 +20,10 @@ Usage:
 import argparse
 import email
 import email.header
+import html as _html
 import imaplib
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -32,6 +34,14 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_DIR = SCRIPT_DIR.parent
 sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(SCRIPTS_DIR))
+
+# Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. The inbox sweep
+# reads IMAP (unaffected) but then writes lead_interactions to Supabase over
+# HTTPS, which is where the AV TLS-scanner root broke it: the sweep printed
+# emails fine and then exited 1 on the DB write.
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
 
 try:
     from notify import notify
@@ -937,7 +947,12 @@ def cmd_stats(env_vars, args, output_json=False):
 
 # -- IMAP inbox check --------------------------------------
 
-SKIP_SENDERS = ("noreply@", "no-reply@", "mailer-daemon@", "postmaster@")
+# SKIP_SENDERS was removed 2026-07-23. It matched these prefixes on the From
+# header and DROPPED the message before classification, which silently destroyed
+# every no-reply vendor receipt (Stripe / Google Cloud / Vercel / Apple) — i.e.
+# CC's deductible expenses. Sender handling now lives in email_playbook
+# .classify_sender(), which treats no-reply as a SIGNAL (never reply) rather
+# than a reason to delete. Do not reintroduce a blanket drop here.
 IMAP_MAX_EMAILS = 20
 
 # V2.1 2026-04-11: Poison UID tracking. If an IMAP fetch fails repeatedly
@@ -946,6 +961,96 @@ IMAP_MAX_EMAILS = 20
 # at the head of the UNSEEN queue from blocking newer messages forever.
 POISON_UID_PATH = Path(__file__).resolve().parent.parent.parent / "tmp" / "imap_poison_uids.json"
 POISON_MAX_ATTEMPTS = 3
+
+# Idempotency ledger — keyed by the STABLE RFC Message-ID (not the IMAP
+# sequence number, which changes every session). This is what stops the
+# reprocessing loop: draft_hold and handoff_atlas deliberately leave mail
+# UNREAD as CC's / Atlas's queue, but the 5-minute UNSEEN sweep re-picks
+# unread mail, so without this every held email was re-classified, re-drafted,
+# re-handed-off and re-ledgered on every tick (runaway LLM cost + duplicate
+# rows + Telegram spam). Same on-disk-JSON idiom as POISON_UID_PATH above.
+PROCESSED_MSGIDS_PATH = (Path(__file__).resolve().parent.parent.parent
+                         / "tmp" / "inbound_processed_msgids.json")
+PROCESSED_MSGIDS_MAX = 5000  # ring-buffer cap so the file can't grow unbounded
+
+
+def _load_processed_msgids() -> dict:
+    try:
+        if PROCESSED_MSGIDS_PATH.exists():
+            data = json.loads(PROCESSED_MSGIDS_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+    except Exception:  # noqa: BLE001
+        pass
+    return {}
+
+
+def _save_processed_msgids(seen: dict) -> None:
+    try:
+        # Keep only the most-recent N by stored timestamp so this never grows
+        # without bound on a busy mailbox.
+        if len(seen) > PROCESSED_MSGIDS_MAX:
+            newest = sorted(seen.items(), key=lambda kv: kv[1], reverse=True)[:PROCESSED_MSGIDS_MAX]
+            seen = dict(newest)
+        PROCESSED_MSGIDS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = PROCESSED_MSGIDS_PATH.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(seen), encoding="utf-8")
+        os.replace(tmp, PROCESSED_MSGIDS_PATH)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[email_inbox] could not persist processed-msgid ledger: {exc}", file=sys.stderr)
+
+
+REVIEW_QUEUE_PATH = (Path(__file__).resolve().parent.parent.parent
+                     / "tmp" / "review_harvest_queue.json")
+
+
+def _enqueue_review_harvest(ping: dict, rfc_message_id: str) -> None:
+    """Queue a (repo, pr) for the review-harvest cron. Best-effort, never raises.
+
+    A queue rather than an inline harvest: the inbox sweep must stay fast and
+    must not block on gh + a fix run. The 'Review Harvest' cron drains this.
+    Keyed by repo#pr so ten CodeRabbit emails on one PR enqueue one job.
+    """
+    try:
+        queue = {}
+        if REVIEW_QUEUE_PATH.exists():
+            try:
+                loaded = json.loads(REVIEW_QUEUE_PATH.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    queue = loaded
+            except Exception:  # noqa: BLE001
+                queue = {}
+
+        # A workflow-failure mail has no PR number, so it keys on repo+branch.
+        # review_loop resolves that branch to a PR via `gh pr list --head`; an
+        # entry with neither a PR nor a branch can never become actionable, so
+        # the loop drops it rather than letting it accumulate forever.
+        if ping.get("pr"):
+            key = f"{ping['repo']}#{ping['pr']}"
+        elif ping.get("branch"):
+            key = f"{ping['repo']}@{ping['branch']}"
+        else:
+            key = ping["repo"]
+        entry = queue.get(key) or {"repo": ping["repo"], "pr": ping.get("pr"),
+                                   "branch": ping.get("branch"),
+                                   "kinds": [], "message_ids": [], "count": 0}
+        if ping.get("branch") and not entry.get("branch"):
+            entry["branch"] = ping["branch"]
+        if ping["kind"] not in entry["kinds"]:
+            entry["kinds"].append(ping["kind"])
+        if rfc_message_id not in entry["message_ids"]:
+            entry["message_ids"] = (entry["message_ids"] + [rfc_message_id])[-10:]
+        entry["count"] = int(entry.get("count", 0)) + 1
+        entry["last_seen"] = datetime.now(timezone.utc).isoformat()
+        queue[key] = entry
+
+        REVIEW_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = REVIEW_QUEUE_PATH.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(queue, indent=2), encoding="utf-8")
+        os.replace(tmp, REVIEW_QUEUE_PATH)
+        print(f"[email_inbox] review queued: {key} ({ping['kind']})", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[email_inbox] could not queue review harvest: {exc}", file=sys.stderr)
 
 
 def _extract_email_address(from_header: str) -> str:
@@ -989,39 +1094,244 @@ def _decode_header_value(raw_value):
     return result.encode("ascii", errors="replace").decode("ascii")
 
 
-def _extract_text_preview(msg, max_chars=200):
-    """Pull the first max_chars of plain-text body from an email.Message object."""
-    preview = ""
-    if msg.is_multipart():
-        for part in msg.walk():
-            if part.get_content_type() == "text/plain":
-                payload = part.get_payload(decode=True)
-                if payload:
-                    charset = part.get_content_charset() or "utf-8"
-                    try:
-                        preview = payload.decode(charset, errors="replace")
-                    except (LookupError, UnicodeDecodeError):
-                        preview = payload.decode("utf-8", errors="replace")
-                    break
-    else:
-        payload = msg.get_payload(decode=True)
-        if payload:
-            charset = msg.get_content_charset() or "utf-8"
-            try:
-                preview = payload.decode(charset, errors="replace")
-            except (LookupError, UnicodeDecodeError):
-                preview = payload.decode("utf-8", errors="replace")
+def _strip_html(html: str) -> str:
+    """Turn an HTML email part into readable text.
 
-    # Collapse whitespace and trim
-    preview = " ".join(preview.split())
+    Drops <style>/<script>/<head> wholesale (otherwise CSS dominates the first
+    few hundred characters of a vendor receipt), converts block tags to
+    newlines so line structure survives, strips remaining tags, and unescapes
+    entities.
+    """
+    if not html:
+        return ""
+    s = re.sub(r"(?is)<(script|style|head)[^>]*>.*?</\1>", " ", html)
+    s = re.sub(r"(?i)<br\s*/?>", "\n", s)
+    s = re.sub(r"(?i)</(p|div|tr|li|h[1-6]|table)>", "\n", s)
+    s = re.sub(r"(?s)<[^>]+>", " ", s)
+    try:
+        import html as _htmlmod
+        s = _htmlmod.unescape(s)
+    except Exception:  # noqa: BLE001
+        pass
+    # Collapse runs of spaces/tabs but KEEP newlines (forward-header parsing and
+    # salutation matching are line-anchored).
+    s = re.sub(r"[ \t\xa0]+", " ", s)
+    s = re.sub(r"\n\s*\n\s*\n+", "\n\n", s)
+    return s.strip()
+
+
+def _decode_part(part) -> str:
+    payload = part.get_payload(decode=True)
+    if not payload:
+        return ""
+    charset = part.get_content_charset() or "utf-8"
+    try:
+        return payload.decode(charset, errors="replace")
+    except (LookupError, UnicodeDecodeError):
+        return payload.decode("utf-8", errors="replace")
+
+
+def extract_body_full(msg) -> str:
+    """Full readable body text of a message. UTF-8 preserved, newlines kept.
+
+    2026-07-23 — three defects this replaces, all of which degraded EVERY
+    downstream decision:
+      * text/plain ONLY: an HTML-only message (the norm for Stripe / bank /
+        SaaS billing mail) produced an EMPTY body, so the classifier saw just
+        the subject and sender. Now falls back to the HTML part, cleaned.
+      * 200-char cap on the only body artifact: the classifier, the drafter,
+        the ledger and the hand-off all shared one 200-char string. Callers now
+        slice what they need from the full text.
+      * ASCII coercion: every accent, curly quote and emoji became '?'. That
+        matters for French mail now that CC operates from Montreal.
+    """
+    text_parts: list[str] = []
+    html_parts: list[str] = []
+    try:
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.is_multipart():
+                    continue
+                disp = str(part.get("Content-Disposition") or "").lower()
+                if "attachment" in disp:
+                    continue
+                ctype = part.get_content_type()
+                if ctype == "text/plain":
+                    text_parts.append(_decode_part(part))
+                elif ctype == "text/html":
+                    html_parts.append(_decode_part(part))
+        else:
+            raw = _decode_part(msg)
+            if msg.get_content_type() == "text/html":
+                html_parts.append(raw)
+            else:
+                text_parts.append(raw)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[email_inbox] body extract warning: {exc}", file=sys.stderr)
+
+    body = "\n".join(p for p in text_parts if p and p.strip()).strip()
+    if not body:
+        body = _strip_html("\n".join(html_parts)).strip()
+    # Normalise line endings; keep the text itself intact (UTF-8, accents, case).
+    return body.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _extract_text_preview(msg, max_chars=200):
+    """Short single-line preview for logs//email_log. Built from the full body
+    so an HTML-only message no longer previews as empty. ASCII-coerced because
+    legacy log/notify surfaces on Windows expect it — use extract_body_full()
+    for anything that feeds a decision."""
+    preview = " ".join(extract_body_full(msg).split())
     preview = preview.encode("ascii", errors="replace").decode("ascii")
     return preview[:max_chars]
+
+
+def stop_signal_decision(classification, preview, subject):
+    """CASL auto-suppress decision for an inbound reply.
+
+    Returns (is_stop_signal, needs_manual_review):
+      is_stop_signal      — irreversibly suppress (CASL list) + mark lead lost.
+      needs_manual_review — the DEGRADED keyword classifier (model outage,
+                            fallback=True) said unsubscribe but there is no
+                            literal STOP/UNSUBSCRIBE line-opener; ping CC
+                            instead of auto-killing what may be a hot lead
+                            ("nothing will stop me from signing" matches the
+                            fallback's substring test). CASL's 10-business-day
+                            window is met either way: literal openers still
+                            suppress instantly, ambiguous ones go to review.
+
+    Pure function — unit-tested directly (scripts/tests, CASL-critical).
+    """
+    intent = (classification or {}).get("intent", "")
+    preview_upper = (preview or "").strip().upper()
+    subject_upper = (subject or "").strip().upper()
+    literal_stop = (
+        preview_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
+        or subject_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
+    )
+    classifier_stop = (
+        intent == "unsubscribe"
+        and not (classification or {}).get("fallback")
+    )
+    is_stop_signal = classifier_stop or literal_stop
+    needs_manual_review = intent == "unsubscribe" and not is_stop_signal
+    return is_stop_signal, needs_manual_review
+
+
+def _email_brain_enabled(env_vars) -> bool:
+    """EMAIL_BRAIN_ENABLED gates the native multi-brain router (the n8n "OASIS
+    Inbound Qualifier" replacement). OFF by default so the inbox loop behaves
+    exactly as before until it's switched on.
+
+    Reads .env.agents first, then falls back to the process environment — so the
+    flag can live in .env.agents OR be injected by PM2 (ecosystem.config.js env
+    block, which is how bravo-scheduler sets it and how it reaches this script
+    as an inherited subprocess env). Same precedence email_brain._env_flag uses.
+    """
+    v = ""
+    try:
+        v = env_vars.get("EMAIL_BRAIN_ENABLED", "") or ""
+    except Exception:
+        v = ""
+    if not str(v).strip():
+        v = os.environ.get("EMAIL_BRAIN_ENABLED", "")
+    return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
+_KNOWN_CLIENT_STATUSES = ("client", "active", "active_client", "won", "customer")
+
+# Which agent owns each brain. Financial & Legal is Atlas's (CFO); everything
+# else stays with Bravo. Mirrors the agent_label the n8n routing contract set.
+_AGENT_LABEL_BY_CATEGORY = {
+    "financial_legal": "atlas",
+    "technical_support": "bravo",
+    "business_opportunity": "bravo",
+    "low_priority": "bravo",
+}
+
+
+def _routing_contract(outcome: dict, classification: dict) -> dict:
+    """Build the routing contract the Command Center renders for an inbound mail.
+
+    This is the native form of the `<oasis-routing>` JSON each n8n agent emitted
+    and the "Parse routing (…)" nodes POSTed to /api/inbound/n8n. Same fields —
+    intent / agent_action / priority / agent_label / summary — so the dashboard
+    shows which brain handled the mail and what it actually did, rather than a
+    bare intent with no outcome.
+    """
+    category = outcome.get("category") or "low_priority"
+    return {
+        "intent": category,
+        "legacy_intent": classification.get("intent"),
+        "agent_action": outcome.get("action"),
+        "priority": classification.get("priority") or "cold",
+        "agent_label": _AGENT_LABEL_BY_CATEGORY.get(category, "bravo"),
+        "summary": (outcome.get("reason") or "")[:500],
+        "confidence": outcome.get("confidence"),
+        "sent": bool(outcome.get("sent")),
+        "drafted": bool(outcome.get("drafted")),
+        "archived": bool(outcome.get("archived")),
+        "handed_off": bool(outcome.get("handed_off")),
+        "notified": bool(outcome.get("notified")),
+        "routing_extracted": True,
+        "source": "email_brain",
+    }
+
+
+def _extract_attachment_meta(msg) -> list:
+    """Lightweight attachment metadata (filename, content_type, size) for the
+    Atlas financial hand-off — NOT the raw bytes (Atlas's consumer fetches those
+    from Gmail via rfc_message_id when it processes the hand-off). Best-effort;
+    returns [] on any error."""
+    out: list = []
+    try:
+        if not msg.is_multipart():
+            return out
+        for part in msg.walk():
+            if part.is_multipart():
+                continue
+            disp = str(part.get("Content-Disposition") or "").lower()
+            filename = part.get_filename()
+            if "attachment" not in disp and not filename:
+                continue
+            try:
+                payload = part.get_payload(decode=True)
+                size = len(payload) if payload else 0
+            except Exception:
+                size = 0
+            out.append({
+                "filename": filename or "(unnamed)",
+                "content_type": part.get_content_type(),
+                "size": size,
+            })
+    except Exception:
+        return []
+    return out
+
+
+def _is_known_client(db, email_addr) -> bool:
+    """True if the sender is an existing OASIS client (not a cold lead). Gates
+    Technical-Support auto-replies. Best-effort; False on any error (fail-safe:
+    the brain then drafts-and-holds instead of auto-sending)."""
+    if not email_addr:
+        return False
+    try:
+        rows = (db.table("leads").select("status")
+                .eq("email", email_addr.strip().lower()).limit(1).execute().data) or []
+        return bool(rows) and (rows[0].get("status") or "").strip().lower() in _KNOWN_CLIENT_STATUSES
+    except Exception:
+        return False
 
 
 def cmd_check_inbox(env_vars, args, output_json=False):
     """
     Connect to Gmail IMAP, fetch UNSEEN emails, log them to Supabase,
     notify via Telegram, then mark them as SEEN.
+
+    When EMAIL_BRAIN_ENABLED is set, each non-STOP email is routed through
+    email_brain.process_email (the native n8n classifier replacement): it
+    drafts/sends replies via send_gateway, hands Financial & Legal to Atlas,
+    archives low-priority, and controls its own read-state. Off by default.
     """
     address = env_vars.get("GMAIL_ADDRESS") or env_vars.get("GMAIL_USER")
     password = env_vars.get("GMAIL_APP_PASSWORD")
@@ -1060,6 +1370,9 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     poison_state = json.load(pf)
         except Exception:
             poison_state = {}
+
+        # 2026-07-24: processed-message idempotency ledger (see the guard below).
+        processed_msgids = _load_processed_msgids()
 
         for uid in message_ids:
             uid_str = uid.decode() if isinstance(uid, bytes) else str(uid)
@@ -1117,12 +1430,99 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             date_str = _decode_header_value(msg.get("Date", ""))
             preview = _extract_text_preview(msg)
 
-            # Skip system/noreply senders
-            from_lower = from_addr.lower()
-            if any(skip in from_lower for skip in SKIP_SENDERS):
-                # Still mark as seen so it doesn't keep surfacing
-                imap.store(uid, "+FLAGS", "\\Seen")
+            # IDEMPOTENCY GUARD (2026-07-24) — the stable RFC Message-ID, NOT the
+            # IMAP sequence number. If we've already processed this message,
+            # skip ALL work (classification, LLM, ledger, brain, hand-off) and
+            # move on WITHOUT marking it read — held/handed-off mail is left
+            # unread on purpose as CC's / Atlas's review queue, and this is what
+            # keeps the UNSEEN sweep from redoing that work every 5 minutes.
+            rfc_message_id = (msg.get("Message-ID") or "").strip() or f"uid:{uid_str}"
+            if rfc_message_id in processed_msgids:
                 continue
+
+            # SENDER TRIAGE (2026-07-23) — replaces a blanket drop.
+            #
+            # This used to be: `if any(skip in from_lower for skip in
+            # SKIP_SENDERS): mark \Seen; continue` — i.e. every message from a
+            # no-reply address was marked read and discarded BEFORE
+            # classification, the ledger, the brain and the Atlas hand-off.
+            # Stripe, Google Cloud, Vercel, Apple and Adobe all send receipts
+            # from no-reply addresses, so that quietly destroyed CC's
+            # deductible expense records. The n8n workflow never dropped these
+            # — it treated "no-reply" as a SIGNAL and let the classifier route
+            # them (they are overwhelmingly Financial & Legal).
+            #
+            # So: classify everything, reply to almost nothing. The playbook
+            # decides who may receive a generated reply.
+            body_full = extract_body_full(msg)
+
+            # FORWARD PARSING (2026-07-24) — wire the built-but-dead helpers.
+            # When CC forwards a vendor invoice or a lead thread INTO the inbox,
+            # the envelope From is CC. Without this, native classifies it as mail
+            # FROM CC and both the ledger and the sender triage are wrong. If the
+            # message is a forward and the original sender is recoverable, we
+            # classify/route on THAT address instead (the reply address, however,
+            # is intentionally left to CC — we never auto-reply to a forward).
+            forwarded_from = None
+            unresolved_forward = False
+            try:
+                from email_playbook import (is_forwarded, extract_forwarded_sender,
+                                            UNKNOWN_FORWARD_SENDER)
+                if is_forwarded(subject, body_full):
+                    # Body first, then the envelope From, then a sentinel — never
+                    # None/'?'. If it resolves to the sentinel, the original
+                    # sender is unrecoverable, so this must go to plain human
+                    # review and NOT drive any automated/financial routing.
+                    forwarded_from = extract_forwarded_sender(body_full, header_from=from_addr)
+                    if forwarded_from == UNKNOWN_FORWARD_SENDER:
+                        unresolved_forward = True
+            except Exception as fwd_err:  # noqa: BLE001
+                print(f"[email_inbox] forward-parse warning: {fwd_err}", file=sys.stderr)
+            # The identity used for classification + triage + ledger. Falls back
+            # to the envelope From when this isn't a recoverable forward.
+            effective_from = forwarded_from or from_addr
+
+            # RFC-2369 bulk-mail header. Marketing blasts are legally obliged to
+            # set it; invoices, receipts and password resets essentially never
+            # do. Best single machine-readable "this is marketing, not a
+            # transaction" signal we have — and it's why a Lindy price-cut
+            # announcement should never have looked like an expense.
+            list_unsubscribe = (msg.get("List-Unsubscribe") or "").strip()
+
+            try:
+                from email_playbook import classify_sender as _triage
+                sender_triage = _triage(effective_from, subject, body_full,
+                                        list_unsubscribe=list_unsubscribe)
+                # A forwarded message is CC handing us something to process, not
+                # a stranger writing in — never auto-reply to the forwarded party.
+                if forwarded_from:
+                    sender_triage["may_reply"] = False
+                    sender_triage["forwarded_from"] = forwarded_from
+            except Exception as tri_err:  # noqa: BLE001
+                print(f"[email_inbox] triage warning: {tri_err}", file=sys.stderr)
+                sender_triage = {"kind": "human", "is_automated": False,
+                                 "may_reply": False,
+                                 "is_bulk": bool(list_unsubscribe),
+                                 "reason": "triage failed"}
+
+            # AUTOMATED-REVIEW NOTIFICATION (2026-07-29) — the closed loop.
+            #
+            # CodeRabbit / Vercel / GitHub Actions mail is a NOTIFICATION, not
+            # content to classify. Detecting it here, deterministically and
+            # before any model call, buys three things: no LLM spend on machine
+            # mail, no chance of a PR title like "Inbound financial consumer"
+            # being read as an expense (which is exactly what happened), and a
+            # concrete (repo, pr) to hand to review_harvest — which then reads
+            # the LIVE thread state rather than this email's stale snapshot.
+            review_ping = None
+            try:
+                from email_playbook import detect_review_notification
+                review_ping = detect_review_notification(from_addr, subject)
+            except Exception as rev_err:  # noqa: BLE001
+                print(f"[email_inbox] review-detect warning: {rev_err}", file=sys.stderr)
+
+            if review_ping:
+                _enqueue_review_harvest(review_ping, rfc_message_id)
 
             email_entry = {
                 "from": from_addr,
@@ -1155,10 +1555,16 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             try:
                 from inbound_classifier import classify as _classify_inbound
                 classification = _classify_inbound(
-                    content=preview,
+                    # Full body, not the 200-char preview: an HTML-only vendor
+                    # receipt previews as (almost) nothing, and every signal
+                    # past ~200 chars was invisible to the classifier.
+                    content=body_full[:6000] or preview,
                     channel="email",
                     subject=subject,
-                    from_identity=_extract_email_address(from_addr),
+                    # effective_from = the ORIGINAL sender on a forward, else the
+                    # envelope From. This is what makes a forwarded vendor invoice
+                    # classify as the vendor's mail, not as CC's.
+                    from_identity=_extract_email_address(effective_from),
                 )
             except Exception as cls_err:
                 print(f"[email_inbox] classifier warning: {cls_err}", file=sys.stderr)
@@ -1166,20 +1572,58 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                                   "priority": "cold", "confidence": 0.0,
                                   "fallback": True}
 
-            try:
-                sender_addr = _extract_email_address(from_addr)
-                rpc_params = {
-                    "p_from_email": sender_addr,
-                    "p_from_name": _extract_display_name(from_addr),
-                    "p_subject": subject,
-                    "p_content": preview,
-                    "p_classification": classification,
-                    "p_message_id": uid_str,
-                }
-                db.rpc("record_inbound_from_n8n", rpc_params).execute()
-            except Exception as rpc_err:
-                # Don't block the inbox flow on ledger errors — email_log still captures.
-                print(f"[email_inbox] ledger write warning: {rpc_err}", file=sys.stderr)
+            # Effective sender: the ORIGINAL sender when this is a forward CC
+            # sent in, else the envelope From. Everything that attributes the
+            # mail to a person — the ledger, is_known_client, the brain — keys
+            # off this, so a forwarded vendor invoice is booked against the
+            # vendor rather than against CC.
+            sender_addr = _extract_email_address(effective_from)
+            sender_name = ("" if forwarded_from
+                           else _extract_display_name(from_addr))
+
+            def _write_inbound_ledger(routing: dict | None = None) -> None:
+                """Write the unified inbound ledger row the Command Center reads.
+
+                DEFERRED until after the brain runs so the row carries the
+                brain's routing decision. The retired n8n workflow achieved this
+                by POSTing an <oasis-routing> contract to /api/inbound/n8n with a
+                plaintext shared secret in the workflow; Bravo holds the
+                service-role client directly, so it writes the same contract
+                straight through the RPC — no HTTP hop and no secret to leak.
+
+                2026-07-23: the DB carries TWO overloads of this function — a
+                6-arg (…, p_message_id) and an 8-arg (…, p_thread_id,
+                p_message_id, p_received_at). Passing only the 6 shared args made
+                PostgREST fail every call with PGRST203, silently dropping EVERY
+                message. The full 8-arg set resolves the overload.
+                """
+                # FLAT merge, not nested. The dashboard reads
+                # metadata.classification.intent / .agent_action / .summary at the
+                # TOP level (app/page.tsx renders `cls.intent`, `cls.agent_action`,
+                # `cls.summary`) — exactly the shape n8n POSTed. Nesting these
+                # under a "routing" key writes the data but renders nothing, so the
+                # routing intent deliberately overrides the legacy keyword intent
+                # (the legacy value is preserved as legacy_intent).
+                payload = dict(classification or {})
+                if routing:
+                    payload.update(routing)
+                try:
+                    db.rpc("record_inbound_from_n8n", {
+                        "p_from_email": sender_addr,
+                        "p_from_name": sender_name,
+                        "p_subject": subject,
+                        "p_content": preview,
+                        "p_classification": payload,
+                        "p_thread_id": (msg.get("References") or "").strip() or None,
+                        # Stable RFC Message-ID, not the volatile IMAP sequence
+                        # number — this is the ledger's real dedup key and the
+                        # same id Atlas books receipts under.
+                        "p_message_id": rfc_message_id,
+                        "p_received_at": datetime.now(timezone.utc).isoformat(),
+                    }).execute()
+                except Exception as rpc_err:
+                    # Never block the inbox flow — email_log still captures it.
+                    print(f"[email_inbox] ledger write warning: {rpc_err}", file=sys.stderr)
 
             # V1.0 — bump the OASIS Command Center integrations_health row so
             # the dashboard's green dot lights up. Best-effort.
@@ -1198,14 +1642,23 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             # what makes reply-STOP actually legally compliant — CASL requires
             # opt-outs to be processed within 10 business days; this does it
             # within 5 minutes (next scheduler tick).
-            intent = (classification or {}).get("intent", "")
-            preview_upper = (preview or "").strip().upper()
-            subject_upper = (subject or "").strip().upper()
-            is_stop_signal = (
-                intent == "unsubscribe"
-                or preview_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
-                or subject_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
+            # Decision logic lives in stop_signal_decision() (pure, unit-tested
+            # — CASL-critical, see its docstring for the degraded-mode guard).
+            is_stop_signal, needs_manual_review = stop_signal_decision(
+                classification, preview, subject
             )
+            if needs_manual_review and sender_addr:
+                # html.escape: notify() sends parse_mode=HTML — a raw <...> in
+                # the subject would make Telegram reject the alert, silently
+                # losing the one surface this opt-out gets (Codex P2).
+                notify(
+                    f"POSSIBLE opt-out from {_html.escape(sender_addr)} — flagged by the "
+                    "degraded keyword classifier (model outage), no literal "
+                    f"STOP/UNSUBSCRIBE opener.\nSubject: {_html.escape(subject or '')}\n"
+                    "NOT auto-suppressed — review and suppress manually if genuine.",
+                    category="email",
+                    force=True,
+                )
             if is_stop_signal and sender_addr:
                 try:
                     sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -1237,10 +1690,12 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                                 pass
                     except Exception as lead_err:
                         print(f"[email_inbox] lead update on STOP failed: {lead_err}", file=sys.stderr)
-                    # Loud Telegram ping so CC knows someone opted out
+                    # Loud Telegram ping so CC knows someone opted out.
+                    # html.escape: notify() sends parse_mode=HTML — raw <...>
+                    # in a subject would make Telegram reject the ping.
                     notify(
-                        f"STOP received from {sender_addr}\n"
-                        f"Subject: {subject}\n"
+                        f"STOP received from {_html.escape(sender_addr)}\n"
+                        f"Subject: {_html.escape(subject or '')}\n"
                         f"Auto-suppressed — they will not receive further emails.",
                         category="email",
                         force=True,
@@ -1252,8 +1707,8 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     print(f"[email_inbox] CRITICAL: STOP auto-suppress FAILED for "
                           f"{sender_addr}: {sup_err}", file=sys.stderr)
                     notify(
-                        f"CRITICAL: STOP received from {sender_addr} but auto-suppress "
-                        f"FAILED: {sup_err}. Add them to suppression list MANUALLY now.",
+                        f"CRITICAL: STOP received from {_html.escape(sender_addr)} but auto-suppress "
+                        f"FAILED: {_html.escape(str(sup_err))}. Add them to suppression list MANUALLY now.",
                         category="email",
                         force=True,
                     )
@@ -1268,10 +1723,74 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 f"Subject: {subject}\n"
                 f"Preview: {preview[:120]}"
             )
-            notify(notify_msg)
+            # --- Native multi-brain routing (n8n replacement) OR legacy path ---
+            # When the brain is enabled and this isn't a STOP signal (already
+            # handled above), route the email through email_brain: it drafts/
+            # sends/hands-off/archives and controls read-state (holds stay
+            # UNREAD for review). Any failure degrades to the legacy notify+mark.
+            if _email_brain_enabled(env_vars) and not is_stop_signal:
+                try:
+                    from email_brain import process_email, build_default_deps
 
-            # Mark as read
-            imap.store(uid, "+FLAGS", "\\Seen")
+                    def _mark_read(_e, _u=uid):
+                        imap.store(_u, "+FLAGS", "\\Seen")
+
+                    deps = build_default_deps(mark_read=_mark_read, db=db)
+                    brain_email = {
+                        "from": from_addr,
+                        "from_identity": sender_addr,
+                        "subject": subject,
+                        # Full body — the drafter's "open with a SPECIFIC
+                        # reference to what they wrote" rule is unsatisfiable
+                        # from a 200-char ASCII-mangled preview.
+                        "body": body_full or preview,
+                        "rfc_message_id": msg.get("Message-ID"),
+                        "references": msg.get("References"),
+                        "is_known_client": _is_known_client(db, sender_addr),
+                        "attachments": _extract_attachment_meta(msg),
+                        "tenant_id": None,
+                        # Deterministic triage: who sent this, and are they even
+                        # eligible for a generated reply.
+                        "sender_kind": sender_triage.get("kind"),
+                        "may_reply": bool(sender_triage.get("may_reply")),
+                        # RFC-2369 List-Unsubscribe present => bulk/marketing.
+                        # Weighs against a Financial & Legal read in both the
+                        # model prompt and the keyword fallback.
+                        "is_bulk": bool(sender_triage.get("is_bulk")),
+                        # An unresolvable forward goes straight to human review:
+                        # no auto-reply, no archive, no financial hand-off.
+                        "force_review": unresolved_forward,
+                    }
+                    outcome = process_email(brain_email, deps=deps)
+                    print(f"[email_inbox] brain: {outcome.get('action')} "
+                          f"({outcome.get('category')}) conf={outcome.get('confidence')}",
+                          file=sys.stderr)
+                    # The <oasis-routing> contract the n8n workflow used to POST
+                    # to the dashboard, now written straight into the ledger row
+                    # so the Command Center shows WHICH brain handled the mail
+                    # and WHAT it did — not just a bare intent.
+                    _write_inbound_ledger(_routing_contract(outcome, classification))
+                    # auto_reply/archive already marked read by the brain. Financial
+                    # hand-offs and holds/reviews stay UNREAD so CC still sees them:
+                    # Atlas's consumer marks a financial email read only after it
+                    # actually processes it (until that consumer exists, the email
+                    # stays in the inbox rather than vanishing into a void).
+                except Exception as brain_err:
+                    print(f"[email_inbox] email_brain failed, legacy fallback: {brain_err}",
+                          file=sys.stderr)
+                    _write_inbound_ledger()
+                    notify(notify_msg)
+                    imap.store(uid, "+FLAGS", "\\Seen")
+            else:
+                _write_inbound_ledger()
+                notify(notify_msg)
+                # Mark as read
+                imap.store(uid, "+FLAGS", "\\Seen")
+
+            # Record this Message-ID as processed so the next UNSEEN sweep
+            # skips it (the guard at the top of the loop). Runs for every
+            # terminal path — brain, legacy, and the brain-failure fallback.
+            processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
 
         # V2.1: Persist poison UID tracker so failure counts survive across runs
         try:
@@ -1280,6 +1799,9 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 json.dump(poison_state, pf, indent=2)
         except Exception as save_err:
             print(f"[email_inbox] Could not save poison UID state: {save_err}", file=sys.stderr)
+
+        # Persist the processed-Message-ID idempotency ledger.
+        _save_processed_msgids(processed_msgids)
 
     finally:
         if imap:

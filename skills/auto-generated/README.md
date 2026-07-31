@@ -1,5 +1,6 @@
 ---
 tags: [skills, auto-generated, lifecycle]
+last_updated: 2026-07-20
 ---
 
 # Auto-Generated Skills
@@ -40,6 +41,10 @@ Every skill folder contains:
 Read `SKILL.md` to understand what the skill does and whether the extraction
 was accurate. The `source_decision_id` field in the frontmatter points to the
 `agent_decisions` row this was generated from.
+
+### Promoted source artifacts
+
+- [[skills/auto-generated/score-b2b-lead-quality/SKILL]] — source copy retained for promotion provenance; the active copy is [[skills/score-b2b-lead-quality/SKILL]]
 
 ## How to manually approve or reject
 

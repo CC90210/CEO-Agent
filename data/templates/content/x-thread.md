@@ -4,6 +4,7 @@ type: content
 use_case: X (Twitter) threads for CC's personal brand
 variables: [topic, hook, key_points, cta]
 tags: [template, content, x, twitter]
+last_updated: 2026-04-27
 ---
 
 # X Thread Templates

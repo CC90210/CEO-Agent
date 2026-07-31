@@ -5,6 +5,8 @@ license: Complete terms in LICENSE.txt
 triggers: [theme, styling, brand colors, fonts, visual format, artifact styling]
 tier: specialized
 dependencies: []
+tags: [skill, theme-factory]
+last_updated: 2026-07-20
 ---
 
 
@@ -62,6 +64,7 @@ After a preferred theme is selected:
 To handle cases where none of the existing themes work for an artifact, create a custom theme. Based on provided inputs, generate a new theme similar to the ones above. Give the theme a similar name describing what the font/color combinations represent. Use any basic description provided to choose appropriate colors/fonts. After generating the theme, show it for review and verification. Following that, apply the theme as described above.
 
 ## Themes
+- [[skills/theme-factory/themes/INDEX]] — complete theme registry
 - [[skills/theme-factory/themes/arctic-frost]] — Cool and crisp winter-inspired theme
 - [[skills/theme-factory/themes/botanical-garden]] — Fresh and organic garden colors
 - [[skills/theme-factory/themes/desert-rose]] — Soft and sophisticated dusty tones

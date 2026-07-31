@@ -3,6 +3,8 @@ name: telegram-demo-workflows
 description: 5 verified, rehearsed Telegram → MacBook demo workflows for filming content. Each is designed to work 100% of the time, look visually impressive on camera, and be completable in under 60 seconds. Use these when filming "AI takes over my computer" content.
 triggers: [demo, film, content, record, show, camera, telegram controls, computer control demo]
 tier: full
+tags: [skill, telegram-demo-workflows]
+last_updated: 2026-07-20
 ---
 
 # Telegram Demo Workflows — 5 Content-Ready Sequences
@@ -77,17 +79,17 @@ set up my morning workspace: open Chrome, open Spotify, and snap Chrome to the l
 
 ---
 
-## Demo 4: "My AI checks my business MRR without me logging in anywhere"
+## Demo 4: "My AI checks my pipeline and calendar without me logging in anywhere"
 
 **Send:**
 ```
-what's my current MRR and how far am I from my $5k goal?
+how many active leads do I have and what's on my calendar today?
 ```
 
 **What happens:**
-1. Agent loads revenue context from brain/USER.md
-2. Returns exact MRR breakdown ($3,322 USD)
-3. Calculates gap ($1,678) and pace needed
+1. Agent queries the CRM (lead pipeline) and calendar
+2. Returns lead count by stage and today's booked calls
+3. Flags any overdue follow-ups
 4. No login, no dashboard — agent already knows
 
 **Why it's content-worthy:** This is the "AI knows your business" moment. Pure credibility. Perfect for business/agency content.
@@ -150,11 +152,11 @@ set volume to 50%                       → audio control
 what's the battery level?               → system info
 
 # Business
-what's my MRR?                          → reads brain/USER.md context
+how many active leads do I have?        → queries CRM pipeline
 what leads need follow-up?              → queries CRM
 take a screenshot                       → captures current screen
 ```
 
 ## Obsidian Links
 - [[skills/INDEX.md]] | [[brain/CAPABILITIES]]
-- [[skills/browser-automation/SKILL.md]] | [[../../CMO-Agent/skills/content-engine/SKILL]]
+- [[skills/browser-automation/SKILL.md]] | [[../../../CMO-Agent/skills/content-engine/SKILL]]

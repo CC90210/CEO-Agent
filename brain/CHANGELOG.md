@@ -1,6 +1,7 @@
 ---
+description: "Audit trail of BRAVO's self-modifications to core files, memory, and skills with mutation tier and confidence scoring for self-governance"
 tags: [changelog, audit]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

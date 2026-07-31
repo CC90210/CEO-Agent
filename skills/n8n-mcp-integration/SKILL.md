@@ -5,6 +5,8 @@ triggers: [n8n, n8n MCP, build workflow, automation, webhook intake, scheduled j
 tier: standard
 dependencies: [n8n-patterns]
 disable-model-invocation: false
+tags: [skill, n8n-mcp-integration]
+last_updated: 2026-06-20
 ---
 
 # n8n MCP — Code-First SDK Flow (V6.7)
@@ -194,5 +196,5 @@ The SDK flow is the n8n team's official answer to those failure modes. Use it.
 > See [[skills/send-gateway/SKILL.md]] for the full contract.
 
 ## Obsidian Links
-- [[skills/n8n-patterns]] | [[skills/INDEX.md]] | [[brain/CAPABILITIES]]
+- [[skills/n8n-patterns/SKILL]] | [[skills/INDEX.md]] | [[brain/CAPABILITIES]]
 - [[agents/workflow-builder]] | [[memory/SESSION_LOG]]

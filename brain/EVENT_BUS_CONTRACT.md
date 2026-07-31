@@ -1,6 +1,7 @@
 ---
+description: "Cross-agent event registry with canonical event types and locked payload schemas; agents check this before emitting or subscribing to events"
 tags: [v6, event-bus, cross-agent, contract]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 14
 verified: 2026-06-09
 ---
@@ -56,7 +57,7 @@ All producers tag events with these exact `event_type` strings. Subscribers filt
 | `SUNBIZ_RENEWAL_DUE` | sunbiz | (broadcast) | warn | `deal_id`, `due_date`, `est_commission_usd` | renewal_scanner job flagged a deal in the upcoming 30-day window |
 | `SUNBIZ_COMMISSION_BOOKED` | sunbiz | (broadcast) | info | `commission_id`, `deal_id`, `agent_user_id`, `amount_usd` | commission row written (deal funded or renewal closed) |
 | `SUNBIZ_EMAIL_BLAST_DISPATCHED` | sunbiz | (broadcast) | info | `campaign_id`, `recipient_count`, `template_slug` | bulk email send started (per-recipient delivery events still per provider) |
-| `SUGA_SEAN_SESSION_LOG_APPENDED` | suga_sean | (broadcast) | info | `agent`, `session_id`, `note` | Suga Sean Agent appended a session-log line |
+| `SUGA_SEAN_SESSION_LOG_APPENDED` | suga_sean | (broadcast) | info | `agent`, `session_id`, `note` | RESERVED-HISTORICAL — Suga scaffold retired 2026-07 before the runtime shipped; type kept for registry completeness, never emitted |
 | `SUGA_SEAN_FAN_DM_RECEIVED` | suga_sean | (broadcast) | info | `dm_id`, `platform`, `fan_hash`, `intent` | inbound fan DM landed; `fan_hash` is sha256 of platform+handle trimmed to 16 chars — never store raw handle in payload |
 | `SUGA_SEAN_MERCH_DROP_SCHEDULED` | suga_sean | (broadcast) | info | `drop_id`, `product_slug`, `release_at`, `est_units` | merch drop scheduled (Shopify or affiliate platform) |
 | `SUGA_SEAN_SOCIAL_POST_PUBLISHED` | suga_sean | (broadcast) | info | `post_id`, `platform`, `scheduled_at`, `late_zernio_id` | social post pushed live via Late/Zernio or direct API |

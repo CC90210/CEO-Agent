@@ -1,3 +1,8 @@
+---
+tags: [docs]
+last_updated: 2026-06-03
+---
+
 # SunBiz Session Handoff — 2026-06-03
 
 > **Why this exists:** this chat started as the SunBiz **email-HTML-templates** task and then
@@ -96,3 +101,7 @@ there. Two committed docs + a master prompt drive it:
   with `next build` off the VPS).
 - **CC / operator:** Section 6 config flips, enter remaining secrets in the Command Center, confirm TextTorrent auth.
 - **Templates:** done — just send Ezra https://cc90210.github.io/SunBiz-Agent/v2/.
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

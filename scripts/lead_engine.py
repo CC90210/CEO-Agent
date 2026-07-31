@@ -28,6 +28,28 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. This one is
+# cron-wired through scheduler.run_lead_followup and was failing live with
+# CERTIFICATE_VERIFY_FAILED under the same AV TLS interception.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
+
+# OASIS operator tenant. This is CC's personal CRM hub, but the leads table is
+# shared with the multi-tenant command-center DB — so an UNSCOPED read counts
+# other tenants' rows (e.g. funding-submission inboxes) plus legacy untenanted
+# orphans, which is why the daily brief once reported "111 new" when CC had ~35.
+# The lead-COUNTING reads (pipeline, followups) scope to CC's tenant so the
+# brief only ever reflects CC's own inbound. Overridable via env for another
+# operator/tenant. Matches CC_EMPIRE_TENANT_ID in scripts/core/cron_engine.py.
+OASIS_TENANT_ID = (
+    os.environ.get("OASIS_TENANT_ID")
+    or os.environ.get("EMPIRE_TENANT_ID")
+    or "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+)
+
 
 # -- Credential loading (identical pattern to supabase_tool.py) ----------------
 
@@ -244,6 +266,11 @@ def cmd_add(client, args, output_json: bool):
     payload = {
         "name": args.name,
         "status": "new",
+        # Stamp the operator tenant on insert — otherwise the row lands with a
+        # NULL tenant and the (now tenant-scoped) pipeline/followups reads would
+        # silently exclude it, so a manually-added inbound lead would never show
+        # in the brief. Overridable via --tenant.
+        "tenant_id": getattr(args, "tenant", None) or OASIS_TENANT_ID,
         "created_at": now,
         "updated_at": now,
     }
@@ -522,6 +549,7 @@ def cmd_followups(client, args, output_json: bool):
     result = (
         client.table("leads")
         .select("*")
+        .eq("tenant_id", OASIS_TENANT_ID)
         .lte("next_followup_at", today)
         .not_.is_("next_followup_at", "null")
         .order("next_followup_at", desc=False)
@@ -552,7 +580,7 @@ def cmd_followups(client, args, output_json: bool):
 
 def cmd_pipeline(client, args, output_json: bool):
     """Show pipeline summary: count and avg score by status."""
-    result = client.table("leads").select("status, score").execute()
+    result = client.table("leads").select("status, score").eq("tenant_id", OASIS_TENANT_ID).execute()
     leads = result.data or []
 
     stages = ["new", "contacted", "qualified", "proposal", "won", "lost"]
@@ -877,6 +905,9 @@ def cmd_bulk_import(client, args, output_json: bool):
             payload = {
                 "name": name or company,
                 "status": mapped_status,
+                # Stamp operator tenant so bulk-imported rows are visible to the
+                # tenant-scoped pipeline/followups reads (see cmd_add).
+                "tenant_id": OASIS_TENANT_ID,
                 "created_at": now,
                 "updated_at": now,
                 "source": "cold_outreach",

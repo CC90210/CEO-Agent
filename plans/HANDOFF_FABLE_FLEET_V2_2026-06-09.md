@@ -1,3 +1,8 @@
+---
+tags: [plans]
+last_updated: 2026-06-09
+---
+
 # HANDOFF → Fable — Fleet Harmonization V2 complete
 **Date:** 2026-06-09 · **Author:** Bravo · **Scope:** the whole OASIS repo fleet (18 repos)
 
@@ -70,3 +75,7 @@ The hard part is done — the harness exists and the agent fleet consumes it. Ne
 - The brief: `plans/MISSION_2026-06-09_FLEET_V2.md`
 - The substrate: `CC90210/empire-harness` (`FLEET.md` is the live map)
 - V1 (audit remediation, V6.9.0): `plans/HANDOFF_FABLE_2026-06-09.md`
+
+## Obsidian Links
+- [[brain/STATE]]
+- [[memory/INDEX]]

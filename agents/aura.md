@@ -1,10 +1,13 @@
 ---
 name: aura
+description: "PEER-AGENT PROFILE, not a spawnable persona (ADR-0012 §3) — Aura is the home/ambient sibling agent; route home/voice work to ~/AURA. This file documents her Bravo-side voice surface only."
 display_name: Aura
 family: oasis
-role: Sensory / voice persona
+role: Sensory / voice persona (peer profile)
 home: scripts/aura/
 status: live (2026-05-17)
+tags: [agent, peer-profile]
+last_updated: 2026-07-20
 ---
 
 # Aura — voice + sensory persona

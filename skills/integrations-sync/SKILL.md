@@ -6,6 +6,7 @@ triggers: ["sync integrations", "refresh stripe", "sync supabase", "refresh data
 owner: bravo
 tier: T2
 risk: medium
+last_updated: 2026-07-09
 ---
 
 # Integrations Sync — Safe Refresh Patterns
@@ -35,13 +36,15 @@ This skill is the canonical reference for "how do I safely refresh X." Always id
 
 ### Stripe → `revenue_events`
 
+> On explicit CC request only — Atlas (CFO) owns revenue reporting; do not run this as a routine sync step.
+
 ```bash
 python scripts/revenue_engine.py sync-stripe --json
 ```
 
 - Idempotent: uses Stripe event IDs as primary key. Safe to re-run.
 - Default lookback: 25h (configured in `scripts/core/cron_engine.py` "Stripe Revenue Sync" cron).
-- Verify: `python scripts/revenue_engine.py mrr --json` after.
+- Verify: `python scripts/revenue_engine.py mrr --json` after (mechanics only — the number itself is Atlas's to report).
 - Downstream: rebuild `state/snapshots/latest_briefing.json` (`python scripts/snapshots/briefing_snapshot.py`).
 
 ### Supabase tables (leads, contacts, etc.)

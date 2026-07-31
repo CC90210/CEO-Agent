@@ -11,6 +11,8 @@ metadata:
     cliHelp: "gws workflow +standup-report --help"
 triggers: ["gws workflow standup report", "use gws workflow standup report", "run gws workflow standup report"]
 tier: specialized
+tags: [skill, gws-workflow-standup-report]
+last_updated: 2026-06-20
 ---
 
 # workflow +standup-report

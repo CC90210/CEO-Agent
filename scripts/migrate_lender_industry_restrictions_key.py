@@ -52,6 +52,16 @@ import json
 import sys
 from pathlib import Path
 
+CAPABILITY_META = {
+    "category": "database.migration",
+    "lifecycle": "one_off",
+    "risk": "external_write",
+    "triggers": ["migrate lender restriction key", "rename industry restrictions", "sunbiz lender migration"],
+    "owner": "bravo",
+    "project": "sunbiz",
+    "bridge": {"visible": False},
+}
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 

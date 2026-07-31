@@ -94,9 +94,23 @@ recommendation: "ship" | "rerun X step" | "escalate to CC"
 | 70-84 | WARN | Surface with caveats ("validation score 76 because: ...") |
 | < 70 | REJECT | Re-run failing steps before surfacing; do NOT present to CC |
 
+### 6. Record the verdict (ALWAYS — the telemetry loop, added 2026-07-10)
+
+Before returning the schema, record your verdict so first-pass success is measurable
+(this closes the loop where 2,544 gate fires had produced 0 recorded verdicts):
+
+```bash
+python scripts/core/task_outcomes.py record --session "<short-task-slug>" \
+  --verdict <approve|warn|reject> --source validator \
+  --detail "score=<validation_score>; <one-line reason>"
+```
+
+This is your ONLY permitted write. If the command fails, note it in `failure_reasons`
+and continue — recording must never block the verdict itself.
+
 ## Hard Constraints
 
-- **READ-ONLY.** Never edit files, never Write, never modify state. Bash commands must be non-destructive (no `rm`, no `git commit`, no API writes).
+- **READ-ONLY** except the single `task_outcomes.py record` call above. Never edit files, never Write, never modify state. Bash commands must be non-destructive (no `rm`, no `git commit`, no API writes).
 - **Never spawn a sub-agent.** You are the terminal node in the orchestration chain.
 - **Max runtime: 2 minutes.** If verification would take longer, mark remaining claims UNVERIFIABLE and return partial results.
 - **Never invent success criteria.** If criteria were not passed in, return score 0 with `recommendation: "orchestrator did not provide success criteria"`.

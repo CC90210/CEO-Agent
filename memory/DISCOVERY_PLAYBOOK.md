@@ -1,4 +1,5 @@
 ---
+description: "Six-phase NEPQ-based discovery framework for sales calls—questions to uncover prospect pain points and technical stack, guiding to automation audit or retainer"
 tags: [sales, outreach, NEPQ]
 last_updated: 2026-05-21
 freshness_threshold_days: 90
@@ -61,4 +62,4 @@ freshness_threshold_days: 90
 
 ## Obsidian Links
 - [[brain/USER]] | [[brain/CEO_OPERATING_SYSTEM]] | `memory/LEAD_TRACKER.csv`
-- [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) | [[agents/revenue-hunter]]
+- `../CMO-Agent/brain/CONTENT_BIBLE` (Maven canonical) | [[agents/revenue-hunter]]

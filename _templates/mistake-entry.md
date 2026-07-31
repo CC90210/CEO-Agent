@@ -1,7 +1,12 @@
-### {{date:YYYY-MM-DD}} — [Mistake Name]
-**What happened:**
-**Root cause:**
-**Prevention:**
+---
+tags: [template]
+last_updated: 2026-07-09
+---
+
+### [Mistake Name] ({{date:YYYY-MM-DD}})
+**Failure:** <!-- What CC saw / what actually went wrong, with the evidence -->
+**Root cause:** <!-- aka "Why it slipped" — the mechanism, not the symptom. Number them if several compounded -->
+**Prevention:** <!-- The rule that makes recurrence impossible. Link related patterns with [[memory/PATTERNS]] § name -->
 **Recurrence:** First occurrence
 
 ## Obsidian Links

@@ -4,6 +4,8 @@ description: Use this skill whenever the user mentions NotebookLM, Google Notebo
 triggers: [NotebookLM, Google Notebook, audio podcast, document study, knowledge management]
 tier: specialized
 dependencies: []
+tags: [skill, notebooklm]
+last_updated: 2026-06-20
 ---
 
 # NotebookLM Skill

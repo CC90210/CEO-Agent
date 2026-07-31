@@ -4,6 +4,8 @@ description: Mandatory contract for sending email/outreach from any AI (Claude, 
 disable-model-invocation: false
 triggers: ["email safety", "use email safety", "run email safety"]
 tier: specialized
+tags: [skill, email-safety]
+last_updated: 2026-06-20
 ---
 
 # Email Safety — One Rulebook for Every AI

@@ -4,6 +4,7 @@ description: Full desktop autonomy via Telegram — 60+ commands for app control
 tags: [skill]
 triggers: ["computer control", "use computer control", "run computer control"]
 tier: standard
+last_updated: 2026-06-20
 ---
 
 # Computer Control V2.1 — Full Desktop Autonomy (60+ Commands)

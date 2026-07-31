@@ -1,5 +1,6 @@
 ---
 tags: [docs, index, hub]
+last_updated: 2026-07-09
 ---
 
 # Documentation Index
@@ -26,7 +27,7 @@ tags: [docs, index, hub]
 
 ## Cross-Agent Prompts
 
-Paste-ready system messages for sibling agents (Maven, Atlas, Bravo-Mac) live in chat history with CC, not in this repo. They were briefly committed as `docs/*_PROMPT.md` files but got removed 2026-04-26 as redundant — chat is the source of truth. Re-request them by name when needed.
+Committed paste-ready `*_PROMPT.md` runbooks (VPS deploy/verify, Mac sync, etc.) live in `docs/deploy/` — check the superseded banners before reusing any of them.
 
 ## Workstation
 - [[docs/AI_WORKSTATION_ROADMAP]] — Full AI workstation upgrade plan

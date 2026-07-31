@@ -5,6 +5,8 @@ license: Complete terms in LICENSE.txt
 triggers: [MCP server, build MCP, FastMCP, MCP SDK, Model Context Protocol]
 tier: specialized
 dependencies: []
+tags: [skill, mcp-builder]
+last_updated: 2026-07-20
 ---
 
 # MCP Server Development Guide
@@ -239,6 +241,7 @@ Load these resources as needed during development:
   - Running an evaluation with the provided scripts
 
 ## Reference
+- [[skills/mcp-builder/reference/INDEX]] — complete reference registry
 - [[skills/mcp-builder/reference/evaluation]] — Evaluation creation guide
 - [[skills/mcp-builder/reference/mcp_best_practices]] — Core MCP guidelines
 - [[skills/mcp-builder/reference/node_mcp_server]] — TypeScript implementation guide

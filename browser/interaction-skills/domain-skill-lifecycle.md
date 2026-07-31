@@ -1,3 +1,8 @@
+---
+tags: [browser, automation]
+last_updated: 2026-05-11
+---
+
 # Domain Skill Lifecycle
 
 Use this after discovering site-specific knowledge.

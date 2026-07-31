@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **60 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -18,24 +18,23 @@ Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first
 - [ORCHESTRATION.md](ORCHESTRATION.md) — ORCHESTRATION — Capability Governance & Routing Integrity
 - [ORCHESTRATION_DECISION_TABLE.md](ORCHESTRATION_DECISION_TABLE.md) — ORCHESTRATION — Decision Table (read this first)
 - [SECURITY_MODEL.md](SECURITY_MODEL.md) — SECURITY MODEL — Agent Command Center
-- [SOUL.md](SOUL.md) — BRAVO — High-Leverage Business Manager (V5.5)
+- [SOUL.md](SOUL.md) — BRAVO — CEO · COO · CTO (CC's right hand)
 - [STATE.md](STATE.md) — STATE — Current Operational State
 - [USER.template.md](USER.template.md) — USER — {{ full_name }}'s Operator Profile
 - [V68_AGENT_OS_PATTERNS.md](V68_AGENT_OS_PATTERNS.md) — V6.8 — Agent-OS Vocabulary Layer
 
 ## Deploy & multi-machine
 - [CROSS_MACHINE_SYNC.md](CROSS_MACHINE_SYNC.md) — CROSS-MACHINE SYNC PROTOCOL
-- [VPS_SHOPOUT_HOTFIX_PROMPT.md](VPS_SHOPOUT_HOTFIX_PROMPT.md) — VPS Shop-Out Hotfix — paste this whole block into the Claude Code session running ON the SunBiz VPS
+- [VPS_SUNBIZ_BRIDGE_PROMPT.md](VPS_SUNBIZ_BRIDGE_PROMPT.md) — VPS Agent Task — Verify the SunBiz Website→CRM→Email Bridge
+- [VPS_SUNBIZ_TASK2_PROMPT.md](VPS_SUNBIZ_TASK2_PROMPT.md) — VPS Agent — Task 2 (close the self-test gap + fix the SMS-step defect)
 
 ## Prompts & playbooks
 - [CLIENT_PLAYBOOK.md](CLIENT_PLAYBOOK.md) — 🎯 CLIENT PLAYBOOK — What CC Does, How He's Different, How to Run a Meeting
-- [GLM_SYSTEM_PROMPT.md](GLM_SYSTEM_PROMPT.md) — GLM 5.2 System Prompt — ZCode Chassis
 
 ## Reference & architecture
 - [APP_REGISTRY.md](APP_REGISTRY.md) — APP REGISTRY — External Codebase Routing
 - [BENCHMARK.md](BENCHMARK.md) — 🧠 BRAVO BENCHMARK — Agentic Maturity Assessment
 - [BRAIN_LOOP.md](BRAIN_LOOP.md) — BRAIN LOOP — 10-Step Reasoning Protocol (V5.5 Enhanced)
-- [BRAVO_PRODUCT_ROADMAP.md](BRAVO_PRODUCT_ROADMAP.md) — Bravo Product Roadmap
 - [CANONICAL_ROLES.md](CANONICAL_ROLES.md) — CANONICAL ROLES -- C-Suite Function Reference
 - [CEO_OPERATING_SYSTEM.md](CEO_OPERATING_SYSTEM.md) — CEO Operating System — Bravo V5.5
 - [CHANGELOG.md](CHANGELOG.md) — BRAVO — Self-Modification Changelog
@@ -47,7 +46,9 @@ Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first
 - [DASHBOARD.md](DASHBOARD.md) — Command Center
 - [DATA_TAXONOMY.md](DATA_TAXONOMY.md) — Data Taxonomy
 - [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS AI (V1.0, 2026-04-30)
+- [EMAIL_PIPELINE.md](EMAIL_PIPELINE.md) — Inbound Email Pipeline — Runbook
 - [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) — EVENT BUS CONTRACT — V6 BUILD 3
+- [EXTERNAL_REVIEW_INTEGRATION.md](EXTERNAL_REVIEW_INTEGRATION.md) — EXTERNAL REVIEW INTEGRATION — Fold the Bots Into the Loop
 - [METRIC_AUDIT.md](METRIC_AUDIT.md) — Dashboard Metric Audit
 - [MODEL_CONFIG.md](MODEL_CONFIG.md) — (no H1 heading)
 - [OKRs.md](OKRs.md) — OKRs — Q2 2026 (April - June)
@@ -59,8 +60,9 @@ Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first
 - [RISK_REGISTER.md](RISK_REGISTER.md) — Risk Register — Business Empire
 - [SETUP_WIZARD_2_SPEC.md](SETUP_WIZARD_2_SPEC.md) — Setup Wizard 2.0
 - [SHARED_DB.md](SHARED_DB.md) — Shared DB
+- [SUBCONSCIOUS_LAYER.md](SUBCONSCIOUS_LAYER.md) — THE SUBCONSCIOUS LAYER — What Runs Beneath the Conscious Brain
 - [TOOL_SHED.md](TOOL_SHED.md) — 🧰 TOOL SHED — CC's GitHub Repository Catalog
-- [V6_ARCHITECTURE.md](V6_ARCHITECTURE.md) — V6 Architecture — Canonical History (V6.0 → V6.8)
+- [V6_ARCHITECTURE.md](V6_ARCHITECTURE.md) — Substrate Architecture — current: **V7.3.3** (foundation history V6.0 → V6.8 below)
 
 ## Routing & capability map
 - [AGENT_INDEX.md](AGENT_INDEX.md) — Agent Index — The 4-Agent Graph Hub
@@ -69,5 +71,6 @@ Auto-generated index of tracked `brain/*.md` — **57 files**. Each file's first
 - [INDEX.md](INDEX.md) — Brain Index
 - [INTENTS.md](INTENTS.md) — INTENTS — Verb-by-Verb Playbook
 - [QUICK_REFERENCE.md](QUICK_REFERENCE.md) — QUICK REFERENCE — Complete Tool Routing
+- [WHEN_TO_USE_AGENTS.md](WHEN_TO_USE_AGENTS.md) — When To Use Agents
 - [WHEN_TO_USE_SKILLS.md](WHEN_TO_USE_SKILLS.md) — When To Use Skills
 

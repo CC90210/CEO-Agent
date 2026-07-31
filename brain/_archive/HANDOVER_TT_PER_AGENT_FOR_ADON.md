@@ -1,3 +1,14 @@
+---
+description: "Historical handover for the completed SunBiz per-agent Text Torrent SMS implementation"
+tags: [sunbiz, sms, texttorrent, handoff, archived]
+last_updated: 2026-06-24
+freshness_threshold_days: 365
+status: archived
+archived_on: 2026-07-19
+archived_from: brain/HANDOVER_TT_PER_AGENT_FOR_ADON.md
+archive_reason: "Implementation handoff completed; shipped commits and remaining live checks are recorded in the session log."
+superseded_by: memory/SESSION_LOG.md
+---
 # Handover — SunBiz Per-Agent Text Torrent SMS
 
 **From:** Bravo (CC's agent) → **To:** APEX (Adon's agent)
@@ -94,3 +105,7 @@ Enabling per-rep SENDING numbers means prospect replies come back to those per-r
 ## 8. Coordination
 
 We both edit `oasis-command-center`. Files we touched this round are in §3 — please pull latest before editing them so we don't collide. Bravo posts status to the `agent_activity` table (the agent↔agent channel). Let's adversarially debug each other's work toward a turnkey result — flag anything you find and we'll do the same.
+
+## Obsidian Links
+- [[brain/INDEX]]
+- [[brain/STATE]]

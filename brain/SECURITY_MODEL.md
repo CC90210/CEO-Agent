@@ -1,4 +1,5 @@
 ---
+description: "Agent Command Center security model: multi-tenant RLS isolation, bearer+cookie auth, field encryption, bridge pairing — every claim mapped to migrations"
 tags: [security, architecture, multi-tenant, encryption, hmac, rls, canonical]
 purpose: Single canonical doc explaining how the Agent Command Center secures multi-tenant data, authenticates bridge daemons, and isolates per-client identity. The answer to "is this military-grade?" is in this file.
 last_updated: 2026-06-09
@@ -18,7 +19,7 @@ verified: 2026-06-09
 
 **One shared dashboard. One shared Supabase. N tenants. Tenant ID on every row that matters.**
 
-- **Dashboard:** `agent-dashboard-cc90210.vercel.app` (Vercel-hosted Next.js).
+- **Dashboard:** `oasisai.work` (canonical domain; Vercel-hosted Next.js — deployment alias `agent-dashboard-cc90210.vercel.app`).
   Same URL for CC and every paying client. Routes are tenant-aware via
   the auth-cookie / bridge-token resolution path.
 - **Supabase:** project ref `phctllmtsogkovoilwos`. Single Postgres; isolation

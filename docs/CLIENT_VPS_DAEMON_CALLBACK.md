@@ -2,6 +2,8 @@
 title: Client VPS daemon → dashboard HTTP callback pattern
 date: 2026-05-16
 status: ACTIVE — required reading before any client agent moves off CC's machine
+tags: [docs]
+last_updated: 2026-05-22
 ---
 
 # Why this exists
@@ -159,3 +161,7 @@ event bus might be paused.
 3. `apps/command-center/app/api/bridge/records/[entity]/route.ts` (this endpoint)
 4. `apps/command-center/lib/manifest/data.ts` (`createRecord` / `updateRecord` — what
    the endpoint dispatches to)
+
+## Obsidian Links
+- [[docs/INDEX]]
+- [[brain/STATE]]

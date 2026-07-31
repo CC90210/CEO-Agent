@@ -1,9 +1,10 @@
 ---
+description: "Reference for multi-machine Claude Code sync: defines git pull/push boundaries, daemon ownership (Windows-only), and session declaration requirements"
 tags: [sync, multi-machine, protocol, non-negotiable]
 purpose: Single canonical protocol for how Claude Code on Windows and Claude Code on Mac stay in perfect sync without stepping on each other's work.
 owner: CC (Conaugh McKenna)
 created: 2026-04-11
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -19,7 +20,6 @@ verified: 2026-06-09
 
    ❌ Mac must NOT run any of these (they mutate shared state — running two = corruption):
    - `scheduler.py` (Supabase `cron_jobs` table)
-   - `skool_engine.py daemon` (Skool browser session lock)
    - `telegram_agent.js` (single Telegram poll connection)
    - any PM2 processes under the `bravo-*` namespace
    - `local_bridge.py _loop` (heartbeat ping daemon — single bridge per machine is fine, but redundant heartbeats waste rows)
@@ -34,12 +34,7 @@ verified: 2026-06-09
      simultaneously — no conflict.
    - `bravo bridge install` to set up launchd auto-start on login.
 
-   **Skool daemon specifically:** Windows-exclusive. The Chromium profile at
-   `tmp/skool-browser/` holds CC's Skool auth session, and an OS-level file
-   lock (`msvcrt.locking` via `DaemonLock` class) prevents two instances.
-   Running Skool daemon on Mac means a second browser session logs into the
-   same Skool account → Skool sees two devices → double-replies publicly in
-   the the prior community community with CC's name attached. **NEVER.**
+   **Skool daemon:** archived 2026-05-18 → `scripts/_archive/skool/` (revival steps in its README).
 
    **Telegram bridge specifically:** Only one bridge can exist globally. Both
    bridges use the same `TELEGRAM_BOT_TOKEN`, which means Telegram's
@@ -65,13 +60,12 @@ verified: 2026-06-09
 | `.env.agents` | **LOCAL to each machine** | NEVER committed. Each box has its own copy with machine-specific overrides (GWS_PATH, paths, etc). Both machines use the SAME `TELEGRAM_BOT_TOKEN` and SAME `BRAVO_SUPABASE_*` — that's intentional (single source of truth for state), but it also means both machines must NEVER run the telegram bridge or scheduler simultaneously. |
 | `tmp/` | **LOCAL to each machine** | Gitignored. Daemon state, browser profiles, heartbeats. Never shared. |
 | `brain/` | **shared, read-mostly** | Both machines read. Edits go through normal commit flow. |
-| `memory/SESSION_LOG.md` | **append-only shared** | Both machines append to the top. Git merges cleanly because every entry is a new section. |
-| `memory/ACTIVE_TASKS.md` | **shared, mutation-prone** | Both machines may update P0 items. Use the handoff protocol to avoid conflicts. |
+| `memory/SESSION_LOG.md` | **append-only shared** | Canonical cross-session handoff trail. Append through `scripts/state/state_sync.py`; incoming sessions read the latest entries. |
+| `memory/ACTIVE_TASKS.md` | **shared, mutation-prone** | Both machines may update P0 items. Use the state/session-log protocol to avoid conflicts. |
 | `memory/ACTIVE_SESSION.json` | **shared, machine-claimed** | Declares which machine holds the "live" slot right now. |
-| `memory/HANDOFF.md` | **shared** | Outgoing session writes here; incoming session reads first. |
 | `scripts/` | **shared** | Both machines can edit. Surgical changes only — no full-file rewrites on Mac if Windows is also editing. |
 | `skills/` | **shared** | Safe to edit on either. |
-| Daemons (skool, scheduler, telegram-bot) | **Windows only** | Mac never starts these. |
+| Daemons (scheduler, telegram-bot) | **Windows only** | Mac never starts these. |
 
 ## The Session Lifecycle
 
@@ -85,12 +79,12 @@ What it does:
 1. `git fetch origin main && git pull --ff-only origin main`
 2. Reads `memory/ACTIVE_SESSION.json` — if another machine is live (<30 min since last heartbeat), prints a warning with the other machine's current task
 3. Writes a fresh ACTIVE_SESSION claim: `{machine, hostname, started_at, last_heartbeat, claude_session_id}`
-4. Reads `memory/HANDOFF.md` and prints the last handoff note
-5. Reports status: commit hash, P0 task count, current MRR from live DB
+4. Prints the legacy scratch handoff if one exists; the durable successor is the latest entry in [[memory/SESSION_LOG]]
+5. Reports the current commit hash and open-task count
 
 ### During a session (each significant action)
 
-The session script runs in the background and bumps the heartbeat every 5 minutes so the claim doesn't expire. If you're about to touch a file that the other machine also touched in the last 10 minutes (detected via `git log`), the protocol says: pull again, re-check, and either proceed or write to HANDOFF.md first.
+The active-session claim is advisory and can become stale. Before touching a file recently changed on the other machine, pull again and re-check. Record durable cross-session context with `python scripts/state/state_sync.py --note "<status, blocker, and next step>"`; that appends to the canonical session log.
 
 ### On session END
 
@@ -100,7 +94,7 @@ bash scripts/hooks/bravo-session-end.sh "one-line summary of what I did"
 
 What it does:
 1. Appends to `memory/SESSION_LOG.md` with the summary + machine tag
-2. Writes `memory/HANDOFF.md` with: status, files touched, blocker if any, recommended next steps
+2. Records status, files touched, blockers, and recommended next steps in `memory/SESSION_LOG.md` (the helper's optional scratch-handoff output is legacy, not canonical state)
 3. Releases the ACTIVE_SESSION claim
 4. `git add <tracked files> && git commit -m "bravo(<machine>): <summary>"`
 5. `git push origin main`
@@ -145,14 +139,6 @@ Every session declares its identity in `ACTIVE_SESSION.json`:
 
 Any Claude Code session that reads this file knows instantly: who's live, what they're doing, how stale the claim is, and whether to defer or proceed.
 
-## The Skool Daemon Exclusivity Lock
-
-The skool daemon uses a **file-based lock** at `tmp/skool_daemon.lock` (Windows `msvcrt.locking`). Only one process can hold it. But `tmp/` is gitignored and machine-local, so Mac has no knowledge of the Windows lock. That means:
-
-**Never run `python scripts/skool_engine.py daemon` on Mac.** The Mac daemon would try to open a fresh Chromium profile at `tmp/skool-browser/`, Skool would see a second device logging into the same account, and you'd get double-replies in the live community.
-
-Enforcement: the session script checks which machine you're on and refuses to start skool daemon if `machine != "windows"`.
-
 ## Telegram Bridge Handoff Protocol (Windows ↔ Mac)
 
 **Default state:**
@@ -186,9 +172,8 @@ ssh cc-mac "pm2 stop bravo-telegram && pm2 save"
 ### Hard rules
 
 - **NEVER both running.** Two bridges sharing `TELEGRAM_BOT_TOKEN` → Telegram routes each message to whichever grabs it first, alternating randomly. Your phone commands will feel broken.
-- **Skool daemon stays Windows-only regardless of telegram location.** It has no Mac equivalent and uses an OS-level DaemonLock.
 - **Scheduler stays Windows-only regardless of telegram location.** Never run two schedulers against one Supabase `cron_jobs` table.
-- **Only telegram bridge is handoff-capable.** Everything else (scheduler, skool, content automation) is Windows-pinned.
+- **Only telegram bridge is handoff-capable.** Everything else (scheduler, content automation) is Windows-pinned.
 
 ## Telegram as the Cross-Machine Control Plane
 
@@ -207,5 +192,3 @@ This is future work — the protocol supports it, the implementation is ~60 line
 - [[brain/CREDENTIALS_SCAFFOLD]]
 - [[memory/SESSION_LOG]]
 - [[memory/ACTIVE_TASKS]]
-- [[memory/HANDOFF]]
-- [[memory/SESSION_LOG]]

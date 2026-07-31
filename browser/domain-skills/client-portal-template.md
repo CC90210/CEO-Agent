@@ -1,3 +1,8 @@
+---
+tags: [browser, automation]
+last_updated: 2026-05-11
+---
+
 # Client Portal Template
 
 Use this as the starter map for client-specific browser portals.

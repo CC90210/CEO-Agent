@@ -6,6 +6,8 @@ confidence: 0.91
 
 # Frontier Models — Mythos, Competitors, and AOS Preparation
 
+> ⚠️ **Snapshot as of 2026-04-08.** Model-landscape claims (flagship names, benchmarks) are dated — verify against live sources before citing. The `scripts/lib/model_registry.py` config block in this page IS current.
+
 > [[knowledge/index]] | [[knowledge/wiki/tech-stack]] | [[brain/CAPABILITIES]]
 
 ## Claude Mythos (Confirmed March 27, 2026)

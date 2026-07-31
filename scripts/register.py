@@ -87,7 +87,7 @@ AGENTS_DIR = PROJECT_ROOT / "agents"
 WORKFLOWS_DIR = PROJECT_ROOT / ".agents" / "workflows"
 ADR_DIR = PROJECT_ROOT / "docs" / "adr"
 
-VALID_TIERS = {"core", "specialized", "meta", "safety", "tool"}
+VALID_TIERS = {"core", "specialized", "meta", "safety", "tool", "strategic"}
 VALID_RISKS = {"low", "medium", "high"}
 
 
@@ -242,22 +242,39 @@ def create_agent(args) -> int:
     if md.exists():
         print(f"ERROR: agents/{slug}.md already exists", file=sys.stderr)
         return 1
+    # V7.4 canonical agent schema (ADR-0012): model + read-only default tools —
+    # authors WIDEN scoping deliberately; the old template granted Write/Edit/Bash
+    # by default, which inverted the guard model's least-privilege posture.
+    trig = ", ".join(f'"{t.strip()}"' for t in (args.triggers or "").split(",") if t.strip())
     text = (
         "---\n"
         f"name: {slug}\n"
         f"description: {args.description}\n"
-        f"owner: {args.owner or _agent_name()}\n"
+        "model: sonnet\n"
+        "tools:\n  - Read\n  - Grep\n  - Glob\n"
         f"tier: {args.tier}\n"
-        "tools:\n  - Read\n  - Write\n  - Edit\n  - Bash\n"
+        f"owner: {args.owner or _agent_name()}\n"
+        f"triggers: [{trig}]\n"
+        "tags: [agent]\n"
         "---\n\n"
-        f"# {slug.replace('-', ' ').title()}\n\n"
-        f"> {args.description}\n\n"
-        "## When to spawn this agent\n\n- (Triggers.)\n\n"
+        f"You are Bravo's {slug.replace('-', ' ')} for CC.\n\n"
+        "## Rules\n\n- (The operative rules — terse, all substance.)\n\n"
         "## What this agent owns\n\n- (Scope.)\n\n"
-        "## What this agent must NOT do\n\n- (Boundaries.)\n"
+        "## What this agent must NOT do\n\n- (Boundaries. Widen `tools:` above ONLY with a reason.)\n\n"
+        "## Success Metrics\n\n- (Concrete.)\n\n"
+        "## Collaboration Rules\n\n- (Hands off to / receives from which agents; write-enabled output is validator-gated.)\n"
     )
     md.write_text(text, encoding="utf-8")
     print(f"  Created {md.relative_to(PROJECT_ROOT)}")
+    # V7.4 (ADR-0012 §2/§5) — enforcement boundary, stated loudly so the scaffold
+    # never implies a sandbox it doesn't deliver: `tools:` here is ADVISORY graph
+    # metadata. Claude Code's runtime only ENFORCES the tool allow-list for
+    # personas under `.claude/agents/`. If this agent must be a runtime-spawnable,
+    # tool-restricted subagent, copy it to `.claude/agents/<name>.md` (inline
+    # `tools:` string) — that is the enforced home; `agents/` is the graph bench.
+    print("  NOTE: agents/ tools: are advisory (graph metadata). For RUNTIME tool "
+          "enforcement, place a copy under .claude/agents/ — see ADR-0012.",
+          file=sys.stderr)
     return _post_create(["agent", slug, str(md.relative_to(PROJECT_ROOT))])
 
 

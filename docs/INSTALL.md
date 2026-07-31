@@ -1,5 +1,6 @@
 ---
 tags: [install, setup, onboarding]
+last_updated: 2026-07-19
 ---
 
 # Installing Bravo
@@ -28,7 +29,7 @@ What it does in order:
 3. Creates a Python virtualenv at `~/.oasis/wizard/venv`
 4. Installs Python deps (`requirements.txt`) and Node deps (`package.json`)
 5. Writes `oasis` and `bravo` shims to `~/.oasis/bin/` and adds that folder to your PATH
-6. Launches the interactive setup wizard to collect your credentials and let you choose a profile like Bravo, Atlas, Maven, Aura, Hermes, Solara (SunBiz), or Suga
+6. Launches the interactive setup wizard to collect your credentials and let you choose a profile like Bravo, Atlas, Maven, Aura, Hermes, or the client-product pair Solara + Helios (SunBiz ops + sales)
 7. **Personalizes the agent for you:** wizard answers populate `brain/operator.profile.json`, `scripts/personalize.py` renders `brain/USER.md` + memory templates, `scripts/scaffold.py` token-replaces the original operator's identifiers (name, brand, website, north star) across the codebase with yours
 8. Prints a success banner with your first commands
 

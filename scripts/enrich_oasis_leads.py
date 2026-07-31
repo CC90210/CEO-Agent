@@ -86,15 +86,6 @@ def _research_fetcher():
     return fetch
 
 
-def _anthropic():
-    env = load_env()
-    key = env.get("ANTHROPIC_API_KEY")
-    if not key:
-        raise SystemExit("missing ANTHROPIC_API_KEY")
-    from anthropic import Anthropic  # type: ignore
-    return Anthropic(api_key=key)
-
-
 def _domain_from_lead(data: dict) -> Optional[str]:
     """Pick the best URL to scrape. Notes sometimes carry a Website: line
     from the original Firecrawl scrape; prefer that over the email domain."""
@@ -180,20 +171,15 @@ def _scrape(fetch_fn, url: str) -> Optional[str]:
     return text if text.strip() else None
 
 
-def _ask_claude(client, markdown: str) -> Optional[dict]:
+def _ask_claude(markdown: str) -> Optional[dict]:
+    from lib.claude_cli import run_claude_cli
     if len(markdown) > 12000:
         markdown = markdown[:12000]
     prompt = EXTRACTION_PROMPT.replace("{markdown}", markdown)
-    try:
-        msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=400,
-            messages=[{"role": "user", "content": prompt}],
-        )
-    except Exception as exc:  # noqa: BLE001
-        print(f"  [claude] call failed: {exc}", file=sys.stderr)
+    text = run_claude_cli(prompt, model="haiku", timeout=90)
+    if text is None:
+        print("  [claude] call failed (subscription CLI unavailable)", file=sys.stderr)
         return None
-    text = "".join(b.text for b in msg.content if getattr(b, "type", None) == "text")
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if not m:
         return None
@@ -247,7 +233,6 @@ def cmd_audit(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     sb = _supabase()
     fetch_fn = _research_fetcher()
-    cl = _anthropic()
     cands = _list_candidates(sb, args.id)
     if args.limit:
         cands = cands[: args.limit]
@@ -274,7 +259,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         if not md:
             summary["skipped_no_md"] += 1
             continue
-        extracted = _ask_claude(cl, md)
+        extracted = _ask_claude(md)
         if not extracted:
             summary["skipped_no_extract"] += 1
             continue

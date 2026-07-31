@@ -6,6 +6,8 @@ date: 2026-05-16
 deciders: [bravo, cc]
 supersedes: null
 superseded_by: null
+tags: [docs, adr, decision]
+last_updated: 2026-06-20
 ---
 
 # ADR-0002 — CONTEXT.md as canonical empire vocabulary

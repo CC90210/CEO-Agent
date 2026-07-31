@@ -1,8 +1,9 @@
 ---
+description: "Routes tasks inline or to sub-agents by 6-dimension risk matrix; governs tool choice, delegation scope, and agent-layer selection"
 tags: [orchestration, governance, routing, critical, delegation]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
-verified: 2026-06-09
+verified: 2026-07-22
 ---
 # ORCHESTRATION — Capability Governance & Routing Integrity
 
@@ -241,7 +242,6 @@ This was previously conflated across `brain/AGENTS.md` and `agents/INDEX.md`. Th
 - `skills/gws-gmail-reply/SKILL.md` — Gmail reply (sends)
 - `skills/gws-gmail-reply-all/SKILL.md` — Gmail reply-all (sends)
 - `skills/gws-chat-send/SKILL.md` — Google Chat send
-- `skills/skool-automation/SKILL.md` — community content edits
 
 **Rule for future skills:** any skill that mutates external state (sends, posts, publishes, pays, deploys, writes to a production DB) MUST have the flag. Read-only knowledge skills (e.g., `supabase-patterns` for SQL guidance) do NOT need the flag.
 
@@ -251,9 +251,9 @@ Currently most `agents/` are assigned "Sonnet" uniformly. This is cost-suboptima
 
 | Tier | Model | Agents that belong here |
 |------|-------|-------------------------|
-| **Fast/deterministic** | Haiku 4.5 | git-ops, explorer, documenter, social-publisher, the Validator subagent |
-| **Reasoning** | Sonnet 4.6 | writer, reviewer, debugger, researcher, chief-of-staff, revenue-hunter, workflow-builder, most of the fleet |
-| **Critical/irreversible** | Opus 4.7 | architect (for billing / vendor lock-in / schema migration decisions ONLY), meta-agent |
+| **Fast/deterministic** | Haiku 4.5 | git-ops, explorer, documenter, social-publisher, the Validator subagent, project-shepherd, sales-discovery-coach |
+| **Reasoning** | Sonnet 4.6 | writer, reviewer, debugger, researcher, chief-of-staff, revenue-hunter, workflow-builder, the V7.2 agency-import bench, most of the fleet |
+| **Critical/irreversible** | Opus 4.8 (heavy code) / Fable 5 (top reasoning) | architect (for billing / vendor lock-in / schema migration decisions ONLY), meta-agent. Canonical tier map: `scripts/lib/model_registry.py` — fable-5 is the main-loop standard since 2026-06-12 |
 
 Pattern: Planning (Sonnet) → Execution (Haiku) → Validation (Sonnet or Haiku depending on domain). Opus reserved for decisions where a wrong call is irreversible.
 
@@ -360,11 +360,11 @@ When the same user request could map to multiple tools:
 |-----------|------------|
 | "Send email" | One-off → `google_tool.py` · Sequence → `email_engine.py` |
 | "Scrape this page" | Interactive/forms → Playwright MCP · Data extraction → `firecrawl_tool.py` |
-| "Post content" | Single post → `late_tool.py` · Full pipeline → Maven (`../CMO-Agent/scripts/content_pipeline.py`) |
+| "Post content" | Single post → Maven (`../CMO-Agent/scripts/late_tool.py`) · Full pipeline → Maven (`../CMO-Agent/scripts/content_pipeline.py`) |
 | "Check revenue" | Quick MRR → `revenue_engine.py` · Full dashboard → `ceo_dashboard.py` |
 | "Search memory" | Structured → markdown files · Fuzzy → `mem0_tool.py` · Graph → Memory MCP |
 | "Transcribe audio" | Quick voice note → `scripts/transcribe.py` · Full video pipeline → Maven (`../CMO-Agent/scripts/content_pipeline.py`) |
-| "Generate image" | AI generation → `codex_image_gen.py` · Cover art → `generate_covers.py` |
+| "Generate image" | AI generation → Maven (`../CMO-Agent/scripts/codex_image_gen.py`) · Cover art → `generate_covers.py` |
 | "Book a meeting" | CC's calendar → `google_tool.py` · Client booking → `booking_engine.py` |
 
 ## Entry Point Parity
@@ -389,7 +389,7 @@ Run quarterly or after major capability additions:
 python scripts/integrations/google_tool.py test
 python scripts/integrations/supabase_tool.py list-tables --project bravo
 python scripts/integrations/stripe_tool.py balance
-python scripts/late_tool.py --json accounts
+python ../CMO-Agent/scripts/late_tool.py --json accounts
 python scripts/integrations/n8n_tool.py list
 python scripts/integrations/firecrawl_tool.py search "test"
 

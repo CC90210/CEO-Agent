@@ -26,6 +26,9 @@ from pathlib import Path
 from typing import Iterator
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+from lib import frontmatter as _fm  # noqa: E402
 STATE_DIR = PROJECT_ROOT / "state"
 INDEX_DB = STATE_DIR / "memory_index.db"
 MIGRATIONS_DIR = STATE_DIR / "migrations"
@@ -45,7 +48,10 @@ SCOPES: dict[str, list[str]] = {
     "skill":   ["skills/*/SKILL.md"],
     "brain":   ["brain/*.md"],
     "entry":   ["CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md", "ZCODE.md"],
-    "context": ["CONTEXT.md"],
+    # PERSONAL.md = the germline seed (2026-07-09 genome) — the single most
+    # canonical identity/wiring doc; it must be retrievable and its wiki-links
+    # feed the association graph (graph_activation.py shares this walker).
+    "context": ["CONTEXT.md", "PERSONAL.md"],
     "adr":     ["docs/adr/*.md"],
     "prompt":  ["prompts/*.md"],
 }
@@ -69,7 +75,12 @@ CHUNK_HARD_MAX = 2400      # break beyond this regardless
 
 H2_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
 H3_RE = re.compile(r"^###\s+(.+?)\s*$", re.MULTILINE)
-FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
+# Frontmatter parsing comes from lib.frontmatter. The local regex used to be
+# `^---\n(.*?)\n---\n`, which cannot match a CRLF file — and 859 of this repo's
+# 1504 markdown files are CRLF. The result was silent: no tags indexed, no L1
+# abstract, and raw YAML leaking into the indexed body for 57% of the vault.
+# Every sibling parser in the repo carries `\s*` and absorbs the \r; this one
+# did not.
 TAGS_RE = re.compile(r"^tags:\s*\[?(.+?)\]?\s*$", re.MULTILINE)
 
 try:
@@ -107,6 +118,17 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
     sql_path = MIGRATIONS_DIR / "002_memory_index.sql"
     if sql_path.exists():
         conn.executescript(sql_path.read_text(encoding="utf-8"))
+    # V7.3.0: version-gated migrations (002 is idempotent CREATE IF NOT EXISTS;
+    # 003 rebuilds the FTS5 table for the abstract column and MUST run once).
+    try:
+        row = conn.execute("SELECT MAX(version) AS v FROM schema_version").fetchone()
+        current = row["v"] if row and row["v"] is not None else 1
+    except sqlite3.Error:
+        current = 1
+    if current < 2:
+        m3 = MIGRATIONS_DIR / "003_memory_abstract.sql"
+        if m3.exists():
+            conn.executescript(m3.read_text(encoding="utf-8"))
 
 
 def _hash_file(path: Path) -> str:
@@ -118,10 +140,9 @@ def _hash_file(path: Path) -> str:
 
 
 def _extract_tags(text: str) -> str:
-    fm = FRONTMATTER_RE.match(text)
-    if not fm:
+    inner, _body, _eol = _fm.split(text)
+    if inner is None:
         return ""
-    inner = fm.group(1)
     m = TAGS_RE.search(inner)
     if not m:
         return ""
@@ -130,12 +151,31 @@ def _extract_tags(text: str) -> str:
     return " ".join(p for p in parts if p)
 
 
+# V7.3.0: per-file L1 abstract = the `description:` frontmatter line (OpenViking
+# tiered-loading pattern, ours). Indexed as an FTS5 column on every chunk of the
+# file so abstract terms are lexically searchable; backfilled across brain/ and
+# memory/ by scripts/core/abstract_backfill.py.
+_DESC_RE = re.compile(r"^description:\s*(.+)$", re.MULTILINE)
+
+
+def _extract_description(text: str) -> str:
+    inner, _body, _eol = _fm.split(text)
+    if inner is None:
+        return ""
+    m = _DESC_RE.search(inner)
+    if not m:
+        return ""
+    desc = m.group(1).strip().strip('"').strip("'")
+    if desc in (">", "|"):  # block scalar — real text is on continuation lines
+        return ""
+    return desc[:300]
+
+
 def _strip_frontmatter(text: str) -> tuple[str, int]:
-    fm = FRONTMATTER_RE.match(text)
-    if not fm:
+    block, body, _eol = _fm.split(text)
+    if block is None:
         return text, 0
-    body = text[fm.end():]
-    line_offset = text[: fm.end()].count("\n")
+    line_offset = text[: len(text) - len(body)].count("\n")
     return body, line_offset
 
 
@@ -255,7 +295,19 @@ def _open_lance_table(create_if_missing: bool = True):
         except TypeError:
             existing = []
     if _LANCE_TABLE in existing:
-        return db.open_table(_LANCE_TABLE)
+        table = db.open_table(_LANCE_TABLE)
+        # V7.3.0: schema evolution — if the table predates the `abstract` field,
+        # drop + recreate. Safe: the index is a rebuildable artifact, and the
+        # 003 migration wiped source_state so the next build re-embeds fully.
+        try:
+            if "abstract" not in [f.name for f in table.schema]:
+                if not create_if_missing:
+                    return None  # stale-schema table is unusable for reads
+                db.drop_table(_LANCE_TABLE)
+            else:
+                return table
+        except Exception:
+            return table
     if not create_if_missing:
         return None
     schema = pa.schema([
@@ -265,6 +317,7 @@ def _open_lance_table(create_if_missing: bool = True):
         pa.field("heading",      pa.string()),
         pa.field("body",         pa.string()),
         pa.field("tags",         pa.string()),
+        pa.field("abstract",     pa.string()),
         pa.field("line_start",   pa.int32()),
         pa.field("line_end",     pa.int32()),
         pa.field("chunk_idx",    pa.int32()),
@@ -360,6 +413,7 @@ def build(force: bool = False, semantic: bool = True) -> dict:
 
             text = path.read_text(encoding="utf-8", errors="replace")
             tags = _extract_tags(text)
+            abstract = _extract_description(text)
             body, line_offset = _strip_frontmatter(text)
 
             # Materialize all chunks for this source so we can batch the embedder.
@@ -387,9 +441,9 @@ def build(force: bool = False, semantic: bool = True) -> dict:
                 lance_rows: list[dict] = []
                 for embed_idx, (idx, heading, chunk, ls, le) in enumerate(file_chunks):
                     cur = conn.execute(
-                        "INSERT INTO memory_chunks(source, kind, heading, body, tags) "
-                        "VALUES (?,?,?,?,?)",
-                        (rel, kind, heading, chunk, tags),
+                        "INSERT INTO memory_chunks(source, kind, heading, body, tags, abstract) "
+                        "VALUES (?,?,?,?,?,?)",
+                        (rel, kind, heading, chunk, tags, abstract),
                     )
                     rowid = cur.lastrowid
                     conn.execute(
@@ -407,6 +461,7 @@ def build(force: bool = False, semantic: bool = True) -> dict:
                             "heading":      heading or "",
                             "body":         chunk,
                             "tags":         tags or "",
+                            "abstract":     abstract or "",
                             "line_start":   ls,
                             "line_end":     le,
                             "chunk_idx":    idx,
@@ -613,6 +668,33 @@ def _hits_by_key(hits: list[dict]) -> dict[tuple[str, int], dict]:
     return {(h["source"], h["chunk_idx"]): h for h in hits}
 
 
+# V7.3.0: freshness-aware ranking (OpenViking audit finding — memory_aging
+# computes decay but retrieval ignored it). A stale file's chunks rank DOWN via
+# a multiplicative factor on the RRF score: 1.0 for fresh, linearly decaying
+# 0.3%/day of file age, floored at 0.7 so staleness reorders but never buries.
+# Hybrid mode only (RRF scores are higher-is-better; raw bm25 is inverted).
+# Opt-out: EMPIRE_FRESHNESS_RANK=0.
+_freshness_cache: dict[str, float] = {}
+
+
+def _freshness_factor(source: str) -> float:
+    import os as _os
+    if _os.environ.get("EMPIRE_FRESHNESS_RANK", "1").strip() == "0":
+        return 1.0
+    cached = _freshness_cache.get(source)
+    if cached is not None:
+        return cached
+    factor = 1.0
+    try:
+        mtime = (PROJECT_ROOT / source).stat().st_mtime
+        age_days = max(0.0, (datetime.now(timezone.utc).timestamp() - mtime) / 86400.0)
+        factor = max(0.7, 1.0 - 0.003 * age_days)
+    except OSError:
+        pass
+    _freshness_cache[source] = factor
+    return factor
+
+
 def query(text: str, limit: int = 5, kind: str | None = None,
           mode: str = "hybrid", explain: bool = False) -> list[dict]:
     """Retrieve ranked snippets.
@@ -671,21 +753,60 @@ def query(text: str, limit: int = 5, kind: str | None = None,
             if sem_rank_of is not None:
                 rrf += 1.0 / (RRF_K + sem_rank_of)
             h["rrf_score"] = round(rrf, 6)
-            h["score"] = h["rrf_score"]
+            fresh = _freshness_factor(h["source"])
+            h["score"] = round(rrf * fresh, 6)
             if explain:
                 h["lex_rank"] = lex_rank_of
                 h["sem_rank"] = sem_rank_of
+                h["freshness"] = round(fresh, 3)
                 h["explain"] = (
                     f"lex_rank={lex_rank_of or '∞'} sem_rank={sem_rank_of or '∞'} "
-                    f"→ rrf={h['rrf_score']:.4f}"
+                    f"→ rrf={h['rrf_score']:.4f} × fresh={fresh:.2f} → {h['score']:.4f}"
                 )
             else:
                 h.pop("lex_score", None)
                 h.pop("sem_score", None)
             merged.append(h)
-        return _trim_to_budget(merged, limit, kind_field="score")
+        # Freshness can reorder the RRF ordering — re-sort on the final score
+        # (stable + deterministic: score DESC, then (source, chunk_idx) ASC).
+        merged.sort(key=lambda h: (-h["score"], h["source"], h["chunk_idx"]))
+        # Trim FIRST, then spread activation from the final top-`limit` picks.
+        # Boosting the wide pre-trim set turns weak tail-matches into seeds,
+        # which both hides them from the associative layer and gets them
+        # clipped anyway — the extras must derive from what the caller will
+        # actually SEE. Extras (≤3, tiny snippets) ride above the limit;
+        # they're bounded by MAX_ASSOCIATIVE_EXTRAS, not the token budget.
+        final = _trim_to_budget(merged, limit, kind_field="score")
+        return _graph_boost(final, limit)
     finally:
         conn.close()
+
+
+def _graph_boost(hits: list[dict], limit: int) -> list[dict]:
+    """Associative layer (2026-07-10): spread activation over the vault's
+    wiki-link graph so well-connected notes rank up and 1-hop neighbors of
+    strong matches surface as `kind='associative'` extras. Opt-out with
+    EMPIRE_GRAPH_BOOST=0. HARD fallback — any graph failure returns the
+    hits untouched; the graph can only ever add signal, never break recall."""
+    import os as _os
+    if (_os.environ.get("EMPIRE_GRAPH_BOOST", "1").strip() == "0"):
+        return hits
+    try:
+        try:
+            from graph_activation import boost_hits  # same dir (scripts/core on sys.path)
+        except ImportError:
+            # V7.3.3+2 (Codex finding): programmatic callers import this module
+            # as core.memory_retriever — there the bare name doesn't resolve and
+            # the associative layer was silently disabled.
+            from core.graph_activation import boost_hits  # type: ignore
+        boosted = boost_hits(hits, limit=limit)
+        if boosted:
+            for h in boosted:
+                h.setdefault("score", h.get("assoc_score", 0.0))
+            return boosted
+    except Exception:  # noqa: BLE001 — associative layer is best-effort by design
+        pass
+    return hits
 
 
 def _trim_to_budget(hits: list[dict], limit: int, kind_field: str = "score") -> list[dict]:

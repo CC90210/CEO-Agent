@@ -3,9 +3,9 @@ name: INTENTS
 description: Verb-by-verb playbook. For each kind of operator request, the exact sequence the agent should run.
 mutability: SEMI-MUTABLE
 tags: [brain, agent-only, playbook]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
-verified: 2026-06-09
+verified: 2026-07-22
 ---
 # INTENTS — Verb-by-Verb Playbook
 
@@ -17,7 +17,7 @@ verified: 2026-06-09
 
 In chat (bridge mode), this runs through the `run_script` tool with `confirm:true` gating for the actual send. NEVER tell the operator to type the python command.
 
-1. Read `skills/outreach-send/SKILL.md` for the canonical send path.
+1. Classify the send first: replying to an INBOUND lead (funnel/DM/social — the primary motion) → compose directly and use the send_gateway steps below, skipping outreach framing. COLD/follow-up OUTREACH (on-demand only, not the default motion) → read `skills/outreach-send/SKILL.md` for the canonical outreach path.
 2. Confirm the recipient exists: call `run_script` with `lead_engine_list` (args like `--status all --limit 50`) and find them. If missing, ASK before creating — `lead_engine_add` is a mutating action that needs `confirm:true` and same-turn operator approval.
 3. Compose the draft inline in chat. Voice rules from `brain/SOUL.md` if not already in your prompt.
 4. **Pre-flight:** call `run_script` with `send_gateway_can_act` (args: `--lead-id <id> --channel email`). The gateway enforces 8 gates (CASL, cooldown, daily/hourly cap, domain cap, reputation, draft critic, bounce circuit, reservation guard). If a gate blocks, surface the reason — do NOT bypass.
@@ -192,11 +192,11 @@ Skill refs: [skills/research-fetch/SKILL.md](../skills/research-fetch/SKILL.md) 
 
 ## "Generate a CEO briefing / status report"
 
-1. Read `state/snapshots/latest_briefing.json`. If `ts` < 24h old, use it as the spine — it already has MRR, pipeline, client alerts, top warm leads.
+1. Read `state/snapshots/latest_briefing.json`. If `ts` < 24h old, use it as the spine — it has pipeline (tenant-scoped), follow-ups, client alerts, top warm leads. **No MRR — revenue is Atlas's brief, never Bravo's.**
 2. If stale or missing, run `python scripts/snapshots/briefing_snapshot.py` (one subprocess, writes the snapshot). Then read it.
 3. Add what isn't in the snapshot: Atlas STATE.md (`C:\Users\User\APPS\trading-agent\brain\STATE.md` — READ ONLY), blocked items from `memory/ACTIVE_TASKS.md`, today's #1 priority.
 4. Format per `skills/ceo-briefing/SKILL.md`. Keep under 30 lines. End with the #1 priority — make it impossible to ignore.
-5. Do NOT run `revenue_engine.py`, `lead_engine.py`, `client_health.py` live unless the snapshot path errored — the whole point of the snapshot is to avoid that 30–60 sec retrieval tax.
+5. Do NOT run `lead_engine.py` / `client_health.py` live unless the snapshot path errored — the whole point of the snapshot is to avoid that 30–60 sec retrieval tax. Never run `revenue_engine.py` for a briefing at all (Atlas-owned).
 
 ---
 

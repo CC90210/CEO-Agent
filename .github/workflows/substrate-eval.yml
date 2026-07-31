@@ -1,0 +1,47 @@
+# Substrate eval gate (2026-07-10) — the eval-in-CI ring of the genome.
+#
+# Runs the STRUCTURAL subset of the fitness function on every push/PR:
+#   - entry-point parity (LOCKSTEP blocks byte-identical across 6 runtimes)
+#   - genome-sync drift check (seed ↔ expressions)
+#   - agent_genome 10-gene expression (file-based genes only on a runner)
+#   - vault graph integrity (zero broken [[wikilinks]])
+#
+# The LIVE-health eval (scripts/harness_eval.py — PM2 fleet, Supabase cron
+# table, local claude CLI probe) is machine-bound by nature and runs as the
+# nightly 03:30 cron with Telegram alerting instead. CI asserts the substrate;
+# the cron asserts the phenotype.
+name: substrate-eval
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  substrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test runner
+        # genome_sync.py + agent_genome.py are stdlib-only; pytest is the one dep.
+        run: pip install pytest
+      - name: Entry-point parity (LOCKSTEP byte-identity)
+        run: python -m pytest scripts/tests/test_entrypoint_parity.py -q
+      - name: Vault tooling regression tests
+        run: python -m pytest scripts/tests/test_vault_doctors.py -q
+      - name: Vault graph integrity (zero broken wikilinks)
+        # The graph is what agents retrieve from. Without a gate it re-rots
+        # silently — the repair pass that produced this step found 85 broken
+        # links that no check had ever surfaced. Stdlib-only, ~2s.
+        run: python scripts/obsidian_graph_doctor.py --strict
+      - name: Genome sync drift check (seed is the source of truth)
+        run: python scripts/genome_sync.py --check
+      - name: Agent genome — structural genes expressed
+        # --structural skips operator-private genes (brain/USER.md, memory tiers)
+        # which are gitignored and absent on a clean runner; they're listed as
+        # skipped, never asserted. Full 10-gene check runs on the nightly cron.
+        run: python scripts/agent_genome.py --json --structural

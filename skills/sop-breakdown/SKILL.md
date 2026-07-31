@@ -4,6 +4,8 @@ description: Automatically creates, refines, and executes Standard Operating Pro
 triggers: [SOP, standard operating procedure, process, repeated task, workflow template]
 tier: standard
 dependencies: [memory-management]
+tags: [skill, sop-breakdown]
+last_updated: 2026-06-20
 ---
 
 # SOP Breakdown Engine

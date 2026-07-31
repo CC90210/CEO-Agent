@@ -5,6 +5,8 @@ triggers: [plan, implementation plan, feature plan, spec, requirements]
 tier: standard
 dependencies: [using-git-worktrees]
 argument_hint: "What spec or requirements? (Drop the doc / Linear issue / paste the brief)"
+tags: [skill, writing-plans]
+last_updated: 2026-05-21
 ---
 
 # Writing Plans

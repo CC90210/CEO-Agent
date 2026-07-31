@@ -11,6 +11,8 @@ metadata:
       bins: ["gws"]
       skills: ["gws-drive", "gws-sheets", "gws-calendar", "gws-gmail", "gws-chat"]
 triggers: ["persona project manager", "use persona project manager", "run persona project manager", "coordinate projects \u2014 track tasks"]
+tags: [skill, archive, _archive]
+last_updated: 2026-05-21
 ---
 
 # Project Manager

@@ -4,6 +4,8 @@ description: Multi-dimensional autonomous recovery and health maintenance. Trigg
 triggers: [heal, broken config, drift, inconsistent, stale, self-heal, recovery]
 tier: core
 dependencies: [memory-management]
+tags: [skill, self-healing]
+last_updated: 2026-05-21
 ---
 
 # Self-Healing System

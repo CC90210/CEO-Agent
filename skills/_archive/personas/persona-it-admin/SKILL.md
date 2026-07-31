@@ -11,6 +11,8 @@ metadata:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-drive", "gws-calendar"]
 triggers: ["persona it admin", "use persona it admin", "run persona it admin", "administer it \u2014 monitor security and configure workspace"]
+tags: [skill, archive, _archive]
+last_updated: 2026-05-21
 ---
 
 # IT Administrator

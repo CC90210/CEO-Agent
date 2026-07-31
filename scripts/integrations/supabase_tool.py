@@ -19,6 +19,58 @@ import os
 import sys
 from pathlib import Path
 
+# Windows CA-bundle fix (2026-07-28). This module is the shared Supabase client
+# factory — every importer inherits its TLS posture. AVG's HTTPS scanner MITMs
+# outbound TLS with a root that exists in the Windows cert store but not in
+# Python's certifi bundle, so every call raised CERTIFICATE_VERIFY_FAILED.
+# Fixing it here rather than at each call site covers all importers at once.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+ensure_os_trust()
+
+CAPABILITY_META = {
+    "category": "data.supabase",
+    "lifecycle": "active",
+    "risk": "destructive",
+    "triggers": [
+        "query Supabase",
+        "select database rows",
+        "insert database row",
+        "update database rows",
+    ],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {
+        "visible": True,
+        "confirm": True,
+        "subcommands": {
+            "list-projects": {"visible": True, "confirm": False},
+            "list-tables": {"visible": True, "confirm": False},
+            "select": {
+                "key": "supabase_select",
+                "visible": True,
+                "confirm": False,
+            },
+            "insert": {
+                "key": "supabase_insert",
+                "visible": True,
+                "confirm": True,
+            },
+            "update": {
+                "key": "supabase_update",
+                "visible": True,
+                "confirm": True,
+            },
+            "query": {
+                "key": "supabase_sql",
+                "visible": True,
+                "confirm": True,
+            },
+        },
+    },
+}
+
 # V6.8.3 reliability primitive — @retry transient network errors on
 # Supabase SDK calls (postgrest / gotrue raise httpx-level errors via
 # the supabase-py client).

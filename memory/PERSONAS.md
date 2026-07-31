@@ -1,4 +1,5 @@
 ---
+description: "Consolidated GWS workflow aliases indexed by operator role; agents reference this when user wants to act as a role to find matching workflows"
 tags: [personas, role-aliases]
 last_updated: 2026-05-07
 freshness_threshold_days: 365

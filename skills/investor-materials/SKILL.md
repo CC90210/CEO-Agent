@@ -4,6 +4,8 @@ description: Use this skill whenever the user mentions creating investor materia
 triggers: [investor, pitch deck, executive summary, funding, raise, investor materials]
 tier: specialized
 dependencies: []
+tags: [skill, investor-materials]
+last_updated: 2026-05-21
 ---
 
 # Investor Materials Skill

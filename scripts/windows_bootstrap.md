@@ -1,3 +1,8 @@
+---
+tags: [scripts]
+last_updated: 2026-04-27
+---
+
 # Windows Computer Control — Bootstrap Prompt
 
 > Paste the SYSTEM PROMPT section below into Claude Code on your Windows desktop.

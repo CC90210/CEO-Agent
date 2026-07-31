@@ -1,3 +1,8 @@
+---
+tags: [memory]
+last_updated: 2026-04-27
+---
+
 # OASIS AI & Nostalgic Requests — Video Scripts V1
 
 ## Pillar 1: The "Why AI" Pivot (OASIS AI)

@@ -4,6 +4,8 @@ description: Use when starting feature work that needs isolation from current wo
 triggers: [worktree, git worktree, isolation, feature branch, workspace]
 tier: standard
 dependencies: []
+tags: [skill, using-git-worktrees]
+last_updated: 2026-05-21
 ---
 
 # Using Git Worktrees

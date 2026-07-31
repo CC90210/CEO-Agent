@@ -1,6 +1,7 @@
 ---
+description: "Central index for the 4-agent ecosystem (Bravo/Atlas/Maven/Aura): maps governance, cross-agent workflows, shared DB, and app registry"
 tags: [index, agents, hub, graph]
-last_updated: 2026-06-09
+last_updated: 2026-07-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -61,7 +62,7 @@ Each agent's brain/ is its own sovereign space — this is intentional. Cross-ag
 
 | I need... | Where |
 |-----------|-------|
-| Current strategy / OKRs | [[brain/OKRs]] + [[data/pulse/ceo_pulse.json]] |
+| Current strategy / OKRs | [[brain/OKRs]] + `data/pulse/ceo_pulse.json` |
 | Runway / money / tax | Atlas vault → `cfo_pulse.json` + `USER.md` |
 | Current ad performance | Maven vault → `cmo_pulse.json` + `campaigns/` |
 | My habits / presence / energy | Aura vault → `aura_pulse.json` |

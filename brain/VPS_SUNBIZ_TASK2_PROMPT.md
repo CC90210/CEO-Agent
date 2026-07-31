@@ -1,6 +1,7 @@
 ---
+description: "SunBiz VPS Agent paste-prompt: form→lead self-test verification and SMS E.164 normalization fix for welcome sequence"
 tags: [vps, sunbiz, bridge, paste-prompt, task]
-last_updated: 2026-06-22
+last_updated: 2026-07-28
 ---
 # VPS Agent — Task 2 (close the self-test gap + fix the SMS-step defect)
 
@@ -51,4 +52,4 @@ sequence-runner (not the bridge). The "VPS E2E TEST" lead is a REAL CRM row — 
 it after, or note it for cleanup. The earlier loopback row under the OASIS tenant is benign — leave it.
 ```
 
-[[VPS_SUNBIZ_BRIDGE_PROMPT]] · [[project_sunbiz_funding_website]] · [[feedback_vps_paste_prompt_not_ssh]]
+[[VPS_SUNBIZ_BRIDGE_PROMPT]] · `project_sunbiz_funding_website` · `feedback_vps_paste_prompt_not_ssh`

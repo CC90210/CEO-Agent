@@ -1,4 +1,5 @@
 ---
+description: "Canonical 5-layer reference for all CC agent design (Agents/UI, routing, hooks, skills, data); single source of logical truth for Bravo, Maven, Atlas, Hermes"
 title: Agentic OS — Canonical Cross-Reference (V6.7 anchor)
 source: YouTube video "Build your agentic OS better than 99% of people" (https://www.youtube.com/watch?v=-WCNwxz3uoM)
 transcript: docs/references/agentic-os-99pct-transcript.txt
@@ -10,6 +11,7 @@ applies_to: Business-Empire-Agent (Bravo), CMO-Agent (Maven), CFO-Agent (Atlas),
 last_updated: 2026-06-09
 freshness_threshold_days: 90
 verified: 2026-06-09
+tags: [brain]
 ---
 # Agentic OS Reference
 

@@ -4,6 +4,8 @@ description: Use this skill whenever the user asks to conduct market research, c
 triggers: [market research, competitor analysis, customer discovery, pricing analysis, demographics]
 tier: specialized
 dependencies: [browser-automation]
+tags: [skill, market-research]
+last_updated: 2026-05-21
 ---
 
 # Market Research Skill

@@ -4,17 +4,18 @@ description: CEO-level strategic planning framework — OKRs, annual strategy, s
 tags: [skill, strategy, planning, okr, ceo]
 triggers: ["strategic planning", "use strategic planning", "run strategic planning", "ceo-level strategic planning framework \u2014 okrs"]
 tier: specialized
+last_updated: 2026-07-20
 ---
 
 # Strategic Planning
 
 ## Overview
 
-Strategy without execution is fiction. This skill turns CC's ambition into quarterly OKRs, scenario models, and weekly checkpoints that keep the $5,000 MRR north star visible every day.
+Strategy without execution is fiction. This skill turns CC's ambition into quarterly OKRs, scenario models, and weekly checkpoints that keep the $10,000 MRR north star (by 2026-09-30 — owned by Atlas, the CFO) visible every day.
 
 **Trigger:** `/strategic-review`, "set OKRs", "quarterly planning", "run QBR", "what's the strategy"
 
-**Related skills:** `skills/financial-modeling/SKILL.md`, `../../CMO-Agent/skills/competitive-intelligence/SKILL.md`, `skills/ceo-briefing/SKILL.md`
+**Related skills:** `skills/financial-modeling/SKILL.md`, `../../../CMO-Agent/skills/competitive-intelligence/SKILL.md`, `skills/ceo-briefing/SKILL.md`
 
 ---
 
@@ -232,13 +233,17 @@ For each planning cycle, define three scenarios before committing resources.
 | [Event] | Bull | [Specific response] |
 ```
 
-### CC-Specific Scenarios (Q2 2026)
+### CC-Specific Scenarios (Q2 2026 — HISTORICAL worked examples)
+
+> **Note:** The scenarios below are historical worked examples from Q2 2026, kept to show the
+> scenario-modeling method. The numbers are stale (the retainer-churn scenario actually happened
+> 2026-05-18). Current revenue state: Atlas (CFO) owns it. Do not quote these figures as current.
 
 **Scenario: primary retainer churns**
 - Probability: 10% (friend relationship, no contract risk is low)
 - Revenue impact: -$2,791/mo (drop from $2,982 to $191)
 - Timeline: MRR collapses to $191 immediately
-- Action: Emergency pipeline activation — 3 cold outreach campaigns, pitch deck ready, price list updated
+- Action: Emergency pipeline activation — propose an operator-approved outreach burst to CC (outbound is on-demand only), pitch deck ready, price list updated
 - Prevention: Deliver high-visibility wins monthly, lock in a longer-term arrangement by April
 
 **Scenario: 3 new clients in Q2**
@@ -628,4 +633,4 @@ Before considering a pivot, answer these 4 questions:
 
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
-- [[skills/financial-modeling/SKILL.md]] | [[../../CMO-Agent/skills/competitive-intelligence/SKILL]] | [[skills/ceo-briefing/SKILL.md]]
+- [[skills/financial-modeling/SKILL.md]] | [[../../../CMO-Agent/skills/competitive-intelligence/SKILL]] | [[skills/ceo-briefing/SKILL.md]]

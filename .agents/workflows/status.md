@@ -18,16 +18,16 @@ Use `/status` for a fast overview without loading full context.
 2. Read `memory/ACTIVE_TASKS.md` for pending work.
 
 3. Quick MCP health check — call one tool from each active server:
-   - `mcp_n8n-mcp_n8n_list_workflows` (limit=1)
-   - `mcp_late_posts_list` (limit=1)
-   - `mcp_memory_search_nodes` (query="bravo")
+   - `mcp__n8n-mcp__search_workflows` (limit=1)
+   - `mcp__late__posts_list` (limit=1)
+   - `mcp__memory__search_nodes` (query="bravo")
 
 4. Report to CC in this format:
    ```
    ## Status — [date]
-   **North Star:** $X / $10,000 USD Net MRR
+   **North Star ($10K MRR by 2026-09-30):** Atlas-owned — status reports ops only
    **Active Tasks:** [count] — [top 3 tasks]
-   **MCP Health:** [X/6 servers responding]
+   **MCP Health:** [X/13 servers responding]
    **Known Issues:** [any blockers]
    ```
 

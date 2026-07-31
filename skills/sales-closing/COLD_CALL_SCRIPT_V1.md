@@ -6,6 +6,7 @@ version: 1.1
 date_created: 2026-04-30
 last_updated: 2026-05-06
 author: CC + Bravo
+tags: [skill]
 ---
 
 # OASIS Cold Call Script — V1.0

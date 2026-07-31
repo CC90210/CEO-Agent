@@ -1,3 +1,8 @@
+---
+tags: [plans]
+last_updated: 2026-06-09
+---
+
 # MISSION BRIEF — AUDIT REMEDIATION V1
 Business-Empire-Agent (CEO-Agent / Bravo) — 2026-06-09
 
@@ -283,3 +288,7 @@ Needs from CC: <specific ask, or "nothing">
 - Local-only files: copies live in `../BEA_local_backup_<date>/`.
 
 End of mission brief.
+
+## Obsidian Links
+- [[brain/STATE]]
+- [[memory/INDEX]]

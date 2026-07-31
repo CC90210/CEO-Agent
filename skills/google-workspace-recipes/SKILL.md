@@ -11,6 +11,7 @@ metadata:
       bins: ["gws"]
 triggers: ["google workspace recipes", "use google workspace recipes", "run google workspace recipes"]
 tier: specialized
+last_updated: 2026-06-20
 ---
 
 # Google Workspace Recipes — Cookbook

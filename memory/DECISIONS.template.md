@@ -1,4 +1,5 @@
 ---
+description: "Template for recording tactical decisions (decision/reasoning/revisit criteria); agent appends to per-operator live version (gitignored)"
 tags: [memory, decisions, template]
 last_updated: 2026-06-09
 freshness_threshold_days: 90

@@ -4,6 +4,8 @@ description: Use this skill whenever the user mentions AI integration, LLM usage
 triggers: [AI integration, LLM, prompting, AI model, AI workflow, embedding, vector]
 tier: specialized
 dependencies: []
+tags: [skill, ai-integration]
+last_updated: 2026-05-21
 ---
 
 # AI Integration Patterns — Skill Reference

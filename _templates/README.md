@@ -1,3 +1,8 @@
+---
+tags: [template]
+last_updated: 2026-05-21
+---
+
 # `_templates/` — Obsidian Note Templates
 
 Markdown templates the operator pastes from when creating new Obsidian

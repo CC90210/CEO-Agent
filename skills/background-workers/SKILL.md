@@ -1,13 +1,10 @@
 ---
 name: background-workers
-description: >
-  Formalized background worker system for automated audit, memory management, state sync,
-  and optimization tasks. Workers run on intervals during active sessions to maintain
-  system health without manual intervention. Use when: configuring workers, debugging
-  worker failures, adding new automated tasks. Skip when: workers are running correctly.
+description: "Formalized background worker system for automated audit, memory management, state sync, and optimization tasks. Workers run on intervals during active sessions to maintain system health without manual intervention. Use when configuring workers, debugging worker failures, adding new automated tasks. Skip when workers are running correctly."
 tags: [automation, workers, system-health]
 triggers: ["background workers", "use background workers", "run background workers"]
 tier: standard
+last_updated: 2026-07-09
 ---
 
 # Background Workers — Automated System Maintenance

@@ -2,754 +2,779 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **150 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
-## agent-forge
+## [[skills/agent-forge/SKILL|agent-forge]]
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
 - **Triggers:** agent forge, use agent forge, run agent forge, use when cc asks to create a new agent
 - **Path:** `skills/agent-forge/SKILL.md` · tier `specialized` · risk `low`
 
-## agent-inbox
+## [[skills/agent-inbox/SKILL|agent-inbox]]
 - **Use when:** Async agent-to-agent messaging protocol. Use when Bravo, Atlas, Maven, Aura, or Codex needs to pass a structured message to another agent without blocking the orchestrator. Replaces synchronous-only delegation with a checkpoint-based pickup pattern. CLI backed by scripts/core/age
 - **Triggers:** agent inbox, inter-agent message, async delegation, agent notification, cross-agent handoff
 - **Path:** `skills/agent-inbox/SKILL.md` · tier `standard` · risk `low`
 
-## agent-permissions
-- **Use when:** >
+## [[skills/agent-permissions/SKILL|agent-permissions]]
+- **Use when:** Claims-based access control for multi-agent coordination. Defines what each agent can read, write, execute, and spawn. Enforces least-privilege. Use when spawning agents, multi-agent tasks, security-sensitive operations. Skip for single-agent inline work or trivial tasks.
 - **Triggers:** agent permissions, use agent permissions, run agent permissions
 - **Path:** `skills/agent-permissions/SKILL.md` · tier `standard` · risk `low`
 
-## agent-runtime-packaging
+## [[skills/agent-runtime-packaging/SKILL|agent-runtime-packaging]]
 - **Use when:** Build and maintain product-grade agent infrastructure: onboarding diagnostics, runtime home, packaging, skill lifecycle, tool manifests, and agent scaffolds.
 - **Triggers:** agent runtime packaging, use agent runtime packaging, run agent runtime packaging
 - **Path:** `skills/agent-runtime-packaging/SKILL.md` · tier `specialized` · risk `low`
 
-## agent-teams
+## [[skills/agent-teams/SKILL|agent-teams]]
 - **Use when:** Spawn and coordinate Claude Code Agent Teams (experimental) — parallel subagents for complex multi-domain tasks
 - **Triggers:** agent teams, use agent teams, run agent teams
 - **Path:** `skills/agent-teams/SKILL.md` · tier `standard` · risk `low`
 
-## ai-integration
+## [[skills/ai-integration/SKILL|ai-integration]]
 - **Use when:** Use this skill whenever the user mentions AI integration, LLM usage, prompting, adding AI to a workflow, or configuring AI models. This covers all patterns, best practices, and node configurations for AI.
 - **Triggers:** AI integration, LLM, prompting, AI model, AI workflow, embedding, vector
 - **Path:** `skills/ai-integration/SKILL.md` · tier `specialized` · risk `low`
 
-## algorithmic-art
+## [[skills/algorithmic-art/SKILL|algorithmic-art]]
 - **Use when:** Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration. Use this when users request creating art using code, generative art, algorithmic art, flow fields, or particle systems. Create original algorithmic art rather than copying existing
 - **Triggers:** algorithmic art, generative art, p5.js, flow field, particle system, creative coding
 - **Path:** `skills/algorithmic-art/SKILL.md` · tier `specialized` · risk `low`
 
-## anti-drift
-- **Use when:** >
+## [[skills/anti-drift/SKILL|anti-drift]]
+- **Use when:** Prevents agent divergence from task intent through checkpoint validation, scope monitoring, and alignment gates. Detects scope creep, time overruns, and error cascades, then forces re-alignment before work continues. Use for multi-agent tasks, complex implementations, long-runnin
 - **Triggers:** anti drift, use anti drift, run anti drift
 - **Path:** `skills/anti-drift/SKILL.md` · tier `standard` · risk `low`
 
-## auto-generated — _explicit `/command` only_
+## [[skills/auto-generated/SKILL|auto-generated]] — _explicit `/command` only_
 - **Use when:** Container for skills synthesized at runtime by skill_synthesizer.py. Each child directory is a [NEW] skill with its own SKILL.md + metrics.json. Promoted to skills/<slug>/ after 3 successful uses (skill_metrics.py promote).
 - **Triggers:** synthesize, new auto-generated skill
 - **Path:** `skills/auto-generated/SKILL.md` · tier `meta` · risk `low`
 
-## background-workers
-- **Use when:** >
+## [[skills/background-workers/SKILL|background-workers]]
+- **Use when:** Formalized background worker system for automated audit, memory management, state sync, and optimization tasks. Workers run on intervals during active sessions to maintain system health without manual intervention. Use when configuring workers, debugging worker failures, adding n
 - **Triggers:** background workers, use background workers, run background workers
 - **Path:** `skills/background-workers/SKILL.md` · tier `standard` · risk `low`
 
-## booking-management
+## [[skills/booking-management/SKILL|booking-management]]
 - **Use when:** Manage discovery call scheduling using booking_engine.py — a self-hosted Cal.com replacement backed by Supabase. Covers opening slots, booking leads, sending reminders, and completing meetings.
 - **Triggers:** booking, calendar, schedule, discovery call, slot, reminder, appointment, meeting
 - **Path:** `skills/booking-management/SKILL.md` · tier `standard` · risk `low`
 
-## brainstorming
+## [[skills/brainstorming/SKILL|brainstorming]]
 - **Use when:** You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.
 - **Triggers:** brainstorm, ideate, explore, creative work, new feature, design, requirements
 - **Path:** `skills/brainstorming/SKILL.md` · tier `standard` · risk `low`
 
-## browser-automation
+## [[skills/browser-automation/SKILL|browser-automation]]
 - **Use when:** Comprehensive reference for browser automation using Playwright MCP. Use for web research, testing, scraping, form filling, screenshots, and any browser-based interaction on UNPROTECTED sites. For bot-protected sites (Cloudflare, DataDome, reCAPTCHA), escalate to CloakBrowser ins
 - **Triggers:** playwright, browser, navigate, screenshot, click, snapshot, web research, scrape
 - **Path:** `skills/browser-automation/SKILL.md` · tier `standard` · risk `low`
 
-## browser-harness
+## [[skills/browser-harness/SKILL|browser-harness]]
 - **Use when:** Use Browser Harness for direct Chrome/Edge browser control, browser diagnostics, and durable domain-skill learning while preserving Bravo's business safety gates.
 - **Triggers:** browser harness, use browser harness, run browser harness, use browser harness for direct chrome/edge browser control
 - **Path:** `skills/browser-harness/SKILL.md` · tier `standard` · risk `low`
 
-## canvas-design
+## [[skills/canvas-design/SKILL|canvas-design]]
 - **Use when:** Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the user asks to create a poster, piece of art, design, or other static piece. Create original visual designs, never copying existing artists' work to avoid copyright vi
 - **Triggers:** poster, visual art, design, canvas, PNG, PDF, static design
 - **Path:** `skills/canvas-design/SKILL.md` · tier `specialized` · risk `low`
 
-## ceo-briefing
-- **Use when:** Executive morning briefing — revenue, pipeline, clients, Atlas financial snapshot, blocked items, and today's #1 priority
-- **Triggers:** ceo briefing, use ceo briefing, run ceo briefing, executive morning briefing \u2014 revenue
+## [[skills/ceo-briefing/SKILL|ceo-briefing]]
+- **Use when:** Executive morning briefing — pipeline, follow-ups, client health, blocked items, and today's #1 priority. Revenue/MRR is Atlas's brief, not Bravo's.
+- **Triggers:** ceo briefing, use ceo briefing, run ceo briefing, executive morning briefing, daily brief
 - **Path:** `skills/ceo-briefing/SKILL.md` · tier `standard` · risk `low`
 
-## ceo-dashboard
+## [[skills/ceo-dashboard/SKILL|ceo-dashboard]]
 - **Use when:** Unified KPI framework — North Star metrics, revenue dashboard, pipeline dashboard, operations dashboard, content dashboard, client health dashboard, and the weekly CEO digest template. Powers the /briefing command output format.
 - **Triggers:** ceo dashboard, use ceo dashboard, run ceo dashboard, unified kpi framework \u2014 north star metrics
 - **Path:** `skills/ceo-dashboard/SKILL.md` · tier `specialized` · risk `low`
 
-## cli-anything
+## [[skills/cli-anything/SKILL|cli-anything]]
 - **Use when:** Generate agent-native CLI wrappers for any software, API, or service. Use when MCP servers are unreliable or when a tool needs a CLI interface for agent automation.
 - **Triggers:** CLI, wrapper, SDK, subprocess, CLI-anything, agent-native CLI
 - **Path:** `skills/cli-anything/SKILL.md` · tier `specialized` · risk `low`
 
-## client-success
+## [[skills/client-success/SKILL|client-success]]
 - **Use when:** Client health scoring, churn prediction, retention playbooks, NPS framework, and expansion signals. Keeps OASIS AI clients healthy, growing, and referring.
 - **Triggers:** client success, use client success, run client success, client health scoring
 - **Path:** `skills/client-success/SKILL.md` · tier `specialized` · risk `low`
 
-## cloak-browser
+## [[skills/cloak-browser/SKILL|cloak-browser]]
 - **Use when:** Use CloakBrowser as the mandatory stealth tier for fresh-session browser work against bot-protected sites (Cloudflare Turnstile, reCAPTCHA v3, DataDome, ShieldSquare, FingerprintJS, BrowserScan). Drop-in Playwright replacement with C++ source-level fingerprint patches. Wraps cloa
 - **Triggers:** cloak browser, cloakbrowser, stealth chromium, bypass cloudflare, bypass bot detection, scrape protected site, scrape blocked site, site is blocking us, 403 forbidden, 1020 cloudflare, datadome blocked, recaptcha blocking, fingerprintjs, shieldsquare, browserscan
 - **Path:** `skills/cloak-browser/SKILL.md` · tier `tool` · risk `low`
 
-## code-review
+## [[skills/code-review/SKILL|code-review]]
 - **Use when:** Pre-landing code review for TypeScript/Next.js/Supabase/Stripe/Vercel projects. Use before any merge to main. Auto-fixes mechanical issues; asks about judgment calls. Catches security holes, AI slop, and stack-specific gotchas.
 - **Triggers:** review, PR, quality, security audit, checklist, pre-landing, code review
 - **Path:** `skills/code-review/SKILL.md` · tier `standard` · risk `low`
 
-## codex-delegation
+## [[skills/codex-delegation/SKILL|codex-delegation]]
 - **Use when:** Intelligent routing between Bravo and Codex — decides when to delegate tasks to Codex vs handle internally
 - **Triggers:** codex delegation, use codex delegation, run codex delegation
 - **Path:** `skills/codex-delegation/SKILL.md` · tier `core` · risk `low`
 
-## computer-control
+## [[skills/computer-control/SKILL|computer-control]]
 - **Use when:** Full desktop autonomy via Telegram — 60+ commands for app control, windows, browser, files, mouse, audio, power. Routes to macOS AppleScript or Windows PowerShell based on platform. Triggered by natural-language intent ("open Chrome", "take a screenshot", "lock my computer").
 - **Triggers:** computer control, use computer control, run computer control
 - **Path:** `skills/computer-control/SKILL.md` · tier `standard` · risk `low`
 
-## context-optimization
+## [[skills/context-optimization/SKILL|context-optimization]]
 - **Use when:** Tiered context loading, transcript compaction, cost tracking, and memory aging — inspired by Claude Code's internal harness architecture.
 - **Triggers:** context optimization, use context optimization, run context optimization, tiered context loading
 - **Path:** `skills/context-optimization/SKILL.md` · tier `standard` · risk `low`
 
-## crisis-response
+## [[skills/crisis-response/SKILL|crisis-response]]
 - **Use when:** Structured crisis response protocols for business emergencies — P0 through P3 classification, pre-built response plans, and communication templates
 - **Triggers:** crisis response, use crisis response, run crisis response
 - **Path:** `skills/crisis-response/SKILL.md` · tier `standard` · risk `low`
 
-## daily-planner
+## [[skills/currency-audit/SKILL|currency-audit]]
+- **Use when:** System currency sweep — find prose that contradicts live reality (retired products, stale counts, old versions/locations/domains) that freshness gates cannot see; 3-lens audit + fix + verify
+- **Triggers:** currency audit, staleness sweep, out of date, stale docs, semantic staleness
+- **Path:** `skills/currency-audit/SKILL.md` · tier `meta` · risk `low`
+
+## [[skills/daily-planner/SKILL|daily-planner]]
 - **Use when:** Structured daily plan for CC — content creation priorities, scheduled tasks, and revenue-moving actions. Generated each morning.
 - **Triggers:** daily planner, use daily planner, run daily planner, structured daily plan for cc \u2014 content creation priorities
 - **Path:** `skills/daily-planner/SKILL.md` · tier `core` · risk `low`
 
-## dispatching-parallel-agents
+## [[skills/dispatching-parallel-agents/SKILL|dispatching-parallel-agents]]
 - **Use when:** Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies
 - **Triggers:** parallel, concurrent, independent tasks, multi-agent, batch, dispatch
 - **Path:** `skills/dispatching-parallel-agents/SKILL.md` · tier `standard` · risk `low`
 
-## doc-coauthoring
+## [[skills/doc-coauthoring/SKILL|doc-coauthoring]]
 - **Use when:** Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, proposals, technical specs, decision docs, or similar structured content. This workflow helps users efficiently transfer context, refine content through iteration
 - **Triggers:** documentation, proposal, technical spec, decision doc, co-author, writing docs
 - **Path:** `skills/doc-coauthoring/SKILL.md` · tier `specialized` · risk `low`
 
-## docx
+## [[skills/docx/SKILL|docx]]
 - **Use when:** Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files). Triggers include: any mention of 'Word doc', 'word document', '.docx', or requests to produce professional documents with formatting like tables of contents, headings, page n
 - **Triggers:** Word, docx, Word document, report, memo, letter, template
 - **Path:** `skills/docx/SKILL.md` · tier `specialized` · risk `low`
 
-## e2e-testing
+## [[skills/e2e-testing/SKILL|e2e-testing]]
 - **Use when:** Comprehensive end-to-end application testing using Playwright MCP. Launches parallel sub-agents to research the codebase, then systematically tests every user journey with screenshots, database validation, and bug hunting. Run after implementation to validate before commit.
 - **Triggers:** end-to-end, E2E, user journey, integration test, full test, playwright test
 - **Path:** `skills/e2e-testing/SKILL.md` · tier `standard` · risk `low`
 
-## email-safety — _explicit `/command` only_
+## [[skills/email-safety/SKILL|email-safety]] — _explicit `/command` only_
 - **Use when:** Mandatory contract for sending email/outreach from any AI (Claude, Gemini, Antigravity, Codex). Read this before invoking any send command. Disable-model-invocation false — ANY model that sends mail must read this first.
 - **Triggers:** email safety, use email safety, run email safety
 - **Path:** `skills/email-safety/SKILL.md` · tier `specialized` · risk `low`
 
-## ethical-hacking
+## [[skills/ethical-hacking/SKILL|ethical-hacking]]
 - **Use when:** Authorized offensive security — reconnaissance, vulnerability assessment, and web/network pentest methodology for CC's own infrastructure, authorized client engagements, and legal bug bounty programs. Defensive intent only. Never operates without written authorization.
 - **Triggers:** pentest, penetration test, ethical hacking, vulnerability assessment, security audit, bug bounty, offensive security, recon, osint, red team
 - **Path:** `skills/ethical-hacking/SKILL.md` · tier `strategic` · risk `low`
 
-## executing-plans
+## [[skills/executing-plans/SKILL|executing-plans]]
 - **Use when:** Use when you have a written implementation plan to execute in a separate session with review checkpoints
 - **Triggers:** execute plan, run plan, implement plan, batch execution
 - **Path:** `skills/executing-plans/SKILL.md` · tier `standard` · risk `low`
 
-## financial-modeling
+## [[skills/financial-modeling/SKILL|financial-modeling]]
 - **Use when:** Unit economics, SaaS metrics, cohort analysis, scenario modeling, cash flow forecasting, and CC-specific financial calculations for OASIS AI
 - **Triggers:** financial modeling, use financial modeling, run financial modeling, unit economics
 - **Path:** `skills/financial-modeling/SKILL.md` · tier `specialized` · risk `low`
 
-## finishing-a-development-branch
+## [[skills/finishing-a-development-branch/SKILL|finishing-a-development-branch]]
 - **Use when:** Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup
 - **Triggers:** finish branch, merge, PR, integrate, complete development, ship branch
 - **Path:** `skills/finishing-a-development-branch/SKILL.md` · tier `standard` · risk `low`
 
-## frontend-design
+## [[skills/frontend-design/SKILL|frontend-design]]
 - **Use when:** Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications (examples include websites, landing pages, dashboards, React components, HTML/CSS layouts, or w
 - **Triggers:** UI, design, Tailwind, component, responsive, landing page, dashboard, frontend
 - **Path:** `skills/frontend-design/SKILL.md` · tier `standard` · risk `low`
 
-## google-workspace-recipes
+## [[skills/google-workspace-recipes/SKILL|google-workspace-recipes]]
 - **Use when:** Cookbook of multi-step Google Workspace workflows (Gmail + Drive + Calendar + Docs + Sheets + Tasks).
 - **Triggers:** google workspace recipes, use google workspace recipes, run google workspace recipes
 - **Path:** `skills/google-workspace-recipes/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-admin-reports — _explicit `/command` only_
+## [[skills/gws-admin-reports/SKILL|gws-admin-reports]] — _explicit `/command` only_
 - **Use when:** Google Workspace Admin SDK: Audit logs and usage reports.
 - **Triggers:** gws admin reports, use gws admin reports, run gws admin reports, google workspace admin sdk: audit logs and usage reports
 - **Path:** `skills/gws-admin-reports/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-calendar — _explicit `/command` only_
+## [[skills/gws-calendar/SKILL|gws-calendar]] — _explicit `/command` only_
 - **Use when:** Google Calendar: Manage calendars and events.
 - **Triggers:** gws calendar, use gws calendar, run gws calendar, google calendar: manage calendars and events
 - **Path:** `skills/gws-calendar/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-calendar-agenda — _explicit `/command` only_
+## [[skills/gws-calendar-agenda/SKILL|gws-calendar-agenda]] — _explicit `/command` only_
 - **Use when:** Google Calendar: Show upcoming events across all calendars.
 - **Triggers:** gws calendar agenda, use gws calendar agenda, run gws calendar agenda, google calendar: show upcoming events across all calendars
 - **Path:** `skills/gws-calendar-agenda/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-calendar-insert — _explicit `/command` only_
+## [[skills/gws-calendar-insert/SKILL|gws-calendar-insert]] — _explicit `/command` only_
 - **Use when:** Google Calendar: Create a new event.
 - **Triggers:** gws calendar insert, use gws calendar insert, run gws calendar insert, google calendar: create a new event
 - **Path:** `skills/gws-calendar-insert/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-chat — _explicit `/command` only_
+## [[skills/gws-chat/SKILL|gws-chat]] — _explicit `/command` only_
 - **Use when:** Google Chat: Manage Chat spaces and messages.
 - **Triggers:** gws chat, use gws chat, run gws chat, google chat: manage chat spaces and messages
 - **Path:** `skills/gws-chat/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-chat-send — _explicit `/command` only_
+## [[skills/gws-chat-send/SKILL|gws-chat-send]] — _explicit `/command` only_
 - **Use when:** Google Chat: Send a message to a space.
 - **Triggers:** gws chat send, use gws chat send, run gws chat send, google chat: send a message to a space
 - **Path:** `skills/gws-chat-send/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-classroom — _explicit `/command` only_
+## [[skills/gws-classroom/SKILL|gws-classroom]] — _explicit `/command` only_
 - **Use when:** Google Classroom: Manage classes, rosters, and coursework.
 - **Triggers:** gws classroom, use gws classroom, run gws classroom, google classroom: manage classes
 - **Path:** `skills/gws-classroom/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-docs — _explicit `/command` only_
+## [[skills/gws-docs/SKILL|gws-docs]] — _explicit `/command` only_
 - **Use when:** Read and write Google Docs.
 - **Triggers:** gws docs, use gws docs, run gws docs, read and write google docs
 - **Path:** `skills/gws-docs/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-docs-edit
+## [[skills/gws-docs-edit/SKILL|gws-docs-edit]]
 - **Use when:** Edit an existing Google Doc in place — find/replace, replace a section between markers, append, or overwrite. Higher-level wrapper around the gws CLI's docs.documents.batchUpdate. Use when you previously created a Google Doc (or know its ID) and need to revise it without spinning
 - **Triggers:** gws docs edit, edit google doc, update google doc, replace text in google doc, replace section in google doc, append to google doc, overwrite google doc
 - **Path:** `skills/gws-docs-edit/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-docs-write — _explicit `/command` only_
+## [[skills/gws-docs-write/SKILL|gws-docs-write]] — _explicit `/command` only_
 - **Use when:** Google Docs: Append text to a document.
 - **Triggers:** gws docs write, use gws docs write, run gws docs write, google docs: append text to a document
 - **Path:** `skills/gws-docs-write/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-drive — _explicit `/command` only_
+## [[skills/gws-drive/SKILL|gws-drive]] — _explicit `/command` only_
 - **Use when:** Google Drive: Manage files, folders, and shared drives.
 - **Triggers:** gws drive, use gws drive, run gws drive, google drive: manage files
 - **Path:** `skills/gws-drive/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-drive-upload — _explicit `/command` only_
+## [[skills/gws-drive-upload/SKILL|gws-drive-upload]] — _explicit `/command` only_
 - **Use when:** Google Drive: Upload a file with automatic metadata.
 - **Triggers:** gws drive upload, use gws drive upload, run gws drive upload, google drive: upload a file with automatic metadata
 - **Path:** `skills/gws-drive-upload/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-events — _explicit `/command` only_
+## [[skills/gws-events/SKILL|gws-events]] — _explicit `/command` only_
 - **Use when:** Subscribe to Google Workspace events.
 - **Triggers:** gws events, use gws events, run gws events, subscribe to google workspace events
 - **Path:** `skills/gws-events/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-events-renew — _explicit `/command` only_
+## [[skills/gws-events-renew/SKILL|gws-events-renew]] — _explicit `/command` only_
 - **Use when:** Google Workspace Events: Renew/reactivate Workspace Events subscriptions.
 - **Triggers:** gws events renew, use gws events renew, run gws events renew
 - **Path:** `skills/gws-events-renew/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-events-subscribe — _explicit `/command` only_
+## [[skills/gws-events-subscribe/SKILL|gws-events-subscribe]] — _explicit `/command` only_
 - **Use when:** Google Workspace Events: Subscribe to Workspace events and stream them as NDJSON.
 - **Triggers:** gws events subscribe, use gws events subscribe, run gws events subscribe
 - **Path:** `skills/gws-events-subscribe/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-forms — _explicit `/command` only_
+## [[skills/gws-forms/SKILL|gws-forms]] — _explicit `/command` only_
 - **Use when:** Read and write Google Forms.
 - **Triggers:** gws forms, use gws forms, run gws forms, read and write google forms
 - **Path:** `skills/gws-forms/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail — _explicit `/command` only_
+## [[skills/gws-gmail/SKILL|gws-gmail]] — _explicit `/command` only_
 - **Use when:** Gmail: Send, read, and manage email.
 - **Triggers:** gws gmail, use gws gmail, run gws gmail, gmail: send
 - **Path:** `skills/gws-gmail/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail-forward — _explicit `/command` only_
+## [[skills/gws-gmail-forward/SKILL|gws-gmail-forward]] — _explicit `/command` only_
 - **Use when:** Gmail: Forward a message to new recipients.
 - **Triggers:** gws gmail forward, use gws gmail forward, run gws gmail forward, gmail: forward a message to new recipients
 - **Path:** `skills/gws-gmail-forward/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail-read — _explicit `/command` only_
+## [[skills/gws-gmail-read/SKILL|gws-gmail-read]] — _explicit `/command` only_
 - **Use when:** Gmail: Read a message and extract its body or headers.
 - **Triggers:** gws gmail read, use gws gmail read, run gws gmail read, gmail: read a message and extract its body or headers
 - **Path:** `skills/gws-gmail-read/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail-reply — _explicit `/command` only_
+## [[skills/gws-gmail-reply/SKILL|gws-gmail-reply]] — _explicit `/command` only_
 - **Use when:** Gmail: Reply to a message (handles threading automatically).
 - **Triggers:** gws gmail reply, use gws gmail reply, run gws gmail reply, gmail: reply to a message (handles threading automatically)
 - **Path:** `skills/gws-gmail-reply/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail-reply-all — _explicit `/command` only_
+## [[skills/gws-gmail-reply-all/SKILL|gws-gmail-reply-all]] — _explicit `/command` only_
 - **Use when:** Gmail: Reply-all to a message (handles threading automatically).
 - **Triggers:** gws gmail reply all, use gws gmail reply all, run gws gmail reply all
 - **Path:** `skills/gws-gmail-reply-all/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail-send — _explicit `/command` only_
+## [[skills/gws-gmail-send/SKILL|gws-gmail-send]] — _explicit `/command` only_
 - **Use when:** Gmail: Send an email.
 - **Triggers:** gws gmail send, use gws gmail send, run gws gmail send, gmail: send an email
 - **Path:** `skills/gws-gmail-send/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail-triage — _explicit `/command` only_
+## [[skills/gws-gmail-triage/SKILL|gws-gmail-triage]] — _explicit `/command` only_
 - **Use when:** Gmail: Show unread inbox summary (sender, subject, date).
 - **Triggers:** gws gmail triage, use gws gmail triage, run gws gmail triage, gmail: show unread inbox summary (sender
 - **Path:** `skills/gws-gmail-triage/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-gmail-watch — _explicit `/command` only_
+## [[skills/gws-gmail-watch/SKILL|gws-gmail-watch]] — _explicit `/command` only_
 - **Use when:** Gmail: Watch for new emails and stream them as NDJSON.
 - **Triggers:** gws gmail watch, use gws gmail watch, run gws gmail watch, gmail: watch for new emails and stream them as ndjson
 - **Path:** `skills/gws-gmail-watch/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-keep — _explicit `/command` only_
+## [[skills/gws-keep/SKILL|gws-keep]] — _explicit `/command` only_
 - **Use when:** Manage Google Keep notes.
 - **Triggers:** gws keep, use gws keep, run gws keep, manage google keep notes
 - **Path:** `skills/gws-keep/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-meet — _explicit `/command` only_
+## [[skills/gws-meet/SKILL|gws-meet]] — _explicit `/command` only_
 - **Use when:** Manage Google Meet conferences.
 - **Triggers:** gws meet, use gws meet, run gws meet, manage google meet conferences
 - **Path:** `skills/gws-meet/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-modelarmor — _explicit `/command` only_
+## [[skills/gws-modelarmor/SKILL|gws-modelarmor]] — _explicit `/command` only_
 - **Use when:** Google Model Armor: Filter user-generated content for safety.
 - **Triggers:** gws modelarmor, use gws modelarmor, run gws modelarmor, google model armor: filter user-generated content for safety
 - **Path:** `skills/gws-modelarmor/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-modelarmor-create-template — _explicit `/command` only_
+## [[skills/gws-modelarmor-create-template/SKILL|gws-modelarmor-create-template]] — _explicit `/command` only_
 - **Use when:** Google Model Armor: Create a new Model Armor template.
 - **Triggers:** gws modelarmor create template, use gws modelarmor create template, run gws modelarmor create template, google model armor: create a new model armor template
 - **Path:** `skills/gws-modelarmor-create-template/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-modelarmor-sanitize-prompt — _explicit `/command` only_
+## [[skills/gws-modelarmor-sanitize-prompt/SKILL|gws-modelarmor-sanitize-prompt]] — _explicit `/command` only_
 - **Use when:** Google Model Armor: Sanitize a user prompt through a Model Armor template.
 - **Triggers:** gws modelarmor sanitize prompt, use gws modelarmor sanitize prompt, run gws modelarmor sanitize prompt
 - **Path:** `skills/gws-modelarmor-sanitize-prompt/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-modelarmor-sanitize-response — _explicit `/command` only_
+## [[skills/gws-modelarmor-sanitize-response/SKILL|gws-modelarmor-sanitize-response]] — _explicit `/command` only_
 - **Use when:** Google Model Armor: Sanitize a model response through a Model Armor template.
 - **Triggers:** gws modelarmor sanitize response, use gws modelarmor sanitize response, run gws modelarmor sanitize response
 - **Path:** `skills/gws-modelarmor-sanitize-response/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-people — _explicit `/command` only_
+## [[skills/gws-people/SKILL|gws-people]] — _explicit `/command` only_
 - **Use when:** Google People: Manage contacts and profiles.
 - **Triggers:** gws people, use gws people, run gws people, google people: manage contacts and profiles
 - **Path:** `skills/gws-people/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-shared — _explicit `/command` only_
+## [[skills/gws-shared/SKILL|gws-shared]] — _explicit `/command` only_
 - **Use when:** gws CLI: Shared patterns for authentication, global flags, and output formatting.
 - **Triggers:** gws shared, use gws shared, run gws shared, gws cli: shared patterns for authentication
 - **Path:** `skills/gws-shared/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-sheets — _explicit `/command` only_
+## [[skills/gws-sheets/SKILL|gws-sheets]] — _explicit `/command` only_
 - **Use when:** Google Sheets: Read and write spreadsheets.
 - **Triggers:** gws sheets, use gws sheets, run gws sheets, google sheets: read and write spreadsheets
 - **Path:** `skills/gws-sheets/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-sheets-append — _explicit `/command` only_
+## [[skills/gws-sheets-append/SKILL|gws-sheets-append]] — _explicit `/command` only_
 - **Use when:** Google Sheets: Append a row to a spreadsheet.
 - **Triggers:** gws sheets append, use gws sheets append, run gws sheets append, google sheets: append a row to a spreadsheet
 - **Path:** `skills/gws-sheets-append/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-sheets-read — _explicit `/command` only_
+## [[skills/gws-sheets-read/SKILL|gws-sheets-read]] — _explicit `/command` only_
 - **Use when:** Google Sheets: Read values from a spreadsheet.
 - **Triggers:** gws sheets read, use gws sheets read, run gws sheets read, google sheets: read values from a spreadsheet
 - **Path:** `skills/gws-sheets-read/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-slides — _explicit `/command` only_
+## [[skills/gws-slides/SKILL|gws-slides]] — _explicit `/command` only_
 - **Use when:** Google Slides: Read and write presentations.
 - **Triggers:** gws slides, use gws slides, run gws slides, google slides: read and write presentations
 - **Path:** `skills/gws-slides/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-tasks — _explicit `/command` only_
+## [[skills/gws-tasks/SKILL|gws-tasks]] — _explicit `/command` only_
 - **Use when:** Google Tasks: Manage task lists and tasks.
 - **Triggers:** gws tasks, use gws tasks, run gws tasks, google tasks: manage task lists and tasks
 - **Path:** `skills/gws-tasks/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow — _explicit `/command` only_
+## [[skills/gws-workflow/SKILL|gws-workflow]] — _explicit `/command` only_
 - **Use when:** Google Workflow: Cross-service productivity workflows.
 - **Triggers:** gws workflow, use gws workflow, run gws workflow, google workflow: cross-service productivity workflows
 - **Path:** `skills/gws-workflow/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow-email-to-task — _explicit `/command` only_
+## [[skills/gws-workflow-email-to-task/SKILL|gws-workflow-email-to-task]] — _explicit `/command` only_
 - **Use when:** Google Workflow: Convert a Gmail message into a Google Tasks entry.
 - **Triggers:** gws workflow email to task, use gws workflow email to task, run gws workflow email to task
 - **Path:** `skills/gws-workflow-email-to-task/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow-file-announce — _explicit `/command` only_
+## [[skills/gws-workflow-file-announce/SKILL|gws-workflow-file-announce]] — _explicit `/command` only_
 - **Use when:** Google Workflow: Announce a Drive file in a Chat space.
 - **Triggers:** gws workflow file announce, use gws workflow file announce, run gws workflow file announce, google workflow: announce a drive file in a chat space
 - **Path:** `skills/gws-workflow-file-announce/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow-meeting-prep — _explicit `/command` only_
+## [[skills/gws-workflow-meeting-prep/SKILL|gws-workflow-meeting-prep]] — _explicit `/command` only_
 - **Use when:** Google Workflow: Prepare for your next meeting: agenda, attendees, and linked docs.
 - **Triggers:** gws workflow meeting prep, use gws workflow meeting prep, run gws workflow meeting prep, google workflow: prepare for your next meeting: agenda
 - **Path:** `skills/gws-workflow-meeting-prep/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow-standup-report — _explicit `/command` only_
+## [[skills/gws-workflow-standup-report/SKILL|gws-workflow-standup-report]] — _explicit `/command` only_
 - **Use when:** Google Workflow: Today's meetings + open tasks as a standup summary.
 - **Triggers:** gws workflow standup report, use gws workflow standup report, run gws workflow standup report
 - **Path:** `skills/gws-workflow-standup-report/SKILL.md` · tier `specialized` · risk `low`
 
-## gws-workflow-weekly-digest — _explicit `/command` only_
+## [[skills/gws-workflow-weekly-digest/SKILL|gws-workflow-weekly-digest]] — _explicit `/command` only_
 - **Use when:** Google Workflow: Weekly summary: this week's meetings + unread email count.
 - **Triggers:** gws workflow weekly digest, use gws workflow weekly digest, run gws workflow weekly digest
 - **Path:** `skills/gws-workflow-weekly-digest/SKILL.md` · tier `specialized` · risk `low`
 
-## heartbeat
+## [[skills/heartbeat/SKILL|heartbeat]]
 - **Use when:** Proactive autonomous monitoring and session management. Runs at session start and end. Checks memory consistency, infrastructure health, pending tasks, and workspace cleanliness. Enables Bravo to act without prompting.
 - **Triggers:** heartbeat, health check, session start, monitoring, proactive, autonomous
 - **Path:** `skills/heartbeat/SKILL.md` · tier `core` · risk `low`
 
-## hooks-automation
-- **Use when:** >
+## [[skills/hooks-automation/SKILL|hooks-automation]]
+- **Use when:** Enhanced pre/post operation hooks with learning capabilities. Extends Claude Code's native hooks with task-aware pre-validation, post-execution learning, memory coordination, and session lifecycle management. Use when configuring hooks, debugging hook failures, adding new automat
 - **Triggers:** hooks automation, use hooks automation, run hooks automation
 - **Path:** `skills/hooks-automation/SKILL.md` · tier `core` · risk `low`
 
-## hyperthink — _explicit `/command` only_
+## [[skills/hyperthink/SKILL|hyperthink]] — _explicit `/command` only_
 - **Use when:** Maximum-depth reasoning protocol. Wraps Claude Code's native ultrathink (31,999 thinking tokens) with a structured multi-hypothesis framework. Fires on architectural decisions, multi-root-cause debugging, or expensive-to-reverse choices.
 - **Triggers:** hyperthink, ultrathink, think harder, think super hard, think intensely, think really hard, architectural decision, irreversible choice
 - **Path:** `skills/hyperthink/SKILL.md` · tier `strategic` · risk `low`
 
-## integrations-sync
+## [[skills/integrations-sync/SKILL|integrations-sync]]
 - **Use when:** Idempotent refresh patterns for every external data source — Stripe, Supabase, Google Workspace, n8n webhooks, Funnel forms. Codifies the safe sync flow so agents stop reinventing dedupe/audit/dry-run logic per source.
 - **Triggers:** sync integrations, refresh stripe, sync supabase, refresh data sources, pull latest data, integrations sync, sync external
 - **Path:** `skills/integrations-sync/SKILL.md` · tier `T2` · risk `medium`
 
-## internal-comms
+## [[skills/internal-comms/SKILL|internal-comms]]
 - **Use when:** A set of resources to help me write all kinds of internal communications, using the formats that my company likes to use. Claude should use this skill whenever asked to write some sort of internal communications (status reports, leadership updates, 3P updates, company newsletters
 - **Triggers:** internal communication, status report, newsletter, FAQ, incident report, update
 - **Path:** `skills/internal-comms/SKILL.md` · tier `specialized` · risk `low`
 
-## investor-communications
+## [[skills/investor-communications/SKILL|investor-communications]]
 - **Use when:** Use this skill whenever the user mentions investor updates, stakeholder reports, advisory board management, pitch communications, valuations, or partnership/JV frameworks. Distinct from investor-materials (which covers pitch deck assets); this skill covers the ongoing communicati
 - **Triggers:** investor update, stakeholder update, advisory board, valuation, partnership, JV, revenue share, monthly update, investor email
 - **Path:** `skills/investor-communications/SKILL.md` · tier `specialized` · risk `low`
 
-## investor-materials
+## [[skills/investor-materials/SKILL|investor-materials]]
 - **Use when:** Use this skill whenever the user mentions creating investor material, pitch decks, executive summaries, funding, or communicating with investors. Contains templates, structure, and tone.
 - **Triggers:** investor, pitch deck, executive summary, funding, raise, investor materials
 - **Path:** `skills/investor-materials/SKILL.md` · tier `specialized` · risk `low`
 
-## knowledge-compilation
+## [[skills/knowledge-compilation/SKILL|knowledge-compilation]]
 - **Use when:** Use this skill to ingest raw documents into the compiled wiki, query the knowledge base for sourced answers, or lint the wiki for broken links and stale facts. Implements Karpathy-style LLM knowledge compilation — no RAG, deterministic retrieval via structured wiki pages.
 - **Triggers:** ingest, query knowledge, lint knowledge, compile knowledge, knowledge base, wiki, raw document, karpathy
 - **Path:** `skills/knowledge-compilation/SKILL.md` · tier `specialized` · risk `low`
 
-## knowledge-graph
+## [[skills/knowledge-graph/SKILL|knowledge-graph]]
 - **Use when:** Query the Obsidian vault as a live knowledge graph — PageRank, community detection, semantic search, path-finding, and vault writes via MCP.
 - **Triggers:** knowledge graph, use knowledge graph, run knowledge graph
 - **Path:** `skills/knowledge-graph/SKILL.md` · tier `standard` · risk `low`
 
-## knowledge-management
+## [[skills/knowledge-management/SKILL|knowledge-management]]
 - **Use when:** Use this skill whenever the user wants to capture, organize, retrieve, or maintain business intelligence. Covers PARA implementation, information capture protocols, progressive summarization, retrieval frameworks, freshness scoring, template library management, and weekly mainten
 - **Triggers:** knowledge management, second brain, PARA, capture notes, organize information, template library, information retrieval, knowledge base, weekly maintenance
 - **Path:** `skills/knowledge-management/SKILL.md` · tier `specialized` · risk `low`
 
-## manifest-ai-editor
+## [[skills/manifest-ai-editor/SKILL|manifest-ai-editor]]
 - **Use when:** AI-assisted editor for tenant manifests. Operator describes a desired change ("add a custom field 'preferred_lender' to application object") and the skill proposes a structured diff against object_metadata / field_metadata / views / tenant_manifests rows; every change is operator
 - **Triggers:** edit manifest, add custom field, add view, add workflow, add object, manifest editor, customize tenant
 - **Path:** `skills/manifest-ai-editor/SKILL.md` · tier `T2` · risk `medium`
 
-## market-research
+## [[skills/market-research/SKILL|market-research]]
 - **Use when:** Use this skill whenever the user asks to conduct market research, competitor analysis, customer discovery, pricing analysis, or demographics research. Essential for any strategic planning or new product launch.
 - **Triggers:** market research, competitor analysis, customer discovery, pricing analysis, demographics
 - **Path:** `skills/market-research/SKILL.md` · tier `specialized` · risk `low`
 
-## mcp-builder
+## [[skills/mcp-builder/SKILL|mcp-builder]]
 - **Use when:** Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate external APIs or services, whether in Python (FastMCP) or Node/TypeScript (MCP SDK).
 - **Triggers:** MCP server, build MCP, FastMCP, MCP SDK, Model Context Protocol
 - **Path:** `skills/mcp-builder/SKILL.md` · tier `specialized` · risk `low`
 
-## mcp-operations
+## [[skills/mcp-operations/SKILL|mcp-operations]]
 - **Use when:** Tool routing guide — CLI-first for credential services, MCP for stateless tools. Single source of truth for all agents.
 - **Triggers:** tool routing, Zernio, Late, n8n, Supabase, Stripe, MCP, tool failure
 - **Path:** `skills/mcp-operations/SKILL.md` · tier `core` · risk `low`
 
-## meeting-automation
+## [[skills/meeting-automation/SKILL|meeting-automation]]
 - **Use when:** Pre-meeting briefs, meeting type templates, post-meeting capture protocol, follow-up cadence, and calendar intelligence. Turns every meeting into a documented, actionable event.
 - **Triggers:** meeting automation, use meeting automation, run meeting automation, pre-meeting briefs
 - **Path:** `skills/meeting-automation/SKILL.md` · tier `specialized` · risk `low`
 
-## memory-compression
+## [[skills/memory-compression/SKILL|memory-compression]]
 - **Use when:** claude-mem plugin — automatic cross-session memory compression and injection via SQLite + semantic search. Captures tool usage, compresses observations, and injects relevant context at session start.
 - **Triggers:** memory compression, use memory compression, run memory compression
 - **Path:** `skills/memory-compression/SKILL.md` · tier `standard` · risk `low`
 
-## memory-journaling
+## [[skills/memory-journaling/SKILL|memory-journaling]]
 - **Use when:** Structured decision and pattern logging. Guides the agent through writing high-quality entries to memory/DECISIONS.md, memory/PATTERNS.md, or memory/MISTAKES.md with proper frontmatter, cross-links, and version tags.
 - **Triggers:** log a decision, journal this, memory journal, log this pattern, record this, save this learning, memory-journaling
 - **Path:** `skills/memory-journaling/SKILL.md` · tier `T1` · risk `low`
 
-## memory-management
+## [[skills/memory-management/SKILL|memory-management]]
 - **Use when:** MemoryBox system for preventing bloat, scoring confidence, compressing archives, and maintaining memory hygiene. Plus the V6 hybrid retrieval surface (FTS5 lexical + LanceDB/ONNX semantic + RRF) that replaces whole-file Reads. Ensures cross-session intelligence without context wi
 - **Triggers:** memory, bloat, archive, compress, session log, confidence, MemoryBox, retrieval, hybrid search, semantic, embedding, RRF, fastembed, LanceDB
 - **Path:** `skills/memory-management/SKILL.md` · tier `core` · risk `low`
 
-## n8n-mcp-integration — _explicit `/command` only_
+## [[skills/n8n-mcp-integration/SKILL|n8n-mcp-integration]] — _explicit `/command` only_
 - **Use when:** Build, validate, and deploy n8n workflows through the n8n-mcp server using the TypeScript-SDK code-first flow. Replaces hand-rolled JSON. Use whenever an automation, workflow, webhook intake, scheduled job, or integration pipeline needs to ship.
 - **Triggers:** n8n, n8n MCP, build workflow, automation, webhook intake, scheduled job, n8n SDK, create_workflow_from_code, validate_workflow
 - **Path:** `skills/n8n-mcp-integration/SKILL.md` · tier `standard` · risk `low`
 
-## n8n-patterns
+## [[skills/n8n-patterns/SKILL|n8n-patterns]]
 - **Use when:** Design-pattern reference for n8n workflows — error handling, idempotency, retry shape, common pipeline templates. Pairs with n8n-mcp-integration (which handles HOW to build via SDK). This skill answers WHAT shape a workflow should take.
 - **Triggers:** n8n pattern, workflow design, webhook intake, AI pipeline, error handling pattern, retry pattern, idempotency, scheduled monitoring
 - **Path:** `skills/n8n-patterns/SKILL.md` · tier `standard` · risk `low`
 
-## notebooklm
+## [[skills/notebooklm/SKILL|notebooklm]]
 - **Use when:** Use this skill whenever the user mentions NotebookLM, Google Notebook LM, ingesting documents for study, generating audio podcasts from docs, or knowledge management via NotebookLM.
 - **Triggers:** NotebookLM, Google Notebook, audio podcast, document study, knowledge management
 - **Path:** `skills/notebooklm/SKILL.md` · tier `specialized` · risk `low`
 
-## opencli
+## [[skills/opencli/SKILL|opencli]]
 - **Use when:** Turn any website into a CLI command via browser automation. Use for web scraping, social media automation, API discovery, and platform integration without building custom scrapers.
 - **Triggers:** opencli, website CLI, web automation, API discovery, browser CLI, explore website, synthesize adapter
 - **Path:** `skills/opencli/SKILL.md` · tier `specialized` · risk `low`
 
-## outreach-send
+## [[skills/outreach-send/SKILL|outreach-send]]
 - **Use when:** Send OASIS cold/follow-up outreach emails with branded HTML, booking link, geo-rapport, and full deliverability protection. Use whenever CC says "send outreach", "email these leads", "follow up with X", or any first/second-touch sales email to a lead in the CRM. Works identically
 - **Triggers:** outreach send, use outreach send, run outreach send, send oasis cold/follow-up outreach emails with branded html
 - **Path:** `skills/outreach-send/SKILL.md` · tier `specialized` · risk `low`
 
-## pdf
+## [[skills/pdf/SKILL|pdf]]
 - **Use when:** Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rotating pages, adding watermarks, creating new PDFs, filling PDF forms, encrypting/
 - **Triggers:** PDF, merge PDF, split PDF, read PDF, OCR, watermark, PDF form
 - **Path:** `skills/pdf/SKILL.md` · tier `specialized` · risk `low`
 
-## pptx
+## [[skills/pptx/SKILL|pptx]]
 - **Use when:** Use this skill any time a .pptx file is involved in any way — as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting text from any .pptx file (even if the extracted content will be used elsewhere, like in an
 - **Triggers:** PowerPoint, pptx, slides, presentation, deck, pitch deck, speaker notes
 - **Path:** `skills/pptx/SKILL.md` · tier `specialized` · risk `low`
 
-## project-management
+## [[skills/project-management/SKILL|project-management]]
 - **Use when:** Lightweight project management for OASIS client engagements. Project definition, 5-phase structure, milestone tracking, status reporting, scope management, multi-project dashboard, and retrospective template.
 - **Triggers:** project management, use project management, run project management, lightweight project management for oasis client engagements
 - **Path:** `skills/project-management/SKILL.md` · tier `standard` · risk `low`
 
-## proposal-generation
+## [[skills/proposal-generation/SKILL|proposal-generation]]
 - **Use when:** Generate proposals, SOWs, and NDAs for OASIS AI Solutions. Covers discovery proposals, retainer proposals, and project-based SOWs with Good/Better/Best pricing tiers. Uses proposal_generator.py.
 - **Triggers:** proposal generation, use proposal generation, run proposal generation, generate proposals
 - **Path:** `skills/proposal-generation/SKILL.md` · tier `specialized` · risk `low`
 
-## python-daemon-automation
+## [[skills/python-daemon-automation/SKILL|python-daemon-automation]]
 - **Use when:** Build, deploy, and manage Python background daemons on Windows — includes 5-step redeploy protocol, watchdog patterns, zombie process detection, and kill switches
 - **Triggers:** python daemon automation, use python daemon automation, run python daemon automation
 - **Path:** `skills/python-daemon-automation/SKILL.md` · tier `standard` · risk `low`
 
-## receiving-code-review
+## [[skills/receiving-code-review/SKILL|receiving-code-review]]
 - **Use when:** Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation
 - **Triggers:** feedback, review feedback, code review response, suggestion, requested changes
 - **Path:** `skills/receiving-code-review/SKILL.md` · tier `standard` · risk `low`
 
-## requesting-code-review
+## [[skills/requesting-code-review/SKILL|requesting-code-review]]
 - **Use when:** Use when completing tasks, implementing major features, or before merging to verify work meets requirements
 - **Triggers:** request review, verify work, pre-merge check, self-review
 - **Path:** `skills/requesting-code-review/SKILL.md` · tier `standard` · risk `low`
 
-## research-fetch
+## [[skills/research-fetch/SKILL|research-fetch]]
 - **Use when:** Unified research-tier fetcher with auto-escalation (Firecrawl → CloakBrowser) and SQLite site-reputation memory. The single entry point all research-heavy skills should call instead of choosing tiers manually. Replaces ad-hoc firecrawl_tool / cloak_browser_tool decisions in compe
 - **Triggers:** research fetch, research_fetch, fetch url, fetch a page, get page content, scrape a page, scrape this url, research a website, scrape with auto escalation, intelligent fetch, tier aware scrape
 - **Path:** `skills/research-fetch/SKILL.md` · tier `tool` · risk `low`
 
-## retro — _explicit `/command` only_
+## [[skills/resource-radar/SKILL|resource-radar]]
+- **Use when:** Free-tier service & free-API lookup — consult the TOOL_SHED Free-Tier Radar before adding/paying for any external service; enforces closed-slot conflict rules and the keyed-adoption path
+- **Triggers:** free tier, free API, what service for, replace paid tool, do we pay for, cheaper alternative, uptime monitoring, error tracking, need a service
+- **Path:** `skills/resource-radar/SKILL.md` · tier `tool` · risk `low`
+
+## [[skills/retro/SKILL|retro]] — _explicit `/command` only_
 - **Use when:** Weekly retrospective analysis. Use when CC says "/retro", "weekly retro", "how did we do this week", or "what shipped this week". Analyzes all agent activity, rates 4 operational dimensions, and generates specific improvement actions.
 - **Triggers:** retro, retrospective, weekly retro, what shipped, how did we do
 - **Path:** `skills/retro/SKILL.md` · tier `specialized` · risk `low`
 
-## revenue-operations
-- **Use when:** Track MRR, log revenue events, run forecasts, and monitor progress toward the $10,000 USD Net MRR goal using revenue_engine.py. Combines Stripe subscription data with manual entries in Supabase.
+## [[skills/revenue-operations/SKILL|revenue-operations]]
+- **Use when:** ATLAS-OWNED domain — Bravo does not report MRR/revenue (Atlas is CFO). Invoke only on explicit CC request to run revenue_engine.py mechanics (log a revenue event, sync Stripe). For any 'what's my MRR / revenue / goal' question, defer to Atlas.
 - **Triggers:** revenue, MRR, forecast, Stripe, income, goal, monthly, clients, financial
 - **Path:** `skills/revenue-operations/SKILL.md` · tier `standard` · risk `low`
 
-## risk-management
+## [[skills/review-harvest/SKILL|review-harvest]]
+- **Use when:** Act on findings left by the automated bots — CodeRabbit inline comments, Vercel deployment checks, failing GitHub Actions runs. Harvests UNRESOLVED threads live via gh, applies the fix, runs tests, pushes to the PR branch, reports to CC. Use when CC mentions CodeRabbit, a red CI
+- **Triggers:** coderabbit, code rabbit, coderabbitai, vercel bot, failing check, run failed, substrate-eval failed, bot findings, harvest findings, pr comments from bots
+- **Path:** `skills/review-harvest/SKILL.md` · tier `standard` · risk `low`
+
+## [[skills/risk-management/SKILL|risk-management]]
 - **Use when:** Business risk identification, assessment, monitoring, and mitigation for CC's empire — revenue concentration, operational, financial, reputation, legal, and technology risk
 - **Triggers:** risk management, use risk management, run risk management, business risk identification
 - **Path:** `skills/risk-management/SKILL.md` · tier `standard` · risk `low`
 
-## sales-closing
+## [[skills/sales-closing/SKILL|sales-closing]]
 - **Use when:** Tactical closing, objection handling, and negotiation for OASIS AI retainer deals and coaching clients. Extends sales-methodology (NEPQ) into the final 20% of the deal cycle where money actually moves.
 - **Triggers:** close the deal, closing, objection, negotiate, final offer, contract, proposal follow-up, objection handling, close techniques
 - **Path:** `skills/sales-closing/SKILL.md` · tier `strategic` · risk `low`
 
-## sales-methodology
+## [[skills/sales-methodology/SKILL|sales-methodology]]
 - **Use when:** NEPQ-based sales framework for OASIS AI Solutions — discovery calls, situation/problem/solution/consequence questions, objection handling, closing, and sales metrics
 - **Triggers:** sales methodology, use sales methodology, run sales methodology
 - **Path:** `skills/sales-methodology/SKILL.md` · tier `specialized` · risk `low`
 
-## scaling-playbook
+## [[skills/scaling-playbook/SKILL|scaling-playbook]]
 - **Use when:** Use this skill whenever the user asks about growing the team, hiring decisions, productizing services, pricing evolution, operations scaling, or planning the path from solo to agency. Contains revenue-based scaling triggers, first hire frameworks, productization pathways, and CC'
 - **Triggers:** scale, hire, first hire, team, productize, agency, grow, pricing strategy, operations, delegation, leverage
 - **Path:** `skills/scaling-playbook/SKILL.md` · tier `specialized` · risk `low`
 
-## score-b2b-lead-quality
+## [[skills/score-b2b-lead-quality/SKILL|score-b2b-lead-quality]]
 - **Use when:** Evaluate inbound B2B SaaS leads using weighted signal analysis to prioritize routing and outreach strategy.
 - **Triggers:** evaluate lead quality, should we reach out to this prospect, rate this inbound lead, what's the lead score
 - **Path:** `skills/score-b2b-lead-quality/SKILL.md` · tier `specialized` · risk `low`
 
-## security-protocol
+## [[skills/security-protocol/SKILL|security-protocol]]
 - **Use when:** Secrets and authentication management. Ensures API keys, tokens, and credentials are NEVER exposed in plain text. Use when handling any credential, API key, or sensitive configuration.
 - **Triggers:** secret, credential, API key, exposed, rotation, security, token, password, leak, gitguardian
 - **Path:** `skills/security-protocol/SKILL.md` · tier `core` · risk `low`
 
-## self-healing
+## [[skills/self-evolution/SKILL|self-evolution]]
+- **Use when:** Promote a validated memory pattern into permanent, routable capability — a skill or an SOP. Use when CC says evolve, when a retro produces a lesson worth keeping, or when a pattern has been applied enough times that the next agent should not have to re-derive it.
+- **Triggers:** evolve, promote this pattern, make this a skill, turn this into an sop, what should be promoted, scan for promotion candidates
+- **Path:** `skills/self-evolution/SKILL.md` · tier `meta` · risk `low`
+
+## [[skills/self-healing/SKILL|self-healing]]
 - **Use when:** Multi-dimensional autonomous recovery and health maintenance. Triggers on errors, session boundaries, and infrastructure issues. Covers memory healing, context healing, skill healing, infrastructure healing, and relationship healing.
 - **Triggers:** heal, broken config, drift, inconsistent, stale, self-heal, recovery
 - **Path:** `skills/self-healing/SKILL.md` · tier `core` · risk `low`
 
-## self-improvement-protocol
+## [[skills/self-improvement-protocol/SKILL|self-improvement-protocol]]
 - **Use when:** The 4-protocol loop every C-Suite agent runs to stay sharp: self-heal (detect+fix broken state), self-optimize (track+tune own performance), self-develop (fill capability gaps), self-improve (learn from outcomes). Installs in Bravo / Atlas / Maven / Aura with per-agent scoping.
 - **Triggers:** self-heal, self-optimize, self-develop, self-improve, retrospective, reflexion, review-self, heal, optimize, evolve
 - **Path:** `skills/self-improvement-protocol/SKILL.md` · tier `full` · risk `low`
 
-## semantic-memory
+## [[skills/semantic-memory/SKILL|semantic-memory]]
 - **Use when:** Use this skill when storing or retrieving preferences, facts, or context that should be searchable by meaning rather than exact keyword. Activates when CC says "remember that", "what do I prefer", or any query requiring fuzzy recall across sessions.
 - **Triggers:** remember, recall, preferences, semantic search, mem0, memory search, what does CC prefer, cross-session context
 - **Path:** `skills/semantic-memory/SKILL.md` · tier `standard` · risk `low`
 
-## send-gateway — _explicit `/command` only_
+## [[skills/send-gateway/SKILL|send-gateway]] — _explicit `/command` only_
 - **Use when:** The single outbound chokepoint for every autonomous action Bravo performs on behalf of CC. Enforces CASL compliance, cooldown windows, daily caps, and cross-engine idempotency architecturally — callers cannot bypass it.
 - **Triggers:** send gateway, use send gateway, run send gateway
 - **Path:** `skills/send-gateway/SKILL.md` · tier `core` · risk `low`
 
-## sequential-reasoning
+## [[skills/sequential-reasoning/SKILL|sequential-reasoning]]
 - **Use when:** Enhanced multi-step reasoning protocol for complex problems. Combines Sequential Thinking MCP with structured analysis frameworks. Use for architecture decisions, root cause analysis, strategic planning, and multi-variable optimization.
 - **Triggers:** complex reasoning, multi-step analysis, architecture decision, strategic planning
 - **Path:** `skills/sequential-reasoning/SKILL.md` · tier `standard` · risk `low`
 
-## ship — _explicit `/command` only_
+## [[skills/ship/SKILL|ship]] — _explicit `/command` only_
 - **Use when:** Full deployment pipeline for any app in the registry. Use when CC says "ship it", "deploy", "push this live", or "/ship". Handles sync, tests, code review, changelog, PR, and post-ship verification in sequence.
 - **Triggers:** ship, deploy, push live, release, go live, ship it
 - **Path:** `skills/ship/SKILL.md` · tier `standard` · risk `low`
 
-## silver-platter
+## [[skills/silver-platter/SKILL|silver-platter]]
 - **Use when:** Per-agent data-readiness audit. Produces an HTML report mapping Pantry (raw sources), Prep Table (deterministic snapshots), and Plate (agent consumers) with a Mermaid data-flow diagram and ranked quick-win list. The audit deliverable from brain/AGENTIC_OS_REFERENCE.md §5.
 - **Triggers:** silver platter, data audit, data readiness audit, audit my data, pantry prep table plate, where does my data live
 - **Path:** `skills/silver-platter/SKILL.md` · tier `T2` · risk `low`
 
-## skill-creator
+## [[skills/skill-creator/SKILL|skill-creator]]
 - **Use when:** Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, update or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's des
 - **Triggers:** create skill, new skill, modify skill, skill eval, skill performance
 - **Path:** `skills/skill-creator/SKILL.md` · tier `specialized` · risk `low`
 
-## slack-gif-creator
+## [[skills/slack-gif-creator/SKILL|slack-gif-creator]]
 - **Use when:** Knowledge and utilities for creating animated GIFs optimized for Slack. Provides constraints, validation tools, and animation concepts. Use when users request animated GIFs for Slack like "make me a GIF of X doing Y for Slack."
 - **Triggers:** GIF, Slack GIF, animated GIF, animation
 - **Path:** `skills/slack-gif-creator/SKILL.md` · tier `specialized` · risk `low`
 
-## sop-breakdown
+## [[skills/sop-breakdown/SKILL|sop-breakdown]]
 - **Use when:** Automatically creates, refines, and executes Standard Operating Procedures. Triggers when a process is repeated 3+ times or when CC requests an SOP. Extracts steps from observed behavior, tracks success rates, and evolves SOPs over time.
 - **Triggers:** SOP, standard operating procedure, process, repeated task, workflow template
 - **Path:** `skills/sop-breakdown/SKILL.md` · tier `standard` · risk `low`
 
-## sparc-methodology — _explicit `/command` only_
-- **Use when:** >
+## [[skills/sparc-methodology/SKILL|sparc-methodology]] — _explicit `/command` only_
+- **Use when:** SPARC development workflow (Specification, Pseudocode, Architecture, Refinement, Completion) — a structured 5-phase approach for complex implementations that ensures thorough planning before any code is written. Use for new feature implementation, complex integrations, architectu
 - **Triggers:** sparc methodology, use sparc methodology, run sparc methodology
 - **Path:** `skills/sparc-methodology/SKILL.md` · tier `specialized` · risk `low`
 
-## strategic-compact
+## [[skills/strategic-compact/SKILL|strategic-compact]]
 - **Use when:** Use this skill whenever the user asks about the strategic compact, setting goals, defining business strategy, OKRs, company operating principles, or top-level mission planning.
 - **Triggers:** strategic compact, goals, business strategy, OKR, mission planning, operating principles
 - **Path:** `skills/strategic-compact/SKILL.md` · tier `specialized` · risk `low`
 
-## strategic-planning
+## [[skills/strategic-planning/SKILL|strategic-planning]]
 - **Use when:** CEO-level strategic planning framework — OKRs, annual strategy, scenario modeling, decision frameworks, QBR and weekly review templates
 - **Triggers:** strategic planning, use strategic planning, run strategic planning, ceo-level strategic planning framework \u2014 okrs
 - **Path:** `skills/strategic-planning/SKILL.md` · tier `specialized` · risk `low`
 
-## subagent-driven-development
+## [[skills/subagent-driven-development/SKILL|subagent-driven-development]]
 - **Use when:** Use when executing implementation plans with independent tasks in the current session
 - **Triggers:** subagent, sub-agent, fresh subagent, task delegation, subagent execution
 - **Path:** `skills/subagent-driven-development/SKILL.md` · tier `standard` · risk `low`
 
-## supabase-patterns
+## [[skills/supabase-patterns/SKILL|supabase-patterns]]
 - **Use when:** Use this skill whenever the user asks about Supabase, database design, postgres, creating tables, writing SQL, RLS policies, performing database CRUD, or backend data patterns.
 - **Triggers:** Supabase, SQL, migration, RLS, schema, database, postgres, CRUD
 - **Path:** `skills/supabase-patterns/SKILL.md` · tier `standard` · risk `low`
 
-## systematic-debugging
+## [[skills/systematic-debugging/SKILL|systematic-debugging]]
 - **Use when:** Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
 - **Triggers:** bug, error, failure, crash, broken, not working, debug, stack trace
 - **Path:** `skills/systematic-debugging/SKILL.md` · tier `core` · risk `low`
 
-## task-routing
-- **Use when:** >
+## [[skills/task-routing/SKILL|task-routing]]
+- **Use when:** Complexity-based intelligent task routing to specialized agents. Analyzes incoming tasks for file count, domain signals, estimated steps, and risk level, then auto-assigns to the optimal agent or agent team. Use when any non-trivial task arrives, multi-file changes, or it's uncle
 - **Triggers:** task routing, use task routing, run task routing
 - **Path:** `skills/task-routing/SKILL.md` · tier `core` · risk `low`
 
-## team-management
+## [[skills/team-management/SKILL|team-management]]
 - **Use when:** Hiring framework, contractor onboarding, 1:1 templates, performance reviews, delegation (RACI), capacity planning, communication protocols, and offboarding. Scales CC from solo to small team without losing operational quality.
 - **Triggers:** team management, use team management, run team management, hiring framework
 - **Path:** `skills/team-management/SKILL.md` · tier `standard` · risk `low`
 
-## telegram-demo-workflows
+## [[skills/telegram-demo-workflows/SKILL|telegram-demo-workflows]]
 - **Use when:** 5 verified, rehearsed Telegram → MacBook demo workflows for filming content. Each is designed to work 100% of the time, look visually impressive on camera, and be completable in under 60 seconds. Use these when filming "AI takes over my computer" content.
 - **Triggers:** demo, film, content, record, show, camera, telegram controls, computer control demo
 - **Path:** `skills/telegram-demo-workflows/SKILL.md` · tier `full` · risk `low`
 
-## test-driven-development
+## [[skills/test-driven-development/SKILL|test-driven-development]]
 - **Use when:** Use when implementing any feature or bugfix, before writing implementation code
 - **Triggers:** test, TDD, failing test, unit test, red green, test first
 - **Path:** `skills/test-driven-development/SKILL.md` · tier `standard` · risk `low`
 
-## theme-factory
+## [[skills/theme-factory/SKILL|theme-factory]]
 - **Use when:** Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly.
 - **Triggers:** theme, styling, brand colors, fonts, visual format, artifact styling
 - **Path:** `skills/theme-factory/SKILL.md` · tier `specialized` · risk `low`
 
-## using-git-worktrees
+## [[skills/using-git-worktrees/SKILL|using-git-worktrees]]
 - **Use when:** Use when starting feature work that needs isolation from current workspace or before executing implementation plans - creates isolated git worktrees with smart directory selection and safety verification
 - **Triggers:** worktree, git worktree, isolation, feature branch, workspace
 - **Path:** `skills/using-git-worktrees/SKILL.md` · tier `standard` · risk `low`
 
-## using-superpowers
+## [[skills/using-superpowers/SKILL|using-superpowers]]
 - **Use when:** Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions
 - **Triggers:** skill, superpowers, find skill, use skill, skill invocation
 - **Path:** `skills/using-superpowers/SKILL.md` · tier `core` · risk `low`
 
-## verification-before-completion
+## [[skills/verification-before-completion/SKILL|verification-before-completion]]
 - **Use when:** Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always
 - **Triggers:** verify, complete, done, passing, evidence, before commit, before PR
 - **Path:** `skills/verification-before-completion/SKILL.md` · tier `standard` · risk `low`
 
-## verticals
+## [[skills/verticals/SKILL|verticals]]
 - **Use when:** Namespace for vertical-specific playbooks (agency, coaching, creator, ecommerce, local-service, saas). Load the matching sub-skill when CC onboards a client in a given vertical — each one will ship lead-gen, pricing, and delivery SOPs tailored to that vertical's economics.
 - **Triggers:** verticals, use verticals, run verticals, namespace for vertical-specific playbooks (agency
 - **Path:** `skills/verticals/SKILL.md` · tier `standard` · risk `low`
 
-## web-artifacts-builder
+## [[skills/vibe-to-execution/SKILL|vibe-to-execution]]
+- **Use when:** Translate an informal brain dump or voice transcript into a turnkey, production-grade execution blueprint — resolved domain vocabulary, DB/API contracts, UI interaction design, and the exact CLI/tool routing. Use when CC describes what he wants in loose prose rather than a spec,
+- **Triggers:** vibe to execution, brain dump, voice note, turn this into a spec, translate this into a build, make this a system message, what i mean is, here is the vibe
+- **Path:** `skills/vibe-to-execution/SKILL.md` · tier `strategic` · risk `low`
+
+## [[skills/web-artifacts-builder/SKILL|web-artifacts-builder]]
 - **Use when:** Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX ar
 - **Triggers:** web artifact, React artifact, HTML artifact, multi-component, shadcn, complex artifact
 - **Path:** `skills/web-artifacts-builder/SKILL.md` · tier `specialized` · risk `low`
 
-## web-scraping
+## [[skills/web-scraping/SKILL|web-scraping]]
 - **Use when:** Web scraping and structured data extraction. Activate when CC needs to pull content from competitor sites, extract pricing/contacts/listings, harvest data for research, scrape pages that don't have an API, or operate a site under CC's logged-in account.
 - **Triggers:** web scraping, use web scraping, run web scraping, web scraping and structured data extraction
 - **Path:** `skills/web-scraping/SKILL.md` · tier `specialized` · risk `low`
 
-## webapp-testing
+## [[skills/webapp-testing/SKILL|webapp-testing]]
 - **Use when:** Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.
 - **Triggers:** webapp test, local app test, frontend test, browser test, UI test
 - **Path:** `skills/webapp-testing/SKILL.md` · tier `standard` · risk `low`
 
-## writing-plans
+## [[skills/writing-plans/SKILL|writing-plans]]
 - **Use when:** Use when you have a spec or requirements for a multi-step task, before touching code
 - **Triggers:** plan, implementation plan, feature plan, spec, requirements
 - **Path:** `skills/writing-plans/SKILL.md` · tier `standard` · risk `low`
 
-## writing-skills
+## [[skills/writing-skills/SKILL|writing-skills]]
 - **Use when:** Use when creating new skills, editing existing skills, or verifying skills work before deployment
 - **Triggers:** write skill, create skill, skill authoring, skill format
 - **Path:** `skills/writing-skills/SKILL.md` · tier `specialized` · risk `low`
 
-## xlsx
+## [[skills/xlsx/SKILL|xlsx]]
 - **Use when:** Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .csv, or .tsv file (e.g., adding columns, computing formulas, formatting, charting, cleaning messy data); cre
 - **Triggers:** spreadsheet, xlsx, Excel, CSV, TSV, tabular data, chart
 - **Path:** `skills/xlsx/SKILL.md` · tier `specialized` · risk `low`

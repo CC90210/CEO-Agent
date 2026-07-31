@@ -4,6 +4,7 @@ description: Client health scoring, churn prediction, retention playbooks, NPS f
 tags: [skill, client-success, retention]
 triggers: ["client success", "use client success", "run client success", "client health scoring"]
 tier: specialized
+last_updated: 2026-07-20
 ---
 
 # Client Success — Health Scoring and Retention System
@@ -440,5 +441,5 @@ Run quarterly. Answer three questions:
 
 ## Obsidian Links
 - [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[brain/CAPABILITIES]]
-- [[skills/revenue-operations/SKILL.md]] | [[../../CMO-Agent/skills/lead-management/SKILL]]
+- [[skills/revenue-operations/SKILL.md]] | [[../../../CMO-Agent/skills/lead-management/SKILL]]
 - [[skills/ceo-briefing/SKILL.md]] | [[skills/financial-modeling/SKILL.md]] | [[brain/USER]]

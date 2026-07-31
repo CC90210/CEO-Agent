@@ -4,11 +4,12 @@ description: Unit economics, SaaS metrics, cohort analysis, scenario modeling, c
 tags: [skill, finance, modeling, unit-economics, saas-metrics]
 triggers: ["financial modeling", "use financial modeling", "run financial modeling", "unit economics"]
 tier: specialized
+last_updated: 2026-07-20
 ---
 
 # Financial Modeling
 
-> **Note (2026-05-18):** Worked examples below use pre-2026-05-18 numbers ($2,500 primary retainer, $2,982 MRR, 94% concentration). They remain as **pedagogical references** — the formulas + structure still apply. For current state see brain/STATE.md (~$371 confirmed MRR, no dominant client).
+> **Note (2026-05-18):** Worked examples below use pre-2026-05-18 numbers ($2,500 primary retainer, $2,982 MRR, 94% concentration). They remain as **pedagogical references** — the formulas + structure still apply. Current revenue state: Atlas (CFO) owns it — defer to Atlas, don't quote a number.
 
 ## Overview
 
@@ -612,5 +613,5 @@ Target: 0.75+ by adding formal contracts to existing clients
 
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[skills/strategic-planning/SKILL.md]]
-- [[skills/ceo-briefing/SKILL.md]] | [[../../CMO-Agent/skills/competitive-intelligence/SKILL]]
+- [[skills/ceo-briefing/SKILL.md]] | [[../../../CMO-Agent/skills/competitive-intelligence/SKILL]]
 - [[skills/client-success/SKILL.md]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]

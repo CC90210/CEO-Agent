@@ -30,6 +30,25 @@ python scripts/core/memory_retriever.py query "<recurring task you noticed>" --k
 
 Only `Read` a full file when a snippet doesn't carry enough context. `MISTAKES.md` is rare — most queries don't need its 27KB body, just three relevant entries.
 
+## Step 0 — Run the scanner first (added 2026-07-29)
+
+This workflow described promotion as a manual reading exercise. There is now a tool for the
+mechanical half — which validated patterns have **no owning skill or SOP**:
+
+```bash
+python scripts/core/evolve.py scan                    # candidates, weakest match first
+python scripts/core/evolve.py scan --json --limit 30
+python scripts/core/evolve.py promote "<title>" --kind skill --apply   # scaffold it
+```
+
+It compares every `[V]` entry's vocabulary against all skills + SOPs; overlap ≥ 0.5 counts as
+already-owned. That replaces the "is this already captured?" pass of the Five-Gate filter
+(gate 3, REDUNDANCY) with an actual measurement.
+
+**It scaffolds; it does not author.** The stub carries the pattern, its provenance and a TODO
+block. Steps 2-5 below are still yours — the tool tells you WHAT is unowned, not what to write.
+Deep detail: `skills/self-evolution/SKILL.md`.
+
 ## Steps
 
 ### 1. Gather Raw Material (retrieval-driven)
