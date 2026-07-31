@@ -52,14 +52,21 @@ def _fail(name: str, detail: str) -> dict[str, Any]:
 # ── Checks ─────────────────────────────────────────────────────────────
 
 def check_tests() -> dict[str, Any]:
-    """Run pytest in quiet mode. Test_send_gateway is excluded by default
-    until its V6.0-era fixtures are repaired (see test_send_gateway docstring)."""
+    """Run pytest in quiet mode over BOTH test roots.
+
+    Covers scripts/ and tests/ so the deploy gate sees what CI sees — tests/
+    was previously omitted here, which is how four red retrieval tests reached
+    a deploy check green. The old --ignore=scripts/test_send_gateway.py was
+    dropped: that path stopped existing when the file moved to scripts/tests/,
+    so the flag had been a silent no-op and the suite already runs.
+    """
     try:
         result = safe_run(
-            [sys.executable, "-m", "pytest", "scripts/", "-q",
-             "--tb=no",
-             "--ignore=scripts/test_send_gateway.py"],
-            capture_output=True, text=True, timeout=180, cwd=str(PROJECT_ROOT),
+            [sys.executable, "-m", "pytest", "scripts/", "tests/", "-q",
+             "--tb=no"],
+            # ~135s for the full suite locally; 300 leaves headroom for a
+            # slower box rather than failing the gate on a timeout.
+            capture_output=True, text=True, timeout=300, cwd=str(PROJECT_ROOT),
         )
     except (subprocess.SubprocessError, OSError) as exc:
         return _fail("Tests", f"pytest run failed: {exc}")
