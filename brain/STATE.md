@@ -149,11 +149,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-30
+- **Date:** 2026-07-31
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Diagnostic session: SESSION_LOG.md junk cleaned, 2 self-audit orphans wired, review-loop regression test fixed (was testing itself), harness 10/10 confirmed.
+- **Result:** Substrate cleanup: Windows dashboard-email-consumer removed (VPS sole consumer; Windows copy was TLS-dead zombie). Merged feat/native-email-classifier to main (e5ec1e22, notify.py reconciled: dedup+routing+EZRA fallback all preserved) and Atlas feat/inbound-financial-consumer to master (9e52817). Basque Landscaping lead closed (record kept). OPERATIONAL_STATE refreshed. Found: 4 pre-existing retrieval-hybrid test failures (associative layer vs test contract, not merge-caused).
 
-*Last updated: 2026-07-30*
+*Last updated: 2026-07-31*
 
 ## Manifest
 

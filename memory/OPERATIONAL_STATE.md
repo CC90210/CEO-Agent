@@ -1,12 +1,12 @@
 ---
 tags: [operational-state, ephemeral]
-last_updated: 2026-07-19
+last_updated: 2026-07-31
 freshness_threshold_days: 7
 ---
 
 # OPERATIONAL STATE — Live Infrastructure & Known Issues
 
-> ✅ Re-verified 2026-07-19 (currency sweep): PM2 fleet 10/10 online (bravo-telegram, maven-telegram, atlas-telegram, claude-bridge, claude-bridge-ping, bravo-scheduler, dashboard-email-consumer, event-router, bravo-coord, pm2-logrotate). EMPIRE_V6_MODE=shadow. Architecture V7.3.3.
+> ✅ Re-verified 2026-07-31 (substrate cleanup): PM2 fleet 10/10 online after `dashboard-email-consumer` was removed from Windows (VPS is the sole consumer — the Windows copy was a zombie error-loop, TLS-broken since June; proof: its out.log empty since 05-19 while Supabase shows live sends through 07-27). Bravo `feat/native-email-classifier` merged to main (e5ec1e22, pushed); Atlas `feat/inbound-financial-consumer` merged to master (9e52817, pushed). EMPIRE_V6_MODE=shadow. Architecture V7.4.1.
 
 > Ephemeral half of `brain/STATE.md` (split 2026-05-07 per Architecture Certification C5). PIDs, deploy state, the daily-shifting issue queue, and last-heartbeat live here under a 7-day freshness gate. Stable identity / mission / capability architecture stays in `brain/STATE.md`.
 >
@@ -51,10 +51,15 @@ Reboot-persistent via `pm2 save` (dump.pm2) + the **`PM2 Resurrect` scheduled ta
 
 | Issue | Severity | Action |
 |-------|----------|--------|
-| `dashboard-email-consumer` also running on **Windows** though it's designated VPS-only | HIGH | Double-send risk on lead-email queue. Verify the VPS consumer is up, then `pm2 delete dashboard-email-consumer` on Windows + `pm2 save`. **Needs CC confirmation of VPS state first.** |
 | CFO finance module still lives in Bravo repo | MEDIUM | Revenue skills + `revenue_engine.py`/`financial_model.py`/`sync_mrr.py` + 3 revenue crons should migrate to Atlas (CFO). **2026-07-09 progress: MRR removed from the daily brief + all router docs/skills now mark the domain ATLAS-OWNED; Weekly MRR Report cron still sends from Bravo — pending CC (disable vs migrate).** Do NOT deactivate revenue tracking before Atlas has equivalents. |
 | Cross-machine LAN IPs stale after Montreal move | LOW | Refresh in `brain/CROSS_MACHINE_SYNC.md`. |
 | Automations still importing dead `ANTHROPIC_API_KEY` paths | LOW | Key is out of credits — any direct api.anthropic.com caller 400s. **2026-07-18 migration (commit 2384b25c):** `model_router.py` (claude branch now subscription-CLI-first; metered opt-in via `MODEL_ROUTER_ALLOW_METERED_API`), `inbound_classifier.py`, `autonomous_agent.py`, `draft_critic.py`, `memory_consolidation.py`, `enrich_oasis_leads.py`, `enrich_sheet_inplace.py`, `skill_synthesizer.py` → all on `lib/claude_cli`. Prior: `daily_brief.py`, `bravo_sleep.py`, `auto_score_leads.py`, `abstract_backfill.py`. **2026-07-18 fallback purge (commit b72b7ac9):** `telegram_agent.js` + `gateway/adapters/telegram.js` metered retries removed (subscription-only, fail loud); `bridge_chat_server.py` cloud chat OpenRouter-only + sticky-paid respawn removed + cold-spawn strips the key. **Remaining (not broken, out of scope):** `extraction_consumer.py` API fallback (VPS), `skills/skill-creator/` + `skills/mcp-builder/` dev tooling, `scripts/aura/` (separate agent), `apps/oasis-desktop` (BYOK). |
+
+## Recently Fixed (2026-07-31 — substrate cleanup)
+
+- **Windows `dashboard-email-consumer` removed** — was a zombie: TLS-broken (AVG MITM family) since ~June, out.log empty since 05-19, error-looping daily. VPS consumer proven the live one (Supabase sends through 07-27 while Windows logged only fetch failures). `pm2 delete` + `pm2 save` done; VPS is now the sole authoritative consumer. The 5 "queued" `lead_interactions` rows are mid-June `form_intake_resume` test fixtures, not real backlog.
+- **Branch convergence** — Bravo `feat/native-email-classifier` → main (`e5ec1e22`) with `notify.py` reconciled (branch dedup/backoff + per-agent routing AND main's EZRA creds fallback both preserved, smoke-verified); Atlas `feat/inbound-financial-consumer` → master (`9e52817`, fast-forward, suite green).
+- **Basque Landscaping lead closed** — record kept in `memory/ACTIVE_TASKS.md`, nothing deleted.
 
 ## Recently Fixed (2026-07-09 — Telegram automations + inbound pivot)
 
