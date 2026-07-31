@@ -23,6 +23,7 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -31,6 +32,10 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 COMPANION = Path.home() / ".claude" / "codex-plugin" / "scripts" / "codex-companion.mjs"
+
+# Confirmed against `codex --version` 0.146.0's own model list (gpt-5.5, gpt-5.4,
+# gpt-5.4-mini, codex-auto-review). Override per-run with --model.
+DEFAULT_REVIEW_MODEL = os.environ.get("EMPIRE_CODEX_REVIEW_MODEL", "gpt-5.5")
 
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from lib.subprocess_helpers import safe_run  # noqa: E402
@@ -73,6 +78,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("mode", choices=["review", "adversarial-review"])
     p.add_argument("focus", nargs="?", default=None, help="focus prompt (adversarial-review)")
     p.add_argument("--session", default=None, help="task slug for the telemetry row")
+    # 2026-07-31: passing no --model let the reviewer inherit ~/.codex/config.toml,
+    # which is gpt-5.6-sol on Bravo's rig. That model runs fine under `codex exec`
+    # but the REVIEW path rejects it with a 400 "requires a newer version of Codex"
+    # — and upgrading the CLI 0.142.5 -> 0.146.0 did NOT fix it, so it is a
+    # review-path model-support gap, not a stale-binary problem. Pinning here
+    # rather than editing ~/.codex/config.toml keeps CC's interactive Codex on
+    # gpt-5.6-sol; only the audit path is constrained.
+    p.add_argument("--model", default=DEFAULT_REVIEW_MODEL,
+                   help=f"reviewer model (default: {DEFAULT_REVIEW_MODEL})")
     args = p.parse_args(argv)
 
     if not COMPANION.exists():
@@ -82,6 +96,8 @@ def main(argv: list[str] | None = None) -> int:
     cmd = ["node", str(COMPANION), args.mode]
     if args.mode == "adversarial-review" and args.focus:
         cmd.append(args.focus)
+    if args.model:
+        cmd += ["--model", args.model]
     cmd.append("--wait")
 
     try:
