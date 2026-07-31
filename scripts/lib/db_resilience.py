@@ -96,6 +96,23 @@ def harden_supabase_client(
     return changed
 
 
+def _sync_client_class():
+    """The class install() patches — or None if there's nothing to patch.
+
+    Uses the same `"supabase" not in sys.modules` guard install() does, so
+    uninstall() can never be the thing that drags supabase into a process that
+    deliberately never imported it. Every failure mode (not installed, not yet
+    imported, internal layout renamed by an upgrade) collapses to None.
+    """
+    if "supabase" not in sys.modules:
+        return None
+    try:
+        from supabase._sync.client import Client
+        return Client
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def install(
     *,
     retries: int = DEFAULT_RETRIES,
@@ -131,8 +148,44 @@ def install(
             pass  # a hardening failure must never break client construction
 
     _init._empire_hardened = True  # type: ignore[attr-defined]
+    # The only handle on the pre-patch __init__ other than this wrapper's own
+    # closure. It lives on the FUNCTION object, which lives on the CLASS, so it
+    # survives importlib.reload() of this module — exactly like _empire_hardened
+    # does. Without it, un-patching means closure archaeology, which is why this
+    # module had no uninstall() for so long.
+    _init._empire_original = original_init  # type: ignore[attr-defined]
     SyncClient.__init__ = _init  # type: ignore[method-assign]
     _installed = True
+    return True
+
+
+def uninstall() -> bool:
+    """Restore supabase's own Client.__init__. The counterpart install() lacked.
+
+    Returns True iff a patch of OURS was actually removed. Conservative by
+    design: if the class carries someone else's __init__, or a wrapper from a
+    build predating _empire_original, leave it alone and report False rather
+    than guess.
+
+    Deliberately does NOT consult _disabled(): an EMPIRE_DB_HARDEN opt-out
+    flipped after the fact must not be able to strand a patch that is already
+    live. (A test that sets the flag and then relies on teardown to restore the
+    class is exactly the case that would break.)
+    """
+    global _installed
+    # Cleared first and unconditionally — if there is no class to inspect, there
+    # provably is no patch, so the module flag must not keep claiming one.
+    _installed = False
+    cls = _sync_client_class()
+    if cls is None:
+        return False
+    current = cls.__init__
+    if not getattr(current, "_empire_hardened", False):
+        return False
+    original = getattr(current, "_empire_original", None)
+    if original is None:
+        return False
+    cls.__init__ = original  # type: ignore[method-assign]
     return True
 
 

@@ -23,11 +23,52 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib import db_resilience as dbr  # noqa: E402
 
 
+def _patched_class():
+    """supabase's sync Client, or None when supabase isn't installed here."""
+    try:
+        from supabase._sync.client import Client
+        return Client
+    except Exception:  # noqa: BLE001
+        return None
+
+
 @pytest.fixture(autouse=True)
 def _fresh(monkeypatch):
+    """Isolate a process-global class patch in BOTH directions.
+
+    install() replaces supabase's Client.__init__ for the whole process.
+    importlib.reload() resets this module's _installed flag but cannot touch the
+    class, so before this fixture existed:
+
+      inbound  — tests/test_msys_noise_filter.py and tests/test_bridge_script_policy.py
+                 pull supabase into sys.modules at COLLECTION time, satisfying
+                 install()'s `"supabase" not in sys.modules` guard. Then
+                 scripts/tests/test_alert_gating_and_machine_senders.py:156 does
+                 `import notify` at RUN time, whose module body calls
+                 ensure_os_trust() -> tls_trust._harden_db() -> install(). That
+                 file collects at index 1 and this one at index 9, so by the time
+                 test_library_defaults_are_the_problem_we_are_fixing ran, the
+                 class was already hardened and it saw retries=2. It passed
+                 alone and failed in the full suite;
+      outbound — this file's own install() calls (below) leaked the patch to
+                 every one of the ~940 tests collected after it.
+
+    So: enter every test on the library's OWN __init__, and leave behind exactly
+    what we found.
+    """
     monkeypatch.delenv("EMPIRE_DB_HARDEN", raising=False)
+    # Reload BEFORE uninstall so uninstall() clears the flag on the reloaded
+    # module object, not the one we're about to discard.
     importlib.reload(dbr)
-    yield
+    cls = _patched_class()
+    entry_init = cls.__init__ if cls is not None else None
+    dbr.uninstall()
+    try:
+        yield
+    finally:
+        dbr.uninstall()
+        if cls is not None and entry_init is not None and cls.__init__ is not entry_init:
+            cls.__init__ = entry_init
 
 
 def _client():
