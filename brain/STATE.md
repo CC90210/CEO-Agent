@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-01
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Launch sequence now respects prefers-reduced-motion (614ms hand-off vs 4.2s cinematic); verified all three launch stages visually via single-script capture. Pushed cc17bef.
+- **Result:** Deployed interior cockpit meshes, fixed 3D camera engine focus targets, added provider-specific engine models, and built light-warp launch sequence
 
 *Last updated: 2026-08-01*
 

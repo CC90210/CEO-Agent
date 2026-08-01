@@ -1,16 +1,16 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-01T08:00:52.611766+00:00",
+  "generated_at": "2026-08-01T22:23:34.304626+00:00",
   "totals": {
-    "skills": 155,
+    "skills": 156,
     "scripts": 132,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 378,
+    "nodes_total": 379,
     "edges_total": 153,
     "drift_count": 0
   },
@@ -5018,6 +5018,55 @@
         "webapp-testing"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:webgl-product-render",
+      "kind": "skill",
+      "name": "webgl-product-render",
+      "path": "skills/webgl-product-render/SKILL.md",
+      "description": "Build and debug photoreal procedural 3D product visualisers in three.js \u2014 environment lighting, PBR materials, camera choreography, and the specific defects that survive code review but ruin the render. Use when a 3D model reads as rudimentary or cheap, when camera focus lands on",
+      "tier": "tool",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "3d model looks rudimentary",
+        "car looks cheap",
+        "three.js",
+        "threejs",
+        "webgl scene",
+        "product visualiser",
+        "3d hero",
+        "camera focus wrong",
+        "camera framing 3d",
+        "orbit controls",
+        "hotspot camera",
+        "geometry clipping",
+        "parts floating",
+        "photoreal render",
+        "env map",
+        "pbr materials",
+        "make the 3d look real"
+      ],
+      "tags": [
+        "tool",
+        "3d",
+        "threejs",
+        "webgl",
+        "render",
+        "frontend",
+        "camera"
+      ],
+      "status": "[NEW]",
       "disable_model_invocation": false,
       "argument_hint": null,
       "requires": {
