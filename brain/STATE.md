@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-01
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Car stage: widebody now flares bodywork via Maven haunch stations (was pushing wheels out only); removed dead pin-occlusion code. Pushed 0ae160f.
+- **Result:** Car stage: throttled hotspot setState (was 60fps re-render of whole builder), fenders now share paint so they x-ray with the body. Pushed c89e332.
 
 *Last updated: 2026-08-01*
 
