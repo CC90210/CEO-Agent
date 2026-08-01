@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from email_brain import DEFAULT_FINANCIAL_THRESHOLD, decide_action  # noqa: E402
 from inbound_classifier import (  # noqa: E402
     FALLBACK_CONFIDENCE,
+    PLATFORM_SENDERS,
     _BILLING_TOPIC_RE,
     _INTEGRATION_FAILURE_RE,
     _category_keyword_fallback,
@@ -399,6 +400,75 @@ def test_integration_failure_outranks_billing_topic(sender, subject, body, expec
     got = _platform_prefilter(sender, subject, body)
     assert got is not None, f"prefilter did not match a known platform: {sender}"
     assert got["route_target"] == expected, f"{why} — got {got['route_target']}"
+
+
+def test_no_platform_lists_a_money_word_as_a_technical_keyword():
+    """The original defect, as an invariant rather than one fixed case.
+
+    google.com listed "billing" in tech_keywords, and a tech-keyword hit
+    short-circuits classify_category without ever calling the model — so the
+    word "billing" appearing in a bill guaranteed that bill was filed as a tech
+    alert. Any money word in any of these lists recreates that bug for that
+    vendor, so assert the whole registry, not just the one row that was wrong.
+    """
+    # An explicit stem list, NOT _BILLING_TOPIC_RE. That regex is tuned for
+    # message bodies and requires context ("billing account", "payment
+    # declined"), so it does not match the bare word "billing" — reusing it
+    # here produced an assertion that passed while the original bug was
+    # present. Caught by re-adding "billing" and watching the test stay green.
+    money_stems = ("billing", "invoice", "payment", "receipt", "charge",
+                   "refund", "past due", "overdue", "subscription", "card")
+    offenders = {
+        domain: [kw for kw in cfg.get("tech_keywords", [])
+                 if any(stem in kw.lower() for stem in money_stems)]
+        for domain, cfg in PLATFORM_SENDERS.items()
+    }
+    offenders = {d: kws for d, kws in offenders.items() if kws}
+    assert not offenders, (
+        f"money words used as technical keywords: {offenders} — a tech-keyword "
+        f"hit skips the model, so these bills would never reach Atlas")
+
+
+@pytest.mark.parametrize("domain", sorted(PLATFORM_SENDERS))
+def test_every_platform_routes_a_bill_to_finance(domain):
+    """Holds regardless of the vendor's default_route.
+
+    cloudflare.com and googlecloud.com carry empty tech_keywords and a
+    "technical" default_route, so before the billing branch existed every bill
+    they sent went to ops by default — not via a keyword match, which is why
+    fixing google's keyword list alone would not have covered them.
+    """
+    got = _platform_prefilter(f"noreply@{domain}",
+                              "Your invoice is available — account past due", "")
+    assert got is not None and got["route_target"] == "financial", (
+        f"{domain} misroutes a plain bill: {got}")
+
+
+def test_end_to_end_bill_reaches_the_model_and_outage_does_not():
+    """The prefilter is a unit; classify_category is what drives the hand-off.
+
+    Asserting on _platform_prefilter alone would pass even if classify_category
+    still short-circuited, so pin the two behaviours that actually matter: a
+    bill must reach the model (only the model can say whether THIS message is a
+    transaction), and an outage must still skip it (paging ops must not wait on
+    an LLM call).
+    """
+    def boom(*_a, **_kw):
+        raise AssertionError("model must NOT be called — outage should short-circuit")
+
+    bill = classify_category(
+        content="", subject="Google Workspace: Your invoice is available for oasisai.work",
+        from_identity="payments-noreply@google.com",
+        runner=lambda *_a, **_kw: "Financial & Legal")
+    assert bill["category"] == "financial_legal", bill
+    assert bill["fallback"] is False, "a consulted model is not a degraded fallback"
+
+    outage = classify_category(
+        content="unable to deliver events to your webhook endpoint. api error on 47 "
+                "delivery attempts. invoice.payment_failed, charge.refunded",
+        subject="Action required: your webhook endpoint is failing",
+        from_identity="notifications@stripe.com", runner=boom)
+    assert outage["category"] == "technical_support", outage
 
 
 def test_routing_regexes_are_not_redos_vulnerable():
