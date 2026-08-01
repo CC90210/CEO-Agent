@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-01
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Car stage: fixed neon strips buried in bodywork (16/16 stations z-fighting), re-shot camera 38deg->14deg, rebuilt wheels off emissive, removed wireframe + idle sway. Pushed 88f12f8 to oasis-command-center main.
+- **Result:** Car stage: rewrote loft() to indexed+spline-resampled geometry (whole body was flat shaded), AgX tone mapping, removed Hemisphere/Ambient fill, paint to true carbon black. Pushed c1e46f6.
 
 *Last updated: 2026-08-01*
 
