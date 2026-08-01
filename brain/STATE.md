@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-01
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Car stage: applied surface-placement helpers to ALL mounted parts (rails/skirts/struts/hoop/light bar were hardcoded); rails+skirts now swept tubes following the body curve. Pushed d82aad6.
+- **Result:** Car stage: consolidated surfaceRun (was duplicated), moved MOUNT constants to car-geometry.ts, replaced replicated Python geometry check with tests/car-geometry.test.ts calling real exports + signed inside/outside test. Pushed d2ec423.
 
 *Last updated: 2026-08-01*
 
