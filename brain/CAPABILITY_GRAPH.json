@@ -1,16 +1,16 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-07-31T08:00:58.404093+00:00",
+  "generated_at": "2026-08-01T08:00:52.611766+00:00",
   "totals": {
     "skills": 155,
-    "scripts": 130,
+    "scripts": 132,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 376,
+    "nodes_total": 378,
     "edges_total": 153,
     "drift_count": 0
   },
@@ -5559,6 +5559,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:dashboard_email_queue_monitor",
+      "kind": "script",
+      "name": "dashboard_email_queue_monitor",
+      "path": "scripts/dashboard_email_queue_monitor.py",
+      "description": "Dashboard-email queue monitor \u2014 catches a silent outbound stall.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:dns_reputation",
       "kind": "script",
       "name": "dns_reputation",
@@ -6286,6 +6296,16 @@
       "name": "run_sql_via_mgmt_api",
       "path": "scripts/run_sql_via_mgmt_api.py",
       "description": "One-shot: run a SQL file against oasis via the Supabase Management API.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:run_tests",
+      "kind": "script",
+      "name": "run_tests",
+      "path": "scripts/run_tests.py",
+      "description": "Run pytest on the repo's own interpreter, over the repo's own testpaths.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
