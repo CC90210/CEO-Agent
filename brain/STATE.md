@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-01
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Car stage: rewrote loft() to indexed+spline-resampled geometry (whole body was flat shaded), AgX tone mapping, removed Hemisphere/Ambient fill, paint to true carbon black. Pushed c1e46f6.
+- **Result:** Car stage: applied surface-placement helpers to ALL mounted parts (rails/skirts/struts/hoop/light bar were hardcoded); rails+skirts now swept tubes following the body curve. Pushed d82aad6.
 
 *Last updated: 2026-08-01*
 
