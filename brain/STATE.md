@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-01
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Car stage: consolidated surfaceRun (was duplicated), moved MOUNT constants to car-geometry.ts, replaced replicated Python geometry check with tests/car-geometry.test.ts calling real exports + signed inside/outside test. Pushed d2ec423.
+- **Result:** Car stage: extracted resampleStations to car-geometry.ts; geometry test now verifies the 44-ring rendered surface (2838 assertions) not the 8 authored stations; test:marketing wired into CI. Pushed a7a5d02.
 
 *Last updated: 2026-08-01*
 
