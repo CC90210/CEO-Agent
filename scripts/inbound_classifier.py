@@ -195,6 +195,16 @@ VALID_ACTIONS = {
 # notice must reach Atlas/CC as financial, but nothing has been charged yet, so
 # booking it would invent a ledger row. Keep the two predicates separate:
 # widening this one is safe, widening that one costs real money.
+#
+# DO NOT merge this with email_playbook.MONEY_SIGNALS. That tuple answers a
+# third question — "is this thread commercially sensitive, so never auto-reply?"
+# — and is over-broad on purpose ("price", "pricing", "cost", "monthly",
+# "how much"), because its false positives cost nothing but a withheld
+# auto-reply. Routing on it would send every pricing newsletter to finance:
+# measured 2026-08-01, MONEY_SIGNALS matches the Lindy price-cut blast, a
+# "$49/mo" pricing page, and a monthly usage report, none of which this regex
+# matches. That blast being filed as a business expense IS the 2026-07-29
+# incident this module's tests exist for.
 _BILLING_TOPIC_RE = re.compile(
     r"\b(?:"
     r"invoice|billing\s+account|past\s+due|overdue|unpaid"
