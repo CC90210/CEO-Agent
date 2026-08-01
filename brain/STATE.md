@@ -149,11 +149,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-07-31
+- **Date:** 2026-08-01
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Substrate remediation: hybrid retrieval extras take reserved slots inside limit (4 tests fixed), db_resilience class patch made reversible (order-dependence fixed), pytest routed through .venv over full testpaths, Codex audit reviewer pinned to gpt-5.5
+- **Result:** Car stage: fixed neon strips buried in bodywork (16/16 stations z-fighting), re-shot camera 38deg->14deg, rebuilt wheels off emissive, removed wireframe + idle sway. Pushed 88f12f8 to oasis-command-center main.
 
-*Last updated: 2026-07-31*
+*Last updated: 2026-08-01*
 
 ## Manifest
 
