@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-01
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Car stage: extracted resampleStations to car-geometry.ts; geometry test now verifies the 44-ring rendered surface (2838 assertions) not the 8 authored stations; test:marketing wired into CI. Pushed a7a5d02.
+- **Result:** Car stage: moved camera constants to car-geometry.ts, added framing guard. Found+fixed a tautological assertion (derived expected from the same value it tested). Engine swap geometry verified visually; dive verified arithmetically (1.6s dive < 4.5s tooling round-trip). Pushed 2802482.
 
 *Last updated: 2026-08-01*
 
