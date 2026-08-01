@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-01
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Upgraded OasisAI.work 3D chassis geometry, added spatial agent callouts, fixed camera orbit snap-back mechanics
+- **Result:** Car stage: widebody now flares bodywork via Maven haunch stations (was pushing wheels out only); removed dead pin-occlusion code. Pushed 0ae160f.
 
 *Last updated: 2026-08-01*
 
