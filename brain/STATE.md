@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-01
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Car stage: turbo/collector/pulleys were below deck (invisible) - raised; replaced unsound spinParts axis hack with spinner() group so parts spin on their geometry's own axis. Pushed 58ace47.
+- **Result:** Launch sequence now respects prefers-reduced-motion (614ms hand-off vs 4.2s cinematic); verified all three launch stages visually via single-script capture. Pushed cc17bef.
 
 *Last updated: 2026-08-01*
 
