@@ -32,6 +32,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from email_brain import DEFAULT_FINANCIAL_THRESHOLD, decide_action  # noqa: E402
 from inbound_classifier import (  # noqa: E402
     FALLBACK_CONFIDENCE,
+    _BILLING_TOPIC_RE,
+    _INTEGRATION_FAILURE_RE,
     _category_keyword_fallback,
     _has_transaction_evidence,
     _platform_prefilter,
@@ -360,3 +362,56 @@ def test_real_receipts_still_count_as_transaction_evidence():
     """The other side of the same fence: don't fix routing by breaking booking."""
     assert _has_transaction_evidence("Your receipt for $20.00 USD") is True
     assert _has_transaction_evidence("invoice #1234 payment received $49.00") is True
+
+
+# ── Mixed tech + billing: an outage must never be held as finance ────────────
+#
+# 2026-08-01, from a Codex adversarial review of the billing-override commit.
+# A real webhook-failure email NAMES the events it could not deliver, and those
+# names are billing events ("invoice.payment_failed", "charge.refunded"). The
+# first cut of _BILLING_TOPIC_RE matched those names and routed a live outage
+# to finance — strictly worse than the misrouting it fixed, and precisely the
+# failure _platform_prefilter was built for in 2026-05. The original tests
+# missed it because every fixture was cleanly one thing or the other.
+
+@pytest.mark.parametrize("sender,subject,body,expected,why", [
+    ("notifications@stripe.com",
+     "Action required: your webhook endpoint is failing",
+     "We were unable to deliver events to your webhook endpoint. The endpoint "
+     "returned an API error on 47 delivery attempts. Failing event types: "
+     "invoice.payment_failed, customer.subscription.renewed, charge.refunded.",
+     "ops_technical",
+     "THE regression: an outage quoting billing event names is still an outage"),
+    ("cloudplatform-noreply@google.com", "Your Cloud API quota exceeded",
+     "Your project exceeded its api quota. Update your payment method to raise limits.",
+     "ops_technical",
+     "quota exhaustion is ops even when the remedy is a payment method"),
+    ("noreply@vercel.com", "Deployment failed",
+     "build failed; your invoice is attached", "ops_technical",
+     "a broken deploy outranks an attached invoice"),
+    ("payments-noreply@google.com",
+     "Google Workspace: Your invoice is available for oasisai.work", "",
+     "financial", "a pure bill must still reach finance after the failure carve-out"),
+    ("noreply@stripe.com", "Your invoice #1234 is ready", "payment of $20.00",
+     "financial", "a pure bill must still reach finance after the failure carve-out"),
+])
+def test_integration_failure_outranks_billing_topic(sender, subject, body, expected, why):
+    got = _platform_prefilter(sender, subject, body)
+    assert got is not None, f"prefilter did not match a known platform: {sender}"
+    assert got["route_target"] == expected, f"{why} — got {got['route_target']}"
+
+
+def test_routing_regexes_are_not_redos_vulnerable():
+    """Subjects and bodies are attacker-controlled — inbound mail is untrusted.
+
+    Both routing regexes are flat alternations of literals with no nested
+    quantifiers. This guards against someone later adding one.
+    """
+    import time
+
+    evil = "invoice " * 4000 + "x" * 40000
+    start = time.perf_counter()
+    _BILLING_TOPIC_RE.search(evil)
+    _INTEGRATION_FAILURE_RE.search(evil)
+    elapsed = time.perf_counter() - start
+    assert elapsed < 1.0, f"routing regex took {elapsed:.2f}s on a 72KB input"

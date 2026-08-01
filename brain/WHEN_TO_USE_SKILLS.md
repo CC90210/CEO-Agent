@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **156 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## [[skills/agent-forge/SKILL|agent-forge]]
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -763,6 +763,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Eac
 - **Use when:** Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.
 - **Triggers:** webapp test, local app test, frontend test, browser test, UI test
 - **Path:** `skills/webapp-testing/SKILL.md` · tier `standard` · risk `low`
+
+## [[skills/webgl-product-render/SKILL|webgl-product-render]]
+- **Use when:** Build and debug photoreal procedural 3D product visualisers in three.js — environment lighting, PBR materials, camera choreography, and the specific defects that survive code review but ruin the render. Use when a 3D model reads as rudimentary or cheap, when camera focus lands on
+- **Triggers:** 3d model looks rudimentary, car looks cheap, three.js, threejs, webgl scene, product visualiser, 3d hero, camera focus wrong, camera framing 3d, orbit controls, hotspot camera, geometry clipping, parts floating, photoreal render, env map, pbr materials, make the 3d look real
+- **Path:** `skills/webgl-product-render/SKILL.md` · tier `tool` · risk `low`
 
 ## [[skills/writing-plans/SKILL|writing-plans]]
 - **Use when:** Use when you have a spec or requirements for a multi-step task, before touching code

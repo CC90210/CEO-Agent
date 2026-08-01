@@ -216,6 +216,30 @@ _BILLING_TOPIC_RE = re.compile(
     re.IGNORECASE,
 )
 
+# The integration itself is broken — outranks _BILLING_TOPIC_RE.
+#
+# Added 2026-08-01 after a Codex adversarial review caught a regression the
+# billing override introduced: a real Stripe webhook-failure email NAMES the
+# events it could not deliver, and those names are billing events
+# ("invoice.payment_failed", "charge.refunded"). So an outage notification
+# matched the billing regex and was routed to finance instead of paging ops —
+# strictly worse than the misrouting it was meant to fix, and the exact class
+# of failure _platform_prefilter was built for in 2026-05.
+#
+# Every term here names INFRASTRUCTURE, never a bare failure verb. "failed"
+# alone would match "payment failed" and re-break the case above; the failure
+# words are anchored to build/deploy/pipeline nouns for the same reason.
+_INTEGRATION_FAILURE_RE = re.compile(
+    r"\b(?:"
+    r"webhook|endpoint|delivery\s+attempt|api\s+error|error\s+rate"
+    r"|quota|rate\s*limit|throttl"
+    r"|(?:build|deploy(?:ment)?|pipeline)\s+(?:has\s+)?fail"
+    r"|outage|incident|degraded\s+performance|downtime|unreachable"
+    r"|ssl|certificate\s+expir|dns\s+(?:record|config)"
+    r")",
+    re.IGNORECASE,
+)
+
 PLATFORM_SENDERS: dict[str, dict[str, Any]] = {
     # domain-suffix -> default routing metadata
     "stripe.com": {
@@ -313,7 +337,18 @@ def _platform_prefilter(
     tech_kws = matched_config.get("tech_keywords", [])
     is_technical = any(kw in haystack for kw in tech_kws)
 
-    is_billing = bool(_BILLING_TOPIC_RE.search(haystack))
+    # Precedence: a broken integration > a bill > platform tech keywords >
+    # default_route. The first two are the ones that must not swap: an outage
+    # held for finance review pages nobody, which is worse than a bill filed
+    # as ops.
+    is_failure = bool(_INTEGRATION_FAILURE_RE.search(haystack))
+    is_billing = bool(_BILLING_TOPIC_RE.search(haystack)) and not is_failure
+    # A detected failure routes to ops on its own authority, without needing a
+    # hit in the platform's own tech_keywords list. Those lists are per-vendor
+    # and incomplete — google's has no "webhook" — and stripe.com's
+    # default_route is "financial", so a failure that fell through to the
+    # default would land in finance. Belt and braces on the worse direction.
+    is_technical = is_technical or is_failure
 
     platform = matched_config["platform"]
     if is_billing:
