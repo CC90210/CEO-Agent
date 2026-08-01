@@ -285,7 +285,12 @@ def main() -> None:
 
     pr = sub.add_parser("refresh", help="Update ceo_pulse with new values")
     pr.add_argument("--net-mrr", type=float, default=None, help="Current net MRR (USD)")
-    pr.add_argument("--top-client-pct", type=float, default=None, help="Top-client concentration % of MRR")
+    # '%%' not '%': argparse runs help strings through %-formatting, so a bare
+    # '% of' was read as the '%o' conversion and `refresh --help` died with
+    # "TypeError: %o format: an integer is required, not dict". The publisher
+    # was unusable via its own help, which is part of why the pulse went 13
+    # days without a refresh.
+    pr.add_argument("--top-client-pct", type=float, default=None, help="Top-client concentration %% of MRR")
     pr.add_argument("--active-clients", type=int, default=None)
     pr.add_argument("--priority", type=str, default=None, help="This week's #1 priority")
     pr.add_argument("--focus", type=str, default=None, help="Current strategic focus")

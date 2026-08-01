@@ -189,6 +189,23 @@ VALID_ACTIONS = {
 # vs. financial. This table catches known platform senders BEFORE Haiku and
 # routes them by content-aware subcategory.
 
+# Money TOPICS, for ROUTING only — deliberately NOT the same question as
+# _has_transaction_evidence(), which asks "did money actually move?" and gates
+# expense BOOKING. An "invoice is available" or "billing account past due"
+# notice must reach Atlas/CC as financial, but nothing has been charged yet, so
+# booking it would invent a ledger row. Keep the two predicates separate:
+# widening this one is safe, widening that one costs real money.
+_BILLING_TOPIC_RE = re.compile(
+    r"\b(?:"
+    r"invoice|billing\s+account|past\s+due|overdue|unpaid"
+    r"|payment\s+(?:method|info(?:rmation)?|declined|failed|issue|problem)"
+    r"|invalid\s+payment|update\s+your\s+payment|card\s+(?:declined|expired)"
+    r"|subscription\s+(?:cancell?ed|expir|renew)|receipt|statement"
+    r"|charged|refund|credit\s+card"
+    r")",
+    re.IGNORECASE,
+)
+
 PLATFORM_SENDERS: dict[str, dict[str, Any]] = {
     # domain-suffix -> default routing metadata
     "stripe.com": {
@@ -224,7 +241,14 @@ PLATFORM_SENDERS: dict[str, dict[str, Any]] = {
     "google.com": {
         "platform": "google",
         "default_route": "technical",
-        "tech_keywords": ["cloud", "api", "quota", "billing", "alert", "workspace"],
+        # "billing" was removed 2026-08-01: it is a MONEY word, and because a
+        # tech-keyword hit hard-routes to ops_technical without ever consulting
+        # the model, listing it here guaranteed that every Google invoice and
+        # past-due notice was classified technical_support and withheld from
+        # Atlas. "workspace" stays, but is now overridable by _BILLING_TOPIC_RE
+        # (see _platform_prefilter) — "Google Workspace: your invoice is
+        # available" matched on "workspace" and was misrouted the same way.
+        "tech_keywords": ["cloud", "api", "quota", "alert", "workspace"],
     },
     "googlecloud.com": {
         "platform": "google_cloud",
@@ -279,8 +303,26 @@ def _platform_prefilter(
     tech_kws = matched_config.get("tech_keywords", [])
     is_technical = any(kw in haystack for kw in tech_kws)
 
+    is_billing = bool(_BILLING_TOPIC_RE.search(haystack))
+
     platform = matched_config["platform"]
-    if is_technical:
+    if is_billing:
+        # A money topic outranks BOTH the tech keywords and a "technical"
+        # default_route. Platform mail routinely says "cloud"/"workspace"/"api"
+        # in the boilerplate of a genuine invoice, and any tech-keyword hit
+        # skips the model entirely (see classify_category), so without this
+        # branch an unpaid bill is filed as a tech alert and never reaches
+        # Atlas. Routing "financial" here does NOT assert this is a booked
+        # transaction — that route is the one the prefilter deliberately hands
+        # to the model, because WHO sent it can't tell you whether THIS message
+        # is a receipt. Booking stays gated on _has_transaction_evidence().
+        intent = "platform_alert"
+        priority = "hot" if is_technical else "warm"
+        route_target = "financial"
+        notes = (f"Billing/invoice notification from {platform} — money topic "
+                 f"overrides technical routing. Model decides if it is a "
+                 f"transaction; Atlas may process.")
+    elif is_technical:
         intent = "tech_alert"
         priority = "hot"
         route_target = "ops_technical"

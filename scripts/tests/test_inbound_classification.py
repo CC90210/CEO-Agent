@@ -34,6 +34,7 @@ from inbound_classifier import (  # noqa: E402
     FALLBACK_CONFIDENCE,
     _category_keyword_fallback,
     _has_transaction_evidence,
+    _platform_prefilter,
     classify_category,
 )
 
@@ -295,3 +296,67 @@ def test_model_failure_degrades_to_fallback_not_a_crash():
                             from_identity=LINDY["sender"], runner=dead_runner)
     assert got["fallback"] is True
     assert got["category"] == "low_priority", got
+
+
+# ── Platform prefilter: money topics outrank technical keywords ──────────────
+#
+# 2026-08-01. CC screenshotted three Google alerts in Telegram, all stamped
+# "Route: ops_technical (NOT financial)". Two of them were an invoice and a
+# past-due billing account. Cause: "billing" was listed as a tech_keyword for
+# google.com, and a tech-keyword hit hard-returns technical_support from
+# classify_category WITHOUT consulting the model — so a real bill could never
+# reach Atlas. The subjects below are the verbatim ones from those alerts.
+
+@pytest.mark.parametrize("sender,subject,body,expected,why", [
+    ("payments-noreply@google.com",
+     "Google Workspace: Your invoice is available for oasisai.work", "",
+     "financial",
+     "an invoice is money even though 'workspace' is a tech keyword"),
+    ("cloudplatform-noreply@google.com",
+     "Action required: your billing account 014050-B7D660-B0C981 is past due "
+     "or has invalid payment info", "",
+     "financial",
+     "a past-due billing account is the single most financial mail Google sends"),
+    ("cloudplatform-noreply@google.com",
+     "Your Project: My First Project is at risk of suspension",
+     "Your project uses the cloud api quota",
+     "ops_technical",
+     "suspension notice with no money words stays ops"),
+    ("noreply@google.com", "Google Cloud API quota exceeded",
+     "cloud api quota alert", "ops_technical",
+     "pure tech alert must not be dragged into financial"),
+    ("noreply@stripe.com", "Your webhook endpoint is failing",
+     "delivery error api", "ops_technical",
+     "Stripe webhook failure is ops — the 2026-05-11 incident this prefilter exists for"),
+    ("noreply@stripe.com", "Your invoice #1234 is ready", "payment of $20.00",
+     "financial", "Stripe invoice keeps its financial route"),
+    ("noreply@vercel.com", "Deployment failed: build error", "ssl domain",
+     "ops_technical", "deploy failure is ops"),
+])
+def test_billing_topic_outranks_tech_keywords(sender, subject, body, expected, why):
+    got = _platform_prefilter(sender, subject, body)
+    assert got is not None, f"prefilter did not match a known platform: {sender}"
+    assert got["route_target"] == expected, f"{why} — got {got['route_target']}"
+
+
+@pytest.mark.parametrize("text", [
+    "your billing account is past due or has invalid payment info",
+    "Google Workspace: Your invoice is available for oasisai.work",
+])
+def test_billing_topic_routes_to_finance_but_never_books(text):
+    """Routing to finance and booking an expense are different questions.
+
+    _BILLING_TOPIC_RE decides "should Atlas see this"; _has_transaction_evidence
+    decides "did money move". A bill that has not been paid must reach Atlas
+    WITHOUT creating a ledger row — widening the routing predicate must never
+    widen the booking one. This is the guard on that separation.
+    """
+    assert _has_transaction_evidence(text) is False, (
+        "an unpaid bill is not transaction evidence — booking it would invent "
+        "a ledger row for money that never moved")
+
+
+def test_real_receipts_still_count_as_transaction_evidence():
+    """The other side of the same fence: don't fix routing by breaking booking."""
+    assert _has_transaction_evidence("Your receipt for $20.00 USD") is True
+    assert _has_transaction_evidence("invoice #1234 payment received $49.00") is True
