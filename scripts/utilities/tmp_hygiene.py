@@ -45,6 +45,11 @@ ALLOWLIST_PATTERNS = (
     "inbound_processed_msgids.json",
     "imap_poison_uids.json",
     "notify_dedup.json",
+    # DB restore points (db_snapshot.py, 2026-08-02). The directory's mtime only
+    # moves when a new snapshot lands, so a 30-day gap in migrations would have
+    # purged every baseline — a backup a cron deletes is worse than none, because
+    # the gate still reports "verified" right up until the file is gone.
+    "snapshots",
     "*.lock",
     "*.lock.json",
     "*.pid",

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-02T01:48:51.672972+00:00",
-  "script_count": 123,
-  "entry_count": 292,
+  "generated_at_iso": "2026-08-02T22:40:11.534804+00:00",
+  "script_count": 124,
+  "entry_count": 294,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -598,6 +598,30 @@
       "subcmd": null,
       "mutating": true,
       "help": "Dashboard-email queue monitor \u2014 catches a silent outbound stall."
+    },
+    {
+      "key": "db_snapshot_create",
+      "path": "scripts/db_snapshot.py",
+      "root": "bravo",
+      "subcmd": "create",
+      "mutating": false,
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "project": "empire",
+      "help": "Database restore-point tool \u2014 the enforcer behind V9.0 Defense #5. \u2014 subcommand: create"
+    },
+    {
+      "key": "db_snapshot_verify",
+      "path": "scripts/db_snapshot.py",
+      "root": "bravo",
+      "subcmd": "verify",
+      "mutating": false,
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "project": "empire",
+      "help": "Database restore-point tool \u2014 the enforcer behind V9.0 Defense #5. \u2014 subcommand: verify"
     },
     {
       "key": "dns_reputation",

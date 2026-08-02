@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-02T20:39:24.819212+00:00",
+  "generated_at": "2026-08-02T22:17:40.089266+00:00",
   "totals": {
     "skills": 156,
-    "scripts": 133,
+    "scripts": 134,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 380,
-    "edges_total": 152,
+    "nodes_total": 381,
+    "edges_total": 154,
     "drift_count": 0
   },
   "nodes": [
@@ -5620,6 +5620,42 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:db_snapshot",
+      "kind": "script",
+      "name": "db_snapshot",
+      "path": "scripts/db_snapshot.py",
+      "description": "Database restore-point tool \u2014 the enforcer behind V9.0 Defense #5.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "database snapshot",
+        "restore point before migration",
+        "verify database backup",
+        "schema baseline"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": false,
+        "subcommands": {
+          "create": {
+            "key": "db_snapshot_create",
+            "visible": true,
+            "confirm": false
+          },
+          "verify": {
+            "key": "db_snapshot_verify",
+            "visible": true,
+            "confirm": false
+          }
+        }
+      }
+    },
+    {
       "id": "script:dns_reputation",
       "kind": "script",
       "name": "dns_reputation",
@@ -8454,6 +8490,16 @@
     {
       "from": "script:dashboard_email_consumer",
       "to": "script:email_template",
+      "kind": "calls"
+    },
+    {
+      "from": "script:db_snapshot",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:db_snapshot",
+      "to": "script:supabase_tool",
       "kind": "calls"
     },
     {

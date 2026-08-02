@@ -65,13 +65,26 @@ DEDUP_FORGET_SEC = int(os.environ.get("NOTIFY_DEDUP_FORGET_SEC", str(72 * 3600))
 
 
 def _dedup_should_send(category: str, message: str,
-                       dedup_key: Optional[str] = None) -> bool:
+                       dedup_key: Optional[str] = None,
+                       lane: str = "private") -> bool:
     """True if this alert hasn't been sent within its current backoff window.
 
     `dedup_key` pins the identity to the CONDITION instead of the rendered text.
     Without it, an alert that embeds a changing detail (a count, a timestamp, a
     branch name) hashes differently every time and defeats dedup entirely —
     which is the other half of how an alert storm happens.
+
+    `lane` scopes suppression to the DESTINATION (2026-08-02, Codex [P2]).
+    Repeat-suppression answers "has CC already seen this?" — and an identical
+    sentence sent to his private chat is not something the OASIS group has seen.
+    Without the lane in the identity, `python scripts/notify.py "msg"` followed
+    by `... --group "msg"` silently dropped the broadcast the operator explicitly
+    asked for. Same failure family as the shared-credential lane bug: one
+    identity serving two audiences.
+
+    The private lane deliberately keeps the LEGACY key shape (no lane component)
+    so an in-flight backoff ladder isn't reset by this change — a stuck alert
+    mid-escalation must not get a free re-fire just because the hash moved.
 
     Best-effort: any error → allow the send. Dedup must never swallow a real
     alert, and a corrupt cache file is not a reason to go silent.
@@ -80,7 +93,9 @@ def _dedup_should_send(category: str, message: str,
         return True
     try:
         ident = dedup_key if dedup_key else message
-        key = hashlib.sha256(f"{category}\x00{ident}".encode("utf-8")).hexdigest()[:32]
+        prefix = "" if lane == "private" else f"{lane}\x00"
+        key = hashlib.sha256(
+            f"{prefix}{category}\x00{ident}".encode("utf-8")).hexdigest()[:32]
         now = time.time()
 
         seen: dict = {}
@@ -325,7 +340,10 @@ def notify(message: str, category: str = "system", silent: bool = False,
     # a per-sweep dead-letter/error alert fires ONCE, not every cron tick.
     # `force` does NOT bypass this — a forced alert is still deduped by content
     # (force is about category muting, not repeat suppression).
-    if not _dedup_should_send(category, message, dedup_key=dedup_key):
+    # Scoped BY LANE: the group broadcast and the private chat are different
+    # audiences, so one having seen the text says nothing about the other.
+    lane = "group" if group else "private"
+    if not _dedup_should_send(category, message, dedup_key=dedup_key, lane=lane):
         return False
 
     # Auto-silence low-priority categories
@@ -649,6 +667,23 @@ def notify_voice(audio_bytes: bytes, *, caption: str | None = None,
 
 # Quick test
 if __name__ == "__main__":
-    msg = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "Bravo notification system online."
-    result = notify(msg, category="system")
-    print(f"Sent: {result}")
+    # python scripts/notify.py "message"            → CC's private chat (forced)
+    # python scripts/notify.py --test               → routing check ping, private lane
+    # python scripts/notify.py --group "message"    → explicit team broadcast
+    # python scripts/notify.py --test --group       → routing check ping, group lane
+    _args = sys.argv[1:]
+    _test = "--test" in _args
+    _group = "--group" in _args
+    _args = [a for a in _args if a not in ("--test", "--group")]
+    if _test:
+        # Unique text every run so the dedup window never swallows the check.
+        _msg = (f"Routing check ({'group broadcast' if _group else 'private lane'})"
+                f" — {datetime.now().isoformat(timespec='seconds')}")
+    else:
+        _msg = " ".join(_args) if _args else "Bravo notification system online."
+    # CLI sends are explicit operator action: force past the category block
+    # list (category "system" is blocked for automation, not for a human
+    # typing a command — the old CLI always printed Sent: False).
+    result = notify(_msg, category="system", force=True, group=_group)
+    lane = "group (GROUP_TELEGRAM_CHAT_ID)" if _group else "private (TELEGRAM_ALLOWED_USERS)"
+    print(f"Sent: {result}  ·  lane: {lane}")
