@@ -106,6 +106,14 @@ Conservative by default — CC is still building reputation; better to under-sen
 
 Override per-call with `cooldown_hours=<int>`. Daily caps are hard — gateway refuses over-cap sends with `status="blocked"`.
 
+## Caller categories and gates
+
+The gateway classifies `agent_source` into three lanes:
+
+- **Operator-initiated** (`manual_cc`, `dashboard_drawer`, `shop_out*`, `solara`, `helios`, `bravo`) — bypasses hygiene gates (cooldowns, caps, reply-since, send window); compliance gates (kill switch, CASL suppression, manual pause, empty recipient) always apply.
+- **Autonomous nurture** (`inbound_nurture`, `n8n_inbound`) — 2026-08-01 policy (CC-approved): replies to a lead's inbound message send autonomously. The reply-since-last-outbound gate is **inverted** for this lane (an inbound last-touch is the send trigger, not a block). Every other gate still applies — kill switch, suppression, manual pause, sentinel pause, send window, inter-touch gap, cooldowns, caps. Each successful send fires a Telegram log ping to CC: `[SENT] Responded to Lead: <email> — <subject>`. Live caller: `email_brain.py:send_reply_via_gateway()`.
+- **Cold/automated** (everything else: `outreach_engine`, `funnel_nurture`, `scheduler`, …) — subject to every gate.
+
 ## Engine wire-up (2026-04-20 rewire, trimmed 2026-05-16)
 
 The four live outbound Python engines route through the gateway. `outreach_batch.py` was retired 2026-05-16 (cold-outreach Telegram-approval cron killed; CC opted out).

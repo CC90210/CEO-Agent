@@ -15,6 +15,7 @@ Usage (CLI surface preserved across modes):
   python scripts/state/state_sync.py --heartbeat          # Just refresh timestamp
   python scripts/state/state_sync.py --note "..." --mem0  # Also write to semantic memory
   python scripts/state/state_sync.py --note "..." --mode shadow  # Override env var ad-hoc
+  python scripts/state/state_sync.py --note "..." --domain marketing  # Also ping Maven/Atlas (CC 2026-08-01)
 
 This is the MANDATORY end-of-session sync.
 """
@@ -192,6 +193,21 @@ def sync_mem0(note: str):
     return result.returncode == 0
 
 
+def sync_domain_ping(note: str, domain: str) -> bool:
+    """Fire a cross-agent domain ping (CC directive 2026-08-01) so the peer
+    owning `domain` (marketing→Maven, finance→Atlas, ops→broadcast) resumes
+    with awareness of what Bravo changed. Uses the sync note as the summary."""
+    python = sys.executable
+    result = subprocess.run(
+        [python, str(PROJECT_ROOT / "scripts" / "core" / "cross_agent_ping.py"),
+         "--domain", domain, "--summary", note],
+        capture_output=True, text=True, cwd=str(PROJECT_ROOT), timeout=60
+    , creationflags=WINDOWLESS_FLAGS)
+    if result.returncode != 0 and result.stderr:
+        print(f"[state_sync] domain ping stderr: {result.stderr.strip()[:300]}", file=sys.stderr)
+    return result.returncode == 0
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def _v6_write(mode: str, note: str, agent_name: str, results: dict, heartbeat_only: bool) -> None:
@@ -236,6 +252,13 @@ def main():
         choices=["off", "shadow", "on"],
         help="Override EMPIRE_V6_MODE for this invocation",
     )
+    parser.add_argument(
+        "--domain",
+        default=None,
+        choices=["marketing", "finance", "ops"],
+        help="Work touched a peer's domain — after the sync, ping Maven/Atlas "
+             "via cross_agent_ping.py (CC directive 2026-08-01)",
+    )
     args = parser.parse_args()
 
     note = args.note.strip() if args.note else "Session sync."
@@ -268,6 +291,16 @@ def main():
             results["mem0"] = "✅" if ok else "⚠️ mem0 write failed"
         except Exception as e:
             results["mem0"] = f"❌ {e}"
+
+    # Cross-agent domain ping (CC directive 2026-08-01). Optional — only fires
+    # when --domain is passed; default behavior is unchanged. Best-effort:
+    # cross_agent_ping.py itself fails loud (exit 1) when the write fails.
+    if args.domain:
+        try:
+            ok = sync_domain_ping(note, args.domain)
+            results["domain_ping"] = f"✅ ({args.domain})" if ok else f"⚠️ ping failed ({args.domain})"
+        except Exception as e:
+            results["domain_ping"] = f"❌ {e}"
 
     # Supabase agent_state_snapshot mirror.
     # In shadow/on modes, state_manager.heartbeat() already pushed it as part

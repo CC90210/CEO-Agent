@@ -532,8 +532,11 @@ def draft_reply_via_cli(email: dict, category: str, *, runner=None, critic=None)
 
 def send_reply_via_gateway(email: dict, draft: dict) -> dict:
     """Send the reply through the single outbound chokepoint. agent_source is
-    NON-operator so the gateway's compliance/hygiene gates apply (defense in
-    depth on top of the drafter's own critic)."""
+    "inbound_nurture" — the 2026-08-01 autonomous-nurture category: the
+    reply-since-last-outbound gate is inverted for it (an inbound last-touch
+    is the trigger), but every other compliance/hygiene gate still applies
+    (defense in depth on top of the drafter's own critic) and CC gets a
+    Telegram log ping on every successful send."""
     sender = email.get("from") or email.get("from_identity")
     if not sender or not draft or not draft.get("body"):
         return {"status": "error", "reason": "missing sender or draft body"}
@@ -541,7 +544,7 @@ def send_reply_via_gateway(email: dict, draft: dict) -> dict:
         from integrations.send_gateway import send
         return send(
             channel="email",
-            agent_source="email_brain_autoreply",
+            agent_source="inbound_nurture",
             to_email=sender,
             subject=draft.get("subject"),
             body_text=draft.get("body"),

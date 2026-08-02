@@ -482,6 +482,20 @@ SEED_JOBS: list[dict] = [
         "action_config": {"script": "scripts/core/event_bus.py", "args": ["drain"]},
         "is_active": True,
     },
+    {
+        # Added 2026-08-01 — closes the inventory-drift gap found in the
+        # entry-point audit: the six root files quote hard counts (skills,
+        # scripts, cron jobs, workflows, subagents, MCP servers) that went
+        # stale between hand-syncs. generate_inventory.py rewrites
+        # brain/INVENTORY.md with live counts; entry points now treat their
+        # hard numbers as a snapshot and point at INVENTORY.md.
+        "name": "Monthly Inventory Sync",
+        "description": "Monthly 03:00 on the 1st — regenerate brain/INVENTORY.md with live repo counts (skills, scripts, SEED_JOBS, workflows, subagents, MCP servers) so entry-point inventory sections have a current source of truth.",
+        "schedule": "0 3 1 * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/core/generate_inventory.py", "args": []},
+        "is_active": True,
+    },
 ]
 
 

@@ -283,7 +283,7 @@ CATEGORY_PREFIX = {
 
 def notify(message: str, category: str = "system", silent: bool = False,
            force: bool = False, dedup_key: Optional[str] = None,
-           agent: Optional[str] = None) -> bool:
+           agent: Optional[str] = None, group: bool = False) -> bool:
     """
     Send a Telegram notification to CC.
 
@@ -301,6 +301,13 @@ def notify(message: str, category: str = "system", silent: bool = False,
             Normally leave unset — the category resolves the owner via
             CATEGORY_OWNER. Pass it when the category is generic (a cron
             failure is category="system" but may belong to Maven).
+        group: CHANNEL ISOLATION (2026-08-02). False (default) = CC's private
+            chat only — every system/harness/lead/agent ping lands on his
+            personal channel, and a resolved group chat id is REFUSED (fail
+            loud) so operational traffic can never spam the shared team group.
+            True = an explicit team broadcast, routed to GROUP_TELEGRAM_CHAT_ID
+            (the shared group with Adon/Knut). Nothing reaches the group
+            unless a caller passes group=True on purpose.
 
     Returns:
         True if sent successfully, False otherwise
@@ -327,47 +334,79 @@ def notify(message: str, category: str = "system", silent: bool = False,
 
     env = _load_env()
 
-    # Route to the owning agent's bridge (2026-07-30). Maven's and Atlas's
-    # tokens live in THEIR repos, so they are normally absent here — in that
-    # case fall back to Bravo's bridge with a visible "[for maven]" marker
-    # rather than dropping the alert. Degrade loudly, never silently: a
-    # misrouted alert CC can see beats a correct one he never gets.
-    target_agent = resolve_agent(category, agent)
-    tok_key, chat_key = AGENT_TOKEN_KEYS.get(target_agent, AGENT_TOKEN_KEYS[DEFAULT_AGENT])
-    token = (env.get(tok_key) or "").strip()
-    raw_users = env.get(chat_key, "")
-    routed_home = True
-
-    if not token and target_agent != DEFAULT_AGENT:
-        routed_home = False
-        tok_key, chat_key = AGENT_TOKEN_KEYS[DEFAULT_AGENT]
+    if group:
+        # Explicit team broadcast lane. Uses Bravo's bot (the bot already in
+        # the OASIS group) but targets GROUP_TELEGRAM_CHAT_ID — never the
+        # personal allowed-users list.
+        token = (env.get("TELEGRAM_BOT_TOKEN") or "").strip() \
+            or (env.get("EZRA_TELEGRAM_BOT_TOKEN") or "").strip()
+        chat_id = (env.get("GROUP_TELEGRAM_CHAT_ID") or "").strip()
+        if not token:
+            print("[notify] TELEGRAM_BOT_TOKEN missing in .env.agents", file=sys.stderr)
+            return False
+        if not chat_id:
+            print("[notify] GROUP_TELEGRAM_CHAT_ID missing — group=True send refused",
+                  file=sys.stderr)
+            return False
+        routed_home = True
+        target_agent = DEFAULT_AGENT
+    else:
+        # Route to the owning agent's bridge (2026-07-30). Maven's and Atlas's
+        # tokens live in THEIR repos, so they are normally absent here — in that
+        # case fall back to Bravo's bridge with a visible "[for maven]" marker
+        # rather than dropping the alert. Degrade loudly, never silently: a
+        # misrouted alert CC can see beats a correct one he never gets.
+        target_agent = resolve_agent(category, agent)
+        tok_key, chat_key = AGENT_TOKEN_KEYS.get(target_agent, AGENT_TOKEN_KEYS[DEFAULT_AGENT])
         token = (env.get(tok_key) or "").strip()
         raw_users = env.get(chat_key, "")
+        routed_home = True
 
-    # 2026-07-10 (main a2a02910, carried through the 2026-07-31 merge): fall
-    # back to the EZRA bot creds whenever Bravo's keys are the ones in use.
-    # The SunBiz VPS .env.agents only carries EZRA_TELEGRAM_BOT_TOKEN /
-    # EZRA_TELEGRAM_CHAT_ID (the pair ezra-telegram-bridge + scrubber use), so
-    # every notify() call there — including notify_daemon_crash() from the pm2
-    # daemons — was a silent no-op for months. Primary keys still win.
-    if tok_key == AGENT_TOKEN_KEYS[DEFAULT_AGENT][0]:
-        token = token or (env.get("EZRA_TELEGRAM_BOT_TOKEN") or "").strip()
-        raw_users = raw_users or env.get("EZRA_TELEGRAM_CHAT_ID", "")
-    # V2.1 2026-04-11: Guarded chat_id parsing. Old code used
-    # `.split(",")[0].strip()` which returned "" on empty/whitespace env
-    # and silently failed at Telegram send. Now we filter valid IDs and
-    # log a visible error when none are found.
-    chat_ids = [c.strip() for c in raw_users.split(",") if c.strip()]
+        if not token and target_agent != DEFAULT_AGENT:
+            routed_home = False
+            tok_key, chat_key = AGENT_TOKEN_KEYS[DEFAULT_AGENT]
+            token = (env.get(tok_key) or "").strip()
+            raw_users = env.get(chat_key, "")
 
-    if not token:
-        extra = " / EZRA_TELEGRAM_BOT_TOKEN" if tok_key == AGENT_TOKEN_KEYS[DEFAULT_AGENT][0] else ""
-        print(f"[notify] {tok_key}{extra} missing in .env.agents", file=sys.stderr)
-        return False
-    if not chat_ids:
-        extra = " / EZRA_TELEGRAM_CHAT_ID" if chat_key == AGENT_TOKEN_KEYS[DEFAULT_AGENT][1] else ""
-        print(f"[notify] {chat_key}{extra} empty or malformed in .env.agents", file=sys.stderr)
-        return False
-    chat_id = chat_ids[0]
+        # 2026-07-10 (main a2a02910, carried through the 2026-07-31 merge): fall
+        # back to the EZRA bot creds whenever Bravo's keys are the ones in use.
+        # The SunBiz VPS .env.agents only carries EZRA_TELEGRAM_BOT_TOKEN /
+        # EZRA_TELEGRAM_CHAT_ID (the pair ezra-telegram-bridge + scrubber use), so
+        # every notify() call there — including notify_daemon_crash() from the pm2
+        # daemons — was a silent no-op for months. Primary keys still win.
+        if tok_key == AGENT_TOKEN_KEYS[DEFAULT_AGENT][0]:
+            token = token or (env.get("EZRA_TELEGRAM_BOT_TOKEN") or "").strip()
+            raw_users = raw_users or env.get("EZRA_TELEGRAM_CHAT_ID", "")
+        # V2.1 2026-04-11: Guarded chat_id parsing. Old code used
+        # `.split(",")[0].strip()` which returned "" on empty/whitespace env
+        # and silently failed at Telegram send. Now we filter valid IDs and
+        # log a visible error when none are found.
+        chat_ids = [c.strip() for c in raw_users.split(",") if c.strip()]
+
+        if not token:
+            extra = " / EZRA_TELEGRAM_BOT_TOKEN" if tok_key == AGENT_TOKEN_KEYS[DEFAULT_AGENT][0] else ""
+            print(f"[notify] {tok_key}{extra} missing in .env.agents", file=sys.stderr)
+            return False
+        if not chat_ids:
+            extra = " / EZRA_TELEGRAM_CHAT_ID" if chat_key == AGENT_TOKEN_KEYS[DEFAULT_AGENT][1] else ""
+            print(f"[notify] {chat_key}{extra} empty or malformed in .env.agents", file=sys.stderr)
+            return False
+        chat_id = chat_ids[0]
+
+        # CHANNEL ISOLATION GUARD (2026-08-02). Telegram group/channel ids are
+        # negative; a personal chat id is positive. If the personal lane ever
+        # resolves to a group id — e.g. the group id got appended to
+        # TELEGRAM_ALLOWED_USERS — every system alert, harness ping and lead
+        # notification would spam the shared team group. Refuse loudly instead.
+        # The ONLY way to reach a group is the explicit group=True lane above.
+        if chat_id.startswith("-"):
+            print(
+                "[notify] resolved chat is a GROUP id on the personal lane — "
+                "refusing send. Operational pings go to CC's private chat; "
+                "pass group=True for an explicit team broadcast.",
+                file=sys.stderr,
+            )
+            return False
 
     try:
         import requests

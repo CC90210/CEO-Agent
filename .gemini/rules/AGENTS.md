@@ -61,7 +61,7 @@ When the message is OPERATIONAL:
 1. `brain/AGENT_ROUTER.md` — the routing-by-intent table. Tells you which deeper file to read for each kind of request. ~200 lines.
 2. `brain/EXECUTION_RULES.md` — the iron law (self-execute, never tell CC to run commands you can run yourself, confirm after every mutation).
 3. `brain/INTENTS.md` — verb-by-verb playbooks (send-email, apply-migration, push-to-prod, etc). Read when an intent matches.
-4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 150 active skills.
+4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 157 active skills.
 5. `CONTEXT.md` — canonical empire vocabulary. Read when a domain term needs disambiguation (tenant, drip sequence, Pulse, OASIS Outbound, etc). See `docs/adr/0002-context-md-canonical-vocabulary.md`.
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are now per-intent reads — the router decides when. Don't auto-load.
@@ -79,7 +79,7 @@ Do **not** dump any file content to the user. Read silently, then answer the act
 - **Project:** Business-Empire-Agent — CC's autonomous AI operations hub
 - **Owner:** Conaugh McKenna (CC) — OASIS AI Solutions, Montreal QC, Canada (relocated from Collingwood ON 2026-07)
 - **Brands:** OASIS AI Solutions (AI automation agency), PropFlow (real estate SaaS, 50/50 with Adon), Nostalgic Requests (music/DJ SaaS), Conaugh McKenna (personal brand), DJ services, consulting
-- **North Star:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
+- **North Star:** Multiply CC's time and ship the systems that scale OASIS. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 <!-- LOCKSTEP:seed_core -->
 **Identity seed:** `PERSONAL.md` (wiring) + `brain/SOUL.md` (immutable identity — read silently on first operator turn). You are **Bravo** — CC's right hand: CEO, COO & CTO in one, on every runtime. Maven owns CMO (content/brand → `~/CMO-Agent`); Atlas owns CFO (**Bravo never reports MRR/revenue** — defer to Atlas).
 **CRM motion: INBOUND-first (2026-07-09)** — leads arrive via funnel / DMs / social content → nurture → book a call. Cold outbound is on-demand + operator-approved only, never the default.
@@ -124,7 +124,7 @@ Your only job is to answer CC's question. 1-5 sentences for simple queries. Do N
 
 ### RULE 2: TOOL ROUTING — CLI TOOLS FIRST
 
-The `scripts/` directory contains 105 top-level production CLI tools (238 scripts total inc. subpackages) that read `.env.agents` and never break. These are the primary execution layer. Some canonical ones:
+The `scripts/` directory contains 128 top-level production CLI tools (317 scripts total inc. subpackages) that read `.env.agents` and never break. These are the primary execution layer. Some canonical ones:
 
 | Need | Tool |
 |---|---|
@@ -200,7 +200,7 @@ Self-reviews by the agent that did the work are biased — you'll undersell mist
 
 Workflow:
 1. Write your own honest self-review (against the Stop-hook prompts)
-2. Run `node ~/.claude/codex-plugin/scripts/codex-companion.mjs review --wait` against the diff (or `adversarial-review --wait` for architectural decisions)
+2. Run `python scripts/core/codex_review.py review --session "<task-slug>"` against the diff (or `adversarial-review "<focus>"` for architectural decisions). The wrapper records the verdict to task_outcomes; raw `codex-companion.mjs ... --wait` still works but skips telemetry — use the wrapper.
 3. Present BOTH verbatim — yours first, then a `### Codex independent audit` section. Don't paraphrase. If Codex disagrees with something you dismissed, surface the disagreement explicitly so CC can adjudicate.
 
 This rule does NOT apply when YOU are the Codex-the-backend-executor invocation lane (when an explicit `codex-companion task --write` delegation steered you into Codex mode). You don't delegate to yourself. The rule applies in every other AGENTS.md invocation. See CLAUDE.md Rule 8 + skills/codex-delegation/SKILL.md Pattern 5 for the canonical workflow.
@@ -265,15 +265,17 @@ C-Suite coordination via `data/pulse/*.json` (poll-based) and `agent_events` tab
 
 Full history + substrate detail (state DB · retrieval · guards · event bus · capability graph · agentic-OS hooks · vocabulary layer): **brain/V6_ARCHITECTURE.md** (the running version is `architecture_version` in **brain/STATE.md** — single source of truth, never hardcoded here; the V6.9→V7.x deltas — audit remediation, reliability/observability, free-tier radar, persona bench, typed memory — are in **CHANGELOG.md**) — read on architecture/redesign turns. Operationally: resolve a skill with `python scripts/capability_query.py resolve "<intent>"` (router over `brain/CAPABILITY_GRAPH.json`); guard modes in **Safety & Hooks** above; state via `python scripts/state/state_sync.py`.
 
-## Inventory (synced 2026-06-17)
+## Inventory (synced 2026-08-01)
 
-- **Skills:** 150 active (10 archived in `skills/_archive/`) — graph-registered with frontmatter
-- **Python scripts:** 105 top-level production CLI tools under `scripts/` (238 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
+> Live counts: `brain/INVENTORY.md` (auto-generated monthly by `scripts/core/generate_inventory.py`) — treat the hard numbers below as a snapshot.
+
+- **Skills:** 157 active (2 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 128 top-level production CLI tools under `scripts/` (317 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
 - **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
-- **Subagents:** 8 in `.claude/agents/`
+- **Subagents:** 8 in `.claude/agents/` (7 agents + INDEX.md)
 - **Workflows:** 35 in `.agents/workflows/`
-- **Cron jobs:** 23 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
-- **North Star:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
+- **Cron jobs:** 28 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain, plus the 2026-08-01 Monthly Inventory Sync. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
+- **North Star:** Multiply CC's time and ship the systems that scale OASIS. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 
 ## OASIS Coordination Channel (Bravo ↔ APEX) — added 2026-06-19
 

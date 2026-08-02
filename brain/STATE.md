@@ -149,11 +149,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-01
+- **Date:** 2026-08-02
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Launch fade was pinned to 1600ms while sequence ran 6s = 3.7s black screen; now derived from LAUNCH_MS single source. Skip moved onto stage (was below fold). Pushed 3f70ab4.
+- **Result:** Aligned OasisAI.work funnel Telegram bot credentials and verified end-to-end lead notification delivery
 
-*Last updated: 2026-08-01*
+*Last updated: 2026-08-02*
 
 ## Manifest
 
