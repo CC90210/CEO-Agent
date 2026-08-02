@@ -162,7 +162,7 @@ def _email_wrapper(content: str) -> str:
       <!-- Footer -->
       <div style="background:#111;padding:20px 24px;text-align:center;border-top:1px solid #222">
         <p style="color:#888;font-size:13px;margin:0 0 4px"><strong>Conaugh McKenna</strong> | Founder, OASIS AI Solutions</p>
-        <p style="color:#555;font-size:11px;margin:0">Collingwood, ON &middot; <a href="https://www.instagram.com/konamakana" style="color:#e8c547;text-decoration:none">@konamakana</a></p>
+        <p style="color:#555;font-size:11px;margin:0">International &middot; <a href="https://www.instagram.com/oasisaisolutions/" style="color:#e8c547;text-decoration:none">@oasisaisolutions</a></p>
       </div>
     </div>"""
 

@@ -251,6 +251,7 @@ KNOWN_AGENT_SOURCES: frozenset[str] = frozenset({
     "email_engine",
     "booking_engine",
     "n8n_inbound",
+    "inbound_nurture",   # autonomous reply to a lead's inbound message (2026-08-01 policy)
     "manual_cc",
     "scheduler",
     "test_harness",
@@ -302,6 +303,34 @@ def _is_operator_initiated(agent_source: str) -> bool:
     """
     return (agent_source or "").strip().lower() in OPERATOR_INITIATED_SOURCES
 
+# 2026-08-01 policy change (CC, operator-approved): inbound nurture
+# responses send AUTONOMOUSLY. These callers exist to answer a lead's
+# inbound message, so for them the reply-since-last-outbound gate is
+# INVERTED — an inbound last-touch is exactly the trigger for the send,
+# not a reason to block and hand off to the operator.
+#
+# That ONE gate is skipped for these sources. They remain subject to
+# every other gate — kill switch, suppression, manual pause, sentinel
+# pause, send window, empty recipient, 90-min inter-touch gap,
+# cooldowns, hourly/daily caps — so this is NOT an operator-initiated
+# bypass and these sources must never be added to
+# OPERATOR_INITIATED_SOURCES. Every successful autonomous-nurture send
+# fires an immediate Telegram log ping to CC (see
+# _notify_autonomous_nurture_sent).
+AUTONOMOUS_NURTURE_SOURCES: frozenset[str] = frozenset({
+    "inbound_nurture",   # email_brain auto-reply path (send_reply_via_gateway)
+    "n8n_inbound",       # n8n inbound-reply workflow sends
+})
+
+
+def _is_autonomous_nurture(agent_source: str) -> bool:
+    """True if the send is an autonomous reply to a lead's inbound
+    message. Such sends skip ONLY the reply-since-last-outbound gate
+    (inverted for them by design); every other hygiene + compliance
+    gate still applies.
+    """
+    return (agent_source or "").strip().lower() in AUTONOMOUS_NURTURE_SOURCES
+
 # Canonical channel tags.
 KNOWN_CHANNELS: frozenset[str] = frozenset(DEFAULT_COOLDOWNS.keys())
 
@@ -315,13 +344,13 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
     "oasis": {
         "business_name": "OASIS AI Solutions",
         "sender_name": "Conaugh McKenna",
-        "business_address": "OASIS AI Solutions, Collingwood, ON, Canada",
+        "business_address": "OASIS AI Solutions, Montreal, QC, Canada",
         "from_display": "Conaugh McKenna — OASIS AI",
     },
     "conaugh_mckenna": {
         "business_name": "Conaugh McKenna",
         "sender_name": "CC (Conaugh McKenna)",
-        "business_address": "Conaugh McKenna, Collingwood, ON, Canada",
+        "business_address": "Conaugh McKenna, Montreal, QC, Canada",
         "from_display": "Conaugh McKenna",
     },
     "nostalgic": {
@@ -606,6 +635,39 @@ def _maybe_notify_daily_cap_threshold(db: Any, channel: str, count: int, cap: Op
         )
     except Exception:  # noqa: BLE001
         pass
+
+
+def _notify_autonomous_nurture_sent(
+    agent_source: str,
+    channel: str,
+    *,
+    to_email: Optional[str] = None,
+    to_phone: Optional[str] = None,
+    subject: Optional[str] = None,
+) -> None:
+    """2026-08-01 policy: every successful autonomous inbound-nurture
+    reply fires an immediate Telegram log ping to CC. Best-effort —
+    a notify failure never crashes the send, but it IS logged to
+    stderr (no silent swallow)."""
+    if not _is_autonomous_nurture(agent_source):
+        return
+    recipient = to_email or to_phone or "unknown"
+    try:
+        ok = _telegram_notify(
+            f"[SENT] Responded to Lead: {recipient} — "
+            f"{subject or '(no subject)'} [{channel}]"
+        )
+        if ok is False:
+            print(
+                f"[send_gateway] autonomous-nurture Telegram ping failed "
+                f"(notify returned False) for {recipient}",
+                file=sys.stderr,
+            )
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"[send_gateway] autonomous-nurture Telegram ping failed: {exc}",
+            file=sys.stderr,
+        )
 
 
 # ---- Lead resolution --------------------------------------------------------
@@ -1365,6 +1427,11 @@ def can_act(
     # (kill switch, suppression, manual pause, empty recipient,
     # concurrent send) ignore the classification.
     operator_initiated = _is_operator_initiated(agent_source)
+    # 2026-08-01: autonomous inbound-nurture replies skip ONLY the
+    # reply-since-last-outbound gate (gates 2b below) — an inbound
+    # last-touch is their trigger, not a block. Every other gate
+    # (including the inter-touch gap and caps/cooldowns) still applies.
+    autonomous_nurture = _is_autonomous_nurture(agent_source)
 
     env = load_env()
     # Effective caps start at the static defaults; operating mode below
@@ -1501,11 +1568,17 @@ def can_act(
     # for automated nurture flows; operator bypasses both because a
     # lender reply on Deal A shouldn't block sending Deal B and operator
     # judgment > 90-min gap.
+    #
+    # 2026-08-01: autonomous-nurture sources skip ONLY gate 2b — for an
+    # inbound-reply caller, a lead's inbound last-touch is the send
+    # trigger, not a hand-off signal. The inter-touch gap (2c) still
+    # runs for them so two agents can't rapid-fire the same lead.
     if lead_id and not operator_initiated:
-        reason_reply = _check_reply_since_last_outbound(db, lead_id)
-        if reason_reply:
-            result.update(allowed=False, reason=reason_reply)
-            return result
+        if not autonomous_nurture:
+            reason_reply = _check_reply_since_last_outbound(db, lead_id)
+            if reason_reply:
+                result.update(allowed=False, reason=reason_reply)
+                return result
 
         reason_gap = _check_inter_touch_gap(db, lead_id, lead_data, now)
         if reason_gap:
@@ -3575,6 +3648,10 @@ def send(
         # send + log have both succeeded. Never blocks; never raises; never
         # mutates the gateway's return value.
         _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
+        # 2026-08-01: autonomous inbound-nurture sends ping CC on Telegram.
+        _notify_autonomous_nurture_sent(
+            agent_source, channel, to_email=to_email, subject=subject,
+        )
         return {"status": "sent",
                 "reason": "ok",
                 "lead_id": lead_id,
@@ -3790,6 +3867,9 @@ def send(
             acted_by_user_id=acted_by_user_id,
         )
         _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
+        _notify_autonomous_nurture_sent(
+            agent_source, channel, to_phone=to_phone, subject=subject,
+        )
         return {"status": "sent",
                 "reason": f"sms via {provider_choice}",
                 "lead_id": lead_id,
@@ -3830,6 +3910,9 @@ def send(
     # happened — downstream subscribers care that send_gateway approved
     # the action, not which engine eventually delivered it.
     _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
+    _notify_autonomous_nurture_sent(
+        agent_source, channel, to_email=to_email, subject=subject,
+    )
     return {"status": "sent",
             "reason": "non-email channel: logged only, engine performs physical send",
             "lead_id": lead_id,

@@ -37,7 +37,7 @@ The canonical profile lives at `brain/operator.profile.json`:
       "personal_brand":  "Conaugh McKenna",
       "primary_brand":   "OASIS AI Solutions",
       "role":            "Founder",
-      "location":        "Collingwood, Ontario",
+      "location":        "Montreal, Quebec",
       "primary_email":   "conaugh@oasisai.work",
       "website":         "https://oasisai.work",
       "booking_link":    "https://calendar.app.google/...",
