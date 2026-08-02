@@ -30,6 +30,7 @@ In chat (bridge mode), this runs through the `run_script` tool with `confirm:tru
 ## "Apply this database migration"
 
 1. Confirm migration file is in `database/<NNN>_<name>.sql`. If not, write it with the next number.
+1b. **Take the restore point first** (V9.0 Defense #5): `python scripts/db_snapshot.py create --name pre-<NNN> --project bravo`, then `python scripts/db_snapshot.py verify --project bravo --max-age-hours 1`. Exit 0 = checksummed, complete, fresh baseline (schema + exact row counts). Non-zero = you do not have one; stop and escalate. It is a *logical* baseline — for a genuinely destructive change also confirm the Supabase PITR window covers the snapshot timestamp.
 2. Run `python scripts/apply_migration.py database/<NNN>_<name>.sql`. The script applies through Supabase Management API; gates on dangerous patterns (`DROP TABLE`, `TRUNCATE`, naked `GRANT`/`REVOKE`).
 3. If gated, surface the reason. Operator may approve via the Supabase Dashboard SQL editor — only then do you suggest a manual path.
 4. Confirm post-apply: `python scripts/integrations/supabase_tool.py select <new_table> --project bravo --limit 1` to verify the schema is live.

@@ -45,6 +45,24 @@ MAX_ROWS_PER_TABLE = 50_000
 
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
+# Same reliability primitive supabase_tool puts on its own network commands. A
+# snapshot sweeps ~150 tables in one run, so it is the most exposed caller in the
+# repo to the transient socket kills documented in lib/db_resilience — and one
+# dropped connection marks the capture incomplete, which fails the gate and
+# blocks a migration for a reason that had nothing to do with the database.
+try:
+    from lib.retry import retry, RetryConfig  # type: ignore
+    _RETRY = RetryConfig(
+        max_retries=2, base_delay=0.5, max_delay=8.0, jitter=True,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+    )
+except ImportError:  # pragma: no cover — lib/retry ships with the repo
+    def retry(*_a, **_kw):  # type: ignore
+        def _wrap(fn):
+            return fn
+        return _wrap
+    _RETRY = None  # type: ignore
+
 CAPABILITY_META = {
     "category": "data.supabase",
     "lifecycle": "active",
@@ -111,6 +129,7 @@ def _supabase():
     return supabase_tool
 
 
+@retry(_RETRY)
 def discover_schema(url: str, key: str) -> dict[str, dict]:
     """Table → {"columns": [...], "pk": [...]}, from PostgREST's OpenAPI root.
 
@@ -158,6 +177,7 @@ def discover_schema(url: str, key: str) -> dict[str, dict]:
     return schema
 
 
+@retry(_RETRY)
 def _count(client, table: str) -> int:
     res = client.table(table).select("*", count="exact").limit(0).execute()
     if res.count is None:
@@ -165,6 +185,7 @@ def _count(client, table: str) -> int:
     return int(res.count)
 
 
+@retry(_RETRY)
 def _fetch_rows(client, table: str, want: int,
                 order_by: str | None = None) -> tuple[list[dict], bool]:
     """Return (rows, truncated). `want` <= 0 means none; MAX_ROWS_PER_TABLE caps
