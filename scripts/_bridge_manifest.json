@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-07-31T19:46:41.628664+00:00",
-  "script_count": 122,
-  "entry_count": 291,
+  "generated_at_iso": "2026-08-02T01:48:51.672972+00:00",
+  "script_count": 123,
+  "entry_count": 292,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1845,6 +1845,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "system_health \u2014 the Loud-Failures probe (V7 EPIC 7)."
+    },
+    {
+      "key": "telegram_identity_audit",
+      "path": "scripts/telegram_identity_audit.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Resolve every Telegram alert lane to its ACTUAL destination."
     },
     {
       "key": "tft_forecast_build_dataset",
