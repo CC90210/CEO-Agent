@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-01T22:23:34.304626+00:00",
+  "generated_at": "2026-08-02T20:39:24.819212+00:00",
   "totals": {
     "skills": 156,
-    "scripts": 132,
+    "scripts": 133,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 379,
-    "edges_total": 153,
+    "nodes_total": 380,
+    "edges_total": 152,
     "drift_count": 0
   },
   "nodes": [
@@ -4895,7 +4895,7 @@
       "kind": "skill",
       "name": "vibe-to-execution",
       "path": "skills/vibe-to-execution/SKILL.md",
-      "description": "Translate an informal brain dump or voice transcript into a turnkey, production-grade execution blueprint \u2014 resolved domain vocabulary, DB/API contracts, UI interaction design, and the exact CLI/tool routing. Use when CC describes what he wants in loose prose rather than a spec, ",
+      "description": "Translate an informal brain dump, voice transcript, or screenshot into a turnkey, production-grade execution blueprint \u2014 Opus 5 execution contract, resolved domain vocabulary, verified DB/API contracts, UI interaction design, exact CLI/tool routing, and the 7 mandatory production",
       "tier": "strategic",
       "owner": "bravo",
       "risk": "low",
@@ -4906,6 +4906,7 @@
         "turn this into a spec",
         "translate this into a build",
         "make this a system message",
+        "write me a system prompt",
         "what i mean is",
         "here is the vibe"
       ],
@@ -4915,7 +4916,8 @@
         "architecture",
         "blueprint",
         "prompt-engineering",
-        "anti-slop"
+        "anti-slop",
+        "opus5"
       ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
@@ -6564,6 +6566,16 @@
       "name": "system_health",
       "path": "scripts/system_health.py",
       "description": "system_health \u2014 the Loud-Failures probe (V7 EPIC 7).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:telegram_identity_audit",
+      "kind": "script",
+      "name": "telegram_identity_audit",
+      "path": "scripts/telegram_identity_audit.py",
+      "description": "Resolve every Telegram alert lane to its ACTUAL destination.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -9003,11 +9015,6 @@
       "from": "skill:strategic-planning",
       "to": "skill:financial-modeling",
       "kind": "requires"
-    },
-    {
-      "from": "skill:vibe-to-execution",
-      "to": "script:apply_migration",
-      "kind": "uses"
     },
     {
       "from": "skill:web-scraping",

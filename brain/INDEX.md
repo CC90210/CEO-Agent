@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **60 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **61 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -49,6 +49,7 @@ Auto-generated index of tracked `brain/*.md` — **60 files**. Each file's first
 - [EMAIL_PIPELINE.md](EMAIL_PIPELINE.md) — Inbound Email Pipeline — Runbook
 - [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) — EVENT BUS CONTRACT — V6 BUILD 3
 - [EXTERNAL_REVIEW_INTEGRATION.md](EXTERNAL_REVIEW_INTEGRATION.md) — EXTERNAL REVIEW INTEGRATION — Fold the Bots Into the Loop
+- [INVENTORY.md](INVENTORY.md) — INVENTORY.md — Live Repo Inventory (auto-generated)
 - [METRIC_AUDIT.md](METRIC_AUDIT.md) — Dashboard Metric Audit
 - [MODEL_CONFIG.md](MODEL_CONFIG.md) — (no H1 heading)
 - [OKRs.md](OKRs.md) — OKRs — Q2 2026 (April - June)

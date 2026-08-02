@@ -745,8 +745,8 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **156 active skills**. Eac
 - **Path:** `skills/verticals/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/vibe-to-execution/SKILL|vibe-to-execution]]
-- **Use when:** Translate an informal brain dump or voice transcript into a turnkey, production-grade execution blueprint — resolved domain vocabulary, DB/API contracts, UI interaction design, and the exact CLI/tool routing. Use when CC describes what he wants in loose prose rather than a spec,
-- **Triggers:** vibe to execution, brain dump, voice note, turn this into a spec, translate this into a build, make this a system message, what i mean is, here is the vibe
+- **Use when:** Translate an informal brain dump, voice transcript, or screenshot into a turnkey, production-grade execution blueprint — Opus 5 execution contract, resolved domain vocabulary, verified DB/API contracts, UI interaction design, exact CLI/tool routing, and the 7 mandatory production
+- **Triggers:** vibe to execution, brain dump, voice note, turn this into a spec, translate this into a build, make this a system message, write me a system prompt, what i mean is, here is the vibe
 - **Path:** `skills/vibe-to-execution/SKILL.md` · tier `strategic` · risk `low`
 
 ## [[skills/web-artifacts-builder/SKILL|web-artifacts-builder]]

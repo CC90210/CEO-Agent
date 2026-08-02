@@ -298,6 +298,24 @@ them is a workaround. The fix that ends it is an antivirus exclusion a human has
 hardening the code and ask what on the machine is producing it — and say plainly which part of
 the answer you cannot do yourself.
 
+## 20. THE OPUS 5 EXECUTION CONTRACT — FINISH, SCOPE, DELEGATE, NARRATE (added 2026-08-02)
+
+Four protocols that govern *how* a task is executed, independent of what the task is. They are
+restated inside every blueprint [[skills/vibe-to-execution/SKILL]] emits, because the executor
+is usually a fresh context that never read this file.
+
+| # | Protocol | The rule |
+|---|---|---|
+| 20a | **Zero-stub mandate** | Complete the feature suite end-to-end in one run. No `// TODO`, no `pass  # later`, no truncated edit left for "the next agent", no handler returning a success shape it did not compute. If something genuinely cannot finish — a credential only CC can create, a vendor account, a human approval — finish everything that does not depend on it and **name the blocker**. Partial delivery is fine; silent partial delivery is the defect. |
+| 20b | **Scope boundary control** | Deliver what was asked, at the scope intended. Make routine technical calls yourself (file layout, helper naming, which util to reuse). If the request looks mistaken, state the alternative in **one sentence** and continue as asked — CC repeating himself ends the debate. Do not widen into adjacent files (Anti-Slop #5); do not narrow because part of the ask looks hard. |
+| 20c | **Controlled subagent delegation** | Subagents are for large, genuinely independent, parallelizable tracks — a multi-file backend beside frontend work, a codebase-wide sweep, an independent audit. Never for a trivial edit, a two-grep lookup, or to re-verify your own work: self-verification is a command you run, not an agent you hire. The always-correct delegation is the *independent* audit (Rule 8, `codex_review.py`) precisely because it is not you. |
+| 20d | **Focused narration** | One sentence before the first tool call saying what you are about to do. No per-step preamble, no plan recitation. The report **leads with the outcome** — what now exists and works — and the proof sits beneath it. Progress chatter is noise; the four-line report is the product. |
+
+**Why it is a rule and not a style note.** 20a and 20d are the two halves of the fleet's most
+expensive failure: work that reads as finished. A stub with a confident summary and a narrated
+plan with no output land identically in CC's inbox — as "done". The contract makes the outcome
+the first thing said and an unfinished part impossible to leave unsaid.
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]
