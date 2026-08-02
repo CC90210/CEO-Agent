@@ -160,7 +160,12 @@ LANES: list[dict] = [
         "token": "EZRA_TELEGRAM_BOT_TOKEN",
         # notify.py:374-379 — ALLOWED_USERS first, then _CHAT_ID.
         "chats": ["EZRA_TELEGRAM_ALLOWED_USERS", "EZRA_TELEGRAM_CHAT_ID"],
-        "reader": "whoever Ezra serves — confirm, do not assume CC",
+        # Resolves to "Matt B" (8468575355), not CC. Flagged to CC on
+        # 2026-08-02 because it has the same shape as the funnel misroute;
+        # he confirmed it is the intended recipient. Recorded so the audit
+        # stops re-raising a settled question — an alert that cries wolf on
+        # known-good state trains the reader to skim past the real one.
+        "reader": "Matt B (8468575355) — confirmed correct by CC 2026-08-02",
         "used_by": "Ezra agent (ezra-telegram-bridge, scrubber)",
     },
 ]
