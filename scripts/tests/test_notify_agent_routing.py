@@ -271,11 +271,13 @@ def test_domain_sets_are_module_level_and_disjoint():
 # half: operational vocabulary is rerouted to CC's private DM, never dropped,
 # and legitimate partner traffic is left alone.
 
+# Bravo-OWNED operational messages. The number-rotation and TPS examples that
+# used to live here moved to NOT_BRAVOS_DOMAIN below: CC's 2026-08-03 direction
+# is that those are APEX's to raise, so Bravo drops them outright rather than
+# rerouting them into his DM.
 OPERATIONAL_MESSAGES = [
-    "Sending number +18604527608 is getting blocked - rotate it out",
     "Campaign pool exhausted, rotate it out",
     "Seeing failure across the outreach lane",
-    "TPS scrape returned blocked",
     "Domain ping failed for oasisai.work",
     "Cron failure on the nightly sweep",
     "Stack trace attached below",
@@ -335,8 +337,8 @@ def test_operational_noise_on_the_private_lane_is_untouched(monkeypatch):
     blocked-number alert belongs, so it must pass through unchanged."""
     env = {"TELEGRAM_BOT_TOKEN": "bravo-token", "TELEGRAM_ALLOWED_USERS": "5099208958"}
     sent = _capture(monkeypatch, env)
-    nf.notify("Sending number +18604527608 is getting blocked",
-              category="outreach", force=True, group=False)
+    nf.notify("Cron failure on the nightly sweep",
+              category="system", force=True, group=False)
     assert sent, "private-lane operational alert was suppressed — it must not be"
     assert str(sent["json"]["chat_id"]) == "5099208958"
 
@@ -367,3 +369,71 @@ def test_group_blocked_terms_stay_in_sync_with_agent_activity():
         "notify.py and agent_activity.py denylists have drifted:\n"
         f"  notify        : {nf._GROUP_BLOCKED_TERMS_RE.pattern!r}\n"
         f"  agent_activity: {other!r}")
+
+
+# ── Domain ownership: Bravo must not page CC about APEX's work ───────────────
+#
+# CC, 2026-08-03: "I keep receiving personal messages from Bravo that pertain to
+# TextTorrent, and it's saying that I need to rotate this number. This is
+# completely garbage ... This is something that Apex does."
+#
+# TPS phone-lookup / TextTorrent number rotation was formally handed to
+# APEX/Adon because Bravo CANNOT act on it — DataDome scores the source ASN, so
+# only Adon's residential workstation can drain that queue. An alert Bravo can
+# neither fix nor action is noise, and it arrives wearing Bravo's name.
+#
+# These DROP rather than reroute: the wrong OWNER, not merely the wrong
+# audience. The alert still exists and is actionable at its source.
+
+NOT_BRAVOS_DOMAIN = [
+    "🚨 Sending number +18604527608 is getting blocked — rotate out",
+    "Sending number +18604527608 is getting blocked - rotate it out",
+    "TextTorrent sender pool exhausted",
+    "TPS scrape returned blocked for 21 Live Subs",
+    "TPS backlog is at 240h",
+    "phone_lookup queue is stuck",
+    "phone lookup job failed",
+]
+
+
+@pytest.mark.parametrize("message", NOT_BRAVOS_DOMAIN)
+@pytest.mark.parametrize("group", [False, True])
+def test_apex_domain_alerts_are_dropped_on_both_lanes(monkeypatch, message, group):
+    env = {
+        "TELEGRAM_BOT_TOKEN": "bravo-token",
+        "TELEGRAM_ALLOWED_USERS": "5099208958",
+        "GROUP_TELEGRAM_CHAT_ID": "-5165125484",
+    }
+    sent = _capture(monkeypatch, env)
+    result = nf.notify(message, category="outreach", force=True, group=group)
+    assert result is False, "notify() must report the alert was not delivered"
+    assert not sent, (
+        f"APEX-domain alert reached Telegram (group={group}): {sent.get('json')}")
+
+
+def test_bravo_owned_outreach_alerts_still_send(monkeypatch):
+    """The other direction. Bravo owns its own outreach — a genuine send failure
+    on Bravo's own lane must still page CC."""
+    env = {"TELEGRAM_BOT_TOKEN": "bravo-token", "TELEGRAM_ALLOWED_USERS": "5099208958"}
+    sent = _capture(monkeypatch, env)
+    assert nf.notify("Outreach daily cap reached — 40 of 40 sent",
+                     category="outreach", force=True) is True
+    assert sent, "a Bravo-owned outreach alert must still reach CC"
+
+
+def test_ownership_drop_beats_the_group_reroute(monkeypatch):
+    """Ordering matters: the ownership gate runs FIRST.
+
+    "Sending number ... is getting blocked" matches BOTH denylists. If the group
+    filter won, the message would be rerouted into CC's DM — which is exactly
+    the message CC asked never to receive again.
+    """
+    env = {
+        "TELEGRAM_BOT_TOKEN": "bravo-token",
+        "TELEGRAM_ALLOWED_USERS": "5099208958",
+        "GROUP_TELEGRAM_CHAT_ID": "-5165125484",
+    }
+    sent = _capture(monkeypatch, env)
+    assert nf.notify("🚨 Sending number +18604527608 is getting blocked — rotate out",
+                     category="outreach", force=True, group=True) is False
+    assert not sent, "rerouted to CC's DM instead of being dropped"

@@ -326,6 +326,34 @@ _GROUP_BLOCKED_TERMS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# NOT BRAVO'S DOMAIN — dropped entirely, not rerouted (2026-08-03, CC explicit:
+# "I keep receiving personal messages from Bravo that pertain to TextTorrent
+# ... This is something that Apex does ... I do not want any of this being sent").
+#
+# TPS phone-lookup and TextTorrent sending-number rotation belong to APEX/Adon.
+# Ownership was formally handed over on 2026-08-03 (see the agent_activity row
+# "TPS phone-lookup: handing operational ownership to APEX/Adon") precisely
+# because Bravo cannot act on them: DataDome scores the source ASN, so only
+# Adon's residential workstation can drain that queue. An alert Bravo can
+# neither fix nor action is noise by definition, and it arrives wearing Bravo's
+# name, which makes it worse than noise — it looks like Bravo is failing.
+#
+# Distinct from _GROUP_BLOCKED_TERMS_RE below: that one is about the wrong
+# AUDIENCE and reroutes. This one is about the wrong OWNER and drops. Dropping
+# is safe here only because the alert is still produced, logged and actionable
+# at its source — APEX's own channel. Logged loudly to stderr either way, so a
+# suppressed alert is visible in the cron log rather than silently vanishing.
+_NOT_BRAVO_DOMAIN_RE = re.compile(
+    r"\b(?:"
+    r"texttorrent|text\s*warrant|tps\s+(?:scrape|lookup|backlog)"
+    r"|phone[_\s-]?lookup"
+    r"|sending\s+number\b[^\n]*\b(?:blocked|rotate)"
+    r"|rotate\s+(?:it\s+)?out\b[^\n]*\bnumber"
+    r"|number\b[^\n]*\bgetting\s+blocked"
+    r")",
+    re.IGNORECASE,
+)
+
 # Per-agent bot token env keys. Bravo's is the plain TELEGRAM_BOT_TOKEN it has
 # always used. Maven's and Atlas's live in THEIR repos by design — separate
 # credentials, separate blast radius — so they are usually absent here.
@@ -454,6 +482,16 @@ def notify(message: str, category: str = "system", silent: bool = False,
     # was wrong. Dropping it would trade a noise problem for a silence problem,
     # which is the strictly worse failure (see the 34-day funnel-alert
     # misdelivery: alerts that "sent successfully" into the wrong chat).
+    # OWNERSHIP GATE — runs before everything else, both lanes. Bravo does not
+    # emit alerts for domains it cannot act on (see _NOT_BRAVO_DOMAIN_RE).
+    _owner_hit = _NOT_BRAVO_DOMAIN_RE.search(message or "")
+    if _owner_hit:
+        print(f"[notify] DROPPED — not Bravo's domain (matched: "
+              f"{_owner_hit.group(0)!r}). TPS / TextTorrent number rotation is "
+              f"owned by APEX/Adon; Bravo cannot action it and must not page CC "
+              f"about it. Message: {str(message)[:160]}", file=sys.stderr)
+        return False
+
     if group and _GROUP_BLOCKED_TERMS_RE.search(message or ""):
         matched = _GROUP_BLOCKED_TERMS_RE.search(message or "").group(0)
         print(f"[notify] Suppressed operational noise from shared OASIS group "
