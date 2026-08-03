@@ -148,6 +148,39 @@ grep -q "Bravo.*ADR-0002\|Business-Empire-Agent" docs/adr/0001*.md
 python scripts/build_capability_graph.py --check
 ```
 
+---
+
+# V7.5 — Guard & Continuity (davidondrej/skills import, 2026-08-03)
+
+Third application of this contract (after mattpocock V6.8 and Twenty V6.9). Source: [davidondrej/skills](https://github.com/davidondrej/skills) (MIT — patterns studied, no code copied). Plan: `~/.claude/plans/integrate-davidondrej-skills.md`.
+
+45 external skills audited; 5 imported, 14 marked already-better, 26 skipped. The full table with per-item reasoning is in the plan file.
+
+| Layer | What shipped | Commit |
+|---|---|---|
+| Substrate | `exec_guard.py` HARD_BLOCKS: `gh` destruction + credential exfil, remote-branch deletion, reflog/gc destruction, mkfs/dd/raw-disk, chmod-chown-root. Plus `scripts/tests/test_exec_guard.py` (99 cases) — the guard had no test file at all. | `7afe35c3` |
+| Conventions | `skills/handoff/`, `skills/setup-help/`, `skills/decisions/` — all manual-only, all SOFT per ADR-0001. | `c3e9e9ee` |
+| Vocabulary | `CONTEXT.md` § V7.5 — 5 terms, verified auto-injecting via `user_prompt_submit.py` Pass 1. | `2c7dd37f` |
+| Distribution | This section + `.claude-plugin/plugin.json` (+3 skills). | this commit |
+
+## Sibling propagation — REQUIRED for the guard, OPEN pending CC
+
+**The `gh` gap is fleet-wide, not Bravo-only.** Maven (`~/CMO-Agent`) and Atlas (`~/APPS/CFO-Agent`) each run their own `exec_guard.py` and each have `gh` available. `gh auth token` prints a live OAuth token to stdout on every one of those repos today, and `secret_guard.py` does not stop it there either — it is path-based and the token never touches a guarded file.
+
+This is the one case where the usual "each sibling writes its own" rule does **not** apply. A denylist is not domain vocabulary; the same command is exactly as destructive in Maven's repo as in Bravo's. The patterns should land byte-identical.
+
+Not executed here — editing sibling repos is a separate authorization, and Rule 10 forbids one agent silently rewriting shared substrate another chassis reads. **Flagged OPEN for CC.** The patch is the `gh` / `git-push-delete` / `reflog` / `gc` / `mkfs` / `dd` / `chmod-chown` block in `scripts/state/exec_guard.py` plus `scripts/tests/test_exec_guard.py`, applied verbatim.
+
+The three skills are universal and portable — propagate on the normal per-sibling schedule, no urgency.
+
+## What this import confirms about the contract
+
+V6.8 established that an external audit yields vocabulary and conventions. V6.9 confirmed it at larger surface. **V7.5 adds a case the first two did not cover: the most valuable import was not a skill at all — it was a diff.** Reading another repo's denylist against ours surfaced a live credential-exfil hole that no amount of reading our own code would have found, because the gap was defined by absence. Nothing in our repo pointed at the missing `gh` rules.
+
+Practical consequence for future audits: when an external repo ships a **denylist, an allowlist, a schema, or a test table**, diff it against ours before evaluating any of its skills. A list of things someone else decided to guard against is a map of our blind spots, and it is cheaper to read than the whole repo.
+
+Corollary, also from this import: `scripts/tests/` had 40+ test files and none for the single most safety-critical script in the substrate. The external repo's `test-guard.sh` is unremarkable on its own — its value was making that absence visible. When auditing, check what the other repo tests that we don't.
+
 ## Source
 
 - Audit plan: `~/.claude/plans/i-found-a-really-parallel-pascal.md`
