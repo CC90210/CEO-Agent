@@ -32,9 +32,21 @@ def test_a_naive_timestamp_comes_back_aware():
     assert got == datetime(2026, 8, 3, 12, 0, tzinfo=timezone.utc)
 
 
-def test_an_offset_is_preserved_not_flattened():
+def test_an_offset_is_converted_to_utc_not_just_carried():
+    """The name promises UTC. Equality would pass either way (aware datetimes
+    compare instants), so assert the REPRESENTATION — the first caller that
+    formats `.hour` is the one that gets burned."""
     got = parse_iso_utc("2026-08-03T12:00:00+02:00")
     assert got == datetime(2026, 8, 3, 10, 0, tzinfo=timezone.utc)
+    assert got.tzinfo is timezone.utc
+    assert got.hour == 10
+
+
+def test_an_aware_datetime_is_also_normalized():
+    from datetime import timedelta
+    berlin = datetime(2026, 8, 3, 12, 0, tzinfo=timezone(timedelta(hours=2)))
+    got = parse_iso_utc(berlin)
+    assert got.tzinfo is timezone.utc and got.hour == 10
 
 
 @pytest.mark.parametrize("junk", [None, "", "   ", "not-a-date", 12345, {}, []])

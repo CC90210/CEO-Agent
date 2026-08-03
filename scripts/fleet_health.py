@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.timeutil import parse_iso_utc  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -71,15 +72,12 @@ def _now_utc() -> datetime:
 
 
 def _parse_iso(s: str) -> datetime | None:
-    try:
-        if s.endswith("Z"):
-            s = s[:-1] + "+00:00"
-        dt = datetime.fromisoformat(s)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
-    except (ValueError, TypeError):
-        return None
+    """Kept as a name because two call sites use it; the behaviour now lives in
+    lib/timeutil so the fleet's five copies of this dance stay one copy. The
+    version here was the complete one — Z-swap, naive tzinfo, UTC normalize —
+    which is exactly why the shared helper was made to match it rather than the
+    weaker copies it replaced."""
+    return parse_iso_utc(s)
 
 
 def check_pulse(agent: str) -> dict[str, Any]:

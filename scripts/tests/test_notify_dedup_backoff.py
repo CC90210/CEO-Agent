@@ -307,6 +307,33 @@ def test_an_unknown_condition_is_not_delivered(nf):
     assert nf._dedup_was_delivered("system", "never seen") is False
 
 
+def test_the_self_test_ping_says_it_is_a_self_test(nf):
+    """CC got "System / Routing check (private lane) — <timestamp>" twice in an
+    afternoon and had no way to tell it from a real alert. It was an agent
+    verifying its own plumbing. Assert the text explains itself — and assert it
+    HERE rather than by firing a live Telegram, which is how the first version
+    of this shipped unverified."""
+    msg = nf.self_test_message(group=False)
+    assert "SELF-TEST" in msg
+    assert "ignore" in msg.lower()
+    assert "never by an automation" in msg
+    assert "private" in msg
+
+    grp = nf.self_test_message(group=True)
+    assert "group broadcast" in grp
+
+    # Unique per run, or dedup swallows the check the operator just asked for.
+    assert nf.self_test_message() != "" and any(c.isdigit() for c in msg)
+
+
+def test_the_self_test_ping_survives_a_cp1252_console(nf):
+    """It carries an emoji and goes out over UTF-8 to Telegram, but the CLI also
+    prints around it on a cp1252 Windows console. Encodable-to-UTF-8 is the real
+    contract; assert it explicitly so a future edit can't wedge in a character
+    the transport chokes on."""
+    nf.self_test_message().encode("utf-8")
+
+
 def test_notify_result_names_the_reason(nf, monkeypatch):
     """The public API the monitors use. A bare bool cannot express the
     difference that caused the 2026-08-03 loop, so the reason is the contract."""

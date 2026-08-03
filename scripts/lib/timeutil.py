@@ -17,14 +17,21 @@ from datetime import datetime, timezone
 
 
 def parse_iso_utc(value: object) -> datetime | None:
-    """Parse an ISO-8601 string to an aware UTC datetime, or None.
+    """Parse an ISO-8601 string to an aware datetime **in UTC**, or None.
+
+    The name promises UTC, so the result is normalized to it — an offset like
+    +02:00 comes back as the same instant expressed in UTC. Arithmetic is
+    identical either way, but `.hour` is not, and a function that says utc while
+    handing back a +02:00 object is a landmine for the first caller that formats
+    the result.
 
     Returns None for anything unparseable — callers decide whether that is an
     error (a schema check) or information (a sibling agent that has never
     published). Never raises: a bad timestamp must not take down the caller.
     """
     if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return aware.astimezone(timezone.utc)
     if not isinstance(value, str) or not value.strip():
         return None
     text = value.strip()
@@ -33,7 +40,9 @@ def parse_iso_utc(value: object) -> datetime | None:
         parsed = datetime.fromisoformat(normalized)
     except (ValueError, TypeError):
         return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def age_hours(value: object, now: datetime | None = None) -> float | None:

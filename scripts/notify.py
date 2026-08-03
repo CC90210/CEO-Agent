@@ -179,12 +179,7 @@ def _dedup_should_send(category: str, message: str,
         key = _dedup_identity(category, message, dedup_key, lane)
         now = time.time()
 
-        seen: dict = {}
-        if _DEDUP_PATH.exists():
-            try:
-                seen = json.loads(_DEDUP_PATH.read_text(encoding="utf-8")) or {}
-            except Exception:  # noqa: BLE001
-                seen = {}
+        seen: dict = _dedup_load()
 
         rec = seen.get(key)
         # Legacy rows are a bare float timestamp; normalise so an in-flight
@@ -611,6 +606,27 @@ def notify(message: str, category: str = "system", silent: bool = False,
     return False
 
 
+def self_test_message(group: bool = False) -> str:
+    """The text `notify.py --test` sends.
+
+    A module-level function, not an f-string buried in __main__, so it can be
+    asserted on without firing a real Telegram at CC — which is how the previous
+    version shipped unverified.
+
+    2026-08-03: it used to read "Routing check (private lane) — <timestamp>" and
+    nothing else, so CC got unexplained pings from an agent checking its own
+    plumbing with no way to tell them from a real alert. A diagnostic that looks
+    like an incident is a bad diagnostic. The timestamp stays because unique text
+    is what keeps the dedup window from swallowing the check.
+    """
+    lane = "group broadcast" if group else "private"
+    return ("🧪 SELF-TEST — ignore.\n"
+            f"Bravo verifying the {lane} Telegram lane still delivers. Nothing "
+            f"is wrong; this is only sent by a human or an agent running "
+            f"`notify.py --test`, never by an automation.\n"
+            f"{datetime.now().isoformat(timespec='seconds')}")
+
+
 def notify_result(message: str, **kwargs) -> tuple[bool, str]:
     """notify() with the REASON attached: (ok, "sent" | "suppressed" | "failed").
 
@@ -791,17 +807,7 @@ if __name__ == "__main__":
     _group = "--group" in _args
     _args = [a for a in _args if a not in ("--test", "--group")]
     if _test:
-        # SAY WHAT IT IS (2026-08-03). This used to read "Routing check (private
-        # lane) — <timestamp>" and nothing else, so CC got unexplained pings from
-        # an agent verifying its own plumbing and had no way to tell them from a
-        # real alert. A diagnostic that looks like an incident is a bad
-        # diagnostic. Unique text every run so dedup never swallows the check.
-        _msg = ("🧪 SELF-TEST — ignore.\n"
-                f"Bravo verifying the {'group broadcast' if _group else 'private'} "
-                f"Telegram lane still delivers. Nothing is wrong; this is only "
-                f"sent by a human or an agent running `notify.py --test`, never "
-                f"by an automation.\n"
-                f"{datetime.now().isoformat(timespec='seconds')}")
+        _msg = self_test_message(_group)
     else:
         _msg = " ".join(_args) if _args else "Bravo notification system online."
     # CLI sends are explicit operator action: force past the category block
