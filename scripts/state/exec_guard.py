@@ -99,10 +99,12 @@ HARD_BLOCKS: list[tuple[str, re.Pattern]] = [
     ("gh-api-delete",      re.compile(r"\bgh\s+api\b[^|;&\n]*(?:-X|--method)[=\s]+DELETE\b", re.IGNORECASE)),
     # ── Remote-history destruction (V7.5.0). We already block force-push to
     #    main, but remote BRANCH deletion was wide open.
-    ("git-push-delete-remote", re.compile(r"\bgit\s+push\b[^|;&\n]*\s(?:--delete|-d)(?:\s|$)")),
+    #    `--dry-run` is exempted: git guarantees no mutation, and blocking the
+    #    preview of a delete pushes operators toward doing it unpreviewed.
+    ("git-push-delete-remote", re.compile(r"\bgit\s+push\b(?![^|;&\n]*--dry-run\b)[^|;&\n]*\s(?:--delete|-d)(?:\s|$)")),
     # `git push origin :branch` — the delete refspec. The leading \s means
     # `git push origin main:main` (a normal push) does NOT match.
-    ("git-push-delete-refspec", re.compile(r"\bgit\s+push\b[^|;&\n]*\s:[A-Za-z0-9._/-]+")),
+    ("git-push-delete-refspec", re.compile(r"\bgit\s+push\b(?![^|;&\n]*--dry-run\b)[^|;&\n]*\s:[A-Za-z0-9._/-]+")),
     # ── Reflog destruction (V7.5.0). This matters BECAUSE of git-reset-hard-ref
     #    above: we hard-block `git reset --hard <ref>` but still allow the
     #    bare-HEAD form, and that allowance is only safe while the reflog
@@ -117,9 +119,11 @@ HARD_BLOCKS: list[tuple[str, re.Pattern]] = [
     ("dd-to-device",       re.compile(r"\bdd\s[^|;&\n]*\bof=[\"']?/dev/")),
     ("redirect-raw-disk",  re.compile(r">\s*/dev/(?:r?disk|sd[a-z]|nvme)")),
     # `chmod 777 ./script.sh` and `chmod -R 755 dist` stay allowed — the `/`
-    # must be the whole target.
-    ("chmod-777-root",     re.compile(r"\bchmod\b[^|;&\n]*\s777\s+[\"']?/[\"']?(?:\s|$|[;&|])")),
-    ("chown-recurse-root", re.compile(r"\bchown\s+-R\b[^|;&\n]*\s/[\"']?(?:\s|$|[;&|])")),
+    # must be the whole target. Codex audit 2026-08-03: the original `\s777\s`
+    # missed `chmod 0777 /` and `chmod a+rwx /`; `-R` missed `--recursive` and
+    # combined short flags (`-hR`). Both confirmed live before this widening.
+    ("chmod-777-root",     re.compile(r"\bchmod\b[^|;&\n]*\s(?:0*777|[aou]*\+rwx|a\+w)\s+[\"']?/[\"']?(?:\s|$|[;&|])")),
+    ("chown-recurse-root", re.compile(r"\bchown\b[^|;&\n]*\s(?:-[a-zA-Z]*R[a-zA-Z]*|--recursive)\b[^|;&\n]*\s/[\"']?(?:\s|$|[;&|])")),
     # ── PowerShell destructive forms (the PowerShell tool is guarded too; see
     #    main() tool_name handling + settings.local.json). Harmlessly inert
     #    against bash strings. ──
@@ -159,9 +163,106 @@ _CHAIN_OPS = re.compile(
 )
 
 
+# ── Canonicalization, added V7.5.4 after a Codex adversarial audit (2026-08-03).
+#
+# Every HARD_BLOCK is a regex over the raw command string, which made two whole
+# classes of defect possible. Both were confirmed live before this fix:
+#
+#   BYPASS — the patterns anchor on `git push` / `gh repo` adjacency, but real
+#   CLIs accept global options before the subcommand. `git -c foo=bar push
+#   --force origin main` evaluated to ALLOW. This was NOT limited to the new
+#   V7.5.0 rules: the pre-existing git-force-main and git-clean-fdx blocks were
+#   bypassable the same way and had been since they were written.
+#
+#   FALSE POSITIVE — dangerous text quoted as DATA matched as if it were a
+#   command. `echo 'gh auth token' >> notes.md` was blocked. This is not
+#   theoretical: writing this feature tripped the guard twice on its own
+#   documentation. An guard that interrupts writing docs about the guard is one
+#   an operator switches off, and then nothing is protected.
+
+# Commands whose quoted arguments are DATA, never code. Deliberately a short
+# allowlist rather than "everything except interpreters" — masking defaults to
+# OFF so an unknown command fails closed. `bash -c "rm -rf /"` must never be
+# masked, and it isn't, because bash is simply not on this list.
+_INERT_ARG_COMMANDS = frozenset({
+    "echo", "printf", "cat", "jq", "grep", "rg", "egrep", "fgrep",
+    "diff", "comm", "wc", "head", "tail", "sort", "uniq", "tee",
+})
+_INERT_ARG_SUBCOMMANDS = (
+    re.compile(r"^\s*git\s+(?:commit|tag|notes)\b"),   # -m "rm -rf mention"
+    re.compile(r"^\s*gh\s+(?:pr|issue|release)\s+(?:create|edit|comment)\b"),
+)
+
+_QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"")
+_SEGMENT_SPLIT_RE = re.compile(r"(&&|\|\||;|\||`|\$\()")
+
+# Leading wrappers that change nothing about what the command DOES.
+_WRAPPER_RE = re.compile(
+    r"(^|[;&|`(]\s*)"
+    r"(?:sudo(?:\s+-[a-zA-Z]+)*|command|nice(?:\s+-n\s*-?\d+)?|time|"
+    r"env(?:\s+[A-Za-z_][A-Za-z0-9_]*=[^\s;&|]*)*)\s+"
+)
+# Global options accepted BETWEEN the binary and its subcommand.
+_GIT_GLOBAL_RE = re.compile(
+    r"\bgit\s+(?:(?:-c\s+\S+|-C\s+\S+|--git-dir(?:=|\s+)\S+|--work-tree(?:=|\s+)\S+|"
+    r"--namespace(?:=|\s+)\S+|--no-pager|--no-replace-objects|--bare|-P)\s+)+"
+)
+_GH_GLOBAL_RE = re.compile(
+    r"\bgh\s+(?:(?:(?:-R|--repo)(?:=|\s+)\S+|--hostname(?:=|\s+)\S+)\s+)+"
+)
+
+
+def _strip_wrappers(cmd: str) -> str:
+    """Remove sudo/env/nice prefixes and git/gh global options.
+
+    Applied repeatedly — `sudo env FOO=1 git -c a=b -C /repo push --force main`
+    peels one layer per pass.
+    """
+    prev = None
+    out = cmd
+    for _ in range(6):                       # bounded; 6 exceeds any real nesting
+        if out == prev:
+            break
+        prev = out
+        out = _WRAPPER_RE.sub(r"\1", out)
+        out = _GIT_GLOBAL_RE.sub("git ", out)
+        out = _GH_GLOBAL_RE.sub("gh ", out)
+    return out
+
+
+def _mask_data_arguments(cmd: str) -> str:
+    """Blank the quoted arguments of commands that only ever treat them as text.
+
+    Per chain segment, so `echo hi && bash -c "rm -rf /"` masks the echo half
+    and leaves the bash half fully intact.
+    """
+    parts = _SEGMENT_SPLIT_RE.split(cmd)
+    out = []
+    for part in parts:
+        if _SEGMENT_SPLIT_RE.fullmatch(part):
+            out.append(part)
+            continue
+        head = part.strip().split(" ", 1)[0].rsplit("/", 1)[-1].lower()
+        inert = head in _INERT_ARG_COMMANDS or any(
+            p.search(part) for p in _INERT_ARG_SUBCOMMANDS
+        )
+        out.append(_QUOTED_RE.sub("''", part) if inert else part)
+    return "".join(out)
+
+
+def _canonical(cmd: str) -> str:
+    """The form hard blocks are matched against."""
+    return _mask_data_arguments(_strip_wrappers(cmd))
+
+
 def _check_hard_blocks(cmd: str) -> tuple[str, str] | None:
+    # Matched against the canonical form so wrapper/global-option spellings
+    # cannot evade a rule. The SQL-AST and irreversible layers deliberately
+    # still see the RAW command — _check_sql_ast extracts SQL from inside
+    # quotes, which masking would destroy.
+    canon = _canonical(cmd)
     for name, pat in HARD_BLOCKS:
-        if pat.search(cmd):
+        if pat.search(canon):
             return (name, f"matches hard blocklist pattern '{name}'")
     return None
 
@@ -211,7 +312,10 @@ def _is_read_only_cli(cmd: str) -> bool:
     # later layer too.
     if _CHAIN_OPS.search(cmd):
         return False
-    tokens = cmd.strip().split()
+    # Wrapper-stripped so `sudo git status` / `git -c a=b status` take the same
+    # fast path as `git status`. Chains are already rejected above, so this
+    # cannot be used to smuggle a second command.
+    tokens = _strip_wrappers(cmd).strip().split()
     if not tokens:
         return False
     if tokens[0] in ("python", "py", "python3") and len(tokens) >= 3:

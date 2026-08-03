@@ -93,6 +93,37 @@ BLOCK = [
     "git checkout HEAD src/app.py",
     "echo x > .env.agents",
     "Remove-Item -Recurse C:\\work",
+    # -- V7.5.4: bypasses found by Codex adversarial audit 2026-08-03.
+    # Every one of these evaluated to ALLOW before the canonicalization pass.
+    # Global options between the binary and the subcommand:
+    "git -c core.sshCommand=ssh push origin --delete main",
+    "git -c gc.pruneExpire=now gc --prune=now",
+    "git -c gc.reflogExpire=now reflog expire --expire=now --all",
+    "git -C /repo push origin --delete main",
+    "git --git-dir=/repo/.git push origin :main",
+    "gh --repo CC90210/breeze-portal repo delete --yes",
+    "gh -R CC90210/breeze-portal api -X DELETE /repos/x/y",
+    # The same bypass defeated PRE-EXISTING rules too — found while verifying
+    # the Codex report, not reported by it. These had been open since the
+    # force-push and clean rules were written.
+    "git -c foo=bar push --force origin main",
+    "git -c foo=bar clean -fdx",
+    "git -c foo=bar reset --hard abc1234",
+    # Wrapper prefixes:
+    "sudo git push --force origin main",
+    "env FOO=1 git push origin --delete main",
+    "sudo env FOO=1 git -c a=b push --force origin main",
+    # chmod/chown spellings the first pass missed:
+    "chmod 0777 /",
+    "chmod a+rwx /",
+    "chown --recursive david /",
+    "chown -hR david /",
+    # Masking must NOT extend to interpreters — their quoted arg IS code.
+    'bash -c "rm -rf /"',
+    'sh -c "gh auth token"',
+    # Chain smuggling behind an inert command must still be caught.
+    "echo hi && rm -rf /",
+    'echo hi && bash -c "rm -rf /"',
 ]
 
 # ── Commands that MUST be allowed (block == over-reach) ──────────────────────
@@ -145,6 +176,26 @@ ALLOW = [
     "npm install && npm test",
     "python scripts/capability_probe.py list",
     "curl -s https://api.example.com/health | jq .",
+    # -- V7.5.4: false positives found by Codex adversarial audit 2026-08-03.
+    # Dangerous text as DATA, not as a command. Writing the V7.5.0 docs tripped
+    # the guard twice on exactly this; a guard that blocks documentation about
+    # itself is one an operator disables.
+    "echo 'gh auth token' >> notes.md",
+    'echo "rm -rf /" > example.txt',
+    'git commit -m "block rm -rf / in the guard" --allow-empty',
+    'git commit -m "add gh auth token to the denylist"',
+    "grep -r 'mkfs.ext4' docs/",
+    # --dry-run performs no mutation; blocking the preview pushes operators
+    # toward running the real thing unpreviewed.
+    "git push --dry-run origin --delete main",
+    # Wrapper-stripping must not turn safe commands into blocked ones.
+    "sudo git status",
+    "git -c core.pager=cat log --oneline -5",
+    "git -C /repo status",
+    "gh -R CC90210/breeze-portal pr list",
+    "sudo brew services restart postgresql",
+    "chmod 0755 ./script.sh",
+    "chown --recursive bravo ./data",
 ]
 
 

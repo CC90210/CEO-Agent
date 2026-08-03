@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **156 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **159 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## [[skills/agent-forge/SKILL|agent-forge]]
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -138,6 +138,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **156 active skills**. Eac
 - **Use when:** Structured daily plan for CC — content creation priorities, scheduled tasks, and revenue-moving actions. Generated each morning.
 - **Triggers:** daily planner, use daily planner, run daily planner, structured daily plan for cc \u2014 content creation priorities
 - **Path:** `skills/daily-planner/SKILL.md` · tier `core` · risk `low`
+
+## [[skills/decisions/SKILL|decisions]] — _explicit `/command` only_
+- **Use when:** Surface the choices made during the current work that the agent is genuinely NOT confident about, with the alternatives that were not considered. Use before shipping, before a review, or when CC asks "what did you decide", "what are you unsure about", "/decisions". Retrospective
+- **Triggers:** decisions, what did you decide, what are you unsure about, low confidence choices, second guess this
+- **Path:** `skills/decisions/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/dispatching-parallel-agents/SKILL|dispatching-parallel-agents]]
 - **Use when:** Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies
@@ -409,6 +414,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **156 active skills**. Eac
 - **Triggers:** gws workflow weekly digest, use gws workflow weekly digest, run gws workflow weekly digest
 - **Path:** `skills/gws-workflow-weekly-digest/SKILL.md` · tier `specialized` · risk `low`
 
+## [[skills/handoff/SKILL|handoff]] — _explicit `/command` only_
+- **Use when:** Compact the current session into one paste-ready block a fresh agent can resume from — what happened, why, what is left, and what NOT to redo. Use when hitting context limits, ending a work session, switching runtimes (Claude to Gemini/Codex/OpenCode), or partitioning a task acro
+- **Triggers:** handoff, hand off, fresh session, context limit, switch runtime, resume elsewhere, pass this on
+- **Path:** `skills/handoff/SKILL.md` · tier `standard` · risk `low`
+
 ## [[skills/heartbeat/SKILL|heartbeat]]
 - **Use when:** Proactive autonomous monitoring and session management. Runs at session start and end. Checks memory consistency, infrastructure health, pending tasks, and workspace cleanliness. Enables Bravo to act without prompting.
 - **Triggers:** heartbeat, health check, session start, monitoring, proactive, autonomous
@@ -643,6 +653,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **156 active skills**. Eac
 - **Use when:** Enhanced multi-step reasoning protocol for complex problems. Combines Sequential Thinking MCP with structured analysis frameworks. Use for architecture decisions, root cause analysis, strategic planning, and multi-variable optimization.
 - **Triggers:** complex reasoning, multi-step analysis, architecture decision, strategic planning
 - **Path:** `skills/sequential-reasoning/SKILL.md` · tier `standard` · risk `low`
+
+## [[skills/setup-help/SKILL|setup-help]] — _explicit `/command` only_
+- **Use when:** Walk CC through an operator-blocked setup ONE atomic step at a time, always listing what remains. Use when CC must do something the agent cannot — a dashboard signup, a DNS record, a bank or Plaid approval, an OAuth consent, a VPS action, an entity or counsel step. Triggers on "h
+- **Triggers:** help me set up, walk me through, how do I set up, setup help, configure this, get this working, what do I do next
+- **Path:** `skills/setup-help/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/ship/SKILL|ship]] — _explicit `/command` only_
 - **Use when:** Full deployment pipeline for any app in the registry. Use when CC says "ship it", "deploy", "push this live", or "/ship". Handles sync, tests, code review, changelog, PR, and post-ship verification in sequence.
