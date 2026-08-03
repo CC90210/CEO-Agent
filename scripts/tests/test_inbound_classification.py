@@ -332,6 +332,81 @@ def test_statement_notice_never_reaches_atlas():
     assert action.get("handoff_to_atlas") is not True, action
 
 
+@pytest.mark.parametrize("subject,body", [
+    ("CC has used $15 of $20 in monthly Pro plan credit",
+     "You have used 15 of your 20 dollars of included credit this month."),
+    ("Usage alert", "You have used 80% of your included credits."),
+    ("Your quota used this month", "Quota used: 4,000 of 5,000 requests."),
+    ("Heads up", "You are approaching your limit for this billing period."),
+])
+def test_usage_notice_is_not_financial(subject, body):
+    """Consuming prepaid credit is not a purchase.
+
+    The third non-transaction shape, and the one that defeats the other two
+    guards: it carries a real dollar amount, so the amount gate sees a number.
+    A Vercel credit-usage email was booked as a $20 hosting_cloud expense.
+
+    Sender is deliberately NOT a known platform. `_platform_prefilter` catches
+    vercel/stripe/google mail earlier and returns technical_support without ever
+    consulting the model — which is why the same four subjects are asserted
+    separately below from a platform sender. This case exercises the veto
+    itself, on the long tail of vendors the prefilter has never heard of.
+    """
+    got = classify_category(content=body, subject=subject,
+                            from_identity="no-reply@somevendor.example",
+                            is_bulk=False,
+                            runner=_says("Financial & Legal", 0.95))
+    assert got["category"] == "low_priority", got
+    assert "usage" in got["notes"].lower(), got["notes"]
+
+
+@pytest.mark.parametrize("subject,body,sender", [
+    ("CC has used $15 of $20 in monthly Pro plan credit",
+     "You have used 15 of your 20 dollars of included credit.", "no-reply@vercel.com"),
+    ("Usage alert", "You have used 80% of your included credits.", "no-reply@vercel.com"),
+    ("Your quota used this month", "Quota used: 4,000 of 5,000.", "no-reply@stripe.com"),
+])
+def test_usage_notice_from_a_platform_never_reaches_atlas(subject, body, sender):
+    """The guarantee that actually protects the ledger.
+
+    For platform senders the prefilter answers first (technical_support), so
+    the veto never runs. That is fine — what must hold either way is that a
+    usage notice is NOT financial_legal, because only that category hands off
+    to Atlas for booking. Asserting the specific losing category would pin an
+    implementation detail; asserting the hand-off cannot happen pins the
+    contract.
+    """
+    got = classify_category(content=body, subject=subject, from_identity=sender,
+                            is_bulk=False,
+                            runner=_says("Financial & Legal", 0.95))
+    assert got["category"] != "financial_legal", got
+
+
+def test_usage_notice_with_a_real_overage_charge_is_still_financial():
+    """The counter-case: an overage that actually bills money is a transaction."""
+    got = classify_category(
+        content="You exceeded your quota. We charged $42.00 for overage. Invoice #77.",
+        subject="Overage invoice", from_identity="billing@vendor.example",
+        is_bulk=False, runner=_says("Financial & Legal", 0.95))
+    assert got["category"] == "financial_legal", got
+
+
+def test_forwarded_signup_receipt_still_routes_financial():
+    """goldstorm2003@gmail.com forwards are CC's real signup receipts.
+
+    CC registers with that address and forwards the receipts in. Suppressing
+    the sender — as an earlier draft of this work proposed — would have thrown
+    away five genuine deductions worth $242.32. It is send-suppressed for
+    OUTBOUND mail only; inbound forwards must classify normally.
+    """
+    got = classify_category(
+        content="Your invoice from Google Cloud is available. Total charged: $15.53",
+        subject="Fwd: Google Cloud Platform & APIs: Your invoice is available",
+        from_identity="GOLD STORM <goldstorm2003@gmail.com>", is_bulk=False,
+        runner=_says("Financial & Legal", 0.95))
+    assert got["category"] == "financial_legal", got
+
+
 def test_statement_WITH_a_real_charge_is_still_financial():
     """The other direction. A statement that names an actual charge carries
     transaction evidence, so the veto must leave it alone — otherwise this fix

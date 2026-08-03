@@ -614,12 +614,16 @@ def _parse_category_response(raw: str, evidence_text: str = "",
     note = ""
 
     statement_notice = bool(_STATEMENT_NOTICE_RE.search(evidence_text))
+    usage_notice = bool(_USAGE_NOTICE_RE.search(evidence_text))
 
     if category == "financial_legal" and not has_txn and (is_bulk or marketing
-                                                          or statement_notice):
+                                                          or statement_notice
+                                                          or usage_notice):
         why = ("bulk/List-Unsubscribe" if is_bulk
                else "pricing-announcement language" if marketing
-               else "statement-availability notice, not a transaction")
+               else "statement-availability notice, not a transaction"
+               if statement_notice
+               else "usage/quota notice — consuming prepaid credit is not a purchase")
         category = "low_priority"
         note = (f"model said Financial & Legal, overridden: {why} and no "
                 f"transaction evidence (no amount, invoice #, or payment phrase)")
@@ -748,6 +752,28 @@ _STATEMENT_NOTICE_RE = re.compile(
     r"|(?:monthly|annual|quarterly)\s+statement\s+(?:is\s+)?(?:ready|available)"
     r"|view\s+your\s+statement|download\s+your\s+statement"
     r"|account\s+statement\s+(?:is\s+)?(?:ready|available)"
+    r")",
+    re.IGNORECASE,
+)
+
+# Usage / quota notices: "CC has used $15 of $20 in monthly Pro plan credit".
+# Consuming prepaid allowance is not a purchase — the money moved when the plan
+# was bought, and booking the usage figure again double-counts it.
+#
+# Live evidence 2026-08-03: a Vercel credit-usage email was booked as a $20
+# hosting_cloud expense. It survived every other guard because it is not
+# marketing, not a statement, and DOES carry a dollar amount — so the
+# amount-gate and the statement veto both pass it through. This is the third
+# distinct shape of non-transaction that carries a number.
+_USAGE_NOTICE_RE = re.compile(
+    r"\b(?:"
+    r"(?:has\s+)?used\s+[$£€]?\d[\d,]*(?:\.\d{2})?\s+of\b"
+    r"|of\s+[$£€]?\d[\d,]*(?:\.\d{2})?\s+in\s+(?:monthly|included|plan)\b"
+    r"|credit(?:s)?\s+remaining|remaining\s+credit(?:s)?"
+    r"|quota\s+(?:used|remaining|exceeded)"
+    r"|usage\s+(?:summary|alert|report|notification)"
+    r"|you(?:'ve| have)\s+used\s+\d+%"
+    r"|approaching\s+your\s+(?:limit|quota)"
     r")",
     re.IGNORECASE,
 )
