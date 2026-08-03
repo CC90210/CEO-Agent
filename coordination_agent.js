@@ -76,7 +76,22 @@ const REPLY_MODE = (process.env.COORD_REPLY_MODE || 'cc_directed').toLowerCase()
 const TABLE_AUTORESPOND = String(process.env.COORD_TABLE_AUTORESPOND || 'true') === 'true';
 const TABLE_POLL_SEC = Number(process.env.COORD_POLL_SECONDS || 30);
 const TABLE_MIN_SPAWN_GAP_SEC = Number(process.env.COORD_TABLE_MIN_SPAWN_GAP_SEC || 60);
-const PEER_KEYS = (process.env.COORD_PEER_KEYS || 'apex').split(',').map(s => s.trim()).filter(Boolean);
+// Adon's agent answers to BOTH names: "Apex" is the persona, "Knut" is the bot
+// (@KnutRPEbot). One system, not two peers. Defaulting to 'apex' alone meant a
+// row written under agent='knut' matched no peer filter — so a Knut-authored
+// file claim would not have stopped Bravo editing the same file, and a Knut row
+// would never have triggered a response. Keep in step with
+// scripts/integrations/agent_activity.py PEER_KEYS.
+const PEER_KEYS = (process.env.COORD_PEER_KEYS || 'apex,knut').split(',').map(s => s.trim()).filter(Boolean);
+
+// Operational vocabulary that must never be broadcast to the shared OASIS
+// partner group. Mirrors scripts/notify.py _GROUP_BLOCKED_TERMS_RE.
+//
+// Applied to AUTOMATED posts only. A reply to a human who spoke in that room is
+// exempt: if CC asks "why is the cron failing?" in the group, gagging Bravo's
+// answer would break the bridge's whole purpose. Consent is the distinction —
+// an unprompted broadcast is noise, an answer to a question asked there is not.
+const OPERATIONAL_NOISE_RE = /\b(?:getting\s+blocked|campaign\s+pool|failure\s+across|rotate\s+it\s+out|tps\s+scrape|domain\s+ping|cron\s+failure|stack\s+trace|traceback|scraper\s+log|daemon\s+crash|pm2\s+restart|sending\s+number|number\s+blocked|dead[- ]letter)\b/i;
 const AGENT_LABEL = process.env.COORD_AGENT_LABEL || 'BRAVO';
 const CLAUDE_TIMEOUT = Number(process.env.COORD_CLAUDE_TIMEOUT_MS || 240000); // 4 min — chat reply
 
@@ -190,7 +205,15 @@ const cleanOutput = (raw) => {
     return text.split('\n').filter(l => !noise.some(p => p.test(l.trim()))).join('\n').trim() || (raw || '').trim();
 };
 
-const sendGroup = async (text, opts = {}) => {
+const sendGroup = async (text, opts = {}, { isReply = false } = {}) => {
+    // CHANNEL ISOLATION (2026-08-03). Refuse to broadcast internal operational
+    // noise into the partner group. Logged, never silently dropped — the log is
+    // the only trace, since there is no CC DM channel from this process.
+    if (!isReply && OPERATIONAL_NOISE_RE.test(text || '')) {
+        const hit = (text.match(OPERATIONAL_NOISE_RE) || [''])[0];
+        log(`[ISOLATION] refused automated group post — operational noise (matched: "${hit}"): ${TRUNC(text, 200)}`);
+        return;
+    }
     const chunks = (text || '').match(/[\s\S]{1,4000}/g) || [];
     for (const c of chunks) {
         try { await bot.sendMessage(GROUP_ID, c, opts); } catch (e) { log(`[SEND] failed: ${e.message}`); }
@@ -402,7 +425,15 @@ const spawnClaude = (prompt, { trusted }) => new Promise((resolve) => {
         clearTimeout(timer);
         const raw = out.trim() || err.trim();
         log(`[SPAWN DONE] code=${code} out=${out.length}b`);
-        resolve(cleanOutput(raw) || (code === 0 ? 'Done.' : `(no output, code ${code})`));
+        if (code !== 0) {
+            // Never relay a raw CLI error blob to the group (2026-08-03: a failed
+            // spawn's 61-byte error string was posted as Bravo's reply). Log the
+            // full output; send the group one clean line.
+            log(`[SPAWN FAIL] code=${code} full output: ${TRUNC(raw, 2000)}`);
+            resolve("Bravo's brain hiccupped answering that — logged, will retry on the next ping.");
+            return;
+        }
+        resolve(cleanOutput(raw) || 'Done.');
     });
     child.on('error', (e) => { clearTimeout(timer); log(`[SPAWN ERR] ${e.message}`); resolve(`Error: ${e.message}`); });
 });
@@ -418,13 +449,16 @@ setInterval(() => {
     for (const [k, p] of Object.entries(pendingConfirmations)) if (now - p.ts > 600000) delete pendingConfirmations[k];
 }, 300000);
 
-const handleResponse = async (responseText) => {
+// `isReply` = this text answers a human who spoke in the group, so the channel
+// isolation filter is waived (see OPERATIONAL_NOISE_RE). Automated posts — the
+// APEX/Knut table-row responder — leave it false and get filtered.
+const handleResponse = async (responseText, { isReply = false } = {}) => {
     const m = (responseText || '').match(CONFIRM_PATTERN);
     if (m) {
         const description = m[1].trim();
         const idx = responseText.indexOf(m[0]);
         const before = responseText.substring(0, idx).trim();
-        if (before) await sendGroup(before);
+        if (before) await sendGroup(before, {}, { isReply });
         if (TABLE_ONLY) {
             // Codex P2 (2026-06-21): table-only mode is send-only (no polling), so
             // inline approve/cancel callbacks can never be received — posting the
@@ -444,7 +478,7 @@ const handleResponse = async (responseText) => {
         });
         return;
     }
-    await sendGroup(responseText);
+    await sendGroup(responseText, {}, { isReply });
 };
 
 // ---- TELEGRAM HANDLER ----
@@ -492,7 +526,8 @@ bot.on('message', async (msg) => {
         const trusted = isTrusted(speaker);
         const prompt = buildPrompt(speaker, `Telegram message from ${who}`, `[${who}]: ${TRUNC(text, 2000)}`, { peerContext, trusted });
         const response = await spawnClaude(prompt, { trusted });
-        await handleResponse(response);
+        // A human spoke in the group and this answers them — isolation waived.
+        await handleResponse(response, { isReply: true });
     } catch (e) {
         log(`[CRASH msg] ${e.message}`);
     } finally {
@@ -521,7 +556,8 @@ bot.on('callback_query', async (query) => {
                 // CC explicitly approved THIS specific action -> run as TRUSTED.
                 const prompt = buildPrompt('cc', 'CC approval', `CC approved this exact action — do it now and report back: ${pending.description}`, { trusted: true });
                 const response = await spawnClaude(prompt, { trusted: true });
-                await handleResponse(response);
+                // CC approved this exact action in the group — isolation waived.
+                await handleResponse(response, { isReply: true });
             } finally { busy = false; }
         } else {
             await sendGroup(`Cancelled. Not done: ${pending.description}`);
@@ -583,6 +619,11 @@ const pollTable = async () => {
         let target;
         try {
             target = actionable[actionable.length - 1]; // newest actionable
+            // Mark seen BEFORE handling: if the spawn crashes or PM2 restarts us
+            // mid-handling, the row must not be re-processed on the next poll
+            // (2026-08-03: duplicate 'Re: Re:' ack rows after a failed spawn).
+            seen.add(target.id);
+            saveSeen();
             const rowText = `APEX ${target.status} — task: ${TRUNC(target.task, 800)}\nbranch: ${TRUNC(target.branch, 200) || '(none)'}\nfiles: ${TRUNC((target.files || []).join(', '), 800) || '(none)'}\ndetail: ${TRUNC(target.detail, 1200) || '(none)'}`;
             log(`[TABLE] responding to APEX row ${target.id}`);
             await bot.sendChatAction(GROUP_ID, 'typing').catch(() => {});
@@ -598,15 +639,19 @@ const pollTable = async () => {
             // (non-actionable) Bravo row so APEX sees that Bravo processed its row.
             // 'working · Re: …' is awareness-only per the protocol, so APEX won't
             // re-trigger on it — no ping-pong.
-            await postStatus('working', `Re: ${(target.task || '').slice(0, 100)}`, {
-                detail: `Acknowledged APEX ${target.status}; Bravo responded in the group.`,
-                branch: target.branch || undefined,
-                mirror: false,
-            });
-            // Handled — now mark seen (older actionable rows stay unseen and get
-            // picked up on subsequent polls, one per gap).
-            seen.add(target.id);
-            saveSeen();
+            // Idempotency guard: a second poller on this token (the 2026-08-03 409
+            // churn) can handle the same row — skip the ack if one was already posted.
+            const ackTask = `Re: ${(target.task || '').slice(0, 100)}`;
+            const alreadyAcked = rows.some(r => !PEER_KEYS.includes(r.agent) && r.task === ackTask);
+            if (alreadyAcked) {
+                log(`[TABLE] ack for "${ackTask.slice(0, 60)}" already exists — skipping duplicate.`);
+            } else {
+                await postStatus('working', ackTask, {
+                    detail: `Acknowledged APEX ${target.status}; Bravo responded in the group.`,
+                    branch: target.branch || undefined,
+                    mirror: false,
+                });
+            }
         } catch (e) {
             log(`[TABLE] handler error: ${e.message}`);
         } finally { busy = false; }
@@ -643,7 +688,16 @@ const scheduleResume = () => {
 };
 bot.on('polling_error', (e) => {
     const m = e.message || String(e);
-    if (m.includes('409') || m.includes('Conflict')) { pollConflicts++; bot.stopPolling().catch(() => {}); scheduleResume(); return; }
+    if (m.includes('409') || m.includes('Conflict')) {
+        pollConflicts++;
+        // Name ourselves at every conflict so the log proves WHICH token/host is
+        // being fought over — 2026-08-03: daily 409 churn from an unidentified
+        // second poller on CC_AGENT_BOT_TOKEN.
+        log(`[POLL] 409 conflict — this poller is @${BOT_USERNAME || '?'} on host ${os.hostname()} pid ${process.pid}; ANOTHER poller is actively claiming this token.`);
+        bot.stopPolling().catch(() => {});
+        scheduleResume();
+        return;
+    }
     log(`[POLL] error: ${m}`);
 });
 
