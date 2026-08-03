@@ -75,10 +75,14 @@ DEDUP_FORGET_SEC = int(os.environ.get("NOTIFY_DEDUP_FORGET_SEC", str(72 * 3600))
 # key stable (same day) made suppression far more effective and so made this
 # fire far more often.
 #
-# Set on every notify() entry, read immediately after by callers that must tell
-# the two apart. Single-threaded CLI/cron processes only — do not rely on it
-# across concurrent sends.
+# Implementation detail — callers use notify_result() instead of reading this.
+# Set on every notify() entry. Single-threaded CLI/cron processes only.
 LAST_SUPPRESSED = False
+
+# Reasons that mean "CC is aware of this condition". `suppressed` counts because
+# the alert landed recently and the backoff window is still open — but ONLY when
+# that earlier attempt actually delivered, which _dedup_was_delivered enforces.
+DELIVERED_REASONS = ("sent", "suppressed")
 
 
 def _dedup_identity(category: str, message: str,
@@ -605,6 +609,26 @@ def notify(message: str, category: str = "system", silent: bool = False,
     msg = str(last_exc).replace(token, "[REDACTED:BOT_TOKEN]")
     print(f"[notify] Telegram send exception: {msg}", file=sys.stderr)
     return False
+
+
+def notify_result(message: str, **kwargs) -> tuple[bool, str]:
+    """notify() with the REASON attached: (ok, "sent" | "suppressed" | "failed").
+
+    notify() returns a bare bool, and False means two opposite things —
+    suppressed (CC was told recently) and failed (CC was told nothing). Reading
+    them as one is what turned cron_health_check into a failing cron that
+    reported itself, on 2026-08-03.
+
+    Callers asking "is CC aware of this condition?" should test
+    `reason in DELIVERED_REASONS` rather than the bool. Matches the (ok, detail)
+    shape the rest of the fleet already uses (cron_health_check.telegram_alert,
+    send_gateway). notify() keeps its bool contract for the ~50 call sites that
+    only care whether a message went out right now.
+    """
+    ok = notify(message, **kwargs)
+    if ok:
+        return True, "sent"
+    return False, "suppressed" if LAST_SUPPRESSED else "failed"
 
 
 def notify_error(engine: str, error: str, agent: Optional[str] = None,

@@ -26,6 +26,7 @@ codebase — regressions here fan out to every business engine.
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
@@ -2142,7 +2143,8 @@ class TestAutonomousNurtureLane(unittest.TestCase):
         self._seed_inbound_last_touch()
         with mock.patch.object(self.sg, "_send_email_smtp", return_value=(True, None)), \
              mock.patch.object(self.sg, "should_suppress", return_value=False), \
-             mock.patch.object(self.sg, "_telegram_notify", return_value=True) as notify:
+             mock.patch.object(self.sg, "_telegram_notify_result",
+                               return_value=(True, "sent")) as notify:
             r = self.sg.send(
                 channel="email", agent_source="inbound_nurture",
                 to_email="jane@acme.example", subject="Re: hi",
@@ -2152,6 +2154,41 @@ class TestAutonomousNurtureLane(unittest.TestCase):
         notify.assert_called_once()
         self.assertIn("[SENT] Responded to Lead: jane@acme.example",
                       notify.call_args[0][0])
+
+    def test_a_deduped_nurture_ping_is_not_logged_as_a_failure(self):
+        """notify() returns False for BOTH "deduped" and "failed". This line
+        used to print "Telegram ping failed" for a ping that was merely
+        suppressed — sending whoever read the log after a bug that wasn't there.
+        Two replies to the same recipient inside the window is exactly when it
+        fires (2026-08-03)."""
+        self._seed_inbound_last_touch()
+        with mock.patch.object(self.sg, "_send_email_smtp", return_value=(True, None)), \
+             mock.patch.object(self.sg, "should_suppress", return_value=False), \
+             mock.patch.object(self.sg, "_telegram_notify_result",
+                               return_value=(False, "suppressed")), \
+             mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            r = self.sg.send(
+                channel="email", agent_source="inbound_nurture",
+                to_email="jane@acme.example", subject="Re: hi",
+                body_text="reply", body_html="<p>reply</p>", db=self.db,
+            )
+        self.assertEqual(r["status"], "sent", r.get("reason"))
+        self.assertNotIn("Telegram ping failed", err.getvalue())
+
+    def test_a_genuinely_failed_nurture_ping_is_still_logged(self):
+        """Guard the guard: a real delivery failure must stay visible."""
+        self._seed_inbound_last_touch()
+        with mock.patch.object(self.sg, "_send_email_smtp", return_value=(True, None)), \
+             mock.patch.object(self.sg, "should_suppress", return_value=False), \
+             mock.patch.object(self.sg, "_telegram_notify_result",
+                               return_value=(False, "failed")), \
+             mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            self.sg.send(
+                channel="email", agent_source="inbound_nurture",
+                to_email="jane@acme.example", subject="Re: hi",
+                body_text="reply", body_html="<p>reply</p>", db=self.db,
+            )
+        self.assertIn("Telegram ping failed", err.getvalue())
 
     def test_non_nurture_send_fires_no_ping(self):
         with mock.patch.object(self.sg, "_send_email_smtp", return_value=(True, None)), \

@@ -307,6 +307,28 @@ def test_an_unknown_condition_is_not_delivered(nf):
     assert nf._dedup_was_delivered("system", "never seen") is False
 
 
+def test_notify_result_names_the_reason(nf, monkeypatch):
+    """The public API the monitors use. A bare bool cannot express the
+    difference that caused the 2026-08-03 loop, so the reason is the contract."""
+    monkeypatch.setattr(nf, "notify", lambda *a, **kw: True)
+    assert nf.notify_result("x") == (True, "sent")
+
+    monkeypatch.setattr(nf, "notify", lambda *a, **kw: False)
+    monkeypatch.setattr(nf, "LAST_SUPPRESSED", True)
+    assert nf.notify_result("x") == (False, "suppressed")
+
+    monkeypatch.setattr(nf, "LAST_SUPPRESSED", False)
+    assert nf.notify_result("x") == (False, "failed")
+
+
+def test_delivered_reasons_excludes_failure(nf):
+    """Guard the contract: if 'failed' ever joined this tuple, every monitor
+    would silently stop reporting alerting outages."""
+    assert "sent" in nf.DELIVERED_REASONS
+    assert "suppressed" in nf.DELIVERED_REASONS
+    assert "failed" not in nf.DELIVERED_REASONS
+
+
 def test_tests_never_touch_the_real_dedup_cache(nf):
     """Meta-guard. Every test here must run against tmp_path — a test that
     writes the live cache can silence a genuine production alert."""

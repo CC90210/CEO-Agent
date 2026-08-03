@@ -196,6 +196,15 @@ except ImportError:
         return False
 
 try:
+    # (ok, reason) variant. notify()'s bare bool reads False for BOTH "deduped"
+    # and "failed", so callers that LOG a failure need the reason or they report
+    # a bug that isn't there.
+    from notify import notify_result as _telegram_notify_result  # noqa: F401
+except ImportError:
+    def _telegram_notify_result(*_a: Any, **_kw: Any) -> tuple[bool, str]:  # type: ignore[misc]
+        return False, "failed"
+
+try:
     from draft_critic import critique_draft  # noqa: F401
 except ImportError:
     def critique_draft(*_a: Any, **_kw: Any) -> dict:  # type: ignore[misc]
@@ -653,14 +662,18 @@ def _notify_autonomous_nurture_sent(
         return
     recipient = to_email or to_phone or "unknown"
     try:
-        ok = _telegram_notify(
-            f"[SENT] Responded to Lead: {recipient} — "
-            f"{subject or '(no subject)'} [{channel}]"
-        )
-        if ok is False:
+        text = (f"[SENT] Responded to Lead: {recipient} — "
+                f"{subject or '(no subject)'} [{channel}]")
+        # notify()'s bare bool reads False for BOTH "deduped" and "failed", so
+        # this line used to report a delivery failure for a ping that was simply
+        # suppressed — sending whoever read the log after a bug that wasn't
+        # there. Two replies to the same recipient inside the window is exactly
+        # when it fires (2026-08-03).
+        _, reason = _telegram_notify_result(text)
+        if reason == "failed":
             print(
                 f"[send_gateway] autonomous-nurture Telegram ping failed "
-                f"(notify returned False) for {recipient}",
+                f"for {recipient}",
                 file=sys.stderr,
             )
     except Exception as exc:  # noqa: BLE001
