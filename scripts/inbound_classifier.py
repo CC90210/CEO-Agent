@@ -667,7 +667,12 @@ def _parse_category_response(raw: str, evidence_text: str = "",
 
 _MONEY_AMOUNT_RE = re.compile(
     r"(?:[$£€]\s?\d[\d,]*(?:\.\d{2})?)"          # $1,234.56
-    r"|(?:\b\d[\d,]*\.\d{2}\s?(?:usd|cad|eur|gbp)\b)",  # 1234.56 USD
+    r"|(?:\b\d[\d,]*\.\d{2}\s?(?:usd|cad|eur|gbp)\b)"  # 1234.56 USD
+    # Currency-PREFIX notation: "CAD 10.00". Wise, Revolut and most European
+    # invoices write it this way, and only the suffix form was matched — so a
+    # Wise statement fee carried no detectable amount at all. Found 2026-08-03
+    # by a test written for the statement-fee case above.
+    r"|(?:\b(?:usd|cad|eur|gbp)\s?\d[\d,]*(?:\.\d{2})?\b)",  # CAD 10.00
     re.IGNORECASE,
 )
 
@@ -703,7 +708,20 @@ _TXN_PHRASE_RE = re.compile(
 # Receipt vocabulary — weak alone, but promotes a bare currency amount.
 _RECEIPT_WORD_RE = re.compile(
     r"\b(?:invoice|receipt|billed|charged|payment|payout|remittance|"
-    r"transaction|order\s+confirmation)\b",
+    r"transaction|order\s+confirmation|"
+    # Statement-detail FEE vocabulary, added 2026-08-03 after a Codex audit of
+    # the statement-notice fix. Removing "account statement" from
+    # _TXN_PHRASE_RE was right — availability is not a transaction — but it
+    # left a real deductible stranded: "Your bank statement for July: monthly
+    # account fee $16.95" had an amount and no promoting vocabulary, so it
+    # scored no evidence and would have been dropped to low_priority. Losing a
+    # genuine deduction is as expensive as inventing a fake one.
+    #
+    # Each term is qualified (account/service/card/monthly/annual/transaction)
+    # rather than a bare "fee", so a pricing blast that merely says "our fees
+    # are changing, plans from $49" still supplies no evidence.
+    r"account\s+fee|service\s+(?:charge|fee)|interest\s+charge|card\s+fee|"
+    r"monthly\s+fee|annual\s+fee|transaction\s+fee|overdraft\s+fee)\b",
     re.IGNORECASE,
 )
 

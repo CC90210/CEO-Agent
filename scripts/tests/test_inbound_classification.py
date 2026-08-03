@@ -111,6 +111,18 @@ CODERABBIT = dict(
     # ...but a statement that names an actual charge is still evidence.
     ("Your statement is ready. You were charged $412.00", True,
      "amount + receipt vocabulary survives the removal"),
+    # Codex audit 2026-08-03: removing the statement phrases stranded real
+    # deductible statement-detail fees, which had an amount but no promoting
+    # vocabulary. Losing a genuine deduction costs as much as inventing one.
+    ("Your bank statement for July: monthly account fee $16.95", True,
+     "statement-detail fee is a real deductible"),
+    ("Amex statement: annual card fee $120.00", True, "annual card fee"),
+    ("Wise account statement: monthly service fee CAD 10.00", True,
+     "service fee with a non-symbol currency"),
+    ("Statement: interest charge $4.20", True, "interest charge"),
+    # ...but a pricing blast that merely mentions fees is still not evidence.
+    ("Our fees are changing — plans start at $49/mo", False,
+     "qualified fee terms only; a bare 'fees' in marketing must not promote"),
 ])
 def test_transaction_evidence(text, expected, why):
     assert _has_transaction_evidence(text) is expected, why
