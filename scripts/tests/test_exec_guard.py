@@ -124,6 +124,20 @@ BLOCK = [
     # Chain smuggling behind an inert command must still be caught.
     "echo hi && rm -rf /",
     'echo hi && bash -c "rm -rf /"',
+    # -- Self-review 2026-08-03: rules that no case reached as the FIRST match,
+    # i.e. rules the suite silently never exercised. Found by enumerating which
+    # pattern actually fires per case rather than trusting decision=='block'.
+    # These need the NON-recursive form: with `-rf` the broader rm-rf-root
+    # pattern matches first and the specific rule never runs.
+    "rm /etc/passwd",                      # rm-etc
+    "rm /c/Windows/System32/kernel32.dll",  # rm-windows-system
+    "Clear-Content .env.agents",           # ps-clear-content-env
+    "git checkout -- .",                   # git-checkout-pathspec
+    "rm -rf bugzil.la/",                   # rm-rf-untracked-dir
+    "dd if=/dev/zero of=/important-file",  # dd-disk-overwrite (non-device target)
+    "rm -Recurse C:\\work",                # ps-rm-recurse-alias
+    "rmdir /s C:\\work",                   # ps-rmdir-recurse
+    "GIT PUSH --FORCE ORIGIN MAIN",        # git-force-main-ps (case-insensitive)
 ]
 
 # ── Commands that MUST be allowed (block == over-reach) ──────────────────────
@@ -230,6 +244,60 @@ def test_gh_auth_token_names_the_right_pattern():
     assert decision == "block"
     assert layer == "hard-blocklist"
     assert "gh-auth-token" in reason
+
+
+def test_every_v75_rule_is_actually_exercised():
+    """No V7.5 rule may pass its coverage claim via an unrelated older regex.
+
+    Codex raised this in the V7.5.0 audit: `test_dangerous_command_is_blocked`
+    only asserts decision == "block", so a case written for a new rule can be
+    swallowed by a pre-existing pattern that matches first — the suite stays
+    green while the new rule is never executed. Checking that once by hand is
+    not enough; the shadowing can reappear the moment a broader rule is added
+    above it. This makes the check permanent.
+    """
+    from state.exec_guard import HARD_BLOCKS, _canonical
+
+    first_match = {}
+    for cmd in BLOCK:
+        canon = _canonical(cmd)
+        for name, pat in HARD_BLOCKS:
+            if pat.search(canon):
+                first_match.setdefault(name, []).append(cmd)
+                break
+
+    v75 = [
+        "gh-auth-token", "gh-repo-public", "gh-destructive-delete", "gh-api-delete",
+        "git-push-delete-remote", "git-push-delete-refspec",
+        "git-reflog-expire-now", "git-gc-prune-now",
+        "mkfs-format", "dd-to-device", "redirect-raw-disk",
+        "chmod-777-root", "chown-recurse-root",
+    ]
+    unexercised = [r for r in v75 if r not in first_match]
+    assert not unexercised, (
+        f"V7.5 rules never reached as the first match: {unexercised}. "
+        f"Their BLOCK cases are being swallowed by an earlier pattern, so the "
+        f"rule itself is untested despite the suite passing."
+    )
+
+
+def test_no_hard_block_rule_is_completely_unexercised():
+    """Every rule in HARD_BLOCKS must be provably reachable by some case.
+
+    A rule no test ever triggers is indistinguishable from a rule that no
+    longer works.
+    """
+    from state.exec_guard import HARD_BLOCKS, _canonical
+
+    reached = set()
+    for cmd in BLOCK:
+        canon = _canonical(cmd)
+        for name, pat in HARD_BLOCKS:
+            if pat.search(canon):
+                reached.add(name)
+                break
+    missing = [n for n, _ in HARD_BLOCKS if n not in reached]
+    assert not missing, f"HARD_BLOCKS rules with no exercising case: {missing}"
 
 
 def test_read_only_fast_path_cannot_be_used_to_smuggle():
