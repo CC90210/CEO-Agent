@@ -92,6 +92,16 @@ const PEER_KEYS = (process.env.COORD_PEER_KEYS || 'apex,knut').split(',').map(s 
 // answer would break the bridge's whole purpose. Consent is the distinction —
 // an unprompted broadcast is noise, an answer to a question asked there is not.
 const OPERATIONAL_NOISE_RE = /\b(?:getting\s+blocked|campaign\s+pool|failure\s+across|rotate\s+it\s+out|tps\s+scrape|domain\s+ping|cron\s+failure|stack\s+trace|traceback|scraper\s+log|daemon\s+crash|pm2\s+restart|sending\s+number|number\s+blocked|dead[- ]letter)\b/i;
+
+// NOT BRAVO'S DOMAIN — TPS phone-lookup and TextTorrent number rotation are
+// APEX/Adon's (ownership handed over 2026-08-03; Bravo cannot act on them
+// because DataDome scores the source ASN). CC, same day: "I do not want any of
+// this being sent." Unlike OPERATIONAL_NOISE_RE above this applies to REPLIES
+// TOO — the reply exemption covers Bravo's own operational detail, not another
+// agent's work. Mirrors scripts/notify.py _NOT_BRAVO_DOMAIN_RE; the drift test
+// in scripts/tests/test_notify_agent_routing.py compares this exact source line
+// against the Python original.
+const NOT_BRAVO_DOMAIN_RE = /\b(?:texttorrent|text\s*warrant|tps\s+(?:scrape|lookup|backlog)|phone[_\s-]?lookup|sending\s+number\b[^\n]*\b(?:blocked|rotate)|rotate\s+(?:it\s+)?out\b[^\n]*\bnumber|number\b[^\n]*\bgetting\s+blocked)/i;
 const AGENT_LABEL = process.env.COORD_AGENT_LABEL || 'BRAVO';
 const CLAUDE_TIMEOUT = Number(process.env.COORD_CLAUDE_TIMEOUT_MS || 240000); // 4 min — chat reply
 
@@ -209,6 +219,13 @@ const sendGroup = async (text, opts = {}, { isReply = false } = {}) => {
     // CHANNEL ISOLATION (2026-08-03). Refuse to broadcast internal operational
     // noise into the partner group. Logged, never silently dropped — the log is
     // the only trace, since there is no CC DM channel from this process.
+    // Ownership first, and it ignores isReply: another agent's domain is not
+    // Bravo's to broadcast even when a human asked in the room.
+    if (NOT_BRAVO_DOMAIN_RE.test(text || '')) {
+        const hit = (text.match(NOT_BRAVO_DOMAIN_RE) || [''])[0];
+        log(`[ISOLATION] refused group post — not Bravo's domain, owned by APEX/Adon (matched: "${hit}"): ${TRUNC(text, 200)}`);
+        return;
+    }
     if (!isReply && OPERATIONAL_NOISE_RE.test(text || '')) {
         const hit = (text.match(OPERATIONAL_NOISE_RE) || [''])[0];
         log(`[ISOLATION] refused automated group post — operational noise (matched: "${hit}"): ${TRUNC(text, 200)}`);

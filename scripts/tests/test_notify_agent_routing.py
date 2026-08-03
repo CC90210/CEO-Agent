@@ -343,32 +343,67 @@ def test_operational_noise_on_the_private_lane_is_untouched(monkeypatch):
     assert str(sent["json"]["chat_id"]) == "5099208958"
 
 
-def test_group_blocked_terms_stay_in_sync_with_agent_activity():
-    """Two copies of the denylist exist by design; this stops them drifting.
+def test_agent_activity_imports_the_denylists_rather_than_copying_them():
+    """One definition, not two kept in step by hand.
 
-    notify.py guards the group=True lane. agent_activity.py guards the --mirror
-    lane, and per telegram_identity_audit.py that is the one with a LIVE handle
-    on the OASIS group (notify's group lane resolves no chat id today). A term
-    added to one and not the other leaves the live door open.
+    The first version of this guard duplicated the pattern into
+    agent_activity.py with a "kept in sync" comment. It drifted within the
+    hour: notify.py gained _NOT_BRAVO_DOMAIN_RE (TextTorrent / TPS /
+    phone_lookup) and the copy did not, so "TextTorrent sender pool exhausted"
+    was still mirrorable straight into the partner group. Importing removes the
+    failure mode; this test stops anyone re-introducing a local copy.
     """
     import ast
 
     src = (Path(__file__).resolve().parent.parent
            / "integrations" / "agent_activity.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
-    other = None
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign) and any(
-                isinstance(t, ast.Name) and t.id == "_GROUP_BLOCKED_TERMS_RE"
-                for t in node.targets):
-            if isinstance(node.value, ast.Call) and node.value.args:
-                other = ast.literal_eval(node.value.args[0])
-            break
-    assert other is not None, "agent_activity.py has no _GROUP_BLOCKED_TERMS_RE"
-    assert nf._GROUP_BLOCKED_TERMS_RE.pattern == other, (
-        "notify.py and agent_activity.py denylists have drifted:\n"
-        f"  notify        : {nf._GROUP_BLOCKED_TERMS_RE.pattern!r}\n"
-        f"  agent_activity: {other!r}")
+    local_defs = [
+        t.id
+        for node in ast.walk(tree) if isinstance(node, ast.Assign)
+        for t in node.targets
+        if isinstance(t, ast.Name)
+        and t.id in ("_GROUP_BLOCKED_TERMS_RE", "_NOT_BRAVO_DOMAIN_RE")
+    ]
+    assert not local_defs, (
+        f"agent_activity.py re-defines {local_defs} instead of importing them "
+        f"from notify.py — that is exactly how the TextTorrent gap appeared.")
+
+    imported = {
+        alias.name
+        for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+        and node.module == "notify"
+        for alias in node.names
+    }
+    assert {"_GROUP_BLOCKED_TERMS_RE", "_NOT_BRAVO_DOMAIN_RE"} <= imported, (
+        f"agent_activity.py must import both denylists from notify.py; got {imported}")
+
+
+@pytest.mark.parametrize("py_name,js_name", [
+    ("_GROUP_BLOCKED_TERMS_RE", "OPERATIONAL_NOISE_RE"),
+    ("_NOT_BRAVO_DOMAIN_RE", "NOT_BRAVO_DOMAIN_RE"),
+])
+def test_js_bridge_denylists_match_python(py_name, js_name):
+    """coordination_agent.js is the one copy that CANNOT import the Python.
+
+    It is a live door into the partner group (@BravoGCAdon_bot), so a term
+    present in Python and missing in JS leaves that door open. Compared by
+    parsing the JS source for the literal, since node isn't guaranteed here.
+    """
+    js = (Path(__file__).resolve().parent.parent.parent
+          / "coordination_agent.js").read_text(encoding="utf-8")
+    m = re.search(rf"^const {js_name} = /(.+)/i;\s*$", js, re.MULTILINE)
+    assert m, f"{js_name} not found in coordination_agent.js"
+    js_body = m.group(1)
+
+    py_body = getattr(nf, py_name).pattern
+    # The Python patterns are written multi-line with (?:...) groups and \b
+    # anchors; normalise whitespace introduced purely by source formatting.
+    norm = lambda s: re.sub(r"\s+", "", s)  # noqa: E731
+    assert norm(js_body) == norm(py_body), (
+        f"{js_name} (JS) has drifted from {py_name} (Python).\n"
+        f"  python: {py_body!r}\n"
+        f"  js    : {js_body!r}")
 
 
 # ── Domain ownership: Bravo must not page CC about APEX's work ───────────────

@@ -32,7 +32,6 @@ Never hardcode secrets. Telegram mirror uses CC_AGENT_BOT_TOKEN + COORD_GROUP_CH
 import argparse
 import json
 import os
-import re
 import sys
 import urllib.error
 import urllib.parse
@@ -71,23 +70,25 @@ PEER_KEYS = [k.strip() for k in os.environ.get("COORD_PEER_KEYS", "apex,knut").s
 VALID_STATUS = ("start", "working", "done", "blocked")
 _STATUS_EMOJI = {"start": "🟧", "working": "🟧", "done": "🟩", "blocked": "🟥"}
 
-# Operational vocabulary that must never be mirrored into the shared OASIS
-# partner group. Deliberately identical in intent to notify.py's
-# _GROUP_BLOCKED_TERMS_RE — a drift test in scripts/tests pins them together.
+# Channel-isolation denylists, IMPORTED from notify.py rather than copied.
 #
-# This is the lane that actually reaches the group. telegram_identity_audit.py
-# (2026-08-03) shows notify.py's group=True lane resolving no chat id at all
-# ("sends on this lane are refused"), while THIS module and
-# coordination_agent.js both hold a live handle on @BravoGCAdon_bot ->
-# group:OASIS 🏝️💸. Guarding only notify.py would have guarded the dead door.
-_GROUP_BLOCKED_TERMS_RE = re.compile(
-    r"\b(?:"
-    r"getting\s+blocked|campaign\s+pool|failure\s+across|rotate\s+it\s+out"
-    r"|tps\s+scrape|domain\s+ping|cron\s+failure|stack\s+trace"
-    r"|traceback|scraper\s+log|daemon\s+crash|pm2\s+restart"
-    r"|sending\s+number|number\s+blocked|dead[- ]letter"
-    r")\b",
-    re.IGNORECASE,
+# This module and notify.py are the two Python doors into the OASIS partner
+# group, and they must agree. A first version duplicated the pattern here with
+# a comment saying "kept in sync" — and it drifted within the hour: notify.py
+# gained _NOT_BRAVO_DOMAIN_RE (TextTorrent / TPS / phone_lookup, dropped on CC's
+# 2026-08-03 instruction) while this copy did not, so "TextTorrent sender pool
+# exhausted" was still mirrorable straight into the group. One definition
+# removes the failure mode instead of testing for it.
+#
+# This is the lane that actually REACHES the group: telegram_identity_audit.py
+# shows notify.py's group=True lane resolving no chat id at all ("sends on this
+# lane are refused"), while this module holds a live handle on
+# @BravoGCAdon_bot -> group:OASIS 🏝️💸. Guarding only notify.py guarded the
+# dead door.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from notify import (  # noqa: E402
+    _GROUP_BLOCKED_TERMS_RE,   # wrong AUDIENCE — internal ops, not for partners
+    _NOT_BRAVO_DOMAIN_RE,      # wrong OWNER — APEX/Adon's domain, drop entirely
 )
 
 
@@ -202,6 +203,19 @@ def telegram_post(text):
     channel and loses nothing — only the human-facing broadcast is withheld.
     Returns False, which `post()` already surfaces as `mirrored: False`.
     """
+    # Wrong OWNER first — TPS / TextTorrent / phone-lookup belong to APEX/Adon,
+    # and CC asked on 2026-08-03 that Bravo stop surfacing them anywhere. Same
+    # ordering as notify.py: ownership outranks audience, because several of
+    # these strings match BOTH lists and the audience rule alone would merely
+    # move them rather than stop them.
+    owner_hit = _NOT_BRAVO_DOMAIN_RE.search(text or "")
+    if owner_hit:
+        print(f"[agent_activity] NOT mirrored — not Bravo's domain (matched: "
+              f"{owner_hit.group(0)!r}). TPS / TextTorrent work is owned by "
+              f"APEX/Adon. Row recorded in {TABLE}; the agent↔agent channel is "
+              f"unaffected.", file=sys.stderr)
+        return False
+
     hit = _GROUP_BLOCKED_TERMS_RE.search(text or "")
     if hit:
         print(f"[agent_activity] Suppressed operational noise from shared OASIS "
