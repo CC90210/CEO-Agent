@@ -84,6 +84,42 @@ HARD_BLOCKS: list[tuple[str, re.Pattern]] = [
     ("env-overwrite",      re.compile(r">\s*\.env\.agents\b")),
     ("fork-bomb",          re.compile(r":\s*\(\s*\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:")),
     ("dd-disk-overwrite", re.compile(r"\bdd\s+if=/dev/(zero|random|urandom)\s+of=/(?:dev/)?\w+")),
+    # ── GitHub CLI: account-level destruction + credential exfil.
+    #    Added V7.5.0 (2026-08-03) from the davidondrej/skills denylist audit.
+    #    `capability_probe.py list` reports github as OK — every agent on this
+    #    fleet can run `gh` right now, and this guard had ZERO `gh` coverage.
+    #    `gh auth token` is the important one: it prints a live OAuth token to
+    #    stdout. secret_guard.py only guards `.env*`/`*.pem`/`*.key`/creds
+    #    FILES, so a token read out of gh's own keychain never touches a
+    #    guarded path — it bypassed the secret layer entirely.
+    ("gh-auth-token",      re.compile(r"\bgh\s+auth\s+token\b", re.IGNORECASE)),
+    # Flips a private business repo public in one command.
+    ("gh-repo-public",     re.compile(r"\bgh\s+repo\s+edit\b[^|;&\n]*--visibility[=\s]+public\b", re.IGNORECASE)),
+    ("gh-destructive-delete", re.compile(r"\bgh\s+(?:repo|release|secret|ssh-key|gpg-key)\s+delete\b", re.IGNORECASE)),
+    ("gh-api-delete",      re.compile(r"\bgh\s+api\b[^|;&\n]*(?:-X|--method)[=\s]+DELETE\b", re.IGNORECASE)),
+    # ── Remote-history destruction (V7.5.0). We already block force-push to
+    #    main, but remote BRANCH deletion was wide open.
+    ("git-push-delete-remote", re.compile(r"\bgit\s+push\b[^|;&\n]*\s(?:--delete|-d)(?:\s|$)")),
+    # `git push origin :branch` — the delete refspec. The leading \s means
+    # `git push origin main:main` (a normal push) does NOT match.
+    ("git-push-delete-refspec", re.compile(r"\bgit\s+push\b[^|;&\n]*\s:[A-Za-z0-9._/-]+")),
+    # ── Reflog destruction (V7.5.0). This matters BECAUSE of git-reset-hard-ref
+    #    above: we hard-block `git reset --hard <ref>` but still allow the
+    #    bare-HEAD form, and that allowance is only safe while the reflog
+    #    exists to recover from it. Expiring the reflog turns every operation
+    #    we currently permit into an unrecoverable one.
+    ("git-reflog-expire-now", re.compile(r"\bgit\s+reflog\s+expire\b[^|;&\n]*--expire(?:-unreachable)?[=\s]+now\b")),
+    ("git-gc-prune-now",   re.compile(r"\bgit\s+gc\b[^|;&\n]*--prune[=\s]+(?:now|all)\b")),
+    # ── Disk destroyers (V7.5.0). VPS-relevant; inert on Windows paths.
+    ("mkfs-format",        re.compile(r"\bmkfs(?:\.[A-Za-z0-9]+)?(?:\s|$)")),
+    # Broader than dd-disk-overwrite above, which only fires when the SOURCE is
+    # /dev/{zero,random,urandom}. `dd if=backup.img of=/dev/sda` was allowed.
+    ("dd-to-device",       re.compile(r"\bdd\s[^|;&\n]*\bof=[\"']?/dev/")),
+    ("redirect-raw-disk",  re.compile(r">\s*/dev/(?:r?disk|sd[a-z]|nvme)")),
+    # `chmod 777 ./script.sh` and `chmod -R 755 dist` stay allowed — the `/`
+    # must be the whole target.
+    ("chmod-777-root",     re.compile(r"\bchmod\b[^|;&\n]*\s777\s+[\"']?/[\"']?(?:\s|$|[;&|])")),
+    ("chown-recurse-root", re.compile(r"\bchown\s+-R\b[^|;&\n]*\s/[\"']?(?:\s|$|[;&|])")),
     # ── PowerShell destructive forms (the PowerShell tool is guarded too; see
     #    main() tool_name handling + settings.local.json). Harmlessly inert
     #    against bash strings. ──
