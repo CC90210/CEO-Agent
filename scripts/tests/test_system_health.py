@@ -140,6 +140,26 @@ def test_cron_no_longer_runs_the_probe_with_strict():
     assert "--notify" in args, "removing --strict without --notify would make it silent"
 
 
+def test_a_suppressed_alert_does_not_make_the_probe_red(monkeypatch):
+    """Same trap as cron_health_check, in code written the same day. notify()
+    returns False for both "deduped" and "failed"; treating suppression as
+    failure would make the probe exit 1 and present as a broken cron — exactly
+    what dropping --strict was meant to stop."""
+    import notify as nf
+    monkeypatch.setattr(nf, "notify", lambda *a, **kw: False)
+    monkeypatch.setattr(nf, "LAST_SUPPRESSED", True)
+    rep = _rep({"check": "path-drift", "status": sh.RED, "detail": "x", "items": []})
+    assert sh.notify_reds(rep) is True
+
+
+def test_a_genuinely_failed_probe_alert_is_still_red(monkeypatch):
+    import notify as nf
+    monkeypatch.setattr(nf, "notify", lambda *a, **kw: False)
+    monkeypatch.setattr(nf, "LAST_SUPPRESSED", False)
+    rep = _rep({"check": "path-drift", "status": sh.RED, "detail": "x", "items": []})
+    assert sh.notify_reds(rep) is False
+
+
 def test_a_failed_alarm_is_itself_a_broken_cron(monkeypatch, capsys):
     """Codex [P2]. Dropping --strict moved the alarm from the exit code into
     notify(). If that send fails and the probe still exits 0, the cron records a

@@ -335,9 +335,15 @@ def notify_reds(rep) -> bool:
         for it in r["items"][:5]:
             lines.append(f"   - {it}")
     try:
-        from notify import notify  # type: ignore
-        return bool(notify("\n".join(lines), category="system", force=True,
-                           dedup_key=red_dedup_key(rep)))
+        import notify as _nf  # type: ignore
+        if _nf.notify("\n".join(lines), category="system", force=True,
+                      dedup_key=red_dedup_key(rep)):
+            return True
+        # Suppressed != failed. notify() returns False for both, and treating a
+        # deduped alert as a delivery failure would make this probe exit 1 and
+        # present as a broken cron — the exact thing dropping --strict was for.
+        # cron_health_check learned this the hard way the same day.
+        return bool(getattr(_nf, "LAST_SUPPRESSED", False))
     except Exception as exc:  # noqa: BLE001 — never silent: the probe IS the alarm
         print(f"[system_health] notify failed: {type(exc).__name__}: {str(exc)[:200]}",
               file=sys.stderr)

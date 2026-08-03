@@ -263,6 +263,50 @@ def test_notify_error_dedups_on_the_engine_not_the_message(nf, monkeypatch):
     assert seen_keys == ["engine_error:Inbound Email Sweep"] * 2
 
 
+# ── suppressed is not the same as delivered ──────────────────────────────────
+# Codex [P2], 2026-08-03. _dedup_should_send writes its record BEFORE the send,
+# because it has to decide first. So a window can exist for a message that never
+# landed. Health monitors read "suppressed" as "CC already knows" — which would
+# buy silence for the whole backoff window during the exact alerting outage they
+# exist to surface.
+
+def test_a_window_opened_by_a_failed_send_does_not_count_as_delivered(nf, monkeypatch):
+    at(nf, monkeypatch, 0.0)
+    assert nf._dedup_should_send("system", "boom", dedup_key="k") is True   # window opens
+    # …send fails, so nothing marks it delivered.
+    assert nf._dedup_was_delivered("system", "boom", dedup_key="k") is False
+
+
+def test_a_landed_send_marks_the_window_delivered(nf, monkeypatch):
+    at(nf, monkeypatch, 0.0)
+    nf._dedup_should_send("system", "boom", dedup_key="k")
+    nf._dedup_mark_delivered("system", "boom", dedup_key="k")
+    assert nf._dedup_was_delivered("system", "boom", dedup_key="k") is True
+
+
+def test_delivery_state_is_per_lane(nf, monkeypatch):
+    at(nf, monkeypatch, 0.0)
+    nf._dedup_should_send("system", "m", dedup_key="k", lane="private")
+    nf._dedup_mark_delivered("system", "m", dedup_key="k", lane="private")
+    nf._dedup_should_send("system", "m", dedup_key="k", lane="group")
+    assert nf._dedup_was_delivered("system", "m", dedup_key="k", lane="private") is True
+    assert nf._dedup_was_delivered("system", "m", dedup_key="k", lane="group") is False
+
+
+def test_legacy_records_without_the_flag_read_as_delivered(nf, monkeypatch, tmp_path):
+    """Windows opened by the pre-fix build have no `d` key. Assuming failure
+    would re-page CC for every one of them on the next tick."""
+    import json
+    key = nf._dedup_identity("system", "old", None, "private")
+    (tmp_path / "dedup.json").write_text(json.dumps({key: {"last": 100.0, "n": 1}}),
+                                         encoding="utf-8")
+    assert nf._dedup_was_delivered("system", "old") is True
+
+
+def test_an_unknown_condition_is_not_delivered(nf):
+    assert nf._dedup_was_delivered("system", "never seen") is False
+
+
 def test_tests_never_touch_the_real_dedup_cache(nf):
     """Meta-guard. Every test here must run against tmp_path — a test that
     writes the live cache can silence a genuine production alert."""

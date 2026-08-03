@@ -68,6 +68,39 @@ def test_key_is_order_independent(monkeypatch):
     assert seen_1["dedup_key"] == seen_2["dedup_key"] == "cron_failing:A|B"
 
 
+def test_a_suppressed_alert_is_not_a_failed_alert(monkeypatch):
+    """The self-inflicted loop CC saw on 2026-08-03.
+
+    notify() returns False for BOTH "suppressed by dedup" and "delivery failed".
+    Reading that as failure made this watchdog exit 1, which wrote ERROR to its
+    own cron_jobs row, which made it a failing cron, which the next tick reported
+    as a NEW condition with a NEW dedup key — so CC got "cron failures detected
+    but alert delivery failed" from an alert that had worked exactly as designed.
+    Making the dedup key stable made suppression effective and this fire often.
+    """
+    import notify as nf
+    monkeypatch.setattr(nf, "notify", lambda *a, **kw: False)
+    monkeypatch.setattr(nf, "LAST_SUPPRESSED", True)
+
+    sent, detail = chc.telegram_alert([{"name": "Job A", "last_result": "ERROR",
+                                        "last_run_at": None}])
+    assert sent is True, "a deduped alert must not mark the watchdog red"
+    assert "suppressed" in detail
+
+
+def test_a_genuinely_failed_send_still_goes_red(monkeypatch):
+    """Guard the guard: the fix must not blind the watchdog to a real outage.
+    If the send actually failed, CC heard nothing and this must still be RED."""
+    import notify as nf
+    monkeypatch.setattr(nf, "notify", lambda *a, **kw: False)
+    monkeypatch.setattr(nf, "LAST_SUPPRESSED", False)
+
+    sent, detail = chc.telegram_alert([{"name": "Job A", "last_result": "ERROR",
+                                        "last_run_at": None}])
+    assert sent is False
+    assert detail == "notify_failed"
+
+
 def test_alert_still_carries_the_detail(monkeypatch):
     """Keying on the condition must not strip the diagnosis out of the message —
     CC needs the snippet to know what broke, even though it isn't the identity."""

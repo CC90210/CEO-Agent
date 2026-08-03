@@ -63,6 +63,86 @@ DEDUP_MAX_WINDOW_SEC = int(os.environ.get("NOTIFY_DEDUP_MAX_WINDOW_SEC", str(24 
 # escalation so a monthly recurrence is not silenced by last month's backoff.
 DEDUP_FORGET_SEC = int(os.environ.get("NOTIFY_DEDUP_FORGET_SEC", str(72 * 3600)))
 
+# notify() returns a bool, and SUPPRESSED and FAILED both come back False — but
+# they mean opposite things. Suppressed = CC was told recently and the backoff
+# window is open. Failed = CC was told nothing.
+#
+# 2026-08-03: cron_health_check read `not sent` as "alert delivery failed",
+# exited 1, and thereby turned ITSELF into a failing cron — which the next tick
+# then reported, as a new condition, with a new dedup identity. CC got
+# "ERROR: cron failures detected but alert delivery failed (notify_failed)"
+# from a watchdog whose alert had worked exactly as designed. Making the dedup
+# key stable (same day) made suppression far more effective and so made this
+# fire far more often.
+#
+# Set on every notify() entry, read immediately after by callers that must tell
+# the two apart. Single-threaded CLI/cron processes only — do not rely on it
+# across concurrent sends.
+LAST_SUPPRESSED = False
+
+
+def _dedup_identity(category: str, message: str,
+                    dedup_key: Optional[str] = None,
+                    lane: str = "private") -> str:
+    """The cache key. One definition so the writer and the readers cannot drift."""
+    ident = dedup_key if dedup_key else message
+    prefix = "" if lane == "private" else f"{lane}\x00"
+    return hashlib.sha256(
+        f"{prefix}{category}\x00{ident}".encode("utf-8")).hexdigest()[:32]
+
+
+def _dedup_load() -> dict:
+    if not _DEDUP_PATH.exists():
+        return {}
+    try:
+        return json.loads(_DEDUP_PATH.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001 — a corrupt cache must never silence an alert
+        return {}
+
+
+def _dedup_mark_delivered(category: str, message: str,
+                          dedup_key: Optional[str] = None,
+                          lane: str = "private") -> None:
+    """Flag the current window's record as actually delivered.
+
+    `_dedup_should_send` writes its record BEFORE the send, because it has to
+    decide first. That means a window can exist for a message that never landed
+    — Telegram 403, bad token, retries exhausted. Without this flag the next
+    tick sees "suppressed" and a health monitor reads it as "CC already knows",
+    which buys silence for the whole backoff window during the exact alerting
+    outage the monitor exists to surface.
+    """
+    key = _dedup_identity(category, message, dedup_key, lane)
+    try:
+        seen = _dedup_load()
+        rec = seen.get(key)
+        if not isinstance(rec, dict):
+            return
+        rec["d"] = True
+        seen[key] = rec
+        _DEDUP_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = _DEDUP_PATH.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(seen), encoding="utf-8")
+        os.replace(tmp, _DEDUP_PATH)
+    except Exception:  # noqa: BLE001 — bookkeeping must never break a send
+        pass
+
+
+def _dedup_was_delivered(category: str, message: str,
+                         dedup_key: Optional[str] = None,
+                         lane: str = "private") -> bool:
+    """Did the attempt that opened the current window actually land?
+
+    Legacy records (written before the `d` flag existed) have no `d` key. They
+    are treated as DELIVERED: those windows were opened by the pre-fix code,
+    where the overwhelmingly common case is a successful send, and assuming
+    failure would re-page CC for every one of them on the next tick.
+    """
+    rec = _dedup_load().get(_dedup_identity(category, message, dedup_key, lane))
+    if not isinstance(rec, dict):
+        return False
+    return bool(rec.get("d", True))
+
 
 def _dedup_should_send(category: str, message: str,
                        dedup_key: Optional[str] = None,
@@ -92,10 +172,7 @@ def _dedup_should_send(category: str, message: str,
     if DEDUP_WINDOW_SEC <= 0:
         return True
     try:
-        ident = dedup_key if dedup_key else message
-        prefix = "" if lane == "private" else f"{lane}\x00"
-        key = hashlib.sha256(
-            f"{prefix}{category}\x00{ident}".encode("utf-8")).hexdigest()[:32]
+        key = _dedup_identity(category, message, dedup_key, lane)
         now = time.time()
 
         seen: dict = {}
@@ -124,10 +201,10 @@ def _dedup_should_send(category: str, message: str,
                     window = min(DEDUP_WINDOW_SEC * (2 ** (n - 1)), DEDUP_MAX_WINDOW_SEC)
                 if (now - last) < window:
                     return False
-                rec = {"last": now, "n": n + 1}
+                rec = {"last": now, "n": n + 1, "d": False}
 
         if rec is None:
-            rec = {"last": now, "n": 1}
+            rec = {"last": now, "n": 1, "d": False}
 
         seen = {k: v for k, v in seen.items()
                 if now - float(v["last"] if isinstance(v, dict) else v) < DEDUP_FORGET_SEC}
@@ -327,6 +404,9 @@ def notify(message: str, category: str = "system", silent: bool = False,
     Returns:
         True if sent successfully, False otherwise
     """
+    global LAST_SUPPRESSED
+    LAST_SUPPRESSED = False
+
     # Hard off-switch for tests / CI — the real root cause of the alert storm
     # was test code reaching the live Telegram send.
     if _notify_disabled():
@@ -344,6 +424,13 @@ def notify(message: str, category: str = "system", silent: bool = False,
     # audiences, so one having seen the text says nothing about the other.
     lane = "group" if group else "private"
     if not _dedup_should_send(category, message, dedup_key=dedup_key, lane=lane):
+        # Suppressed — but only call it "already delivered" if the attempt that
+        # opened this window actually LANDED. _dedup_should_send writes its
+        # record before the send, so a failed send would otherwise buy silence
+        # for the whole backoff window and mask a real alerting outage from the
+        # health monitors (Codex [P2], 2026-08-03).
+        LAST_SUPPRESSED = _dedup_was_delivered(category, message,
+                                               dedup_key=dedup_key, lane=lane)
         return False
 
     # Auto-silence low-priority categories
@@ -488,6 +575,10 @@ def notify(message: str, category: str = "system", silent: bool = False,
                 # (e.g., 403 bot blocked, 429 rate limit). Fail-closed visibility.
                 err_info = resp.json().get("description", f"HTTP {resp.status_code}")
                 print(f"[notify] Telegram send failed: {err_info}", file=sys.stderr)
+            else:
+                # Only a LANDED message earns the suppression window. See
+                # _dedup_mark_delivered.
+                _dedup_mark_delivered(category, message, dedup_key=dedup_key, lane=lane)
             return ok
         except transient as exc:
             last_exc = exc

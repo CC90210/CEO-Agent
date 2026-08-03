@@ -113,10 +113,20 @@ def telegram_alert(bad: list[dict]) -> tuple[bool, str]:
     # correctly alerts immediately.
     dedup_key = f"cron_failing:{'|'.join(sorted(str(b['name']) for b in bad))}"
     try:
-        from notify import notify  # type: ignore
-        ok = notify(text, category="system", silent=False, force=True,
-                    dedup_key=dedup_key)
-        return ok, "sent" if ok else "notify_failed"
+        import notify as _nf  # type: ignore
+        ok = _nf.notify(text, category="system", silent=False, force=True,
+                        dedup_key=dedup_key)
+        if ok:
+            return True, "sent"
+        # A SUPPRESSED alert is not a failed one. notify() returns False for
+        # both, and reading that as failure made this watchdog exit 1 and turn
+        # itself into a failing cron — so CC got "cron failures detected but
+        # alert delivery failed" from an alert that had worked exactly as
+        # designed, and the watchdog then reported its own red row on the next
+        # tick as a brand-new condition.
+        if getattr(_nf, "LAST_SUPPRESSED", False):
+            return True, "suppressed (already alerted; backoff window open)"
+        return False, "notify_failed"
     except Exception as exc:  # noqa: BLE001
         return False, f"telegram_error:{type(exc).__name__}:{str(exc)[:80]}"
 
