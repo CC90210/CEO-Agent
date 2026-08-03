@@ -140,6 +140,16 @@ Vocabulary for the merchant-funding domain. Captured 2026-06-08 with David's pro
 - **Stub mode** — Outbound webhook behavior when `tenants.crm_webhook_url` is empty: payload is written to `webhook_events` (visible in lender admin audit log) but no HTTP call is made. Lets the demo ship before the live integration spec arrives.
 - **Breeze brand color** — Default `#1e40af`. Per-tenant override stored in `tenants.brand_primary_color`, injected as `--brand` CSS variable at layout level so the merchant sees the funder's brand, not Breeze's.
 
+## V7.5 Guard & Continuity (davidondrej/skills import, 2026-08-03)
+
+Terms from the [davidondrej/skills](https://github.com/davidondrej/skills) audit (MIT — patterns studied, no code copied). Plan: `~/.claude/plans/integrate-davidondrej-skills.md`.
+
+- **Dangerous-command denylist** — The `HARD_BLOCKS` table in `scripts/state/exec_guard.py`: named regexes that block a command outright (exit 2) before it runs. Distinct from the **irreversible-op allowlist** in the same file, which logs and permits. "Blocked" and "logged" are different outcomes; say which one you mean. Contract locked by `scripts/tests/test_exec_guard.py` — every rule needs both a BLOCK case and the adjacent ALLOW case that proves it isn't over-broad.
+- **Credential-exfil path** — A route that reveals a secret without reading a guarded *file*, so `secret_guard.py` (which is path-based) never sees it. `gh auth token` was the live example: it reads from gh's own keychain. When adding a tool that can print a credential, the guard that stops it is `exec_guard`, not `secret_guard`.
+- **Handoff block** — A single paste-ready fenced block that lets an agent with zero session memory resume the work, emitted by `skills/handoff/`. The **carry**, as opposed to the **archive** (`state_sync.py` → `SESSION_LOG.md`). Both, not either — a handoff that contradicts the archive is worse than neither.
+- **Atomic setup step** — One indivisible operator action (a single click, field, or paste-block) handed to CC by `skills/setup-help/`, always followed by the full remaining list. If it contains an "and", it is not atomic.
+- **Low-confidence decision surface** — The output of `skills/decisions/`: choices the agent made but is genuinely unsure about, each with a named alternative and the check that would settle it. Covers what tests structurally cannot — tests verify what was written, not what was chosen.
+
 ## North Star
 
 - **North Star (Bravo)** — Multiply CC's time and ship the systems that scale the empire. Bravo does **not** optimize for a dollar metric. All revenue targets, MRR, and deal economics are owned by **Atlas (CFO-Agent)** — route money questions there.
