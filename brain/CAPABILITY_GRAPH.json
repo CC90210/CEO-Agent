@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-03T16:19:40.415201+00:00",
+  "generated_at": "2026-08-03T20:59:36.130092+00:00",
   "totals": {
-    "skills": 156,
+    "skills": 159,
     "scripts": 134,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 381,
-    "edges_total": 156,
+    "nodes_total": 384,
+    "edges_total": 157,
     "drift_count": 0
   },
   "nodes": [
@@ -890,6 +890,40 @@
       ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:decisions",
+      "kind": "skill",
+      "name": "decisions",
+      "path": "skills/decisions/SKILL.md",
+      "description": "Surface the choices made during the current work that the agent is genuinely NOT confident about, with the alternatives that were not considered. Use before shipping, before a review, or when CC asks \"what did you decide\", \"what are you unsure about\", \"/decisions\". Retrospective ",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "decisions",
+        "what did you decide",
+        "what are you unsure about",
+        "low confidence choices",
+        "second guess this"
+      ],
+      "tags": [
+        "skill",
+        "decisions",
+        "review",
+        "self-audit"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2596,6 +2630,42 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:handoff",
+      "kind": "skill",
+      "name": "handoff",
+      "path": "skills/handoff/SKILL.md",
+      "description": "Compact the current session into one paste-ready block a fresh agent can resume from \u2014 what happened, why, what is left, and what NOT to redo. Use when hitting context limits, ending a work session, switching runtimes (Claude to Gemini/Codex/OpenCode), or partitioning a task acro",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "handoff",
+        "hand off",
+        "fresh session",
+        "context limit",
+        "switch runtime",
+        "resume elsewhere",
+        "pass this on"
+      ],
+      "tags": [
+        "skill",
+        "handoff",
+        "session",
+        "continuity"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:heartbeat",
       "kind": "skill",
       "name": "heartbeat",
@@ -4222,6 +4292,42 @@
       ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:setup-help",
+      "kind": "skill",
+      "name": "setup-help",
+      "path": "skills/setup-help/SKILL.md",
+      "description": "Walk CC through an operator-blocked setup ONE atomic step at a time, always listing what remains. Use when CC must do something the agent cannot \u2014 a dashboard signup, a DNS record, a bank or Plaid approval, an OAuth consent, a VPS action, an entity or counsel step. Triggers on \"h",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "help me set up",
+        "walk me through",
+        "how do I set up",
+        "setup help",
+        "configure this",
+        "get this working",
+        "what do I do next"
+      ],
+      "tags": [
+        "skill",
+        "setup-help",
+        "operator",
+        "onboarding"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -9050,6 +9156,11 @@
     {
       "from": "skill:send-gateway",
       "to": "script:send_gateway",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:setup-help",
+      "to": "script:capability_probe",
       "kind": "uses"
     },
     {
