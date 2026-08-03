@@ -492,14 +492,22 @@ Categories:
    emailing in outreach. Usually needs a reply toward booking a call.
 3. Financial & Legal — a TRANSACTION that already happened or is formally due,
    or a binding legal document. Concretely: invoices, receipts, bank/card
-   statements, Stripe payment notifications (payouts, charges, refunds,
-   successful payments), subscription renewal CONFIRMATIONS, CRA / Revenu
-   Québec / tax documents, signed contracts, legal notices.
+   statements THAT SHOW ACTUAL TRANSACTION DETAIL, Stripe payment notifications
+   (payouts, charges, refunds, successful payments), subscription renewal
+   CONFIRMATIONS, CRA / Revenu Québec / tax documents, signed contracts, legal
+   notices.
 
    THE TEST: has money actually moved, or is a specific amount formally owed?
    If yes -> Financial & Legal. If the email merely TALKS about money -> not.
 
    NOT Financial & Legal:
+     - a STATEMENT-AVAILABILITY NOTICE — "Here's your July statement from
+       Kraken", "your monthly statement is ready", "view your statement". These
+       announce that a document exists on a portal; they name no amount and
+       book nothing. A statement notice is only Financial & Legal if the email
+       itself states a concrete charge or payout;
+     - a renewal REMINDER ("your subscription will renew soon") — the money has
+       not moved yet. Only the renewal CONFIRMATION is a transaction;
      - a vendor announcing new or lower pricing ("Lindy is cutting prices by 4x
        on average") — that is marketing, no matter how much money it mentions;
      - plan/tier comparisons, upsells, upgrade nudges, discount promos;
@@ -518,6 +526,12 @@ Getting #3 wrong is expensive in BOTH directions: a missed receipt loses a
 deductible expense, and a marketing blast misfiled as Financial books a fake
 expense in the operator's ledger. When money is discussed but no transaction
 occurred, choose Low Priority & Archive.
+
+This is not hypothetical. On 2026-08-03 the operator's ledger held 16 rows out
+of 52 with no dollar amount at all — Kraken statement notices, a Lindy price
+blast, GitHub code-review mail, and a renewal reminder filed as INCOME. Every
+one of them reached the ledger because this step called it Financial & Legal.
+If you cannot name the amount and say who paid whom, it is not #3.
 
 Output ONLY a JSON object, no prose, no markdown:
 {"category": "<one of: Client Technical Support | Business Opportunities | Financial & Legal | Low Priority & Archive>", "confidence": <0.0-1.0>}"""
@@ -599,8 +613,13 @@ def _parse_category_response(raw: str, evidence_text: str = "",
     marketing = bool(_MARKETING_RE.search(evidence_text))
     note = ""
 
-    if category == "financial_legal" and not has_txn and (is_bulk or marketing):
-        why = "bulk/List-Unsubscribe" if is_bulk else "pricing-announcement language"
+    statement_notice = bool(_STATEMENT_NOTICE_RE.search(evidence_text))
+
+    if category == "financial_legal" and not has_txn and (is_bulk or marketing
+                                                          or statement_notice):
+        why = ("bulk/List-Unsubscribe" if is_bulk
+               else "pricing-announcement language" if marketing
+               else "statement-availability notice, not a transaction")
         category = "low_priority"
         note = (f"model said Financial & Legal, overridden: {why} and no "
                 f"transaction evidence (no amount, invoice #, or payment phrase)")
@@ -663,7 +682,16 @@ _TXN_PHRASE_RE = re.compile(
     r"|(?:auto[- ]?)?renewal\s+(?:notice|confirmation)"
     r"|thanks?\s+for\s+your\s+(?:payment|purchase|order)"
     r"|charged\s+to\s+your|we(?:'ve| have)\s+charged"
-    r"|statement\s+is\s+(?:ready|available)|account\s+statement"
+    # REMOVED 2026-08-03: "statement is ready" / "account statement".
+    # They were in this list — the set of phrases that "only occur when money
+    # actually moved" — but a statement-availability notice is precisely the
+    # case where it did NOT. The consequence was not theoretical: because
+    # has_txn came back True, the bulk/marketing veto (which requires
+    # `not has_txn`) could never fire, AND confidence was derived as 0.85,
+    # clearing the Atlas hand-off threshold. Four Kraken "Here's your <month>
+    # statement" emails rode that path into the ledger as None-CAD expense
+    # rows. A statement that names a real charge is unaffected: the amount +
+    # receipt-vocabulary rule below still supplies the evidence.
     r"|refund\s+(?:of|issued|processed)"
     r"|amount\s+(?:due|paid)|balance\s+due|remittance"
     r"|t4a?\b|\bcra\b|revenu\s+qu[ée]bec|notice\s+of\s+assessment"
@@ -676,6 +704,33 @@ _TXN_PHRASE_RE = re.compile(
 _RECEIPT_WORD_RE = re.compile(
     r"\b(?:invoice|receipt|billed|charged|payment|payout|remittance|"
     r"transaction|order\s+confirmation)\b",
+    re.IGNORECASE,
+)
+
+# Statement-AVAILABILITY notices: "your statement is ready", "here's your April
+# statement from Kraken". These announce that a document exists somewhere else;
+# they are not themselves a charge. Like marketing, they VETO a financial read
+# when no transaction evidence is present.
+#
+# Why this is its own regex and not a _MARKETING_RE entry (2026-08-03): the
+# existing veto at classify_category() only fires for bulk OR marketing mail,
+# and an account statement notice is neither — it is transactional-looking mail
+# from a real financial relationship with no List-Unsubscribe. So it passed the
+# veto, routed to financial_legal, handed off to Atlas, and Atlas booked it. The
+# live ledger held four such Kraken rows, each with amount_cad = None.
+#
+# Deliberately narrow: it matches the ANNOUNCEMENT shape only. "Your statement
+# shows a $412.00 charge" still carries transaction evidence and is unaffected,
+# because has_txn is checked alongside this.
+_STATEMENT_NOTICE_RE = re.compile(
+    r"\b(?:"
+    r"(?:here'?s|here\s+is)\s+your\s+\w+\s+statement"
+    r"|your\s+\w*\s*statement\s+(?:is\s+)?(?:ready|available|is\s+here)"
+    r"|statement\s+(?:is\s+)?(?:now\s+)?(?:ready|available)"
+    r"|(?:monthly|annual|quarterly)\s+statement\s+(?:is\s+)?(?:ready|available)"
+    r"|view\s+your\s+statement|download\s+your\s+statement"
+    r"|account\s+statement\s+(?:is\s+)?(?:ready|available)"
+    r")",
     re.IGNORECASE,
 )
 

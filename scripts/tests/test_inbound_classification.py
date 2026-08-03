@@ -101,6 +101,16 @@ CODERABBIT = dict(
     ("Check the syntax of your billing config", False, "'tax' inside 'syntax'"),
     ("Prepaid credits are now available", False, "'paid' inside 'prepaid'"),
     ("Our billing docs have moved", False, "bare 'billing'"),
+    # 2026-08-03: these three used to return True because "statement is ready"
+    # and "account statement" sat in _TXN_PHRASE_RE. A statement being
+    # AVAILABLE is not money moving, and treating it as evidence both disabled
+    # the marketing veto and inflated confidence past the Atlas hand-off gate.
+    ("Your statement is ready", False, "statement availability is not a transaction"),
+    ("Your account statement is available", False, "announcement, no amount"),
+    ("Here's your April statement from Kraken", False, "THE Kraken ledger regression"),
+    # ...but a statement that names an actual charge is still evidence.
+    ("Your statement is ready. You were charged $412.00", True,
+     "amount + receipt vocabulary survives the removal"),
 ])
 def test_transaction_evidence(text, expected, why):
     assert _has_transaction_evidence(text) is expected, why
@@ -258,6 +268,67 @@ def test_veto_does_NOT_touch_a_real_receipt():
     got = classify_category(
         content=STRIPE_RECEIPT["body"], subject=STRIPE_RECEIPT["subject"],
         from_identity="billing@acme.example", is_bulk=True,
+        runner=_says("Financial & Legal", 0.95))
+    assert got["category"] == "financial_legal", got
+
+
+# ── Statement-availability notices (2026-08-03 ledger-pollution regression) ──
+#
+# Atlas's data/receipts_cache.json held 16 unquantified rows out of 52. Four
+# were Kraken "Here's your <month> statement" notices: transactional-looking
+# mail from a real financial relationship, no List-Unsubscribe, no marketing
+# language, and no dollar amount. It cleared the bulk/marketing veto because it
+# is neither, routed to financial_legal, handed off, and Atlas booked it as a
+# None-CAD expense row.
+KRAKEN_STATEMENT = {
+    "subject": "Here's your April statement from Kraken",
+    "body": ("Your April account statement is ready. Sign in to Kraken to view "
+             "and download your statement for the period ending April 30."),
+    "sender": "no-reply@kraken.com",
+}
+
+
+@pytest.mark.parametrize("subject,body", [
+    ("Here's your April statement from Kraken", "Your statement is ready to view."),
+    ("Your monthly statement is ready", "Sign in to download it."),
+    ("Your account statement is available", "View your statement online."),
+    ("Statement is now available", "Log in to see it."),
+])
+def test_statement_availability_notice_is_not_financial(subject, body):
+    """No amount + statement-announcement shape => never Financial & Legal.
+
+    Asserted even though the model is TOLD the answer is Financial, because in
+    production the model did say exactly that.
+    """
+    got = classify_category(content=body, subject=subject,
+                            from_identity="no-reply@kraken.com", is_bulk=False,
+                            runner=_says("Financial & Legal", 0.95))
+    assert got["category"] == "low_priority", got
+    assert "statement" in got["notes"].lower(), got["notes"]
+
+
+def test_statement_notice_never_reaches_atlas():
+    """The end of the chain: no hand-off means no ledger row, whatever Atlas
+    would have done with it."""
+    got = classify_category(
+        content=KRAKEN_STATEMENT["body"], subject=KRAKEN_STATEMENT["subject"],
+        from_identity=KRAKEN_STATEMENT["sender"], is_bulk=False,
+        runner=_says("Financial & Legal", 0.95))
+    action = decide_action(got["category"], confidence=got["confidence"],
+                           degraded=bool(got.get("fallback")))
+    assert got["category"] == "low_priority"
+    assert action.get("handoff_to_atlas") is not True, action
+
+
+def test_statement_WITH_a_real_charge_is_still_financial():
+    """The other direction. A statement that names an actual charge carries
+    transaction evidence, so the veto must leave it alone — otherwise this fix
+    would start losing genuine deductible expenses."""
+    got = classify_category(
+        content=("Your statement is ready. This period you were charged "
+                 "$412.00 for your invoice #A-2291."),
+        subject="Your April statement is ready",
+        from_identity="billing@vendor.example", is_bulk=False,
         runner=_says("Financial & Legal", 0.95))
     assert got["category"] == "financial_legal", got
 
