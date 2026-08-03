@@ -791,9 +791,17 @@ if __name__ == "__main__":
     _group = "--group" in _args
     _args = [a for a in _args if a not in ("--test", "--group")]
     if _test:
-        # Unique text every run so the dedup window never swallows the check.
-        _msg = (f"Routing check ({'group broadcast' if _group else 'private lane'})"
-                f" — {datetime.now().isoformat(timespec='seconds')}")
+        # SAY WHAT IT IS (2026-08-03). This used to read "Routing check (private
+        # lane) — <timestamp>" and nothing else, so CC got unexplained pings from
+        # an agent verifying its own plumbing and had no way to tell them from a
+        # real alert. A diagnostic that looks like an incident is a bad
+        # diagnostic. Unique text every run so dedup never swallows the check.
+        _msg = ("🧪 SELF-TEST — ignore.\n"
+                f"Bravo verifying the {'group broadcast' if _group else 'private'} "
+                f"Telegram lane still delivers. Nothing is wrong; this is only "
+                f"sent by a human or an agent running `notify.py --test`, never "
+                f"by an automation.\n"
+                f"{datetime.now().isoformat(timespec='seconds')}")
     else:
         _msg = " ".join(_args) if _args else "Bravo notification system online."
     # CLI sends are explicit operator action: force past the category block
