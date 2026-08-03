@@ -258,3 +258,112 @@ def test_domain_sets_are_module_level_and_disjoint():
     assert isinstance(scheduler.MAVEN_DOMAIN_ACTIONS, frozenset)
     assert isinstance(scheduler.ATLAS_DOMAIN_ACTIONS, frozenset)
     assert not (scheduler.MAVEN_DOMAIN_ACTIONS & scheduler.ATLAS_DOMAIN_ACTIONS)
+
+
+# ── OASIS partner-group channel isolation (2026-08-03) ───────────────────────
+#
+# The group is CC + Adon + Bravo + APEX/Knut. Adon is a 50/50 partner on
+# PropFlow ONLY, so internal operational traffic — a blocked sending number, a
+# scraper traceback, a cron failure — has no business in his chat.
+#
+# The pre-existing guard proves a caller ASKED for the group (group=True). It
+# cannot tell whether the CONTENT belongs there. These tests pin the content
+# half: operational vocabulary is rerouted to CC's private DM, never dropped,
+# and legitimate partner traffic is left alone.
+
+OPERATIONAL_MESSAGES = [
+    "Sending number +18604527608 is getting blocked - rotate it out",
+    "Campaign pool exhausted, rotate it out",
+    "Seeing failure across the outreach lane",
+    "TPS scrape returned blocked",
+    "Domain ping failed for oasisai.work",
+    "Cron failure on the nightly sweep",
+    "Stack trace attached below",
+    "Traceback (most recent call last)",
+    "Scraper log shows 40 timeouts",
+    "Daemon crash on bravo-scheduler",
+    "Dead-letter queue is backing up",
+]
+
+PARTNER_MESSAGES = [
+    "PropFlow milestone: pilot tenant onboarded",
+    "Deliverable handed over - the dashboard is live for review",
+    "Sprint released: lead routing is now tenant-scoped",
+    "New client onboarded on the PropFlow side",
+    # The near-miss that proves the terms are phrase-scoped, not word-scoped:
+    # a bare "blocked" is ordinary partner vocabulary.
+    "The PropFlow deal is blocked on Adon's signature",
+]
+
+
+@pytest.mark.parametrize("message", OPERATIONAL_MESSAGES)
+def test_operational_noise_is_rerouted_off_the_group_lane(monkeypatch, message):
+    """Operational content must not reach the partner group even when the
+    caller explicitly passed group=True."""
+    env = {
+        "TELEGRAM_BOT_TOKEN": "bravo-token",
+        "TELEGRAM_ALLOWED_USERS": "5099208958",
+        "GROUP_TELEGRAM_CHAT_ID": "-5165125484",
+    }
+    sent = _capture(monkeypatch, env)
+    nf.notify(message, category="outreach", force=True, group=True)
+    assert sent, "alert was dropped entirely — it must reroute, not vanish"
+    chat = str(sent["json"]["chat_id"])
+    assert chat == "5099208958", (
+        f"operational message reached chat {chat}; expected CC's private DM")
+    assert not chat.startswith("-"), "operational message reached a GROUP chat"
+
+
+@pytest.mark.parametrize("message", PARTNER_MESSAGES)
+def test_partner_traffic_still_reaches_the_group(monkeypatch, message):
+    """The other failure direction. A guard that eats legitimate partner
+    updates gets switched off, and then nothing is isolated."""
+    env = {
+        "TELEGRAM_BOT_TOKEN": "bravo-token",
+        "TELEGRAM_ALLOWED_USERS": "5099208958",
+        "GROUP_TELEGRAM_CHAT_ID": "-5165125484",
+    }
+    sent = _capture(monkeypatch, env)
+    nf.notify(message, category="system", force=True, group=True)
+    assert sent, "partner broadcast was dropped"
+    assert str(sent["json"]["chat_id"]) == "-5165125484", (
+        f"partner message did not reach the group: {sent['json']['chat_id']}")
+
+
+def test_operational_noise_on_the_private_lane_is_untouched(monkeypatch):
+    """The filter is scoped to group=True. CC's own DM is exactly where a
+    blocked-number alert belongs, so it must pass through unchanged."""
+    env = {"TELEGRAM_BOT_TOKEN": "bravo-token", "TELEGRAM_ALLOWED_USERS": "5099208958"}
+    sent = _capture(monkeypatch, env)
+    nf.notify("Sending number +18604527608 is getting blocked",
+              category="outreach", force=True, group=False)
+    assert sent, "private-lane operational alert was suppressed — it must not be"
+    assert str(sent["json"]["chat_id"]) == "5099208958"
+
+
+def test_group_blocked_terms_stay_in_sync_with_agent_activity():
+    """Two copies of the denylist exist by design; this stops them drifting.
+
+    notify.py guards the group=True lane. agent_activity.py guards the --mirror
+    lane, and per telegram_identity_audit.py that is the one with a LIVE handle
+    on the OASIS group (notify's group lane resolves no chat id today). A term
+    added to one and not the other leaves the live door open.
+    """
+    import ast
+
+    src = (Path(__file__).resolve().parent.parent
+           / "integrations" / "agent_activity.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    other = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "_GROUP_BLOCKED_TERMS_RE"
+                for t in node.targets):
+            if isinstance(node.value, ast.Call) and node.value.args:
+                other = ast.literal_eval(node.value.args[0])
+            break
+    assert other is not None, "agent_activity.py has no _GROUP_BLOCKED_TERMS_RE"
+    assert nf._GROUP_BLOCKED_TERMS_RE.pattern == other, (
+        "notify.py and agent_activity.py denylists have drifted:\n"
+        f"  notify        : {nf._GROUP_BLOCKED_TERMS_RE.pattern!r}\n"
+        f"  agent_activity: {other!r}")

@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -303,6 +304,28 @@ CATEGORY_OWNER: dict[str, str] = {
 }
 DEFAULT_AGENT = "bravo"
 
+# Operational vocabulary that must never reach the shared OASIS partner group.
+# The group is CC + Adon + Bravo + APEX/Knut; Adon is a 50/50 partner on
+# PropFlow ONLY and has no reason to see a blocked sending number, a scraper
+# stack trace, or a cron failure from CC's internal stack.
+#
+# Matched against the message BODY, deliberately — the lane flag proves someone
+# asked for the group, not that the content belongs there. A message hitting one
+# of these terms is rerouted to CC's private DM, never dropped.
+#
+# Kept narrow and phrase-based rather than single words: "blocked" alone would
+# swallow a legitimate partner update ("the PropFlow deal is blocked on
+# signature"), and a guard that eats real partner traffic gets switched off.
+_GROUP_BLOCKED_TERMS_RE = re.compile(
+    r"\b(?:"
+    r"getting\s+blocked|campaign\s+pool|failure\s+across|rotate\s+it\s+out"
+    r"|tps\s+scrape|domain\s+ping|cron\s+failure|stack\s+trace"
+    r"|traceback|scraper\s+log|daemon\s+crash|pm2\s+restart"
+    r"|sending\s+number|number\s+blocked|dead[- ]letter"
+    r")\b",
+    re.IGNORECASE,
+)
+
 # Per-agent bot token env keys. Bravo's is the plain TELEGRAM_BOT_TOKEN it has
 # always used. Maven's and Atlas's live in THEIR repos by design — separate
 # credentials, separate blast radius — so they are usually absent here.
@@ -421,6 +444,23 @@ def notify(message: str, category: str = "system", silent: bool = False,
     # (force is about category muting, not repeat suppression).
     # Scoped BY LANE: the group broadcast and the private chat are different
     # audiences, so one having seen the text says nothing about the other.
+    # CONTENT ISOLATION (2026-08-03). The lane check below proves a caller ASKED
+    # for the group; it cannot tell whether the CONTENT belongs there. OASIS 🏝️💸
+    # is a partner group — CC, Adon, Bravo and APEX/Knut — and a blocked sending
+    # number or a scraper stack trace is internal operational noise that Adon
+    # should never have to read.
+    #
+    # Reroute rather than drop. The alert still matters to CC; only its audience
+    # was wrong. Dropping it would trade a noise problem for a silence problem,
+    # which is the strictly worse failure (see the 34-day funnel-alert
+    # misdelivery: alerts that "sent successfully" into the wrong chat).
+    if group and _GROUP_BLOCKED_TERMS_RE.search(message or ""):
+        matched = _GROUP_BLOCKED_TERMS_RE.search(message or "").group(0)
+        print(f"[notify] Suppressed operational noise from shared OASIS group "
+              f"chat; rerouting to CC private DM (matched: {matched!r})",
+              file=sys.stderr)
+        group = False
+
     lane = "group" if group else "private"
     if not _dedup_should_send(category, message, dedup_key=dedup_key, lane=lane):
         # Suppressed — but only call it "already delivered" if the attempt that

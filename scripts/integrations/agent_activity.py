@@ -32,6 +32,7 @@ Never hardcode secrets. Telegram mirror uses CC_AGENT_BOT_TOKEN + COORD_GROUP_CH
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -59,10 +60,35 @@ DEFAULT_GROUP_ID = -5165125484  # OASIS coordination group
 # human-facing label in the group line. Both overridable via env.
 ME_KEY = os.environ.get("COORD_AGENT_KEY", "cc-agent")
 ME_LABEL = os.environ.get("COORD_AGENT_LABEL", "BRAVO")
-PEER_KEYS = [k.strip() for k in os.environ.get("COORD_PEER_KEYS", "apex").split(",") if k.strip()]
+# Adon's agent answers to BOTH names: "Apex" is the persona, "Knut" is the bot
+# (@KnutRPEbot). They are one system, not two peers. Defaulting to "apex" alone
+# meant a row written under agent="knut" was invisible to every peer read —
+# claims(), peers(), and the coordination bridge's fresh-row poll all filter on
+# this list, so a Knut-authored file claim would not have blocked Bravo from
+# editing the same file. Same entity, both keys.
+PEER_KEYS = [k.strip() for k in os.environ.get("COORD_PEER_KEYS", "apex,knut").split(",") if k.strip()]
 
 VALID_STATUS = ("start", "working", "done", "blocked")
 _STATUS_EMOJI = {"start": "🟧", "working": "🟧", "done": "🟩", "blocked": "🟥"}
+
+# Operational vocabulary that must never be mirrored into the shared OASIS
+# partner group. Deliberately identical in intent to notify.py's
+# _GROUP_BLOCKED_TERMS_RE — a drift test in scripts/tests pins them together.
+#
+# This is the lane that actually reaches the group. telegram_identity_audit.py
+# (2026-08-03) shows notify.py's group=True lane resolving no chat id at all
+# ("sends on this lane are refused"), while THIS module and
+# coordination_agent.js both hold a live handle on @BravoGCAdon_bot ->
+# group:OASIS 🏝️💸. Guarding only notify.py would have guarded the dead door.
+_GROUP_BLOCKED_TERMS_RE = re.compile(
+    r"\b(?:"
+    r"getting\s+blocked|campaign\s+pool|failure\s+across|rotate\s+it\s+out"
+    r"|tps\s+scrape|domain\s+ping|cron\s+failure|stack\s+trace"
+    r"|traceback|scraper\s+log|daemon\s+crash|pm2\s+restart"
+    r"|sending\s+number|number\s+blocked|dead[- ]letter"
+    r")\b",
+    re.IGNORECASE,
+)
 
 
 def _client():
@@ -169,7 +195,19 @@ def post(status, task, files=None, branch=None, detail=None, mirror=False, agent
 def telegram_post(text):
     """Mirror a status line into the OASIS group. Uses the dedicated coordination
     bot if set, else the existing DM bot (@Bravo_2003bot, also in the group).
-    Sending needs no polling, so either token works with no new credential."""
+    Sending needs no polling, so either token works with no new credential.
+
+    CHANNEL ISOLATION: refuses to mirror internal operational noise. The row is
+    still written to `agent_activity` by the caller — the DB is the agent↔agent
+    channel and loses nothing — only the human-facing broadcast is withheld.
+    Returns False, which `post()` already surfaces as `mirrored: False`.
+    """
+    hit = _GROUP_BLOCKED_TERMS_RE.search(text or "")
+    if hit:
+        print(f"[agent_activity] Suppressed operational noise from shared OASIS "
+              f"group chat (matched: {hit.group(0)!r}). Row recorded in "
+              f"{TABLE}; not mirrored.", file=sys.stderr)
+        return False
     token = _env_value("CC_AGENT_BOT_TOKEN") or _env_value("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("COORD_GROUP_CHAT_ID") or _env_value("COORD_GROUP_CHAT_ID") or DEFAULT_GROUP_ID
     if not token:

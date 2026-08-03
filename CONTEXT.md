@@ -140,6 +140,13 @@ Vocabulary for the merchant-funding domain. Captured 2026-06-08 with David's pro
 - **Stub mode** — Outbound webhook behavior when `tenants.crm_webhook_url` is empty: payload is written to `webhook_events` (visible in lender admin audit log) but no HTTP call is made. Lets the demo ship before the live integration spec arrives.
 - **Breeze brand color** — Default `#1e40af`. Per-tenant override stored in `tenants.brand_primary_color`, injected as `--brand` CSS variable at layout level so the merchant sees the funder's brand, not Breeze's.
 
+## Partner coordination & channel isolation (2026-08-03)
+
+- **APEX / Knut** — **One agent, two names.** "Apex" is the persona; "Knut" is the bot (`@KnutRPEbot`). Both belong to **Adon's agent**. Never treat them as separate peers: `PEER_KEYS` in `scripts/integrations/agent_activity.py` and `coordination_agent.js` both default to `apex,knut`, because a row written under one key while only the other was watched is invisible — a Knut-authored file claim would not have stopped Bravo editing the same file.
+- **OASIS partner group** — the shared Telegram group `OASIS 🏝️💸` (`COORD_GROUP_CHAT_ID`, id `-5165125484`): CC + Adon + Bravo + APEX/Knut, reached by `@BravoGCAdon_bot`. Adon is a 50/50 partner on **PropFlow only**, so the group's contents are partner-scoped by definition. It is the **human↔agent** channel; `agent_activity` is the **agent↔agent** channel.
+- **Channel isolation** — internal operational traffic (blocked sending numbers, scraper logs, cron failures, tracebacks, daemon crashes) belongs in **CC's private DM** (`TELEGRAM_ALLOWED_USERS`), never the partner group. Enforced in two places by content, not just by lane: `_GROUP_BLOCKED_TERMS_RE` in `scripts/notify.py` (reroutes `group=True` to CC's DM) and in `scripts/integrations/agent_activity.py` (refuses the `--mirror` broadcast; the DB row is still written, so nothing is lost). `coordination_agent.js` applies the same denylist to **automated** posts only.
+- **Reply exemption** — a message answering a human who spoke *in the group* is exempt from the isolation filter. Consent is the distinction: an unprompted broadcast is noise; an answer to a question asked in that room is not. Gagging it would break the bridge's purpose.
+
 ## V7.5 Guard & Continuity (davidondrej/skills import, 2026-08-03)
 
 Terms from the [davidondrej/skills](https://github.com/davidondrej/skills) audit (MIT — patterns studied, no code copied). Plan: `~/.claude/plans/integrate-davidondrej-skills.md`.
