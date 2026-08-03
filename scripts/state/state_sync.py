@@ -42,6 +42,7 @@ for _p in (_SCRIPTS, _SCRIPTS / "core", _SCRIPTS / "state"):
         sys.path.insert(0, str(_p))
 
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.timeutil import age_days  # noqa: E402
 
 PROJECT_ROOT = _SCRIPTS.parent
 STATE_FILE = PROJECT_ROOT / "brain" / "STATE.md"
@@ -253,16 +254,9 @@ def _pulse_judgment_age_days(pulse: Path | None = None) -> float | None:
     pulse = pulse or PULSE_PATH
     try:
         raw = json.loads(pulse.read_text(encoding="utf-8"))
-        ts = raw.get("updated_at")
-        if not isinstance(ts, str):
-            return None
-        normalized = ts[:-1] + "+00:00" if ts.endswith("Z") else ts
-        then = datetime.fromisoformat(normalized)
-        if then.tzinfo is None:
-            then = then.replace(tzinfo=timezone.utc)
-        return (datetime.now(timezone.utc) - then).total_seconds() / 86400
-    except (OSError, ValueError, json.JSONDecodeError, KeyError):
+    except (OSError, ValueError, json.JSONDecodeError):
         return None
+    return age_days(raw.get("updated_at"))
 
 
 def warn_if_pulse_judgment_stale() -> None:

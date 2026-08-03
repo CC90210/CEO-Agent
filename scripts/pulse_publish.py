@@ -37,6 +37,8 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
+
+from lib.timeutil import age_hours, parse_iso_utc  # noqa: E402 — needs sys.path above
 PULSE_PATH = REPO_ROOT / "data" / "pulse" / "ceo_pulse.json"
 SCHEMA_VERSION = "0.3.0"
 
@@ -80,14 +82,8 @@ def validate(payload: dict[str, Any]) -> list[str]:
             errors.append(f"missing strategy fields: {sorted(missing_strat)}")
     else:
         errors.append("strategy must be an object")
-    if "updated_at" in payload:
-        try:
-            ts = payload["updated_at"]
-            if isinstance(ts, str):
-                normalized = ts[:-1] + "+00:00" if ts.endswith("Z") else ts
-                datetime.fromisoformat(normalized)
-        except (ValueError, TypeError):
-            errors.append("updated_at must be ISO 8601")
+    if "updated_at" in payload and parse_iso_utc(payload["updated_at"]) is None:
+        errors.append("updated_at must be ISO 8601")
     return errors
 
 
@@ -176,16 +172,10 @@ def _pulse_age_hours(path: Path) -> float | None:
         if not path.exists():
             return None
         raw = json.loads(path.read_text(encoding="utf-8"))
-        ts = raw.get("updated_at")
-        if not isinstance(ts, str):
-            return None
-        normalized = ts[:-1] + "+00:00" if ts.endswith("Z") else ts
-        then = datetime.fromisoformat(normalized)
-        if then.tzinfo is None:
-            then = then.replace(tzinfo=timezone.utc)
-        return round((datetime.now(timezone.utc) - then).total_seconds() / 3600, 1)
     except (OSError, ValueError, json.JSONDecodeError):
         return None
+    hours = age_hours(raw.get("updated_at"))
+    return None if hours is None else round(hours, 1)
 
 
 def _recent_commits(since_iso: str | None, limit: int = 15) -> list[str]:
@@ -373,23 +363,14 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"ERROR — pulse not readable at {PULSE_PATH}", file=sys.stderr)
         return 2
     updated = payload.get("updated_at", "?")
-    age_hours: float | None = None
-    try:
-        ts = updated[:-1] + "+00:00" if isinstance(updated, str) and updated.endswith("Z") else updated
-        dt = datetime.fromisoformat(ts) if isinstance(ts, str) else None
-        if dt is not None:
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
-    except (ValueError, TypeError):
-        pass
+    age_h: float | None = age_hours(updated)
     summary = {
         "updated_at": updated,
-        "age_hours": round(age_hours, 1) if age_hours is not None else None,
+        "age_hours": round(age_h, 1) if age_h is not None else None,
         "freshness": (
-            "FRESH" if age_hours is not None and age_hours < 24
-            else "AGING" if age_hours is not None and age_hours < 168
-            else "STALE" if age_hours is not None
+            "FRESH" if age_h is not None and age_h < 24
+            else "AGING" if age_h is not None and age_h < 168
+            else "STALE" if age_h is not None
             else "UNKNOWN"
         ),
         "net_mrr_usd": payload.get("revenue", {}).get("net_mrr_usd"),
