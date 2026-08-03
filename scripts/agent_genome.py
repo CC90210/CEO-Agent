@@ -65,7 +65,9 @@ DEFAULTS: dict[str, list[str]] = {
     "capability_resolver": ["scripts/capability_query.py"],
     "memory_tiers": ["memory/MISTAKES.md", "memory/PATTERNS.md", "memory/DECISIONS.md"],  # ALL required
     "retrieval": ["scripts/core/memory_retriever.py"],
-    "learning_loop": ["scripts/bravo_sleep.py", "scripts/agent_sleep.py", "scripts/core/agent_self_improvement.py"],
+    # Bravo ships bravo_sleep.py; siblings ship agent_sleep.py. Only ONE needs to
+    # exist per repo, so the missing one is not drift — hence the marker.
+    "learning_loop": ["scripts/bravo_sleep.py", "scripts/agent_sleep.py", "scripts/core/agent_self_improvement.py"],  # path-drift-ok
     "model_access": ["scripts/lib/claude_cli.py", "cfo/claude_auth.py", "scripts/lib/claude_auth.py"],
     "guards": [".claude/settings.json", ".claude/settings.local.json", ".claude/settings.hooks.template.json"],
     "eval": ["scripts/harness_eval.py", "scripts/agent_genome.py"],

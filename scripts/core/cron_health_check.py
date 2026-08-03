@@ -104,9 +104,18 @@ def telegram_alert(bad: list[dict]) -> tuple[bool, str]:
         lines.append(f"... and {len(bad) - 10} more.")
     text = "\n".join(lines)
 
+    # Key on WHICH jobs are failing, not on the rendered text. The message embeds a
+    # 120-char last_result snippet that carries counts and tracebacks, so any drift
+    # in that snippet minted a fresh identity and reset the backoff — which is how
+    # this watchdog paged CC at 08:35, 09:00 and 10:01 for one unchanged condition
+    # (2026-08-03). Same set of failing jobs → same key → the 1h→2h→4h→8h→24h ladder
+    # actually engages. A NEW job joining the failure set is a new condition, and
+    # correctly alerts immediately.
+    dedup_key = f"cron_failing:{'|'.join(sorted(str(b['name']) for b in bad))}"
     try:
         from notify import notify  # type: ignore
-        ok = notify(text, category="system", silent=False, force=True)
+        ok = notify(text, category="system", silent=False, force=True,
+                    dedup_key=dedup_key)
         return ok, "sent" if ok else "notify_failed"
     except Exception as exc:  # noqa: BLE001
         return False, f"telegram_error:{type(exc).__name__}:{str(exc)[:80]}"

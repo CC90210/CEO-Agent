@@ -23,6 +23,7 @@ This is the MANDATORY end-of-session sync.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -235,6 +236,69 @@ def _v6_write(mode: str, note: str, agent_name: str, results: dict, heartbeat_on
         results["state_manager"] = f"⚠️ {e}"
 
 
+PULSE_STALE_DAYS = 7
+_PULSE_SCRIPT = Path(__file__).resolve().parents[1] / "pulse_publish.py"
+
+
+PULSE_PATH = Path(__file__).resolve().parents[2] / "data" / "pulse" / "ceo_pulse.json"
+
+
+def _pulse_judgment_age_days(pulse: Path | None = None) -> float | None:
+    """Days since ceo_pulse's JUDGMENT fields were written (its `updated_at`).
+
+    Deliberately reads `updated_at`, not `mechanical_as_of`: the daily cron
+    refreshes machine-knowable sections without moving `updated_at`, precisely so
+    this number keeps telling the truth about strategy.
+    """
+    pulse = pulse or PULSE_PATH
+    try:
+        raw = json.loads(pulse.read_text(encoding="utf-8"))
+        ts = raw.get("updated_at")
+        if not isinstance(ts, str):
+            return None
+        normalized = ts[:-1] + "+00:00" if ts.endswith("Z") else ts
+        then = datetime.fromisoformat(normalized)
+        if then.tzinfo is None:
+            then = then.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - then).total_seconds() / 86400
+    except (OSError, ValueError, json.JSONDecodeError, KeyError):
+        return None
+
+
+def warn_if_pulse_judgment_stale() -> None:
+    age = _pulse_judgment_age_days()
+    if age is None or age < PULSE_STALE_DAYS:
+        return
+    print(f"[state_sync] ⚠️  ceo_pulse judgment is {age:.0f}d old — Atlas pages CC "
+          f"at 14d. If this session changed the plan, re-run with "
+          f"--pulse-priority \"…\" --pulse-focus \"…\".", file=sys.stderr)
+
+
+def write_pulse_judgment(priority: str | None, focus: str | None,
+                         note: str | None) -> bool:
+    """Hand the judgment fields to pulse_publish — the only blessed writer.
+
+    Shells out rather than importing so the atomic-write, schema-validation and
+    cross-agent-event behaviour stays in one place; a second in-process writer is
+    how two versions of a schema start to drift.
+    """
+    cmd = [sys.executable, str(_PULSE_SCRIPT), "refresh"]
+    if priority:
+        cmd += ["--priority", priority]
+    if focus:
+        cmd += ["--focus", focus]
+    if note:
+        cmd += ["--session-note", note[:500]]
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120,
+                          encoding="utf-8", errors="replace",
+                          creationflags=WINDOWLESS_FLAGS)
+    if proc.returncode != 0:
+        print(f"[state_sync] pulse_publish failed (exit {proc.returncode}): "
+              f"{(proc.stderr or proc.stdout or '').strip()[:300]}", file=sys.stderr)
+        return False
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description="State sync — single write to all memory layers")
     parser.add_argument("--note", "-n", default="", help="Observation to sync across all memory layers")
@@ -259,6 +323,18 @@ def main():
         help="Work touched a peer's domain — after the sync, ping Maven/Atlas "
              "via cross_agent_ping.py (CC directive 2026-08-01)",
     )
+    # Pulse judgment fields (2026-08-03). The daily cron refreshes only what a
+    # machine can know; strategy and priority are written HERE, at session end,
+    # when Bravo actually has new judgment to record. Optional by design — a
+    # session with nothing new to say must not rewrite the CEO's strategy, so
+    # absent flags leave the pulse untouched.
+    parser.add_argument("--pulse-priority", default=None,
+                        help="This week's #1 priority → ceo_pulse strategy")
+    parser.add_argument("--pulse-focus", default=None,
+                        help="Current strategic focus → ceo_pulse strategy")
+    parser.add_argument("--pulse-note", default=None,
+                        help="Session note → ceo_pulse (defaults to --note when "
+                             "another --pulse-* flag is given)")
     args = parser.parse_args()
 
     note = args.note.strip() if args.note else "Session sync."
@@ -314,9 +390,24 @@ def main():
         except Exception as e:
             results["heartbeat"] = f"❌ {e}"
 
+    if args.pulse_priority or args.pulse_focus or args.pulse_note:
+        try:
+            ok = write_pulse_judgment(args.pulse_priority, args.pulse_focus,
+                                      args.pulse_note or note)
+            results["ceo_pulse"] = "✅" if ok else "⚠️ pulse write failed"
+        except Exception as e:  # noqa: BLE001
+            results["ceo_pulse"] = f"❌ {e}"
+
     summary = " | ".join(f"{k}: {v}" for k, v in results.items())
     print(f"[state_sync] {summary}")
     print(f"[state_sync] Note: {note}")
+
+    # The nag CC should never have received from Atlas. Atlas pages CC when the
+    # pulse passes 14 days; this fires at 7, on Bravo's own terminal, at the one
+    # moment Bravo is already thinking about what the session changed. A warning
+    # that reaches the agent who can fix it beats one that reaches the operator
+    # who can only forward it.
+    warn_if_pulse_judgment_stale()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-02T22:17:40.089266+00:00",
+  "generated_at": "2026-08-03T16:19:40.415201+00:00",
   "totals": {
     "skills": 156,
     "scripts": 134,
@@ -11,7 +11,7 @@
     "resources": 14,
     "runtime_entrypoints": 3,
     "nodes_total": 381,
-    "edges_total": 154,
+    "edges_total": 156,
     "drift_count": 0
   },
   "nodes": [
@@ -8324,6 +8324,11 @@
     },
     {
       "from": "runtime:cron_engine",
+      "to": "script:pulse_publish",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
       "to": "script:review_loop",
       "kind": "schedules"
     },
@@ -8745,6 +8750,11 @@
     {
       "from": "script:supabase_tool",
       "to": "script:integration_health",
+      "kind": "calls"
+    },
+    {
+      "from": "script:system_health",
+      "to": "script:notify",
       "kind": "calls"
     },
     {

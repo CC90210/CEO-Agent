@@ -335,6 +335,38 @@ def _as_text(raw: Any) -> str:
     return str(raw).strip()
 
 
+def _slug(label: str) -> str:
+    """The dump-filename slug. Shared so the reader and the writer cannot drift."""
+    return re.sub(r"[^a-z0-9]+", "-", (label or "").lower()).strip("-")[:48] or "job"
+
+
+def failure_dump_hint(job_name: str, job: Optional[dict] = None) -> str:
+    """Return the 'Full traceback: …' line ONLY when a dump actually exists.
+
+    run_script_action() — the `script_run` path — never calls persist_failure()
+    (only run_script() does, at its two failure exits). So for every script_run
+    job this line pointed whoever was debugging at a directory that is never
+    written for that job. An alert that cites evidence which does not exist costs
+    a round-trip and quietly teaches people to distrust the alert. Name the file
+    when there is one, say nothing when there isn't.
+    """
+    try:
+        if not FAILURE_DUMP_DIR.exists():
+            return ""
+        script = ((job or {}).get("action_config") or {}).get("script") or ""
+        candidates = {_slug(job_name)}
+        if script:
+            candidates.add(_slug(script))
+        newest = None
+        for path in FAILURE_DUMP_DIR.glob("*.log"):
+            if any(path.name.startswith(f"{c}-") for c in candidates):
+                if newest is None or path.stat().st_mtime > newest.stat().st_mtime:
+                    newest = path
+        return f"\nFull traceback: tmp/cron_failures/{newest.name}" if newest else ""
+    except OSError:
+        return ""
+
+
 def persist_failure(label: str, cmd: List[str], returncode: "int | str",
                     stderr: str, stdout: str = "") -> Optional[str]:
     """Write a failed child's FULL stderr to tmp/cron_failures/ and return the path.
@@ -352,7 +384,7 @@ def persist_failure(label: str, cmd: List[str], returncode: "int | str",
     """
     try:
         FAILURE_DUMP_DIR.mkdir(parents=True, exist_ok=True)
-        slug = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")[:48] or "job"
+        slug = _slug(label)
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         path = FAILURE_DUMP_DIR / f"{slug}-{ts}.log"
 
@@ -1235,8 +1267,8 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                          else "gave up after 5 attempts")
                 notify_error(
                     job_name,
-                    f"{stage} — {result_msg[:220]}\n"
-                    f"Full traceback: tmp/cron_failures/ (most recent for this job)",
+                    f"{stage} — {result_msg[:220]}"
+                    f"{failure_dump_hint(job_name, job)}",
                     # Distinct dedup identity from the per-tick page below.
                     # They shared one key until 2026-07-30, so the noisy
                     # first-failure alert consumed the slot and silenced THIS

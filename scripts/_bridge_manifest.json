@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-02T22:40:11.534804+00:00",
+  "generated_at_iso": "2026-08-03T16:29:46.003248+00:00",
   "script_count": 124,
-  "entry_count": 294,
+  "entry_count": 295,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1481,6 +1481,14 @@
       "subcmd": "refresh",
       "mutating": true,
       "help": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json. \u2014 subcommand: refresh"
+    },
+    {
+      "key": "pulse_publish_autorefresh",
+      "path": "scripts/pulse_publish.py",
+      "root": "bravo",
+      "subcmd": "autorefresh",
+      "mutating": true,
+      "help": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json. \u2014 subcommand: autorefresh"
     },
     {
       "key": "pulse_publish_validate",

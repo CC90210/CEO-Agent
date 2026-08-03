@@ -127,6 +127,30 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # 2026-08-03 — the pulse producer that never existed. Atlas pages CC when
+        # data/pulse/ceo_pulse.json is >14d old, and on 2026-08-03 it was 15d old
+        # and correct: no cron had ever written it. Bravo's pulse was refreshed
+        # only when a session happened to remember.
+        #
+        # This job runs `autorefresh`, NOT `refresh`. autorefresh writes only what
+        # a machine can know — sibling pulse ages, V6 telemetry, the commit log —
+        # and deliberately does NOT move `updated_at`. A nightly bare `refresh`
+        # would have re-stamped the timestamp over 15-day-old strategy and
+        # directives, silencing Atlas by making the data worse. The judgment
+        # fields are written at session end (state_sync --pulse-*), because no
+        # cron can honestly invent a CEO's strategic priority.
+        #
+        # 07:45 local: ahead of Atlas's 08:00 threshold scan, so the sibling-age
+        # figures Atlas reads are same-morning. NOT seeded to Supabase until CC
+        # reviews (production-scheduling mutation).
+        "name": "Daily Pulse Mechanical Refresh",
+        "description": "pulse_publish.py autorefresh — refresh machine-knowable pulse sections (sibling ages, V6 telemetry, commits). Never moves updated_at; judgment stays as stale as it is.",
+        "schedule": "45 7 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/pulse_publish.py", "args": ["autorefresh"], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
+        "is_active": True,
+    },
+    {
         # Phase 6a — OASIS auto-score sweep. Scans tenant_records for
         # OASIS leads with no ai_score and scores them in batches of 25
         # so the operator's morning view already has scores on
@@ -154,16 +178,23 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
-        # V7 EPIC 7F — Loud Failures Weekly Probe. system_health.py --strict --json detects
-        # silent failures (stale PM2 paths, missing cron/hook/MCP targets, scripts/*.py path
-        # drift) BEFORE someone trips over them. Mondays 08:30 local; Telegram on any red.
+        # V7 EPIC 7F — Loud Failures Weekly Probe. system_health.py detects silent failures
+        # (stale PM2 paths, missing cron/hook/MCP targets, scripts/*.py path drift) BEFORE
+        # someone trips over them. Mondays 08:30 local; the probe Telegrams its own reds.
         # n8n handler for action_type 'script_run' runs the script; NOT seeded to Supabase
         # until CC reviews (production-scheduling mutation).
+        #
+        # --strict REMOVED 2026-08-03. It made the probe exit 1 on a finding, the scheduler
+        # recorded "ERROR: script_run exit 1", and cron_health_check re-paged "1 cron(s)
+        # failing" HOURLY for as long as the finding stood — a true signal delivered as a
+        # metronome. EXECUTION_RULES § 19: a blocking condition exits 0 and reports. The
+        # probe now owns its own alert (--notify), deduped on which checks are red, so it
+        # fires once and decays. `--strict` still exits 1 for humans and CI.
         "name": "Loud Failures Weekly Probe",
-        "description": "system_health.py --strict — surface silent failures (path drift, stale PM2, missing cron/hook/MCP targets).",
+        "description": "system_health.py --notify — surface silent failures (path drift, stale PM2, missing cron/hook/MCP targets).",
         "schedule": "30 8 * * 1",
         "action_type": "script_run",
-        "action_config": {"script": "scripts/system_health.py", "args": ["--strict", "--json"], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
+        "action_config": {"script": "scripts/system_health.py", "args": ["--json", "--notify"], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
         "is_active": True,
     },
     {
