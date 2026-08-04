@@ -51,15 +51,30 @@ def _fetch(db, limit: int = 2000) -> list[dict]:
 
 
 def select_junk(rows: list[dict]) -> list[tuple[dict, str]]:
-    """Tenantless AND ineligible. Both conditions, always."""
+    """Tenantless AND provably ineligible on DETERMINISTIC grounds alone.
+
+    The first version passed {"category": "low_priority"} for every row, which
+    made the eligibility test circular — the script manufactured the very
+    ineligibility it then checked, so "tenantless AND ineligible" collapsed to
+    "tenantless" and ANY tenantless human address would have been retired
+    (Codex audit, 2026-08-04). The 37 rows it actually retired were verified
+    junk — reviewed line by line in the dry run, CC confirmed the one
+    human-looking address, and none had a single outbound interaction — but the
+    mechanism was unsound and would not have stayed lucky.
+
+    No fabricated classification now. Only the deterministic tier decides:
+    reserved domains and machine local-parts, which are provable from the
+    address itself. Anything requiring a judgement call is left alone for a
+    human, which is the correct bias for an irreversible-feeling operation on
+    CRM data.
+    """
     out = []
     for r in rows:
         if r.get("tenant_id"):
             continue                      # tenant-owned: never touched
         if str(r.get("status") or "").lower() == RETIRED_STATUS:
             continue                      # already retired
-        create, why = should_create_lead(r.get("email") or "",
-                                         {"category": "low_priority"})
+        create, why = should_create_lead(r.get("email") or "")  # no classifier
         if not create:
             out.append((r, why))
     return out
