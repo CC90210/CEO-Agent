@@ -1485,7 +1485,14 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         # New: if the result is an ERROR, schedule a retry in 5 minutes instead
         # of waiting for the full schedule. Max 5 consecutive retries before
         # giving up and waiting for the next scheduled slot.
-        result_is_error = "ERROR" in result_msg or "FAILED" in result_msg
+        # Same classifier as the alerting path below (2026-08-04). This copy was
+        # missed in the first pass and it is the more damaging of the two: it
+        # does not just page CC, it increments fail_count, reschedules the job
+        # to retry in 5 minutes, and "gives up" after 5 attempts. A raw
+        # substring scan means an inbound email whose SUBJECT says "FAILED"
+        # made a healthy Inbound Email Sweep burn its whole retry budget and
+        # corrupt its own failure counter, every time such a mail arrived.
+        result_is_error = _looks_like_failure(result_msg)
         new_count = (job.get("run_count") or 0) + 1
         fail_count = (job.get("fail_count") or 0) if hasattr(job, "get") else 0
 

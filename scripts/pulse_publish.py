@@ -334,8 +334,14 @@ def cmd_refresh(args: argparse.Namespace) -> int:
             source="bravo",
             target=None,  # broadcast
         )
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as exc:  # noqa: BLE001
+        # Stays non-fatal — the pulse itself is already written above and this
+        # event is only a wake-up for Atlas/Maven/Aura. But it must not be
+        # SILENT: swallowed entirely, a broken event bus means the siblings stop
+        # waking on pulse refresh and nothing anywhere says so. Log it; the
+        # scheduler captures stderr into cron_jobs.last_result.
+        print(f"[pulse_publish] event-bus publish failed (pulse still written): "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
     return 0
 
 

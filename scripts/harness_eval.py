@@ -177,6 +177,22 @@ def check_brief_renders():
 
 
 def check_tenant_scoping():
+    """Regression guard on lead_engine.py's tenant contract — NOT a fleet-wide
+    tenant-isolation audit, and not a data check.
+
+    Scope correction 2026-08-04: this greps ONE file for three substrings. It
+    was labelled "CRM tenant scoping intact", which reads as a guarantee about
+    the whole CRM. It is not. A live audit that day found 14 INSERT sites into
+    tenant-scoped tables (inbound_classifier, send_gateway, funnel_sync,
+    email_brain, contract_tool, scrape_firecrawl_leads, lead_engine) that do not
+    stamp tenant_id, and 37 of 63 sampled `leads` rows with a NULL tenant_id —
+    all while this check was green. A gate that overstates its coverage is worse
+    than no gate: no gate keeps you cautious, a green one makes you confident.
+
+    The label now says what it actually proves. Widening it to the other 13 call
+    sites is CC's call, because making it honest AND broad turns harness_eval
+    red until those sites are fixed, and harness_eval pages on non-zero exit.
+    """
     src = _read("scripts/lead_engine.py")
     if "OASIS_TENANT_ID" not in src:
         return False, "lead_engine.py lost OASIS_TENANT_ID"
@@ -185,7 +201,7 @@ def check_tenant_scoping():
     if '"tenant_id": getattr(args, "tenant", None) or OASIS_TENANT_ID' not in src \
             and '"tenant_id": OASIS_TENANT_ID' not in src:
         return False, "insert paths no longer tenant-stamped"
-    return True, "reads scoped + writes stamped to OASIS_TENANT_ID"
+    return True, "lead_engine.py only — reads scoped + writes stamped (not a fleet audit)"
 
 
 _REQUIRED_GUARDS = {"EMPIRE_HOOK_SECRET_GUARD", "EMPIRE_HOOK_EXEC_GUARD", "EMPIRE_HOOK_STATE_GUARD"}
@@ -286,7 +302,7 @@ CHECKS = [
     ("Atlas boundary held (routers + brief)", check_atlas_boundary, False, "boundary"),
     ("no dead API key in active automations", check_no_dead_api_key_in_active, False, "model-call"),
     ("daily brief renders real data", check_brief_renders, False, "live-health"),
-    ("CRM tenant scoping intact", check_tenant_scoping, False, "boundary"),
+    ("lead_engine tenant contract intact", check_tenant_scoping, False, "boundary"),
     ("safety guards in enforce", check_guards_enforce, False, "guards"),
     ("cron table healthy (no ERROR, no MRR digest)", check_cron_health, False, "live-health"),
     ("PM2 fleet online", check_pm2_fleet, False, "live-health"),

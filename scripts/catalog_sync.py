@@ -65,6 +65,19 @@ def _render_block(m: dict) -> str:
     return "\n".join(lines)
 
 
+# The block carries a "_Last synced: <iso timestamp>_" line that is different on
+# every render. Comparing it made `--check` report drift ALWAYS — including
+# immediately after a successful sync — so the gate could never exit 0 and
+# carried no signal at all: nobody could tell a real count change from the clock
+# ticking. Drift means THE COUNTS moved; when did we last look is metadata about
+# the check, not part of the state being checked.
+_TIMESTAMP_LINE = re.compile(r"^_Last synced: .*_$", re.MULTILINE)
+
+
+def _ignoring_timestamp(text: str) -> str:
+    return _TIMESTAMP_LINE.sub("_Last synced: <normalized>_", text)
+
+
 def _update_file(path: Path, block: str, check_only: bool) -> str:
     if not path.exists():
         return "skipped (missing)"
@@ -75,7 +88,10 @@ def _update_file(path: Path, block: str, check_only: bool) -> str:
             re.DOTALL,
         )
         new_text = pattern.sub(block, text)
-        if new_text == text:
+        # Timestamp-insensitive: identical counts are "in sync" even though the
+        # rendered timestamp differs. This also stops a bare re-run from
+        # rewriting both files (and dirtying git) purely to bump a clock.
+        if _ignoring_timestamp(new_text) == _ignoring_timestamp(text):
             return "in sync"
         if check_only:
             return "drift detected"

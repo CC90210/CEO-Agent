@@ -505,6 +505,22 @@ def test_funnel_fallback_sends_plain_text():
         "fallback would break on lead-typed '<'"
 
 
+def test_retry_scheduling_uses_the_same_classifier_as_alerting():
+    """Found by the 2026-08-04 live audit. There were TWO substring error checks
+    in scheduler.py; the first pass only fixed the alerting one. The other drives
+    fail_count, the 5-minute retry, and the give-up-after-5 logic — so an email
+    whose SUBJECT said "FAILED" made a healthy sweep burn its retry budget and
+    corrupt its own failure counter. Both must use one classifier."""
+    import inspect
+    src = inspect.getsource(sch.check_and_run_due_jobs)
+    assert 'result_is_error = _looks_like_failure(' in src
+    # No bare substring classification anywhere in the scheduling loop.
+    offenders = [ln.strip() for ln in src.splitlines()
+                 if ('"ERROR" in' in ln or '"FAILED" in' in ln)
+                 and not ln.lstrip().startswith("#")]
+    assert not offenders, f"substring error-classification still live: {offenders}"
+
+
 def test_booleans_are_not_rendered_as_counts():
     """bool is a subclass of int — {"sent": True} must not render "True sent"."""
     out = sch.humanize_job_result("Some Job", json.dumps({"sent": True, "status": "done"}))

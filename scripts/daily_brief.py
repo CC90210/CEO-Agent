@@ -209,7 +209,8 @@ def _render_brief(snapshot: dict) -> str:
     Reads the ACTUAL snapshot schema (the old fallback read keys that never
     existed → every field '—'). A DEGRADED sub-engine renders '⚠️ unavailable',
     never a false zero/green. MRR/cash omitted — revenue is Atlas's (CFO) job.
-    Output is HTML-escaped for Telegram's parse_mode=HTML."""
+    Returns PLAIN text — notify() escapes for parse_mode=HTML on the way out
+    (2026-08-04). Escaping here as well would double-encode."""
     date = snapshot.get("date", "today")
     brief = snapshot.get("briefing") if isinstance(snapshot.get("briefing"), dict) else {}
     lines = [f"🌅 Bravo brief · {date}", ""]
