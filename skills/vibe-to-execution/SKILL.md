@@ -1,6 +1,6 @@
 ---
 name: vibe-to-execution
-description: Translate an informal brain dump, voice transcript, or screenshot into a turnkey, production-grade execution blueprint — an interactive clarification pass that asks CC 2-4 high-leverage questions before building, Opus 5 execution contract, resolved domain vocabulary, verified DB/API contracts, UI interaction design, exact CLI/tool routing, and the 7 mandatory production defenses. Use when CC describes what he wants in loose prose rather than a spec, when a request arrives as a voice note or a screenshot, or when a one-liner implies a whole system.
+description: Translate an informal brain dump, voice transcript, or screenshot into a turnkey, production-grade execution blueprint — an interactive clarification pass that asks CC every high-leverage question (up to 4) before building, Opus 5 execution contract, resolved domain vocabulary, verified DB/API contracts, UI interaction design, exact CLI/tool routing, and the 7 mandatory production defenses. Use when CC describes what he wants in loose prose rather than a spec, when a request arrives as a voice note or a screenshot, or when a one-liner implies a whole system.
 triggers: ["vibe to execution", "brain dump", "voice note", "turn this into a spec", "translate this into a build", "make this a system message", "write me a system prompt", "what i mean is", "here is the vibe"]
 tier: strategic
 mutability: EVOLVING
@@ -20,9 +20,9 @@ last_updated: 2026-08-03
 **V9.1 delta (2026-08-03):** adds **Phase 1.5 — the Interactive Clarification Loop**. V9.0 had
 exactly two outcomes for a fact it could not verify: invent a default (slop) or ship it as an
 open question the executor discovers *after* building the wrong thing. V9.1 adds the third and
-usually correct one — **ask CC, once, before emitting the blueprint.** Two to four questions,
-each with the default already attached, folded back in as verified ground truth. Cost: one
-message. Alternative cost: a rebuild.
+usually correct one — **ask CC, once, before emitting the blueprint.** Every question that
+passes the leverage test, capped at four, each with the default already attached, folded back
+in as verified ground truth. Cost: one message. Alternative cost: a rebuild.
 
 **V9.0 delta (2026-08-02):** adds the Opus 5 execution contract (Phase 0), multimodal intake
 (screenshots + audio transcripts), the 7 mandatory production defenses that every emitted
@@ -140,7 +140,7 @@ and move on; a suspiciously clean list usually means a guess already slipped in 
 
 **The rule.** Before writing a single line of the blueprint, read 1e end to end and decide, per
 item: *ask CC now*, or *decide it yourself and say so*. If any item is high-leverage, **stop and
-ask — 2 to 4 questions, in one message.** Then fold the answers in and continue. You do not ask
+ask — every qualifying gap, up to 4, in one message.** Then fold the answers in and continue. You do not ask
 permission to build; you ask for the facts that decide *what* to build.
 
 ### 1.5a. The leverage test — which gaps earn a question
@@ -183,29 +183,43 @@ Two things I can't read from the repo, then I build:
    [default: per-tenant, consistent with every other view]
 ```
 
-**Budget: 2–4 questions, one round.** A second round is allowed only when CC's answer opens a
-genuinely new fork (a "no, use Postmark" that introduces a credential you must now probe).
-Three rounds is not clarification, it is a design meeting — take the remaining items as stated
-assumptions and ship the blueprint.
+**Budget — deterministic, not a range.** Ask **every** gap that passes 1.5a, capped at 4, in one
+round. Zero qualifying gaps → ask nothing and emit. One → ask one; never pad to a minimum with
+a question the ban list forbids. More than four → ask the four highest-cost and carry the rest
+as stated defaults in § 4. **One round is the rule.** A second round is allowed only when an
+answer opens a genuinely new fork (a "no, use Postmark" that introduces a credential you must
+now probe). After the second round you stop asking: everything still open becomes a stated
+assumption or a named blocker, and the blueprint ships.
 
 **Harness form.** Ask in chat by default — the numbered block above, inline in the translation
 output. When the runtime provides a native question control (Claude Code's `AskUserQuestion`)
-**and** CC is at the keyboard, use it instead: same 2–4 budget, recommended option first,
+**and** CC is at the keyboard, use it instead: same budget, recommended option first,
 labelled `(Recommended)`. Never open a modal in a headless run.
 
-### 1.5d. Headless and non-interactive runs — do not block
+### 1.5d. Headless and non-interactive runs — never wait, never half-mutate
 
-When this protocol runs where no operator can answer — a cron invocation, a subagent dispatch,
-a bridge/`--headless` session, another agent's hand-off — **the loop does not wait.** It:
+**How you know which mode you are in.** Interactive is the default — if an operator turn is in
+this conversation, CC can answer. Treat the run as unattended only on positive evidence: a cron
+or scheduler invoked you, you were dispatched as a subagent, or the harness passed a headless
+flag. When genuinely unsure, ask; a needless question costs one message, a wrong assumption
+costs a rebuild.
+
+When no operator can answer, **the loop does not wait — and it does not start what it cannot
+finish.** It:
 
 1. Takes the stated default for every item;
 2. Marks each one in the blueprint as `[ASSUMED: <default> — unconfirmed]`, never as a decision;
 3. Copies all of them into § 4 OPEN QUESTIONS verbatim;
-4. Makes every **irreversible** step that depends on an assumption stop for operator
-   confirmation before it runs — money, sends, migrations, production pushes.
+4. **Orders the work so every step that depends on an assumption sits behind the reversible
+   ones.** Do all the reversible work; then, at the first **irreversible** step resting on an
+   `[ASSUMED]` value — money, a send, a migration, a production push — **stop and exit,
+   reporting it as a named blocker with the assumption that needs confirming.** You do not sit
+   waiting on an answer that cannot arrive, and you do not mutate halfway and then hang.
 
-A deadlocked cron is a worse failure than a labelled assumption. An *unlabelled* assumption is
-worse than both.
+"Never block" means never *wait*; it does not mean proceed regardless. The failure this rule
+prevents is a cron that half-migrated on a guess. A deadlocked cron is a worse failure than a
+labelled assumption; an *unlabelled* assumption is worse than both; and a cron that spent real
+money on a default nobody confirmed is worse than all three.
 
 ### 1.5e. Folding the answer back in — and the one thing CC's answer is not
 
@@ -242,8 +256,8 @@ apply is marked `N/A — <reason>`, never deleted. Silence reads as "handled".
 | # | Defense | The enforcement, in this repo |
 |---|---|---|
 | 1 | **Probe credentials first** | `python scripts/capability_probe.py check <service>` (or `list`) before claiming any gap. AVAILABLE = authorized, run the tool. Never attempt to read `.env*` — `secret_guard` blocks it and logs the attempt to `state/secret_guard.log`. "I don't have access" is true only after the probe exits non-zero and you quote that output. |
-| 2 | **No UI-only security** | Authorization is re-checked server-side on **every** endpoint — session/JWT verified in the route handler, RLS enabled *and* forced on the table. A hidden button is not a blocked route; a client-side redirect is not a gate. See EXECUTION_RULES § 13 (public routes need two layers) and § 14 (boundaries are server-side). |
-| 3 | **Tenant data isolation** | Every multi-tenant query carries an explicit `tenant_id` / `user_id` filter, and every insert stamps the same value (§ 17 — write what you filter). Prove it by querying as anon **and** as an authed user of the wrong tenant. `apply_migration.py --allow-rls` is required when a migration touches RLS and it means "I ran both queries". |
+| 2 | **No UI-only security** | Authorization is re-checked server-side on **every** endpoint — session/JWT verified in the route handler. On paths that query as the **user** (anon/authed key), RLS must be enabled *and* forced on the table. On paths that query as the **service role**, RLS is bypassed by design and is *not* your gate — see Defense 3, which is the boundary there. A hidden button is not a blocked route; a client-side redirect is not a gate. See EXECUTION_RULES § 13 (public routes need two layers) and § 14 (boundaries are server-side). |
+| 3 | **Tenant data isolation** | Every multi-tenant query carries an explicit `tenant_id` / `user_id` filter, and every insert stamps the same value (§ 17 — write what you filter). **On a service-role path this filter IS the entire isolation boundary** — RLS will not save you, so the tenant must be resolved server-side from the session or bridge token and never read from the request body. A `.from(...)` with no adjacent `.eq('tenant_id', …)` on such a path is a cross-tenant leak, not a style issue. Prove it by querying as anon **and** as an authed user of the wrong tenant. `apply_migration.py --allow-rls` is required when a migration touches RLS and it means "I ran both queries". |
 | 4 | **Closed-loop error tracking** | No bare `except: pass`, no broad catch that returns a success shape. Log the full traceback and publish an `agent_events` row — `event_type`, `publisher_agent`, `severity` (`warn`/`error` surfaces in dashboards), `payload`, `correlation_id`, `published_at`. Incident: `notify.py` swallowed a TLS failure and the inbox sweep died 31 times over 25 hours with zero alerts. |
 | 5 | **Verified restore point before schema change** | The gate is runnable, so run it: `python scripts/db_snapshot.py create --name pre-<migration>` then `python scripts/db_snapshot.py verify --max-age-hours 1` — exit 0 means a checksummed, complete, fresh baseline exists (schema + exact row counts, optional `--rows` export). Then `apply_migration.py <file> --dry-run` and `--status`. Destructive verbs are hard-blocked by `BLOCKED_PATTERNS`, and that guard is explicitly **not a substitute for a backup**. `db_snapshot` is a *logical* baseline — it proves what existed and detects what changed; byte-level point-in-time restore is Supabase PITR in the dashboard. For a genuinely destructive change, confirm the PITR window covers the snapshot timestamp. `verify` non-zero → you do not have a restore point; escalate to CC rather than applying. |
 | 6 | **Server-side payment math** | Every amount is computed server-side from the DB or a Stripe price object — never from a client-supplied number. Webhook handlers verify the Stripe signature *before* trusting the body, and dedup on `event.id` scoped by tenant. CLI: `python scripts/integrations/stripe_tool.py`. Money paths are also a Rule 9 irreversible line: operator confirmation, always. |

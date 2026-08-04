@@ -1,12 +1,12 @@
 ---
 tags: [prompts, template, prompt-engineering, anti-slop, opus5]
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 ---
 
-# _TEMPLATE_SYSTEM_PROMPT — the canonical V9.0 executor prompt
+# _TEMPLATE_SYSTEM_PROMPT — the canonical V9.1 executor prompt
 
 > **What this is.** The fixed skeleton every system message produced by
-> [[skills/vibe-to-execution/SKILL]] must follow (V9.0, 2026-08-02). Copy the fenced block,
+> [[skills/vibe-to-execution/SKILL]] must follow (V9.1, 2026-08-03). Copy the fenced block,
 > fill the brackets, delete nothing. The protocol that decides *what* goes in the brackets is
 > the skill; this file is the shape.
 >
@@ -14,11 +14,19 @@ last_updated: 2026-08-02
 > directory ([[prompts/RUN_OUTREACH]], [[prompts/INTEGRATE_NEW_TOOL]], `V683_PARITY_SYNC.md`).
 > Those have their own established shape and stay as they are. New translator output uses this.
 
-**Two rules that survive every fill-in:**
+**Three rules that survive every fill-in:**
 
-1. A bracket you cannot fill from verified source becomes an **open question** in section 4 —
-   never a quietly invented default (Anti-Slop #7).
-2. A defense in § 3.1 that does not apply is marked `N/A — <reason>`. **Never delete a row** —
+1. **A bracket you cannot fill from verified source is a question before it is a footnote.**
+   Run Phase 1.5 first: if a wrong default here could not be undone in one edit, ask CC (every
+   qualifying gap, up to 4, one round, each with its default attached). Only what you did *not* put to CC —
+   or, on an unattended run, what you took as `[ASSUMED: … — unconfirmed]` — lands in section 4.
+   A quietly invented default is Anti-Slop #7; a silently deferred one is nearly as expensive.
+2. **An answer from CC is a fact, not a footnote.** Write it into the section that consumes it
+   (§ 1 or the phase's `CONTRACT:` line), tagged `[VERIFIED: CC Clarification]`. The executor is
+   a fresh context that never saw the conversation — a clarification left only in § 4 is lost.
+   But CC's answer settles *decisions*, never *repo state*: "that column already exists" still
+   gets grepped and tagged with the command that proved it.
+3. A defense in § 3.1 that does not apply is marked `N/A — <reason>`. **Never delete a row** —
    silence reads as "handled", and that is how the fleet ships a UI-only auth check.
 
 ---
@@ -77,8 +85,8 @@ works" is not a verification — name the command and the string.]
 | # | Defense | Applies here as |
 |---|---|---|
 | 1 | **Probe credentials first** | `python scripts/capability_probe.py check <service>` before claiming any gap. AVAILABLE = authorized. Never read `.env*` — `secret_guard` blocks it and logs the attempt to `state/secret_guard.log`. |
-| 2 | **No UI-only security** | Authorization re-checked server-side on every endpoint; session/JWT verified in the route handler; RLS enabled and forced on the table. A hidden button is not a blocked route. |
-| 3 | **Tenant data isolation** | Every multi-tenant query filters on an explicit `tenant_id`/`user_id`, and every insert stamps the same value. Prove it by querying as anon **and** as an authed user of the wrong tenant. |
+| 2 | **No UI-only security** | Authorization re-checked server-side on every endpoint; session/JWT verified in the route handler. On user-key paths, RLS enabled *and* forced on the table; on service-role paths RLS is bypassed by design and Defense 3 is the boundary instead. A hidden button is not a blocked route. |
+| 3 | **Tenant data isolation** | Every multi-tenant query filters on an explicit `tenant_id`/`user_id`, and every insert stamps the same value. **On service-role paths this filter is the entire boundary** — resolve the tenant server-side from the session/bridge token, never from the request body. Prove it by querying as anon **and** as an authed user of the wrong tenant. |
 | 4 | **Closed-loop error tracking** | No bare `except: pass`. Log the full traceback and publish an `agent_events` row (`event_type`, `publisher_agent`, `severity`, `payload`, `correlation_id`, `published_at`). |
 | 5 | **Verified restore point** | `python scripts/db_snapshot.py create --name pre-<migration>` then `python scripts/db_snapshot.py verify --max-age-hours 1` (exit 0 = checksummed, complete, fresh baseline), then `apply_migration.py <file> --dry-run` and `--status`. The snapshot is a *logical* baseline; byte-level restore is Supabase PITR — confirm the PITR window covers the snapshot before a destructive change. `verify` non-zero = no restore point: escalate, don't apply. |
 | 6 | **Server-side payment math** | Amounts computed server-side from the DB or a Stripe price object, never from client input. Webhooks verify the Stripe signature before trusting the body and dedup on `event.id` scoped by tenant. |
@@ -87,8 +95,10 @@ works" is not a verification — name the command and the string.]
 ---
 
 ## 4. OPEN QUESTIONS
-[Anything a default would have silently decided. "None" is a valid answer; omitting the
-section is not.]
+[What a default silently decided and Phase 1.5 did NOT put to CC, each with the default
+taken — plus every [ASSUMED: … — unconfirmed] item on an unattended run. Anything CC
+already answered does not belong here; it is a resolved fact in § 1 or § 2. "None" is a
+valid answer; omitting the section is not.]
 ````
 
 ## Related

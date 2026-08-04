@@ -760,7 +760,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **159 active skills**. Eac
 - **Path:** `skills/verticals/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/vibe-to-execution/SKILL|vibe-to-execution]]
-- **Use when:** Translate an informal brain dump, voice transcript, or screenshot into a turnkey, production-grade execution blueprint — an interactive clarification pass that asks CC 2-4 high-leverage questions before building, Opus 5 execution contract, resolved domain vocabulary, verified DB/
+- **Use when:** Translate an informal brain dump, voice transcript, or screenshot into a turnkey, production-grade execution blueprint — an interactive clarification pass that asks CC every high-leverage question (up to 4) before building, Opus 5 execution contract, resolved domain vocabulary, v
 - **Triggers:** vibe to execution, brain dump, voice note, turn this into a spec, translate this into a build, make this a system message, write me a system prompt, what i mean is, here is the vibe
 - **Path:** `skills/vibe-to-execution/SKILL.md` · tier `strategic` · risk `low`
 

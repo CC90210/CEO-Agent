@@ -1,7 +1,7 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-04T00:19:39.119075+00:00",
+  "generated_at": "2026-08-04T00:36:07.795431+00:00",
   "totals": {
     "skills": 159,
     "scripts": 134,
@@ -5001,7 +5001,7 @@
       "kind": "skill",
       "name": "vibe-to-execution",
       "path": "skills/vibe-to-execution/SKILL.md",
-      "description": "Translate an informal brain dump, voice transcript, or screenshot into a turnkey, production-grade execution blueprint \u2014 an interactive clarification pass that asks CC 2-4 high-leverage questions before building, Opus 5 execution contract, resolved domain vocabulary, verified DB/",
+      "description": "Translate an informal brain dump, voice transcript, or screenshot into a turnkey, production-grade execution blueprint \u2014 an interactive clarification pass that asks CC every high-leverage question (up to 4) before building, Opus 5 execution contract, resolved domain vocabulary, v",
       "tier": "strategic",
       "owner": "bravo",
       "risk": "low",
