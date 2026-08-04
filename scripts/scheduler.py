@@ -1230,8 +1230,10 @@ def humanize_job_result(job_name: str, result_msg: str, max_items: int = 3) -> s
             return "\n".join([head, *lines])
         return f"{job_name} — {_clip(raw, 300)}"
 
+    # `not isinstance(v, bool)` matters: bool subclasses int in Python, so
+    # {"sent": true} rendered as "True sent" without it.
     counts = [f"{data[key]} {label}" for key, label in _COUNT_LABELS
-              if isinstance(data.get(key), int)]
+              if isinstance(data.get(key), int) and not isinstance(data.get(key), bool)]
     headline = f"{job_name} — " + (" · ".join(counts) if counts
                                    else _clip(data.get("status") or data.get("message") or "done", 120))
 
@@ -1531,10 +1533,19 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                 notify_error(job_name, result_msg[:200], agent=owner)
         elif not is_routine:
             # Was: f"{job_name}: {result_msg[:200]}" — raw JSON, sliced
-            # mid-value. dedup_key pins suppression to the JOB, not the
-            # rendered text, so a changing count can't defeat dedup.
+            # mid-value.
+            #
+            # NO dedup_key here, deliberately. Identity stays the rendered
+            # text, which is what notify's design intends: "distinct alerts
+            # (different sender/subject → different text) always pass, so this
+            # only ever collapses genuine repeats." A result notification is
+            # CONTENT, not a condition — pinning it to the job name would mean
+            # the 06:30 sweep reporting a DMARC report suppresses the 06:35
+            # sweep reporting a real prospect, for the full 1h window.
+            # dedup_key belongs on condition alerts ("job failed again"),
+            # never on a message whose whole value is what changed.
             notify(humanize_job_result(job_name, result_msg), category=cat,
-                   silent=True, agent=owner, dedup_key=f"job_result:{job_name}")
+                   silent=True, agent=owner)
 
     return len(due_jobs)
 

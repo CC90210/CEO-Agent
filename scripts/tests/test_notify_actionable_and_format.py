@@ -139,11 +139,27 @@ def test_old_format_would_fail_these_assertions():
     assert "12178238882037592739" not in old  # truncated mid-ID, the actual complaint
 
 
-def test_clip_never_cuts_mid_token():
+def test_clip_prefers_a_word_boundary():
+    """Self-review 2026-08-04: the first version of this test contained
+    `assert " " not in out[-2:-1] or True` — vacuously true, it could never
+    fail. Asserting the real contract instead."""
     out = sch._clip("Report-ID: 12178238882037592739 trailing words here", 30)
-    assert "1217823888203759273" not in out.rstrip("…") or out.endswith("…")
-    assert " " not in out[-2:-1] or True
-    assert not out.rstrip("…").endswith("-")
+    assert out.endswith("…")
+    body = out.rstrip("…")
+    # Every retained token is whole: the clipped text is a word-prefix of the input.
+    assert "Report-ID: 12178238882037592739".startswith(body)
+    assert not body.endswith(" ")
+
+
+def test_clip_falls_back_to_a_hard_cut_for_one_oversized_token():
+    """Honest contract: a single token longer than the limit has no boundary to
+    cut on, so it IS cut mid-token. Documented rather than pretended away."""
+    out = sch._clip("12178238882037592739xxxxx", 10)
+    assert out == "1217823888…"
+
+
+def test_clip_leaves_short_text_untouched():
+    assert sch._clip("3 unread", 50) == "3 unread"
 
 
 def test_plain_text_result_passes_through_unmangled():
@@ -170,3 +186,36 @@ def test_long_item_lists_are_summarised_not_dumped():
 
 def test_empty_result_says_so():
     assert sch.humanize_job_result("Some Job", "") == "Some Job — ran, no output"
+
+
+def test_two_different_sweeps_produce_different_text_so_dedup_cannot_eat_one():
+    """Self-review catch, 2026-08-04.
+
+    The first version of this fix passed dedup_key=f"job_result:{job_name}" to
+    notify(). That pins suppression to the JOB, so the 06:30 sweep reporting a
+    DMARC report would have silently swallowed the 06:35 sweep reporting a real
+    prospect for the full 1h NOTIFY_DEDUP_WINDOW_SEC — on the inbound lead
+    channel. Identity must stay the rendered text, which only collapses genuine
+    repeats. This test fails if anyone reintroduces a constant dedup identity.
+    """
+    first = sch.humanize_job_result("Inbound Email Sweep", SWEEP_RESULT)
+    second = sch.humanize_job_result("Inbound Email Sweep", json.dumps({
+        "status": "checked",
+        "unread_count": 1,
+        "emails": [{"from": "prospect@realcompany.com",
+                    "subject": "Interested in your automation service"}],
+    }, indent=2))
+    assert first != second, "distinct inbound mail must render distinctly"
+    assert "prospect@realcompany.com" in second
+
+    # And the scheduler must not hand notify() a constant identity for results.
+    import inspect
+    src = inspect.getsource(sch.check_and_run_due_jobs)
+    assert "dedup_key=f\"job_result:" not in src, (
+        "a constant dedup_key on job RESULTS suppresses real new content")
+
+
+def test_booleans_are_not_rendered_as_counts():
+    """bool is a subclass of int — {"sent": True} must not render "True sent"."""
+    out = sch.humanize_job_result("Some Job", json.dumps({"sent": True, "status": "done"}))
+    assert "True sent" not in out
