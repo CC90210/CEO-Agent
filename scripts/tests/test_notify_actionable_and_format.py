@@ -215,6 +215,80 @@ def test_two_different_sweeps_produce_different_text_so_dedup_cannot_eat_one():
         "a constant dedup_key on job RESULTS suppresses real new content")
 
 
+# ── Codex adversarial audit, 2026-08-04 ───────────────────────────────────
+
+def test_failure_detail_survives_a_counts_headline():
+    """Codex [high]: the scalar fallback was gated on `not counts`, so a payload
+    with both counts AND an error rendered as counts only — strictly less
+    informative than the raw prefix it replaced."""
+    payload = json.dumps({
+        "status": "partial_failure",
+        "processed": 10,
+        "failed": 1,
+        "error": "database write rejected",
+    })
+    out = sch.humanize_job_result("Nightly Sync", payload)
+    assert "10 processed" in out and "1 failed" in out
+    assert "database write rejected" in out, f"error text dropped:\n{out}"
+    assert "partial_failure" in out, f"non-benign status dropped:\n{out}"
+
+
+def test_benign_status_does_not_add_noise():
+    """The counterpart: don't paste 'status: ok' onto every healthy alert."""
+    out = sch.humanize_job_result("Sweep", json.dumps({"status": "ok", "sent": 2}))
+    assert "status:" not in out
+    assert "2 sent" in out
+
+
+def test_nested_error_dict_is_flattened_not_dropped():
+    out = sch.humanize_job_result("Job", json.dumps({
+        "synced": 3, "errors": {"row_7": "constraint violation", "row_9": "timeout"}}))
+    assert "constraint violation" in out
+    assert "{" not in out
+
+
+def test_pathological_payload_cannot_abort_the_scheduler_loop():
+    """Codex [medium]: json.loads on deeply nested input raises RecursionError,
+    which is NOT a ValueError. Formatting runs inside check_and_run_due_jobs
+    outside any per-job try, so an unhandled raise there would skip every
+    remaining due job that tick."""
+    bomb = "[" * 20000 + "]" * 20000
+    out = sch.humanize_job_result("Evil Job", bomb)          # must not raise
+    assert out.startswith("Evil Job — ")
+    assert len(out) < 400
+
+
+def test_huge_and_unicode_payloads_stay_bounded():
+    big = json.dumps({"unread_count": 500,
+                      "emails": [{"from": f"ünïcøde{i}@例え.jp", "subject": "件名 " * 50}
+                                 for i in range(500)]})
+    out = sch.humanize_job_result("Inbound Email Sweep", big)
+    assert len(out) < 900, "unbounded output would be truncated by Telegram anyway"
+    assert "…and 497 more" in out
+
+
+def test_none_and_nested_items_do_not_crash():
+    out = sch.humanize_job_result("Job", json.dumps({
+        "items": [None, {"from": None, "subject": None}, {"nested": {"a": 1}}]}))
+    assert isinstance(out, str) and out
+
+
+def test_refusal_is_distinguishable_from_a_delivery_failure(monkeypatch):
+    """Codex [medium]: notify() returns False for six different reasons. A
+    caller retrying on False must not retry a programmer error."""
+    monkeypatch.setattr(nf, "_notify_disabled", lambda: False)
+    assert nf.notify("--help", category="system", force=True) is False
+    assert nf.LAST_REFUSED is True
+    assert nf.LAST_SUPPRESSED is False
+
+
+def test_a_real_send_path_clears_the_refused_flag(monkeypatch):
+    monkeypatch.setattr(nf, "_notify_disabled", lambda: True)  # no real send
+    nf.LAST_REFUSED = True
+    nf.notify("Inbound sweep: 2 unread", category="email")
+    assert nf.LAST_REFUSED is False, "stale refusal flag would mislead the next caller"
+
+
 def test_booleans_are_not_rendered_as_counts():
     """bool is a subclass of int — {"sent": True} must not render "True sent"."""
     out = sch.humanize_job_result("Some Job", json.dumps({"sent": True, "status": "done"}))

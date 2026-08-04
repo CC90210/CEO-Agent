@@ -101,6 +101,12 @@ DEDUP_FORGET_SEC = int(os.environ.get("NOTIFY_DEDUP_FORGET_SEC", str(72 * 3600))
 # Set on every notify() entry. Single-threaded CLI/cron processes only.
 LAST_SUPPRESSED = False
 
+# Distinct from LAST_SUPPRESSED: the payload itself was unusable (empty, or a
+# bare CLI flag that leaked in as the message). Suppressed means "CC already
+# knows"; refused means "the CALLER has a bug". Both return False, and a caller
+# that retries on False must not retry the second kind.
+LAST_REFUSED = False
+
 # Reasons that mean "CC is aware of this condition". `suppressed` counts because
 # the alert landed recently and the backoff window is still open — but ONLY when
 # that earlier attempt actually delivered, which _dedup_was_delivered enforces.
@@ -475,8 +481,9 @@ def notify(message: str, category: str = "system", silent: bool = False,
     Returns:
         True if sent successfully, False otherwise
     """
-    global LAST_SUPPRESSED
+    global LAST_SUPPRESSED, LAST_REFUSED
     LAST_SUPPRESSED = False
+    LAST_REFUSED = False
 
     # Hard off-switch for tests / CI — the real root cause of the alert storm
     # was test code reaching the live Telegram send.
@@ -490,6 +497,12 @@ def notify(message: str, category: str = "system", silent: bool = False,
     # this way). Fail loud on stderr so the CALLER's bug surfaces where it can
     # be fixed, instead of surfacing as a mystery ping on CC's phone.
     if not _is_actionable(message):
+        # notify() returns False for six different reasons (disabled, blocked,
+        # deduped, no route, transport failure, and now this). A caller retrying
+        # on False must not retry a programmer error, so flag it distinctly —
+        # LAST_REFUSED says "your payload was the problem", as opposed to
+        # LAST_SUPPRESSED's "CC was already told".
+        LAST_REFUSED = True
         print(f"[notify] refused non-actionable message: {message!r} — say what "
               f"the problem is, or don't send.", file=sys.stderr)
         return False

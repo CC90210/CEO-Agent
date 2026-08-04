@@ -1173,6 +1173,15 @@ _COUNT_LABELS = (
 # Keys whose value is a list of things worth listing individually.
 _ITEM_KEYS = ("emails", "leads", "items", "posts", "messages", "results", "rows")
 
+# Fields that carry WHY something went wrong. These always render, even when a
+# count headline exists — dropping them is how an alert becomes decoration.
+_SIGNAL_KEYS = ("error", "errors", "failure", "failures", "reason",
+                "detail", "details", "warning", "warnings")
+
+# Status values that mean "nothing to report" and don't need their own line.
+_BENIGN_STATUS = {"ok", "okay", "success", "succeeded", "done", "checked",
+                  "complete", "completed", "clean", "healthy", "true"}
+
 # Per-item label candidates: who it's from, then what it's about.
 _WHO_KEYS = ("from", "email", "sender", "name", "to", "lead", "account")
 _WHAT_KEYS = ("subject", "title", "summary", "message", "status", "reason")
@@ -1214,7 +1223,21 @@ def humanize_job_result(job_name: str, result_msg: str, max_items: int = 3) -> s
     raw = (result_msg or "").strip()
     if not raw:
         return f"{job_name} — ran, no output"
+    try:
+        return _render_job_result(job_name, raw, max_items)
+    except Exception as exc:  # noqa: BLE001
+        # This runs inside check_and_run_due_jobs, AFTER the job's state update
+        # and outside any per-job try. An unhandled error here would abort the
+        # whole due-job loop: no notification, and every later due job skipped
+        # for that tick. Deeply nested JSON raises RecursionError, which is not
+        # a ValueError, so the narrow except below was not enough.
+        # Fail loud in the log, degrade to the raw string CC used to get.
+        print(f"[humanize_job_result] {job_name}: falling back to raw output "
+              f"({type(exc).__name__}: {exc})", file=sys.stderr, flush=True)
+        return f"{job_name} — {_clip(raw, 300)}"
 
+
+def _render_job_result(job_name: str, raw: str, max_items: int) -> str:
     try:
         data = json.loads(raw)
     except (ValueError, TypeError):
@@ -1238,6 +1261,28 @@ def humanize_job_result(job_name: str, result_msg: str, max_items: int = 3) -> s
                                    else _clip(data.get("status") or data.get("message") or "done", 120))
 
     lines = [headline]
+
+    # Failure detail survives REGARDLESS of counts. First version gated the
+    # fallback on `not counts`, so {"processed":10,"failed":1,"error":"database
+    # write rejected"} rendered as just "10 processed · 1 failed" — the error
+    # text silently dropped, making the alert strictly LESS informative than the
+    # raw prefix it replaced. That is the one thing this formatter must never do.
+    for key in _SIGNAL_KEYS:
+        value = data.get(key)
+        if value in (None, "", [], {}, False):
+            continue
+        if isinstance(value, (list, tuple)):
+            value = "; ".join(str(v) for v in list(value)[:3])
+        elif isinstance(value, dict):
+            value = " · ".join(f"{k}: {v}" for k, v in list(value.items())[:4])
+        lines.append(f"{key}: {_clip(value, 160)}")
+
+    # A status that isn't just "fine" is signal too, and the counts headline
+    # hides it.
+    status = data.get("status") or data.get("message")
+    if counts and status and str(status).strip().lower() not in _BENIGN_STATUS:
+        lines.insert(1, f"status: {_clip(status, 100)}")
+
     for key in _ITEM_KEYS:
         items = data.get(key)
         if isinstance(items, list) and items:
@@ -1248,8 +1293,7 @@ def humanize_job_result(job_name: str, result_msg: str, max_items: int = 3) -> s
                 lines.append(f"• …and {extra} more")
             break
 
-    # Nothing but a headline and no counts: surface the remaining scalars so the
-    # alert still says something concrete.
+    # Still nothing concrete beyond the headline: surface remaining scalars.
     if len(lines) == 1 and not counts:
         scalars = [f"{k}: {_clip(v, 60)}" for k, v in data.items()
                    if isinstance(v, (str, int, float, bool)) and k not in ("status", "message")]
