@@ -679,16 +679,21 @@ def notify(message: str, category: str = "system", silent: bool = False,
     if not routed_home:
         prefix = f"{prefix}  ·  [for {target_agent} — bridge not configured in this repo]"
     timestamp = datetime.now().strftime("%#I:%M %p")  # 12-hour format, no leading zero
-    # ESCAPE THE BODY (2026-08-04). This request sets parse_mode=HTML, and the
-    # body routinely carries text we do not control — inbound email subjects and
-    # senders, scraped titles, error strings from third-party APIs. Telegram
-    # answers 400 "can't parse entities" on an unsupported tag, so ONE inbound
-    # email with a subject like "Re: <urgent> invoice & payment" meant the whole
-    # alert was never delivered: generated, logged as attempted, silently lost.
-    # Verified before changing this: zero callers in scripts/ pass HTML tags to
-    # notify(), so nothing depended on the body being interpreted as markup.
-    # Escaping also stops untrusted mail from injecting markup into CC's client.
-    full_message = f"{prefix}\n{_escape_html(message)}\n\n{timestamp}"
+    # ESCAPE THE WHOLE COMPOSED MESSAGE (2026-08-04). This request sets
+    # parse_mode=HTML, and the text routinely carries content we do not control
+    # — inbound email subjects and senders, scraped titles, third-party error
+    # strings. Telegram answers 400 "can't parse entities" on an unsupported
+    # tag, so ONE email with a subject like "Re: <urgent> invoice & payment"
+    # meant the alert was never delivered: generated, logged as attempted,
+    # silently lost. Verified before touching a shared chokepoint: zero callers
+    # in scripts/ pass HTML tags, so nothing depended on markup rendering.
+    #
+    # Compose FIRST, escape ONCE, truncate last. Escaping only `message` left
+    # `prefix` raw, and the not-routed-home branch interpolates an arbitrary
+    # caller-supplied agent name into it — a `<` there would break delivery
+    # through the very path built to make misroutes visible. Escaping the
+    # finished string means no interpolation site can be forgotten later.
+    full_message = _escape_html(f"{prefix}\n{message}\n\n{timestamp}")
     if len(full_message) > 4096:
         full_message = _truncate_escaped(full_message, 4096)
 

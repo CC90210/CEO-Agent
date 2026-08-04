@@ -1245,24 +1245,42 @@ def _looks_like_failure(result_msg: str) -> bool:
     except (ValueError, TypeError):
         return "ERROR" in raw or "FAILED" in raw
 
-    if not isinstance(data, dict):
-        return False
-
-    if str(data.get("status", "")).strip().lower() in _FAILURE_STATUS:
-        return True
-    if data.get("ok") is False or data.get("success") is False:
-        return True
-    if any(data.get(k) not in (None, "", [], {}, False, 0) for k in _FAILURE_KEYS):
-        return True
-
-    # Fallback for jobs that report failure in free text without an error key
-    # (e.g. {"result": "FAILED to connect"}). Scans TOP-LEVEL scalars only —
-    # never the item lists, which is where untrusted email content lives.
-    for key, value in data.items():
-        if key in _ITEM_KEYS or not isinstance(value, str):
-            continue
-        if "ERROR" in value.upper() or "FAILED" in value.upper():
+    if isinstance(data, dict):
+        if str(data.get("status", "")).strip().lower() in _FAILURE_STATUS:
             return True
+        if data.get("ok") is False or data.get("success") is False:
+            return True
+
+    # Recursive scan. The first version returned False for any non-dict and
+    # only looked at top-level scalars, so `["ERROR: database unavailable"]` and
+    # {"result": {"error": "connection refused"}} — both failures under the old
+    # substring check — became silence. Turning a broken job into silence is a
+    # worse bug than the false alarm this replaced.
+    return _scan_for_failure(data)
+
+
+def _scan_for_failure(node, depth: int = 0, trusted: bool = True) -> bool:
+    """Find failure evidence anywhere in a result, without trusting mail text.
+
+    `trusted` is the whole trick. Inside an item list (emails/leads/rows) the
+    free-text substring heuristic is OFF — that content is written by strangers,
+    and "Re: your invoice FAILED" is their wording, not our job status. But an
+    explicit `error` field on an item is OUR structure and still counts. So a
+    per-row {"id": 7, "error": "rejected"} escalates while a subject line
+    saying FAILED does not.
+    """
+    if depth > 6:  # depth guard; real job results are shallow
+        return False
+    if isinstance(node, str):
+        return trusted and ("ERROR" in node.upper() or "FAILED" in node.upper())
+    if isinstance(node, list):
+        return any(_scan_for_failure(v, depth + 1, trusted) for v in node)
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in _FAILURE_KEYS and value not in (None, "", [], {}, False, 0):
+                return True
+            if _scan_for_failure(value, depth + 1, trusted and key not in _ITEM_KEYS):
+                return True
     return False
 
 
@@ -1286,7 +1304,17 @@ def _is_nothing_happened(result_msg: str) -> bool:
               and isinstance(v, int) and not isinstance(v, bool)]
     if not counts or any(c != 0 for c in counts):
         return False
-    # Zero counts AND nothing itemised — genuinely a no-op tick.
+    # Zero counts is NOT enough. {"unread_count": 0, "status": "changed",
+    # "message": "OAuth token refreshed"} counts nothing and still matters —
+    # suppressing it here makes the notification disappear entirely rather than
+    # merely get reformatted. Require the status to be explicitly benign and no
+    # signal field populated before calling a tick a no-op.
+    status = str(data.get("status") or data.get("message") or "").strip().lower()
+    if status and status not in _BENIGN_STATUS:
+        return False
+    if any(data.get(k) not in (None, "", [], {}, False, 0) for k in _SIGNAL_KEYS):
+        return False
+    # Zero counts, benign status, nothing itemised — genuinely a no-op tick.
     return not any(isinstance(data.get(k), list) and data.get(k) for k in _ITEM_KEYS)
 
 
@@ -1661,8 +1689,14 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                 # up. Same renderer, so the error field leads instead of being
                 # the part the slice cut off. Job name is passed separately by
                 # notify_error, so strip the headline the renderer prepends.
+                # Strip the EXACT headline the renderer prepended — not "split
+                # on the first em dash", which corrupts the detail when the job
+                # name itself contains one and silently doubles the name when
+                # the renderer returns no separator at all.
                 detail = humanize_job_result(job_name, result_msg)
-                detail = detail.split(" — ", 1)[-1] if " — " in detail.split("\n")[0] else detail
+                headline = f"{job_name} — "
+                if detail.startswith(headline):
+                    detail = detail[len(headline):]
                 notify_error(job_name, detail[:400], agent=owner)
         elif not is_routine:
             # Was: f"{job_name}: {result_msg[:200]}" — raw JSON, sliced

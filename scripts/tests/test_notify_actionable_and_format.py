@@ -403,6 +403,68 @@ def test_a_cause_beyond_200_chars_is_kept_that_is_the_whole_point():
     assert "Supabase connection refused after 3 retries" in rendered
 
 
+# ── Codex round 2 on the turnkey pass, 2026-08-04 ─────────────────────────
+
+@pytest.mark.parametrize("payload,why", [
+    ('["ERROR: database unavailable"]', "JSON list payload"),
+    ('{"result": {"error": "connection refused"}}', "nested error dict"),
+    ('{"stage": {"stderr": "FAILED to bind port"}}', "nested stderr text"),
+    ('{"rows": [{"id": 7, "error": "constraint violation"}]}', "explicit error inside an item"),
+])
+def test_failures_are_found_however_they_are_nested(payload, why):
+    """Codex [high]: the first classifier returned False for any non-dict and
+    only read top-level scalars, so these went from 'failure' under the old
+    substring check to SILENCE. Turning a broken job into silence is worse than
+    the false alarm it replaced."""
+    assert sch._looks_like_failure(payload) is True, why
+
+
+@pytest.mark.parametrize("subject", [
+    "Your payment FAILED to process",
+    "ERROR: action required",
+])
+def test_untrusted_item_text_still_does_not_escalate(subject):
+    """The recursion must not undo the false-alarm fix: free text inside an
+    item list is a stranger's wording, not our job status."""
+    payload = json.dumps({"status": "checked", "unread_count": 1,
+                          "emails": [{"from": "p@co.com", "subject": subject}]})
+    assert sch._looks_like_failure(payload) is False, subject
+
+
+def test_agent_metadata_cannot_break_delivery():
+    """Codex [high]: only the body was escaped; the misroute marker
+    interpolates a caller-supplied agent name into the prefix."""
+    composed = f"System  ·  [for ops<&> — bridge not configured]\nbody\n\n9:00 AM"
+    safe = nf._escape_html(composed)
+    assert "<" not in safe and ">" not in safe
+    assert "ops&lt;&amp;&gt;" in safe
+
+
+def test_meaningful_zero_count_tick_is_not_suppressed():
+    """Codex [medium]: counts can all be zero and the tick still matter."""
+    assert sch._is_nothing_happened(json.dumps({
+        "unread_count": 0, "status": "changed",
+        "message": "OAuth token refreshed"})) is False
+    assert sch._is_nothing_happened(json.dumps({
+        "unread_count": 0, "warning": "credential expires in 3 days"})) is False
+    # ...but a genuine no-op still is.
+    assert sch._is_nothing_happened(json.dumps({
+        "unread_count": 0, "status": "checked"})) is True
+
+
+def test_job_name_containing_an_em_dash_is_stripped_correctly():
+    """Codex [medium]: splitting on the first em dash corrupts the detail when
+    the job name has one, and doubles the name when there is no separator."""
+    job = "Sync — Stripe"
+    payload = json.dumps({"status": "failed", "error": "connection refused"})
+    rendered = sch.humanize_job_result(job, payload)
+    headline = f"{job} — "
+    detail = rendered[len(headline):] if rendered.startswith(headline) else rendered
+    assert detail.startswith("failed") or "connection refused" in detail
+    assert "Stripe" not in detail.split("\n")[0], "split landed inside the job name"
+    assert not detail.startswith("— ")
+
+
 def test_booleans_are_not_rendered_as_counts():
     """bool is a subclass of int — {"sent": True} must not render "True sent"."""
     out = sch.humanize_job_result("Some Job", json.dumps({"sent": True, "status": "done"}))
