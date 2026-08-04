@@ -1150,18 +1150,14 @@ def record_inbound(
                 # `classification` has been sitting in scope as the first
                 # parameter of this function the whole time.
                 eligible, why = should_create_lead(from_identity, classification)
+                raw_lead = {
+                    "name": from_identity.split("@")[0],
+                    "email": from_identity.strip().lower(),
+                    "source": "inbound_" + channel,
+                }
                 if not eligible:
                     print(f"[inbound_classifier] no lead created for "
                           f"{from_identity}: {why}", file=sys.stderr)
-                    raw_lead = None
-                else:
-                    raw_lead = {
-                        "name": from_identity.split("@")[0],
-                        "email": from_identity.strip().lower(),
-                        "source": "inbound_" + channel,
-                    }
-                if raw_lead is None:
-                    pass  # ineligible sender — already logged above
                 elif not has_hard_required(raw_lead):
                     print(
                         f"[inbound_classifier] lead_contract rejected lead creation for {from_identity}",
