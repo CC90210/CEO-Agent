@@ -327,13 +327,20 @@ the column. If a step says "verify it works", it is not finished — name the co
 string its output must contain. If § 4 repeats something CC answered in Phase 1.5, the loop
 leaked — move it into the phase that consumes it.
 
-**Alternate rendering (7 headings).** The OASIS Command Center playbook
-(`~/APPS/oasis-command-center/docs/vibe-translator-playbook.md`) renders this same contract as
-seven flat headings — OBJECTIVE · CONTEXT · CONTRACTS · BUILD · GUARDRAILS · VERIFICATION ·
-OPEN QUESTIONS — for prompts pasted straight into a fresh executor. It carries the identical
-content and the same 7 defenses; the mapping table lives in that playbook. The 4-section
-skeleton above stays canonical in this repo, in lockstep with
-[[prompts/_TEMPLATE_SYSTEM_PROMPT]].
+**Alternate rendering (7 headings).** The operator-facing copy of this protocol ships in the
+Command Center — `~/APPS/oasis-command-center/content/playbooks/11-vibe-translator.md`, live at
+`/playbook/11-vibe-translator` — and renders the same contract as seven flat headings:
+OBJECTIVE · CONTEXT · CONTRACTS · BUILD · GUARDRAILS · VERIFICATION · OPEN QUESTIONS. That is
+the shape the **Prompt translator** entry in the Prompts Library
+(`~/APPS/oasis-command-center/lib/prompts-library.ts`, id `vibe-to-execution-translator`) emits,
+because its output gets pasted straight into a fresh chat. Identical content, identical 7
+defenses; the lossless mapping table lives in that playbook.
+
+**Keep all three in lockstep** — this skill, the Command Center playbook, and the Prompts Library
+entry. The 4-section skeleton above stays canonical *in this repo*, matching
+[[prompts/_TEMPLATE_SYSTEM_PROMPT]]; the 7-heading form is canonical on the dashboard. A version
+bump here that stops at this file leaves the prompt CC actually copies two versions behind —
+which is exactly what happened between V8.0 and V9.1.
 
 ## Phase 4 — Execute the 8-step closed loop
 
