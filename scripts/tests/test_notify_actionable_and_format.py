@@ -521,6 +521,33 @@ def test_retry_scheduling_uses_the_same_classifier_as_alerting():
     assert not offenders, f"substring error-classification still live: {offenders}"
 
 
+@pytest.mark.parametrize("payload,why", [
+    ('{"results":[{"status":"FAILED"}]}', "nested status inside an item list"),
+    ('{"rows":[{"ok":false}]}', "ok=false inside an item list"),
+    ('{"items":[{"success":false}]}', "success=false inside an item list"),
+    ('{"report":[{"stage":{"status":"error"}}]}', "status nested two deep"),
+])
+def test_structured_failure_indicators_count_even_inside_item_lists(payload, why):
+    """Codex [high], 2026-08-04. The `trusted` flag correctly suppresses the
+    free-text substring heuristic inside item lists (a stranger's email subject
+    is not our job status) — but I also suppressed the STRUCTURED indicators,
+    which ARE our schema wherever they appear. {"results":[{"status":"FAILED"}]}
+    was caught by the old substring check and silently stopped being caught, so
+    a genuinely failing job stopped retrying and reset its own fail_count.
+
+    This is behavioural, not a source-string grep — the earlier test could not
+    have caught it."""
+    assert sch._looks_like_failure(payload) is True, why
+
+
+def test_untrusted_free_text_still_does_not_escalate_after_that_fix():
+    """The counterpart: restoring structured detection must not resurrect the
+    false alarm. A subject line is still not a job status."""
+    payload = json.dumps({"status": "checked", "unread_count": 1, "emails": [
+        {"from": "p@co.com", "subject": "Your payment FAILED to process"}]})
+    assert sch._looks_like_failure(payload) is False
+
+
 def test_booleans_are_not_rendered_as_counts():
     """bool is a subclass of int — {"sent": True} must not render "True sent"."""
     out = sch.humanize_job_result("Some Job", json.dumps({"sent": True, "status": "done"}))

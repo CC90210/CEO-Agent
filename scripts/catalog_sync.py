@@ -88,15 +88,23 @@ def _update_file(path: Path, block: str, check_only: bool) -> str:
             re.DOTALL,
         )
         new_text = pattern.sub(block, text)
-        # Timestamp-insensitive: identical counts are "in sync" even though the
-        # rendered timestamp differs. This also stops a bare re-run from
-        # rewriting both files (and dirtying git) purely to bump a clock.
-        if _ignoring_timestamp(new_text) == _ignoring_timestamp(text):
-            return "in sync"
+        counts_unchanged = _ignoring_timestamp(new_text) == _ignoring_timestamp(text)
+
+        # --check answers ONE question: did the counts move? The clock is not
+        # drift.
         if check_only:
-            return "drift detected"
+            return "in sync" if counts_unchanged else "drift detected"
+
+        # Write mode answers a DIFFERENT question, so it must not reuse that
+        # answer. Skipping the write when only the timestamp differed avoided
+        # git churn but left "_Last synced_" claiming a date that got older
+        # every run while syncs kept succeeding — a field that states recency
+        # and then lies about it is worse than churn. Always persist; report
+        # which kind of change it was.
+        if new_text == text:
+            return "in sync"
         path.write_text(new_text, encoding="utf-8")
-        return "updated"
+        return "in sync (timestamp refreshed)" if counts_unchanged else "updated"
     # Append a new block with spacing
     if check_only:
         return "missing block"

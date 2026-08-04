@@ -222,11 +222,17 @@ def _unstamped_insert_advisory() -> str:
     only in a commit message is a gap nobody sees again.
 
     Never raises — an advisory that can break the check it decorates is worse
-    than no advisory.
+    than no advisory. But it also never makes an AFFIRMATIVE safety claim: this
+    is a regex over a narrow fluent-call shape with a 16-line proximity window,
+    so it can miss a payload built further away and can be fooled by an
+    unrelated nearby `tenant_id`. It is good enough to say "look here", never
+    good enough to say "all clear" (Codex audit 2026-08-04 — a zero from a
+    heuristic reading as a guarantee is the same false-confidence bug this
+    whole check was relabelled for).
     """
     try:
         scripts_dir = Path(__file__).resolve().parent
-        unstamped = 0
+        candidates = 0
         for path in scripts_dir.rglob("*.py"):
             parts = path.parts
             if "_archive" in parts or "__pycache__" in parts or "tests" in parts:
@@ -238,12 +244,13 @@ def _unstamped_insert_advisory() -> str:
             for m in _TENANT_WRITE_RE.finditer(text):
                 ln = text[:m.start()].count("\n")
                 if "tenant_id" not in "\n".join(lines[ln:ln + 16]):
-                    unstamped += 1
-        if unstamped:
-            return f" | ADVISORY: {unstamped} unstamped tenant-table INSERTs fleet-wide"
-        return " | fleet: all tenant-table INSERTs stamped"
-    except Exception:  # noqa: BLE001
-        return " | (fleet advisory unavailable)"
+                    candidates += 1
+        if candidates:
+            return (f" | ADVISORY: {candidates} candidate unstamped tenant-table "
+                    f"INSERTs (heuristic, verify before trusting)")
+        return " | (no unstamped INSERT candidates matched — heuristic, not a guarantee)"
+    except Exception as exc:  # noqa: BLE001
+        return f" | (fleet advisory failed: {type(exc).__name__}: {str(exc)[:60]})"
 
 
 _REQUIRED_GUARDS = {"EMPIRE_HOOK_SECRET_GUARD", "EMPIRE_HOOK_EXEC_GUARD", "EMPIRE_HOOK_STATE_GUARD"}

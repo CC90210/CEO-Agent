@@ -56,15 +56,27 @@ def test_a_real_count_change_is_still_drift(tmp_path):
     assert cs._update_file(f, changed, check_only=True) == "drift detected"
 
 
-def test_write_mode_does_not_churn_on_timestamp_only(tmp_path):
-    """A bare re-run must not rewrite the file just to bump a clock — that
-    dirties git on every scheduled sync."""
+def test_write_mode_keeps_the_last_synced_field_honest(tmp_path):
+    """Codex audit 2026-08-04: the first version skipped the write when only the
+    timestamp differed, to avoid git churn. That left "_Last synced_" claiming a
+    date that got staler every run while syncs kept succeeding — a field that
+    states recency and then lies is worse than churn. --check stays
+    timestamp-insensitive; WRITE mode persists."""
     f = tmp_path / "STATE.md"
-    original = _doc("2026-08-04T10:00:00+00:00", 128)
-    f.write_text(original, encoding="utf-8")
+    f.write_text(_doc("2026-08-04T10:00:00+00:00", 128), encoding="utf-8")
     newer = BLOCK.format(ts="2026-08-05T01:02:03+00:00", n=128)
-    assert cs._update_file(f, newer, check_only=False) == "in sync"
-    assert f.read_text(encoding="utf-8") == original, "file was rewritten needlessly"
+    assert cs._update_file(f, newer, check_only=False) == "in sync (timestamp refreshed)"
+    text = f.read_text(encoding="utf-8")
+    assert "2026-08-05T01:02:03+00:00" in text, "last-synced date went stale"
+    assert "| Python scripts | 128 |" in text, "counts must be untouched"
+
+
+def test_check_mode_still_ignores_the_timestamp_after_that_change(tmp_path):
+    """The two modes answer different questions and must not drift apart."""
+    f = tmp_path / "STATE.md"
+    f.write_text(_doc("2026-01-01T00:00:00+00:00", 128), encoding="utf-8")
+    newer = BLOCK.format(ts="2026-08-05T01:02:03+00:00", n=128)
+    assert cs._update_file(f, newer, check_only=True) == "in sync"
 
 
 def test_write_mode_persists_a_real_change(tmp_path):

@@ -1276,6 +1276,15 @@ def _scan_for_failure(node, depth: int = 0, trusted: bool = True) -> bool:
     if isinstance(node, list):
         return any(_scan_for_failure(v, depth + 1, trusted) for v in node)
     if isinstance(node, dict):
+        # Structured indicators are OUR schema wherever they appear, so they
+        # count even inside an item list. Only the free-text substring heuristic
+        # is suppressed there. Missing this made {"results":[{"status":"FAILED"}]}
+        # — which the old substring check DID catch — return False, so a genuinely
+        # failing job stopped retrying and reset its own fail_count.
+        if str(node.get("status", "")).strip().lower() in _FAILURE_STATUS:
+            return True
+        if node.get("ok") is False or node.get("success") is False:
+            return True
         for key, value in node.items():
             if key in _FAILURE_KEYS and value not in (None, "", [], {}, False, 0):
                 return True
