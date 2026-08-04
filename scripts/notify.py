@@ -42,6 +42,27 @@ _DEDUP_PATH = Path(__file__).resolve().parent.parent / "tmp" / "notify_dedup.jso
 DEDUP_WINDOW_SEC = int(os.environ.get("NOTIFY_DEDUP_WINDOW_SEC", "3600"))
 
 
+# A lone CLI flag ("--help", "-h", "--dry-run") that reached notify() as the
+# message body. Deliberately narrow: it matches ONLY a single dash-prefixed
+# token with no other words, so a real alert that happens to start with a flag
+# ("--group lane resolved no chat id") still sends.
+_BARE_FLAG_RE = re.compile(r"^-{1,2}[A-Za-z][A-Za-z0-9_-]*$")
+
+
+def _is_actionable(message: str) -> bool:
+    """False for payloads that tell CC nothing: empty text, or a bare CLI flag.
+
+    This is the chokepoint guard behind the notify.py CLI fix — the CLI stops
+    the common case, this stops every other caller, including future ones.
+    """
+    if not isinstance(message, str):
+        return False
+    stripped = message.strip()
+    if not stripped:
+        return False
+    return not _BARE_FLAG_RE.match(stripped)
+
+
 def _notify_disabled() -> bool:
     """Hard off-switch. Set NOTIFY_DISABLED=1 (or run under pytest) to make
     notify() a no-op — so a test can exercise the dead-letter/alert code paths
@@ -462,6 +483,17 @@ def notify(message: str, category: str = "system", silent: bool = False,
     if _notify_disabled():
         return False
 
+    # A notification CC cannot act on is worse than no notification: it costs
+    # him a context switch and teaches him to ignore the channel. Refuse the
+    # two payloads that carry zero information — empty text, and a bare CLI
+    # flag that leaked in as a message (2026-08-04: "--help" reached his phone
+    # this way). Fail loud on stderr so the CALLER's bug surfaces where it can
+    # be fixed, instead of surfacing as a mystery ping on CC's phone.
+    if not _is_actionable(message):
+        print(f"[notify] refused non-actionable message: {message!r} — say what "
+              f"the problem is, or don't send.", file=sys.stderr)
+        return False
+
     # Block noisy categories unless forced
     if not force and category in _get_blocked_categories():
         return False
@@ -874,23 +906,64 @@ def notify_voice(audio_bytes: bytes, *, caption: str | None = None,
     return ok_count > 0
 
 
-# Quick test
+USAGE = """usage: notify.py [--group] [--test] <message>
+
+Send a Telegram notification to CC.
+
+  notify.py "message"           CC's private chat (forced past category muting)
+  notify.py --test              routing-check ping, private lane
+  notify.py --group "message"   explicit team broadcast (Adon/Knut group)
+  notify.py --test --group      routing-check ping, group lane
+  notify.py -h | --help         this text (sends nothing)
+
+Every other argument is the message. A message is REQUIRED - this CLI will not
+send a content-free ping."""
+
+
 if __name__ == "__main__":
-    # python scripts/notify.py "message"            → CC's private chat (forced)
-    # python scripts/notify.py --test               → routing check ping, private lane
-    # python scripts/notify.py --group "message"    → explicit team broadcast
-    # python scripts/notify.py --test --group       → routing check ping, group lane
     _args = sys.argv[1:]
+
+    # 2026-08-04: `notify.py --help` used to BROADCAST the literal string
+    # "--help" to CC's phone. There was no argparse here, so every token that
+    # wasn't exactly --test/--group fell through to `" ".join(_args)` and was
+    # force-sent past the category block. CC got a message from Bravo that just
+    # said "--help" and, reasonably, had no idea what it wanted. Any flag typo
+    # (-h, --dry-run, --verison) had the same effect. Help and unknown flags now
+    # print locally and exit WITHOUT sending.
+    if any(a in ("-h", "--help") for a in _args):
+        print(USAGE)
+        sys.exit(0)
+
     _test = "--test" in _args
     _group = "--group" in _args
-    _args = [a for a in _args if a not in ("--test", "--group")]
+    _rest = [a for a in _args if a not in ("--test", "--group")]
+
+    _unknown = [a for a in _rest if a.startswith("-") and a != "-"]
+    if _unknown:
+        print(f"notify.py: unknown option(s): {' '.join(_unknown)}", file=sys.stderr)
+        print("", file=sys.stderr)
+        print(USAGE, file=sys.stderr)
+        sys.exit(2)
+
     if _test:
         _msg = self_test_message(_group)
+    elif _rest:
+        _msg = " ".join(_rest)
     else:
-        _msg = " ".join(_args) if _args else "Bravo notification system online."
+        # Was: "Bravo notification system online." — a ping with no information,
+        # indistinguishable from a real alert on a phone screen. Nothing in the
+        # repo invoked it; a bare run is a mistake, so say so here instead of
+        # paging CC.
+        print("notify.py: nothing to send — pass a message, or --test for a "
+              "routing check.", file=sys.stderr)
+        print("", file=sys.stderr)
+        print(USAGE, file=sys.stderr)
+        sys.exit(2)
+
     # CLI sends are explicit operator action: force past the category block
     # list (category "system" is blocked for automation, not for a human
     # typing a command — the old CLI always printed Sent: False).
     result = notify(_msg, category="system", force=True, group=_group)
     lane = "group (GROUP_TELEGRAM_CHAT_ID)" if _group else "private (TELEGRAM_ALLOWED_USERS)"
     print(f"Sent: {result}  ·  lane: {lane}")
+    sys.exit(0 if result else 1)

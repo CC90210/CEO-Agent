@@ -1149,6 +1149,114 @@ def log(msg: str):
     print(f"[{ts}] {msg}", flush=True)
 
 
+# ── Cron result → something readable on a phone ────────────────────────────
+# Until 2026-08-04 a job's raw stdout went straight to Telegram sliced at 200
+# chars: CC got `Inbound Email Sweep: { "status": "checked", "unread_count": 1,
+# "emails": [ { "from": "noreply-dmarc-...` — a JSON blob truncated mid-value,
+# so the one field that mattered (the full Report-ID) was the part cut off.
+# The scheduler already knows the shape; rendering it is cheap and the alert
+# only has value if it can be read at a glance.
+
+# Count keys worth putting in the headline, in the order they should appear.
+_COUNT_LABELS = (
+    ("unread_count", "unread"),
+    ("sent", "sent"),
+    ("published", "published"),
+    ("synced", "synced"),
+    ("inserted", "inserted"),
+    ("updated", "updated"),
+    ("processed", "processed"),
+    ("skipped", "skipped"),
+    ("failed", "failed"),
+)
+
+# Keys whose value is a list of things worth listing individually.
+_ITEM_KEYS = ("emails", "leads", "items", "posts", "messages", "results", "rows")
+
+# Per-item label candidates: who it's from, then what it's about.
+_WHO_KEYS = ("from", "email", "sender", "name", "to", "lead", "account")
+_WHAT_KEYS = ("subject", "title", "summary", "message", "status", "reason")
+
+
+def _clip(text: str, limit: int) -> str:
+    """Truncate on a word boundary with an ellipsis — never mid-token.
+
+    The old `[:200]` slice cut through a Report-ID and left CC a half-number.
+    """
+    text = " ".join(str(text).split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0]
+    return (cut or text[:limit]).rstrip(" ,;:-") + "…"
+
+
+def _item_line(item) -> str:
+    """One bullet for a single result item."""
+    if not isinstance(item, dict):
+        return f"• {_clip(item, 100)}"
+    who = next((item[k] for k in _WHO_KEYS if item.get(k)), None)
+    what = next((item[k] for k in _WHAT_KEYS if item.get(k)), None)
+    if who and what:
+        return f"• {_clip(who, 60)}\n   {_clip(what, 120)}"
+    if who or what:
+        return f"• {_clip(who or what, 120)}"
+    # Unknown shape: show its fields as plain text rather than raw JSON.
+    return "• " + _clip(" · ".join(f"{k}: {v}" for k, v in item.items()), 120)
+
+
+def humanize_job_result(job_name: str, result_msg: str, max_items: int = 3) -> str:
+    """Render a cron job's result as plain text CC can read at a glance.
+
+    Falls back to the (whitespace-collapsed, word-boundary-clipped) raw string
+    for any shape it doesn't recognise — it never emits raw JSON punctuation,
+    and it never returns something less informative than what it was given.
+    """
+    raw = (result_msg or "").strip()
+    if not raw:
+        return f"{job_name} — ran, no output"
+
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return f"{job_name} — {_clip(raw, 300)}"
+
+    if not isinstance(data, dict):
+        if isinstance(data, list):
+            lines = [_item_line(i) for i in data[:max_items]]
+            extra = len(data) - len(lines)
+            head = f"{job_name} — {len(data)} item{'s' if len(data) != 1 else ''}"
+            if extra > 0:
+                lines.append(f"• …and {extra} more")
+            return "\n".join([head, *lines])
+        return f"{job_name} — {_clip(raw, 300)}"
+
+    counts = [f"{data[key]} {label}" for key, label in _COUNT_LABELS
+              if isinstance(data.get(key), int)]
+    headline = f"{job_name} — " + (" · ".join(counts) if counts
+                                   else _clip(data.get("status") or data.get("message") or "done", 120))
+
+    lines = [headline]
+    for key in _ITEM_KEYS:
+        items = data.get(key)
+        if isinstance(items, list) and items:
+            for item in items[:max_items]:
+                lines.append(_item_line(item))
+            extra = len(items) - min(len(items), max_items)
+            if extra > 0:
+                lines.append(f"• …and {extra} more")
+            break
+
+    # Nothing but a headline and no counts: surface the remaining scalars so the
+    # alert still says something concrete.
+    if len(lines) == 1 and not counts:
+        scalars = [f"{k}: {_clip(v, 60)}" for k, v in data.items()
+                   if isinstance(v, (str, int, float, bool)) and k not in ("status", "message")]
+        if scalars:
+            lines.append(_clip(" · ".join(scalars), 200))
+
+    return "\n".join(lines)
+
+
 def check_and_run_due_jobs(client, env_vars: dict[str, str]):
     """Core loop iteration: find due jobs and execute them."""
     now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -1422,8 +1530,11 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             else:
                 notify_error(job_name, result_msg[:200], agent=owner)
         elif not is_routine:
-            notify(f"{job_name}: {result_msg[:200]}", category=cat, silent=True,
-                   agent=owner)
+            # Was: f"{job_name}: {result_msg[:200]}" — raw JSON, sliced
+            # mid-value. dedup_key pins suppression to the JOB, not the
+            # rendered text, so a changing count can't defeat dedup.
+            notify(humanize_job_result(job_name, result_msg), category=cat,
+                   silent=True, agent=owner, dedup_key=f"job_result:{job_name}")
 
     return len(due_jobs)
 
