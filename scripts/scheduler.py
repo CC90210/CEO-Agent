@@ -1213,6 +1213,83 @@ def _item_line(item) -> str:
     return "• " + _clip(" · ".join(f"{k}: {v}" for k, v in item.items()), 120)
 
 
+# Status strings that mean the JOB itself failed.
+_FAILURE_STATUS = {"error", "failed", "failure", "partial_failure", "exception",
+                   "crashed", "timeout", "aborted"}
+
+# Failure fields. Narrower than _SIGNAL_KEYS on purpose: a warning is worth
+# printing, but it is not a job failure and must not feed the escalation ladder.
+_FAILURE_KEYS = ("error", "errors", "failure", "failures")
+
+
+def _looks_like_failure(result_msg: str) -> bool:
+    """True when the JOB failed — not when its payload merely mentions failure.
+
+    The old test was `"ERROR" in result_msg or "FAILED" in result_msg`, a
+    substring scan of the ENTIRE payload. For the Inbound Email Sweep that
+    payload contains inbound email subjects and senders, so a prospect writing
+    "Re: your invoice FAILED to process" — or any of the endless "ERROR:
+    action required" phishing subjects — flipped a perfectly healthy sweep to
+    'failed', routed it to notify_error, and fed the consecutive-failure
+    escalation ladder. CC gets paged about a broken job that isn't broken, and
+    the real signal gets one notch harder to trust.
+
+    Structured results are judged on their own status/error fields. Plain-text
+    results keep the substring heuristic, because it is the only signal there.
+    """
+    raw = (result_msg or "").strip()
+    if not raw:
+        return False
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return "ERROR" in raw or "FAILED" in raw
+
+    if not isinstance(data, dict):
+        return False
+
+    if str(data.get("status", "")).strip().lower() in _FAILURE_STATUS:
+        return True
+    if data.get("ok") is False or data.get("success") is False:
+        return True
+    if any(data.get(k) not in (None, "", [], {}, False, 0) for k in _FAILURE_KEYS):
+        return True
+
+    # Fallback for jobs that report failure in free text without an error key
+    # (e.g. {"result": "FAILED to connect"}). Scans TOP-LEVEL scalars only —
+    # never the item lists, which is where untrusted email content lives.
+    for key, value in data.items():
+        if key in _ITEM_KEYS or not isinstance(value, str):
+            continue
+        if "ERROR" in value.upper() or "FAILED" in value.upper():
+            return True
+    return False
+
+
+def _is_nothing_happened(result_msg: str) -> bool:
+    """True when a structured result reports zero of everything it counts.
+
+    Backstop for the literal `'"unread_count": 0' in result_lower` probes, which
+    match exactly one spelling and miss the compact/reordered forms.
+    """
+    raw = (result_msg or "").strip()
+    if not raw.startswith("{"):
+        return False
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return False
+    if not isinstance(data, dict) or _looks_like_failure(raw):
+        return False
+    counts = [v for k, v in data.items()
+              if any(k == key for key, _ in _COUNT_LABELS)
+              and isinstance(v, int) and not isinstance(v, bool)]
+    if not counts or any(c != 0 for c in counts):
+        return False
+    # Zero counts AND nothing itemised — genuinely a no-op tick.
+    return not any(isinstance(data.get(k), list) and data.get(k) for k in _ITEM_KEYS)
+
+
 def humanize_job_result(job_name: str, result_msg: str, max_items: int = 3) -> str:
     """Render a cron job's result as plain text CC can read at a glance.
 
@@ -1548,8 +1625,12 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             or '"unread_count":0' in result_lower
             or '"published": 0' in result_lower
             or '"message": "no unread' in result_lower
+            # Structured backstop for the four string probes above, which only
+            # match one exact spelling of the JSON. Purely additive: it can make
+            # a nothing-happened tick quieter, never noisier.
+            or _is_nothing_happened(result_msg)
         )
-        is_error = "ERROR" in result_msg or "FAILED" in result_msg
+        is_error = _looks_like_failure(result_msg)
 
         # Route the alert to the agent that OWNS the job, not to Bravo by
         # default (2026-07-30). A failed content_post is Maven's problem and a
@@ -1574,7 +1655,15 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                 log(f"  (transient failure on fast job {job_name} — "
                     f"escalation at 2 consecutive owns this alert)")
             else:
-                notify_error(job_name, result_msg[:200], agent=owner)
+                # The failure path was the LAST place still shipping raw
+                # `[:200]` JSON. It is also the path where detail matters most —
+                # this is the message CC reads at 2am to decide whether to get
+                # up. Same renderer, so the error field leads instead of being
+                # the part the slice cut off. Job name is passed separately by
+                # notify_error, so strip the headline the renderer prepends.
+                detail = humanize_job_result(job_name, result_msg)
+                detail = detail.split(" — ", 1)[-1] if " — " in detail.split("\n")[0] else detail
+                notify_error(job_name, detail[:400], agent=owner)
         elif not is_routine:
             # Was: f"{job_name}: {result_msg[:200]}" — raw JSON, sliced
             # mid-value.

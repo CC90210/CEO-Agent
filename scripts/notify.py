@@ -49,6 +49,34 @@ DEDUP_WINDOW_SEC = int(os.environ.get("NOTIFY_DEDUP_WINDOW_SEC", "3600"))
 _BARE_FLAG_RE = re.compile(r"^-{1,2}[A-Za-z][A-Za-z0-9_-]*$")
 
 
+def _escape_html(text: str) -> str:
+    """Make arbitrary text safe for Telegram's parse_mode=HTML.
+
+    Only the three characters Telegram's parser treats as markup. Deliberately
+    NOT html.escape(quote=True): quotes are legal in a text node, and turning
+    every apostrophe into &#x27; makes CC's alerts unreadable.
+    """
+    return (str(text).replace("&", "&amp;")
+                     .replace("<", "&lt;")
+                     .replace(">", "&gt;"))
+
+
+def _truncate_escaped(text: str, limit: int) -> str:
+    """Truncate an already-escaped string without splitting an HTML entity.
+
+    Cutting "&amp;" into "&am" leaves a dangling entity in the payload. Back off
+    to before the last unterminated '&' instead.
+    """
+    if len(text) <= limit:
+        return text
+    cut = text[:limit - 3]
+    tail = cut.rfind("&")
+    # An '&' inside the last few chars with no closing ';' is a split entity.
+    if tail != -1 and ";" not in cut[tail:]:
+        cut = cut[:tail]
+    return cut + "..."
+
+
 def _is_actionable(message: str) -> bool:
     """False for payloads that tell CC nothing: empty text, or a bare CLI flag.
 
@@ -651,9 +679,18 @@ def notify(message: str, category: str = "system", silent: bool = False,
     if not routed_home:
         prefix = f"{prefix}  ·  [for {target_agent} — bridge not configured in this repo]"
     timestamp = datetime.now().strftime("%#I:%M %p")  # 12-hour format, no leading zero
-    full_message = f"{prefix}\n{message}\n\n{timestamp}"
+    # ESCAPE THE BODY (2026-08-04). This request sets parse_mode=HTML, and the
+    # body routinely carries text we do not control — inbound email subjects and
+    # senders, scraped titles, error strings from third-party APIs. Telegram
+    # answers 400 "can't parse entities" on an unsupported tag, so ONE inbound
+    # email with a subject like "Re: <urgent> invoice & payment" meant the whole
+    # alert was never delivered: generated, logged as attempted, silently lost.
+    # Verified before changing this: zero callers in scripts/ pass HTML tags to
+    # notify(), so nothing depended on the body being interpreted as markup.
+    # Escaping also stops untrusted mail from injecting markup into CC's client.
+    full_message = f"{prefix}\n{_escape_html(message)}\n\n{timestamp}"
     if len(full_message) > 4096:
-        full_message = full_message[:4093] + "..."
+        full_message = _truncate_escaped(full_message, 4096)
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {

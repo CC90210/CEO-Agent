@@ -289,6 +289,120 @@ def test_a_real_send_path_clears_the_refused_flag(monkeypatch):
     assert nf.LAST_REFUSED is False, "stale refusal flag would mislead the next caller"
 
 
+# ── Turnkey pass, 2026-08-04: delivery, classification, failure detail ────
+
+def test_hostile_subject_cannot_break_html_delivery():
+    """The send sets parse_mode=HTML. An inbound subject containing a tag made
+    Telegram answer 400 "can't parse entities" — the alert was generated,
+    logged as attempted, and never delivered. Silent loss on the lead channel."""
+    body = sch.humanize_job_result("Inbound Email Sweep", json.dumps({
+        "unread_count": 1,
+        "emails": [{"from": "a@b.com",
+                    "subject": "Re: <urgent> invoice & payment <b>overdue</b>"}],
+    }, indent=2))
+    assert "<" in body and "&" in body          # the renderer passes content through
+    safe = nf._escape_html(body)
+    assert "<" not in safe and ">" not in safe
+    assert "&lt;urgent&gt;" in safe
+    assert "&amp;" in safe
+    # Readability is not sacrificed: apostrophes/quotes stay literal.
+    assert nf._escape_html("CC's \"report\"") == "CC's \"report\""
+
+
+def test_truncation_never_splits_an_html_entity():
+    text = "x" * 4090 + "&amp;tail"
+    out = nf._truncate_escaped(text, 4096)
+    assert len(out) <= 4096
+    assert not out.rstrip(".").endswith("&am")
+    assert "&" not in out.rstrip(".")[-4:] or ";" in out.rstrip(".")[-6:]
+
+
+def test_short_messages_are_not_truncated():
+    assert nf._truncate_escaped("hello", 4096) == "hello"
+
+
+@pytest.mark.parametrize("subject", [
+    "Your payment FAILED to process",
+    "ERROR: action required on your account",
+    "URGENT: transfer FAILED",
+])
+def test_email_subject_mentioning_failure_is_not_a_job_failure(subject):
+    """The real bug: is_error substring-scanned the whole payload, including
+    inbound email subjects, so a prospect's wording marked a healthy sweep as
+    failed and fed the consecutive-failure escalation ladder."""
+    payload = json.dumps({"status": "checked", "unread_count": 1,
+                          "emails": [{"from": "p@co.com", "subject": subject}]})
+    assert sch._looks_like_failure(payload) is False, subject
+
+
+def test_genuine_job_failures_are_still_detected():
+    for payload in (
+        json.dumps({"status": "failed", "processed": 0}),
+        json.dumps({"status": "ok", "error": "connection refused"}),
+        json.dumps({"ok": False}),
+        json.dumps({"result": "FAILED to connect to Supabase"}),
+        "Traceback: ERROR connecting",                       # plain text unchanged
+        json.dumps({"errors": ["row 7 rejected"]}),
+    ):
+        assert sch._looks_like_failure(payload) is True, payload
+
+
+def test_warnings_are_reported_but_do_not_escalate():
+    """A warning belongs in the message, not on the failure ladder."""
+    payload = json.dumps({"synced": 5, "warning": "3 rows skipped"})
+    assert sch._looks_like_failure(payload) is False
+    assert "3 rows skipped" in sch.humanize_job_result("Sync", payload)
+
+
+def test_zero_count_ticks_are_recognised_in_any_json_spelling():
+    """The literal probes only matched '"unread_count": 0'. Compact and
+    reordered spellings slipped through and notified CC about nothing."""
+    for payload in ('{"unread_count":0,"status":"checked"}',
+                    '{"status":"checked", "unread_count" : 0}',
+                    json.dumps({"status": "checked", "unread_count": 0}, indent=2)):
+        assert sch._is_nothing_happened(payload) is True, payload
+
+
+def test_a_tick_with_actual_content_is_never_called_routine():
+    assert sch._is_nothing_happened(SWEEP_RESULT) is False
+    assert sch._is_nothing_happened(json.dumps({"unread_count": 0,
+                                                "emails": [{"from": "a@b.c"}]})) is False
+    assert sch._is_nothing_happened(json.dumps({"unread_count": 0,
+                                                "error": "imap timeout"})) is False
+
+
+def test_failure_alerts_render_the_cause_not_a_json_dump():
+    """The error path was the last place shipping raw [:200] JSON — and it is
+    the message CC reads at 2am. notify_error() prepends "<job> error:", so the
+    detail must not repeat the job name."""
+    payload = json.dumps({"status": "failed", "processed": 4, "failed": 3,
+                          "error": "Supabase connection refused after 3 retries"},
+                         indent=2)
+    rendered = sch.humanize_job_result("Stripe Revenue Sync", payload)
+    detail = (rendered.split(" — ", 1)[-1]
+              if " — " in rendered.split("\n")[0] else rendered)
+    assert not detail.startswith("Stripe Revenue Sync"), "job name would be doubled"
+    assert "Supabase connection refused after 3 retries" in detail
+    assert "{" not in detail and '"' not in detail
+
+
+def test_a_cause_beyond_200_chars_is_kept_that_is_the_whole_point():
+    """Honest discrimination. On a SMALL payload the old [:200] slice happened
+    to include the error too — the first version of the test above asserted
+    otherwise and was simply wrong. The failure mode is real but needs a payload
+    where the cause sits past the cut, which is the common shape: counts and
+    items first, diagnosis last."""
+    payload = json.dumps({
+        "status": "failed",
+        "processed": 40,
+        "rows": [{"id": f"row-{i}", "state": "rejected"} for i in range(6)],
+        "error": "Supabase connection refused after 3 retries",
+    }, indent=2)
+    assert "Supabase connection refused" not in payload[:200], "fixture must exercise the cut"
+    rendered = sch.humanize_job_result("Stripe Revenue Sync", payload)
+    assert "Supabase connection refused after 3 retries" in rendered
+
+
 def test_booleans_are_not_rendered_as_counts():
     """bool is a subclass of int — {"sent": True} must not render "True sent"."""
     out = sch.humanize_job_result("Some Job", json.dumps({"sent": True, "status": "done"}))
