@@ -904,6 +904,22 @@ def resolve_lead_id(
             # as before. Possible if there's a duplicate at the DB layer.
             return rows[0]["id"]
         # No existing row — auto-create tenantless (legacy / OASIS-personal).
+        #
+        # NOT gated by lead_contract.should_create_lead(), deliberately. A first
+        # attempt on 2026-08-04 did exactly that, to stop send-path probes like
+        # probe-send@e2e.invalid becoming permanent CRM rows. It returned None
+        # for an ineligible recipient — and None from THIS function is already a
+        # load-bearing refusal signal: send() at the `was_email_resolution_attempt`
+        # check turns it into {"status": "blocked", reason: cross-tenant
+        # ambiguity}. So a CRM-hygiene rule silently blocked real outbound mail
+        # to any no-reply or reserved-domain recipient, with a misleading reason.
+        # test_12_auto_create_lead caught it.
+        #
+        # The inbound guard handles 35 of the 37 junk rows. The 2 that arrive
+        # here are cheap to retire with scripts/purge_junk_leads.py, and that is
+        # a far better trade than putting a lead-hygiene predicate in the path
+        # of whether an email sends at all. Reinstating it needs the caller to
+        # distinguish "no lead, proceed" from "refused, stop" first.
         now = datetime.now(timezone.utc).isoformat()
         created = db.table("leads").insert({
             "name": norm.split("@")[0],

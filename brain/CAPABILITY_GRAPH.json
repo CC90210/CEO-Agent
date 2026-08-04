@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-04T00:36:07.795431+00:00",
+  "generated_at": "2026-08-04T16:58:23.044758+00:00",
   "totals": {
     "skills": 159,
-    "scripts": 134,
+    "scripts": 135,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 384,
-    "edges_total": 157,
+    "nodes_total": 385,
+    "edges_total": 158,
     "drift_count": 0
   },
   "nodes": [
@@ -6332,6 +6332,28 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:purge_junk_leads",
+      "kind": "script",
+      "name": "purge_junk_leads",
+      "path": "scripts/purge_junk_leads.py",
+      "description": "Retire CRM rows that were never leads.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "lead.data_operations",
+      "lifecycle": "one_off",
+      "risk": "external_write",
+      "triggers": [
+        "purge junk leads",
+        "retire junk leads",
+        "clean the crm"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
       "id": "script:quest_publisher",
       "kind": "script",
       "name": "quest_publisher",
@@ -8732,6 +8754,11 @@
       "from": "script:pii_sweep",
       "to": "runtime:bridge_chat_server",
       "kind": "exposed_via"
+    },
+    {
+      "from": "script:purge_junk_leads",
+      "to": "script:supabase_tool",
+      "kind": "calls"
     },
     {
       "from": "script:register",

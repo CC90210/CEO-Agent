@@ -1142,13 +1142,27 @@ def record_inbound(
             else:
                 # Create a minimal inbound-only lead record. Source='inbound'
                 # distinguishes from outbound gateway auto-creates.
-                from lib.lead_contract import has_hard_required
-                raw_lead = {
-                    "name": from_identity.split("@")[0],
-                    "email": from_identity.strip().lower(),
-                    "source": "inbound_" + channel,
-                }
-                if not has_hard_required(raw_lead):
+                from lib.lead_contract import has_hard_required, should_create_lead
+
+                # The pipeline already decided this sender is a newsletter or a
+                # no-reply notification — but until 2026-08-04 this write never
+                # asked, so every vendor email became a CRM lead (35 of them).
+                # `classification` has been sitting in scope as the first
+                # parameter of this function the whole time.
+                eligible, why = should_create_lead(from_identity, classification)
+                if not eligible:
+                    print(f"[inbound_classifier] no lead created for "
+                          f"{from_identity}: {why}", file=sys.stderr)
+                    raw_lead = None
+                else:
+                    raw_lead = {
+                        "name": from_identity.split("@")[0],
+                        "email": from_identity.strip().lower(),
+                        "source": "inbound_" + channel,
+                    }
+                if raw_lead is None:
+                    pass  # ineligible sender — already logged above
+                elif not has_hard_required(raw_lead):
                     print(
                         f"[inbound_classifier] lead_contract rejected lead creation for {from_identity}",
                         file=sys.stderr,
