@@ -115,10 +115,15 @@ def send_telegram(message: str):
         return
 
     import urllib.request
+    # NO parse_mode. This is the safety net for when notify() itself is
+    # unavailable, so it must be the most robust path, not the prettiest: plain
+    # text can never be rejected for unparseable entities. With parse_mode=HTML
+    # a lead who typed "<" into the funnel form would have made Telegram answer
+    # 400 and lost the lead alert entirely — on the fallback whose whole job is
+    # getting the message out when everything else is broken.
     data = json.dumps({
         "chat_id": chat_id,
         "text": message[:4096],
-        "parse_mode": "HTML",
     }).encode()
     req = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/sendMessage",

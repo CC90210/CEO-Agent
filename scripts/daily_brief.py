@@ -29,7 +29,6 @@ Cron: register as a cron_jobs SEED entry at 06:00 daily.
 from __future__ import annotations
 
 import argparse
-import html
 import json
 import os
 import subprocess
@@ -174,11 +173,12 @@ def _narrate_via_cli(snapshot: dict) -> str | None:
     )
     if not text:
         return None
-    # notify() ships with parse_mode=HTML and has NO plain-text fallback, so a
-    # stray <, >, or & in the model's prose ("score > 70", "A & B") would make
-    # Telegram reject the whole message → CC gets nothing. Escape the three
-    # HTML-special chars; they render as literal glyphs.
-    return html.escape(text, quote=False)
+    # A stray <, >, or & in the model's prose ("score > 70", "A & B") would make
+    # Telegram reject the whole message → CC gets nothing. That escaping now
+    # happens once inside notify() for EVERY caller (2026-08-04), because doing
+    # it per-caller is how the scheduler's own path stayed unprotected. Escaping
+    # here too would double-encode it and show CC a literal "&amp;".
+    return text
 
 
 def _count_stage(pipe: dict, stage: str) -> int:
@@ -286,7 +286,8 @@ def _render_brief(snapshot: dict) -> str:
     if snapshot.get("_stale"):
         lines.append("⚠️ data may be stale — snapshot refresh failed")
     lines.append(f"⏱ snapshot {hhmm} UTC" if hhmm else "⏱ snapshot generated")
-    return html.escape("\n".join(lines), quote=False)
+    # Not escaped here: notify() escapes once for every caller (2026-08-04).
+    return "\n".join(lines)
 
 
 def build_brief(regenerate: bool = False) -> str:

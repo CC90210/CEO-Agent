@@ -465,6 +465,46 @@ def test_job_name_containing_an_em_dash_is_stripped_correctly():
     assert not detail.startswith("— ")
 
 
+def test_escaping_happens_exactly_once_in_the_fleet():
+    """Self-review 2026-08-04. Three callers (cron_health_check, daily_brief,
+    email_engine) each defended themselves with html.escape because notify()
+    did not. Moving the escape to the chokepoint made those double-encode —
+    CC would have seen a literal "&lt;module&gt;" in cron-failure alerts.
+    Escaping is now the chokepoint's job alone; this test fails if a caller
+    re-adds its own."""
+    import re as _re
+    offenders = []
+    for rel in ("core/cron_health_check.py", "daily_brief.py",
+                "integrations/email_engine.py", "funnel_nurture.py"):
+        src = (SCRIPTS / rel).read_text(encoding="utf-8", errors="replace")
+        # An escape call on a line, not inside a comment.
+        for i, line in enumerate(src.splitlines(), 1):
+            if _re.search(r"(?<!\w)(_?html)\.escape\(", line) and not line.lstrip().startswith("#"):
+                offenders.append(f"{rel}:{i}")
+    assert not offenders, (
+        "these pre-escape and will double-encode through notify(): " + ", ".join(offenders))
+
+
+def test_double_escaping_is_what_we_avoided():
+    """Discrimination: prove the failure mode is real, not hypothetical."""
+    import html as _h
+    traceback_line = 'File "<module>", line 3 & failing'
+    doubled = nf._escape_html(_h.escape(traceback_line, quote=False))
+    assert "&amp;lt;module&amp;gt;" in doubled       # what CC would have seen
+    single = nf._escape_html(traceback_line)
+    assert single == 'File "&lt;module&gt;", line 3 &amp; failing'
+
+
+def test_funnel_fallback_sends_plain_text():
+    """The raw-HTTP safety net must not set parse_mode — it runs precisely when
+    notify() (and its escaping) is unavailable."""
+    src = (SCRIPTS / "funnel_nurture.py").read_text(encoding="utf-8", errors="replace")
+    fallback = src.split("Fallback: original raw HTTP path", 1)[-1]
+    code = [ln for ln in fallback.splitlines() if not ln.lstrip().startswith("#")]
+    assert not any("parse_mode" in ln for ln in code), \
+        "fallback would break on lead-typed '<'"
+
+
 def test_booleans_are_not_rendered_as_counts():
     """bool is a subclass of int — {"sent": True} must not render "True sent"."""
     out = sch.humanize_job_result("Some Job", json.dumps({"sent": True, "status": "done"}))

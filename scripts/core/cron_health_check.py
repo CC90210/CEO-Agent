@@ -28,7 +28,6 @@ Author: Bravo · 2026-05-22
 from __future__ import annotations
 
 import argparse
-import html
 import json
 import sys
 from pathlib import Path
@@ -92,12 +91,15 @@ def telegram_alert(bad: list[dict]) -> tuple[bool, str]:
     env, and the real chat id is TELEGRAM_ALLOWED_USERS — so the watchdog
     always returned 'telegram_not_configured' and CC never saw a single failure
     alert (the watchdog was itself the silently-broken cron). notify() loads via
-    secret_loader, resolves the chat id, and uses parse_mode=HTML — so we
-    html-escape the tracebacks (which contain <module> etc.)."""
+    secret_loader and resolves the chat id.
+
+    Tracebacks contain <module> and would break parse_mode=HTML. That escaping
+    moved INTO notify() on 2026-08-04 so every caller gets it — escaping here as
+    well would double-encode and show CC a literal "&lt;module&gt;"."""
     lines = [f"🚨 {len(bad)} cron(s) failing:\n"]
     for b in bad[:10]:
-        name = html.escape(str(b["name"]), quote=False)
-        snippet = html.escape(b["last_result"][:120].replace("\n", " "), quote=False)
+        name = str(b["name"])
+        snippet = b["last_result"][:120].replace("\n", " ")
         lines.append(f"• {name}")
         lines.append(f"  {snippet}")
     if len(bad) > 10:
