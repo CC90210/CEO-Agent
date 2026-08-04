@@ -201,7 +201,49 @@ def check_tenant_scoping():
     if '"tenant_id": getattr(args, "tenant", None) or OASIS_TENANT_ID' not in src \
             and '"tenant_id": OASIS_TENANT_ID' not in src:
         return False, "insert paths no longer tenant-stamped"
-    return True, "lead_engine.py only — reads scoped + writes stamped (not a fleet audit)"
+    return True, ("lead_engine.py only — reads scoped + writes stamped"
+                  + _unstamped_insert_advisory())
+
+
+# Tables that carry a tenant_id column (verified live 2026-08-04).
+_TENANT_SCOPED_TABLES = ("leads", "lead_interactions", "contracts")
+_TENANT_WRITE_RE = re.compile(
+    r'\.table\(\s*["\'](?P<t>' + "|".join(_TENANT_SCOPED_TABLES) + r')["\']\s*\)'
+    r'\s*(?:\.[a-z_]+\([^\n]*\)\s*)*?\.insert\(', re.S)
+
+
+def _unstamped_insert_advisory() -> str:
+    """Count INSERTs into tenant-scoped tables that never stamp tenant_id.
+
+    ADVISORY ONLY — appended to the message, never flips pass/fail. The audit
+    that found this gap also found that making it blocking turns harness_eval
+    red, and harness_eval pages CC on non-zero exit; whether to accept that is
+    his call. But the count belongs in the output either way: a gap that lives
+    only in a commit message is a gap nobody sees again.
+
+    Never raises — an advisory that can break the check it decorates is worse
+    than no advisory.
+    """
+    try:
+        scripts_dir = Path(__file__).resolve().parent
+        unstamped = 0
+        for path in scripts_dir.rglob("*.py"):
+            parts = path.parts
+            if "_archive" in parts or "__pycache__" in parts or "tests" in parts:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            if ".table(" not in text:
+                continue
+            lines = text.splitlines()
+            for m in _TENANT_WRITE_RE.finditer(text):
+                ln = text[:m.start()].count("\n")
+                if "tenant_id" not in "\n".join(lines[ln:ln + 16]):
+                    unstamped += 1
+        if unstamped:
+            return f" | ADVISORY: {unstamped} unstamped tenant-table INSERTs fleet-wide"
+        return " | fleet: all tenant-table INSERTs stamped"
+    except Exception:  # noqa: BLE001
+        return " | (fleet advisory unavailable)"
 
 
 _REQUIRED_GUARDS = {"EMPIRE_HOOK_SECRET_GUARD", "EMPIRE_HOOK_EXEC_GUARD", "EMPIRE_HOOK_STATE_GUARD"}
