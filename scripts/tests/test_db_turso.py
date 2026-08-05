@@ -20,7 +20,6 @@ from lib.db_turso import (  # noqa: E402
     TursoConfigError,
     TursoDB,
     UnscopedQueryError,
-    mentions_tenant_filter,
     referenced_tables,
     resolve_target,
     unscoped_tables,
@@ -274,34 +273,10 @@ def test_global_table_still_needs_no_predicate(db):
     assert unscoped_tables("SELECT * FROM skills_registry", db.tenant_tables) == set()
 
 
-def test_tenant_mention_ignores_string_literals_and_comments():
-    assert mentions_tenant_filter("SELECT * FROM leads WHERE tenant_id = ?")
-    assert not mentions_tenant_filter("SELECT * FROM leads -- tenant_id handled upstream")
-    assert not mentions_tenant_filter("SELECT * FROM leads WHERE note = 'tenant_id'")
 
 
-@pytest.mark.parametrize("sql", [
-    # Naming the column is not filtering on it — each of these returns EVERY
-    # tenant's rows, and a substring check would have let them through.
-    "SELECT tenant_id, email FROM leads",
-    "SELECT l.tenant_id FROM leads l ORDER BY tenant_id",
-    "SELECT count(*), tenant_id FROM leads GROUP BY tenant_id",
-])
-def test_naming_tenant_id_without_a_predicate_is_not_a_filter(sql):
-    assert not mentions_tenant_filter(sql)
 
 
-@pytest.mark.parametrize("sql", [
-    "SELECT * FROM leads WHERE tenant_id = ?",
-    'SELECT * FROM leads l WHERE l."tenant_id" IN (?, ?)',
-    "SELECT * FROM leads WHERE tenant_id IS NOT NULL",
-    "UPDATE leads SET status='x' WHERE tenant_id=?",
-    "SELECT * FROM leads JOIN t USING (tenant_id)",
-    "INSERT INTO leads (tenant_id, email) VALUES (?, ?)",
-    "INSERT OR REPLACE INTO leads (id, tenant_id) VALUES (?, ?)",
-])
-def test_real_tenant_predicates_are_accepted(sql):
-    assert mentions_tenant_filter(sql)
 
 
 def test_select_list_mention_still_blocks_the_query(db):

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -131,7 +132,24 @@ def cmd_select(args) -> int:
     return 0
 
 
+# The `sql` verb advertises itself as read-only, so it has to actually be
+# read-only — a documented safety property that isn't enforced is worse than no
+# property, because callers rely on it. Same posture as supabase_tool.py, which
+# blocks destructive keywords unless --dangerous-raw-query is passed.
+_WRITE_SQL = re.compile(
+    r"^\s*(insert|update|delete|drop|truncate|alter|create|replace|grant|revoke|vacuum|attach|detach|pragma)\b",
+    re.IGNORECASE,
+)
+
+
 def cmd_sql(args) -> int:
+    if _WRITE_SQL.match(args.query) and not args.dangerous_write:
+        _emit(args,
+              {"ok": False, "kind": "write_blocked",
+               "error": "the sql verb is read-only; pass --dangerous-write to override"},
+              "REFUSED: the `sql` verb is read-only. Re-run with --dangerous-write "
+              "if you really mean to mutate data.")
+        return 1
     db = _db(args)
     try:
         rows = db.query(args.query, args.param or [],
@@ -179,6 +197,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_sql = sub.add_parser("sql", parents=[common], help="raw read-only SQL (guard still applies)")
     p_sql.add_argument("query")
+    p_sql.add_argument("--dangerous-write", action="store_true",
+                       help="permit a mutating statement (default: reads only)")
     p_sql.add_argument("--param", action="append")
     return ap
 

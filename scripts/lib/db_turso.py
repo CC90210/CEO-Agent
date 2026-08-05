@@ -40,7 +40,6 @@ an interactive transaction (which is not reliable over remote HTTP).
 from __future__ import annotations
 
 import os
-import re
 import sys
 import threading
 import traceback
@@ -52,6 +51,13 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from lib.structured_log import get_logger  # noqa: E402
+from lib.tls_trust import ensure_os_trust  # noqa: E402
+
+# A libsql:// URL is HTTPS underneath. This fleet's AV terminates TLS, which
+# breaks certifi's bundle — 33 other tools in scripts/ call this for the same
+# reason. Without it, remote Turso fails with CERTIFICATE_VERIFY_FAILED the
+# first time anyone connects to the cloud, i.e. the moment Phase 0 lands.
+ensure_os_trust()
 
 log = get_logger("db_turso")
 
@@ -152,15 +158,9 @@ from sqlglot import exp  # noqa: E402
 
 DIALECT = "sqlite"
 
-_STRING_LIT = re.compile(r"'(?:[^']|'')*'")
-_LINE_COMMENT = re.compile(r"--[^\n]*")
-_BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
-
-
-def _strip_noise(sql: str) -> str:
-    s = _BLOCK_COMMENT.sub(" ", sql)
-    s = _LINE_COMMENT.sub(" ", s)
-    return _STRING_LIT.sub("''", s)
+# The comment/string-literal stripper that used to live here is gone with the
+# regex implementation — sqlglot handles comments and literals natively, so
+# pre-scrubbing the text would only reintroduce a parallel, weaker parser.
 
 
 def _parse(sql: str):
@@ -276,19 +276,11 @@ def unscoped_tables(sql: str, tenant_tables: frozenset[str]) -> set[str]:
     return offenders
 
 
-def mentions_tenant_filter(sql: str) -> bool:
-    """Does the statement constrain or stamp tenant_id anywhere?
-
-    Kept for callers that only need a yes/no. It cannot express WHICH scope is
-    unprotected, so the guard itself uses unscoped_tables().
-    """
-    tree = _parse(sql)
-    for ins in tree.find_all(exp.Insert):
-        _name, cols = _insert_target(ins)
-        if TENANT_COLUMN in cols:
-            return True
-    return any(_scope_has_tenant_predicate(s)
-               for s in tree.find_all(exp.Select, exp.Update, exp.Delete))
+# NOTE: there is deliberately no `mentions_tenant_filter(sql) -> bool` helper.
+# "Does this statement mention a tenant filter anywhere?" is the exact question
+# whose answer leaked data — `SELECT ... WHERE tenant_id=? UNION SELECT * FROM
+# leads` mentions one. Only `unscoped_tables()` is exported, because it answers
+# the question that actually matters: WHICH tables are reachable unprotected.
 
 
 # ------------------------------------------------------------------- the client

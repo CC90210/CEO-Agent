@@ -52,14 +52,14 @@ log = get_logger("etl_supabase_to_turso")
 PAGE = 1000
 TIMEOUT_S = 60
 
-# url_key / key_key pairs as they exist in the agents env. Breeze's are
-# deliberately mixed-case — see supabase_tool.py:133.
-PROJECTS = {
-    "bravo": ("BRAVO_SUPABASE_URL", "BRAVO_SUPABASE_SERVICE_ROLE_KEY"),
-    "oasis": ("OASIS_SUPABASE_URL", "OASIS_SUPABASE_SERVICE_ROLE_KEY"),
-    "nostalgic": ("NOSTALGIC_SUPABASE_URL", "NOSTALGIC_SUPABASE_SERVICE_ROLE_KEY"),
-    "breeze": ("Breeze_SUPABASE_URL", "Breeze_SUPABASE_SERVICE_ROLE_KEY"),
-}
+# The project -> env-key registry is NOT redeclared here. supabase_tool.py owns
+# it, including the deliberately mixed-case "Breeze_" prefix (its comment at
+# :133 explains why). A second copy would drift the day a project is renamed and
+# send this ETL at the wrong database.
+from integrations.supabase_tool import PROJECTS as _SUPABASE_PROJECTS  # noqa: E402
+
+PROJECTS = {name: (cfg["url_key"], cfg["key_key"])
+            for name, cfg in _SUPABASE_PROJECTS.items()}
 
 
 class SourceUnavailable(RuntimeError):
