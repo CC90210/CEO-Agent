@@ -213,24 +213,46 @@ def verify_parity(db: TursoDB, url: str, key: str, tables: list[str]) -> dict:
             entry["status"] = "ok_counts_only" if src_n == tgt_n else "MISMATCH"
             entry["note"] = "no primary key — counts are the only available check"
         else:
-            pk = pks[0]
+            # Compare FULL primary-key tuples. Using only pks[0] would let a
+            # composite-key table pass while later components differ — identical
+            # first-component sets, mis-associated rows, and a green report.
+            # Values are joined with a unit separator that cannot occur in a key,
+            # so ("a|b", "c") and ("a", "b|c") stay distinguishable.
+            sep = "\x1f"
+
+            def keytuple(row: dict) -> str:
+                return sep.join("\x00NULL" if row.get(c) is None else str(row.get(c))
+                                for c in pks)
+
             src_keys: set[str] = set()
+            src_rows_seen = 0
             off = 0
             while off < src_n:
                 page = fetch_page(url, key, t, off, PAGE)
                 if not page:
                     break
-                src_keys.update(str(r.get(pk)) for r in page)
+                src_keys.update(keytuple(r) for r in page)
+                src_rows_seen += len(page)
                 off += len(page)
-            tgt_rows = db.query(f'SELECT "{pk}" AS k FROM "{t}"', allow_unscoped=True,
+            col_sql = ", ".join(f'"{c}"' for c in pks)
+            tgt_rows = db.query(f'SELECT {col_sql} FROM "{t}"', allow_unscoped=True,
                                 reason="parity key set")
-            tgt_keys = {str(r["k"]) for r in tgt_rows}
+            tgt_keys = {keytuple(r) for r in tgt_rows}
             missing = src_keys - tgt_keys
             extra = tgt_keys - src_keys
+            entry["pk_columns"] = pks
             entry["missing_in_target"] = len(missing)
             entry["extra_in_target"] = len(extra)
-            entry["sample_missing"] = sorted(missing)[:5]
-            entry["status"] = "ok" if not missing and not extra else "MISMATCH"
+            entry["sample_missing"] = [k.replace(sep, " | ") for k in sorted(missing)[:5]]
+            # Distinct key tuples must equal the row count on both sides; if they
+            # do not, rows collapsed onto a duplicate key somewhere.
+            entry["source_distinct_keys"] = len(src_keys)
+            entry["target_distinct_keys"] = len(tgt_keys)
+            collapsed = (len(src_keys) != src_rows_seen) or (len(tgt_keys) != len(tgt_rows))
+            if collapsed:
+                entry["note"] = ("distinct key tuples != row count — duplicate primary "
+                                 "keys, rows may have been overwritten")
+            entry["status"] = "ok" if (not missing and not extra and not collapsed) else "MISMATCH"
 
         if entry["status"].startswith("ok"):
             report["ok"] += 1

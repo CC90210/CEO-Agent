@@ -133,11 +133,25 @@ def resolve_target(env: dict | None = None) -> tuple[str, str | None, str]:
 
 # --------------------------------------------------------------- SQL inspection
 
-_TABLE_REF = re.compile(
-    r"\b(?:from|join|into|update)\s+[\"'`\[]?([a-zA-Z_][a-zA-Z0-9_]*)[\"'`\]]?",
-    re.IGNORECASE,
-)
-_DELETE_FROM = re.compile(r"\bdelete\s+from\s+[\"'`\[]?([a-zA-Z_][a-zA-Z0-9_]*)", re.IGNORECASE)
+# Analysis runs on a PARSE TREE, not regexes. Regex scoping was tried first and
+# an adversarial review found two exploitable holes:
+#
+#   SELECT * FROM main.leads               -> "main" captured as the table name,
+#                                             "leads" never seen, query allowed
+#   SELECT * FROM leads WHERE tenant_id=?
+#     UNION SELECT * FROM leads            -> one scoped arm blessed the whole
+#                                             statement; arm two unrestricted
+#
+# Both silently return other tenants' rows. A security boundary cannot rest on
+# pattern-matching SQL, so sqlglot parses the statement and each SELECT/UPDATE/
+# DELETE scope is judged on its own: a scope reading a tenant-scoped table must
+# itself carry a tenant_id predicate. Union arms, CTEs and subqueries are
+# separate scopes. A statement that will not parse is refused, never allowed.
+import sqlglot  # noqa: E402
+from sqlglot import exp  # noqa: E402
+
+DIALECT = "sqlite"
+
 _STRING_LIT = re.compile(r"'(?:[^']|'')*'")
 _LINE_COMMENT = re.compile(r"--[^\n]*")
 _BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -149,16 +163,132 @@ def _strip_noise(sql: str) -> str:
     return _STRING_LIT.sub("''", s)
 
 
+def _parse(sql: str):
+    """Parse or refuse. An unparseable statement is never waved through."""
+    try:
+        tree = sqlglot.parse_one(sql, dialect=DIALECT)
+    except Exception as exc:  # noqa: BLE001
+        raise UnscopedQueryError(
+            f"Could not parse SQL, so tenant scoping cannot be proven — refusing.\n"
+            f"Parser error: {exc}\nSQL: {sql[:300]}"
+        ) from exc
+    if tree is None:
+        raise UnscopedQueryError(f"Empty/unparseable SQL — refusing.\nSQL: {sql[:300]}")
+    return tree
+
+
+def _table_name(node: "exp.Table") -> str:
+    """Terminal table name, ignoring any schema/catalog qualifier (main.leads -> leads)."""
+    return (node.name or "").lower()
+
+
 def referenced_tables(sql: str) -> set[str]:
-    """Best-effort set of table names a statement touches."""
-    stripped = _strip_noise(sql)
-    names = set(_TABLE_REF.findall(stripped)) | set(_DELETE_FROM.findall(stripped))
-    return {n.lower() for n in names}
+    """Every physical table the statement touches, at any depth.
+
+    CTE aliases are excluded: in `WITH x AS (...) SELECT * FROM x`, x is not a
+    physical table, and the CTE body is analysed as its own scope.
+    """
+    tree = _parse(sql)
+    cte_names = {c.alias_or_name.lower() for c in tree.find_all(exp.CTE)}
+    return {n for t in tree.find_all(exp.Table)
+            if (n := _table_name(t)) and n not in cte_names}
+
+
+def _scope_has_tenant_predicate(scope: "exp.Expression") -> bool:
+    """True when THIS scope constrains tenant_id — nested scopes do not count."""
+    clauses: list[exp.Expression] = []
+    where = scope.args.get("where")
+    if where is not None:
+        clauses.append(where)
+    for join in scope.args.get("joins") or []:
+        for key in ("on", "using"):
+            val = join.args.get(key)
+            if val is None:
+                continue
+            clauses.extend(val if isinstance(val, list) else [val])
+
+    for clause in clauses:
+        for col in clause.find_all(exp.Column):
+            if col.name.lower() != TENANT_COLUMN:
+                continue
+            node = col.parent
+            while node is not None and node is not clause.parent:
+                if isinstance(node, (exp.EQ, exp.NEQ, exp.In, exp.Is,
+                                     exp.GT, exp.LT, exp.GTE, exp.LTE)):
+                    return True
+                node = node.parent
+        # JOIN ... USING (tenant_id) arrives as bare identifiers, not comparisons.
+        for ident in clause.find_all(exp.Identifier):
+            if ident.name.lower() == TENANT_COLUMN:
+                return True
+    return False
+
+
+def _insert_target(node: "exp.Insert") -> tuple[str | None, set[str]]:
+    """(table name, column names) for an INSERT."""
+    target = node.this
+    if target is None:
+        return None, set()
+    tbl = target if isinstance(target, exp.Table) else target.find(exp.Table)
+    cols = {c.name.lower() for c in target.find_all(exp.Column)} if not isinstance(
+        target, exp.Table) else set()
+    if not cols:
+        cols = {i.name.lower() for i in target.find_all(exp.Identifier)}
+        if tbl is not None:
+            cols.discard(_table_name(tbl))
+    return (_table_name(tbl) if tbl is not None else None), cols
+
+
+def unscoped_tables(sql: str, tenant_tables: frozenset[str]) -> set[str]:
+    """Tenant-scoped tables reachable from a scope carrying no tenant predicate.
+
+    An INSERT naming tenant_id in its column list is stamping it — the write-side
+    equivalent of a filter.
+    """
+    tree = _parse(sql)
+    cte_names = {c.alias_or_name.lower() for c in tree.find_all(exp.CTE)}
+    offenders: set[str] = set()
+    insert_targets: set[str] = set()
+
+    for ins in tree.find_all(exp.Insert):
+        name, cols = _insert_target(ins)
+        if name is None or name not in tenant_tables:
+            continue
+        insert_targets.add(name)
+        if TENANT_COLUMN not in cols:
+            offenders.add(name)
+
+    for scope in tree.find_all(exp.Select, exp.Update, exp.Delete):
+        if _scope_has_tenant_predicate(scope):
+            continue
+        for tbl in scope.find_all(exp.Table):
+            name = _table_name(tbl)
+            if not name or name in cte_names or name not in tenant_tables:
+                continue
+            # Attribute a table only to its nearest enclosing SELECT, so an
+            # unscoped inner subquery is not blamed on its scoped parent (and,
+            # crucially, a scoped parent cannot excuse an unscoped child).
+            if isinstance(scope, exp.Select) and tbl.parent_select is not scope:
+                continue
+            if name in insert_targets and isinstance(scope, exp.Select):
+                continue  # the INSERT branch above already judged the target
+            offenders.add(name)
+    return offenders
 
 
 def mentions_tenant_filter(sql: str) -> bool:
-    """True when the statement constrains or supplies tenant_id."""
-    return TENANT_COLUMN in _strip_noise(sql).lower()
+    """Does the statement constrain or stamp tenant_id anywhere?
+
+    Kept for callers that only need a yes/no. It cannot express WHICH scope is
+    unprotected, so the guard itself uses unscoped_tables().
+    """
+    tree = _parse(sql)
+    for ins in tree.find_all(exp.Insert):
+        _name, cols = _insert_target(ins)
+        if TENANT_COLUMN in cols:
+            return True
+    return any(_scope_has_tenant_predicate(s)
+               for s in tree.find_all(exp.Select, exp.Update, exp.Delete))
 
 
 # ------------------------------------------------------------------- the client
@@ -200,22 +330,27 @@ class TursoDB:
 
     # -- the guard ----------------------------------------------------------
     def _enforce_scope(self, sql: str, *, allow_unscoped: bool, reason: str | None) -> None:
-        touched = referenced_tables(sql) & self._tenant_tables
-        if not touched:
-            return
-        if mentions_tenant_filter(sql):
-            return
         if allow_unscoped:
-            log.warn("UNSCOPED QUERY ALLOWED — audit this",
-                     tables=sorted(touched), reason=reason or "(no reason given)",
-                     sql=sql[:400])
+            # Still parse, so a deliberate bypass is logged with the tables it
+            # actually reaches rather than a vague "someone bypassed the guard".
+            try:
+                touched = sorted(referenced_tables(sql) & self._tenant_tables)
+            except UnscopedQueryError:
+                touched = ["<unparseable>"]
+            if touched:
+                log.warn("UNSCOPED QUERY ALLOWED — audit this", tables=touched,
+                         reason=reason or "(no reason given)", sql=sql[:400])
+            return
+        offenders = unscoped_tables(sql, self._tenant_tables)
+        if not offenders:
             return
         raise UnscopedQueryError(
-            f"Query touches tenant-scoped table(s) {sorted(touched)} without a "
-            f"{TENANT_COLUMN} filter. Supabase RLS used to catch this; Turso "
-            f"cannot. Add a {TENANT_COLUMN} predicate, or pass "
-            f"allow_unscoped=True with a reason if the query is genuinely "
-            f"cross-tenant.\nSQL: {sql[:400]}"
+            f"Tenant-scoped table(s) {sorted(offenders)} are read in a scope with no "
+            f"{TENANT_COLUMN} predicate. Supabase RLS used to catch this; Turso "
+            f"cannot — the query would return every tenant's rows. Add a "
+            f"{TENANT_COLUMN} predicate to THAT scope (each UNION arm, CTE and "
+            f"subquery counts separately), or pass allow_unscoped=True with a "
+            f"reason if the query is genuinely cross-tenant.\nSQL: {sql[:400]}"
         )
 
     # -- raw execution ------------------------------------------------------
@@ -302,7 +437,25 @@ class TursoDB:
         Replaces the reserve_send_slot PL/pgSQL RPC. A single conditional UPDATE
         is atomic in SQLite — no BEGIN EXCLUSIVE, no interactive transaction, so
         it behaves identically against a local file and remote Turso over HTTP.
+
+        `set_values` MUST assign a non-NULL token to `unclaimed_col`. Without
+        that the UPDATE leaves the row unclaimed, every later worker also wins,
+        and the send goes out twice — while the caller is told it holds the slot.
         """
+        if not key:
+            raise ValueError("claim() requires a non-empty key — an unkeyed CAS "
+                             "would claim every unclaimed row in the table.")
+        if unclaimed_col not in set_values:
+            raise ValueError(
+                f"claim() requires set_values to assign {unclaimed_col!r}: that column "
+                f"IS the claim marker. Updating other columns leaves the row unclaimed "
+                f"and lets a second worker win the same slot."
+            )
+        if set_values[unclaimed_col] is None:
+            raise ValueError(
+                f"claim() requires a non-NULL owner token for {unclaimed_col!r} — "
+                f"setting it back to NULL re-opens the row to every other worker."
+            )
         sets = ", ".join(f'"{c}" = ?' for c in set_values)
         args: list[Any] = list(set_values.values())
         conds = [f'"{unclaimed_col}" IS NULL']
@@ -321,15 +474,20 @@ class TursoDB:
         cur = self.execute(sql, args, allow_unscoped=True, reason="claim scopes explicitly")
         self.commit()
         changed = getattr(cur, "rowcount", -1)
-        if changed is None or changed < 0:
-            # Driver did not report rowcount — verify by reading the row back.
-            check_conds = " AND ".join(f'"{c}" = ?' for c in key)
-            check_args = list(key.values())
-            probe = f'SELECT "{unclaimed_col}" AS v FROM "{table}" WHERE {check_conds}'
-            rows = self.query(probe, check_args, allow_unscoped=True,
-                              reason="claim verification read")
-            return bool(rows) and rows[0]["v"] == set_values.get(unclaimed_col)
-        return changed > 0
+        if changed is not None and changed >= 0:
+            return changed > 0
+        # Driver did not report rowcount — read the row back and require the
+        # marker to equal OUR token. Comparing against set_values without the
+        # non-NULL check above would make None == None report a false win.
+        check_conds = " AND ".join(f'"{c}" = ?' for c in key)
+        check_args = list(key.values())
+        if tenant_id is not None:
+            check_conds += f' AND "{TENANT_COLUMN}" = ?'
+            check_args.append(tenant_id)
+        probe = f'SELECT "{unclaimed_col}" AS v FROM "{table}" WHERE {check_conds}'
+        rows = self.query(probe, check_args, allow_unscoped=True,
+                          reason="claim verification read")
+        return bool(rows) and rows[0]["v"] == set_values[unclaimed_col]
 
 
 _INSTANCE: TursoDB | None = None

@@ -23,6 +23,7 @@ from lib.db_turso import (  # noqa: E402
     mentions_tenant_filter,
     referenced_tables,
     resolve_target,
+    unscoped_tables,
 )
 
 TENANT_A = "tenant-aaaa"
@@ -68,7 +69,7 @@ def test_select_without_tenant_id_raises(db):
 
 
 def test_raw_sql_without_tenant_filter_raises(db):
-    with pytest.raises(UnscopedQueryError, match="without a tenant_id filter"):
+    with pytest.raises(UnscopedQueryError, match="no tenant_id predicate"):
         db.query("SELECT * FROM leads WHERE status = ?", ["warm"])
 
 
@@ -139,6 +140,32 @@ def test_claim_succeeds_once_and_only_once(db):
     assert row["claimed_by"] == "worker-1"
 
 
+def test_claim_must_assign_the_marker_column(db):
+    """Updating other columns leaves the row unclaimed — and a second worker wins."""
+    db.insert("scheduled_sends", {"id": "s1"}, tenant_id=TENANT_A)
+    db.commit()
+    with pytest.raises(ValueError, match="IS the claim marker"):
+        db.claim("scheduled_sends", key={"id": "s1"},
+                 set_values={"id": "s1"}, unclaimed_col="claimed_by",
+                 tenant_id=TENANT_A)
+
+
+def test_claim_rejects_null_owner_token(db):
+    db.insert("scheduled_sends", {"id": "s1"}, tenant_id=TENANT_A)
+    db.commit()
+    with pytest.raises(ValueError, match="non-NULL owner token"):
+        db.claim("scheduled_sends", key={"id": "s1"},
+                 set_values={"claimed_by": None}, unclaimed_col="claimed_by",
+                 tenant_id=TENANT_A)
+
+
+def test_claim_rejects_empty_key(db):
+    """An unkeyed CAS would claim every unclaimed row in the table."""
+    with pytest.raises(ValueError, match="non-empty key"):
+        db.claim("scheduled_sends", key={}, set_values={"claimed_by": "w"},
+                 unclaimed_col="claimed_by", tenant_id=TENANT_A)
+
+
 def test_claim_cannot_cross_tenant(db):
     db.insert("scheduled_sends", {"id": "s1"}, tenant_id=TENANT_A)
     db.commit()
@@ -181,15 +208,109 @@ def test_concurrent_claims_yield_exactly_one_winner(db):
     ("DELETE FROM leads WHERE x=1", {"leads"}),
     ("UPDATE leads SET a=1", {"leads"}),
     ("INSERT INTO leads (a) VALUES (1)", {"leads"}),
+    # schema-qualified: the terminal name is the table, not the qualifier
+    ("SELECT * FROM main.leads", {"leads"}),
+    ('SELECT * FROM main."leads"', {"leads"}),
+    ("SELECT * FROM temp.leads", {"leads"}),
+    # CTE alias is not a physical table; the CTE body's table is
+    ("WITH x AS (SELECT * FROM leads) SELECT * FROM x", {"leads"}),
 ])
 def test_referenced_tables(sql, expected):
     assert referenced_tables(sql) == expected
+
+
+# ------------------------------------------------ adversarial bypass attempts
+# Each of these was reported by an independent adversarial review against the
+# original regex implementation. Every one returned other tenants' rows.
+
+ADVERSARIAL = [
+    pytest.param("SELECT * FROM main.leads", id="schema-qualified"),
+    pytest.param('SELECT * FROM main."leads"', id="schema-qualified-quoted"),
+    pytest.param("SELECT tenant_id, email FROM leads", id="tenant_id-in-select-list"),
+    pytest.param("SELECT * FROM leads ORDER BY tenant_id", id="tenant_id-in-order-by"),
+    pytest.param("SELECT count(*) FROM leads GROUP BY tenant_id", id="tenant_id-in-group-by"),
+    pytest.param("SELECT email FROM leads WHERE tenant_id = ? "
+                 "UNION SELECT email FROM leads", id="second-union-arm-unscoped"),
+    pytest.param("WITH scoped AS (SELECT * FROM leads WHERE tenant_id = ?) "
+                 "SELECT * FROM leads", id="cte-scoped-outer-unscoped"),
+    pytest.param("SELECT * FROM leads WHERE id IN (SELECT id FROM leads)",
+                 id="subquery-unscoped"),
+    pytest.param("UPDATE leads SET status = 'x' WHERE id IN (SELECT id FROM leads)",
+                 id="update-subquery-unscoped"),
+]
+
+
+@pytest.mark.parametrize("sql", ADVERSARIAL)
+def test_adversarial_sql_cannot_bypass_the_guard(db, sql):
+    with pytest.raises(UnscopedQueryError):
+        db.query(sql, ["t"] * sql.count("?"))
+
+
+@pytest.mark.parametrize("sql", ADVERSARIAL)
+def test_adversarial_sql_is_named_by_unscoped_tables(db, sql):
+    assert "leads" in unscoped_tables(sql, db.tenant_tables)
+
+
+def test_every_union_arm_scoped_is_accepted(db):
+    rows = db.query("SELECT email FROM leads WHERE tenant_id = ? "
+                    "UNION SELECT email FROM leads WHERE tenant_id = ?",
+                    [TENANT_A, TENANT_A])
+    assert rows == []
+
+
+def test_scoped_cte_and_scoped_outer_is_accepted(db):
+    rows = db.query("WITH s AS (SELECT id FROM leads WHERE tenant_id = ?) "
+                    "SELECT id FROM leads WHERE tenant_id = ? AND id IN (SELECT id FROM s)",
+                    [TENANT_A, TENANT_A])
+    assert rows == []
+
+
+def test_unparseable_sql_is_refused_not_allowed(db):
+    with pytest.raises(UnscopedQueryError, match="Could not parse SQL"):
+        db.query("SELECT ... FROM WHERE ((")
+
+
+def test_global_table_still_needs_no_predicate(db):
+    assert unscoped_tables("SELECT * FROM skills_registry", db.tenant_tables) == set()
 
 
 def test_tenant_mention_ignores_string_literals_and_comments():
     assert mentions_tenant_filter("SELECT * FROM leads WHERE tenant_id = ?")
     assert not mentions_tenant_filter("SELECT * FROM leads -- tenant_id handled upstream")
     assert not mentions_tenant_filter("SELECT * FROM leads WHERE note = 'tenant_id'")
+
+
+@pytest.mark.parametrize("sql", [
+    # Naming the column is not filtering on it — each of these returns EVERY
+    # tenant's rows, and a substring check would have let them through.
+    "SELECT tenant_id, email FROM leads",
+    "SELECT l.tenant_id FROM leads l ORDER BY tenant_id",
+    "SELECT count(*), tenant_id FROM leads GROUP BY tenant_id",
+])
+def test_naming_tenant_id_without_a_predicate_is_not_a_filter(sql):
+    assert not mentions_tenant_filter(sql)
+
+
+@pytest.mark.parametrize("sql", [
+    "SELECT * FROM leads WHERE tenant_id = ?",
+    'SELECT * FROM leads l WHERE l."tenant_id" IN (?, ?)',
+    "SELECT * FROM leads WHERE tenant_id IS NOT NULL",
+    "UPDATE leads SET status='x' WHERE tenant_id=?",
+    "SELECT * FROM leads JOIN t USING (tenant_id)",
+    "INSERT INTO leads (tenant_id, email) VALUES (?, ?)",
+    "INSERT OR REPLACE INTO leads (id, tenant_id) VALUES (?, ?)",
+])
+def test_real_tenant_predicates_are_accepted(sql):
+    assert mentions_tenant_filter(sql)
+
+
+def test_select_list_mention_still_blocks_the_query(db):
+    """End-to-end: the leak vector must raise, not just fail the helper."""
+    db.insert("leads", {"id": "1", "email": "a@a.com"}, tenant_id=TENANT_A)
+    db.insert("leads", {"id": "2", "email": "b@b.com"}, tenant_id=TENANT_B)
+    db.commit()
+    with pytest.raises(UnscopedQueryError):
+        db.query("SELECT tenant_id, email FROM leads")
 
 
 # ------------------------------------------------------------------- config
