@@ -48,7 +48,7 @@ ensure_os_trust()
 
 import requests  # noqa: E402
 
-from lib.db_turso import TursoDB, get_db  # noqa: E402
+from lib.db_turso import TursoDB, resolve_project_target  # noqa: E402
 from lib.secret_loader import load_env  # noqa: E402
 from lib.structured_log import get_logger  # noqa: E402
 
@@ -69,9 +69,54 @@ from integrations.supabase_tool import PROJECTS as _SUPABASE_PROJECTS  # noqa: E
 PROJECTS = {name: (cfg["url_key"], cfg["key_key"])
             for name, cfg in _SUPABASE_PROJECTS.items()}
 
+# All migratable projects — a superset of the PostgREST-configured ones. PropFlow
+# has no service-role key stored, so it is reachable only via the Management API;
+# excluding it from --project made the tool claim the project didn't exist.
+from core.turso_schema_transpiler import PROJECTS as _ALL_PROJECTS  # noqa: E402
+
+PROJECT_CHOICES = sorted(_ALL_PROJECTS)
+
 
 class SourceUnavailable(RuntimeError):
     """Supabase side could not be read — never silently treated as 'no rows'."""
+
+
+class MgmtSource:
+    """Row source via the Supabase Management API (org-wide token).
+
+    Exists for projects whose PostgREST service-role key is stale or absent
+    (nostalgic: 401 since before 2026-08-05; propflow: never stored). The
+    Management API's /database/query endpoint runs plain SQL with the org token
+    apply_migration.py already uses, so these projects need no key rotation to
+    migrate. Slower than PostgREST — fine for the row counts involved.
+    """
+
+    def __init__(self, project: str):
+        from core.turso_schema_transpiler import PROJECTS as REFS, _mgmt_query  # noqa: PLC0415
+
+        if project not in REFS:
+            raise SourceUnavailable(f"{project}: no Management-API ref registered")
+        self._ref = REFS[project]["ref"]
+        self._q = _mgmt_query
+        self._token = load_env().get("SUPABASE_ACCESS_TOKEN")
+        if not self._token:
+            raise SourceUnavailable("SUPABASE_ACCESS_TOKEN absent from agents env")
+
+    def list_tables(self) -> list[str]:
+        rows = self._q(self._ref,
+                       "select tablename from pg_tables where schemaname='public' "
+                       "order by tablename", self._token)
+        return [r["tablename"] for r in rows]
+
+    def count(self, table: str) -> int:
+        rows = self._q(self._ref, f'select count(*) as n from "{table}"', self._token)
+        return int(rows[0]["n"]) if rows else 0
+
+    def page(self, table: str, offset: int, limit: int) -> list[dict]:
+        # Deterministic paging needs a stable order; ctid is always present.
+        return self._q(self._ref,
+                       f'select * from "{table}" order by ctid '
+                       f"limit {int(limit)} offset {int(offset)}", self._token)
 
 
 # ------------------------------------------------------------------- source
@@ -81,6 +126,9 @@ def _headers(key: str, **extra: str) -> dict:
 
 
 def source_config(project: str) -> tuple[str, str]:
+    if project not in PROJECTS:
+        raise SourceUnavailable(
+            f"{project}: no PostgREST env-key pair registered (Management API only)")
     url_key, key_key = PROJECTS[project]
     env = load_env()
     url, key = env.get(url_key), env.get(key_key)
@@ -240,11 +288,12 @@ def load_rows(db: TursoDB, table: str, rows: list[dict], cols: list[str],
 
 # -------------------------------------------------------------------- parity
 
-def verify_parity(db: TursoDB, url: str, key: str, tables: list[str]) -> dict:
+def verify_parity(db: TursoDB, src_count, src_page, tables: list[str]) -> dict:
+    """src_count/src_page are source-backend closures (PostgREST or Mgmt API)."""
     report = {"checked": 0, "ok": 0, "mismatched": 0, "tables": []}
     for t in tables:
         try:
-            src_n = source_count(url, key, t)
+            src_n = src_count(t)
         except SourceUnavailable as exc:
             report["tables"].append({"table": t, "status": "source_error", "error": str(exc)})
             report["mismatched"] += 1
@@ -280,7 +329,7 @@ def verify_parity(db: TursoDB, url: str, key: str, tables: list[str]) -> dict:
             src_rows_seen = 0
             off = 0
             while off < src_n:
-                page = fetch_page(url, key, t, off, PAGE)
+                page = src_page(t, off, PAGE)
                 if not page:
                     break
                 src_keys.update(keytuple(r) for r in page)
@@ -319,31 +368,79 @@ def verify_parity(db: TursoDB, url: str, key: str, tables: list[str]) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--project", choices=sorted(PROJECTS), default="bravo")
+    ap.add_argument("--project", choices=PROJECT_CHOICES, default="bravo")
     ap.add_argument("--tables", help="comma-separated subset (default: every table present on both sides)")
     ap.add_argument("--db-path", help="local libSQL file instead of the configured Turso target")
     ap.add_argument("--dry-run", action="store_true", help="report what would move, copy nothing")
     ap.add_argument("--verify-parity", action="store_true", help="compare only; do not copy")
     ap.add_argument("--limit-per-table", type=int, help="cap rows per table (smoke tests)")
+    ap.add_argument("--source", choices=["auto", "mgmt"], default="auto",
+                    help="row source: auto = PostgREST with Management-API fallback; "
+                         "mgmt = force the Management API")
     ap.add_argument("--allow-overwrite", action="store_true",
                     help="permit writing into target tables that already hold rows "
                          "(INSERT OR REPLACE will overwrite them)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    try:
-        url, key = source_config(args.project)
-    except SourceUnavailable as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 2
+    # Source selection: PostgREST when this project's service key exists and
+    # works; otherwise the Management API. The choice is REPORTED, never silent.
+    mgmt: MgmtSource | None = None
+    url = key = None
+    if args.source != "mgmt":
+        try:
+            url, key = source_config(args.project)
+        except SourceUnavailable as exc:
+            print(f"NOTE: PostgREST source unavailable ({exc}) — using Management API",
+                  file=sys.stderr)
+    if url is None or args.source == "mgmt":
+        try:
+            mgmt = MgmtSource(args.project)
+        except SourceUnavailable as exc:
+            print(f"ERROR: no usable source for {args.project}: {exc}", file=sys.stderr)
+            return 2
 
-    db = TursoDB(args.db_path, None, f"local({args.db_path})") if args.db_path else get_db()
+    # Target selection: an explicit --db-path wins (local/test); otherwise the
+    # Turso database MATCHING the source project. Falling back to the default
+    # (bravo) target for a non-bravo source would quietly load Breeze's merchant
+    # rows into the Bravo database — cross-trust-boundary contamination.
+    if args.db_path:
+        db = TursoDB(args.db_path, None, f"local({args.db_path})")
+    else:
+        # Distinct names on purpose: `url`/`key` above are the SOURCE (PostgREST).
+        # Reusing `url` here clobbered the source URL with the Turso hostname and
+        # sent REST reads at libsql://... — InvalidSchema at first contact.
+        tgt_url, tgt_token, tgt_mode = resolve_project_target(args.project)
+        db = TursoDB(tgt_url, tgt_token, tgt_mode)
+
+    # Uniform source ops over whichever backend won above.
+    if mgmt is not None:
+        src_list = mgmt.list_tables
+        src_count = mgmt.count
+        src_page = mgmt.page
+    else:
+        def src_list(): return list_source_tables(url, key)          # noqa: E731
+        def src_count(t): return source_count(url, key, t)           # noqa: E731
+        def src_page(t, off, lim): return fetch_page(url, key, t, off, lim)  # noqa: E731
 
     try:
-        src_tables = set(list_source_tables(url, key))
+        src_tables = set(src_list())
     except SourceUnavailable as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 2
+        # A key can be PRESENT but dead (nostalgic's 401ed for months). Auto mode
+        # falls through to the Management API on first contact failure too.
+        if mgmt is None and args.source == "auto":
+            print(f"NOTE: PostgREST contact failed ({exc}) — retrying via Management API",
+                  file=sys.stderr)
+            try:
+                mgmt = MgmtSource(args.project)
+                src_list, src_count, src_page = mgmt.list_tables, mgmt.count, mgmt.page
+                src_tables = set(src_list())
+            except SourceUnavailable as exc2:
+                print(f"ERROR: no usable source: {exc2}", file=sys.stderr)
+                return 2
+        else:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
     tgt_tables = target_tables(db)
 
     if args.tables:
@@ -359,7 +456,7 @@ def main() -> int:
                  count=len(skipped), tables=skipped[:20])
 
     if args.verify_parity:
-        report = verify_parity(db, url, key, wanted)
+        report = verify_parity(db, src_count, src_page, wanted)
         report["source_only_tables"] = skipped
         if args.json:
             print(json.dumps(report, indent=2))
@@ -409,7 +506,7 @@ def main() -> int:
             continue
         cols, _pks, vec = target_schema(db, t)
         try:
-            n = source_count(url, key, t)
+            n = src_count(t)
         except SourceUnavailable as exc:
             print(f"ERROR reading {t}: {exc}", file=sys.stderr)
             return 1
@@ -424,7 +521,7 @@ def main() -> int:
         copied = 0
         off = 0
         while off < n:
-            page = fetch_page(url, key, t, off, min(PAGE, n - off))
+            page = src_page(t, off, min(PAGE, n - off))
             if not page:
                 break
             copied += load_rows(db, t, page, cols, vec)

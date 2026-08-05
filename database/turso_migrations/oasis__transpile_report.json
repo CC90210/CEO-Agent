@@ -1,0 +1,54 @@
+{
+  "project": "oasis",
+  "generated": "2026-08-05T18:45:20+00:00",
+  "table_count": 17,
+  "index_count": 79,
+  "plpgsql_functions": [
+    "auto_align_log_ownership",
+    "check_is_admin",
+    "ensure_log_visibility",
+    "get_portal_logs",
+    "handle_new_user",
+    "handle_updated_at",
+    "increment_promo_uses",
+    "update_automation_stats",
+    "update_automation_stats_no_definer",
+    "update_custom_agreements_timestamp",
+    "update_product_purchases_timestamp",
+    "update_updated_at",
+    "update_updated_at_column"
+  ],
+  "triggers": [
+    "automation_logs.ensure_log_owner",
+    "automation_logs.ensure_log_visibility_trigger",
+    "automation_logs.on_automation_log_inserted",
+    "automation_logs.update_automation_stats_trigger",
+    "client_automations.update_automations_timestamp",
+    "client_automations.update_client_automations_updated_at",
+    "custom_agreements.custom_agreements_updated",
+    "custom_agreements.update_custom_agreements_updated_at",
+    "product_purchases.product_purchases_updated",
+    "product_purchases.update_product_purchases_updated_at",
+    "profiles.update_profiles_timestamp",
+    "profiles.update_profiles_updated_at",
+    "subscriptions.set_subscriptions_updated_at",
+    "support_tickets.update_tickets_timestamp"
+  ],
+  "lossy": {
+    "defaults_dropped": [
+      "profiles.onboarding_steps: '{}'::integer[]",
+      "pending_stripe_sessions.expires_at: (timezone('utc'::text, now()) + '7 days'::interval)",
+      "pending_stripe_sessions.created_at: timezone('utc'::text, now())",
+      "subscriptions.created_at: timezone('utc'::text, now())",
+      "subscriptions.updated_at: timezone('utc'::text, now())",
+      "billing_history.invoice_date: timezone('utc'::text, now())",
+      "billing_history.created_at: timezone('utc'::text, now())",
+      "client_automations.webhook_secret: encode(gen_random_bytes(32), 'hex'::text)"
+    ],
+    "indexes_skipped": [],
+    "cross_schema_fks_dropped": [
+      "profiles(id) -> auth.users"
+    ],
+    "unenforceable_fks_dropped": []
+  }
+}

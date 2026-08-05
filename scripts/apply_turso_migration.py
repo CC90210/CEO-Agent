@@ -79,14 +79,17 @@ def check_blocked(statements: list[str]) -> list[str]:
     return problems
 
 
-def connect(db_path: str | None):
+def connect(db_path: str | None, project: str | None = None):
     import libsql  # noqa: PLC0415
 
     if db_path:
         return libsql.connect(db_path), f"local({db_path})"
 
-    from lib.db_turso import resolve_target  # noqa: PLC0415
+    from lib.db_turso import resolve_project_target, resolve_target  # noqa: PLC0415
 
+    if project:
+        url, token, mode = resolve_project_target(project)
+        return libsql.connect(database=url, auth_token=token), mode
     url, token, mode = resolve_target()
     if token:
         return libsql.connect(database=url, auth_token=token), mode
@@ -172,6 +175,9 @@ def main() -> int:
                     help="apply ALL turso_migrations to a throwaway local libSQL file")
     ap.add_argument("--dry-run", action="store_true", help="parse and validate only")
     ap.add_argument("--db-path", help="apply to this local libSQL file instead of the configured target")
+    ap.add_argument("--target-project",
+                    help="apply to a named empire project's Turso database "
+                         "(bravo/breeze/nostalgic/propflow/oasis) instead of the default")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -194,7 +200,7 @@ def main() -> int:
         db_path = args.db_path
 
     try:
-        conn, mode = connect(db_path)
+        conn, mode = connect(db_path, getattr(args, "target_project", None))
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: cannot connect ({exc})", file=sys.stderr)
         return 2

@@ -97,6 +97,33 @@ def _load_env() -> dict:
         raise
 
 
+# Per-project env-var pairs, matching what turso_admin `create --write-env`
+# writes. "bravo" is the unprefixed canonical pair.
+PROJECT_ENV_VARS: dict[str, tuple[str, str]] = {
+    "bravo": ("TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN"),
+    "breeze": ("BREEZE_TURSO_DATABASE_URL", "BREEZE_TURSO_AUTH_TOKEN"),
+    "nostalgic": ("NOSTALGIC_TURSO_DATABASE_URL", "NOSTALGIC_TURSO_AUTH_TOKEN"),
+    "propflow": ("PROPFLOW_TURSO_DATABASE_URL", "PROPFLOW_TURSO_AUTH_TOKEN"),
+    "oasis": ("OASIS_TURSO_DATABASE_URL", "OASIS_TURSO_AUTH_TOKEN"),
+}
+
+
+def resolve_project_target(project: str) -> tuple[str, str, str]:
+    """(url, token, mode) for a named empire project's Turso database."""
+    if project not in PROJECT_ENV_VARS:
+        raise TursoConfigError(
+            f"unknown project {project!r} — known: {', '.join(sorted(PROJECT_ENV_VARS))}")
+    url_var, tok_var = PROJECT_ENV_VARS[project]
+    env = _load_env()
+    url, token = env.get(url_var), env.get(tok_var)
+    if not url or not token:
+        raise TursoConfigError(
+            f"{project}: {url_var} and/or {tok_var} missing from the agents env. "
+            f"Provision with: python scripts/integrations/turso_admin.py create "
+            f"--all --write-env")
+    return url, token, f"remote({url_var})"
+
+
 def resolve_target(env: dict | None = None) -> tuple[str, str | None, str]:
     """Return (url, auth_token, mode). Raises TursoConfigError if unconfigured.
 
