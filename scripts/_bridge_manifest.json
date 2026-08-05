@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-03T16:29:46.003248+00:00",
-  "script_count": 124,
-  "entry_count": 295,
+  "generated_at_iso": "2026-08-05T17:12:04.360047+00:00",
+  "script_count": 126,
+  "entry_count": 297,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -27,6 +27,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Apply SQL migration files to the Bravo Supabase project."
+    },
+    {
+      "key": "apply_turso_migration",
+      "path": "scripts/apply_turso_migration.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Apply transpiled libSQL DDL to a Turso database (or a local libSQL file)."
     },
     {
       "key": "audit_mcp_secrets",
@@ -678,6 +686,14 @@
       "subcmd": "run",
       "mutating": true,
       "help": "enrich_oasis_leads.py \u2014 fill missing phone + first name on OASIS leads. \u2014 subcommand: run"
+    },
+    {
+      "key": "etl_supabase_to_turso",
+      "path": "scripts/etl_supabase_to_turso.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Supabase \u2192 Turso row ETL, with primary-key parity verification."
     },
     {
       "key": "financial_model_unit_economics",

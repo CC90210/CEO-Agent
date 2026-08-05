@@ -66,6 +66,18 @@ SERVICES: dict[str, tuple[list[list[str]], str]] = {
                   ["SUPABASE_SERVICE_ROLE_KEY", "BRAVO_SUPABASE_SERVICE_ROLE_KEY",
                    "SUPABASE_SERVICE_ROLE_KEY_BRAVO"]],
                  "python scripts/integrations/supabase_tool.py <verb> --json"),
+    # Turso needs BOTH a database URL and a token, and the URL must be the
+    # canonical key. TURSO_API_KEY alone reads as access but is not: the token in
+    # the agents env is database-scoped (JWT claims a/id/rid) and belongs to the
+    # ig-setter-pro database, and TURSO_DATA_BASE_URL points at that same
+    # unrelated product. Accepting either would authorize the agent to connect to
+    # the wrong database — the precise false positive this table exists to kill.
+    # Provisioning the empire databases additionally needs a Platform API token
+    # (TURSO_PLATFORM_TOKEN), which is a separate credential minted by
+    # `turso auth api-tokens mint` — see turso_admin below.
+    "turso": ([["TURSO_DATABASE_URL", "TURSO_DB_URL", "TURSO_DB_PATH"],
+               ["TURSO_AUTH_TOKEN", "TURSO_DB_PATH"]],
+              "python scripts/integrations/turso_tool.py <verb> --json"),
     # An account id is not a credential — require an actual secret key.
     "stripe": ([["STRIPE_ORG_KEY", "STRIPE_SECRET_KEY", "STRIPE_API_KEY"]],
                "python scripts/integrations/stripe_tool.py <verb> --json"),
