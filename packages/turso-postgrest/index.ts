@@ -150,6 +150,17 @@ const OPS: Record<string, string> = {
 };
 
 function q(col: string): string {
+  // JSON-path expressions first: `meta->>deleted_at` / `data->attrs->>x` are
+  // live production filters (soft-delete guards among them) and must compile to
+  // json_extract, not be rejected as hostile identifiers.
+  if (col.includes("->")) {
+    const segs = col.split(/->>?/);
+    const root = segs.shift()!;
+    if (!/^[\w$]+$/.test(root) || segs.some((s) => !/^[\w$]+$/.test(s)))
+      throw new Error(`invalid JSON path: ${col}`);
+    const path = "$." + segs.join(".");
+    return `json_extract("${root}", '${path}')`;
+  }
   // guard against injection via column names — PostgREST identifiers only
   if (!/^[\w$.]+$/.test(col)) throw new Error(`invalid column identifier: ${col}`);
   const bare = col.includes(".") ? col.split(".").pop()! : col;
@@ -186,15 +197,35 @@ function compileOp(col: string, op: string, value: unknown): Cond {
   return { sql: `${colExpr} ${sqlOp} ?`, args: [toSql(valExpr)] };
 }
 
+/**
+ * Scalar literals inside the .or() string grammar. In `is_public.eq.true` the
+ * token "true" is a boolean, not the string 'true' — booleans live as 0/1 in
+ * SQLite, so binding the string silently matches nothing. That was a live bug:
+ * lib/agents/loader.ts gates public agents on exactly that expression, and the
+ * string comparison would have hidden every public row. Same for null/numbers.
+ */
+function grammarLiteral(raw: string): unknown {
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  if (raw === "null") return null;
+  if (/^-?\d+(\.\d+)?$/.test(raw)) return Number(raw);
+  if (raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')) return raw.slice(1, -1);
+  return raw;
+}
+
 /** PostgREST .or() grammar: "a.eq.1,b.like.*x*,and(c.gt.2,d.lt.5)" */
 function compileOrGroup(expr: string, joiner: "OR" | "AND" = "OR"): Cond {
   const parts = splitTop(expr);
   const conds: Cond[] = parts.map((p) => {
     const grp = p.match(/^(and|or)\(([\s\S]*)\)$/);
     if (grp) return compileOrGroup(grp[2], grp[1].toUpperCase() as "OR" | "AND");
-    const m = p.match(/^([\w$.]+)\.(not\.)?([a-z]+)\.([\s\S]*)$/);
+    const m = p.match(/^([\w$.>-]+)\.(not\.)?([a-z]+)\.([\s\S]*)$/);
     if (!m) throw new Error(`cannot parse or() segment: ${p}`);
-    const c = compileOp(m[1], m[3], m[4]);
+    // like/ilike/in operate on the raw token (wildcards, lists); comparisons
+    // get typed literals.
+    const rawOps = new Set(["like", "ilike", "in", "cs"]);
+    const val = rawOps.has(m[3]) ? m[4] : grammarLiteral(m[4]);
+    const c = compileOp(m[1], m[3], val);
     return m[2] ? { sql: `NOT (${c.sql})`, args: c.args } : c;
   });
   return {
@@ -367,7 +398,20 @@ export class TursoQueryBuilder implements PromiseLike<PgResponse<any>> {
   private async attachEmbeds(rows: Row[], embeds: Embed[]): Promise<Row[]> {
     const baseFks = await foreignKeysOf(this.client, this.table);
     for (const e of embeds) {
-      const belongsTo = baseFks.find((f) => f.toTable === e.table);
+      // Multiple FKs to the same parent (creator + assignee both -> users) make
+      // "which relationship?" genuinely ambiguous. PostgREST disambiguates with
+      // hints; until hint resolution is implemented, picking whichever edge
+      // PRAGMA happened to list first would attach the WRONG record with no
+      // error. Refuse instead. (Schema scan 2026-08-05: zero such tables in the
+      // three wired databases — this guard is for the day one appears.)
+      const belongsToAll = baseFks.filter((f) => f.toTable === e.table);
+      if (belongsToAll.length > 1) throw new Error(
+        `ambiguous embed: ${this.table} has ${belongsToAll.length} FKs to ${e.table} ` +
+        `(${belongsToAll.map((f) => f.fromCols.join("+")).join(", ")}) — hint ` +
+        `resolution is not implemented, write an explicit join`);
+      if (e.table === this.table) throw new Error(
+        `self-referential embed on ${this.table} is not supported — write an explicit join`);
+      const belongsTo = belongsToAll[0];
       if (belongsTo) {
         // Composite-FK embeds are refused, not approximated: joining on
         // fromCols[0] alone (typically tenant_id) would match parents across
@@ -397,7 +441,11 @@ export class TursoQueryBuilder implements PromiseLike<PgResponse<any>> {
         continue;
       }
       const childFks = await foreignKeysOf(this.client, e.table);
-      const hasMany = childFks.find((f) => f.toTable === this.table);
+      const hasManyAll = childFks.filter((f) => f.toTable === this.table);
+      if (hasManyAll.length > 1) throw new Error(
+        `ambiguous embed: ${e.table} has ${hasManyAll.length} FKs to ${this.table} — ` +
+        `hint resolution is not implemented, write an explicit join`);
+      const hasMany = hasManyAll[0];
       if (!hasMany) throw new Error(
         `no FK path between ${this.table} and ${e.table} — embedded select unsupported here`);
       if (hasMany.fromCols.length > 1) throw new Error(

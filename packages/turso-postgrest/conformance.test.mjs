@@ -197,9 +197,60 @@ await test("eq(col, true) matches INTEGER 1", async () => {
   assert.equal(data.length, 2);
 });
 
+// --- composite-FK embeds must refuse, never mis-join on the first column
+await test("composite-FK embed is refused loudly", async () => {
+  await client.executeMultiple(`
+    CREATE TABLE assets (tenant_id TEXT, id TEXT, name TEXT,
+      PRIMARY KEY (tenant_id, id));
+    CREATE TABLE metrics (tenant_id TEXT, asset_id TEXT, v INTEGER,
+      FOREIGN KEY (tenant_id, asset_id) REFERENCES assets (tenant_id, id));
+    INSERT INTO assets VALUES ('t1','a1','ad'),('t2','a1','other-tenant-ad');
+    INSERT INTO metrics VALUES ('t1','a1',5);
+  `);
+  const res = await db.from("metrics").select("v, assets(name)").eq("tenant_id", "t1");
+  assert.ok(res.error, "must error rather than join on tenant_id alone");
+  assert.match(res.error.message, /composite FK/);
+});
+
 // --- rpc must fail loudly with the name
 await test("rpc throws naming the function", async () => {
   assert.throws(() => db.rpc("reserve_send_slot"), /reserve_send_slot/);
+});
+
+// --- JSON-path filters (production soft-delete guards use these)
+await test("JSON-path ->> filter compiles to json_extract", async () => {
+  const { data, error } = await db.from("leads").select("id")
+    .is("meta->>src", null);
+  assert.equal(error, null);
+  const { data: hit } = await db.from("leads").select("id").eq("meta->>src", "form");
+  assert.deepEqual(hit.map((r) => r.id), ["l1"]);
+});
+
+// --- typed literals in the or() grammar (silent-wrong before: 'true' as string)
+await test("or() boolean/null/number literals are typed, not strings", async () => {
+  const { data } = await db.from("tenants").select("slug").or("enabled.eq.true");
+  assert.ok(data.length >= 1, "boolean literal must match INTEGER 1 rows");
+  const { data: nulls } = await db.from("leads").select("id").or("tenant_id.is.null");
+  assert.deepEqual(nulls.map((r) => r.id), ["l4"]);
+  const { data: nums } = await db.from("leads").select("id").or("score.gte.80");
+  assert.deepEqual(nums.map((r) => r.id), ["l1"]);
+});
+
+// --- ambiguous embeds must refuse (two FKs to the same parent)
+await test("two FKs to the same parent table refuse the embed", async () => {
+  await client.executeMultiple(`
+    CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT);
+    CREATE TABLE tickets (
+      id TEXT PRIMARY KEY,
+      creator_id TEXT REFERENCES users(id),
+      assignee_id TEXT REFERENCES users(id)
+    );
+    INSERT INTO users VALUES ('u1','ann'),('u2','bob');
+    INSERT INTO tickets VALUES ('k1','u1','u2');
+  `);
+  const res = await db.from("tickets").select("id, users(name)");
+  assert.ok(res.error, "must refuse rather than pick a PRAGMA-ordered edge");
+  assert.match(res.error.message, /ambiguous embed/);
 });
 
 // --- injection guards
