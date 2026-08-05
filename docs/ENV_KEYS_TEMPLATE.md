@@ -44,6 +44,32 @@ For client deployments (deploying Hermes / a sibling agent for someone else), co
 | `BRAVO_SUPABASE_SERVICE_ROLE_KEY` | Bravo project service_role |
 | `SUPABASE_SERVICE_ROLE_KEY_BRAVO` | Same (legacy alias) |
 
+## Turso / libSQL (migration target — 5 databases, one per Supabase project)
+
+**Two different credentials, and confusing them is the #1 setup failure.** A
+*database* token connects to exactly one database; a *Platform API* token
+creates and manages databases. Only `turso auth api-tokens mint` produces the
+second kind. `TURSO_API_KEY` below is the first kind and 401s against the
+Platform API.
+
+| Variable | Notes |
+|----------|-------|
+| `TURSO_PLATFORM_TOKEN` | **Org-scoped.** Creates/deletes databases, mints db tokens. `turso auth login && turso auth api-tokens mint <name>` |
+| `TURSO_ORG` | Organization slug — `turso org list` |
+| `TURSO_DATABASE_URL` | **Canonical.** Bravo empire db, `libsql://<host>` |
+| `TURSO_AUTH_TOKEN` | Database token for the above (full-access) |
+| `TURSO_DB_PATH` | Local libSQL file — offline/test mode, no token needed |
+| `BREEZE_TURSO_DATABASE_URL` / `BREEZE_TURSO_AUTH_TOKEN` | breeze-portal (separate trust boundary — merchant bank data) |
+| `NOSTALGIC_TURSO_DATABASE_URL` / `NOSTALGIC_TURSO_AUTH_TOKEN` | nostalgic-requests |
+| `PROPFLOW_TURSO_DATABASE_URL` / `PROPFLOW_TURSO_AUTH_TOKEN` | propflow |
+| `OASIS_TURSO_DATABASE_URL` / `OASIS_TURSO_AUTH_TOKEN` | oasis-platform |
+| `TURSO_DB_URL` | Legacy alias read by oasis-command-center `lib/turso.ts` |
+| `TURSO_API_KEY` | **Pre-existing, unrelated.** Database token for ig-setter-pro. Deliberately NOT a fallback in `scripts/lib/db_turso.py` — using it would point the harness at another product's data. |
+| `GRITLY_TURSO_DATABASE_URL` / `GRITLY_TURSO_AUTH_TOKEN` | Gritly's own database (pre-existing, not part of this migration) |
+
+Provision with `python scripts/integrations/turso_admin.py create --all --write-env`
+— it writes URLs and tokens straight into this file and never prints their values.
+
 ## Payments — Stripe (3 brand accounts)
 
 | Variable | Brand |
