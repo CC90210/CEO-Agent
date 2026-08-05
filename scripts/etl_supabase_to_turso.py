@@ -56,6 +56,9 @@ log = get_logger("etl_supabase_to_turso")
 
 PAGE = 1000
 TIMEOUT_S = 60
+# SQLite's SQLITE_MAX_VARIABLE_NUMBER is 32,766 on modern builds. Batch sizing
+# divides this by the column count so a 60-column table cannot overflow it.
+MAX_SQL_VARS = 30_000
 
 # The project -> env-key registry is NOT redeclared here. supabase_tool.py owns
 # it, including the deliberately mixed-case "Breeze_" prefix (its comment at
@@ -205,35 +208,34 @@ def load_rows(db: TursoDB, table: str, rows: list[dict], cols: list[str],
               vec_cols: set[str]) -> int:
     if not rows:
         return 0
-    usable = [c for c in cols]
-    placeholders = ", ".join(
-        f"vector32(?)" if c in vec_cols else "?" for c in usable
-    )
+    usable = list(cols)
+    placeholders = ", ".join("vector32(?)" if c in vec_cols else "?" for c in usable)
     col_sql = ", ".join(f'"{c}"' for c in usable)
-    sql = f'INSERT OR REPLACE INTO "{table}" ({col_sql}) VALUES ({placeholders})'
     payload = []
     for row in rows:
         params = []
         for c in usable:
             v = row.get(c)
             params.append(json.dumps(v) if (c in vec_cols and isinstance(v, list)) else to_libsql(v))
-        payload.append(tuple(params))
+        payload.append(params)
 
-    # One statement per row is ~95k HTTP round trips against remote Turso — over
-    # an hour of pure latency for the Bravo project alone. executemany sends the
-    # batch in one go. Fall back to row-by-row only if the driver lacks it, and
-    # say so rather than silently crawling.
-    try:
-        db.executemany(sql, payload, allow_unscoped=True,
-                       reason="bulk ETL — tenant_id copied verbatim from source rows")
-    except AttributeError:
-        log.warn("driver has no executemany — falling back to row-by-row (slow)",
-                 table=table, rows=len(payload))
-        for params in payload:
-            db.execute(sql, params, allow_unscoped=True,
-                       reason="bulk ETL — tenant_id copied verbatim from source rows")
+    # MULTI-ROW VALUES, not executemany. Measured against remote Turso: libsql's
+    # executemany still issues one round trip per row (~2,400 rows in 13 min, i.e.
+    # ~8h for the Bravo project). A single INSERT with N value tuples is ONE round
+    # trip. SQLite's parameter ceiling is 32,766, so N is sized from the column
+    # count and clamped so a wide table cannot overflow it.
+    per_stmt = max(1, min(len(rows), MAX_SQL_VARS // max(1, len(usable))))
+    inserted = 0
+    for start in range(0, len(payload), per_stmt):
+        chunk = payload[start:start + per_stmt]
+        values_sql = ", ".join(f"({placeholders})" for _ in chunk)
+        flat: list = [v for params in chunk for v in params]
+        db.execute(f'INSERT OR REPLACE INTO "{table}" ({col_sql}) VALUES {values_sql}',
+                   flat, allow_unscoped=True,
+                   reason="bulk ETL — tenant_id copied verbatim from source rows")
+        inserted += len(chunk)
     db.commit()
-    return len(payload)
+    return inserted
 
 
 # -------------------------------------------------------------------- parity
