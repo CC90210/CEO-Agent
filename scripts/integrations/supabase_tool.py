@@ -135,6 +135,15 @@ PROJECTS = {
         "url_key": "Breeze_SUPABASE_URL",
         "key_key": "Breeze_SUPABASE_SERVICE_ROLE_KEY",
         "description": "CredPort / Breeze — MCA merchant portal (separate trust boundary)"
+    },
+    "propflow": {
+        # Added 2026-08-05 during the Turso migration: the key was fetched via
+        # the Management API (/v1/projects/{ref}/api-keys?reveal=true) — it was
+        # never stored before, which had made PropFlow unreachable to every
+        # PostgREST-based tool here.
+        "url_key": "PROPFLOW_SUPABASE_URL",
+        "key_key": "PROPFLOW_SUPABASE_SERVICE_ROLE_KEY",
+        "description": "PropFlow — tenant-screening/landlord SaaS (CC + Adon 50/50)"
     }
 }
 

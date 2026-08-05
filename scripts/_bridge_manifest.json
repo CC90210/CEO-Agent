@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-05T19:09:56.212494+00:00",
-  "script_count": 126,
-  "entry_count": 297,
+  "generated_at_iso": "2026-08-05T19:51:48.837672+00:00",
+  "script_count": 129,
+  "entry_count": 300,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -688,6 +688,22 @@
       "help": "enrich_oasis_leads.py \u2014 fill missing phone + first name on OASIS leads. \u2014 subcommand: run"
     },
     {
+      "key": "etl_auth_to_turso",
+      "path": "scripts/etl_auth_to_turso.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Preserve Supabase auth.users + auth.identities into each Turso database."
+    },
+    {
+      "key": "etl_storage_archive",
+      "path": "scripts/etl_storage_archive.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Archive Supabase Storage buckets to local disk, with a verifiable manifest."
+    },
+    {
       "key": "etl_supabase_to_turso",
       "path": "scripts/etl_supabase_to_turso.py",
       "root": "bravo",
@@ -1170,6 +1186,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "One-shot codemod: migrate raw subprocess.{Popen,run,...} calls to"
+    },
+    {
+      "key": "migration_completeness_audit",
+      "path": "scripts/migration_completeness_audit.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "THE answer to \"is every single piece of data migrated off Supabase?\""
     },
     {
       "key": "model_router_list_providers",
