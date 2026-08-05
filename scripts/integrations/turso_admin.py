@@ -282,6 +282,20 @@ def cmd_token(args) -> int:
     return 0
 
 
+def cmd_set_org(args) -> int:
+    """Store the organization slug.
+
+    Separate from the token verbs because an org slug is NOT a secret — it is
+    visible in every dashboard URL. Setting it independently means the operator's
+    only manual step is pasting the one value that IS secret.
+    """
+    written = _write_env({"TURSO_ORG": args.org})
+    print(f"wrote {', '.join(written)}={args.org} to the agents env")
+    print("Remaining manual step: add TURSO_PLATFORM_TOKEN "
+          "(Turso dashboard -> Settings -> API Tokens -> Create Token).")
+    return 0
+
+
 def cmd_destroy(args) -> int:
     """Deleting a database is irreversible; require the name typed twice.
 
@@ -330,6 +344,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_token.add_argument("--db", required=True)
     p_token.add_argument("--write-env", action="store_true")
 
+    p_org = sub.add_parser("set-org", parents=[common],
+                           help="store the (non-secret) organization slug")
+    p_org.add_argument("--org", required=True)
+
     p_destroy = sub.add_parser("destroy", parents=[common], help="delete a database (irreversible)")
     p_destroy.add_argument("--db", required=True)
     p_destroy.add_argument("--confirm", required=True, help="repeat the database name")
@@ -339,7 +357,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
     return {"status": cmd_status, "list": cmd_list, "create": cmd_create,
-            "token": cmd_token, "destroy": cmd_destroy}[args.command](args)
+            "token": cmd_token, "set-org": cmd_set_org,
+            "destroy": cmd_destroy}[args.command](args)
 
 
 if __name__ == "__main__":
