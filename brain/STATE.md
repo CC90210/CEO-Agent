@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-05
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Turso migration Phase 1-3 pilot: live-introspection transpiler (159/159 tables), sqlglot tenant-guard DAL, ETL with full-PK parity; 1465 tests pass; blocked on CC minting a Turso Platform API token
+- **Result:** Turso app rewiring: adapter (19/19 tests) wired into command-center/breeze/nostalgic on feat/turso-data-plane branches; 4 DBs parity-verified in cloud; bravo 94.8k-row copy at 91%; Vercel TURSO pairs pushed; cutover switch EMPIRE_DATA_BACKEND left to CC
 
 *Last updated: 2026-08-05*
 
