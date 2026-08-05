@@ -69,6 +69,10 @@ verified: 2026-06-09
 | CC Says | Tool | Command |
 |---------|------|---------|
 | Supabase query / CRUD | `supabase_tool.py` | `select <table> --project bravo`, `insert`, `update`, `query` |
+| Turso query / CRUD (migration target) | `integrations/turso_tool.py` | `status`, `tables`, `schema <t>`, `select <t> --tenant <id>`, `sql "<read-only>"`. `--db-path <file>` for local libSQL. **Tenant-scoped tables REQUIRE `--tenant`** — Turso has no RLS, the guard in `lib/db_turso.py` is the substitute |
+| Provision Turso databases | `integrations/turso_admin.py` | `status`, `create --all --write-env`, `token --db <n> --write-env`, `set-org --org <slug>`. Needs `TURSO_PLATFORM_TOKEN` (org-scoped, `turso auth api-tokens mint`) — **NOT** `TURSO_API_KEY`, which is a database token for ig-setter-pro |
+| Generate Turso schema from live Postgres | `core/turso_schema_transpiler.py` | `--project bravo --verify`. Introspects the LIVE db — `database/*.sql` covers only 43% of real tables |
+| Apply Turso DDL / copy rows | `apply_turso_migration.py`, `etl_supabase_to_turso.py` | `--test-mode` (throwaway local db); ETL: `--project bravo`, `--verify-parity`, `--dry-run`. Refuses to overwrite populated target tables without `--allow-overwrite` |
 | n8n workflows (read/exec) | `n8n_tool.py` | `list`, `search`, `execute <id>`, `stats` |
 | n8n workflows (build/modify) | n8n-mcp SDK flow | `get_sdk_reference` → `search_nodes` → `get_node_types` → `validate_workflow` → `create_workflow_from_code`. See `skills/n8n-mcp-integration` |
 | **Fetch a URL — DEFAULT entry point (auto-escalates Firecrawl→Cloak + remembers per-domain)** | `research_fetch.py` | `python scripts/research_fetch.py <url> --json`. Reputation: `reputation [domain]`, `reputation-clear <domain>`. Skill: `skills/research-fetch/SKILL.md` |
@@ -193,6 +197,8 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | _(LinkedIn outreach removed 2026-04-25)_ | research-only via Browser Harness — no automation by design | n/a |
 | **--- Infrastructure ---** | | |
 | `supabase_tool.py` | Database CRUD (3 projects) | CLI tool |
+| `turso_tool.py` | libSQL/Turso CRUD — tenant guard enforced | CLI tool |
+| `turso_admin.py` | Turso database provisioning (Platform API) | CLI tool |
 | `n8n_tool.py` | Workflow automation | CLI tool |
 | `firecrawl_tool.py` | Web scraping, extraction | CLI tool |
 | `browser_harness_doctor.py` | Browser Harness install/attach diagnostics | CLI tool |

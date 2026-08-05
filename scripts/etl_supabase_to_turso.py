@@ -23,7 +23,12 @@ CLI:
 --db-path targets a local libSQL file (the pre-Phase-0 path). Without it the
 configured Turso target is used.
 
-Take a restore point first — `python scripts/db_snapshot.py create --name pre-etl`.
+OVERWRITE SAFETY. Rows are written with INSERT OR REPLACE, so re-running against
+a table that already holds data silently overwrites it — including data that did
+NOT come from Supabase. The tool therefore refuses to write into a non-empty
+target table unless --allow-overwrite is passed, and names the tables it stopped
+on. (An earlier version only *advised* taking a restore point in this docstring;
+an unenforced safety instruction is decoration, so it is now a gate.)
 """
 from __future__ import annotations
 
@@ -149,6 +154,39 @@ def set_fk_enforcement(db: TursoDB, on: bool) -> None:
                allow_unscoped=True, reason="ETL FK enforcement toggle")
 
 
+def dependency_order(db: TursoDB, tables: list[str]) -> list[str]:
+    """Order tables parents-first, from the TARGET schema's own foreign keys.
+
+    Suspending enforcement is not enough on its own: SQLite treats
+    `PRAGMA foreign_keys` as a no-op inside a transaction, and remote Turso showed
+    exactly that — the pre-flight counts open one, the PRAGMA silently does
+    nothing, and the first child row fails with SQLITE_CONSTRAINT. Ordering the
+    copy is driver-independent and correct whether or not the PRAGMA takes.
+
+    Cycles fall back to alphabetical for the remainder; the post-load
+    foreign_key_check is what actually proves integrity either way.
+    """
+    wanted = set(tables)
+    deps: dict[str, set[str]] = {t: set() for t in tables}
+    for t in tables:
+        for fk in db.query(f'PRAGMA foreign_key_list("{t}")', allow_unscoped=True,
+                           reason="ETL dependency ordering"):
+            parent = fk.get("table")
+            if parent in wanted and parent != t:
+                deps[t].add(parent)
+    ordered: list[str] = []
+    remaining = dict(deps)
+    while remaining:
+        ready = sorted(t for t, d in remaining.items() if not (d & set(remaining)))
+        if not ready:
+            ordered.extend(sorted(remaining))
+            break
+        ordered.extend(ready)
+        for t in ready:
+            remaining.pop(t)
+    return ordered
+
+
 def fk_violations(db: TursoDB) -> list[dict]:
     """Every row whose foreign key does not resolve, after the load."""
     rows = db.query("PRAGMA foreign_key_check", allow_unscoped=True,
@@ -173,17 +211,29 @@ def load_rows(db: TursoDB, table: str, rows: list[dict], cols: list[str],
     )
     col_sql = ", ".join(f'"{c}"' for c in usable)
     sql = f'INSERT OR REPLACE INTO "{table}" ({col_sql}) VALUES ({placeholders})'
-    inserted = 0
+    payload = []
     for row in rows:
         params = []
         for c in usable:
             v = row.get(c)
             params.append(json.dumps(v) if (c in vec_cols and isinstance(v, list)) else to_libsql(v))
-        db.execute(sql, params, allow_unscoped=True,
-                   reason="bulk ETL — tenant_id copied verbatim from source rows")
-        inserted += 1
+        payload.append(tuple(params))
+
+    # One statement per row is ~95k HTTP round trips against remote Turso — over
+    # an hour of pure latency for the Bravo project alone. executemany sends the
+    # batch in one go. Fall back to row-by-row only if the driver lacks it, and
+    # say so rather than silently crawling.
+    try:
+        db.executemany(sql, payload, allow_unscoped=True,
+                       reason="bulk ETL — tenant_id copied verbatim from source rows")
+    except AttributeError:
+        log.warn("driver has no executemany — falling back to row-by-row (slow)",
+                 table=table, rows=len(payload))
+        for params in payload:
+            db.execute(sql, params, allow_unscoped=True,
+                       reason="bulk ETL — tenant_id copied verbatim from source rows")
     db.commit()
-    return inserted
+    return len(payload)
 
 
 # -------------------------------------------------------------------- parity
@@ -273,6 +323,9 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="report what would move, copy nothing")
     ap.add_argument("--verify-parity", action="store_true", help="compare only; do not copy")
     ap.add_argument("--limit-per-table", type=int, help="cap rows per table (smoke tests)")
+    ap.add_argument("--allow-overwrite", action="store_true",
+                    help="permit writing into target tables that already hold rows "
+                         "(INSERT OR REPLACE will overwrite them)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -322,9 +375,33 @@ def main() -> int:
             print(f"VERIFY-PARITY: {'PASS' if report['mismatched'] == 0 else 'FAIL'}")
         return 0 if report["mismatched"] == 0 else 1
 
+    # Refuse to clobber a populated target before writing anything. Checked up
+    # front rather than per-table so the run is all-or-nothing: a half-copied
+    # database that aborted midway is worse than one that never started.
+    if not args.dry_run and not args.allow_overwrite:
+        populated = []
+        for t in wanted:
+            if t not in tgt_tables:
+                continue
+            n = db.query(f'SELECT count(*) AS n FROM "{t}"', allow_unscoped=True,
+                         reason="overwrite pre-flight")[0]["n"]
+            if n:
+                populated.append((t, n))
+        if populated:
+            print("REFUSED: these target tables already hold rows and would be "
+                  "overwritten by INSERT OR REPLACE:", file=sys.stderr)
+            for t, n in populated[:15]:
+                print(f"    {t}: {n} existing row(s)", file=sys.stderr)
+            if len(populated) > 15:
+                print(f"    ... and {len(populated) - 15} more", file=sys.stderr)
+            print("Re-run with --allow-overwrite if replacing them is intended.",
+                  file=sys.stderr)
+            return 2
+
     moved = {"tables": 0, "rows": 0, "details": []}
     if not args.dry_run:
-        set_fk_enforcement(db, False)
+        set_fk_enforcement(db, False)          # helps when it takes; not relied upon
+        wanted = [t for t in dependency_order(db, [t for t in wanted if t in tgt_tables])]
     for t in wanted:
         if t not in tgt_tables:
             continue

@@ -76,11 +76,20 @@ class TursoAPIError(RuntimeError):
 
 
 def _creds() -> tuple[str, str]:
+    """Resolve (platform_token, org).
+
+    TURSO_PLATFORM_TOKEN is the explicit name, but TURSO_API_KEY is accepted as a
+    fallback because that is where the dashboard's "Create API Token" value
+    naturally lands. Whether a given token actually carries platform scope is not
+    knowable from its name — only from the API — so validate() is the real check
+    and a 401 explains the distinction.
+    """
     env = load_env()
-    token = env.get("TURSO_PLATFORM_TOKEN")
+    token = env.get("TURSO_PLATFORM_TOKEN") or env.get("TURSO_API_KEY")
     org = env.get("TURSO_ORG")
     if not token or not org:
-        missing = [k for k, v in (("TURSO_PLATFORM_TOKEN", token), ("TURSO_ORG", org)) if not v]
+        missing = [k for k, v in (("TURSO_PLATFORM_TOKEN or TURSO_API_KEY", token),
+                                  ("TURSO_ORG", org)) if not v]
         raise NotConfigured(
             f"missing {', '.join(missing)} in the agents env.\n"
             "Mint them with:\n"
@@ -172,11 +181,40 @@ def cmd_list(args) -> int:
     return cmd_status(args)
 
 
-def _create_one(token: str, org: str, name: str, group: str | None) -> dict:
-    body: dict = {"name": name}
-    if group:
-        body["group"] = group
-    res = _call("POST", f"/v1/organizations/{org}/databases", token, json=body)
+def resolve_group(token: str, org: str, requested: str | None) -> str:
+    """Pick a real group.
+
+    "default" is Turso's documented example name, not a guarantee — this account's
+    only group is named after the org, and assuming "default" produced
+    `400 group not found` on all five creates. Ask the API instead: honour an
+    explicit --group if it exists, else use the single group, else the one whose
+    name matches the org.
+    """
+    groups = [g.get("name") for g in
+              _call("GET", f"/v1/organizations/{org}/groups", token).get("groups", [])]
+    if not groups:
+        raise TursoAPIError(
+            f"organization {org!r} has no groups — create one in the Turso dashboard "
+            f"(a database must live in a group)."
+        )
+    if requested:
+        if requested in groups:
+            return requested
+        raise TursoAPIError(
+            f"group {requested!r} not found in {org!r}. Available: {', '.join(groups)}"
+        )
+    if len(groups) == 1:
+        return groups[0]
+    if org in groups:
+        return org
+    raise TursoAPIError(
+        f"{org!r} has several groups ({', '.join(groups)}) — pass --group to choose."
+    )
+
+
+def _create_one(token: str, org: str, name: str, group: str) -> dict:
+    res = _call("POST", f"/v1/organizations/{org}/databases", token,
+                json={"name": name, "group": group})
     return res.get("database", res)
 
 
@@ -201,9 +239,19 @@ def cmd_create(args) -> int:
         print("ERROR: give --db <name> or --all", file=sys.stderr)
         return 2
 
-    existing = {d.get("Name") or d.get("name")
+    # Fetch the inventory ONCE into name -> hostname. The first version re-listed
+    # every database inside the loop for each already-existing name, which is 5
+    # extra round trips on the common re-run path.
+    existing = {(d.get("Name") or d.get("name")): (d.get("Hostname") or d.get("hostname"))
                 for d in _call("GET", f"/v1/organizations/{org}/databases", token)
                 .get("databases", [])}
+
+    try:
+        group = resolve_group(token, org, args.group)
+    except TursoAPIError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    print(f"org: {org}  group: {group}")
 
     results = []
     env_pairs: dict[str, str] = {}
@@ -211,13 +259,11 @@ def cmd_create(args) -> int:
     for name in names:
         try:
             if name in existing:
-                results.append({"database": name, "status": "already exists"})
-                hostname = next(
-                    (d.get("Hostname") or d.get("hostname")
-                     for d in _call("GET", f"/v1/organizations/{org}/databases", token)
-                     .get("databases", []) if (d.get("Name") or d.get("name")) == name), None)
+                hostname = existing[name]
+                results.append({"database": name, "status": "already exists",
+                                "hostname": hostname})
             else:
-                db = _create_one(token, org, name, args.group)
+                db = _create_one(token, org, name, group)
                 hostname = db.get("Hostname") or db.get("hostname")
                 results.append({"database": name, "status": "created", "hostname": hostname})
                 log.info("database created", database=name, hostname=hostname)
@@ -335,7 +381,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_create = sub.add_parser("create", parents=[common], help="create database(s)")
     p_create.add_argument("--db", help=f"one of: {', '.join(sorted(EMPIRE_DATABASES))}")
     p_create.add_argument("--all", action="store_true", help="create all five")
-    p_create.add_argument("--group", default="default")
+    p_create.add_argument("--group", default=None,
+                          help="group name; discovered from the API when omitted")
     p_create.add_argument("--write-env", action="store_true",
                           help="mint a token per database and write URL+token to the "
                                "agents env (values never displayed)")

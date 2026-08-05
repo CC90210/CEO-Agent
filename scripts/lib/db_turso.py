@@ -367,6 +367,22 @@ class TursoDB:
         cols = [d[0] for d in desc]
         return [dict(zip(cols, r)) for r in rows]
 
+    def executemany(self, sql: str, seq_of_params: Sequence[Sequence[Any]], *,
+                    allow_unscoped: bool = False, reason: str | None = None):
+        """Batch execute. The scope check runs ONCE on the statement, not per row —
+        the SQL is identical for every row, so parsing it 20,000 times would be
+        pure waste, but skipping the check entirely would not."""
+        self._enforce_scope(sql, allow_unscoped=allow_unscoped, reason=reason)
+        if not hasattr(self._conn, "executemany"):
+            raise AttributeError("libsql connection has no executemany")
+        with self._lock:
+            try:
+                return self._conn.executemany(sql, list(seq_of_params))
+            except Exception as exc:  # noqa: BLE001 - log the real cause, then re-raise
+                log.error("Turso executemany failed", error=str(exc), sql=sql[:400],
+                          rows=len(seq_of_params), traceback=traceback.format_exc())
+                raise
+
     def commit(self) -> None:
         with self._lock:
             self._conn.commit()
