@@ -149,11 +149,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-04
+- **Date:** 2026-08-05
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Codex audit of the automation pass: fixed a retry regression (nested status ignored), catalog Last-synced lying, and an advisory falsely claiming all-clear. 1132 tests pass, pushed 43e5391a.
+- **Result:** Turso migration Phase 1-3 pilot: live-introspection transpiler (159/159 tables), sqlglot tenant-guard DAL, ETL with full-PK parity; 1465 tests pass; blocked on CC minting a Turso Platform API token
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-05*
 
 ## Manifest
 
