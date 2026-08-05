@@ -369,6 +369,14 @@ export class TursoQueryBuilder implements PromiseLike<PgResponse<any>> {
     for (const e of embeds) {
       const belongsTo = baseFks.find((f) => f.toTable === e.table);
       if (belongsTo) {
+        // Composite-FK embeds are refused, not approximated: joining on
+        // fromCols[0] alone (typically tenant_id) would match parents across
+        // tenants — silently wrong rows, the worst failure mode this migration
+        // has. Six such FKs exist in bravo (marketing_* tables); any query
+        // embedding across them must be written as an explicit join instead.
+        if (belongsTo.fromCols.length > 1) throw new Error(
+          `embedded select across composite FK ${this.table}(${belongsTo.fromCols.join(",")}) -> ` +
+          `${e.table} is not supported — write an explicit two-step query`);
         const keyCol = belongsTo.fromCols[0];
         const refCol = belongsTo.toCols[0];
         const keys = [...new Set(rows.map((r) => r[keyCol]).filter((v) => v != null))];
@@ -392,6 +400,9 @@ export class TursoQueryBuilder implements PromiseLike<PgResponse<any>> {
       const hasMany = childFks.find((f) => f.toTable === this.table);
       if (!hasMany) throw new Error(
         `no FK path between ${this.table} and ${e.table} — embedded select unsupported here`);
+      if (hasMany.fromCols.length > 1) throw new Error(
+        `embedded select across composite FK ${e.table}(${hasMany.fromCols.join(",")}) -> ` +
+        `${this.table} is not supported — write an explicit two-step query`);
       const refCol = hasMany.toCols[0];
       const childCol = hasMany.fromCols[0];
       const keys = [...new Set(rows.map((r) => r[refCol]).filter((v) => v != null))];
