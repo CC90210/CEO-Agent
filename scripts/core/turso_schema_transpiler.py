@@ -296,8 +296,35 @@ _IDX_RE = re.compile(
 _SIMPLE_COLS = re.compile(r"^[a-z_][a-z0-9_]*(\s+(ASC|DESC))?(\s*,\s*[a-z_][a-z0-9_]*(\s+(ASC|DESC))?)*$", re.I)
 
 
+def _pg_expr_to_sqlite(s: str) -> str:
+    """Translate the Postgres expression dialect SQLite doesn't share.
+
+    SQLite HAS expression indexes (3.9+) and partial indexes (3.8+), so most
+    "exotic" index definitions are portable after this rewrite. The first
+    version of this transpiler skipped them wholesale and silently dropped 20
+    UNIQUE constraints across five databases — dedup guards, one-active-run
+    guards, and the double-commission guard on live merchant money. Never skip a
+    UNIQUE index quietly again.
+    """
+    s = re.sub(r"::[a-z ]+(\[\])?", "", s)              # casts are no-ops here
+    s = re.sub(r"\bbtrim\s*\(", "trim(", s, flags=re.I)  # btrim -> trim
+    s = re.sub(r"=\s*ANY\s*\(\s*ARRAY\[(.*?)\]\s*\)", r"IN (\1)", s, flags=re.S | re.I)
+    s = re.sub(r"\bIS TRUE\b", "= 1", s, flags=re.I)
+    s = re.sub(r"\bIS FALSE\b", "= 0", s, flags=re.I)
+    return s
+
+
+# Postgres 15 NULLS NOT DISTINCT: NULLs compare EQUAL for uniqueness. SQLite
+# follows the standard (NULLs distinct), so the columns must be COALESCEd to a
+# sentinel or duplicates slip through wherever a key column is NULL.
+_NULL_SENTINEL = "\\u001f__null__"
+
+
 def transpile_index(indexdef: str, table: str, pk_names: set[str]) -> str | None:
-    m = _IDX_RE.match(indexdef.strip())
+    raw = indexdef.strip()
+    nulls_not_distinct = bool(re.search(r"NULLS\s+NOT\s+DISTINCT\s*$", raw, re.I))
+    raw = re.sub(r"\s*NULLS\s+NOT\s+DISTINCT\s*$", "", raw, flags=re.I)
+    m = _IDX_RE.match(raw)
     if not m:
         return None
     unique, name, method, cols, _, where = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6)
@@ -305,17 +332,19 @@ def transpile_index(indexdef: str, table: str, pk_names: set[str]) -> str | None
     if name in pk_names:
         return None  # PK is inline in CREATE TABLE
     if method.lower() not in ("btree",):
-        return None  # gin/gist/ivfflat/hnsw → header note
-    cols = cols.strip()
-    if not _SIMPLE_COLS.match(cols):
-        return None  # expression indexes → header note
+        return None  # gin/gist/ivfflat/hnsw have no SQLite equivalent
+    cols = _pg_expr_to_sqlite(cols.strip())
+    if nulls_not_distinct:
+        cols = ", ".join(
+            c.strip() if "(" in c else f"COALESCE({c.strip()}, '{_NULL_SENTINEL}')"
+            for c in cols.split(","))
     stmt = f"CREATE {'UNIQUE ' if unique else ''}INDEX IF NOT EXISTS \"{name}\" ON \"{table}\" ({cols})"
     if where:
-        w = where.strip()
-        # SQLite supports partial indexes; keep only obviously portable predicates
-        if re.search(r"::|~|\bILIKE\b|\bnow\(\)", w, re.I):
+        w = _pg_expr_to_sqlite(where.strip())
+        # now()/regex predicates are genuinely non-portable (non-deterministic
+        # or unsupported); everything else survives the rewrite above.
+        if re.search(r"~|\bILIKE\b|\bnow\(\)", w, re.I):
             return None
-        w = re.sub(r"\bIS TRUE\b", "= 1", re.sub(r"\bIS FALSE\b", "= 0", w, flags=re.I), flags=re.I)
         stmt += f" WHERE {w}"
     return stmt + ";"
 
@@ -438,6 +467,11 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
             idx_out.append(stmt)
         elif "_pkey" not in idx["indexname"]:
             lossy["indexes_skipped"].append(f"{idx['indexname']}: {idx['indexdef'][:100]}")
+            # A dropped UNIQUE index is a lost integrity CONSTRAINT, not a lost
+            # optimization — it must be impossible to miss in the report.
+            if "UNIQUE INDEX" in idx["indexdef"]:
+                lossy.setdefault("UNIQUE_CONSTRAINTS_LOST", []).append(
+                    f"{idx['indexname']} ON {t}: {idx['indexdef'][:140]}")
 
     plpgsql = [f["proname"] for f in intro["functions"] if f["lanname"] == "plpgsql"]
     triggers = [f"{tr['table_name']}.{tr['trigger_name']}" for tr in intro["triggers"]]

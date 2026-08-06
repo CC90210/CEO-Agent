@@ -1,6 +1,6 @@
 {
   "project": "oasis",
-  "generated": "2026-08-05T18:45:20+00:00",
+  "generated": "2026-08-06T22:36:17+00:00",
   "table_count": 17,
   "index_count": 79,
   "plpgsql_functions": [

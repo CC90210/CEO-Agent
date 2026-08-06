@@ -1,5 +1,5 @@
 -- oasis-platform master schema — transpiled from live Supabase
--- project ref: skgrbweyscysyetubemg  generated: 2026-08-05T18:45:20+00:00
+-- project ref: skgrbweyscysyetubemg  generated: 2026-08-06T22:36:17+00:00
 -- tables: 17  indexes emitted: 79
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):

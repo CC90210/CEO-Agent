@@ -1,6 +1,6 @@
 -- propflow master schema — transpiled from live Supabase
--- project ref: xusnasmzoxkaimyjqbie  generated: 2026-08-05T18:49:13+00:00
--- tables: 43  indexes emitted: 79
+-- project ref: xusnasmzoxkaimyjqbie  generated: 2026-08-06T22:36:05+00:00
+-- tables: 43  indexes emitted: 81
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (12): accept_invitation_manually, check_rate_limit, ensure_user_profile, ensure_user_profile_admin, generate_invoice_number, handle_new_user, increment_automation_counter, protect_company_entitlements, protect_profile_privileges, reap_stale_walkthrough_jobs, register_incoming_webhook_event, set_updated_at
@@ -8,7 +8,7 @@
 --   RLS policies: replaced by mandatory tenant scoping in db_turso.py
 --   cross-schema FKs dropped (10, e.g. auth.users): agent_social_profiles(user_id) -> auth.users; audit_logs(user_id) -> auth.users; gmail_oauth_tokens(user_id) -> auth.users; leases(tenant_id) -> auth.users; notifications(user_id) -> auth.users; platform_invitations(used_by) -> auth.users
 --   FKs dropped as unenforceable in SQLite (0) — parent columns not unique in the emitted schema; enforce in the DAL
---   defaults dropped (13) and non-btree/expression indexes skipped (2): see turso_migrations/propflow__transpile_report.json
+--   defaults dropped (13) and non-btree/expression indexes skipped (0): see turso_migrations/propflow__transpile_report.json
 --
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS "agent_social_profiles" (
@@ -908,6 +908,7 @@ CREATE TABLE IF NOT EXISTS "webhook_events" (
 CREATE UNIQUE INDEX IF NOT EXISTS "companies_pkey" ON "companies" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "companies_slug_key" ON "companies" (slug);
 CREATE UNIQUE INDEX IF NOT EXISTS "profiles_pkey" ON "profiles" (id);
+CREATE UNIQUE INDEX IF NOT EXISTS "profiles_email_lower_idx" ON "profiles" (lower(email));
 CREATE INDEX IF NOT EXISTS "profiles_company_id_idx" ON "profiles" (company_id);
 CREATE UNIQUE INDEX IF NOT EXISTS "areas_pkey" ON "areas" (id);
 CREATE INDEX IF NOT EXISTS "areas_company_idx" ON "areas" (company_id);
@@ -956,6 +957,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "automation_configs_pkey" ON "automation_confi
 CREATE UNIQUE INDEX IF NOT EXISTS "automation_configs_company_id_type_key" ON "automation_configs" (company_id, type);
 CREATE UNIQUE INDEX IF NOT EXISTS "automation_executions_pkey" ON "automation_executions" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "webhook_events_pkey" ON "webhook_events" (id);
+CREATE INDEX IF NOT EXISTS "webhook_events_pending_idx" ON "webhook_events" (status, created_at) WHERE (status IN ('pending', 'retrying'));
 CREATE UNIQUE INDEX IF NOT EXISTS "gmail_oauth_tokens_pkey" ON "gmail_oauth_tokens" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "gmail_oauth_tokens_company_id_email_key" ON "gmail_oauth_tokens" (company_id, email);
 CREATE UNIQUE INDEX IF NOT EXISTS "tenant_payments_pkey" ON "tenant_payments" (id);

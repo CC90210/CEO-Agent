@@ -1,6 +1,6 @@
 -- breeze-portal master schema — transpiled from live Supabase
--- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-05T18:45:25+00:00
--- tables: 46  indexes emitted: 148
+-- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-06T22:35:13+00:00
+-- tables: 46  indexes emitted: 171
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (12): accrue_iso_commission, approve_draw_request, assert_no_cross_role_binding, cancel_draw_request, claim_plaid_statement_link_token, compute_platform_fee, estimate_platform_fee, import_merchant_position, record_funded_draw, submit_draw_request, touch_updated_at, update_merchant_contact
@@ -8,7 +8,7 @@
 --   RLS policies: replaced by mandatory tenant scoping in db_turso.py
 --   cross-schema FKs dropped (9, e.g. auth.users): documents(uploaded_by_user_id) -> auth.users; draw_requests(decided_by_user_id) -> auth.users; draw_requests(submitted_by_user_id) -> auth.users; merchant_users(auth_user_id) -> auth.users; merchant_users(invited_by) -> auth.users; plaid_statement_requests(requested_by_user_id) -> auth.users
 --   FKs dropped as unenforceable in SQLite (0) — parent columns not unique in the emitted schema; enforce in the DAL
---   defaults dropped (2) and non-btree/expression indexes skipped (24): see turso_migrations/breeze__transpile_report.json
+--   defaults dropped (2) and non-btree/expression indexes skipped (1): see turso_migrations/breeze__transpile_report.json
 --
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS "tenants" (
@@ -945,6 +945,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "repayments_pkey" ON "repayments" (id);
 CREATE INDEX IF NOT EXISTS "repayments_tenant_idx" ON "repayments" (tenant_id);
 CREATE INDEX IF NOT EXISTS "repayments_advance_idx" ON "repayments" (advance_id, recorded_at DESC);
 CREATE INDEX IF NOT EXISTS "repayments_merchant_idx" ON "repayments" (merchant_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS "repayments_recorded_day_idx" ON "repayments" (advance_id, (((recorded_at AT TIME ZONE 'UTC'))));
 CREATE UNIQUE INDEX IF NOT EXISTS "repayments_external_id_idx" ON "repayments" (advance_id, external_id) WHERE (external_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS "repayments_draw_idx" ON "repayments" (draw_id, recorded_at DESC) WHERE (draw_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS "bank_accounts_pkey" ON "bank_accounts" (id);
@@ -953,16 +954,20 @@ CREATE INDEX IF NOT EXISTS "bank_accounts_merchant_idx" ON "bank_accounts" (merc
 CREATE UNIQUE INDEX IF NOT EXISTS "bank_accounts_plaid_unique" ON "bank_accounts" (merchant_id, plaid_account_id) WHERE (plaid_account_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS "bank_accounts_merchant_plaid_account_uidx" ON "bank_accounts" (merchant_id, plaid_account_id);
 CREATE UNIQUE INDEX IF NOT EXISTS "tenant_draw_notifiers_pkey" ON "tenant_draw_notifiers" (id);
+CREATE UNIQUE INDEX IF NOT EXISTS "tenant_draw_notifiers_tenant_email_uidx" ON "tenant_draw_notifiers" (tenant_id, lower(trim(email)));
 CREATE INDEX IF NOT EXISTS "tenant_draw_notifiers_active_idx" ON "tenant_draw_notifiers" (tenant_id) WHERE active;
 CREATE UNIQUE INDEX IF NOT EXISTS "audit_log_pkey" ON "audit_log" (id);
 CREATE INDEX IF NOT EXISTS "audit_log_tenant_entity_idx" ON "audit_log" (tenant_id, entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS "audit_log_tenant_at_idx" ON "audit_log" (tenant_id, at DESC);
 CREATE INDEX IF NOT EXISTS "audit_log_actor_idx" ON "audit_log" (actor_id, at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS "email_suppressions_pkey" ON "email_suppressions" (id);
+CREATE UNIQUE INDEX IF NOT EXISTS "email_suppressions_email_tenant_id_brand_key" ON "email_suppressions" (COALESCE(email, '\u001f__null__'), COALESCE(tenant_id, '\u001f__null__'), COALESCE(brand, '\u001f__null__'));
+CREATE INDEX IF NOT EXISTS "email_suppressions_email_idx" ON "email_suppressions" (lower(email));
 CREATE INDEX IF NOT EXISTS "email_suppressions_tenant_idx" ON "email_suppressions" (tenant_id);
 CREATE UNIQUE INDEX IF NOT EXISTS "webhook_events_pkey" ON "webhook_events" (id);
 CREATE INDEX IF NOT EXISTS "webhook_events_tenant_idx" ON "webhook_events" (tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS "webhook_events_status_idx" ON "webhook_events" (tenant_id, status, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS "webhook_events_external_id_idx" ON "webhook_events" (tenant_id, provider, external_id) WHERE ((external_id IS NOT NULL) AND (direction = 'inbound'));
 CREATE UNIQUE INDEX IF NOT EXISTS "documents_pkey" ON "documents" (id);
 CREATE INDEX IF NOT EXISTS "documents_tenant_idx" ON "documents" (tenant_id);
 CREATE INDEX IF NOT EXISTS "documents_merchant_idx" ON "documents" (merchant_id, created_at DESC);
@@ -975,6 +980,7 @@ CREATE INDEX IF NOT EXISTS "advances_merchant_idx" ON "advances" (merchant_id);
 CREATE INDEX IF NOT EXISTS "advances_status_idx" ON "advances" (tenant_id, repayment_status);
 CREATE UNIQUE INDEX IF NOT EXISTS "advances_lender_ref_idx" ON "advances" (tenant_id, lender_ref_id) WHERE (lender_ref_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS "advances_renewal_of_idx" ON "advances" (renewal_of_advance_id) WHERE (renewal_of_advance_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS "advances_collections_idx" ON "advances" (tenant_id, collection_status) WHERE (collection_status <> 'none');
 CREATE INDEX IF NOT EXISTS "advances_defaulted_at_idx" ON "advances" (tenant_id, defaulted_at) WHERE (defaulted_at IS NOT NULL);
 CREATE INDEX IF NOT EXISTS "advances_iso_idx" ON "advances" (iso_partner_id) WHERE (iso_partner_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS "advances_tenant_client_key_uk" ON "advances" (tenant_id, client_key) WHERE (client_key IS NOT NULL);
@@ -986,6 +992,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS "merchants_pkey" ON "merchants" (id);
 CREATE INDEX IF NOT EXISTS "merchants_tenant_idx" ON "merchants" (tenant_id);
 CREATE INDEX IF NOT EXISTS "merchants_status_idx" ON "merchants" (tenant_id, status);
 CREATE INDEX IF NOT EXISTS "merchants_business_idx" ON "merchants" (tenant_id, business_name);
+CREATE UNIQUE INDEX IF NOT EXISTS "merchants_tenant_email_lower_uidx" ON "merchants" (tenant_id, lower(trim(primary_contact_email))) WHERE (primary_contact_email IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS "merchants_tenant_name_lower_uidx" ON "merchants" (tenant_id, lower(trim(business_name)));
 CREATE UNIQUE INDEX IF NOT EXISTS "underwriting_snapshots_pkey" ON "underwriting_snapshots" (id);
 CREATE INDEX IF NOT EXISTS "uw_snapshots_merchant_idx" ON "underwriting_snapshots" (merchant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS "uw_snapshots_tenant_idx" ON "underwriting_snapshots" (tenant_id);
@@ -1009,6 +1017,7 @@ CREATE INDEX IF NOT EXISTS "merchant_users_merchant_idx" ON "merchant_users" (me
 CREATE INDEX IF NOT EXISTS "merchant_users_auth_idx" ON "merchant_users" (auth_user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS "chat_conversations_pkey" ON "chat_conversations" (id);
 CREATE INDEX IF NOT EXISTS "chat_conversations_merchant_idx" ON "chat_conversations" (merchant_id, updated_at DESC) WHERE (merchant_id IS NOT NULL);
+CREATE INDEX IF NOT EXISTS "chat_conversations_funder_idx" ON "chat_conversations" (tenant_id, tenant_user_id, updated_at DESC) WHERE (owner_kind = 'funder');
 CREATE UNIQUE INDEX IF NOT EXISTS "chat_messages_pkey" ON "chat_messages" (id);
 CREATE INDEX IF NOT EXISTS "chat_messages_conversation_idx" ON "chat_messages" (conversation_id, created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS "draws_pkey" ON "draws" (id);
@@ -1017,6 +1026,7 @@ CREATE INDEX IF NOT EXISTS "draws_tenant_idx" ON "draws" (tenant_id);
 CREATE INDEX IF NOT EXISTS "draws_advance_idx" ON "draws" (advance_id);
 CREATE INDEX IF NOT EXISTS "draws_merchant_idx" ON "draws" (merchant_id);
 CREATE INDEX IF NOT EXISTS "draws_funded_idx" ON "draws" (tenant_id, funded_at DESC);
+CREATE INDEX IF NOT EXISTS "draws_pending_disbursement_idx" ON "draws" (tenant_id, disbursement_status) WHERE (disbursement_status = 'pending');
 CREATE UNIQUE INDEX IF NOT EXISTS "draw_requests_pkey" ON "draw_requests" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "draw_requests_tenant_id_idempotency_key_key" ON "draw_requests" (tenant_id, idempotency_key);
 CREATE INDEX IF NOT EXISTS "draw_requests_tenant_idx" ON "draw_requests" (tenant_id);
@@ -1056,6 +1066,8 @@ CREATE INDEX IF NOT EXISTS "kb_documents_tenant_idx" ON "kb_documents" (tenant_i
 CREATE UNIQUE INDEX IF NOT EXISTS "iso_commissions_pkey" ON "iso_commissions" (id);
 CREATE INDEX IF NOT EXISTS "iso_commissions_partner_idx" ON "iso_commissions" (iso_partner_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS "iso_commissions_tenant_idx" ON "iso_commissions" (tenant_id, status, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS "iso_commissions_draw_accrual_unique" ON "iso_commissions" (draw_id) WHERE ((entry_type = 'commission') AND (draw_id IS NOT NULL));
+CREATE UNIQUE INDEX IF NOT EXISTS "iso_commissions_draw_clawback_unique" ON "iso_commissions" (draw_id) WHERE ((entry_type = 'clawback') AND (draw_id IS NOT NULL));
 CREATE UNIQUE INDEX IF NOT EXISTS "interactions_pkey" ON "interactions" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "interactions_tenant_id_external_id_key" ON "interactions" (tenant_id, external_id);
 CREATE INDEX IF NOT EXISTS "interactions_tenant_idx" ON "interactions" (tenant_id, created_at DESC);
@@ -1064,28 +1076,39 @@ CREATE INDEX IF NOT EXISTS "interactions_sequence_idx" ON "interactions" (sequen
 CREATE UNIQUE INDEX IF NOT EXISTS "agent_runs_pkey" ON "agent_runs" (id);
 CREATE INDEX IF NOT EXISTS "agent_runs_tenant_idx" ON "agent_runs" (tenant_id, started_at DESC);
 CREATE INDEX IF NOT EXISTS "agent_runs_employee_idx" ON "agent_runs" (tenant_id, employee, started_at DESC);
+CREATE INDEX IF NOT EXISTS "agent_runs_status_idx" ON "agent_runs" (tenant_id, status) WHERE (status IN ('queued', 'running', 'failed'));
 CREATE INDEX IF NOT EXISTS "agent_runs_merchant_idx" ON "agent_runs" (merchant_id, started_at DESC) WHERE (merchant_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS "sequences_pkey" ON "sequences" (id);
 CREATE INDEX IF NOT EXISTS "sequences_tenant_idx" ON "sequences" (tenant_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS "iso_partners_pkey" ON "iso_partners" (id);
+CREATE UNIQUE INDEX IF NOT EXISTS "iso_partners_name_unique" ON "iso_partners" (tenant_id, lower(name));
 CREATE UNIQUE INDEX IF NOT EXISTS "message_templates_pkey" ON "message_templates" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "message_templates_key_unique" ON "message_templates" (tenant_id, key);
 CREATE UNIQUE INDEX IF NOT EXISTS "sequence_state_pkey" ON "sequence_state" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "sequence_state_sequence_id_merchant_id_key" ON "sequence_state" (sequence_id, merchant_id);
+CREATE INDEX IF NOT EXISTS "sequence_state_due_idx" ON "sequence_state" (tenant_id, next_run_at) WHERE (status = 'active');
 CREATE INDEX IF NOT EXISTS "sequence_state_merchant_idx" ON "sequence_state" (merchant_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS "plaid_items_pkey" ON "plaid_items" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "plaid_items_tenant_item_uidx" ON "plaid_items" (tenant_id, plaid_item_id);
 CREATE UNIQUE INDEX IF NOT EXISTS "plaid_items_tenant_attempt_uidx" ON "plaid_items" (tenant_id, merchant_id, attempt_id);
+CREATE INDEX IF NOT EXISTS "plaid_items_recovery_idx" ON "plaid_items" (status, retry_count, updated_at) WHERE (status IN ('pending', 'error'));
 CREATE INDEX IF NOT EXISTS "plaid_items_merchant_idx" ON "plaid_items" (tenant_id, merchant_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS "item_column_values_pkey" ON "item_column_values" (item_id, column_id);
 CREATE INDEX IF NOT EXISTS "item_column_values_column_idx" ON "item_column_values" (column_id);
 CREATE UNIQUE INDEX IF NOT EXISTS "board_views_pkey" ON "board_views" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "crm_import_runs_pkey" ON "crm_import_runs" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "boards_pkey" ON "boards" (id);
+CREATE UNIQUE INDEX IF NOT EXISTS "boards_deals_singleton" ON "boards" (tenant_id) WHERE (kind = 'deals');
 CREATE UNIQUE INDEX IF NOT EXISTS "board_groups_pkey" ON "board_groups" (id);
+CREATE INDEX IF NOT EXISTS "board_groups_board_idx" ON "board_groups" (board_id, "position");
 CREATE UNIQUE INDEX IF NOT EXISTS "board_columns_pkey" ON "board_columns" (id);
+CREATE INDEX IF NOT EXISTS "board_columns_board_idx" ON "board_columns" (board_id, "position");
+CREATE UNIQUE INDEX IF NOT EXISTS "board_columns_locked_stage_singleton" ON "board_columns" (board_id) WHERE (is_locked AND (type = 'status'));
 CREATE UNIQUE INDEX IF NOT EXISTS "board_items_pkey" ON "board_items" (id);
+CREATE INDEX IF NOT EXISTS "board_items_board_idx" ON "board_items" (board_id, group_id, "position");
 CREATE UNIQUE INDEX IF NOT EXISTS "board_items_external_ref_unique" ON "board_items" (tenant_id, external_ref) WHERE (external_ref IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS "plaid_statement_requests_pkey" ON "plaid_statement_requests" (id);
 CREATE INDEX IF NOT EXISTS "plaid_statement_requests_merchant_idx" ON "plaid_statement_requests" (tenant_id, merchant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS "plaid_statement_requests_work_idx" ON "plaid_statement_requests" (status, next_attempt_at, updated_at) WHERE (status IN ('starting_refresh', 'refreshing', 'callback_missing', 'ready', 'processing'));
+CREATE UNIQUE INDEX IF NOT EXISTS "plaid_statement_requests_active_item_uidx" ON "plaid_statement_requests" (tenant_id, merchant_id, plaid_item_id) WHERE (status IN ('pending_consent', 'starting_refresh', 'refreshing', 'callback_missing', 'ready', 'processing'));
 CREATE UNIQUE INDEX IF NOT EXISTS "plaid_statement_link_tokens_pkey" ON "plaid_statement_link_tokens" (request_id);

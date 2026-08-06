@@ -175,15 +175,67 @@ def test_gin_index_is_skipped_not_mistranslated():
     assert transpile_index("CREATE INDEX i ON public.t USING gin (tags)", "t", set()) is None
 
 
-def test_expression_index_is_skipped():
-    assert transpile_index("CREATE INDEX i ON public.t USING btree (lower(email))",
-                           "t", set()) is None
+def test_expression_index_is_emitted_not_skipped():
+    """SQLite has expression indexes (3.9+). Skipping them silently dropped 20
+    UNIQUE constraints across five live databases — including the
+    double-commission guard on merchant money."""
+    out = transpile_index("CREATE INDEX i ON public.t USING btree (lower(email))",
+                          "t", set())
+    assert out == 'CREATE INDEX IF NOT EXISTS "i" ON "t" (lower(email));'
 
 
-def test_partial_index_with_cast_is_skipped():
-    assert transpile_index(
+def test_partial_index_with_cast_is_emitted():
+    """SQLite has partial indexes (3.8+); ::casts are no-ops here and strip cleanly."""
+    out = transpile_index(
         "CREATE INDEX i ON public.t USING btree (a) WHERE (status = 'x'::text)",
+        "t", set())
+    assert out == 'CREATE INDEX IF NOT EXISTS "i" ON "t" (a) WHERE (status = \'x\');'
+
+
+def test_any_array_predicate_becomes_in_list():
+    out = transpile_index(
+        "CREATE UNIQUE INDEX i ON public.t USING btree (lead_id) "
+        "WHERE (status = ANY (ARRAY['pending', 'running']))", "t", set())
+    assert out == ('CREATE UNIQUE INDEX IF NOT EXISTS "i" ON "t" (lead_id) '
+                   "WHERE (status IN ('pending', 'running'));")
+
+
+def test_btrim_becomes_trim():
+    out = transpile_index(
+        "CREATE UNIQUE INDEX i ON public.t USING btree (tenant_id, lower(btrim(email)))",
+        "t", set())
+    assert "trim(email)" in out and "btrim" not in out
+
+
+def test_nulls_not_distinct_coalesces_bare_columns():
+    """Postgres 15 NULLS NOT DISTINCT treats NULLs as EQUAL; SQLite does not.
+    Without COALESCE, duplicate suppression rows slip through wherever
+    tenant/brand is NULL — i.e. an unsubscribed person gets emailed again."""
+    out = transpile_index(
+        "CREATE UNIQUE INDEX i ON public.email_suppressions USING btree "
+        "(email, tenant_id, brand) NULLS NOT DISTINCT", "email_suppressions", set())
+    assert "COALESCE(email," in out
+    assert "COALESCE(tenant_id," in out
+    assert "COALESCE(brand," in out
+
+
+def test_nondeterministic_predicate_still_skipped():
+    """now()-dependent predicates are genuinely non-portable — a partial index
+    whose membership changes with the clock is not a stable index."""
+    assert transpile_index(
+        "CREATE INDEX i ON public.t USING btree (a) WHERE (expires_at > now())",
         "t", set()) is None
+
+
+def test_unique_loss_is_reported_loudly():
+    """A dropped UNIQUE is a lost CONSTRAINT, not a lost optimization."""
+    intro = _intro(
+        columns=[col("t", "a")],
+        indexes=[{"schemaname": "public", "tablename": "t", "indexname": "u_gin",
+                  "indexdef": "CREATE UNIQUE INDEX u_gin ON public.t USING gin (tags)"}],
+    )
+    _sql, report = build_schema(intro, "bravo")
+    assert report["lossy"]["UNIQUE_CONSTRAINTS_LOST"], "silent UNIQUE loss must be impossible"
 
 
 # ------------------------------------------------------------------- output

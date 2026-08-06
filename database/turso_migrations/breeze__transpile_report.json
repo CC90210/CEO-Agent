@@ -1,8 +1,8 @@
 {
   "project": "breeze",
-  "generated": "2026-08-05T18:45:25+00:00",
+  "generated": "2026-08-06T22:35:13+00:00",
   "table_count": 46,
-  "index_count": 148,
+  "index_count": 171,
   "plpgsql_functions": [
     "accrue_iso_commission",
     "approve_draw_request",
@@ -57,30 +57,7 @@
       "platform_fee_ledger.id: nextval('platform_fee_ledger_id_seq'::regclass)"
     ],
     "indexes_skipped": [
-      "repayments_recorded_day_idx: CREATE INDEX repayments_recorded_day_idx ON public.repayments USING btree (advance_id, (((recorded_a",
-      "tenant_draw_notifiers_tenant_email_uidx: CREATE UNIQUE INDEX tenant_draw_notifiers_tenant_email_uidx ON public.tenant_draw_notifiers USING bt",
-      "email_suppressions_email_tenant_id_brand_key: CREATE UNIQUE INDEX email_suppressions_email_tenant_id_brand_key ON public.email_suppressions USING ",
-      "email_suppressions_email_idx: CREATE INDEX email_suppressions_email_idx ON public.email_suppressions USING btree (lower(email))",
-      "webhook_events_external_id_idx: CREATE UNIQUE INDEX webhook_events_external_id_idx ON public.webhook_events USING btree (tenant_id, ",
-      "advances_collections_idx: CREATE INDEX advances_collections_idx ON public.advances USING btree (tenant_id, collection_status) ",
-      "merchants_tenant_email_lower_uidx: CREATE UNIQUE INDEX merchants_tenant_email_lower_uidx ON public.merchants USING btree (tenant_id, lo",
-      "merchants_tenant_name_lower_uidx: CREATE UNIQUE INDEX merchants_tenant_name_lower_uidx ON public.merchants USING btree (tenant_id, low",
-      "chat_conversations_funder_idx: CREATE INDEX chat_conversations_funder_idx ON public.chat_conversations USING btree (tenant_id, tena",
-      "draws_pending_disbursement_idx: CREATE INDEX draws_pending_disbursement_idx ON public.draws USING btree (tenant_id, disbursement_sta",
-      "kb_chunks_embedding_idx: CREATE INDEX kb_chunks_embedding_idx ON public.kb_chunks USING hnsw (embedding vector_cosine_ops)",
-      "iso_commissions_draw_accrual_unique: CREATE UNIQUE INDEX iso_commissions_draw_accrual_unique ON public.iso_commissions USING btree (draw_",
-      "iso_commissions_draw_clawback_unique: CREATE UNIQUE INDEX iso_commissions_draw_clawback_unique ON public.iso_commissions USING btree (draw",
-      "agent_runs_status_idx: CREATE INDEX agent_runs_status_idx ON public.agent_runs USING btree (tenant_id, status) WHERE (statu",
-      "iso_partners_name_unique: CREATE UNIQUE INDEX iso_partners_name_unique ON public.iso_partners USING btree (tenant_id, lower(na",
-      "sequence_state_due_idx: CREATE INDEX sequence_state_due_idx ON public.sequence_state USING btree (tenant_id, next_run_at) WH",
-      "plaid_items_recovery_idx: CREATE INDEX plaid_items_recovery_idx ON public.plaid_items USING btree (status, retry_count, update",
-      "boards_deals_singleton: CREATE UNIQUE INDEX boards_deals_singleton ON public.boards USING btree (tenant_id) WHERE (kind = 'd",
-      "board_groups_board_idx: CREATE INDEX board_groups_board_idx ON public.board_groups USING btree (board_id, \"position\")",
-      "board_columns_board_idx: CREATE INDEX board_columns_board_idx ON public.board_columns USING btree (board_id, \"position\")",
-      "board_columns_locked_stage_singleton: CREATE UNIQUE INDEX board_columns_locked_stage_singleton ON public.board_columns USING btree (board_",
-      "board_items_board_idx: CREATE INDEX board_items_board_idx ON public.board_items USING btree (board_id, group_id, \"position\"",
-      "plaid_statement_requests_work_idx: CREATE INDEX plaid_statement_requests_work_idx ON public.plaid_statement_requests USING btree (statu",
-      "plaid_statement_requests_active_item_uidx: CREATE UNIQUE INDEX plaid_statement_requests_active_item_uidx ON public.plaid_statement_requests USI"
+      "kb_chunks_embedding_idx: CREATE INDEX kb_chunks_embedding_idx ON public.kb_chunks USING hnsw (embedding vector_cosine_ops)"
     ],
     "cross_schema_fks_dropped": [
       "documents(uploaded_by_user_id) -> auth.users",
