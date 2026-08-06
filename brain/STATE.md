@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-06
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Turso cancel-readiness: all 30 RPCs ported (23 TS via workflow + 7 Python); shims wired shim-first in command-center + breeze; Python harness one env var from Turso; 2.98GB/4079 files archived all hashes OK; audit shows live-drift only - the flip IS the freeze
+- **Result:** Turso full-replacement build: auth shipped for breeze(+reset flow)/command-center(+own Google OAuth)/nostalgic; realtime->polling; storage needs no build (zero call sites); n8n: 4 active client workflows inventoried for cutover repoint
 
 *Last updated: 2026-08-06*
 
