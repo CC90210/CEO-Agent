@@ -29,7 +29,8 @@ def client(tmp_path) -> TursoSupabaseCompat:
     db.execute("""
         CREATE TABLE "agent_events" (
           "id" TEXT PRIMARY KEY,
-          "event_type" TEXT, "target_agent" TEXT, "status" TEXT DEFAULT 'pending',
+          "event_type" TEXT, "publisher_agent" TEXT, "target_agent" TEXT,
+          "severity" TEXT, "correlation_id" TEXT, "status" TEXT DEFAULT 'pending',
           "published_at" TEXT, "visibility_until" TEXT, "processed_at" TEXT,
           "processed_by" TEXT, "retry_count" INTEGER DEFAULT 0, "last_error" TEXT,
           "consumed_by" TEXT DEFAULT '[]', "payload" TEXT
@@ -42,8 +43,9 @@ def client(tmp_path) -> TursoSupabaseCompat:
         )""", allow_unscoped=True, reason="test setup")
     db.execute("""
         CREATE TABLE "leads" (
-          "id" TEXT PRIMARY KEY, "tenant_id" TEXT, "email" TEXT, "status" TEXT,
-          "score" INTEGER, "meta" TEXT
+          "id" TEXT PRIMARY KEY, "tenant_id" TEXT, "name" TEXT, "email" TEXT,
+          "status" TEXT, "source" TEXT, "score" INTEGER, "meta" TEXT,
+          "created_at" TEXT, "updated_at" TEXT, "last_contacted_at" TEXT
         )""", allow_unscoped=True, reason="test setup")
     db.commit()
     db._tenant_tables = db._discover_tenant_tables()
@@ -203,6 +205,36 @@ def test_mark_event_consumed_is_idempotent_per_agent(client):
                       {"p_event_id": "e0", "p_agent": "atlas"}).execute().data is False
     assert client.rpc("mark_event_consumed",
                       {"p_event_id": "e0", "p_agent": "maven"}).execute().data is True
+
+
+def test_record_inbound_creates_lead_interaction_and_event(client):
+    """The */5-min inbound email pipeline's chokepoint — full flow."""
+    out = client.rpc("record_inbound_from_n8n", {
+        "p_from_email": "  Prospect@Example.COM ",
+        "p_subject": "Re: your offer",
+        "p_content": "I want to book a call",
+        "p_classification": {"priority": "hot", "intent": "booking"},
+        "p_message_id": "m-1",
+    }).execute().data
+    assert out["status"] == "ok" and out["lead_was_new"] is True
+    assert out["severity"] == "warn", "hot/booking must lift severity for Telegram digests"
+    lead = client.table("leads").select("*").eq("email", "prospect@example.com").single().execute().data
+    assert lead["source"] == "inbound_n8n"
+    ev = client.table("agent_events").select("*").eq(
+        "event_type", "inbound.classified").single().execute().data
+    assert ev["payload"]["lead_id"] == lead["id"]
+
+    # Second email from the same address must NOT create a second lead.
+    again = client.rpc("record_inbound_from_n8n", {
+        "p_from_email": "prospect@example.com", "p_content": "following up",
+    }).execute().data
+    assert again["lead_was_new"] is False and again["lead_id"] == lead["id"]
+    assert again["severity"] == "info"
+
+
+def test_record_inbound_refuses_garbage_email(client):
+    with pytest.raises(CompatError, match="must look like an email"):
+        client.rpc("record_inbound_from_n8n", {"p_from_email": "not-an-email"}).execute()
 
 
 def test_reap_stuck_events_requeues_expired_processing(client):

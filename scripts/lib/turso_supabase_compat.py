@@ -35,7 +35,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Sequence
+from typing import Any
 
 _SCRIPTS = Path(__file__).resolve().parent.parent
 if str(_SCRIPTS) not in sys.path:
@@ -484,7 +484,77 @@ def _rpc_reap_stuck_events(db: TursoDB, p: dict) -> int:
     return max(0, getattr(cur, "rowcount", 0))
 
 
+def _rpc_record_inbound_from_n8n(db: TursoDB, p: dict) -> dict:
+    """Port of record_inbound_from_n8n — the */5-min inbound email chokepoint.
+
+    Upsert lead by email -> insert interaction -> publish inbound.classified on
+    the event bus, returning the same jsonb handles. Steps run in sequence with
+    a commit at the end; a failure raises (matching the PL/pgSQL RAISE) rather
+    than half-logging silently.
+    """
+    reason = "python-compat rpc: record_inbound_from_n8n"
+    email = (p.get("p_from_email") or "").strip().lower()
+    if not email or "@" not in email:
+        raise CompatError(
+            "record_inbound_from_n8n: from_email is required and must look like an email")
+    from_name = (p.get("p_from_name") or "").strip() or None
+    name = from_name or email.split("@", 1)[0]
+    now = p.get("p_received_at") or _now()
+    classification = p.get("p_classification") or {}
+
+    rows = db.query('SELECT id FROM "leads" WHERE email = ? LIMIT 1', [email],
+                    allow_unscoped=True, reason=reason)
+    lead_was_new = not rows
+    if lead_was_new:
+        lead_id = str(uuid.uuid4())
+        db.execute(
+            'INSERT INTO "leads" (id, name, email, status, source, created_at, '
+            "updated_at, last_contacted_at) VALUES (?, ?, ?, 'new', 'inbound_n8n', ?, ?, ?)",
+            [lead_id, name, email, now, now, now], allow_unscoped=True, reason=reason)
+    else:
+        lead_id = rows[0]["id"]
+        db.execute('UPDATE "leads" SET last_contacted_at = ?, updated_at = ? WHERE id = ?',
+                   [now, now, lead_id], allow_unscoped=True, reason=reason)
+
+    interaction_id = str(uuid.uuid4())
+    subject = (p.get("p_subject") or "").strip() or None
+    db.execute(
+        'INSERT INTO "lead_interactions" (id, lead_id, type, channel, subject, content, '
+        "agent_source, metadata, created_at) VALUES (?, ?, 'email_received', 'email', "
+        "?, ?, 'n8n_inbound', ?, ?)",
+        [interaction_id, lead_id, subject, (p.get("p_content") or "")[:2000],
+         json.dumps({
+             "from_identity": email, "from_name": from_name,
+             "thread_id": p.get("p_thread_id"), "message_id": p.get("p_message_id"),
+             "received_at": now, "classification": classification,
+             "source_workflow": "oasis_inbound_qualifier",
+         }, separators=(",", ":")), now],
+        allow_unscoped=True, reason=reason)
+
+    priority = str(classification.get("priority", "unknown"))
+    intent = str(classification.get("intent", "unknown"))
+    severity = "warn" if (priority == "hot"
+                          or intent in ("unsubscribe", "objection", "booking")) else "info"
+    event_id = str(uuid.uuid4())
+    db.execute(
+        'INSERT INTO "agent_events" (id, event_type, publisher_agent, severity, payload, '
+        "correlation_id, published_at) VALUES (?, 'inbound.classified', 'n8n', ?, ?, ?, ?)",
+        [event_id, severity, json.dumps({
+            "interaction_id": interaction_id, "lead_id": lead_id,
+            "lead_was_new": lead_was_new, "from_identity": email,
+            "from_name": from_name, "subject": subject,
+            "thread_id": p.get("p_thread_id"), "message_id": p.get("p_message_id"),
+            "classification": classification,
+        }, separators=(",", ":")), interaction_id, now],
+        allow_unscoped=True, reason=reason)
+    db.commit()
+    return {"status": "ok", "lead_id": lead_id, "lead_was_new": lead_was_new,
+            "interaction_id": interaction_id, "event_id": event_id,
+            "severity": severity, "received_at": now}
+
+
 RPC_REGISTRY = {
+    "record_inbound_from_n8n": _rpc_record_inbound_from_n8n,
     "reserve_send_slot": _rpc_reserve_send_slot,
     "claim_events": _rpc_claim_events,
     "ack_event": _rpc_ack_event,
