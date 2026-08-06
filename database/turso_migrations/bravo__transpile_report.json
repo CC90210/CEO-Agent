@@ -1,8 +1,9 @@
 {
   "project": "bravo",
-  "generated": "2026-08-06T22:40:09+00:00",
+  "generated": "2026-08-06T23:29:28+00:00",
   "table_count": 160,
-  "index_count": 547,
+  "index_count": 545,
+  "view_count": 2,
   "plpgsql_functions": [
     "ack_event",
     "agents_touch_updated_at",
@@ -117,7 +118,9 @@
       "idx_skills_registry_triggers_gin: CREATE INDEX idx_skills_registry_triggers_gin ON public.skills_registry USING gin (triggers)",
       "idx_skills_registry_tags_gin: CREATE INDEX idx_skills_registry_tags_gin ON public.skills_registry USING gin (tags)",
       "bridge_pairings_tool_capabilities_idx: CREATE INDEX bridge_pairings_tool_capabilities_idx ON public.bridge_pairings USING gin (tool_capabil",
+      "idx_agent_events_unconsumed: CREATE INDEX idx_agent_events_unconsumed ON public.agent_events USING btree (event_type, published_a",
       "idx_tenant_records_business_trgm: CREATE INDEX idx_tenant_records_business_trgm ON public.tenant_records USING gin (lower(COALESCE((da",
+      "idx_tenant_records_phone_last10: CREATE INDEX idx_tenant_records_phone_last10 ON public.tenant_records USING btree (tenant_id, \"right",
       "idx_marketing_corpus_search_trgm: CREATE INDEX idx_marketing_corpus_search_trgm ON public.marketing_corpus USING gin (search_text gin_"
     ],
     "checks_skipped": [
@@ -145,6 +148,14 @@
       "user_integration_credentials(user_id) -> auth.users",
       "user_profiles(invited_by) -> auth.users"
     ],
-    "unenforceable_fks_dropped": []
+    "unenforceable_fks_dropped": [],
+    "VIEWS_LOST": [
+      "merchant_summary: needs manual port \u2014 WITH ranked_apps AS ( SELECT a.id AS application_id, a.tenant_id, a.data ->> 'lead_id'::text AS lead_id_str, a.data, a.c"
+    ]
+  },
+  "executed": {
+    "applied_tables": 160,
+    "failures": 0,
+    "failure_sample": []
   }
 }

@@ -1,6 +1,6 @@
 -- propflow master schema — transpiled from live Supabase
--- project ref: xusnasmzoxkaimyjqbie  generated: 2026-08-06T22:40:20+00:00
--- tables: 43  indexes emitted: 81
+-- project ref: xusnasmzoxkaimyjqbie  generated: 2026-08-06T23:29:46+00:00
+-- tables: 43  indexes emitted: 81  views emitted: 0
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (12): accept_invitation_manually, check_rate_limit, ensure_user_profile, ensure_user_profile_admin, generate_invoice_number, handle_new_user, increment_automation_counter, protect_company_entitlements, protect_profile_privileges, reap_stale_walkthrough_jobs, register_incoming_webhook_event, set_updated_at

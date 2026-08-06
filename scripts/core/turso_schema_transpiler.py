@@ -178,6 +178,20 @@ where n.nspname = 'public' and con.contype = 'c'
 order by rel.relname, con.conname
 """
 
+# VIEWS. The transpiler emitted none of the 9 across the fleet, so on already
+# flipped apps every SELECT against one returns "no such table" — including
+# merchant_advance_summary, which five merchant-facing breeze-portal pages read
+# (/dashboard, /advance, /bank, /draws, /draws/new). No data is lost (views are
+# derived) but the pages are broken until these exist.
+VIEW_SQL = """
+select c.relname as name, c.relkind,
+       pg_get_viewdef(c.oid, true) as def
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relkind in ('v', 'm')
+order by c.relname
+"""
+
 FUNCTION_SQL = """
 select p.proname, l.lanname
 from pg_proc p
@@ -205,6 +219,7 @@ def introspect(ref: str, token: str) -> dict:
         "indexes": _mgmt_query(ref, INDEX_SQL, token),
         "vectors": _mgmt_query(ref, VECTOR_SQL, token),
         "checks": _mgmt_query(ref, CHECK_SQL, token),
+        "views": _mgmt_query(ref, VIEW_SQL, token),
         "functions": _mgmt_query(ref, FUNCTION_SQL, token),
         "triggers": _mgmt_query(ref, TRIGGER_SQL, token),
     }
@@ -312,6 +327,40 @@ _IDX_RE = re.compile(
 _SIMPLE_COLS = re.compile(r"^[a-z_][a-z0-9_]*(\s+(ASC|DESC))?(\s*,\s*[a-z_][a-z0-9_]*(\s+(ASC|DESC))?)*$", re.I)
 
 
+# Postgres cast targets, as an EXPLICIT alternation.
+#
+# This was `::[a-z_ ]+` — a greedy class that also matches spaces, so it ran
+# straight through the following keyword and swallowed real SQL:
+#   "entry_type = 'commission'::text AND c.status <> 'voided'"
+#      -> matched "::text AND c" -> "'commission'.status <> 'voided'"
+# deleting an entire AND-guard. In iso_clawback_candidates that guard is
+# `status <> 'voided'`; losing it would flag voided commissions for clawback.
+# Multi-word type names are listed explicitly so nothing else can be consumed.
+_PG_CAST = re.compile(
+    r"::\s*(?:double precision|character varying|timestamp with time zone|"
+    r"timestamp without time zone|time with time zone|time without time zone|"
+    r"bit varying|numeric|decimal|integer|bigint|smallint|boolean|bool|text|uuid|"
+    r"jsonb|json|date|timestamptz|timestamp|time|real|float\d*|int\d*|varchar|"
+    r"char|bytea|inet|money|interval|xml|citext|vector|tsvector|regclass|oid|name)"
+    r"(\s*\[\])?",
+    re.I,
+)
+
+# Postgres constructs with no SQLite equivalent. An index or CHECK containing
+# any of these is DROPPED (and reported) rather than emitted — emitting it
+# breaks the whole CREATE TABLE, which is how sunbiz_reply_drafts vanished on
+# the first run of the CHECK-constraint fix.
+_UNPORTABLE = re.compile(
+    r"\bregexp_replace\s*\(|\bAT\s+TIME\s+ZONE\b|~|\bILIKE\b|\bnow\(\)|"
+    r"\bARRAY\s*\[|\bjsonb?_|\bto_tsvector\b|\bcurrent_setting\b|::",
+    re.I,
+)
+
+
+def _is_portable(expr: str) -> bool:
+    return not _UNPORTABLE.search(expr)
+
+
 def _pg_expr_to_sqlite(s: str) -> str:
     """Translate the Postgres expression dialect SQLite doesn't share.
 
@@ -322,11 +371,18 @@ def _pg_expr_to_sqlite(s: str) -> str:
     guards, and the double-commission guard on live merchant money. Never skip a
     UNIQUE index quietly again.
     """
-    s = re.sub(r"::[a-z ]+(\[\])?", "", s)              # casts are no-ops here
-    s = re.sub(r"\bbtrim\s*\(", "trim(", s, flags=re.I)  # btrim -> trim
+    # `= ANY (ARRAY[...])` -> `IN (...)` FIRST, so the ARRAY[ marker that
+    # remains afterwards genuinely means "unportable array usage".
     s = re.sub(r"=\s*ANY\s*\(\s*ARRAY\[(.*?)\]\s*\)", r"IN (\1)", s, flags=re.S | re.I)
+    s = re.sub(r"<>\s*ALL\s*\(\s*ARRAY\[(.*?)\]\s*\)", r"NOT IN (\1)", s, flags=re.S | re.I)
+    s = _PG_CAST.sub("", s)                              # casts are no-ops here
+    s = re.sub(r"\bbtrim\s*\(", "trim(", s, flags=re.I)   # btrim -> trim
+    s = re.sub(r"\bchar_length\s*\(", "length(", s, flags=re.I)  # char_length -> length
     s = re.sub(r"\bIS TRUE\b", "= 1", s, flags=re.I)
     s = re.sub(r"\bIS FALSE\b", "= 0", s, flags=re.I)
+    # SQLite has no NULLS FIRST/LAST in index definitions; the clause only
+    # tunes ordering, so stripping it keeps the index valid and useful.
+    s = re.sub(r"\s+NULLS\s+(FIRST|LAST)\b", "", s, flags=re.I)
     return s
 
 
@@ -350,6 +406,8 @@ def transpile_index(indexdef: str, table: str, pk_names: set[str]) -> str | None
     if method.lower() not in ("btree",):
         return None  # gin/gist/ivfflat/hnsw have no SQLite equivalent
     cols = _pg_expr_to_sqlite(cols.strip())
+    if not _is_portable(cols):
+        return None
     if nulls_not_distinct:
         cols = ", ".join(
             c.strip() if "(" in c else f"COALESCE({c.strip()}, '{_NULL_SENTINEL}')"
@@ -357,9 +415,7 @@ def transpile_index(indexdef: str, table: str, pk_names: set[str]) -> str | None
     stmt = f"CREATE {'UNIQUE ' if unique else ''}INDEX IF NOT EXISTS \"{name}\" ON \"{table}\" ({cols})"
     if where:
         w = _pg_expr_to_sqlite(where.strip())
-        # now()/regex predicates are genuinely non-portable (non-deterministic
-        # or unsupported); everything else survives the rewrite above.
-        if re.search(r"~|\bILIKE\b|\bnow\(\)", w, re.I):
+        if not _is_portable(w):
             return None
         stmt += f" WHERE {w}"
     return stmt + ";"
@@ -385,6 +441,52 @@ def _unique_column_sets(intro: dict) -> dict[str, set[tuple[str, ...]]]:
         if all(re.fullmatch(r"[a-z_][a-z0-9_]*", c, re.I) for c in cols):
             out.setdefault(idx["tablename"], set()).add(cols)
     return out
+
+
+def transpile_view(name: str, body: str) -> str | None:
+    """Postgres view body -> libSQL. None when it cannot be faithfully ported.
+
+    libSQL is SQLite 3.44+, so FILTER (WHERE ...), window functions and the
+    ->>/-> JSON operators already work verbatim — they need no rewrite. The real
+    gaps are Postgres casts, EXTRACT(epoch ...), now()/interval arithmetic and
+    DISTINCT ON.
+    """
+    s = body.strip().rstrip(";")
+
+    # `x::type` -> CAST(x AS type) is only needed where the cast changes
+    # behaviour. In these views casts are either on literals ('x'::text) or
+    # NULL::uuid placeholders, where dropping the cast is exact. Numeric casts
+    # must be kept or integer division silently truncates money.
+    s = _PG_CAST.sub("", s)
+
+    # `x ~~ y` is Postgres LIKE; `~` is regex and has no SQLite equivalent.
+    s = re.sub(r"\s+!~~\s+", " NOT LIKE ", s)
+    s = re.sub(r"\s+~~\s+", " LIKE ", s)
+
+    # EXTRACT(epoch FROM a - b) -> seconds between two timestamps.
+    s = re.sub(r"EXTRACT\s*\(\s*epoch\s+FROM\s+now\(\)\s*-\s*([a-z_.\"]+)\s*\)",
+               r"((julianday('now') - julianday(\1)) * 86400.0)", s, flags=re.I)
+    s = re.sub(r"EXTRACT\s*\(\s*epoch\s+FROM\s+([a-z_.\"]+)\s*-\s*([a-z_.\"]+)\s*\)",
+               r"((julianday(\1) - julianday(\2)) * 86400.0)", s, flags=re.I)
+
+    s = re.sub(r"=\s*ANY\s*\(\s*ARRAY\[(.*?)\]\s*\)", r"IN (\1)", s, flags=re.S | re.I)
+    s = re.sub(r"<>\s*ALL\s*\(\s*ARRAY\[(.*?)\]\s*\)", r"NOT IN (\1)", s, flags=re.S | re.I)
+    s = re.sub(r"\bnow\(\)", "datetime('now')", s, flags=re.I)
+    s = re.sub(r"\bchar_length\s*\(", "length(", s, flags=re.I)
+    s = re.sub(r"\bbtrim\s*\(", "trim(", s, flags=re.I)
+    s = re.sub(r"\s+NULLS\s+(FIRST|LAST)\b", "", s, flags=re.I)
+    # SQLite spells GREATEST/LEAST as the multi-arg forms of max()/min().
+    # (Single-arg max/min are the aggregates; these always take 2+, so safe.)
+    s = re.sub(r"\bGREATEST\s*\(", "max(", s, flags=re.I)
+    s = re.sub(r"\bLEAST\s*\(", "min(", s, flags=re.I)
+
+    # Anything still Postgres-only cannot be trusted to mean the same thing.
+    if re.search(r"\bDISTINCT ON\b|\bEXTRACT\s*\(|\binterval\b|\bLATERAL\b|"
+                 r"\bgenerate_series\b|\bstring_agg\b|::|\bARRAY\s*\[|\bdate_trunc\b|"
+                 r"\bmake_interval\b|~|=>|\bAT\s+TIME\s+ZONE\b|\bregexp_replace\b",
+                 s, re.I):
+        return None
+    return f'CREATE VIEW IF NOT EXISTS "{name}" AS\n{s};'
 
 
 def build_schema(intro: dict, project: str) -> tuple[str, dict]:
@@ -480,7 +582,7 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
                 lossy["checks_skipped"].append(f"{t}.{chk['name']}: {chk['def'][:100]}")
                 continue
             expr = m_body.group(1)
-            if re.search(r"~|\bILIKE\b|\bnow\(\)|::", expr, re.I):
+            if not _is_portable(expr):
                 lossy["checks_skipped"].append(f"{t}.{chk['name']}: {chk['def'][:100]}")
                 continue
             lines.append(f'  CONSTRAINT "{chk["name"]}" CHECK {expr}')
@@ -508,13 +610,25 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
                 lossy.setdefault("UNIQUE_CONSTRAINTS_LOST", []).append(
                     f"{idx['indexname']} ON {t}: {idx['indexdef'][:140]}")
 
+    # Views last: they select from the tables above, so they must be created
+    # after them. SQLite resolves view bodies lazily, but ordering keeps the
+    # file replayable top-to-bottom against an empty database.
+    view_out: list[str] = []
+    for v in intro.get("views", []):
+        stmt = transpile_view(v["name"], v["def"])
+        if stmt:
+            view_out.append(stmt)
+        else:
+            lossy.setdefault("VIEWS_LOST", []).append(
+                f"{v['name']}: needs manual port — {' '.join(v['def'].split())[:120]}")
+
     plpgsql = [f["proname"] for f in intro["functions"] if f["lanname"] == "plpgsql"]
     triggers = [f"{tr['table_name']}.{tr['trigger_name']}" for tr in intro["triggers"]]
 
     header = "\n".join([
         f"-- {PROJECTS[project]['turso_db']} master schema — transpiled from live Supabase",
         f"-- project ref: {PROJECTS[project]['ref']}  generated: {datetime.now(timezone.utc).isoformat(timespec='seconds')}",
-        f"-- tables: {len(tables)}  indexes emitted: {len(idx_out)}",
+        f"-- tables: {len(tables)}  indexes emitted: {len(idx_out)}  views emitted: {len(view_out)}",
         "--",
         "-- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):",
         f"--   PL/pgSQL functions ({len(plpgsql)}): {', '.join(plpgsql[:20])}{'...' if len(plpgsql) > 20 else ''}",
@@ -530,12 +644,14 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
         "PRAGMA foreign_keys = ON;",
         "",
     ])
-    sql = header + "\n\n".join(out) + "\n\n-- indexes\n" + "\n".join(idx_out) + "\n"
+    sql = (header + "\n\n".join(out) + "\n\n-- indexes\n" + "\n".join(idx_out)
+           + ("\n\n-- views\n" + "\n\n".join(view_out) if view_out else "") + "\n")
     report = {
         "project": project,
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "table_count": len(tables),
         "index_count": len(idx_out),
+        "view_count": len(view_out),
         "plpgsql_functions": plpgsql,
         "triggers": triggers,
         "lossy": lossy,
@@ -565,10 +681,54 @@ def main() -> int:
     sql_path = OUT_DIR / f"{args.project}__000_master_schema.sql"
     sql_path.write_text(sql, encoding="utf-8")
     report_path = OUT_DIR / f"{args.project}__transpile_report.json"
-    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     emitted = sql.count("CREATE TABLE IF NOT EXISTS")
     ok = emitted == len(live_tables)
+
+    # EXECUTE the DDL, don't just count it. Counting CREATE TABLE strings said
+    # "PASS" while a char_length() inside a CHECK was silently killing an entire
+    # table at apply time — the emitted text was never proven to run.
+    exec_failures: list[dict] = []
+    if args.verify:
+        import tempfile
+
+        import libsql  # noqa: PLC0415
+
+        probe_path = Path(tempfile.mkdtemp(prefix="turso_verify_")) / "probe.db"
+        conn = libsql.connect(str(probe_path))
+        for chunk in sql.split(";\n"):
+            body = "\n".join(l for l in chunk.splitlines()
+                             if not l.strip().startswith("--")).strip()
+            if not body:
+                continue
+            try:
+                conn.execute(body)
+            except Exception as exc:  # noqa: BLE001 - every failure is reported
+                exec_failures.append({"statement": body.splitlines()[0][:110],
+                                      "error": str(exc)[:200]})
+        conn.commit()
+        # CREATE VIEW does not resolve function names — a view body calling
+        # GREATEST() creates cleanly and only explodes when something SELECTs
+        # it. That is how a broken merchant_advance_summary reached a live
+        # database. Every view must be executed, not merely created.
+        for (vname,) in conn.execute(
+                "select name from sqlite_master where type='view'").fetchall():
+            try:
+                conn.execute(f'select * from "{vname}" limit 1').fetchall()
+            except Exception as exc:  # noqa: BLE001
+                exec_failures.append({"statement": f'SELECT FROM VIEW "{vname}"',
+                                      "error": str(exc)[:200]})
+        applied_tables = conn.execute(
+            "select count(*) from sqlite_master where type='table' "
+            "and name not like 'sqlite_%'").fetchall()[0][0]
+        report["executed"] = {"applied_tables": applied_tables,
+                              "failures": len(exec_failures),
+                              "failure_sample": exec_failures[:10]}
+        ok = ok and not exec_failures and applied_tables >= len(live_tables)
+
+    # Written AFTER the execution probe so the report carries its verdict.
+    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
     if args.json:
         print(json.dumps({"ok": ok, "live_tables": len(live_tables), "emitted_tables": emitted,
                           "sql": str(sql_path), "report": str(report_path)}))
@@ -576,7 +736,12 @@ def main() -> int:
         print(f"live tables: {len(live_tables)}  emitted: {emitted}  -> {sql_path}")
         print(f"report: {report_path}")
         if args.verify:
-            print(f"VERIFY: {'PASS' if ok else 'FAIL'} — emitted {emitted}/{len(live_tables)} tables")
+            ex = report.get("executed", {})
+            print(f"VERIFY: {'PASS' if ok else 'FAIL'} — emitted {emitted}/{len(live_tables)} tables"
+                  f" | executed: {ex.get('applied_tables', '?')} tables, "
+                  f"{ex.get('failures', '?')} statement failures")
+            for f in ex.get("failure_sample", []):
+                print(f"   FAIL {f['statement']} -> {f['error'][:110]}")
     return 0 if (ok or not args.verify) else 1
 
 

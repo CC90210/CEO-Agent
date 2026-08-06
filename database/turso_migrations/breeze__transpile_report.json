@@ -1,8 +1,9 @@
 {
   "project": "breeze",
-  "generated": "2026-08-06T22:40:15+00:00",
+  "generated": "2026-08-06T23:29:35+00:00",
   "table_count": 46,
-  "index_count": 171,
+  "index_count": 170,
+  "view_count": 2,
   "plpgsql_functions": [
     "accrue_iso_commission",
     "approve_draw_request",
@@ -57,6 +58,7 @@
       "platform_fee_ledger.id: nextval('platform_fee_ledger_id_seq'::regclass)"
     ],
     "indexes_skipped": [
+      "repayments_recorded_day_idx: CREATE INDEX repayments_recorded_day_idx ON public.repayments USING btree (advance_id, (((recorded_a",
       "kb_chunks_embedding_idx: CREATE INDEX kb_chunks_embedding_idx ON public.kb_chunks USING hnsw (embedding vector_cosine_ops)"
     ],
     "checks_skipped": [],
@@ -71,6 +73,15 @@
       "tenant_users(auth_user_id) -> auth.users",
       "tenant_users(invited_by) -> auth.users"
     ],
-    "unenforceable_fks_dropped": []
+    "unenforceable_fks_dropped": [],
+    "VIEWS_LOST": [
+      "deal_board_view: needs manual port \u2014 SELECT bi.tenant_id, bi.id AS item_id, NULL::uuid AS advance_id, bi.merchant_id, bi.name AS title, COALESCE(icv.value ->",
+      "iso_clawback_candidates: needs manual port \u2014 SELECT c.tenant_id, c.id AS commission_id, c.iso_partner_id, c.advance_id, c.draw_id, c.amount_cents AS commission_amoun"
+    ]
+  },
+  "executed": {
+    "applied_tables": 46,
+    "failures": 0,
+    "failure_sample": []
   }
 }

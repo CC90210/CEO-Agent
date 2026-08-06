@@ -1,6 +1,6 @@
 -- breeze-portal master schema — transpiled from live Supabase
--- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-06T22:40:15+00:00
--- tables: 46  indexes emitted: 171
+-- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-06T23:29:35+00:00
+-- tables: 46  indexes emitted: 170  views emitted: 2
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (12): accrue_iso_commission, approve_draw_request, assert_no_cross_role_binding, cancel_draw_request, claim_plaid_statement_link_token, compute_platform_fee, estimate_platform_fee, import_merchant_position, record_funded_draw, submit_draw_request, touch_updated_at, update_merchant_contact
@@ -8,7 +8,7 @@
 --   RLS policies: replaced by mandatory tenant scoping in db_turso.py
 --   cross-schema FKs dropped (9, e.g. auth.users): documents(uploaded_by_user_id) -> auth.users; draw_requests(decided_by_user_id) -> auth.users; draw_requests(submitted_by_user_id) -> auth.users; merchant_users(auth_user_id) -> auth.users; merchant_users(invited_by) -> auth.users; plaid_statement_requests(requested_by_user_id) -> auth.users
 --   FKs dropped as unenforceable in SQLite (0) — parent columns not unique in the emitted schema; enforce in the DAL
---   defaults dropped (2) and non-btree/expression indexes skipped (1): see turso_migrations/breeze__transpile_report.json
+--   defaults dropped (2) and non-btree/expression indexes skipped (2): see turso_migrations/breeze__transpile_report.json
 --
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS "tenants" (
@@ -1035,7 +1035,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS "repayments_pkey" ON "repayments" (id);
 CREATE INDEX IF NOT EXISTS "repayments_tenant_idx" ON "repayments" (tenant_id);
 CREATE INDEX IF NOT EXISTS "repayments_advance_idx" ON "repayments" (advance_id, recorded_at DESC);
 CREATE INDEX IF NOT EXISTS "repayments_merchant_idx" ON "repayments" (merchant_id, recorded_at DESC);
-CREATE INDEX IF NOT EXISTS "repayments_recorded_day_idx" ON "repayments" (advance_id, (((recorded_at AT TIME ZONE 'UTC'))));
 CREATE UNIQUE INDEX IF NOT EXISTS "repayments_external_id_idx" ON "repayments" (advance_id, external_id) WHERE (external_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS "repayments_draw_idx" ON "repayments" (draw_id, recorded_at DESC) WHERE (draw_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS "bank_accounts_pkey" ON "bank_accounts" (id);
@@ -1202,3 +1201,77 @@ CREATE INDEX IF NOT EXISTS "plaid_statement_requests_merchant_idx" ON "plaid_sta
 CREATE INDEX IF NOT EXISTS "plaid_statement_requests_work_idx" ON "plaid_statement_requests" (status, next_attempt_at, updated_at) WHERE (status IN ('starting_refresh', 'refreshing', 'callback_missing', 'ready', 'processing'));
 CREATE UNIQUE INDEX IF NOT EXISTS "plaid_statement_requests_active_item_uidx" ON "plaid_statement_requests" (tenant_id, merchant_id, plaid_item_id) WHERE (status IN ('pending_consent', 'starting_refresh', 'refreshing', 'callback_missing', 'ready', 'processing'));
 CREATE UNIQUE INDEX IF NOT EXISTS "plaid_statement_link_tokens_pkey" ON "plaid_statement_link_tokens" (request_id);
+
+-- views
+CREATE VIEW IF NOT EXISTS "iso_performance" AS
+WITH live AS (
+         SELECT a.tenant_id,
+            a.iso_partner_id,
+            count(*) AS deals,
+            sum(a.advance_amount_cents) AS funded_cents,
+            count(*) FILTER (WHERE a.defaulted_at IS NOT NULL OR a.repayment_status = 'default') AS defaulted,
+            max(a.created_at) AS last_deal_at
+           FROM advances a
+          WHERE a.iso_partner_id IS NOT NULL AND a.repayment_status <> 'pending'
+          GROUP BY a.tenant_id, a.iso_partner_id
+        ), hist AS (
+         SELECT hd.tenant_id,
+            hd.iso_partner_id,
+            count(*) AS deals,
+            sum(hd.advance_amount_cents) AS funded_cents,
+            count(*) FILTER (WHERE hd.outcome IN ('defaulted', 'written_off')) AS defaulted,
+            max(COALESCE(hd.funded_on, hd.created_at)) AS last_deal_at
+           FROM historical_deals hd
+          WHERE hd.iso_partner_id IS NOT NULL
+          GROUP BY hd.tenant_id, hd.iso_partner_id
+        )
+ SELECT ip.tenant_id,
+    ip.id AS iso_partner_id,
+    COALESCE(l.deals, 0) + COALESCE(h.deals, 0) AS total_deals,
+    COALESCE(l.funded_cents, 0) + COALESCE(h.funded_cents, 0) AS total_funded_cents,
+    COALESCE(l.defaulted, 0) + COALESCE(h.defaulted, 0) AS total_defaulted,
+        CASE
+            WHEN (COALESCE(l.deals, 0) + COALESCE(h.deals, 0)) > 0 THEN (COALESCE(l.defaulted, 0) + COALESCE(h.defaulted, 0)) / (COALESCE(l.deals, 0) + COALESCE(h.deals, 0))
+            ELSE NULL
+        END AS default_rate,
+    max(l.last_deal_at, h.last_deal_at) AS last_deal_at
+   FROM iso_partners ip
+     LEFT JOIN live l ON l.iso_partner_id = ip.id AND l.tenant_id = ip.tenant_id
+     LEFT JOIN hist h ON h.iso_partner_id = ip.id AND h.tenant_id = ip.tenant_id;
+
+CREATE VIEW IF NOT EXISTS "merchant_advance_summary" AS
+WITH committed_per_advance AS (
+         SELECT draw_requests.advance_id,
+            sum(COALESCE(draw_requests.approved_cents, draw_requests.requested_cents)) AS committed_cents_total
+           FROM draw_requests
+          WHERE draw_requests.status IN ('pending', 'approved', 'awaiting_signature', 'funded')
+          GROUP BY draw_requests.advance_id
+        ), draw_totals AS (
+         SELECT draws.advance_id,
+            sum(draws.total_repayment_cents) AS total_repayment_cents
+           FROM draws
+          GROUP BY draws.advance_id
+        ), repaid_per_advance AS (
+         SELECT repayments.advance_id,
+            sum(repayments.amount_cents) AS paid_to_date_cents,
+            sum(repayments.amount_cents) FILTER (WHERE repayments.recorded_at = CURRENT_DATE) AS paid_today_cents
+           FROM repayments
+          GROUP BY repayments.advance_id
+        )
+ SELECT a.id AS advance_id,
+    a.tenant_id,
+    a.merchant_id,
+    a.advance_amount_cents AS approved_amount_cents,
+    a.factor_rate,
+    COALESCE(d.total_repayment_cents, 0) AS total_repayment_due_cents,
+    max(0, COALESCE(r.paid_to_date_cents, 0)) AS paid_to_date_cents,
+    max(0, COALESCE(r.paid_today_cents, 0)) AS paid_today_cents,
+    (a.advance_amount_cents - COALESCE(c.committed_cents_total, 0)) AS available_to_draw_cents,
+    a.daily_holdback_pct,
+    a.term_days,
+    a.funded_at,
+    a.repayment_status
+   FROM advances a
+     LEFT JOIN committed_per_advance c ON c.advance_id = a.id
+     LEFT JOIN draw_totals d ON d.advance_id = a.id
+     LEFT JOIN repaid_per_advance r ON r.advance_id = a.id;

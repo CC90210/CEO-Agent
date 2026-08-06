@@ -1,6 +1,6 @@
 -- nostalgic-requests master schema — transpiled from live Supabase
--- project ref: jqybbrtzpvmefgzzdagz  generated: 2026-08-06T22:40:42+00:00
--- tables: 8  indexes emitted: 38
+-- project ref: jqybbrtzpvmefgzzdagz  generated: 2026-08-06T23:30:11+00:00
+-- tables: 8  indexes emitted: 38  views emitted: 2
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (7): generate_unique_slug, handle_new_user, increment_lead_stats, update_custom_agreements_timestamp, update_dj_profile_updated_at, update_product_purchases_timestamp, update_updated_at_column
@@ -231,3 +231,53 @@ CREATE INDEX IF NOT EXISTS "idx_leads_phone" ON "leads" (phone);
 CREATE UNIQUE INDEX IF NOT EXISTS "leads_dj_phone_idx" ON "leads" (user_id, phone);
 CREATE INDEX IF NOT EXISTS "idx_leads_user_id" ON "leads" (user_id);
 CREATE INDEX IF NOT EXISTS "idx_leads_user" ON "leads" (user_id);
+
+-- views
+CREATE VIEW IF NOT EXISTS "dashboard_overview" AS
+SELECT count(DISTINCT e.id) AS total_events,
+    count(r.id) AS total_requests,
+    COALESCE(sum(r.amount_paid), 0) AS total_revenue,
+    count(DISTINCT r.requester_phone) AS unique_customers,
+    COALESCE(avg(r.amount_paid), 0) AS avg_request_value,
+    count(DISTINCT l.id) AS total_leads
+   FROM events e
+     LEFT JOIN requests r ON e.id = r.event_id
+     LEFT JOIN leads l ON true;
+
+CREATE VIEW IF NOT EXISTS "event_stats" AS
+SELECT e.id AS event_id,
+    e.name AS event_name,
+    e.venue_name,
+    e.status,
+    e.start_time,
+    e.end_time,
+    count(r.id) AS total_requests,
+    COALESCE(sum(r.amount_paid), 0) AS total_revenue,
+    count(
+        CASE
+            WHEN r.status = 'pending' THEN 1
+            ELSE NULL
+        END) AS pending_requests,
+    count(
+        CASE
+            WHEN r.status = 'played' THEN 1
+            ELSE NULL
+        END) AS played_requests,
+    count(
+        CASE
+            WHEN r.has_priority THEN 1
+            ELSE NULL
+        END) AS priority_requests,
+    count(
+        CASE
+            WHEN r.has_shoutout THEN 1
+            ELSE NULL
+        END) AS shoutout_requests,
+    count(
+        CASE
+            WHEN r.has_guaranteed_next THEN 1
+            ELSE NULL
+        END) AS guaranteed_next_requests
+   FROM events e
+     LEFT JOIN requests r ON e.id = r.event_id
+  GROUP BY e.id, e.name, e.venue_name, e.status, e.start_time, e.end_time;

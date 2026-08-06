@@ -1,6 +1,6 @@
 -- oasis-platform master schema — transpiled from live Supabase
--- project ref: skgrbweyscysyetubemg  generated: 2026-08-06T22:40:33+00:00
--- tables: 17  indexes emitted: 79
+-- project ref: skgrbweyscysyetubemg  generated: 2026-08-06T23:29:59+00:00
+-- tables: 17  indexes emitted: 79  views emitted: 1
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (13): auto_align_log_ownership, check_is_admin, ensure_log_visibility, get_portal_logs, handle_new_user, handle_updated_at, increment_promo_uses, update_automation_stats, update_automation_stats_no_definer, update_custom_agreements_timestamp, update_product_purchases_timestamp, update_updated_at, update_updated_at_column
@@ -464,3 +464,25 @@ CREATE UNIQUE INDEX IF NOT EXISTS "invoices_stripe_invoice_id_key" ON "invoices"
 CREATE INDEX IF NOT EXISTS "idx_invoices_user" ON "invoices" (user_id);
 CREATE INDEX IF NOT EXISTS "idx_invoices_email" ON "invoices" (user_email);
 CREATE INDEX IF NOT EXISTS "idx_invoices_stripe" ON "invoices" (stripe_invoice_id);
+
+-- views
+CREATE VIEW IF NOT EXISTS "automations" AS
+SELECT id,
+    user_id,
+    order_id,
+    subscription_id,
+    automation_type,
+    display_name,
+    tier,
+    status,
+    n8n_workflow_id,
+    n8n_webhook_url,
+    webhook_secret,
+    config,
+    admin_notes,
+    created_at,
+    updated_at,
+    activated_at,
+    last_run_at,
+    stats
+   FROM client_automations;

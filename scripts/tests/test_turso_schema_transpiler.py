@@ -25,6 +25,7 @@ from core.turso_schema_transpiler import (  # noqa: E402
     map_type,
     topo_order,
     transpile_index,
+    transpile_view,
 )
 
 
@@ -251,6 +252,41 @@ def test_check_with_any_array_is_translated():
     assert "::text" not in sql.split("-- indexes")[0]
 
 
+def test_char_length_becomes_length_not_a_dead_table():
+    """char_length() has no SQLite equivalent by that name. Emitting it inside a
+    CHECK made the whole CREATE TABLE fail, so sunbiz_reply_drafts did not exist
+    at all — every index on it then failed with 'no such table'. A dropped
+    constraint is survivable; a dropped table is not."""
+    intro = _intro(
+        columns=[col("sunbiz_reply_drafts", "body")],
+        checks=[{"table_name": "sunbiz_reply_drafts", "name": "body_len_check",
+                 "def": "CHECK ((char_length(body) > 0))"}],
+    )
+    sql, _ = build_schema(intro, "bravo")
+    assert "length(body) > 0" in sql
+    assert "char_length" not in sql
+
+
+def test_nulls_first_last_is_stripped_from_index():
+    """SQLite rejects NULLS FIRST/LAST outright ('unsupported use of NULLS').
+    The clause only tunes ordering, so stripping keeps a valid, useful index."""
+    out = transpile_index(
+        "CREATE INDEX i ON public.t USING btree (created_at DESC NULLS LAST)", "t", set())
+    assert out == 'CREATE INDEX IF NOT EXISTS "i" ON "t" (created_at DESC);'
+
+
+@pytest.mark.parametrize("expr", [
+    "regexp_replace(phone, '[^0-9]', '')",          # no SQLite regexp_replace
+    "(recorded_at AT TIME ZONE 'utc')",             # no AT TIME ZONE
+    "(tags || ARRAY['x'])",                         # array literal
+])
+def test_unportable_index_expression_is_dropped_not_emitted(expr):
+    """Emitting these produced a syntax error that killed the statement. Better
+    to drop the index loudly than to break the schema load."""
+    assert transpile_index(
+        f"CREATE INDEX i ON public.t USING btree ({expr})", "t", set()) is None
+
+
 def test_untranslatable_check_is_reported_not_silent():
     intro = _intro(
         columns=[col("t", "a")],
@@ -293,3 +329,83 @@ def test_header_records_untranspiled_plpgsql_and_triggers():
     assert "reserve_send_slot" in sql
     assert report["plpgsql_functions"] == ["reserve_send_slot"]  # sql-language fn excluded
     assert report["triggers"] == ["a.touch_updated_at"]
+
+
+# --- views ------------------------------------------------------------------
+# Nine Postgres views were never transpiled at all. On the already-flipped apps
+# every SELECT against one returned "no such table" — including
+# merchant_advance_summary, which five merchant-facing breeze pages read.
+
+
+def test_cast_strip_does_not_swallow_the_following_keyword():
+    """The original `::[a-z_ ]+` matched spaces, so it ran through the next
+    keyword: `'commission'::text AND c.status <> 'voided'` collapsed to
+    `'commission'.status <> 'voided'` — silently DELETING the AND-guard. In
+    iso_clawback_candidates that guard is what excludes voided commissions from
+    clawback, so a syntactically-valid version of this bug is a money bug."""
+    out = transpile_view("v", "SELECT * FROM t WHERE a = 'commission'::text "
+                              "AND b <> 'voided'::text AND c > 0")
+    assert "AND b <> 'voided'" in out
+    assert "AND c > 0" in out
+    assert "'commission'.b" not in out
+
+
+def test_cast_strip_preserves_then_and_or():
+    out = transpile_view("v", "SELECT CASE WHEN s = 'pending'::text THEN 1 ELSE NULL END "
+                              "FROM t WHERE x = 'a'::text OR y = 'b'::text")
+    assert "THEN 1" in out
+    assert "OR y = 'b'" in out
+
+
+def test_greatest_least_become_sqlite_max_min():
+    """SQLite spells GREATEST/LEAST as multi-arg max()/min(). Without this,
+    merchant_advance_summary CREATEs fine and fails only when SELECTed — which
+    is exactly how it reached a live database broken."""
+    out = transpile_view("v", "SELECT GREATEST(a, 0) AS x, LEAST(b, c) AS y FROM t")
+    assert "max(a, 0)" in out and "min(b, c)" in out
+    assert "GREATEST" not in out
+
+
+def test_pg_like_operator_becomes_like():
+    out = transpile_view("v", "SELECT * FROM t WHERE ty ~~ '%_received'")
+    assert "ty LIKE '%_received'" in out
+
+
+def test_extract_epoch_becomes_julianday_seconds():
+    out = transpile_view("v", "SELECT EXTRACT(epoch FROM now() - created_at) AS age FROM t")
+    assert "julianday('now')" in out and "86400.0" in out
+    assert "EXTRACT" not in out
+
+
+@pytest.mark.parametrize("body", [
+    "SELECT DISTINCT ON (a) a, b FROM t",                    # no SQLite equivalent
+    "SELECT * FROM t WHERE d <= (f + make_interval(days => n))",
+    "SELECT * FROM t WHERE ty ~ '^[0-9]+$'",                 # posix regex
+    "SELECT * FROM t, LATERAL (SELECT 1) x",
+])
+def test_unportable_view_is_reported_not_emitted(body):
+    """Better a loudly-missing view than one that silently means something else."""
+    assert transpile_view("v", body) is None
+
+
+def test_lost_view_is_recorded_in_the_report():
+    intro = _intro(
+        columns=[col("t", "a")],
+        views=[{"name": "v_hard", "relkind": "v",
+                "def": "SELECT DISTINCT ON (a) a FROM t"}],
+    )
+    sql, report = build_schema(intro, "bravo")
+    assert "v_hard" not in sql
+    assert any("v_hard" in e for e in report["lossy"]["VIEWS_LOST"])
+
+
+def test_portable_view_is_emitted_after_the_tables():
+    intro = _intro(
+        columns=[col("client_automations", "id")],
+        views=[{"name": "automations", "relkind": "v",
+                "def": "SELECT id, status FROM client_automations;"}],
+    )
+    sql, report = build_schema(intro, "oasis")
+    assert 'CREATE VIEW IF NOT EXISTS "automations" AS' in sql
+    assert report["view_count"] == 1
+    assert sql.index("CREATE TABLE") < sql.index("CREATE VIEW")

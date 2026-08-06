@@ -1,8 +1,9 @@
 {
   "project": "propflow",
-  "generated": "2026-08-06T22:40:20+00:00",
+  "generated": "2026-08-06T23:29:46+00:00",
   "table_count": 43,
   "index_count": 81,
+  "view_count": 0,
   "plpgsql_functions": [
     "accept_invitation_manually",
     "check_rate_limit",
@@ -95,5 +96,10 @@
       "walkthrough_jobs(created_by) -> auth.users"
     ],
     "unenforceable_fks_dropped": []
+  },
+  "executed": {
+    "applied_tables": 43,
+    "failures": 0,
+    "failure_sample": []
   }
 }

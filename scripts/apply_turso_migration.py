@@ -190,8 +190,14 @@ def main() -> int:
             print(f"ERROR: no .sql files in {MIGRATIONS_DIR} — run turso_schema_transpiler.py first",
                   file=sys.stderr)
             return 2
-        tmp = Path(tempfile.mkdtemp(prefix="turso_test_")) / "test.db"
-        db_path = str(tmp)
+        # One throwaway db PER PROJECT. Production gives each project its own
+        # isolated Turso database; a shared test db let `profiles` from bravo
+        # satisfy the IF NOT EXISTS for oasis' and propflow's differently-shaped
+        # `profiles`, then failed their indexes with "no such column" — false
+        # failures, and worse, a table that genuinely failed to create could be
+        # masked by another project's same-named table.
+        tmp_root = Path(tempfile.mkdtemp(prefix="turso_test_"))
+        db_path = str(tmp_root)
     else:
         files = [Path(args.migration)]
         if not files[0].exists():
@@ -199,26 +205,39 @@ def main() -> int:
             return 2
         db_path = args.db_path
 
-    try:
-        conn, mode = connect(db_path, getattr(args, "target_project", None))
-    except Exception as exc:  # noqa: BLE001
-        print(f"ERROR: cannot connect ({exc})", file=sys.stderr)
-        return 2
-
-    ensure_ledger(conn)
-
     results: list[dict] = []
     failed = False
+    tables = 0
+    mode = ""
+    conn = None
+
     for f in files:
+        if args.test_mode:
+            # Fresh, isolated db per project — same topology as production.
+            target = str(Path(db_path) / f"{f.stem.split('__')[0]}.db")
+        else:
+            target = db_path
+        if conn is None or args.test_mode:
+            try:
+                conn, mode = connect(target, getattr(args, "target_project", None))
+            except Exception as exc:  # noqa: BLE001
+                print(f"ERROR: cannot connect ({exc})", file=sys.stderr)
+                return 2
+            ensure_ledger(conn)
         try:
             results.append(apply_file(conn, f, dry_run=args.dry_run))
         except Exception as exc:  # noqa: BLE001 - report, mark failure, keep going
             failed = True
             results.append({"file": f.name, "error": str(exc)})
+        tables += conn.execute(
+            "select count(*) from sqlite_master where type='table' "
+            "and name not like 'sqlite_%' and name != 'schema_migrations'"
+        ).fetchall()[0][0] if args.test_mode else 0
 
-    tables = conn.execute(
-        "select count(*) from sqlite_master where type='table' and name not like 'sqlite_%'"
-    ).fetchall()[0][0]
+    if not args.test_mode and conn is not None:
+        tables = conn.execute(
+            "select count(*) from sqlite_master where type='table' and name not like 'sqlite_%'"
+        ).fetchall()[0][0]
 
     if args.json:
         print(json.dumps({"ok": not failed, "mode": mode, "tables": tables,

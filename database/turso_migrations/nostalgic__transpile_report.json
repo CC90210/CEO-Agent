@@ -1,8 +1,9 @@
 {
   "project": "nostalgic",
-  "generated": "2026-08-06T22:40:42+00:00",
+  "generated": "2026-08-06T23:30:11+00:00",
   "table_count": 8,
   "index_count": 38,
+  "view_count": 2,
   "plpgsql_functions": [
     "generate_unique_slug",
     "handle_new_user",
@@ -31,5 +32,10 @@
       "profiles(id) -> auth.users"
     ],
     "unenforceable_fks_dropped": []
+  },
+  "executed": {
+    "applied_tables": 8,
+    "failures": 0,
+    "failure_sample": []
   }
 }

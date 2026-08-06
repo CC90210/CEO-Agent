@@ -1,6 +1,6 @@
 -- bravo-empire master schema — transpiled from live Supabase
--- project ref: phctllmtsogkovoilwos  generated: 2026-08-06T22:40:09+00:00
--- tables: 160  indexes emitted: 547
+-- project ref: phctllmtsogkovoilwos  generated: 2026-08-06T23:29:28+00:00
+-- tables: 160  indexes emitted: 545  views emitted: 2
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (60): ack_event, agents_touch_updated_at, approve_sunbiz_draft, bump_tenant_record_last_contact, calculate_activation_score, claim_events, claim_texttorrent_partition, client_signatures_append_only, consume_texttorrent_rate_token, conv_normalize_phone, conv_resolve_interaction_owner, conv_sync_lead_assignment, conv_thread_set_owner, conv_thread_upsert, decay_confidence_scores, exec_sql, fail_event, fail_texttorrent_inbound, finalize_texttorrent_inbound, find_similar_merchants...
@@ -8,7 +8,7 @@
 --   RLS policies: replaced by mandatory tenant scoping in db_turso.py
 --   cross-schema FKs dropped (16, e.g. auth.users): agent_model_config(user_id) -> auth.users; agents(created_by) -> auth.users; bridge_pairings(user_id) -> auth.users; chat_attachments(auth_user_id) -> auth.users; chat_sessions(user_id) -> auth.users; drip_sequences(created_by) -> auth.users
 --   FKs dropped as unenforceable in SQLite (0) — parent columns not unique in the emitted schema; enforce in the DAL
---   defaults dropped (11) and non-btree/expression indexes skipped (10): see turso_migrations/bravo__transpile_report.json
+--   defaults dropped (11) and non-btree/expression indexes skipped (12): see turso_migrations/bravo__transpile_report.json
 --
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS "_ddl_probe_tmp" (
@@ -3023,8 +3023,8 @@ CREATE TABLE IF NOT EXISTS "sunbiz_reply_drafts" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  CONSTRAINT "sunbiz_reply_drafts_final_text_check" CHECK (((final_text IS NULL) OR ((char_length(final_text) >= 1) AND (char_length(final_text) <= 1600)))),
-  CONSTRAINT "sunbiz_reply_drafts_original_text_check" CHECK (((char_length(original_text) >= 1) AND (char_length(original_text) <= 1600))),
+  CONSTRAINT "sunbiz_reply_drafts_final_text_check" CHECK (((final_text IS NULL) OR ((length(final_text) >= 1) AND (length(final_text) <= 1600)))),
+  CONSTRAINT "sunbiz_reply_drafts_original_text_check" CHECK (((length(original_text) >= 1) AND (length(original_text) <= 1600))),
   CONSTRAINT "sunbiz_reply_drafts_status_check" CHECK ((status IN ('pending', 'approved', 'rejected', 'cancelled', 'sent', 'failed'))),
   FOREIGN KEY ("agent_account_id") REFERENCES "sunbiz_agent_accounts" ("id"),
   FOREIGN KEY ("conversation_state_id") REFERENCES "sunbiz_conversation_state" ("id"),
@@ -3125,7 +3125,7 @@ CREATE INDEX IF NOT EXISTS "idx_selfmod_date" ON "self_modification_log" (create
 CREATE UNIQUE INDEX IF NOT EXISTS "content_templates_pkey" ON "content_templates" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "agent_email_settings_pkey" ON "agent_email_settings" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "agent_email_settings_tenant_id_user_id_key" ON "agent_email_settings" (tenant_id, user_id);
-CREATE INDEX IF NOT EXISTS "agent_email_settings_active_idx" ON "agent_email_settings" (last_processed_at NULLS FIRST) WHERE (mode <> 'off');
+CREATE INDEX IF NOT EXISTS "agent_email_settings_active_idx" ON "agent_email_settings" (last_processed_at) WHERE (mode <> 'off');
 CREATE UNIQUE INDEX IF NOT EXISTS "funnel_leads_pkey" ON "funnel_leads" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "memories_episodic_pkey" ON "memories_episodic" (id);
 CREATE INDEX IF NOT EXISTS "idx_mem_ep_lead" ON "memories_episodic" (related_lead_id);
@@ -3246,7 +3246,6 @@ CREATE INDEX IF NOT EXISTS "idx_oasis_quests_updated" ON "oasis_quests" (updated
 CREATE UNIQUE INDEX IF NOT EXISTS "agent_events_pkey" ON "agent_events" (id);
 CREATE INDEX IF NOT EXISTS "idx_agent_events_type" ON "agent_events" (event_type, published_at DESC);
 CREATE INDEX IF NOT EXISTS "idx_agent_events_target" ON "agent_events" (target_agent, published_at DESC) WHERE (target_agent IS NOT NULL);
-CREATE INDEX IF NOT EXISTS "idx_agent_events_unconsumed" ON "agent_events" (event_type, published_at DESC) WHERE ((consumed_by = ARRAY[]) OR (consumed_by IS NULL));
 CREATE INDEX IF NOT EXISTS "idx_agent_events_correlation" ON "agent_events" (correlation_id) WHERE (correlation_id IS NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS "idx_agent_events_idem" ON "agent_events" (idempotency_key) WHERE (idempotency_key IS NOT NULL);
 CREATE INDEX IF NOT EXISTS "idx_agent_events_target_pending" ON "agent_events" (target_agent, status, published_at) WHERE (status = 'pending');
@@ -3276,7 +3275,6 @@ CREATE INDEX IF NOT EXISTS "idx_tenant_records_application_lead_id" ON "tenant_r
 CREATE INDEX IF NOT EXISTS "idx_tenant_records_assigned_to" ON "tenant_records" (tenant_id, ((data ->> 'assigned_to'))) WHERE ((entity_type IN ('lead', 'application', 'funded_deal', 'renewal')) AND ((data ->> 'assigned_to') IS NOT NULL));
 CREATE INDEX IF NOT EXISTS "idx_tenant_records_tenant_entity_for_match" ON "tenant_records" (tenant_id, entity_type);
 CREATE INDEX IF NOT EXISTS "idx_tenant_records_email_lower" ON "tenant_records" (tenant_id, lower((data ->> 'email'))) WHERE (entity_type = 'lead');
-CREATE INDEX IF NOT EXISTS "idx_tenant_records_phone_last10" ON "tenant_records" (tenant_id, "right"(regexp_replace(COALESCE((data ->> 'phone'), ''), '\D', '', 'g'), 10)) WHERE (entity_type = 'lead');
 CREATE UNIQUE INDEX IF NOT EXISTS "agents_pkey" ON "agents" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "agents_slug_key" ON "agents" (slug);
 CREATE INDEX IF NOT EXISTS "idx_agents_category" ON "agents" (category);
@@ -3302,7 +3300,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "tenant_cron_jobs_pkey" ON "tenant_cron_jobs" 
 CREATE INDEX IF NOT EXISTS "idx_tenant_cron_jobs_tenant_enabled" ON "tenant_cron_jobs" (tenant_id, enabled) WHERE (enabled = true);
 CREATE INDEX IF NOT EXISTS "idx_tenant_cron_jobs_agent" ON "tenant_cron_jobs" (tenant_id, agent_key);
 CREATE UNIQUE INDEX IF NOT EXISTS "application_lender_threads_pkey" ON "application_lender_threads" (id);
-CREATE INDEX IF NOT EXISTS "idx_lender_threads_tenant_status" ON "application_lender_threads" (tenant_id, status, last_response_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS "idx_lender_threads_tenant_status" ON "application_lender_threads" (tenant_id, status, last_response_at DESC);
 CREATE INDEX IF NOT EXISTS "idx_lender_threads_application" ON "application_lender_threads" (application_id);
 CREATE INDEX IF NOT EXISTS "idx_lender_threads_gmail" ON "application_lender_threads" (tenant_id, gmail_thread_id) WHERE (gmail_thread_id IS NOT NULL);
 CREATE INDEX IF NOT EXISTS "idx_application_lender_threads_send_interaction_id" ON "application_lender_threads" (send_interaction_id) WHERE (send_interaction_id IS NOT NULL);
@@ -3397,12 +3395,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS "leads_outreach_pkey" ON "leads_outreach" (ema
 CREATE UNIQUE INDEX IF NOT EXISTS "template_performance_pkey" ON "template_performance" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "template_performance_template_identity_vertical_relationshi_key" ON "template_performance" (template_identity, vertical, relationship_stage, brand);
 CREATE INDEX IF NOT EXISTS "idx_template_perf_template" ON "template_performance" (template_identity);
-CREATE INDEX IF NOT EXISTS "idx_template_perf_score" ON "template_performance" (vertical, relationship_stage, score_30d DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS "idx_template_perf_score" ON "template_performance" (vertical, relationship_stage, score_30d DESC);
 CREATE INDEX IF NOT EXISTS "idx_template_perf_last_seen" ON "template_performance" (last_seen DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS "vertical_response_patterns_pkey" ON "vertical_response_patterns" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "vertical_response_patterns_vertical_signal_type_signal_valu_key" ON "vertical_response_patterns" (vertical, signal_type, signal_value);
 CREATE INDEX IF NOT EXISTS "idx_vpat_vertical" ON "vertical_response_patterns" (vertical, signal_type);
-CREATE INDEX IF NOT EXISTS "idx_vpat_confidence" ON "vertical_response_patterns" (vertical, confidence DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS "idx_vpat_confidence" ON "vertical_response_patterns" (vertical, confidence DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS "email_suppressions_pkey" ON "email_suppressions" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "email_suppressions_unique" ON "email_suppressions" (COALESCE(email, '\u001f__null__'), COALESCE(tenant_id, '\u001f__null__'), COALESCE(brand, '\u001f__null__'));
 CREATE INDEX IF NOT EXISTS "idx_email_suppressions_email_lower" ON "email_suppressions" (lower(email));
@@ -3596,3 +3594,66 @@ CREATE UNIQUE INDEX IF NOT EXISTS "marketing_corpus_one_in_flight_url_idx" ON "m
 CREATE UNIQUE INDEX IF NOT EXISTS "marketing_corpus_one_in_flight_path_idx" ON "marketing_corpus" (tenant_id, storage_path) WHERE ((storage_path IS NOT NULL) AND (state IN ('queued', 'extracting')));
 CREATE UNIQUE INDEX IF NOT EXISTS "marketing_metric_daily_pkey" ON "marketing_metric_daily" (tenant_id, asset_id, date, source);
 CREATE INDEX IF NOT EXISTS "idx_marketing_metric_date" ON "marketing_metric_daily" (tenant_id, date DESC);
+
+-- views
+CREATE VIEW IF NOT EXISTS "agent_model_resolved" AS
+WITH per_user AS (
+         SELECT agent_model_config.tenant_id,
+            agent_model_config.user_id,
+            agent_model_config.agent_key,
+            agent_model_config.provider,
+            agent_model_config.model,
+            agent_model_config.encrypted_api_key,
+            agent_model_config.system_prompt_override,
+            agent_model_config.enabled,
+            'user' AS scope
+           FROM agent_model_config
+          WHERE agent_model_config.user_id IS NOT NULL
+        ), per_tenant AS (
+         SELECT agent_model_config.tenant_id,
+            NULL AS user_id,
+            agent_model_config.agent_key,
+            agent_model_config.provider,
+            agent_model_config.model,
+            agent_model_config.encrypted_api_key,
+            agent_model_config.system_prompt_override,
+            agent_model_config.enabled,
+            'tenant' AS scope
+           FROM agent_model_config
+          WHERE agent_model_config.user_id IS NULL
+        )
+ SELECT per_user.tenant_id,
+    per_user.user_id,
+    per_user.agent_key,
+    per_user.provider,
+    per_user.model,
+    per_user.encrypted_api_key,
+    per_user.system_prompt_override,
+    per_user.enabled,
+    per_user.scope
+   FROM per_user
+UNION ALL
+ SELECT per_tenant.tenant_id,
+    per_tenant.user_id,
+    per_tenant.agent_key,
+    per_tenant.provider,
+    per_tenant.model,
+    per_tenant.encrypted_api_key,
+    per_tenant.system_prompt_override,
+    per_tenant.enabled,
+    per_tenant.scope
+   FROM per_tenant;
+
+CREATE VIEW IF NOT EXISTS "lead_interactions_unreplied_outbound" AS
+SELECT id AS outbound_id,
+    lead_id,
+    channel,
+    created_at AS sent_at,
+    subject,
+    agent_source,
+    metadata,
+    ((julianday('now') - julianday(created_at)) * 86400.0) / 3600.0 AS hours_since_send
+   FROM lead_interactions o
+  WHERE (type IN ('email_sent', 'dm_sent', 'linkedin_sent')) AND NOT (EXISTS ( SELECT 1
+           FROM lead_interactions r
+          WHERE r.lead_id = o.lead_id AND r.channel = o.channel AND r.created_at > o.created_at AND (r.type LIKE '%_received' OR r.type LIKE '%_reply')));
