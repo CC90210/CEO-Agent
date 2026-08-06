@@ -92,7 +92,8 @@ def _mgmt_query(ref: str, sql: str, token: str) -> list[dict]:
 
 COLUMNS_SQL = """
 select c.table_name, c.column_name, c.ordinal_position, c.data_type, c.udt_name,
-       c.is_nullable, c.column_default, c.character_maximum_length
+       c.is_nullable, c.column_default, c.character_maximum_length,
+       c.is_generated, c.generation_expression
 from information_schema.columns c
 join information_schema.tables t
   on t.table_schema = c.table_schema and t.table_name = c.table_name
@@ -669,6 +670,19 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
                 lossy["defaults_dropped"].append(f"{t}.{name}: {c['column_default'][:80]}")
             if check:
                 parts.append(check.replace("%COL%", f'"{name}"'))
+            # GENERATED ALWAYS AS (...) STORED. SQLite has these (3.31+); emitted
+            # as a plain column the value stops computing and whatever the app
+            # writes stands in. draws.net_deposit_cents is
+            # (funded_cents - platform_fee_cents) — the money a merchant
+            # actually receives on a draw.
+            if c.get("is_generated") == "ALWAYS" and c.get("generation_expression"):
+                gen = _pg_expr_to_sqlite(" ".join(c["generation_expression"].split()))
+                if _is_portable(gen) and not _unknown_functions(gen):
+                    parts = [p for p in parts if p not in ("NOT NULL",)]
+                    parts.append(f"GENERATED ALWAYS AS ({gen}) STORED")
+                else:
+                    lossy.setdefault("GENERATED_COLUMNS_LOST", []).append(
+                        f"{t}.{name}: {c['generation_expression'][:100]}")
             lines.append(" ".join(parts))
         if pk_cols and not (len(pk_cols) == 1 and any(
                 c["column_name"] == pk_cols[0] and map_type(c["data_type"], c["udt_name"], enums,

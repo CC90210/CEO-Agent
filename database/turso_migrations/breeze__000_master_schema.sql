@@ -1,5 +1,5 @@
 -- breeze-portal master schema — transpiled from live Supabase
--- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-06T23:41:51+00:00
+-- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-06T23:47:41+00:00
 -- tables: 46  indexes emitted: 170  views emitted: 4
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
@@ -814,7 +814,7 @@ CREATE TABLE IF NOT EXISTS "draws" (
   "lender_ref_id" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "platform_fee_cents" INTEGER NOT NULL DEFAULT 0,
-  "net_deposit_cents" INTEGER,
+  "net_deposit_cents" INTEGER GENERATED ALWAYS AS ((funded_cents - platform_fee_cents)) STORED,
   "origination_fee_pct" TEXT NOT NULL DEFAULT 0,
   "monthly_rate_pct" TEXT NOT NULL DEFAULT 0,
   "term_months" INTEGER NOT NULL DEFAULT 0,

@@ -1,5 +1,5 @@
 -- bravo-empire master schema — transpiled from live Supabase
--- project ref: phctllmtsogkovoilwos  generated: 2026-08-06T23:35:57+00:00
+-- project ref: phctllmtsogkovoilwos  generated: 2026-08-06T23:47:34+00:00
 -- tables: 160  indexes emitted: 545  views emitted: 2
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
@@ -1893,7 +1893,7 @@ CREATE TABLE IF NOT EXISTS "marketing_asset" (
   "tenant_id" TEXT NOT NULL,
   "title" TEXT NOT NULL,
   "channel" TEXT NOT NULL,
-  "track" TEXT,
+  "track" TEXT GENERATED ALWAYS AS (CASE channel WHEN 'organic-instagram' THEN 'organic' WHEN 'organic-facebook' THEN 'organic' WHEN 'organic-tiktok' THEN 'organic' WHEN 'organic-youtube' THEN 'organic' WHEN 'paid-meta' THEN 'paid' WHEN 'paid-google' THEN 'paid' WHEN 'seo-article' THEN 'seo' WHEN 'seo-landing' THEN 'seo' WHEN 'email' THEN 'email' ELSE NULL END) STORED,
   "format" TEXT NOT NULL,
   "aspect" TEXT,
   "status" TEXT NOT NULL DEFAULT 'draft',

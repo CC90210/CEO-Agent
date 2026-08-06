@@ -457,3 +457,30 @@ def test_sql_keywords_are_not_mistaken_for_functions():
         "v", "SELECT count(*) FILTER (WHERE a > 0) OVER (PARTITION BY b) AS n "
              "FROM t WHERE c IN (1, 2) AND EXISTS (SELECT 1 FROM u)")
     assert out is not None
+
+
+def test_generated_column_keeps_its_generated_clause():
+    """draws.net_deposit_cents is GENERATED ALWAYS AS (funded_cents -
+    platform_fee_cents) — the money a merchant receives on a draw. Emitted as a
+    plain column it stops computing, and no breeze-portal code writes it (every
+    reference is a read), so a new draw would carry NULL into the
+    "money sent to your account" email."""
+    intro = _intro(columns=[
+        {**col("draws", "funded_cents", "integer", "int4"), "column_name": "funded_cents"},
+        {**col("draws", "net_deposit_cents", "integer", "int4"),
+         "is_generated": "ALWAYS",
+         "generation_expression": "(funded_cents - platform_fee_cents)"},
+    ])
+    sql, report = build_schema(intro, "breeze")
+    assert 'GENERATED ALWAYS AS ((funded_cents - platform_fee_cents)) STORED' in sql
+    assert not report["lossy"].get("GENERATED_COLUMNS_LOST")
+
+
+def test_unportable_generated_expression_is_reported_not_silently_plain():
+    intro = _intro(columns=[
+        {**col("t", "x"), "is_generated": "ALWAYS",
+         "generation_expression": "regexp_replace(y, 'a', 'b')"},
+    ])
+    sql, report = build_schema(intro, "bravo")
+    assert "GENERATED ALWAYS" not in sql
+    assert report["lossy"]["GENERATED_COLUMNS_LOST"]
