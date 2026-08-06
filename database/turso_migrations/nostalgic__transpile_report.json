@@ -1,6 +1,6 @@
 {
   "project": "nostalgic",
-  "generated": "2026-08-06T22:36:25+00:00",
+  "generated": "2026-08-06T22:40:42+00:00",
   "table_count": 8,
   "index_count": 38,
   "plpgsql_functions": [
@@ -24,6 +24,7 @@
       "events.user_id: auth.uid()"
     ],
     "indexes_skipped": [],
+    "checks_skipped": [],
     "cross_schema_fks_dropped": [
       "events(user_id) -> auth.users",
       "leads(user_id) -> auth.users",

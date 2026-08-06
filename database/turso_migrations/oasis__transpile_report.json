@@ -1,6 +1,6 @@
 {
   "project": "oasis",
-  "generated": "2026-08-06T22:36:17+00:00",
+  "generated": "2026-08-06T22:40:33+00:00",
   "table_count": 17,
   "index_count": 79,
   "plpgsql_functions": [
@@ -46,6 +46,7 @@
       "client_automations.webhook_secret: encode(gen_random_bytes(32), 'hex'::text)"
     ],
     "indexes_skipped": [],
+    "checks_skipped": [],
     "cross_schema_fks_dropped": [
       "profiles(id) -> auth.users"
     ],

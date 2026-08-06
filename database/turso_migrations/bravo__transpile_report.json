@@ -1,6 +1,6 @@
 {
   "project": "bravo",
-  "generated": "2026-08-06T22:36:00+00:00",
+  "generated": "2026-08-06T22:40:09+00:00",
   "table_count": 160,
   "index_count": 547,
   "plpgsql_functions": [
@@ -119,6 +119,13 @@
       "bridge_pairings_tool_capabilities_idx: CREATE INDEX bridge_pairings_tool_capabilities_idx ON public.bridge_pairings USING gin (tool_capabil",
       "idx_tenant_records_business_trgm: CREATE INDEX idx_tenant_records_business_trgm ON public.tenant_records USING gin (lower(COALESCE((da",
       "idx_marketing_corpus_search_trgm: CREATE INDEX idx_marketing_corpus_search_trgm ON public.marketing_corpus USING gin (search_text gin_"
+    ],
+    "checks_skipped": [
+      "lead_documents.lead_documents_storage_path_tenant_prefix: CHECK ((storage_path ~~ ((tenant_id)::text || '/%'::text)))",
+      "marketing_asset.marketing_asset_brand_slug_valid: CHECK ((brand_slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'::text))",
+      "sunbiz_phone_suppressions.sunbiz_phone_suppressions_phone_last10_check: CHECK ((phone_last10 ~ '^[0-9]{10}$'::text))",
+      "tenant_records.tenant_records_assigned_to_uuid_shape: CHECK (((entity_type <> ALL (ARRAY['lead'::text, 'application'::text, 'funded_deal'::text, 'renewal'",
+      "chat_attachments.chat_attachments_storage_path_tenant_prefix: CHECK ((storage_path ~~ ((tenant_id)::text || '/%'::text)))"
     ],
     "cross_schema_fks_dropped": [
       "agent_model_config(user_id) -> auth.users",

@@ -30,7 +30,7 @@ from core.turso_schema_transpiler import (  # noqa: E402
 
 def _intro(**over):
     base = {"columns": [], "pks": [], "fks": [], "enums": [], "indexes": [],
-            "vectors": [], "functions": [], "triggers": []}
+            "vectors": [], "functions": [], "triggers": [], "checks": []}
     base.update(over)
     return base
 
@@ -225,6 +225,41 @@ def test_nondeterministic_predicate_still_skipped():
     assert transpile_index(
         "CREATE INDEX i ON public.t USING btree (a) WHERE (expires_at > now())",
         "t", set()) is None
+
+
+def test_check_constraints_are_emitted():
+    """226 CHECK constraints were dropped fleet-wide by the first version —
+    including breeze's money guards. SQLite enforces CHECK natively."""
+    intro = _intro(
+        columns=[col("advances", "factor_rate", "numeric", "numeric")],
+        checks=[{"table_name": "advances", "name": "advances_factor_rate_check",
+                 "def": "CHECK (((factor_rate >= 1.000) AND (factor_rate <= 4.000)))"}],
+    )
+    sql, _ = build_schema(intro, "breeze")
+    assert 'CONSTRAINT "advances_factor_rate_check" CHECK' in sql
+    assert "factor_rate >= 1.000" in sql
+
+
+def test_check_with_any_array_is_translated():
+    intro = _intro(
+        columns=[col("agent_events", "status")],
+        checks=[{"table_name": "agent_events", "name": "agent_events_status_check",
+                 "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'done'::text])))"}],
+    )
+    sql, _ = build_schema(intro, "bravo")
+    assert "status IN ('pending', 'done')" in sql
+    assert "::text" not in sql.split("-- indexes")[0]
+
+
+def test_untranslatable_check_is_reported_not_silent():
+    intro = _intro(
+        columns=[col("t", "a")],
+        checks=[{"table_name": "t", "name": "t_regex_check",
+                 "def": "CHECK ((a ~ '^[0-9]+$'))"}],
+    )
+    sql, report = build_schema(intro, "bravo")
+    assert "t_regex_check" not in sql
+    assert report["lossy"]["checks_skipped"], "a dropped CHECK must be reported"
 
 
 def test_unique_loss_is_reported_loudly():

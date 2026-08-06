@@ -1,6 +1,6 @@
 {
   "project": "propflow",
-  "generated": "2026-08-06T22:36:05+00:00",
+  "generated": "2026-08-06T22:40:20+00:00",
   "table_count": 43,
   "index_count": 81,
   "plpgsql_functions": [
@@ -81,6 +81,7 @@
       "walkthrough_jobs.share_token: encode(gen_random_bytes(24), 'hex'::text)"
     ],
     "indexes_skipped": [],
+    "checks_skipped": [],
     "cross_schema_fks_dropped": [
       "agent_social_profiles(user_id) -> auth.users",
       "audit_logs(user_id) -> auth.users",

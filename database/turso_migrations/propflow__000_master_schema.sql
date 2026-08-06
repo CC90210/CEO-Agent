@@ -1,5 +1,5 @@
 -- propflow master schema — transpiled from live Supabase
--- project ref: xusnasmzoxkaimyjqbie  generated: 2026-08-06T22:36:05+00:00
+-- project ref: xusnasmzoxkaimyjqbie  generated: 2026-08-06T22:40:20+00:00
 -- tables: 43  indexes emitted: 81
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS "api_rate_limits" (
   "expires_at" TEXT NOT NULL,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "api_rate_limits_count_check" CHECK ((count >= 0))
 );
 
 CREATE TABLE IF NOT EXISTS "incoming_webhook_events" (
@@ -575,6 +576,7 @@ CREATE TABLE IF NOT EXISTS "leases" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "leases_payment_day_check" CHECK (((payment_day >= 1) AND (payment_day <= 28))),
   FOREIGN KEY ("company_id") REFERENCES "companies" ("id"),
   FOREIGN KEY ("property_id") REFERENCES "properties" ("id"),
   FOREIGN KEY ("created_by") REFERENCES "profiles" ("id")
@@ -643,6 +645,9 @@ CREATE TABLE IF NOT EXISTS "platform_invitations" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "platform_invitations_max_uses_check" CHECK ((max_uses > 0)),
+  CONSTRAINT "platform_invitations_status_check" CHECK ((status IN ('active', 'used', 'revoked', 'expired'))),
+  CONSTRAINT "platform_invitations_use_count_check" CHECK ((use_count >= 0)),
   FOREIGN KEY ("created_by") REFERENCES "profiles" ("id"),
   FOREIGN KEY ("company_created_id") REFERENCES "companies" ("id")
 );
@@ -664,6 +669,7 @@ CREATE TABLE IF NOT EXISTS "profiles" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "profiles_role_check" CHECK ((role IN ('admin', 'agent', 'landlord', 'tenant'))),
   FOREIGN KEY ("company_id") REFERENCES "companies" ("id")
 );
 
@@ -839,6 +845,8 @@ CREATE TABLE IF NOT EXISTS "team_invitations" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "team_invitations_role_check" CHECK ((role IN ('admin', 'agent', 'landlord', 'tenant'))),
+  CONSTRAINT "team_invitations_status_check" CHECK ((status IN ('pending', 'accepted', 'expired', 'revoked'))),
   FOREIGN KEY ("company_id") REFERENCES "companies" ("id"),
   FOREIGN KEY ("invited_by") REFERENCES "profiles" ("id"),
   FOREIGN KEY ("accepted_by") REFERENCES "profiles" ("id")
@@ -884,6 +892,8 @@ CREATE TABLE IF NOT EXISTS "walkthrough_jobs" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "walkthrough_jobs_photo_count_check" CHECK (((photo_count >= 0) AND (photo_count <= 500))),
+  CONSTRAINT "walkthrough_jobs_progress_pct_check" CHECK (((progress_pct >= 0) AND (progress_pct <= 100))),
   FOREIGN KEY ("company_id") REFERENCES "companies" ("id"),
   FOREIGN KEY ("property_id") REFERENCES "properties" ("id")
 );

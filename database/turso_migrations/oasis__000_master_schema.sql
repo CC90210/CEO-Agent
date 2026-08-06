@@ -1,5 +1,5 @@
 -- oasis-platform master schema — transpiled from live Supabase
--- project ref: skgrbweyscysyetubemg  generated: 2026-08-06T22:36:17+00:00
+-- project ref: skgrbweyscysyetubemg  generated: 2026-08-06T22:40:33+00:00
 -- tables: 17  indexes emitted: 79
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
@@ -129,7 +129,8 @@ CREATE TABLE IF NOT EXISTS "profiles" (
   "is_owner" INTEGER DEFAULT 0,
   "is_admin" INTEGER DEFAULT 0,
   "billing_exempt" INTEGER DEFAULT 0,
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "profiles_role_check" CHECK ((role IN ('client', 'admin', 'super_admin')))
 );
 
 CREATE TABLE IF NOT EXISTS "promo_codes" (
@@ -144,7 +145,8 @@ CREATE TABLE IF NOT EXISTS "promo_codes" (
   "valid_until" TEXT,
   "description" TEXT,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "promo_codes_discount_percent_check" CHECK (((discount_percent > 0) AND (discount_percent <= 100)))
 );
 
 CREATE TABLE IF NOT EXISTS "api_keys" (
@@ -182,6 +184,9 @@ CREATE TABLE IF NOT EXISTS "orders" (
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "paid_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "orders_payment_status_check" CHECK ((payment_status IN ('pending', 'paid', 'failed', 'refunded'))),
+  CONSTRAINT "orders_product_type_check" CHECK ((product_type IN ('automation', 'bundle'))),
+  CONSTRAINT "orders_tier_check" CHECK ((tier IN ('starter', 'professional', 'business'))),
   FOREIGN KEY ("user_id") REFERENCES "profiles" ("id")
 );
 
@@ -201,6 +206,7 @@ CREATE TABLE IF NOT EXISTS "pending_stripe_sessions" (
   "expires_at" TEXT,
   "created_at" TEXT NOT NULL,
   PRIMARY KEY ("id"),
+  CONSTRAINT "pending_stripe_sessions_status_check" CHECK ((status IN ('pending', 'linked', 'expired'))),
   FOREIGN KEY ("linked_user_id") REFERENCES "profiles" ("id")
 );
 
@@ -240,6 +246,8 @@ CREATE TABLE IF NOT EXISTS "subscriptions" (
   "custom_name" TEXT,
   "agreement_details" TEXT DEFAULT '{}',
   PRIMARY KEY ("id"),
+  CONSTRAINT "subscriptions_billing_interval_check" CHECK ((billing_interval IN ('month', 'year'))),
+  CONSTRAINT "subscriptions_status_check" CHECK ((status IN ('active', 'past_due', 'cancelled', 'paused', 'trialing', 'incomplete'))),
   FOREIGN KEY ("user_id") REFERENCES "profiles" ("id")
 );
 
@@ -263,6 +271,7 @@ CREATE TABLE IF NOT EXISTS "billing_history" (
   "metadata" TEXT DEFAULT '{}',
   "created_at" TEXT NOT NULL,
   PRIMARY KEY ("id"),
+  CONSTRAINT "billing_history_status_check" CHECK ((status IN ('draft', 'open', 'paid', 'void', 'uncollectible', 'pending', 'failed'))),
   FOREIGN KEY ("subscription_id") REFERENCES "subscriptions" ("id"),
   FOREIGN KEY ("user_id") REFERENCES "profiles" ("id")
 );
@@ -287,6 +296,8 @@ CREATE TABLE IF NOT EXISTS "client_automations" (
   "last_run_at" TEXT,
   "stats" TEXT DEFAULT '{"total_runs": 0, "hours_saved": 0}',
   PRIMARY KEY ("id"),
+  CONSTRAINT "client_automations_status_check" CHECK ((status IN ('pending_setup', 'in_progress', 'testing', 'active', 'paused', 'cancelled'))),
+  CONSTRAINT "client_automations_tier_check" CHECK ((tier IN ('starter', 'professional', 'business'))),
   FOREIGN KEY ("order_id") REFERENCES "orders" ("id"),
   FOREIGN KEY ("user_id") REFERENCES "profiles" ("id")
 );
@@ -303,6 +314,7 @@ CREATE TABLE IF NOT EXISTS "automation_logs" (
   "error_message" TEXT,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "automation_logs_status_check" CHECK ((status IN ('success', 'error', 'warning', 'info'))),
   FOREIGN KEY ("automation_id") REFERENCES "client_automations" ("id"),
   FOREIGN KEY ("user_id") REFERENCES "profiles" ("id")
 );
@@ -347,6 +359,7 @@ CREATE TABLE IF NOT EXISTS "monthly_reports" (
   "published_at" TEXT,
   "viewed_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "monthly_reports_status_check" CHECK ((status IN ('draft', 'published', 'archived'))),
   FOREIGN KEY ("automation_id") REFERENCES "client_automations" ("id"),
   FOREIGN KEY ("user_id") REFERENCES "profiles" ("id")
 );
@@ -364,6 +377,8 @@ CREATE TABLE IF NOT EXISTS "support_tickets" (
   "updated_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "resolved_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "support_tickets_priority_check" CHECK ((priority IN ('low', 'medium', 'high', 'urgent'))),
+  CONSTRAINT "support_tickets_status_check" CHECK ((status IN ('open', 'in_progress', 'waiting_on_client', 'resolved', 'closed'))),
   FOREIGN KEY ("assigned_to") REFERENCES "profiles" ("id"),
   FOREIGN KEY ("automation_id") REFERENCES "client_automations" ("id"),
   FOREIGN KEY ("user_id") REFERENCES "profiles" ("id")

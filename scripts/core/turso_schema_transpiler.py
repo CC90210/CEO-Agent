@@ -163,6 +163,21 @@ join pg_type t on t.oid = a.atttypid
 where n.nspname = 'public' and t.typname = 'vector' and a.attnum > 0
 """
 
+# CHECK constraints are integrity rules, and SQLite supports them natively.
+# The first version of this transpiler emitted NONE of the 226 across the fleet
+# — including breeze's money guards (factor_rate 1.0-4.0, monthly_rate <= 0.20,
+# recovered_cents >= 0) — leaving the application as the only thing stopping a
+# nonsense financial term from being written.
+CHECK_SQL = """
+select rel.relname as table_name, con.conname as name,
+       pg_get_constraintdef(con.oid) as def
+from pg_constraint con
+join pg_class rel on rel.oid = con.conrelid
+join pg_namespace n on n.oid = rel.relnamespace
+where n.nspname = 'public' and con.contype = 'c'
+order by rel.relname, con.conname
+"""
+
 FUNCTION_SQL = """
 select p.proname, l.lanname
 from pg_proc p
@@ -189,6 +204,7 @@ def introspect(ref: str, token: str) -> dict:
         "enums": _mgmt_query(ref, ENUM_SQL, token),
         "indexes": _mgmt_query(ref, INDEX_SQL, token),
         "vectors": _mgmt_query(ref, VECTOR_SQL, token),
+        "checks": _mgmt_query(ref, CHECK_SQL, token),
         "functions": _mgmt_query(ref, FUNCTION_SQL, token),
         "triggers": _mgmt_query(ref, TRIGGER_SQL, token),
     }
@@ -417,7 +433,12 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
         )
 
     order = topo_order(sorted(tables), intro["fks"])
+    checks_by_table: dict[str, list[dict]] = {}
+    for chk in intro.get("checks", []):
+        checks_by_table.setdefault(chk["table_name"], []).append(chk)
+
     lossy: dict[str, list[str]] = {"defaults_dropped": [], "indexes_skipped": [],
+                                   "checks_skipped": [],
                                    "cross_schema_fks_dropped": sorted(set(auth_fk_tables)),
                                    "unenforceable_fks_dropped": sorted(set(unenforceable_fks))}
 
@@ -450,6 +471,20 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
                 for c in cols)):
             qcols = ", ".join(f'"{c}"' for c in pk_cols)
             lines.append(f"  PRIMARY KEY ({qcols})")
+        # Table-level CHECK constraints — SQLite enforces these natively, and
+        # they must live inside CREATE TABLE (SQLite has no ADD CONSTRAINT).
+        for chk in checks_by_table.get(t, []):
+            body = _pg_expr_to_sqlite(chk["def"])
+            m_body = re.match(r"CHECK\s*(\(.*\))\s*(NOT VALID)?$", body.strip(), re.S | re.I)
+            if not m_body:
+                lossy["checks_skipped"].append(f"{t}.{chk['name']}: {chk['def'][:100]}")
+                continue
+            expr = m_body.group(1)
+            if re.search(r"~|\bILIKE\b|\bnow\(\)|::", expr, re.I):
+                lossy["checks_skipped"].append(f"{t}.{chk['name']}: {chk['def'][:100]}")
+                continue
+            lines.append(f'  CONSTRAINT "{chk["name"]}" CHECK {expr}')
+
         for fk in fks_by_table.get(t, []):
             child = ", ".join(f'"{c}"' for c in fk["columns"])
             parent = ", ".join(f'"{c}"' for c in fk["foreign_columns"])

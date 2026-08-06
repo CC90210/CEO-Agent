@@ -1,5 +1,5 @@
 -- bravo-empire master schema — transpiled from live Supabase
--- project ref: phctllmtsogkovoilwos  generated: 2026-08-06T22:36:00+00:00
+-- project ref: phctllmtsogkovoilwos  generated: 2026-08-06T22:40:09+00:00
 -- tables: 160  indexes emitted: 547
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS "agent_email_settings" (
   "detail" TEXT NOT NULL DEFAULT '{}',
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "agent_email_settings_mode_check" CHECK ((mode IN ('off', 'monitor', 'draft', 'semi', 'full')))
 );
 
 CREATE TABLE IF NOT EXISTS "agent_email_snapshots" (
@@ -77,7 +78,9 @@ CREATE TABLE IF NOT EXISTS "agent_events" (
   "retry_count" INTEGER NOT NULL DEFAULT 0,
   "last_error" TEXT,
   "visibility_until" TEXT,
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "agent_events_severity_check" CHECK ((severity IN ('info', 'warn', 'error', 'critical'))),
+  CONSTRAINT "agent_events_status_check" CHECK ((status IN ('pending', 'processing', 'done', 'failed', 'dead')))
 );
 
 CREATE TABLE IF NOT EXISTS "agent_memory_notes" (
@@ -127,7 +130,8 @@ CREATE TABLE IF NOT EXISTS "agent_nurture_voice_history" (
   "source" TEXT NOT NULL DEFAULT 'tune',
   "changed_by" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "agent_nurture_voice_history_source_check" CHECK ((source IN ('tune', 'rollback', 'reset', 'mode', 'drip')))
 );
 
 CREATE TABLE IF NOT EXISTS "agent_rep_identity" (
@@ -140,7 +144,9 @@ CREATE TABLE IF NOT EXISTS "agent_rep_identity" (
   "sms_scan" TEXT NOT NULL DEFAULT 'none',
   "notes" TEXT,
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("tenant_id", "rep_user_id")
+  PRIMARY KEY ("tenant_id", "rep_user_id"),
+  CONSTRAINT "agent_rep_identity_email_scan_check" CHECK ((email_scan IN ('imap_apppassword', 'gmail_oauth', 'none'))),
+  CONSTRAINT "agent_rep_identity_sms_scan_check" CHECK ((sms_scan IN ('texttorrent', 'none')))
 );
 
 CREATE TABLE IF NOT EXISTS "agent_state" (
@@ -153,7 +159,9 @@ CREATE TABLE IF NOT EXISTS "agent_state" (
   "known_issues" TEXT DEFAULT '[]',
   "system_health" TEXT DEFAULT '{}',
   "updated_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "agent_state_confidence_level_check" CHECK (((confidence_level >= (0)) AND (confidence_level <= (1)))),
+  CONSTRAINT "agent_state_energy_level_check" CHECK ((energy_level IN ('HIGH', 'MEDIUM', 'LOW', 'CRITICAL')))
 );
 
 CREATE TABLE IF NOT EXISTS "agent_state_snapshot" (
@@ -185,7 +193,11 @@ CREATE TABLE IF NOT EXISTS "agent_traces" (
   "status" TEXT NOT NULL DEFAULT 'success',
   "metadata" TEXT DEFAULT '{}',
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "agent_traces_agent_interface_check" CHECK ((agent_interface IN ('claude_code', 'anti_gravity', 'blackbox', 'telegram', 'n8n'))),
+  CONSTRAINT "agent_traces_confidence_check" CHECK (((confidence >= (0)) AND (confidence <= (1)))),
+  CONSTRAINT "agent_traces_event_type_check" CHECK ((event_type IN ('task_start', 'task_complete', 'task_fail', 'tool_call', 'decision', 'error', 'self_modify', 'memory_write', 'heartbeat', 'brain_loop_step'))),
+  CONSTRAINT "agent_traces_status_check" CHECK ((status IN ('success', 'fail', 'partial', 'skipped')))
 );
 
 CREATE TABLE IF NOT EXISTS "agent_voice_profile_history" (
@@ -200,7 +212,8 @@ CREATE TABLE IF NOT EXISTS "agent_voice_profile_history" (
   "source" TEXT,
   "changed_by" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "agent_voice_profile_history_channel_check" CHECK ((channel IN ('sms', 'email')))
 );
 
 CREATE TABLE IF NOT EXISTS "agent_voice_profiles" (
@@ -228,7 +241,9 @@ CREATE TABLE IF NOT EXISTS "agent_voice_profiles" (
   "approved" INTEGER NOT NULL DEFAULT 0,
   "approved_at" TEXT,
   "approved_by" TEXT,
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "agent_voice_profiles_channel_check" CHECK ((channel IN ('sms', 'email'))),
+  CONSTRAINT "agent_voice_profiles_confidence_check" CHECK ((confidence IN ('low', 'med', 'high')))
 );
 
 CREATE TABLE IF NOT EXISTS "application_signing_requests" (
@@ -317,7 +332,8 @@ CREATE TABLE IF NOT EXISTS "call_appointments" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "completed_at" TEXT,
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "call_appointments_status_check" CHECK ((status IN ('scheduled', 'completed', 'no_answer', 'cancelled', 'rescheduled')))
 );
 
 CREATE TABLE IF NOT EXISTS "cold_lead_lists" (
@@ -351,7 +367,8 @@ CREATE TABLE IF NOT EXISTS "cold_sending_mailboxes" (
   "notes" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "cold_sending_mailboxes_warmup_status_check" CHECK ((warmup_status IN ('warming', 'ready', 'paused')))
 );
 
 CREATE TABLE IF NOT EXISTS "content_calendar" (
@@ -450,7 +467,8 @@ CREATE TABLE IF NOT EXISTS "drift_alerts" (
   "acknowledged_at" TEXT,
   "notes" TEXT,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "drift_alerts_severity_check" CHECK ((severity IN ('warn', 'alert', 'critical')))
 );
 
 CREATE TABLE IF NOT EXISTS "drift_baselines" (
@@ -482,7 +500,9 @@ CREATE TABLE IF NOT EXISTS "drip_runs" (
   "sent_at" TEXT,
   "claimed_at" TEXT,
   "provider_message_id" TEXT,
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "drip_runs_channel_check" CHECK ((channel IN ('sms', 'email'))),
+  CONSTRAINT "drip_runs_status_check" CHECK ((status IN ('scheduled', 'sending', 'sent', 'failed', 'cancelled', 'done')))
 );
 
 CREATE TABLE IF NOT EXISTS "email_templates" (
@@ -602,7 +622,10 @@ CREATE TABLE IF NOT EXISTS "growth_log" (
   "confidence_score" TEXT DEFAULT 0.80,
   "impact" TEXT,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "growth_log_category_check" CHECK ((category IN ('skill_acquired', 'pattern_learned', 'mistake_corrected', 'capability_expanded', 'sop_created', 'integration_added'))),
+  CONSTRAINT "growth_log_confidence_score_check" CHECK (((confidence_score >= (0)) AND (confidence_score <= (1)))),
+  CONSTRAINT "growth_log_impact_check" CHECK ((impact IN ('high', 'medium', 'low')))
 );
 
 CREATE TABLE IF NOT EXISTS "heartbeat_tasks" (
@@ -619,7 +642,8 @@ CREATE TABLE IF NOT EXISTS "heartbeat_tasks" (
   "run_count" INTEGER DEFAULT 0,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "heartbeat_tasks_priority_check" CHECK ((priority IN ('critical', 'high', 'medium', 'low')))
 );
 
 CREATE TABLE IF NOT EXISTS "known_funding_companies" (
@@ -639,7 +663,8 @@ CREATE TABLE IF NOT EXISTS "known_funding_companies" (
   "paper_grades_accepted" TEXT DEFAULT '[]',
   "contact_email" TEXT,
   "submission_notes" TEXT,
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "known_funding_companies_tier_check" CHECK (((tier >= 1) AND (tier <= 4)))
 );
 
 CREATE TABLE IF NOT EXISTS "lead_edges" (
@@ -654,7 +679,9 @@ CREATE TABLE IF NOT EXISTS "lead_edges" (
   "metadata" TEXT DEFAULT '{}',
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "lead_edges_edge_type_check" CHECK ((edge_type IN ('referral', 'colleague', 'vendor', 'competitor', 'industry_peer', 'acquired_by', 'works_with', 'mentored_by', 'client_of'))),
+  CONSTRAINT "lead_edges_weight_check" CHECK (((weight >= 0.00) AND (weight <= 1.00)))
 );
 
 CREATE TABLE IF NOT EXISTS "leads_outreach" (
@@ -701,7 +728,10 @@ CREATE TABLE IF NOT EXISTS "memories" (
   "last_accessed" TEXT,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "memories_category_check" CHECK ((category IN ('decision', 'mistake', 'pattern', 'insight', 'fact', 'preference', 'capability'))),
+  CONSTRAINT "memories_confidence_score_check" CHECK (((confidence_score >= (0)) AND (confidence_score <= (1)))),
+  CONSTRAINT "memories_source_check" CHECK ((source IN ('observed', 'inferred', 'told', 'tested', 'assumed')))
 );
 
 CREATE TABLE IF NOT EXISTS "memories_episodic" (
@@ -737,7 +767,8 @@ CREATE TABLE IF NOT EXISTS "memories_procedural" (
   "owner_agent" TEXT DEFAULT 'bravo',
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "memories_procedural_status_check" CHECK ((status IN ('probationary', 'validated', 'deprecated')))
 );
 
 CREATE TABLE IF NOT EXISTS "memories_semantic" (
@@ -817,7 +848,8 @@ CREATE TABLE IF NOT EXISTS "pair_attempts" (
   "profile_id" TEXT NOT NULL,
   "outcome" TEXT NOT NULL,
   "attempted_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  "ip" TEXT
+  "ip" TEXT,
+  CONSTRAINT "pair_attempts_outcome_check" CHECK ((outcome IN ('ok', 'invalid_hmac', 'invalid_bearer', 'rate_limited', 'missing_headers', 'code_invalid_shape', 'code_not_found', 'code_expired', 'code_consumed', 'code_redeem_failed')))
 );
 
 CREATE TABLE IF NOT EXISTS "performance_metrics" (
@@ -908,7 +940,10 @@ CREATE TABLE IF NOT EXISTS "self_healing_log" (
   "outcome" TEXT NOT NULL,
   "duration_seconds" INTEGER,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "self_healing_log_dimension_check" CHECK ((dimension IN ('memory', 'context', 'skill', 'infrastructure', 'relationship'))),
+  CONSTRAINT "self_healing_log_outcome_check" CHECK ((outcome IN ('resolved', 'escalated', 'failed', 'deferred'))),
+  CONSTRAINT "self_healing_log_tier_check" CHECK (((tier >= 1) AND (tier <= 4)))
 );
 
 CREATE TABLE IF NOT EXISTS "self_modification_log" (
@@ -925,7 +960,11 @@ CREATE TABLE IF NOT EXISTS "self_modification_log" (
   "approval_status" TEXT NOT NULL DEFAULT 'auto_approved',
   "rollback_commit" TEXT,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "self_modification_log_approval_status_check" CHECK ((approval_status IN ('auto_approved', 'pending_approval', 'approved', 'rejected', 'rolled_back'))),
+  CONSTRAINT "self_modification_log_change_type_check" CHECK ((change_type IN ('create', 'update', 'delete', 'propose'))),
+  CONSTRAINT "self_modification_log_confidence_check" CHECK (((confidence >= (0)) AND (confidence <= (1)))),
+  CONSTRAINT "self_modification_log_governance_tier_check" CHECK ((governance_tier IN ('immutable', 'semi_mutable', 'governed_mutable', 'freely_mutable', 'ephemeral')))
 );
 
 CREATE TABLE IF NOT EXISTS "session_logs" (
@@ -940,7 +979,8 @@ CREATE TABLE IF NOT EXISTS "session_logs" (
   "duration_minutes" INTEGER,
   "tool_calls_count" INTEGER DEFAULT 0,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "session_logs_agent_interface_check" CHECK ((agent_interface IN ('claude_code', 'anti_gravity', 'blackbox', 'telegram', 'n8n')))
 );
 
 CREATE TABLE IF NOT EXISTS "shadow_decisions" (
@@ -991,7 +1031,9 @@ CREATE TABLE IF NOT EXISTS "skill_activation" (
   "status" TEXT DEFAULT 'active',
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "skill_activation_item_type_check" CHECK ((item_type IN ('memory', 'pattern', 'mistake', 'sop', 'skill', 'fact'))),
+  CONSTRAINT "skill_activation_status_check" CHECK ((status IN ('active', 'probationary', 'validated', 'under_review', 'archived')))
 );
 
 CREATE TABLE IF NOT EXISTS "skills_registry" (
@@ -1044,7 +1086,8 @@ CREATE TABLE IF NOT EXISTS "sops" (
   "is_active" INTEGER DEFAULT 1,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "sops_category_check" CHECK ((category IN ('content', 'code', 'deploy', 'research', 'automation', 'admin', 'client', 'finance')))
 );
 
 CREATE TABLE IF NOT EXISTS "template_performance" (
@@ -1092,7 +1135,8 @@ CREATE TABLE IF NOT EXISTS "user_context" (
   "category" TEXT NOT NULL,
   "confidence_score" TEXT DEFAULT 0.90,
   "updated_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "user_context_category_check" CHECK ((category IN ('identity', 'business', 'preference', 'weakness', 'strength', 'goal', 'content_pillar')))
 );
 
 CREATE TABLE IF NOT EXISTS "vertical_response_patterns" (
@@ -1124,6 +1168,7 @@ CREATE TABLE IF NOT EXISTS "agent_alerts" (
   "resolved_at" TEXT,
   "resolved_by" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "agent_alerts_severity_check" CHECK ((severity IN ('info', 'warn', 'urgent'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1163,6 +1208,7 @@ CREATE TABLE IF NOT EXISTS "agent_messages" (
   "read_at" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "agent_messages_priority_check" CHECK ((priority IN ('low', 'normal', 'high', 'urgent'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1202,6 +1248,7 @@ CREATE TABLE IF NOT EXISTS "agents" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "agents_category_check" CHECK ((category IN ('ceo', 'cfo', 'cmo', 'coo', 'operations', 'sales', 'support', 'research', 'content', 'engineering', 'finance', 'legal', 'industry_real_estate', 'industry_funding', 'industry_ecommerce', 'industry_agency', 'custom'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1232,6 +1279,8 @@ CREATE TABLE IF NOT EXISTS "application_lender_threads" (
   "signer_phone" TEXT,
   "email_identity" TEXT NOT NULL DEFAULT 'sunbiz',
   PRIMARY KEY ("id"),
+  CONSTRAINT "application_lender_threads_email_identity_check" CHECK ((email_identity IN ('sunbiz', 'funmate'))),
+  CONSTRAINT "application_lender_threads_status_check" CHECK ((status IN ('pending', 'sending', 'sent', 'replied', 'offer_received', 'declined', 'error'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1540,6 +1589,7 @@ CREATE TABLE IF NOT EXISTS "drip_sequences" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "email_class" TEXT NOT NULL DEFAULT 'commercial',
   PRIMARY KEY ("id"),
+  CONSTRAINT "drip_sequences_email_class_check" CHECK ((email_class IN ('transactional', 'commercial'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1560,6 +1610,12 @@ CREATE TABLE IF NOT EXISTS "drip_template_pool" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "drip_template_pool_approval_audited" CHECK (((status <> 'approved') OR ((approved_by IS NOT NULL) AND (approved_at IS NOT NULL)))),
+  CONSTRAINT "drip_template_pool_brand_check" CHECK ((brand IN ('sunbiz', 'bluerise'))),
+  CONSTRAINT "drip_template_pool_role_check" CHECK ((role IN ('opener', 'nudge', 'value', 'question', 'last_call', 'revive'))),
+  CONSTRAINT "drip_template_pool_source_check" CHECK ((source IN ('ui', 'seed', 'imported', 'generated'))),
+  CONSTRAINT "drip_template_pool_status_check" CHECK ((status IN ('draft', 'approved', 'retired'))),
+  CONSTRAINT "drip_template_pool_weight_check" CHECK (((weight >= 0) AND (weight <= 100))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1659,6 +1715,7 @@ CREATE TABLE IF NOT EXISTS "followup_drip_enrollments" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "followup_drip_enrollments_status_check" CHECK ((status IN ('active', 'done', 'stopped', 'error'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1714,6 +1771,9 @@ CREATE TABLE IF NOT EXISTS "inference_jobs" (
   "metadata" TEXT NOT NULL DEFAULT '{}',
   "next_attempt_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "inference_jobs_max_tokens_check" CHECK (((max_tokens >= 1) AND (max_tokens <= 16000))),
+  CONSTRAINT "inference_jobs_model_tier_check" CHECK ((model_tier IN ('fast', 'smart', 'max'))),
+  CONSTRAINT "inference_jobs_status_check" CHECK ((status IN ('pending', 'running', 'complete', 'error'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1854,6 +1914,9 @@ CREATE TABLE IF NOT EXISTS "marketing_asset" (
   "brand_slug" TEXT NOT NULL DEFAULT 'oasis-ai',
   "brand_name" TEXT NOT NULL DEFAULT 'OASIS AI',
   PRIMARY KEY ("id"),
+  CONSTRAINT "marketing_asset_channel_check" CHECK ((channel IN ('organic-instagram', 'organic-facebook', 'organic-tiktok', 'organic-youtube', 'paid-meta', 'paid-google', 'seo-article', 'seo-landing', 'email'))),
+  CONSTRAINT "marketing_asset_format_check" CHECK ((format IN ('video', 'image', 'carousel', 'html', 'article', 'copy', 'audio'))),
+  CONSTRAINT "marketing_asset_status_check" CHECK ((status IN ('draft', 'in_review', 'approved', 'scheduled', 'published', 'rejected', 'archived'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1884,6 +1947,8 @@ CREATE TABLE IF NOT EXISTS "merchant_background_checks" (
   "checked_at" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "merchant_background_checks_risk_flag_check" CHECK ((risk_flag IN ('none', 'court_case', 'mca_default', 'ucc', 'lien', 'bankruptcy', 'unknown'))),
+  CONSTRAINT "merchant_background_checks_status_check" CHECK ((status IN ('pending', 'running', 'completed', 'error', 'needs_assist'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1927,6 +1992,7 @@ CREATE TABLE IF NOT EXISTS "scheduled_calls" (
   "reminded_at" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "scheduled_calls_status_check" CHECK ((status IN ('pending', 'done', 'cancelled', 'missed'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1949,6 +2015,8 @@ CREATE TABLE IF NOT EXISTS "scheduled_sends" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "sent_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "scheduled_sends_channel_check" CHECK ((channel IN ('sms', 'email'))),
+  CONSTRAINT "scheduled_sends_status_check" CHECK ((status IN ('pending', 'sending', 'sent', 'failed', 'cancelled'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1966,6 +2034,7 @@ CREATE TABLE IF NOT EXISTS "shop_out_runs" (
   "initiated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "completed_at" TEXT,
   PRIMARY KEY ("run_id"),
+  CONSTRAINT "shop_out_runs_status_check" CHECK ((status IN ('in_progress', 'completed', 'failed'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -1982,6 +2051,7 @@ CREATE TABLE IF NOT EXISTS "shopping_threads" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "shopping_threads_status_check" CHECK ((status IN ('pending', 'sending', 'sent', 'error'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -2018,6 +2088,9 @@ CREATE TABLE IF NOT EXISTS "sunbiz_agent_accounts" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "sunbiz_agent_accounts_daily_cap_check" CHECK (((daily_cap >= 0) AND (daily_cap <= 5000))),
+  CONSTRAINT "sunbiz_agent_accounts_mode_check" CHECK ((mode IN ('off', 'shadow', 'semi', 'full', 'paused'))),
+  CONSTRAINT "sunbiz_agent_accounts_provider_check" CHECK ((provider = 'texttorrent')),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -2053,6 +2126,8 @@ CREATE TABLE IF NOT EXISTS "sunbiz_provider_rate_state" (
   "blocked_until" TEXT,
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("bucket"),
+  CONSTRAINT "sunbiz_provider_rate_state_provider_check" CHECK ((provider = 'texttorrent')),
+  CONSTRAINT "sunbiz_provider_rate_state_request_count_check" CHECK ((request_count >= 0)),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -2093,6 +2168,7 @@ CREATE TABLE IF NOT EXISTS "tenant_cron_jobs" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "tenant_cron_jobs_last_run_status_check" CHECK (((last_run_status IN ('success', 'error', NULL)) OR (last_run_status IS NULL))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -2109,6 +2185,7 @@ CREATE TABLE IF NOT EXISTS "tenant_invites" (
   "revoked_at" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "tenant_invites_team_role_check" CHECK ((team_role IN ('admin', 'loan_officer', 'processor', 'read_only', 'member'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -2184,6 +2261,7 @@ CREATE TABLE IF NOT EXISTS "user_profiles" (
   "admin_access_granted_by" TEXT,
   "admin_access_granted_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "user_profiles_team_role_check" CHECK ((team_role IN ('owner', 'admin', 'loan_officer', 'processor', 'read_only', 'member'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -2286,6 +2364,7 @@ CREATE TABLE IF NOT EXISTS "clair_reports" (
   "report_type" TEXT NOT NULL DEFAULT 'person_search',
   "entity_id" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "clair_reports_status_check" CHECK ((status IN ('pending', 'completed', 'no_results', 'error'))),
   FOREIGN KEY ("lead_id") REFERENCES "tenant_records" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2329,6 +2408,7 @@ CREATE TABLE IF NOT EXISTS "contracts" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "contracts_status_check" CHECK ((status IN ('draft', 'sent', 'viewed', 'signed', 'expired', 'void'))),
   FOREIGN KEY ("lead_id") REFERENCES "leads" ("id")
 );
 
@@ -2481,6 +2561,8 @@ CREATE TABLE IF NOT EXISTS "followup_drip_sends" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "followup_drip_sends_channel_check" CHECK ((channel IN ('sms', 'email'))),
+  CONSTRAINT "followup_drip_sends_status_check" CHECK ((status IN ('claimed', 'sent', 'failed', 'skipped'))),
   FOREIGN KEY ("enrollment_id") REFERENCES "followup_drip_enrollments" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2539,6 +2621,11 @@ CREATE TABLE IF NOT EXISTS "funded_deals" (
   "term_value" INTEGER,
   "term_unit" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "funded_deals_factor_rate_check" CHECK (((factor_rate IS NULL) OR ((factor_rate >= 1.0) AND (factor_rate <= 2.0)))),
+  CONSTRAINT "funded_deals_funded_amount_usd_check" CHECK ((funded_amount_usd > (0))),
+  CONSTRAINT "funded_deals_points_pct_check" CHECK (((points_pct IS NULL) OR ((points_pct >= (0)) AND (points_pct <= (100))))),
+  CONSTRAINT "funded_deals_term_months_check" CHECK (((term_months IS NULL) OR ((term_months >= 1) AND (term_months <= 60)))),
+  CONSTRAINT "funded_deals_term_unit_check" CHECK ((((term_value IS NULL) AND (term_unit IS NULL)) OR ((term_unit = 'months') AND ((term_value >= 1) AND (term_value <= 60))) OR ((term_unit = 'weeks') AND ((term_value >= 1) AND (term_value <= 260))) OR ((term_unit = 'days') AND ((term_value >= 1) AND (term_value <= 1825))))),
   FOREIGN KEY ("lender_id") REFERENCES "tenant_records" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2582,6 +2669,7 @@ CREATE TABLE IF NOT EXISTS "manifest_audit_log" (
   "message" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "manifest_audit_log_actor_type_check" CHECK ((actor_type IN ('user', 'ai', 'system', 'seed'))),
   FOREIGN KEY ("manifest_id") REFERENCES "tenant_manifests" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2600,6 +2688,7 @@ CREATE TABLE IF NOT EXISTS "marketing_asset_media" (
   "label" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "marketing_asset_media_kind_check" CHECK ((kind IN ('video', 'poster', 'preview', 'thumb', 'audio', 'html', 'source', 'caption'))),
   FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2625,6 +2714,9 @@ CREATE TABLE IF NOT EXISTS "marketing_corpus" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "indexed_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "marketing_corpus_kind_check" CHECK ((kind IN ('media', 'link', 'metrics', 'lesson', 'verdict'))),
+  CONSTRAINT "marketing_corpus_label_check" CHECK ((label IN ('exemplar', 'counter_example', 'neutral'))),
+  CONSTRAINT "marketing_corpus_state_check" CHECK ((state IN ('queued', 'extracting', 'indexed', 'failed', 'skipped'))),
   FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2680,6 +2772,8 @@ CREATE TABLE IF NOT EXISTS "marketing_request" (
   "claimed_at" TEXT,
   "done_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "marketing_request_kind_check" CHECK ((kind IN ('generate', 'variant', 'revise', 'research', 'question'))),
+  CONSTRAINT "marketing_request_status_check" CHECK ((status IN ('open', 'claimed', 'done', 'dropped'))),
   FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2695,6 +2789,8 @@ CREATE TABLE IF NOT EXISTS "marketing_review" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "acted_on_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "marketing_review_decision_check" CHECK ((decision IN ('approve', 'approve_with_changes', 'request_changes', 'reject', 'comment'))),
+  CONSTRAINT "marketing_review_reason_required" CHECK (((decision IN ('approve', 'comment')) OR (COALESCE(trim(note), '') <> ''))),
   FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2742,6 +2838,7 @@ CREATE TABLE IF NOT EXISTS "phone_lookup_jobs" (
   "claimed_at" TEXT,
   "completed_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "phone_lookup_jobs_status_check" CHECK ((status IN ('pending', 'running', 'completed', 'no_results', 'blocked', 'error'))),
   FOREIGN KEY ("lead_id") REFERENCES "tenant_records" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2781,6 +2878,7 @@ CREATE TABLE IF NOT EXISTS "sequence_state" (
   "claimed_at" TEXT,
   "claimed_by" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "sequence_state_status_check" CHECK ((status IN ('scheduled', 'sent', 'failed', 'cancelled', 'skipped'))),
   FOREIGN KEY ("sequence_id") REFERENCES "drip_sequences" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2803,6 +2901,7 @@ CREATE TABLE IF NOT EXISTS "sunbiz_conversation_state" (
   "last_error" TEXT,
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "sunbiz_conversation_state_provider_check" CHECK ((provider = 'texttorrent')),
   FOREIGN KEY ("agent_account_id") REFERENCES "sunbiz_agent_accounts" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2847,6 +2946,7 @@ CREATE TABLE IF NOT EXISTS "texttorrent_inbound_work" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "completed_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "texttorrent_inbound_work_status_check" CHECK ((status IN ('pending', 'running', 'drafted', 'escalated', 'suppressed', 'dead_letter'))),
   FOREIGN KEY ("account_id") REFERENCES "sunbiz_agent_accounts" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -2864,6 +2964,7 @@ CREATE TABLE IF NOT EXISTS "client_signatures" (
   "terms_sha256" TEXT,
   "signed_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "client_signatures_signature_kind_check" CHECK ((signature_kind IN ('drawn', 'typed'))),
   FOREIGN KEY ("contract_id") REFERENCES "contracts" ("id")
 );
 
@@ -2886,6 +2987,8 @@ CREATE TABLE IF NOT EXISTS "renewal_outreach_events" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "renewal_outreach_events_event_kind_check" CHECK ((event_kind = '50_percent')),
+  CONSTRAINT "renewal_outreach_events_status_check" CHECK ((status IN ('review_required', 'pending', 'queued', 'sent', 'blocked', 'failed', 'cancelled'))),
   FOREIGN KEY ("funded_deal_id") REFERENCES "funded_deals" ("id"),
   FOREIGN KEY ("lender_id") REFERENCES "tenant_records" ("id"),
   FOREIGN KEY ("scheduled_send_id") REFERENCES "scheduled_sends" ("id"),
@@ -2920,6 +3023,9 @@ CREATE TABLE IF NOT EXISTS "sunbiz_reply_drafts" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "sunbiz_reply_drafts_final_text_check" CHECK (((final_text IS NULL) OR ((char_length(final_text) >= 1) AND (char_length(final_text) <= 1600)))),
+  CONSTRAINT "sunbiz_reply_drafts_original_text_check" CHECK (((char_length(original_text) >= 1) AND (char_length(original_text) <= 1600))),
+  CONSTRAINT "sunbiz_reply_drafts_status_check" CHECK ((status IN ('pending', 'approved', 'rejected', 'cancelled', 'sent', 'failed'))),
   FOREIGN KEY ("agent_account_id") REFERENCES "sunbiz_agent_accounts" ("id"),
   FOREIGN KEY ("conversation_state_id") REFERENCES "sunbiz_conversation_state" ("id"),
   FOREIGN KEY ("scheduled_send_id") REFERENCES "scheduled_sends" ("id"),

@@ -1,5 +1,5 @@
 -- breeze-portal master schema — transpiled from live Supabase
--- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-06T22:35:13+00:00
+-- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-06T22:40:15+00:00
 -- tables: 46  indexes emitted: 171
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
@@ -33,7 +33,12 @@ CREATE TABLE IF NOT EXISTS "tenants" (
   "plaid_env" TEXT,
   "email_from_user" TEXT,
   "email_app_password_enc" TEXT,
-  PRIMARY KEY ("id")
+  PRIMARY KEY ("id"),
+  CONSTRAINT "tenants_epa_unaccrued_charge_pct_check" CHECK (((epa_unaccrued_charge_pct >= (0)) AND (epa_unaccrued_charge_pct <= (1)))),
+  CONSTRAINT "tenants_plaid_env_check" CHECK (((plaid_env IS NULL) OR (plaid_env IN ('sandbox', 'development', 'production')))),
+  CONSTRAINT "tenants_platform_fee_cap_cents_check" CHECK (((platform_fee_cap_cents IS NULL) OR (platform_fee_cap_cents > 0))),
+  CONSTRAINT "tenants_platform_fee_payer_check" CHECK ((platform_fee_payer IN ('merchant', 'lender'))),
+  CONSTRAINT "tenants_platform_fee_rate_check" CHECK (((platform_fee_rate >= (0)) AND (platform_fee_rate <= 0.5000)))
 );
 
 CREATE TABLE IF NOT EXISTS "audit_log" (
@@ -63,6 +68,7 @@ CREATE TABLE IF NOT EXISTS "boards" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "boards_kind_check" CHECK ((kind IN ('custom', 'deals'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -78,6 +84,9 @@ CREATE TABLE IF NOT EXISTS "crm_import_runs" (
   "started_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "finished_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "crm_import_runs_mode_check" CHECK ((mode IN ('file', 'api'))),
+  CONSTRAINT "crm_import_runs_source_check" CHECK ((source IN ('monday', 'csv'))),
+  CONSTRAINT "crm_import_runs_status_check" CHECK ((status IN ('running', 'succeeded', 'failed'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -115,6 +124,12 @@ CREATE TABLE IF NOT EXISTS "iso_partners" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "iso_partners_agreement_status_check" CHECK ((agreement_status IN ('none', 'sent', 'signed', 'expired', 'terminated'))),
+  CONSTRAINT "iso_partners_clawback_days_check" CHECK ((clawback_days >= 0)),
+  CONSTRAINT "iso_partners_default_commission_pct_check" CHECK (((default_commission_pct >= (0)) AND (default_commission_pct <= 0.25))),
+  CONSTRAINT "iso_partners_exclusivity_days_check" CHECK ((exclusivity_days >= 0)),
+  CONSTRAINT "iso_partners_status_check" CHECK ((status IN ('active', 'paused', 'terminated'))),
+  CONSTRAINT "iso_partners_w9_status_check" CHECK ((w9_status IN ('none', 'requested', 'received', 'verified'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -130,6 +145,8 @@ CREATE TABLE IF NOT EXISTS "kb_documents" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "kb_documents_kind_check" CHECK ((kind IN ('underwriting_guideline', 'investor_agreement', 'servicing_agreement', 'legal', 'collections_sop', 'reconciliation', 'pricing', 'training', 'other'))),
+  CONSTRAINT "kb_documents_status_check" CHECK ((status IN ('active', 'archived', 'processing', 'failed'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -144,6 +161,7 @@ CREATE TABLE IF NOT EXISTS "message_templates" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "message_templates_channel_check" CHECK ((channel IN ('email', 'sms'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -176,6 +194,9 @@ CREATE TABLE IF NOT EXISTS "sequences" (
   "mode" TEXT NOT NULL DEFAULT 'draft',
   "trigger_config" TEXT NOT NULL DEFAULT '{}',
   PRIMARY KEY ("id"),
+  CONSTRAINT "sequences_channel_check" CHECK ((channel IN ('email', 'sms', 'both'))),
+  CONSTRAINT "sequences_mode_check" CHECK ((mode IN ('draft', 'live'))),
+  CONSTRAINT "sequences_trigger_check" CHECK ((trigger IN ('renewal', 'default', 'management', 'manual'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -201,6 +222,7 @@ CREATE TABLE IF NOT EXISTS "tenant_users" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "tenant_users_role_check" CHECK ((role IN ('owner', 'admin', 'staff', 'viewer'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -225,6 +247,8 @@ CREATE TABLE IF NOT EXISTS "webhook_events" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "webhook_events_direction_check" CHECK ((direction IN ('inbound', 'outbound'))),
+  CONSTRAINT "webhook_events_status_check" CHECK ((status IN ('pending', 'sent', 'failed', 'received', 'processed', 'stub', 'duplicate'))),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
@@ -240,6 +264,7 @@ CREATE TABLE IF NOT EXISTS "board_columns" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "board_columns_type_check" CHECK ((type IN ('text', 'long_text', 'number', 'status', 'people', 'date', 'checkbox', 'link', 'tags'))),
   FOREIGN KEY ("board_id") REFERENCES "boards" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -269,6 +294,7 @@ CREATE TABLE IF NOT EXISTS "board_views" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "board_views_kind_check" CHECK ((kind IN ('table', 'kanban'))),
   FOREIGN KEY ("board_id") REFERENCES "boards" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -308,6 +334,7 @@ CREATE TABLE IF NOT EXISTS "merchants" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "sourcing_iso_partner_id" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "merchants_status_check" CHECK ((status IN ('active', 'suspended', 'defaulted', 'closed'))),
   FOREIGN KEY ("sourcing_iso_partner_id") REFERENCES "iso_partners" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -328,6 +355,7 @@ CREATE TABLE IF NOT EXISTS "agent_runs" (
   "meta_json" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "agent_runs_status_check" CHECK ((status IN ('queued', 'running', 'succeeded', 'failed', 'skipped'))),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -351,6 +379,7 @@ CREATE TABLE IF NOT EXISTS "bank_accounts" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "bank_accounts_status_check" CHECK ((status IN ('active', 'revoked', 'error', 'pending_verification'))),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -365,6 +394,7 @@ CREATE TABLE IF NOT EXISTS "chat_conversations" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "chat_conversations_owner_kind_check" CHECK ((owner_kind IN ('merchant', 'funder'))),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
   FOREIGN KEY ("tenant_user_id") REFERENCES "tenant_users" ("id")
@@ -403,6 +433,14 @@ CREATE TABLE IF NOT EXISTS "historical_deals" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "iso_partner_id" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "historical_deals_advance_amount_cents_check" CHECK (((advance_amount_cents IS NULL) OR (advance_amount_cents > 0))),
+  CONSTRAINT "historical_deals_factor_rate_check" CHECK (((factor_rate IS NULL) OR ((factor_rate >= 1.000) AND (factor_rate <= 1.999)))),
+  CONSTRAINT "historical_deals_outcome_check" CHECK ((outcome IN ('active', 'paid_off', 'renewed', 'defaulted', 'settled', 'written_off', 'unknown'))),
+  CONSTRAINT "historical_deals_payment_frequency_check" CHECK (((payment_frequency IS NULL) OR (payment_frequency IN ('daily', 'weekly', 'biweekly', 'monthly')))),
+  CONSTRAINT "historical_deals_recovered_cents_check" CHECK (((recovered_cents IS NULL) OR (recovered_cents >= 0))),
+  CONSTRAINT "historical_deals_renewal_count_check" CHECK (((renewal_count IS NULL) OR (renewal_count >= 0))),
+  CONSTRAINT "historical_deals_term_days_check" CHECK (((term_days IS NULL) OR ((term_days >= 1) AND (term_days <= 1080)))),
+  CONSTRAINT "historical_deals_total_repaid_cents_check" CHECK (((total_repaid_cents IS NULL) OR (total_repaid_cents >= 0))),
   FOREIGN KEY ("iso_partner_id") REFERENCES "iso_partners" ("id"),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
@@ -420,6 +458,7 @@ CREATE TABLE IF NOT EXISTS "merchant_users" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "merchant_users_role_check" CHECK ((role IN ('owner', 'staff'))),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -441,6 +480,8 @@ CREATE TABLE IF NOT EXISTS "plaid_items" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "plaid_items_retry_count_check" CHECK ((retry_count >= 0)),
+  CONSTRAINT "plaid_items_status_check" CHECK ((status IN ('pending', 'active', 'error', 'revoked'))),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -482,6 +523,10 @@ CREATE TABLE IF NOT EXISTS "plaid_statement_requests" (
   "attempt_count" INTEGER NOT NULL DEFAULT 0,
   "next_attempt_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "plaid_statement_requests_attempt_count_check" CHECK ((attempt_count >= 0)),
+  CONSTRAINT "plaid_statement_requests_check" CHECK ((start_date <= end_date)),
+  CONSTRAINT "plaid_statement_requests_statement_count_check" CHECK ((statement_count >= 0)),
+  CONSTRAINT "plaid_statement_requests_status_check" CHECK ((status IN ('pending_consent', 'starting_refresh', 'refreshing', 'callback_missing', 'ready', 'processing', 'completed', 'error'))),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -519,6 +564,7 @@ CREATE TABLE IF NOT EXISTS "sequence_state" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "meta_json" TEXT NOT NULL DEFAULT '{}',
   PRIMARY KEY ("id"),
+  CONSTRAINT "sequence_state_status_check" CHECK ((status IN ('active', 'paused', 'completed', 'cancelled'))),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("sequence_id") REFERENCES "sequences" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
@@ -560,6 +606,18 @@ CREATE TABLE IF NOT EXISTS "advances" (
   "iso_attributed_at" TEXT,
   "client_key" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "advances_advance_amount_cents_check" CHECK ((advance_amount_cents > 0)),
+  CONSTRAINT "advances_collection_status_check" CHECK ((collection_status IN ('none', 'in_house', 'agency', 'legal', 'settled', 'written_off'))),
+  CONSTRAINT "advances_daily_holdback_pct_check" CHECK (((daily_holdback_pct >= (0)) AND (daily_holdback_pct <= 0.50))),
+  CONSTRAINT "advances_factor_rate_check" CHECK (((factor_rate >= 1.000) AND (factor_rate <= 4.000))),
+  CONSTRAINT "advances_iso_commission_pct_check" CHECK (((iso_commission_pct IS NULL) OR ((iso_commission_pct >= (0)) AND (iso_commission_pct <= 0.25)))),
+  CONSTRAINT "advances_monthly_rate_pct_check" CHECK (((monthly_rate_pct >= (0)) AND (monthly_rate_pct <= 0.20))),
+  CONSTRAINT "advances_origination_fee_pct_check" CHECK (((origination_fee_pct >= (0)) AND (origination_fee_pct <= 0.20))),
+  CONSTRAINT "advances_recovered_cents_check" CHECK ((recovered_cents >= 0)),
+  CONSTRAINT "advances_repayment_status_check" CHECK ((repayment_status IN ('pending', 'active', 'completed', 'default', 'closed'))),
+  CONSTRAINT "advances_settled_amount_cents_check" CHECK (((settled_amount_cents IS NULL) OR (settled_amount_cents >= 0))),
+  CONSTRAINT "advances_term_days_check" CHECK (((term_days >= 30) AND (term_days <= 1110))),
+  CONSTRAINT "advances_term_months_check" CHECK (((term_months >= 0) AND (term_months <= 36))),
   FOREIGN KEY ("iso_partner_id") REFERENCES "iso_partners" ("id"),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("renewal_of_advance_id") REFERENCES "advances" ("id"),
@@ -576,6 +634,7 @@ CREATE TABLE IF NOT EXISTS "chat_messages" (
   "tool_calls" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "chat_messages_role_check" CHECK ((role IN ('user', 'assistant'))),
   FOREIGN KEY ("conversation_id") REFERENCES "chat_conversations" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
@@ -597,6 +656,9 @@ CREATE TABLE IF NOT EXISTS "interactions" (
   "sent_at" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "interactions_channel_check" CHECK ((channel IN ('email', 'sms'))),
+  CONSTRAINT "interactions_direction_check" CHECK ((direction IN ('outbound', 'inbound'))),
+  CONSTRAINT "interactions_status_check" CHECK ((status IN ('queued', 'sent', 'delivered', 'failed', 'suppressed', 'bounced'))),
   FOREIGN KEY ("agent_run_id") REFERENCES "agent_runs" ("id"),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
@@ -611,6 +673,7 @@ CREATE TABLE IF NOT EXISTS "plaid_statement_link_tokens" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("request_id"),
+  CONSTRAINT "plaid_statement_link_tokens_check" CHECK (((lease_id IS NULL) = (lease_at IS NULL))),
   FOREIGN KEY ("request_id") REFERENCES "plaid_statement_requests" ("id")
 );
 
@@ -701,6 +764,10 @@ CREATE TABLE IF NOT EXISTS "draw_requests" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "estimated_fee_cents" INTEGER,
   PRIMARY KEY ("id"),
+  CONSTRAINT "draw_requests_approved_cents_check" CHECK (((approved_cents IS NULL) OR (approved_cents > 0))),
+  CONSTRAINT "draw_requests_estimated_fee_cents_check" CHECK (((estimated_fee_cents IS NULL) OR (estimated_fee_cents >= 0))),
+  CONSTRAINT "draw_requests_requested_cents_check" CHECK ((requested_cents > 0)),
+  CONSTRAINT "draw_requests_status_check" CHECK ((status IN ('pending', 'approved', 'awaiting_signature', 'denied', 'funded', 'cancelled'))),
   FOREIGN KEY ("advance_id") REFERENCES "advances" ("id"),
   FOREIGN KEY ("bank_account_id") REFERENCES "bank_accounts" ("id"),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
@@ -727,6 +794,9 @@ CREATE TABLE IF NOT EXISTS "mca_positions" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "mca_positions_detected_from_check" CHECK ((detected_from IN ('plaid', 'manual', 'moneythumb', 'email'))),
+  CONSTRAINT "mca_positions_frequency_check" CHECK ((frequency IN ('daily', 'weekly', 'biweekly', 'monthly'))),
+  CONSTRAINT "mca_positions_note_severity_check" CHECK ((note_severity IN ('info', 'risk'))),
   FOREIGN KEY ("advance_id") REFERENCES "advances" ("id"),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
@@ -756,6 +826,11 @@ CREATE TABLE IF NOT EXISTS "draws" (
   "disbursement_note" TEXT,
   "disbursement_notified_at" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "draws_disbursement_status_check" CHECK ((disbursement_status IN ('pending', 'disbursed'))),
+  CONSTRAINT "draws_fee_within_funded" CHECK ((platform_fee_cents <= funded_cents)),
+  CONSTRAINT "draws_funded_cents_check" CHECK ((funded_cents > 0)),
+  CONSTRAINT "draws_platform_fee_cents_check" CHECK ((platform_fee_cents >= 0)),
+  CONSTRAINT "draws_total_repayment_cents_check" CHECK ((total_repayment_cents >= 0)),
   FOREIGN KEY ("advance_id") REFERENCES "advances" ("id"),
   FOREIGN KEY ("bank_account_id") REFERENCES "bank_accounts" ("id"),
   FOREIGN KEY ("draw_request_id") REFERENCES "draw_requests" ("id"),
@@ -793,6 +868,7 @@ CREATE TABLE IF NOT EXISTS "underwriting_snapshots" (
   "as_of" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "underwriting_snapshots_verdict_check" CHECK ((verdict IN ('pass', 'review', 'unavailable'))),
   FOREIGN KEY ("draw_request_id") REFERENCES "draw_requests" ("id"),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
@@ -823,6 +899,7 @@ CREATE TABLE IF NOT EXISTS "agreements" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "signed_content_hash" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "agreements_status_check" CHECK ((status IN ('pending_signature', 'signed', 'voided'))),
   FOREIGN KEY ("advance_id") REFERENCES "advances" ("id"),
   FOREIGN KEY ("draw_id") REFERENCES "draws" ("id"),
   FOREIGN KEY ("draw_request_id") REFERENCES "draw_requests" ("id"),
@@ -844,6 +921,8 @@ CREATE TABLE IF NOT EXISTS "deal_memos" (
   "created_by" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "deal_memos_grade_check" CHECK ((grade IN ('A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F'))),
+  CONSTRAINT "deal_memos_recommendation_check" CHECK ((recommendation IN ('approve', 'approve_with_conditions', 'decline', 'needs_info'))),
   FOREIGN KEY ("advance_id") REFERENCES "advances" ("id"),
   FOREIGN KEY ("draw_request_id") REFERENCES "draw_requests" ("id"),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
@@ -872,6 +951,9 @@ CREATE TABLE IF NOT EXISTS "documents" (
   "period_start" TEXT,
   "period_end" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "documents_kind_check" CHECK ((kind IN ('bank_statement', 'ar', 'application', 'agreement', 'other'))),
+  CONSTRAINT "documents_source_check" CHECK ((source IN ('upload', 'plaid_statements', 'plaid_asset_report'))),
+  CONSTRAINT "documents_uploaded_by_role_check" CHECK ((uploaded_by_role IN ('merchant', 'lender_staff', 'system'))),
   FOREIGN KEY ("advance_id") REFERENCES "advances" ("id"),
   FOREIGN KEY ("draw_id") REFERENCES "draws" ("id"),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
@@ -894,6 +976,8 @@ CREATE TABLE IF NOT EXISTS "iso_commissions" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
+  CONSTRAINT "iso_commissions_entry_type_check" CHECK ((entry_type IN ('commission', 'clawback', 'adjustment'))),
+  CONSTRAINT "iso_commissions_status_check" CHECK ((status IN ('accrued', 'approved', 'paid', 'voided'))),
   FOREIGN KEY ("advance_id") REFERENCES "advances" ("id"),
   FOREIGN KEY ("draw_id") REFERENCES "draws" ("id"),
   FOREIGN KEY ("iso_partner_id") REFERENCES "iso_partners" ("id"),
@@ -913,6 +997,10 @@ CREATE TABLE IF NOT EXISTS "platform_fee_ledger" (
   "fee_cents" INTEGER NOT NULL,
   "fee_label" TEXT,
   "recorded_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  CONSTRAINT "platform_fee_ledger_fee_cap_cents_check" CHECK (((fee_cap_cents IS NULL) OR (fee_cap_cents > 0))),
+  CONSTRAINT "platform_fee_ledger_fee_cents_check" CHECK ((fee_cents >= 0)),
+  CONSTRAINT "platform_fee_ledger_fee_rate_check" CHECK (((fee_rate >= (0)) AND (fee_rate <= 0.5000))),
+  CONSTRAINT "platform_fee_ledger_funded_cents_check" CHECK ((funded_cents > 0)),
   FOREIGN KEY ("advance_id") REFERENCES "advances" ("id"),
   FOREIGN KEY ("draw_id") REFERENCES "draws" ("id"),
   FOREIGN KEY ("draw_request_id") REFERENCES "draw_requests" ("id"),
@@ -934,6 +1022,8 @@ CREATE TABLE IF NOT EXISTS "repayments" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "draw_id" TEXT,
   PRIMARY KEY ("id"),
+  CONSTRAINT "repayments_amount_cents_check" CHECK ((amount_cents <> 0)),
+  CONSTRAINT "repayments_source_check" CHECK ((source IN ('ach', 'manual', 'adjustment', 'wire'))),
   FOREIGN KEY ("advance_id") REFERENCES "advances" ("id"),
   FOREIGN KEY ("draw_id") REFERENCES "draws" ("id"),
   FOREIGN KEY ("merchant_id") REFERENCES "merchants" ("id"),
