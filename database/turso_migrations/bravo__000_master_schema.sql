@@ -1,5 +1,5 @@
 -- bravo-empire master schema — transpiled from live Supabase
--- project ref: phctllmtsogkovoilwos  generated: 2026-08-06T23:29:28+00:00
+-- project ref: phctllmtsogkovoilwos  generated: 2026-08-06T23:35:57+00:00
 -- tables: 160  indexes emitted: 545  views emitted: 2
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):

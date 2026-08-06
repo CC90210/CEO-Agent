@@ -443,6 +443,85 @@ def _unique_column_sets(intro: dict) -> dict[str, set[tuple[str, ...]]]:
     return out
 
 
+# Functions libSQL/SQLite actually provides (core + date/time + aggregate +
+# window + JSON1). Anything called by a view that is NOT here is a Postgres or
+# user-defined function, and a view that calls one CREATEs cleanly and fails
+# only when something SELECTs it.
+_SQLITE_FUNCS = frozenset("""
+abs changes char coalesce concat concat_ws format glob hex iif ifnull instr last_insert_rowid
+length like likelihood likely load_extension lower ltrim max min nullif octet_length printf
+quote random randomblob replace round rtrim sign soundex sqlite_version substr substring
+total_changes trim typeof unhex unicode unlikely upper zeroblob
+date time datetime julianday unixepoch strftime timediff
+avg count group_concat string_agg sum total
+row_number rank dense_rank percent_rank cume_dist ntile lag lead first_value last_value nth_value
+json json_array json_array_length json_error_position json_extract json_insert json_object
+json_patch json_remove json_replace json_set json_type json_valid json_quote json_group_array
+json_group_object json_each json_tree
+cast case when then else end
+""".split())
+
+# Pure IMMUTABLE Postgres SQL functions that are simple enough to inline exactly.
+# map_advance_stage is a plain CASE over four columns; deal_board_view cannot
+# exist without it.
+_INLINE_FUNCS = {
+    "map_advance_stage": (
+        4,
+        "CASE WHEN {1} IN ('in_house','agency','legal') THEN 'collections' "
+        "WHEN {0} = 'default' OR {2} IS NOT NULL THEN 'default' "
+        "WHEN {3} IS NOT NULL AND {0} IN ('pending','active') THEN 'renewal' "
+        "ELSE 'funded' END"),
+}
+
+
+def _split_args(argstr: str) -> list[str]:
+    """Top-level comma split — ignores commas inside nested parens."""
+    args, depth, cur = [], 0, ""
+    for ch in argstr:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == "," and depth == 0:
+            args.append(cur.strip())
+            cur = ""
+        else:
+            cur += ch
+    if cur.strip():
+        args.append(cur.strip())
+    return args
+
+
+def _inline_pg_functions(s: str) -> str:
+    for fname, (arity, template) in _INLINE_FUNCS.items():
+        while True:
+            m = re.search(rf"\b{fname}\s*\(", s, re.I)
+            if not m:
+                break
+            depth, i = 1, m.end()
+            while i < len(s) and depth:
+                depth += (s[i] == "(") - (s[i] == ")")
+                i += 1
+            args = _split_args(s[m.end():i - 1])
+            if len(args) != arity:
+                return s  # shape we do not understand — let the caller reject
+            s = s[:m.start()] + "(" + template.format(*args) + ")" + s[i:]
+    return s
+
+
+# SQL keywords that legally precede "(" and are not function calls.
+_KEYWORDS_BEFORE_PAREN = frozenset("""
+in exists not and or on where having select from as over filter partition by order group
+union all any some values into set returning join left right inner outer full cross natural
+using when then else case end between like glob is null distinct limit offset with recursive
+""".split())
+
+
+def _unknown_functions(s: str) -> set[str]:
+    called = {m.group(1).lower() for m in re.finditer(r"\b([a-z_][a-z0-9_]*)\s*\(", s, re.I)}
+    return called - _SQLITE_FUNCS - _KEYWORDS_BEFORE_PAREN
+
+
 def transpile_view(name: str, body: str) -> str | None:
     """Postgres view body -> libSQL. None when it cannot be faithfully ported.
 
@@ -468,6 +547,24 @@ def transpile_view(name: str, body: str) -> str | None:
                r"((julianday('now') - julianday(\1)) * 86400.0)", s, flags=re.I)
     s = re.sub(r"EXTRACT\s*\(\s*epoch\s+FROM\s+([a-z_.\"]+)\s*-\s*([a-z_.\"]+)\s*\)",
                r"((julianday(\1) - julianday(\2)) * 86400.0)", s, flags=re.I)
+    # EXTRACT(epoch FROM <ts>) is a unix timestamp, not a difference. It must
+    # keep sub-second precision: deal_board_view uses it as "position", the
+    # board's sort key, so truncating to whole seconds collides two deals funded
+    # in the same second. strftime('%s') truncates; julianday does not.
+    # unixepoch(x,'subsec'), not julianday arithmetic: julianday is a double and
+    # 1784651861.928 already needs 13 significant digits, so the product lands
+    # ~11us off (…861.928011). unixepoch is purpose-built and exact against the
+    # ISO-8601 form this transpiler stores timestamptz as. Verified on libSQL's
+    # SQLite 3.45.1.
+    s = re.sub(r"EXTRACT\s*\(\s*epoch\s+FROM\s+([a-z_.\"]+)\s*\)",
+               r"unixepoch(\1, 'subsec')", s, flags=re.I)
+    # EXTRACT(day FROM now() - x) -> whole days elapsed. Postgres truncates
+    # toward zero here and so does CAST(... AS INTEGER).
+    s = re.sub(r"EXTRACT\s*\(\s*day\s+FROM\s+now\(\)\s*-\s*(\(?[^)]+\)?)\s*\)",
+               r"CAST((julianday('now') - julianday(\1)) AS INTEGER)", s, flags=re.I)
+    # `ts + make_interval(days => n)` -> datetime(ts, '+n days')
+    s = re.sub(r"\(\s*([a-z_.\"]+)\s*\+\s*make_interval\s*\(\s*days\s*=>\s*([a-z_.\"]+)\s*\)\s*\)",
+               r"datetime(\1, '+' || \2 || ' days')", s, flags=re.I)
 
     s = re.sub(r"=\s*ANY\s*\(\s*ARRAY\[(.*?)\]\s*\)", r"IN (\1)", s, flags=re.S | re.I)
     s = re.sub(r"<>\s*ALL\s*\(\s*ARRAY\[(.*?)\]\s*\)", r"NOT IN (\1)", s, flags=re.S | re.I)
@@ -480,11 +577,17 @@ def transpile_view(name: str, body: str) -> str | None:
     s = re.sub(r"\bGREATEST\s*\(", "max(", s, flags=re.I)
     s = re.sub(r"\bLEAST\s*\(", "min(", s, flags=re.I)
 
+    s = _inline_pg_functions(s)
+
     # Anything still Postgres-only cannot be trusted to mean the same thing.
     if re.search(r"\bDISTINCT ON\b|\bEXTRACT\s*\(|\binterval\b|\bLATERAL\b|"
                  r"\bgenerate_series\b|\bstring_agg\b|::|\bARRAY\s*\[|\bdate_trunc\b|"
                  r"\bmake_interval\b|~|=>|\bAT\s+TIME\s+ZONE\b|\bregexp_replace\b",
                  s, re.I):
+        return None
+    # A call to a function SQLite does not have creates fine and explodes only
+    # on SELECT — reject it here rather than discovering it in production.
+    if _unknown_functions(s):
         return None
     return f'CREATE VIEW IF NOT EXISTS "{name}" AS\n{s};'
 

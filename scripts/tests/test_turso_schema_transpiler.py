@@ -379,7 +379,7 @@ def test_extract_epoch_becomes_julianday_seconds():
 
 @pytest.mark.parametrize("body", [
     "SELECT DISTINCT ON (a) a, b FROM t",                    # no SQLite equivalent
-    "SELECT * FROM t WHERE d <= (f + make_interval(days => n))",
+    "SELECT * FROM t WHERE d <= (f + make_interval(weeks => n))",  # only days is ported
     "SELECT * FROM t WHERE ty ~ '^[0-9]+$'",                 # posix regex
     "SELECT * FROM t, LATERAL (SELECT 1) x",
 ])
@@ -409,3 +409,51 @@ def test_portable_view_is_emitted_after_the_tables():
     assert 'CREATE VIEW IF NOT EXISTS "automations" AS' in sql
     assert report["view_count"] == 1
     assert sql.index("CREATE TABLE") < sql.index("CREATE VIEW")
+
+
+def test_epoch_of_a_timestamp_uses_unixepoch_not_julianday():
+    """julianday is a double: 1784651861.928 needs 13 significant digits, so the
+    arithmetic form lands ~11us off. deal_board_view uses this as `position`,
+    the board's sort key, so it must be exact — unixepoch(x,'subsec') is."""
+    out = transpile_view("v", "SELECT EXTRACT(epoch FROM a.funded_at) AS position FROM t a")
+    assert "unixepoch(a.funded_at, 'subsec')" in out
+    assert "julianday" not in out
+
+
+def test_extract_day_difference_truncates_like_postgres():
+    out = transpile_view("v", "SELECT EXTRACT(day FROM now() - x) AS d FROM t")
+    assert "CAST((julianday('now') - julianday(x)) AS INTEGER)" in out
+
+
+def test_make_interval_days_becomes_datetime_modifier():
+    out = transpile_view(
+        "v", "SELECT * FROM t WHERE a <= (d.funded_at + make_interval(days => ip.n))")
+    assert "datetime(d.funded_at, '+' || ip.n || ' days')" in out
+    assert "make_interval" not in out
+
+
+def test_immutable_pg_function_is_inlined():
+    """deal_board_view calls map_advance_stage(), a pure IMMUTABLE SQL function.
+    SQLite has no such function, and a view calling it CREATEs fine then fails
+    only on SELECT."""
+    out = transpile_view(
+        "v", "SELECT map_advance_stage(a.repayment_status, a.collection_status, "
+             "a.defaulted_at, a.renewal_of) AS stage FROM advances a")
+    assert "map_advance_stage" not in out
+    assert "a.collection_status IN ('in_house','agency','legal')" in out
+    assert "a.repayment_status = 'default' OR a.defaulted_at IS NOT NULL" in out
+
+
+def test_view_calling_an_unknown_function_is_rejected():
+    """CREATE VIEW does not resolve function names — the failure surfaces only
+    when an app SELECTs it. Catch it at transpile time instead."""
+    assert transpile_view("v", "SELECT some_plpgsql_helper(a) FROM t") is None
+
+
+def test_sql_keywords_are_not_mistaken_for_functions():
+    """`IN (`, `EXISTS (`, `OVER (`, `FILTER (` all look like calls to a naive
+    regex; treating them as unknown functions rejected six working views."""
+    out = transpile_view(
+        "v", "SELECT count(*) FILTER (WHERE a > 0) OVER (PARTITION BY b) AS n "
+             "FROM t WHERE c IN (1, 2) AND EXISTS (SELECT 1 FROM u)")
+    assert out is not None

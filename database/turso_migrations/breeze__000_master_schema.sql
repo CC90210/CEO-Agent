@@ -1,6 +1,6 @@
 -- breeze-portal master schema — transpiled from live Supabase
--- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-06T23:29:35+00:00
--- tables: 46  indexes emitted: 170  views emitted: 2
+-- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-06T23:41:51+00:00
+-- tables: 46  indexes emitted: 170  views emitted: 4
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (12): accrue_iso_commission, approve_draw_request, assert_no_cross_role_binding, cancel_draw_request, claim_plaid_statement_link_token, compute_platform_fee, estimate_platform_fee, import_merchant_position, record_funded_draw, submit_draw_request, touch_updated_at, update_merchant_contact
@@ -1203,6 +1203,60 @@ CREATE UNIQUE INDEX IF NOT EXISTS "plaid_statement_requests_active_item_uidx" ON
 CREATE UNIQUE INDEX IF NOT EXISTS "plaid_statement_link_tokens_pkey" ON "plaid_statement_link_tokens" (request_id);
 
 -- views
+CREATE VIEW IF NOT EXISTS "deal_board_view" AS
+SELECT bi.tenant_id,
+    bi.id AS item_id,
+    NULL AS advance_id,
+    bi.merchant_id,
+    bi.name AS title,
+    COALESCE(icv.value ->> 'key', 'lead') AS stage,
+    false AS mirrored,
+    NULL AS funded_cents,
+    NULL AS paid_cents,
+    NULL AS due_cents,
+    bi."position",
+    bi.updated_at
+   FROM board_items bi
+     JOIN boards b ON b.id = bi.board_id AND b.kind = 'deals'
+     LEFT JOIN board_columns bc ON bc.board_id = b.id AND bc.type = 'status' AND bc.is_locked = true
+     LEFT JOIN item_column_values icv ON icv.item_id = bi.id AND icv.column_id = bc.id
+  WHERE bi.archived = false AND bi.advance_id IS NULL
+UNION ALL
+ SELECT a.tenant_id,
+    NULL AS item_id,
+    a.id AS advance_id,
+    a.merchant_id,
+    m.business_name AS title,
+    (CASE WHEN a.collection_status IN ('in_house','agency','legal') THEN 'collections' WHEN a.repayment_status = 'default' OR a.defaulted_at IS NOT NULL THEN 'default' WHEN a.renewal_of_advance_id IS NOT NULL AND a.repayment_status IN ('pending','active') THEN 'renewal' ELSE 'funded' END) AS stage,
+    true AS mirrored,
+    a.advance_amount_cents AS funded_cents,
+    s.paid_to_date_cents AS paid_cents,
+    s.total_repayment_due_cents AS due_cents,
+    unixepoch(a.funded_at, 'subsec') AS "position",
+    a.updated_at
+   FROM advances a
+     JOIN merchants m ON m.id = a.merchant_id
+     LEFT JOIN merchant_advance_summary s ON s.advance_id = a.id
+  WHERE a.repayment_status <> 'pending' OR a.funded_at IS NOT NULL;
+
+CREATE VIEW IF NOT EXISTS "iso_clawback_candidates" AS
+SELECT c.tenant_id,
+    c.id AS commission_id,
+    c.iso_partner_id,
+    c.advance_id,
+    c.draw_id,
+    c.amount_cents AS commission_amount_cents,
+    a.defaulted_at,
+    d.funded_at,
+    ip.clawback_days
+   FROM iso_commissions c
+     JOIN advances a ON a.id = c.advance_id
+     JOIN draws d ON d.id = c.draw_id
+     JOIN iso_partners ip ON ip.id = c.iso_partner_id
+  WHERE c.entry_type = 'commission' AND c.status <> 'voided' AND ip.clawback_days > 0 AND a.defaulted_at IS NOT NULL AND a.defaulted_at <= datetime(d.funded_at, '+' || ip.clawback_days || ' days') AND NOT (EXISTS ( SELECT 1
+           FROM iso_commissions cb
+          WHERE cb.entry_type = 'clawback' AND cb.draw_id = c.draw_id));
+
 CREATE VIEW IF NOT EXISTS "iso_performance" AS
 WITH live AS (
          SELECT a.tenant_id,

@@ -1,5 +1,5 @@
 -- propflow master schema — transpiled from live Supabase
--- project ref: xusnasmzoxkaimyjqbie  generated: 2026-08-06T23:29:46+00:00
+-- project ref: xusnasmzoxkaimyjqbie  generated: 2026-08-06T23:36:13+00:00
 -- tables: 43  indexes emitted: 81  views emitted: 0
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
