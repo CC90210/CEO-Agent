@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-06
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** CUTOVER: nostalgic fully live on Turso (deploy READY, 200s, audit FULL PASS); breeze+cc deployed dark; cc data-plane flip deploying; 3 deploy bugs fixed (serverExternalPackages, client-bundle trap, post-flip read coverage); harness blocked on PM2 pipe
+- **Result:** CUTOVER DAY: nostalgic FULL (audit PASS), breeze FULL (auth 401-proven live, Plaid webhooks already writing Turso), cc data-plane live; probe caught middleware 307ing breeze login - fixed+deployed; signup gates on; remaining: cc auth (Google URI), harness (PM2), n8n repoint, invite port
 
 *Last updated: 2026-08-06*
 
