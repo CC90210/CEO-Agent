@@ -149,11 +149,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-05
+- **Date:** 2026-08-06
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Turso app rewiring: adapter (19/19 tests) wired into command-center/breeze/nostalgic on feat/turso-data-plane branches; 4 DBs parity-verified in cloud; bravo 94.8k-row copy at 91%; Vercel TURSO pairs pushed; cutover switch EMPIRE_DATA_BACKEND left to CC
+- **Result:** Turso cancel-readiness: all 30 RPCs ported (23 TS via workflow + 7 Python); shims wired shim-first in command-center + breeze; Python harness one env var from Turso; 2.98GB/4079 files archived all hashes OK; audit shows live-drift only - the flip IS the freeze
 
-*Last updated: 2026-08-05*
+*Last updated: 2026-08-06*
 
 ## Manifest
 
