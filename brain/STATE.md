@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-06
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** CUTOVER DAY: nostalgic FULL (audit PASS), breeze FULL (auth 401-proven live, Plaid webhooks already writing Turso), cc data-plane live; probe caught middleware 307ing breeze login - fixed+deployed; signup gates on; remaining: cc auth (Google URI), harness (PM2), n8n repoint, invite port
+- **Result:** CRITICAL integrity findings: transpiler silently dropped 20 UNIQUE constraints (all restored live, no dupes had landed) AND all 226 CHECK constraints (transpiler fixed; live remediation needs table rebuild). PropFlow 12 RPCs ported+verified with 2 security fixes. n8n ingest proven end-to-end.
 
 *Last updated: 2026-08-06*
 
