@@ -1,18 +1,18 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-04T16:58:23.044758+00:00",
+  "generated_at": "2026-08-07T00:10:14.228610+00:00",
   "totals": {
-    "skills": 159,
-    "scripts": 135,
+    "skills": 160,
+    "scripts": 140,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 385,
-    "edges_total": 158,
-    "drift_count": 0
+    "nodes_total": 391,
+    "edges_total": 162,
+    "drift_count": 1
   },
   "nodes": [
     {
@@ -4868,6 +4868,36 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:turso-patterns",
+      "kind": "skill",
+      "name": "turso-patterns",
+      "path": "skills/turso-patterns/SKILL.md",
+      "description": "Use when working on the Supabase \u2192 Turso (libSQL) migration \u2014 transpiling schema, porting RPCs/views, flipping an app's backend, or verifying a migrated database. Encodes the failures this migration actually hit.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "turso",
+        "libsql",
+        "migration",
+        "database",
+        "sqlite",
+        "supabase"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:using-git-worktrees",
       "kind": "skill",
       "name": "using-git-worktrees",
@@ -5309,6 +5339,16 @@
       "name": "apply_migration",
       "path": "scripts/apply_migration.py",
       "description": "Apply SQL migration files to the Bravo Supabase project.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:apply_turso_migration",
+      "kind": "script",
+      "name": "apply_turso_migration",
+      "path": "scripts/apply_turso_migration.py",
+      "description": "Apply transpiled libSQL DDL to a Turso database (or a local libSQL file).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5874,6 +5914,36 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:etl_auth_to_turso",
+      "kind": "script",
+      "name": "etl_auth_to_turso",
+      "path": "scripts/etl_auth_to_turso.py",
+      "description": "Preserve Supabase auth.users + auth.identities into each Turso database.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:etl_storage_archive",
+      "kind": "script",
+      "name": "etl_storage_archive",
+      "path": "scripts/etl_storage_archive.py",
+      "description": "Archive Supabase Storage buckets to local disk, with a verifiable manifest.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:etl_supabase_to_turso",
+      "kind": "script",
+      "name": "etl_supabase_to_turso",
+      "path": "scripts/etl_supabase_to_turso.py",
+      "description": "Supabase \u2192 Turso row ETL, with primary-key parity verification.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:financial_model",
       "kind": "script",
       "name": "financial_model",
@@ -6081,6 +6151,16 @@
       "name": "migrate_subprocess_calls",
       "path": "scripts/migrate_subprocess_calls.py",
       "description": "One-shot codemod: migrate raw subprocess.{Popen,run,...} calls to safe_run/safe_popen from _subprocess_helpers, OR add creationflags where the migration would be too invasive.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:migration_completeness_audit",
+      "kind": "script",
+      "name": "migration_completeness_audit",
+      "path": "scripts/migration_completeness_audit.py",
+      "description": "THE answer to \"is every single piece of data migrated off Supabase?\"",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -8691,6 +8771,16 @@
       "kind": "calls"
     },
     {
+      "from": "script:etl_storage_archive",
+      "to": "script:etl_supabase_to_turso",
+      "kind": "calls"
+    },
+    {
+      "from": "script:etl_supabase_to_turso",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
       "from": "script:funnel_nurture",
       "to": "script:name_utils",
       "kind": "calls"
@@ -9211,6 +9301,16 @@
       "kind": "requires"
     },
     {
+      "from": "skill:turso-patterns",
+      "to": "script:apply_turso_migration",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:turso-patterns",
+      "to": "skill:supabase-patterns",
+      "kind": "requires"
+    },
+    {
       "from": "skill:web-scraping",
       "to": "script:research_fetch",
       "kind": "uses"
@@ -9221,5 +9321,10 @@
       "kind": "requires"
     }
   ],
-  "drift": []
+  "drift": [
+    {
+      "node": "skill:turso-patterns",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    }
+  ]
 }

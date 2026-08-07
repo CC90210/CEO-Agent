@@ -43,6 +43,12 @@ DEFAULT_TARGETS = {
     "agent-dashboard": "bravo",
     "breeze-portal": "breeze",
     "nostalgic-requests": "nostalgic",
+    # PropFlow. real-estate-app already carried a TURSO_DATABASE_URL that this
+    # tool never wrote, so its provenance was unknown — pushing the pair from
+    # here is what makes "it points at the propflow db" verifiable rather than
+    # assumed. real-estate-marketing-suite is a DIFFERENT project and is not
+    # part of this migration.
+    "real-estate-app": "propflow",
 }
 # Apps always read the UNPREFIXED pair; the per-db prefix only exists in the
 # agents env where all five live side by side.

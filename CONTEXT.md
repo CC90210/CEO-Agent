@@ -40,7 +40,9 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 - **Tenant** — A customer-facing namespace inside the empire DB. Tenant-scoped data is filtered by `tenant_id`. Examples: OASIS, PropFlow, submissions (SunBiz). (CC-Funnel was a tenant until it retired 2026-06-18 — funnel is now native at `oasisai.work/f/`.)
 - **Tenant manifest** — Config object describing a tenant's nav, theme, feature flags. Lives in code under `oasis-command-center:config/tenants/`.
 - **Tenant-scoped feature** — A feature that should appear in ONE tenant's nav only (e.g., `/forms` lives in the SunBiz `submissions` tenant, NOT in OASIS). Infrastructure features extrapolate across tenants; product features do not. See `feedback_tenant_scoped_nav.md`.
-- **Empire DB** — CC's Supabase project. Single source for all empire + client data; tenant_id-scoped. (Turso-per-tenant was deferred 2026-05-15.)
+- **Empire DB** — the tenant_id-scoped store behind all empire + client data. **Migrating Supabase → Turso (libSQL) as of 2026-08, five isolated databases: bravo, breeze, propflow, oasis, nostalgic.** This REVERSES the 2026-05-15 "Turso-per-tenant deferred" decision; the driver is cost (drop the Supabase Pro plan). Supabase stays live and paid until the last app is cut over — never assume it is gone.
+- **Turso mode flags** — Turso is opt-in per app and each flag gates a different layer, so setting one is not "on": `EMPIRE_DATA_BACKEND=turso_cloud` switches the server data plane; `EMPIRE_AUTH_BACKEND=turso` + `AUTH_SESSION_SECRET` gate auth AND the `/api/data/bridge` + `/api/data/rpc` routes (they 404 without them). Plus `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`. Unset any of them and the app falls back to Supabase — which is the intended safe default.
+- **Data bridge** — the route that replaces RLS in browser-querying apps (PropFlow). Turso tokens are full-database credentials and can never ship to a browser, so tenant scope is derived from the session and forced AFTER client filters. Prove it with `scripts/verify_tenant_isolation.py` before any flip.
 
 ## Sales / CRM vocabulary
 

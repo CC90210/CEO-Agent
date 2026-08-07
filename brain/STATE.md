@@ -149,11 +149,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-06
+- **Date:** 2026-08-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** CRITICAL integrity findings: transpiler silently dropped 20 UNIQUE constraints (all restored live, no dupes had landed) AND all 226 CHECK constraints (transpiler fixed; live remediation needs table rebuild). PropFlow 12 RPCs ported+verified with 2 security fixes. n8n ingest proven end-to-end.
+- **Result:** Turso migration: fixed self-inflicted schema regression (execution-verified transpiler), ported 8 of 9 Postgres views live (breeze merchant dashboard was broken), fixed 2 GENERATED money columns, PropFlow bundle fix + PR #3 + tenant isolation proven E2E
 
-*Last updated: 2026-08-06*
+*Last updated: 2026-08-07*
 
 ## Manifest
 
