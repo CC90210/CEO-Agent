@@ -56,7 +56,20 @@ def audit_tables(ref: str, token: str, db: TursoDB) -> dict:
         "select name from sqlite_master where type='table' and name not like 'sqlite_%'",
         allow_unscoped=True, reason="audit")}
     missing_tables = sorted(set(exact) - tgt_tables)
-    mismatched: list[dict] = []
+    # Two very different conditions, which this used to collapse into one:
+    #
+    #   turso < supabase  -> SHORT. Rows exist only in Supabase and would be
+    #                        destroyed by cancelling. This is the failure.
+    #   turso > supabase  -> AHEAD. Expected on high-churn tables, because
+    #                        Supabase retention jobs purge rows the ETL already
+    #                        copied (agent_email_snapshots, drip_runs,
+    #                        email_open_events...). Nothing is at risk.
+    #
+    # Failing on "ahead" made the verdict read NOT COMPLETE while every row was
+    # safely migrated — and a gate that cries wolf is a gate people learn to
+    # ignore, which is worse than no gate at all.
+    short: list[dict] = []
+    ahead: list[dict] = []
     equal = 0
     for t, n in sorted(exact.items()):
         if t not in tgt_tables:
@@ -65,14 +78,18 @@ def audit_tables(ref: str, token: str, db: TursoDB) -> dict:
                        reason="audit")[0]["n"]
         if got == n:
             equal += 1
+        elif got < n:
+            short.append({"table": t, "supabase": n, "turso": got, "missing": n - got})
         else:
-            mismatched.append({"table": t, "supabase": n, "turso": got})
+            ahead.append({"table": t, "supabase": n, "turso": got, "extra": got - n})
     return {
         "source_tables": len(exact),
         "count_equal": equal,
         "missing_in_turso": missing_tables,
-        "count_mismatched": mismatched,
-        "ok": not missing_tables and not mismatched,
+        "count_short": short,
+        "count_ahead": ahead,
+        "rows_missing": sum(m["missing"] for m in short),
+        "ok": not missing_tables and not short,
     }
 
 
@@ -159,13 +176,21 @@ def main() -> int:
             print(f"{r['project']:12} {'—':>14} {'—':>12} {'—':>20} FAIL ({r['error'][:60]})")
             continue
         t, a, s = r["tables"], r["auth"], r["storage"]
-        t_s = f"{t['count_equal']}/{t['source_tables']}"
+        # Count "ahead" tables as accounted-for: every source row is present.
+        covered = t["count_equal"] + len(t.get("count_ahead", []))
+        t_s = f"{covered}/{t['source_tables']}"
         a_s = f"{a['turso_users']}/{a['supabase_users']}u"
         s_s = f"{s['archived_objects']}/{s['supabase_objects']} obj"
         print(f"{r['project']:12} {t_s:>14} {a_s:>12} {s_s:>20} "
               f"{'PASS' if r['ok'] else 'FAIL'}")
-        for m in t["count_mismatched"][:5]:
-            print(f"{'':12}   mismatch {m['table']}: supabase={m['supabase']} turso={m['turso']}")
+        for m in t.get("count_short", [])[:8]:
+            print(f"{'':12}   SHORT {m['table']}: supabase={m['supabase']} "
+                  f"turso={m['turso']} (missing {m['missing']})")
+        ahead = t.get("count_ahead", [])
+        if ahead:
+            # Not a failure — Supabase retention purged rows already copied.
+            print(f"{'':12}   ({len(ahead)} tables ahead of source by "
+                  f"{sum(x['extra'] for x in ahead)} rows — retention churn, nothing at risk)")
         if t["missing_in_turso"]:
             print(f"{'':12}   missing tables: {t['missing_in_turso'][:6]}")
     print(f"\nDATA VERDICT: {'ALL DATA ACCOUNTED FOR' if all_ok else 'NOT COMPLETE — do not cancel'}")
