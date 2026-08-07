@@ -84,7 +84,26 @@ someone logs in.
 
 Any of them unset → the app falls back to Supabase. That fallback IS the rollback
 path, so it must keep working until the Supabase subscription is actually
-cancelled. Push the per-app credential pair with
+cancelled.
+
+**For the Bravo PYTHON harness, `EMPIRE_DATA_BACKEND` must go in the PM2 `env:`
+block — NOT in this file.** `.venv/Lib/site-packages/sitecustomize.py` tests
+`os.environ` at interpreter start, and `.env.agents` values only arrive later via
+`secret_loader.bootstrap()`'s `setdefault`. Put it here and the variable is
+present in `os.environ` afterwards while `supabase.create_client` is never
+patched — the flag reads as set, the harness still talks to Supabase, and nothing
+reports a problem. Verify the patch actually took, rather than trusting the flag:
+
+```bash
+python -c "import supabase; print(supabase.create_client.__module__)"
+# lib.turso_supabase_compat  -> patched
+# supabase._sync.client      -> NOT patched
+```
+
+Edit `ecosystem.config.js`, then `pm2 restart <app> --update-env && pm2 save`. A
+plain `pm2 restart` re-uses the environment captured at spawn and will not pick
+it up. (Also note `bravo_cli/wizard.py` writes `turso_local` / `supabase_cloud`;
+neither matches the `turso_cloud` string the shim tests for.) Push the per-app credential pair with
 `python scripts/integrations/vercel_turso_sync.py --project <slug> --db <key>`;
 if a Vercel project already carries a `TURSO_DATABASE_URL` that tool never wrote,
 treat its target as unknown and re-push rather than assuming.
