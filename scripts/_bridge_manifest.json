@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-07T15:09:43.565787+00:00",
-  "script_count": 131,
-  "entry_count": 302,
+  "generated_at_iso": "2026-08-07T16:28:22.727210+00:00",
+  "script_count": 132,
+  "entry_count": 303,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1925,6 +1925,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "smoke_n8n_inbound_rpc.py \u2014 end-to-end smoke test for the n8n inbound bridge."
+    },
+    {
+      "key": "supabase_cancellation_gate",
+      "path": "scripts/supabase_cancellation_gate.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Can Supabase be cancelled? One command, one answer, no judgement calls."
     },
     {
       "key": "system_health",

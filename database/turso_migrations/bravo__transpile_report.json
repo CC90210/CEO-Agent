@@ -1,8 +1,8 @@
 {
   "project": "bravo",
-  "generated": "2026-08-07T06:51:44+00:00",
-  "table_count": 163,
-  "index_count": 549,
+  "generated": "2026-08-07T16:25:30+00:00",
+  "table_count": 164,
+  "index_count": 552,
   "view_count": 2,
   "ported_trigger_count": 3,
   "turso_native_statements": 3,
@@ -156,7 +156,7 @@
     ]
   },
   "executed": {
-    "applied_tables": 165,
+    "applied_tables": 166,
     "failures": 0,
     "failure_sample": []
   }

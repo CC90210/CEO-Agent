@@ -1,6 +1,6 @@
 -- bravo-empire master schema — transpiled from live Supabase
--- project ref: phctllmtsogkovoilwos  generated: 2026-08-07T06:51:44+00:00
--- tables: 163  indexes emitted: 549  views emitted: 2
+-- project ref: phctllmtsogkovoilwos  generated: 2026-08-07T16:25:30+00:00
+-- tables: 164  indexes emitted: 552  views emitted: 2
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (60): ack_event, agents_touch_updated_at, approve_sunbiz_draft, bump_tenant_record_last_contact, calculate_activation_score, claim_events, claim_texttorrent_partition, client_signatures_append_only, consume_texttorrent_rate_token, conv_normalize_phone, conv_resolve_interaction_owner, conv_sync_lead_assignment, conv_thread_set_owner, conv_thread_upsert, decay_confidence_scores, exec_sql, fail_event, fail_texttorrent_inbound, finalize_texttorrent_inbound, find_similar_merchants...
@@ -2120,6 +2120,20 @@ CREATE TABLE IF NOT EXISTS "signing_otp_codes" (
   FOREIGN KEY ("request_id") REFERENCES "application_signing_requests" ("id")
 );
 
+CREATE TABLE IF NOT EXISTS "sms_sender_numbers" (
+  "id" TEXT NOT NULL DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random())%4+1,1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
+  "tenant_id" TEXT NOT NULL,
+  "rep_key" TEXT NOT NULL,
+  "act_as_email" TEXT,
+  "number" TEXT NOT NULL,
+  "active" INTEGER NOT NULL DEFAULT 1,
+  "first_seen_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  "last_seen_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  "deactivated_at" TEXT,
+  PRIMARY KEY ("id"),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+);
+
 CREATE TABLE IF NOT EXISTS "sunbiz_agent_accounts" (
   "id" TEXT NOT NULL DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random())%4+1,1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
   "tenant_id" TEXT NOT NULL,
@@ -3511,6 +3525,9 @@ CREATE INDEX IF NOT EXISTS "dej_status_idx" ON "document_extraction_jobs" (statu
 CREATE INDEX IF NOT EXISTS "dej_tenant_lead_idx" ON "document_extraction_jobs" (tenant_id, lead_id);
 CREATE UNIQUE INDEX IF NOT EXISTS "agent_nurture_settings_pkey" ON "agent_nurture_settings" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "agent_nurture_settings_tenant_id_user_id_key" ON "agent_nurture_settings" (tenant_id, user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS "sms_sender_numbers_pkey" ON "sms_sender_numbers" (id);
+CREATE UNIQUE INDEX IF NOT EXISTS "sms_sender_numbers_tenant_id_number_key" ON "sms_sender_numbers" (tenant_id, number);
+CREATE INDEX IF NOT EXISTS "idx_sms_numbers_lookup" ON "sms_sender_numbers" (tenant_id, rep_key, active);
 CREATE UNIQUE INDEX IF NOT EXISTS "list_intelligence_pkey" ON "list_intelligence" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "list_intelligence_tenant_id_list_id_key" ON "list_intelligence" (tenant_id, list_id);
 CREATE UNIQUE INDEX IF NOT EXISTS "scrub_candidates_pkey" ON "scrub_candidates" (id);
