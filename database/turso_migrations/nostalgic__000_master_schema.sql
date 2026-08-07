@@ -1,5 +1,5 @@
 -- nostalgic-requests master schema — transpiled from live Supabase
--- project ref: jqybbrtzpvmefgzzdagz  generated: 2026-08-06T23:36:36+00:00
+-- project ref: jqybbrtzpvmefgzzdagz  generated: 2026-08-07T00:21:04+00:00
 -- tables: 8  indexes emitted: 38  views emitted: 2
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):

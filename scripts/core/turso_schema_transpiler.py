@@ -523,6 +523,37 @@ def _unknown_functions(s: str) -> set[str]:
     return called - _SQLITE_FUNCS - _KEYWORDS_BEFORE_PAREN
 
 
+# Hand-ported triggers, per project.
+#
+# PL/pgSQL bodies cannot be transpiled automatically, and most of the 123 live
+# triggers are touch_updated_at noise the DAL already handles. But a few encode
+# INVARIANTS, and those must survive a schema regeneration or they silently
+# vanish again.
+#
+# breeze's assert_no_cross_role_binding has NO service_role bypass — it is pure
+# data integrity: one login is either a merchant portal user or a funder team
+# member, never both. Postgres declares it BEFORE INSERT OR UPDATE on each table;
+# SQLite needs one trigger per (table, event), hence four. The original's
+# pg_advisory_xact_lock serializes concurrent inserts for the same auth user;
+# libSQL executes one write at a time per database, so that race cannot occur.
+#
+# Anything with a caller-identity bypass (auth.role() = 'service_role') is NOT
+# ported here — see turso-bridge-guarded-columns.ts. Those guards invert rather
+# than disappear, because the Turso token always looks like service_role.
+_CROSS_ROLE = {"merchant_users": ("tenant_users", "funder team member"),
+               "tenant_users": ("merchant_users", "merchant portal user")}
+PORTED_TRIGGERS: dict[str, list[str]] = {
+    "breeze": [
+        f'CREATE TRIGGER IF NOT EXISTS "{tbl}_no_cross_role_{evt.lower()}" '
+        f'BEFORE {evt} ON "{tbl}" FOR EACH ROW '
+        f'WHEN EXISTS (SELECT 1 FROM "{other}" WHERE auth_user_id = NEW.auth_user_id) '
+        f"BEGIN SELECT RAISE(ABORT, 'cross_role_conflict: this login is a {who}'); END;"
+        for tbl, (other, who) in _CROSS_ROLE.items()
+        for evt in ("INSERT", "UPDATE")
+    ],
+}
+
+
 def transpile_view(name: str, body: str) -> str | None:
     """Postgres view body -> libSQL. None when it cannot be faithfully ported.
 
@@ -761,14 +792,18 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
         "PRAGMA foreign_keys = ON;",
         "",
     ])
+    trg_out = PORTED_TRIGGERS.get(project, [])
     sql = (header + "\n\n".join(out) + "\n\n-- indexes\n" + "\n".join(idx_out)
-           + ("\n\n-- views\n" + "\n\n".join(view_out) if view_out else "") + "\n")
+           + ("\n\n-- views\n" + "\n\n".join(view_out) if view_out else "")
+           + ("\n\n-- hand-ported triggers (invariants; see PORTED_TRIGGERS)\n"
+              + "\n".join(trg_out) if trg_out else "") + "\n")
     report = {
         "project": project,
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "table_count": len(tables),
         "index_count": len(idx_out),
         "view_count": len(view_out),
+        "ported_trigger_count": len(trg_out),
         "plpgsql_functions": plpgsql,
         "triggers": triggers,
         "lossy": lossy,

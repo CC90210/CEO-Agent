@@ -1,9 +1,10 @@
 {
   "project": "propflow",
-  "generated": "2026-08-06T23:36:13+00:00",
+  "generated": "2026-08-07T00:20:37+00:00",
   "table_count": 43,
   "index_count": 81,
   "view_count": 0,
+  "ported_trigger_count": 0,
   "plpgsql_functions": [
     "accept_invitation_manually",
     "check_rate_limit",

@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **159 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **160 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## [[skills/agent-forge/SKILL|agent-forge]]
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -738,6 +738,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **159 active skills**. Eac
 - **Use when:** Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly.
 - **Triggers:** theme, styling, brand colors, fonts, visual format, artifact styling
 - **Path:** `skills/theme-factory/SKILL.md` · tier `specialized` · risk `low`
+
+## [[skills/turso-patterns/SKILL|turso-patterns]]
+- **Use when:** Use when working on the Supabase → Turso (libSQL) migration — transpiling schema, porting RPCs/views, flipping an app's backend, or verifying a migrated database. Encodes the failures this migration actually hit.
+- **Triggers:** —
+- **Path:** `skills/turso-patterns/SKILL.md` · tier `specialized` · risk `low`
 
 ## [[skills/using-git-worktrees/SKILL|using-git-worktrees]]
 - **Use when:** Use when starting feature work that needs isolation from current workspace or before executing implementation plans - creates isolated git worktrees with smart directory selection and safety verification

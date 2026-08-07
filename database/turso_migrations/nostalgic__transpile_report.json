@@ -1,9 +1,10 @@
 {
   "project": "nostalgic",
-  "generated": "2026-08-06T23:36:36+00:00",
+  "generated": "2026-08-07T00:21:04+00:00",
   "table_count": 8,
   "index_count": 38,
   "view_count": 2,
+  "ported_trigger_count": 0,
   "plpgsql_functions": [
     "generate_unique_slug",
     "handle_new_user",

@@ -484,3 +484,23 @@ def test_unportable_generated_expression_is_reported_not_silently_plain():
     sql, report = build_schema(intro, "bravo")
     assert "GENERATED ALWAYS" not in sql
     assert report["lossy"]["GENERATED_COLUMNS_LOST"]
+
+
+def test_breeze_cross_role_triggers_are_emitted():
+    """assert_no_cross_role_binding has NO service_role bypass — it is a pure
+    data invariant (one login is either a merchant portal user or a funder team
+    member, never both). Nothing enforced it on Turso and breeze is already live,
+    so it must survive every schema regeneration."""
+    sql, report = build_schema(_intro(columns=[col("merchant_users", "auth_user_id")]),
+                               "breeze")
+    assert report["ported_trigger_count"] == 4
+    for tbl in ("merchant_users", "tenant_users"):
+        for evt in ("insert", "update"):
+            assert f'"{tbl}_no_cross_role_{evt}"' in sql
+    assert "RAISE(ABORT, 'cross_role_conflict" in sql
+
+
+def test_projects_without_ported_triggers_emit_none():
+    sql, report = build_schema(_intro(columns=[col("t", "a")]), "nostalgic")
+    assert report["ported_trigger_count"] == 0
+    assert "CREATE TRIGGER" not in sql

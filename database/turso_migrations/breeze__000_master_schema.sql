@@ -1,5 +1,5 @@
 -- breeze-portal master schema — transpiled from live Supabase
--- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-06T23:47:41+00:00
+-- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-07T00:20:31+00:00
 -- tables: 46  indexes emitted: 170  views emitted: 4
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
@@ -1329,3 +1329,9 @@ WITH committed_per_advance AS (
      LEFT JOIN committed_per_advance c ON c.advance_id = a.id
      LEFT JOIN draw_totals d ON d.advance_id = a.id
      LEFT JOIN repaid_per_advance r ON r.advance_id = a.id;
+
+-- hand-ported triggers (invariants; see PORTED_TRIGGERS)
+CREATE TRIGGER IF NOT EXISTS "merchant_users_no_cross_role_insert" BEFORE INSERT ON "merchant_users" FOR EACH ROW WHEN EXISTS (SELECT 1 FROM "tenant_users" WHERE auth_user_id = NEW.auth_user_id) BEGIN SELECT RAISE(ABORT, 'cross_role_conflict: this login is a funder team member'); END;
+CREATE TRIGGER IF NOT EXISTS "merchant_users_no_cross_role_update" BEFORE UPDATE ON "merchant_users" FOR EACH ROW WHEN EXISTS (SELECT 1 FROM "tenant_users" WHERE auth_user_id = NEW.auth_user_id) BEGIN SELECT RAISE(ABORT, 'cross_role_conflict: this login is a funder team member'); END;
+CREATE TRIGGER IF NOT EXISTS "tenant_users_no_cross_role_insert" BEFORE INSERT ON "tenant_users" FOR EACH ROW WHEN EXISTS (SELECT 1 FROM "merchant_users" WHERE auth_user_id = NEW.auth_user_id) BEGIN SELECT RAISE(ABORT, 'cross_role_conflict: this login is a merchant portal user'); END;
+CREATE TRIGGER IF NOT EXISTS "tenant_users_no_cross_role_update" BEFORE UPDATE ON "tenant_users" FOR EACH ROW WHEN EXISTS (SELECT 1 FROM "merchant_users" WHERE auth_user_id = NEW.auth_user_id) BEGIN SELECT RAISE(ABORT, 'cross_role_conflict: this login is a merchant portal user'); END;

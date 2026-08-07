@@ -1,9 +1,10 @@
 {
   "project": "oasis",
-  "generated": "2026-08-06T23:36:24+00:00",
+  "generated": "2026-08-07T00:20:53+00:00",
   "table_count": 17,
   "index_count": 79,
   "view_count": 1,
+  "ported_trigger_count": 0,
   "plpgsql_functions": [
     "auto_align_log_ownership",
     "check_is_admin",
