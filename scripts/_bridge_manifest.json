@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-07T15:06:03.452676+00:00",
+  "generated_at_iso": "2026-08-07T15:09:43.565787+00:00",
   "script_count": 131,
   "entry_count": 302,
   "entries": [
@@ -773,7 +773,7 @@
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
-      "help": "Fleet health \u2014 is every app actually serving, on every hostname it uses?"
+      "help": "Fleet health \u2014 is every app serving, on every hostname it actually answers on?"
     },
     {
       "key": "frontmatter_doctor",
