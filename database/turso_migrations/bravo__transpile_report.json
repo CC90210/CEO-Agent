@@ -1,10 +1,10 @@
 {
   "project": "bravo",
-  "generated": "2026-08-07T00:20:23+00:00",
-  "table_count": 160,
+  "generated": "2026-08-07T02:40:48+00:00",
+  "table_count": 161,
   "index_count": 545,
   "view_count": 2,
-  "ported_trigger_count": 0,
+  "ported_trigger_count": 3,
   "plpgsql_functions": [
     "ack_event",
     "agents_touch_updated_at",
@@ -155,7 +155,7 @@
     ]
   },
   "executed": {
-    "applied_tables": 160,
+    "applied_tables": 161,
     "failures": 0,
     "failure_sample": []
   }

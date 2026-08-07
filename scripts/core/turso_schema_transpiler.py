@@ -542,7 +542,26 @@ def _unknown_functions(s: str) -> set[str]:
 # than disappear, because the Turso token always looks like service_role.
 _CROSS_ROLE = {"merchant_users": ("tenant_users", "funder team member"),
                "tenant_users": ("merchant_users", "merchant portal user")}
+_SIG = ("client_signatures is append-only (attempted {op}). "
+        "Void the contract and reissue instead.")
 PORTED_TRIGGERS: dict[str, list[str]] = {
+    # bravo is LIVE on the Turso data plane, so these were unenforced in
+    # production. client_signatures holds e-signature records — append-only is
+    # the property that makes them evidence. Both guards lack a caller-identity
+    # bypass, so both are pure invariants.
+    "bravo": [
+        f'CREATE TRIGGER IF NOT EXISTS "client_signatures_no_mutate_{op.lower()}" '
+        f'BEFORE {op} ON "client_signatures" FOR EACH ROW '
+        f"BEGIN SELECT RAISE(ABORT, '{_SIG.format(op=op)}'); END;"
+        for op in ("UPDATE", "DELETE")
+    ] + [
+        # SQLite's `IS NOT` is the null-safe form, matching IS DISTINCT FROM.
+        'CREATE TRIGGER IF NOT EXISTS "trg_shop_out_runs_results_append_only" '
+        'BEFORE UPDATE ON "shop_out_runs" FOR EACH ROW '
+        "WHEN OLD.status IN ('completed','failed') AND OLD.results IS NOT NEW.results "
+        "BEGIN SELECT RAISE(ABORT, "
+        "'shop_out_runs.results is append-only after terminal status'); END;"
+    ],
     "breeze": [
         f'CREATE TRIGGER IF NOT EXISTS "{tbl}_no_cross_role_{evt.lower()}" '
         f'BEFORE {evt} ON "{tbl}" FOR EACH ROW '

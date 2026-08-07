@@ -1,5 +1,5 @@
 -- breeze-portal master schema — transpiled from live Supabase
--- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-07T00:20:31+00:00
+-- project ref: xugwrhvaoihyidtdgwkq  generated: 2026-08-07T02:41:00+00:00
 -- tables: 46  indexes emitted: 170  views emitted: 4
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):

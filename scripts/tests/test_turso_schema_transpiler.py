@@ -500,6 +500,19 @@ def test_breeze_cross_role_triggers_are_emitted():
     assert "RAISE(ABORT, 'cross_role_conflict" in sql
 
 
+def test_bravo_append_only_triggers_are_emitted():
+    """bravo is LIVE on the Turso data plane, so these were unenforced in
+    production. client_signatures holds e-signature records — append-only is the
+    property that makes them evidence rather than just rows."""
+    sql, report = build_schema(_intro(columns=[col("client_signatures", "id")]), "bravo")
+    assert report["ported_trigger_count"] == 3
+    assert '"client_signatures_no_mutate_update"' in sql
+    assert '"client_signatures_no_mutate_delete"' in sql
+    assert '"trg_shop_out_runs_results_append_only"' in sql
+    # null-safe comparison — the port of IS DISTINCT FROM
+    assert "OLD.results IS NOT NEW.results" in sql
+
+
 def test_projects_without_ported_triggers_emit_none():
     sql, report = build_schema(_intro(columns=[col("t", "a")]), "nostalgic")
     assert report["ported_trigger_count"] == 0

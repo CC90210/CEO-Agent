@@ -1,6 +1,6 @@
 -- bravo-empire master schema — transpiled from live Supabase
--- project ref: phctllmtsogkovoilwos  generated: 2026-08-07T00:20:23+00:00
--- tables: 160  indexes emitted: 545  views emitted: 2
+-- project ref: phctllmtsogkovoilwos  generated: 2026-08-07T02:40:48+00:00
+-- tables: 161  indexes emitted: 545  views emitted: 2
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (60): ack_event, agents_touch_updated_at, approve_sunbiz_draft, bump_tenant_record_last_contact, calculate_activation_score, claim_events, claim_texttorrent_partition, client_signatures_append_only, consume_texttorrent_rate_token, conv_normalize_phone, conv_resolve_interaction_owner, conv_sync_lead_assignment, conv_thread_set_owner, conv_thread_upsert, decay_confidence_scores, exec_sql, fail_event, fail_texttorrent_inbound, finalize_texttorrent_inbound, find_similar_merchants...
@@ -1126,6 +1126,30 @@ CREATE TABLE IF NOT EXISTS "tenants" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "logo_url" TEXT,
   PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "underwriting_ungrounded_backup_20260806" (
+  "id" TEXT,
+  "tenant_id" TEXT,
+  "application_id" TEXT,
+  "run_at" TEXT,
+  "triggered_by" TEXT,
+  "triggered_by_user_id" TEXT,
+  "status" TEXT,
+  "parser_output" TEXT,
+  "debt_analysis" TEXT,
+  "sales_angle" TEXT,
+  "avg_monthly_revenue" TEXT,
+  "avg_daily_balance" TEXT,
+  "nsf_count" INTEGER,
+  "deposit_consistency_pct" TEXT,
+  "debt_service_monthly" TEXT,
+  "debt_to_revenue_ratio" TEXT,
+  "lender_count" INTEGER,
+  "risk_flags" TEXT,
+  "readiness_score" INTEGER,
+  "error_message" TEXT,
+  "created_at" TEXT
 );
 
 CREATE TABLE IF NOT EXISTS "user_context" (
@@ -3657,3 +3681,8 @@ SELECT id AS outbound_id,
   WHERE (type IN ('email_sent', 'dm_sent', 'linkedin_sent')) AND NOT (EXISTS ( SELECT 1
            FROM lead_interactions r
           WHERE r.lead_id = o.lead_id AND r.channel = o.channel AND r.created_at > o.created_at AND (r.type LIKE '%_received' OR r.type LIKE '%_reply')));
+
+-- hand-ported triggers (invariants; see PORTED_TRIGGERS)
+CREATE TRIGGER IF NOT EXISTS "client_signatures_no_mutate_update" BEFORE UPDATE ON "client_signatures" FOR EACH ROW BEGIN SELECT RAISE(ABORT, 'client_signatures is append-only (attempted UPDATE). Void the contract and reissue instead.'); END;
+CREATE TRIGGER IF NOT EXISTS "client_signatures_no_mutate_delete" BEFORE DELETE ON "client_signatures" FOR EACH ROW BEGIN SELECT RAISE(ABORT, 'client_signatures is append-only (attempted DELETE). Void the contract and reissue instead.'); END;
+CREATE TRIGGER IF NOT EXISTS "trg_shop_out_runs_results_append_only" BEFORE UPDATE ON "shop_out_runs" FOR EACH ROW WHEN OLD.status IN ('completed','failed') AND OLD.results IS NOT NEW.results BEGIN SELECT RAISE(ABORT, 'shop_out_runs.results is append-only after terminal status'); END;

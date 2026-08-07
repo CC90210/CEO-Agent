@@ -70,6 +70,29 @@ Platform API.
 Provision with `python scripts/integrations/turso_admin.py create --all --write-env`
 — it writes URLs and tokens straight into this file and never prints their values.
 
+### Cutover flags — THREE, and each gates a DIFFERENT layer
+
+Setting only the first is the trap: you get a deployment with the Turso data
+plane, **Supabase auth**, and no browser bridge at all. It looks healthy until
+someone logs in.
+
+| Variable | What it actually switches |
+|----------|---------------------------|
+| `EMPIRE_DATA_BACKEND=turso_cloud` | Server data plane only (`.from()` / `.rpc()` routing) |
+| `EMPIRE_AUTH_BACKEND=turso` | Auth **and** the `/api/data/bridge` + `/api/data/rpc` routes |
+| `AUTH_SESSION_SECRET` | HMAC key for the session cookie. Required *alongside* the above — both routes **404** without it, which reads as "not deployed" rather than "misconfigured" |
+
+Any of them unset → the app falls back to Supabase. That fallback IS the rollback
+path, so it must keep working until the Supabase subscription is actually
+cancelled. Push the per-app credential pair with
+`python scripts/integrations/vercel_turso_sync.py --project <slug> --db <key>`;
+if a Vercel project already carries a `TURSO_DATABASE_URL` that tool never wrote,
+treat its target as unknown and re-push rather than assuming.
+
+Before flipping an app that queries from the browser, prove the tenant boundary:
+`realestate-App/scripts/verify_tenant_isolation.py`. See
+`skills/turso-patterns/SKILL.md`.
+
 ## Payments — Stripe (3 brand accounts)
 
 | Variable | Brand |
