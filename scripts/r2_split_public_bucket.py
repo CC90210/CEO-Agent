@@ -50,22 +50,12 @@ _spec = importlib.util.spec_from_file_location(
 etl = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(etl)
 
-PUBLIC_BUCKET = "oasis-public"
+PUBLIC_BUCKET = etl.DEFAULT_PUBLIC_BUCKET
 
-# Read from storage.buckets.public in each live project (2026-08-07), not
-# guessed. Anything absent here is treated as private — the safe default when a
-# new bucket appears.
-PUBLIC_PREFIXES = [
-    "tenant-assets",                  # bravo
-    "avatars",                        # nostalgic
-    "application-documents",          # propflow
-    "application-screening-reports",  # propflow
-    "documents",                      # propflow
-    "logos",                          # propflow
-    "media",                          # propflow
-    "properties",                     # propflow
-    "property-photos",                # propflow
-]
+# One canonical list, defined in etl_storage_to_r2.py. Copying it here is how
+# the split and the cancellation gate would come to disagree about which
+# objects are allowed to be world-readable.
+PUBLIC_PREFIXES = sorted(etl.PUBLIC_PREFIXES_DEFAULT)
 
 CF_API = "https://api.cloudflare.com/client/v4"
 

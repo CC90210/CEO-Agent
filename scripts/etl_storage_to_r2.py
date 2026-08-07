@@ -117,6 +117,26 @@ KEY_ALIASES: dict[str, tuple[str, ...]] = {
 DEFAULT_BUCKET = "oasis-storage"
 DEFAULT_PUBLIC_BUCKET = "oasis-public"
 
+# Which Supabase buckets were PUBLIC, read from storage.buckets.public in each
+# live project (2026-08-07) rather than guessed.
+#
+# The canonical copy lives here because three things depend on agreeing about
+# it: this ETL, r2_split_public_bucket.py, and supabase_cancellation_gate.py.
+# If they ever disagree, the gate either demands that bank statements be
+# world-readable or waves through an object nobody can load — so there is one
+# list, and anything absent from it is treated as PRIVATE.
+PUBLIC_PREFIXES_DEFAULT = frozenset({
+    "tenant-assets",                  # bravo
+    "avatars",                        # nostalgic
+    "application-documents",          # propflow
+    "application-screening-reports",  # propflow
+    "documents",                      # propflow
+    "logos",                          # propflow
+    "media",                          # propflow
+    "properties",                     # propflow
+    "property-photos",                # propflow
+})
+
 
 def _env() -> dict:
     return load_env()

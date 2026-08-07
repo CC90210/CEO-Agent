@@ -122,32 +122,67 @@ def check_storage(env: dict) -> dict:
     """Objects must be IN R2 and served by the public URL, and pointers rewritten."""
     import libsql
 
-    needed = ("CLOUDFLARE_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY",
-              "R2_BUCKET", "R2_PUBLIC_BASE_URL")
-    missing = [k for k in needed if not (env.get(k) or os.environ.get(k))]
+    # Resolve through the ETL rather than re-reading env here. The agents env
+    # names these differently from the R2 docs, and the account id, bucket and
+    # public URL are all derivable — duplicating that lookup is how this gate
+    # came to report "R2 not configured" against a fully provisioned R2.
+    from etl_storage_to_r2 import PUBLIC_PREFIXES_DEFAULT, resolve_r2  # noqa: PLC0415
+
+    creds, missing, _notes = resolve_r2(env)
     if missing:
         return {"pass": False, "reason": f"R2 not configured — missing {missing}"}
 
+    s3 = _r2_client(creds)
     archive = SCRIPTS.parent / "state" / "backups" / "supabase_storage"
-    base = (env.get("R2_PUBLIC_BASE_URL") or "").rstrip("/")
-    total = published = 0
-    unrewritten = []
+    base = (creds.get("R2_PUBLIC_BASE_URL") or "").rstrip("/")
+    private_bucket = creds["R2_BUCKET"]
+    public_bucket = creds["R2_PUBLIC_BUCKET"]
+
+    total = 0
+    unrewritten: list[str] = []
+    absent: list[str] = []       # object is not in R2 at all
+    unserved: list[str] = []     # public object the public URL will not serve
+    exposed: list[str] = []      # private object the public URL WILL serve
+
+    # Sample per project and require EVERY sample to hold. An earlier version
+    # counted successes across all projects and passed on `published > 0`, so
+    # one working object out of 4,118 would have cleared the gate — and it
+    # referenced a name that was never assigned, so it raised NameError the
+    # moment R2 was configured. The gate that authorises the decision was
+    # broken in exactly the situation where it matters.
+    SAMPLES = 5
     for proj in sorted(PROJECTS):
         man = archive / f"{proj}__manifest.jsonl"
         if not man.exists():
             continue
-        entries = [json.loads(l) for l in man.read_text(encoding="utf-8").splitlines() if l.strip()]
+        entries = [json.loads(l) for l in man.read_text(encoding="utf-8").splitlines()
+                   if l.strip()]
         total += len(entries)
-        # Sample the public URL rather than head_object: what matters is that
-        # the URL the apps use actually serves the bytes.
-        for e in entries[:2]:
+        if not entries:
+            continue
+        # Spread the samples across the manifest rather than taking the head —
+        # the first N objects are often all from one bucket uploaded together.
+        step = max(1, len(entries) // SAMPLES)
+        for e in entries[::step][:SAMPLES]:
             key = f"{e['bucket']}/{e['path']}"
+            is_public = e["bucket"] in PUBLIC_PREFIXES_DEFAULT
+
+            # Every object, public or private, must actually be in R2.
+            bucket = public_bucket if is_public else private_bucket
             try:
-                req = urllib.request.Request(f"{base}/{key}", method="HEAD")
-                with urllib.request.urlopen(req, timeout=30):
-                    published += 1
-            except Exception:
-                pass
+                s3.head_object(Bucket=bucket, Key=key)
+            except Exception as exc:
+                absent.append(f"{proj}: {key} not in {bucket} ({str(exc)[:60]})")
+
+            # Public objects must serve; private objects must NOT. Requiring a
+            # public URL for everything would demand that 4,088 merchant bank
+            # statements be world-readable in order to pass.
+            served = _public_head(base, key)
+            if is_public and served is not True:
+                unserved.append(f"{proj}: {key} -> {served}")
+            if not is_public and served is True:
+                exposed.append(f"{proj}: {key} IS PUBLICLY READABLE")
+
         url, tok, _ = resolve_project_target(proj)
         c = libsql.connect(database=url, auth_token=tok)
         for tbl, col in (("lead_documents", "storage_path"), ("areas", "image_url"),
@@ -160,9 +195,40 @@ def check_storage(env: dict) -> dict:
                     unrewritten.append(f"{proj}.{tbl}.{col}: {n} rows still point at supabase.co")
             except Exception:
                 pass
-    ok = published > 0 and not unrewritten
-    return {"pass": ok, "archived_objects": total, "public_url_samples_ok": published,
+
+    ok = not (unrewritten or absent or unserved or exposed)
+    return {"pass": ok, "archived_objects": total,
+            "private_bucket": private_bucket, "public_bucket": public_bucket,
+            "objects_absent_from_r2": absent,
+            "public_objects_not_served": unserved,
+            "PRIVATE_OBJECTS_EXPOSED": exposed,
             "unrewritten_pointers": unrewritten}
+
+
+def _r2_client(creds: dict):
+    import boto3  # noqa: PLC0415
+    from botocore.config import Config  # noqa: PLC0415
+
+    return boto3.client(
+        "s3",
+        endpoint_url=f"https://{creds['CLOUDFLARE_ACCOUNT_ID']}.r2.cloudflarestorage.com",
+        aws_access_key_id=creds["R2_ACCESS_KEY_ID"],
+        aws_secret_access_key=creds["R2_SECRET_ACCESS_KEY"],
+        config=Config(signature_version="s3v4", retries={"max_attempts": 3}),
+        region_name="auto",
+    )
+
+
+def _public_head(base: str, key: str):
+    """True if the public URL serves it, else the status/reason. Never raises."""
+    if not base:
+        return "no public base url"
+    try:
+        req = urllib.request.Request(f"{base}/{key}", method="HEAD")
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return True if r.status < 400 else r.status
+    except Exception as exc:
+        return getattr(exc, "code", None) or str(exc)[:50]
 
 
 def check_apps(token: str) -> dict:
@@ -213,22 +279,54 @@ def check_writers(env: dict) -> dict:
     return {"pass": not problems, "problems": problems}
 
 
-def check_traffic(token: str) -> dict:
-    """Is Supabase still receiving writes? Any recent row is a live writer."""
-    out, ok = {}, True
+def check_traffic(token: str, window_s: int = 45) -> dict:
+    """Is anything STILL WRITING to Supabase? Sampled twice, not just read once.
+
+    The first version read cumulative counters, printed "run this twice minutes
+    apart", and returned pass=True regardless of what it saw — a gate that
+    cannot fail. It would have reported PASS while n8n was actively inserting.
+
+    Now it takes two samples separated by `window_s` and FAILS on any increase.
+    A live writer during the sample window is a writer that will still be there
+    the moment the project is deleted.
+    """
+    import time
+
+    def sample() -> dict:
+        out = {}
+        for proj in sorted(PROJECTS):
+            try:
+                rows = _mgmt_query(PROJECTS[proj]["ref"], (
+                    "select coalesce(sum(n_tup_ins + n_tup_upd + n_tup_del), 0) as writes "
+                    "from pg_stat_user_tables where schemaname='public'"), token)
+                out[proj] = int(rows[0]["writes"])
+            except Exception as exc:
+                out[proj] = f"error: {str(exc)[:60]}"
+        return out
+
+    first = sample()
+    time.sleep(window_s)
+    second = sample()
+
+    deltas, errors = {}, []
     for proj in sorted(PROJECTS):
-        ref = PROJECTS[proj]["ref"]
-        try:
-            rows = _mgmt_query(ref, (
-                "select coalesce(sum(n_tup_ins + n_tup_upd), 0) as writes "
-                "from pg_stat_user_tables where schemaname='public'"), token)
-            out[proj] = int(rows[0]["writes"])
-        except Exception as exc:
-            out[proj] = f"error: {str(exc)[:60]}"
-            ok = False
-    return {"pass": ok, "cumulative_writes_since_stats_reset": out,
-            "note": "cumulative, not a delta — run twice minutes apart; "
-                    "an increase means something is still writing"}
+        a, b = first.get(proj), second.get(proj)
+        if not isinstance(a, int) or not isinstance(b, int):
+            errors.append(f"{proj}: {a if not isinstance(a, int) else b}")
+            continue
+        if b > a:
+            deltas[proj] = b - a
+
+    return {
+        "pass": not deltas and not errors,
+        "window_seconds": window_s,
+        "still_writing": deltas,
+        "errors": errors,
+        "note": ("no writes observed during the window"
+                 if not deltas else
+                 "SOMETHING IS STILL WRITING to these projects — find and move it "
+                 "before cancelling, or those writes are lost"),
+    }
 
 
 def main() -> int:
