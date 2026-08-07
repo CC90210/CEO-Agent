@@ -1,6 +1,6 @@
 -- bravo-empire master schema — transpiled from live Supabase
--- project ref: phctllmtsogkovoilwos  generated: 2026-08-07T02:40:48+00:00
--- tables: 161  indexes emitted: 545  views emitted: 2
+-- project ref: phctllmtsogkovoilwos  generated: 2026-08-07T06:51:44+00:00
+-- tables: 163  indexes emitted: 549  views emitted: 2
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (60): ack_event, agents_touch_updated_at, approve_sunbiz_draft, bump_tenant_record_last_contact, calculate_activation_score, claim_events, claim_texttorrent_partition, client_signatures_append_only, consume_texttorrent_rate_token, conv_normalize_phone, conv_resolve_interaction_owner, conv_sync_lead_assignment, conv_thread_set_owner, conv_thread_upsert, decay_confidence_scores, exec_sql, fail_event, fail_texttorrent_inbound, finalize_texttorrent_inbound, find_similar_merchants...
@@ -1777,6 +1777,33 @@ CREATE TABLE IF NOT EXISTS "gmail_templates" (
   FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
 );
 
+CREATE TABLE IF NOT EXISTS "health_alert_state" (
+  "alert_key" TEXT NOT NULL,
+  "tenant_id" TEXT,
+  "last_signature" TEXT,
+  "last_alerted_at" TEXT,
+  "repeat_n" INTEGER NOT NULL DEFAULT 0,
+  "first_failed_at" TEXT,
+  "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY ("alert_key"),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "health_check_runs" (
+  "id" TEXT NOT NULL DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random())%4+1,1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
+  "tenant_id" TEXT,
+  "check_id" TEXT NOT NULL,
+  "surface" TEXT NOT NULL DEFAULT 'oasis',
+  "verdict" TEXT NOT NULL,
+  "observed" REAL,
+  "baseline" REAL,
+  "reason" TEXT,
+  "ran_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY ("id"),
+  CONSTRAINT "health_check_runs_verdict_check" CHECK ((verdict IN ('ok', 'degraded', 'failing', 'check_broken'))),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+);
+
 CREATE TABLE IF NOT EXISTS "inference_jobs" (
   "id" TEXT NOT NULL DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random())%4+1,1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
   "tenant_id" TEXT,
@@ -3469,6 +3496,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS "application_signing_events_pkey" ON "applicat
 CREATE INDEX IF NOT EXISTS "ase_request_idx" ON "application_signing_events" (request_id, at);
 CREATE UNIQUE INDEX IF NOT EXISTS "signing_otp_codes_pkey" ON "signing_otp_codes" (id);
 CREATE INDEX IF NOT EXISTS "otp_request_idx" ON "signing_otp_codes" (request_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS "health_check_runs_pkey" ON "health_check_runs" (id);
+CREATE INDEX IF NOT EXISTS "idx_health_runs_check_time" ON "health_check_runs" (check_id, ran_at DESC);
+CREATE INDEX IF NOT EXISTS "idx_health_runs_tenant_time" ON "health_check_runs" (tenant_id, ran_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS "health_alert_state_pkey" ON "health_alert_state" (alert_key);
 CREATE UNIQUE INDEX IF NOT EXISTS "drip_runs_pkey" ON "drip_runs" (id);
 CREATE INDEX IF NOT EXISTS "idx_drip_runs_due" ON "drip_runs" (status, scheduled_for);
 CREATE INDEX IF NOT EXISTS "idx_drip_runs_lead" ON "drip_runs" (tenant_id, lead_id, sequence_id);
@@ -3681,6 +3712,22 @@ SELECT id AS outbound_id,
   WHERE (type IN ('email_sent', 'dm_sent', 'linkedin_sent')) AND NOT (EXISTS ( SELECT 1
            FROM lead_interactions r
           WHERE r.lead_id = o.lead_id AND r.channel = o.channel AND r.created_at > o.created_at AND (r.type LIKE '%_received' OR r.type LIKE '%_reply')));
+
+-- turso-native tables (replace hosted Supabase services;
+-- no Postgres counterpart, so they cannot be introspected)
+CREATE TABLE IF NOT EXISTS "_realtime_nudges" (
+  "scope" TEXT PRIMARY KEY,
+  "bumped_at" TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS "_auth_tokens" (
+  "token_hash" TEXT PRIMARY KEY,
+  "email" TEXT NOT NULL,
+  "purpose" TEXT NOT NULL,
+  "expires_at" TEXT NOT NULL,
+  "used_at" TEXT,
+  "created_at" TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "_auth_tokens_email_purpose_idx" ON "_auth_tokens" (email, purpose);
 
 -- hand-ported triggers (invariants; see PORTED_TRIGGERS)
 CREATE TRIGGER IF NOT EXISTS "client_signatures_no_mutate_update" BEFORE UPDATE ON "client_signatures" FOR EACH ROW BEGIN SELECT RAISE(ABORT, 'client_signatures is append-only (attempted UPDATE). Void the contract and reissue instead.'); END;

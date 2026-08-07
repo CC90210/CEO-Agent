@@ -312,10 +312,38 @@ def test_unique_loss_is_reported_loudly():
 # ------------------------------------------------------------------- output
 
 def test_emitted_table_count_matches_input():
+    """table_count counts SOURCE tables only.
+
+    bravo also emits Turso-native tables (_realtime_nudges, _auth_tokens) that
+    replace hosted Supabase services and have no Postgres counterpart, so the
+    raw CREATE TABLE count is higher. Conflating the two would make the
+    transpiler look like it invented tables — and would hide a real shortfall
+    behind the native ones.
+    """
     intro = _intro(columns=[col("a", "x"), col("b", "y"), col("c", "z")])
     sql, report = build_schema(intro, "bravo")
-    assert sql.count("CREATE TABLE IF NOT EXISTS") == 3
+    native = report["turso_native_statements"]
+    assert sql.count("CREATE TABLE IF NOT EXISTS") == 3 + 2  # 2 native for bravo
     assert report["table_count"] == 3
+    assert native == 3  # 2 CREATE TABLE + 1 CREATE INDEX
+
+
+def test_project_without_native_tables_emits_only_source():
+    sql, report = build_schema(
+        _intro(columns=[col("a", "x"), col("b", "y")]), "propflow")
+    assert sql.count("CREATE TABLE IF NOT EXISTS") == 2
+    assert report["turso_native_statements"] == 0
+
+
+def test_native_tables_are_emitted_for_bravo():
+    """These replace Supabase Realtime broadcast and Supabase Auth's token
+    store. They exist only in Turso, so nothing introspects them — without an
+    explicit list they vanish at the next schema regeneration and the feature
+    quietly stops working weeks later."""
+    sql, _ = build_schema(_intro(columns=[col("a", "x")]), "bravo")
+    assert '"_realtime_nudges"' in sql
+    assert '"_auth_tokens"' in sql
+    assert "turso-native tables" in sql
 
 
 def test_header_records_untranspiled_plpgsql_and_triggers():

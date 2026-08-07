@@ -1,10 +1,11 @@
 {
   "project": "breeze",
-  "generated": "2026-08-07T02:41:00+00:00",
+  "generated": "2026-08-07T06:51:54+00:00",
   "table_count": 46,
   "index_count": 170,
   "view_count": 4,
   "ported_trigger_count": 4,
+  "turso_native_statements": 1,
   "plpgsql_functions": [
     "accrue_iso_commission",
     "approve_draw_request",
@@ -77,7 +78,7 @@
     "unenforceable_fks_dropped": []
   },
   "executed": {
-    "applied_tables": 46,
+    "applied_tables": 47,
     "failures": 0,
     "failure_sample": []
   }

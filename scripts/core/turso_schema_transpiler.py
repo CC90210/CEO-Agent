@@ -542,6 +542,45 @@ def _unknown_functions(s: str) -> set[str]:
 # than disappear, because the Turso token always looks like service_role.
 _CROSS_ROLE = {"merchant_users": ("tenant_users", "funder team member"),
                "tenant_users": ("merchant_users", "merchant portal user")}
+# Tables that exist ONLY in Turso — they replace a hosted Supabase service and
+# therefore have no Postgres counterpart to introspect. Without this they vanish
+# on the next schema regeneration, which is how a feature quietly stops working
+# weeks after it was migrated.
+TURSO_NATIVE_TABLES: dict[str, list[str]] = {
+    "bravo": [
+        # Replaces Supabase Realtime broadcast for live refresh. The old channel
+        # carried no payload — just "this scope changed" — so a polled version
+        # token is behaviourally equivalent and removes a hosted dependency.
+        'CREATE TABLE IF NOT EXISTS "_realtime_nudges" (\n'
+        '  "scope" TEXT PRIMARY KEY,\n'
+        '  "bumped_at" TEXT NOT NULL\n'
+        ');',
+        # Single-use tokens for password reset / auth flows that Supabase Auth
+        # used to own. Written by turso-reset-request, consumed by
+        # turso-reset-confirm via compare-and-swap.
+        'CREATE TABLE IF NOT EXISTS "_auth_tokens" (\n'
+        '  "token_hash" TEXT PRIMARY KEY,\n'
+        '  "email" TEXT NOT NULL,\n'
+        '  "purpose" TEXT NOT NULL,\n'
+        '  "expires_at" TEXT NOT NULL,\n'
+        '  "used_at" TEXT,\n'
+        '  "created_at" TEXT NOT NULL\n'
+        ');',
+        'CREATE INDEX IF NOT EXISTS "_auth_tokens_email_purpose_idx" '
+        'ON "_auth_tokens" (email, purpose);',
+    ],
+    "breeze": [
+        'CREATE TABLE IF NOT EXISTS "_auth_tokens" (\n'
+        '  "token_hash" TEXT PRIMARY KEY,\n'
+        '  "email" TEXT NOT NULL,\n'
+        '  "purpose" TEXT NOT NULL,\n'
+        '  "expires_at" TEXT NOT NULL,\n'
+        '  "used_at" TEXT,\n'
+        '  "created_at" TEXT NOT NULL\n'
+        ');',
+    ],
+}
+
 _SIG = ("client_signatures is append-only (attempted {op}). "
         "Void the contract and reissue instead.")
 PORTED_TRIGGERS: dict[str, list[str]] = {
@@ -811,9 +850,13 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
         "PRAGMA foreign_keys = ON;",
         "",
     ])
+    native_out = TURSO_NATIVE_TABLES.get(project, [])
     trg_out = PORTED_TRIGGERS.get(project, [])
     sql = (header + "\n\n".join(out) + "\n\n-- indexes\n" + "\n".join(idx_out)
            + ("\n\n-- views\n" + "\n\n".join(view_out) if view_out else "")
+           + ("\n\n-- turso-native tables (replace hosted Supabase services;\n"
+              "-- no Postgres counterpart, so they cannot be introspected)\n"
+              + "\n".join(native_out) if native_out else "")
            + ("\n\n-- hand-ported triggers (invariants; see PORTED_TRIGGERS)\n"
               + "\n".join(trg_out) if trg_out else "") + "\n")
     report = {
@@ -823,6 +866,7 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
         "index_count": len(idx_out),
         "view_count": len(view_out),
         "ported_trigger_count": len(trg_out),
+        "turso_native_statements": len(native_out),
         "plpgsql_functions": plpgsql,
         "triggers": triggers,
         "lossy": lossy,
@@ -853,8 +897,14 @@ def main() -> int:
     sql_path.write_text(sql, encoding="utf-8")
     report_path = OUT_DIR / f"{args.project}__transpile_report.json"
 
+    # Turso-native tables have no Postgres counterpart, so they must not count
+    # toward source parity — otherwise adding one makes the transpiler look like
+    # it invented a table.
+    native_tables = sum(
+        s.count("CREATE TABLE IF NOT EXISTS")
+        for s in TURSO_NATIVE_TABLES.get(args.project, []))
     emitted = sql.count("CREATE TABLE IF NOT EXISTS")
-    ok = emitted == len(live_tables)
+    ok = (emitted - native_tables) == len(live_tables)
 
     # EXECUTE the DDL, don't just count it. Counting CREATE TABLE strings said
     # "PASS" while a char_length() inside a CHECK was silently killing an entire
@@ -908,7 +958,7 @@ def main() -> int:
         print(f"report: {report_path}")
         if args.verify:
             ex = report.get("executed", {})
-            print(f"VERIFY: {'PASS' if ok else 'FAIL'} — emitted {emitted}/{len(live_tables)} tables"
+            print(f"VERIFY: {'PASS' if ok else 'FAIL'} — emitted {emitted - native_tables}/{len(live_tables)} source tables (+{native_tables} turso-native)"
                   f" | executed: {ex.get('applied_tables', '?')} tables, "
                   f"{ex.get('failures', '?')} statement failures")
             for f in ex.get("failure_sample", []):

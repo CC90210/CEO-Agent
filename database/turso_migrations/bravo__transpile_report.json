@@ -1,10 +1,11 @@
 {
   "project": "bravo",
-  "generated": "2026-08-07T02:40:48+00:00",
-  "table_count": 161,
-  "index_count": 545,
+  "generated": "2026-08-07T06:51:44+00:00",
+  "table_count": 163,
+  "index_count": 549,
   "view_count": 2,
   "ported_trigger_count": 3,
+  "turso_native_statements": 3,
   "plpgsql_functions": [
     "ack_event",
     "agents_touch_updated_at",
@@ -155,7 +156,7 @@
     ]
   },
   "executed": {
-    "applied_tables": 161,
+    "applied_tables": 165,
     "failures": 0,
     "failure_sample": []
   }
