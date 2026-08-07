@@ -103,7 +103,15 @@ pm2 resurrect          # or: pm2 start ecosystem.config.js
 pm2 save
 ```
 
-Note that `ecosystem.config.js` now carries `EMPIRE_DATA_BACKEND=turso_cloud`,
-so starting it fresh WILL move the harness to Turso. If you want it back on
-Supabase first, comment that line out before starting, then restart with
-`--update-env` when you are ready to cut over.
+That is safe to run as-is: the Turso cutover flag in `ecosystem.config.js` is
+opt-in. `pm2 start` restores the harness exactly as it ran before, on Supabase.
+Moving it to Turso is a separate, deliberate command:
+
+```bash
+EMPIRE_TURSO_CUTOVER=1 pm2 restart bravo-scheduler bravo-telegram bravo-coord     claude-bridge claude-bridge-ping event-router --update-env
+pm2 save
+```
+
+(An earlier version of this file told you to comment the flag out first. That
+was a footgun — recovering from an unrelated outage should never risk flipping
+the data plane, so the config now gates it instead.)

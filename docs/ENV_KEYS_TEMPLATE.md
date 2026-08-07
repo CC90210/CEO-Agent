@@ -100,7 +100,7 @@ python -c "import supabase; print(supabase.create_client.__module__)"
 # supabase._sync.client      -> NOT patched
 ```
 
-Edit `ecosystem.config.js`, then `pm2 restart <app> --update-env && pm2 save`. A
+Edit `ecosystem.config.js`, then `EMPIRE_TURSO_CUTOVER=1 pm2 restart <app> --update-env && pm2 save`. The flag is opt-in so a plain `pm2 start` (outage recovery) leaves the harness on Supabase. A
 plain `pm2 restart` re-uses the environment captured at spawn and will not pick
 it up. (Also note `bravo_cli/wizard.py` writes `turso_local` / `supabase_cloud`;
 neither matches the `turso_cloud` string the shim tests for.) Push the per-app credential pair with

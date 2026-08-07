@@ -21,7 +21,7 @@ else is built, deployed, and verified by execution.
 | **Storage** | ✅ code done, ⛔ needs R2 keys | 4,118 objects archived + hash-verified; R2 adapter in all 4 apps; SigV4 checked against AWS's published vector |
 | **Realtime** | ✅ replaced | `verify_nudge_poll.py` 8/8, including scope isolation |
 | **n8n** | ⛔ needs CC | 5 nodes in 3 ACTIVE workflows still write to Supabase |
-| **PM2 harness** | ⛔ needs CC | flag staged in `ecosystem.config.js`; inert until restart |
+| **PM2 harness** | ⛔ needs CC | **also DOWN since 2026-08-05 14:41 UTC** (unrelated reboot). Cutover flag is opt-in via `EMPIRE_TURSO_CUTOVER=1`, so `pm2 start` recovers on Supabase |
 | **PropFlow prod** | ⛔ needs CC | PR #3; production env vars are preview-only |
 
 ## Step 1 — R2 credentials (CC, ~5 minutes)
@@ -81,16 +81,24 @@ an explicit yes.
 
 ## Step 4 — the Bravo harness (CC, one command)
 
-The flag is already staged in `ecosystem.config.js` for all 6 apps. It does
-nothing until:
+The harness is currently DOWN (since 2026-08-05 14:41 UTC, an unrelated reboot
+without `pm2 resurrect`). Recover it first with a plain `pm2 start
+ecosystem.config.js` — that restores it on Supabase, exactly as it ran before.
+
+The cutover is a separate, deliberate command:
 
 ```bash
-pm2 restart bravo-scheduler bravo-telegram bravo-coord claude-bridge claude-bridge-ping event-router --update-env
+EMPIRE_TURSO_CUTOVER=1 pm2 restart bravo-scheduler bravo-telegram bravo-coord     claude-bridge claude-bridge-ping event-router --update-env
 pm2 save
 ```
 
+The flag is OPT-IN: without `EMPIRE_TURSO_CUTOVER=1` the config starts the
+harness on Supabase. That keeps outage recovery (`pm2 start`) independent of the
+migration cutover — a plain restart must never move the data plane by accident.
+
 A plain `pm2 restart` re-uses the environment captured at spawn and will **not**
-pick it up. Verify the patch actually took, rather than trusting the flag:
+pick this up — `--update-env` is required. Verify the patch actually took,
+rather than trusting the flag:
 
 ```bash
 python -c "import supabase; print(supabase.create_client.__module__)"

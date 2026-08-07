@@ -162,14 +162,20 @@ if (IS_WIN) {
         env: {
             PYTHONIOENCODING: "utf-8",
             PYTHONUNBUFFERED: "1",
-            // Turso cutover. Read by sitecustomize.py at interpreter start,
-            // which patches supabase.create_client -> lib.turso_supabase_compat.
-            // It MUST be here and not in .env.agents: that file loads after
-            // import time, so the flag would read as set while the harness
-            // quietly kept using Supabase. Takes effect only on
-            // `pm2 restart <app> --update-env` — a plain restart re-uses the
-            // environment captured at spawn. Unset it to roll back.
-            EMPIRE_DATA_BACKEND: "turso_cloud",
+            // Turso cutover — OPT-IN, so recovering the harness never flips
+            // the data plane by accident:
+            //     pm2 start ecosystem.config.js                        -> Supabase
+            //     EMPIRE_TURSO_CUTOVER=1 pm2 restart <app> --update-env -> Turso
+            //
+            // Read by sitecustomize.py at interpreter start, which patches
+            // supabase.create_client -> lib.turso_supabase_compat. It must live
+            // HERE and not in .env.agents: that file loads after import time, so
+            // the flag would read as set while the harness quietly kept using
+            // Supabase. A plain `pm2 restart` re-uses the environment captured
+            // at spawn — only --update-env re-reads this file.
+            ...(process.env.EMPIRE_TURSO_CUTOVER === "1"
+                ? { EMPIRE_DATA_BACKEND: "turso_cloud" }
+                : {}),
             // Native inbound email brain — the n8n "OASIS Inbound Qualifier"
             // replacement (2026-07-23). ENABLED turns on the 4-brain router in
             // email_engine.cmd_check_inbox (driven by the "Inbound Email Sweep"
@@ -212,12 +218,13 @@ apps.push({
     windowsHide: true,
     env: {
         NODE_ENV: "production",
-        // This agent is Node, so sitecustomize.py does not apply to it directly
-        // — but it SPAWNS python (scripts/integrations/supabase_tool.py and
-        // friends), and children inherit this env. Without the flag here those
-        // children keep talking to Supabase while the rest of the harness has
-        // moved. Takes effect on `pm2 restart bravo-telegram --update-env`.
-        EMPIRE_DATA_BACKEND: "turso_cloud",
+        // Node agent, but it SPAWNS python (supabase_tool.py and friends) and
+        // children inherit this env — without the flag here those children keep
+        // talking to Supabase while the rest of the harness has moved.
+        // Opt-in, same as the other apps: EMPIRE_TURSO_CUTOVER=1.
+        ...(process.env.EMPIRE_TURSO_CUTOVER === "1"
+            ? { EMPIRE_DATA_BACKEND: "turso_cloud" }
+            : {}),
     },
     log_date_format: "YYYY-MM-DD HH:mm:ss",
     error_file: "tmp/pm2-telegram-error.log",
@@ -256,9 +263,14 @@ if (envKeyPresent('CC_AGENT_BOT_TOKEN') || envKeyPresent('COORD_ENABLE')) {
         restart_delay: 45000,   // exceed Telegram's 30s long-poll to avoid 409 loops
         kill_timeout: 10000,
         windowsHide: true,
-        // Node agent, but it shells out to python helpers that inherit this env
-        // — see the bravo-telegram block for why the flag has to live here.
-        env: { NODE_ENV: "production", EMPIRE_DATA_BACKEND: "turso_cloud" },
+        // Node agent that shells out to python helpers inheriting this env —
+        // see bravo-telegram. Opt-in via EMPIRE_TURSO_CUTOVER=1.
+        env: {
+            NODE_ENV: "production",
+            ...(process.env.EMPIRE_TURSO_CUTOVER === "1"
+                ? { EMPIRE_DATA_BACKEND: "turso_cloud" }
+                : {}),
+        },
         log_date_format: "YYYY-MM-DD HH:mm:ss",
         error_file: "tmp/pm2-coord-error.log",
         out_file: "tmp/pm2-coord-out.log",
@@ -299,14 +311,20 @@ apps.push({
     env: {
         PYTHONIOENCODING: "utf-8",
         PYTHONUNBUFFERED: "1",
-            // Turso cutover. Read by sitecustomize.py at interpreter start,
-            // which patches supabase.create_client -> lib.turso_supabase_compat.
-            // It MUST be here and not in .env.agents: that file loads after
-            // import time, so the flag would read as set while the harness
-            // quietly kept using Supabase. Takes effect only on
-            // `pm2 restart <app> --update-env` — a plain restart re-uses the
-            // environment captured at spawn. Unset it to roll back.
-            EMPIRE_DATA_BACKEND: "turso_cloud",
+            // Turso cutover — OPT-IN, so recovering the harness never flips
+            // the data plane by accident:
+            //     pm2 start ecosystem.config.js                        -> Supabase
+            //     EMPIRE_TURSO_CUTOVER=1 pm2 restart <app> --update-env -> Turso
+            //
+            // Read by sitecustomize.py at interpreter start, which patches
+            // supabase.create_client -> lib.turso_supabase_compat. It must live
+            // HERE and not in .env.agents: that file loads after import time, so
+            // the flag would read as set while the harness quietly kept using
+            // Supabase. A plain `pm2 restart` re-uses the environment captured
+            // at spawn — only --update-env re-reads this file.
+            ...(process.env.EMPIRE_TURSO_CUTOVER === "1"
+                ? { EMPIRE_DATA_BACKEND: "turso_cloud" }
+                : {}),
         // 2026-06-09: this VPS runs as root. Claude Code refuses
         // --dangerously-skip-permissions as root unless IS_SANDBOX=1, and the
         // Gemini CLI refuses an untrusted workspace unless this trust flag is
@@ -350,14 +368,20 @@ apps.push({
     env: {
         PYTHONIOENCODING: "utf-8",
         PYTHONUNBUFFERED: "1",
-            // Turso cutover. Read by sitecustomize.py at interpreter start,
-            // which patches supabase.create_client -> lib.turso_supabase_compat.
-            // It MUST be here and not in .env.agents: that file loads after
-            // import time, so the flag would read as set while the harness
-            // quietly kept using Supabase. Takes effect only on
-            // `pm2 restart <app> --update-env` — a plain restart re-uses the
-            // environment captured at spawn. Unset it to roll back.
-            EMPIRE_DATA_BACKEND: "turso_cloud",
+            // Turso cutover — OPT-IN, so recovering the harness never flips
+            // the data plane by accident:
+            //     pm2 start ecosystem.config.js                        -> Supabase
+            //     EMPIRE_TURSO_CUTOVER=1 pm2 restart <app> --update-env -> Turso
+            //
+            // Read by sitecustomize.py at interpreter start, which patches
+            // supabase.create_client -> lib.turso_supabase_compat. It must live
+            // HERE and not in .env.agents: that file loads after import time, so
+            // the flag would read as set while the harness quietly kept using
+            // Supabase. A plain `pm2 restart` re-uses the environment captured
+            // at spawn — only --update-env re-reads this file.
+            ...(process.env.EMPIRE_TURSO_CUTOVER === "1"
+                ? { EMPIRE_DATA_BACKEND: "turso_cloud" }
+                : {}),
     },
     log_date_format: "YYYY-MM-DD HH:mm:ss",
     error_file: "tmp/pm2-claude-bridge-ping-error.log",
@@ -389,14 +413,20 @@ apps.push({
     env: {
         PYTHONIOENCODING: "utf-8",
         PYTHONUNBUFFERED: "1",
-            // Turso cutover. Read by sitecustomize.py at interpreter start,
-            // which patches supabase.create_client -> lib.turso_supabase_compat.
-            // It MUST be here and not in .env.agents: that file loads after
-            // import time, so the flag would read as set while the harness
-            // quietly kept using Supabase. Takes effect only on
-            // `pm2 restart <app> --update-env` — a plain restart re-uses the
-            // environment captured at spawn. Unset it to roll back.
-            EMPIRE_DATA_BACKEND: "turso_cloud",
+            // Turso cutover — OPT-IN, so recovering the harness never flips
+            // the data plane by accident:
+            //     pm2 start ecosystem.config.js                        -> Supabase
+            //     EMPIRE_TURSO_CUTOVER=1 pm2 restart <app> --update-env -> Turso
+            //
+            // Read by sitecustomize.py at interpreter start, which patches
+            // supabase.create_client -> lib.turso_supabase_compat. It must live
+            // HERE and not in .env.agents: that file loads after import time, so
+            // the flag would read as set while the harness quietly kept using
+            // Supabase. A plain `pm2 restart` re-uses the environment captured
+            // at spawn — only --update-env re-reads this file.
+            ...(process.env.EMPIRE_TURSO_CUTOVER === "1"
+                ? { EMPIRE_DATA_BACKEND: "turso_cloud" }
+                : {}),
     },
     log_date_format: "YYYY-MM-DD HH:mm:ss",
     error_file: "tmp/pm2-event-router-error.log",
@@ -456,14 +486,20 @@ if (IS_LINUX) {
         env: {
             PYTHONIOENCODING: "utf-8",
             PYTHONUNBUFFERED: "1",
-            // Turso cutover. Read by sitecustomize.py at interpreter start,
-            // which patches supabase.create_client -> lib.turso_supabase_compat.
-            // It MUST be here and not in .env.agents: that file loads after
-            // import time, so the flag would read as set while the harness
-            // quietly kept using Supabase. Takes effect only on
-            // `pm2 restart <app> --update-env` — a plain restart re-uses the
-            // environment captured at spawn. Unset it to roll back.
-            EMPIRE_DATA_BACKEND: "turso_cloud",
+            // Turso cutover — OPT-IN, so recovering the harness never flips
+            // the data plane by accident:
+            //     pm2 start ecosystem.config.js                        -> Supabase
+            //     EMPIRE_TURSO_CUTOVER=1 pm2 restart <app> --update-env -> Turso
+            //
+            // Read by sitecustomize.py at interpreter start, which patches
+            // supabase.create_client -> lib.turso_supabase_compat. It must live
+            // HERE and not in .env.agents: that file loads after import time, so
+            // the flag would read as set while the harness quietly kept using
+            // Supabase. A plain `pm2 restart` re-uses the environment captured
+            // at spawn — only --update-env re-reads this file.
+            ...(process.env.EMPIRE_TURSO_CUTOVER === "1"
+                ? { EMPIRE_DATA_BACKEND: "turso_cloud" }
+                : {}),
         },
         log_date_format: "YYYY-MM-DD HH:mm:ss",
         error_file: "tmp/pm2-dashboard-email-consumer-error.log",
@@ -492,14 +528,20 @@ if (IS_LINUX) {
         env: {
             PYTHONIOENCODING: "utf-8",
             PYTHONUNBUFFERED: "1",
-            // Turso cutover. Read by sitecustomize.py at interpreter start,
-            // which patches supabase.create_client -> lib.turso_supabase_compat.
-            // It MUST be here and not in .env.agents: that file loads after
-            // import time, so the flag would read as set while the harness
-            // quietly kept using Supabase. Takes effect only on
-            // `pm2 restart <app> --update-env` — a plain restart re-uses the
-            // environment captured at spawn. Unset it to roll back.
-            EMPIRE_DATA_BACKEND: "turso_cloud",
+            // Turso cutover — OPT-IN, so recovering the harness never flips
+            // the data plane by accident:
+            //     pm2 start ecosystem.config.js                        -> Supabase
+            //     EMPIRE_TURSO_CUTOVER=1 pm2 restart <app> --update-env -> Turso
+            //
+            // Read by sitecustomize.py at interpreter start, which patches
+            // supabase.create_client -> lib.turso_supabase_compat. It must live
+            // HERE and not in .env.agents: that file loads after import time, so
+            // the flag would read as set while the harness quietly kept using
+            // Supabase. A plain `pm2 restart` re-uses the environment captured
+            // at spawn — only --update-env re-reads this file.
+            ...(process.env.EMPIRE_TURSO_CUTOVER === "1"
+                ? { EMPIRE_DATA_BACKEND: "turso_cloud" }
+                : {}),
         },
         log_date_format: "YYYY-MM-DD HH:mm:ss",
         error_file: "tmp/pm2-dashboard-email-queue-monitor-error.log",
@@ -542,14 +584,20 @@ if (IS_LINUX) {
         env: {
             PYTHONIOENCODING: "utf-8",
             PYTHONUNBUFFERED: "1",
-            // Turso cutover. Read by sitecustomize.py at interpreter start,
-            // which patches supabase.create_client -> lib.turso_supabase_compat.
-            // It MUST be here and not in .env.agents: that file loads after
-            // import time, so the flag would read as set while the harness
-            // quietly kept using Supabase. Takes effect only on
-            // `pm2 restart <app> --update-env` — a plain restart re-uses the
-            // environment captured at spawn. Unset it to roll back.
-            EMPIRE_DATA_BACKEND: "turso_cloud",
+            // Turso cutover — OPT-IN, so recovering the harness never flips
+            // the data plane by accident:
+            //     pm2 start ecosystem.config.js                        -> Supabase
+            //     EMPIRE_TURSO_CUTOVER=1 pm2 restart <app> --update-env -> Turso
+            //
+            // Read by sitecustomize.py at interpreter start, which patches
+            // supabase.create_client -> lib.turso_supabase_compat. It must live
+            // HERE and not in .env.agents: that file loads after import time, so
+            // the flag would read as set while the harness quietly kept using
+            // Supabase. A plain `pm2 restart` re-uses the environment captured
+            // at spawn — only --update-env re-reads this file.
+            ...(process.env.EMPIRE_TURSO_CUTOVER === "1"
+                ? { EMPIRE_DATA_BACKEND: "turso_cloud" }
+                : {}),
             // The spawned `claude` inherits this; the VPS runs as root and Claude
             // Code refuses non-interactive runs as root without it.
             IS_SANDBOX: "1",
