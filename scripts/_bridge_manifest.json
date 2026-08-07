@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-07T04:34:24.416333+00:00",
-  "script_count": 130,
-  "entry_count": 301,
+  "generated_at_iso": "2026-08-07T15:06:03.452676+00:00",
+  "script_count": 131,
+  "entry_count": 302,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -766,6 +766,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "fleet_health.py \u2014 Cross-agent health rollup."
+    },
+    {
+      "key": "fleet_health_check",
+      "path": "scripts/fleet_health_check.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Fleet health \u2014 is every app actually serving, on every hostname it uses?"
     },
     {
       "key": "frontmatter_doctor",
