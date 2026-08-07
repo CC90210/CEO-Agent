@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-07T16:28:22.727210+00:00",
-  "script_count": 132,
-  "entry_count": 303,
+  "generated_at_iso": "2026-08-07T21:09:25.269705+00:00",
+  "script_count": 135,
+  "entry_count": 306,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1587,12 +1587,28 @@
       "help": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table. \u2014 subcommand: loop"
     },
     {
+      "key": "r2_split_public_bucket",
+      "path": "scripts/r2_split_public_bucket.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Split the migrated objects into a private and a public R2 bucket."
+    },
+    {
       "key": "reap_orphan_mcps",
       "path": "scripts/reap_orphan_mcps.py",
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
       "help": "Reap duplicate MCP server processes from leaked editor sessions."
+    },
+    {
+      "key": "repair_turso_fk_actions",
+      "path": "scripts/repair_turso_fk_actions.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Restore the ON DELETE / ON UPDATE actions the transpiler dropped."
     },
     {
       "key": "repo_census",
@@ -2005,6 +2021,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "update_readme_stats.py \u2014 keep README.md (and any other doc) honest about"
+    },
+    {
+      "key": "vercel_turso_cutover",
+      "path": "scripts/vercel_turso_cutover.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Put the Turso / R2 cutover variables on the Vercel projects."
     },
     {
       "key": "wire_all_templates",

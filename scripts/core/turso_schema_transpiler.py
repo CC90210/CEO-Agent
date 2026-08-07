@@ -110,6 +110,22 @@ where tc.table_schema = 'public' and tc.constraint_type = 'PRIMARY KEY'
 order by tc.table_name, kcu.ordinal_position
 """
 
+# pg_constraint.confdeltype / confupdtype -> the SQLite clause to emit.
+#
+# Emitting a bare `REFERENCES parent (id)` silently downgrades every referential
+# action to NO ACTION. That is not cosmetic: SQLite enforces foreign keys, so a
+# DELETE that used to cascade now fails outright with "FOREIGN KEY constraint
+# failed". It survives every row-count parity check ever run, because it only
+# shows up on DELETE — 384 of these shipped across all five databases before a
+# live probe caught it (2026-08-07).
+FK_ACTION = {
+    "a": "",              # NO ACTION — SQLite's default, emit nothing
+    "r": "RESTRICT",
+    "c": "CASCADE",
+    "n": "SET NULL",
+    "d": "SET DEFAULT",
+}
+
 # Composite foreign keys MUST come from pg_catalog, not information_schema.
 # Joining table_constraints -> key_column_usage -> constraint_column_usage
 # cartesian-products a 2-column FK into 4 bogus single-column FKs: a real
@@ -130,7 +146,9 @@ select con.conname as constraint_name,
        (select string_agg(att.attname, ',' order by u.ord)
           from unnest(con.confkey) with ordinality u(attnum, ord)
           join pg_attribute att
-            on att.attrelid = con.confrelid and att.attnum = u.attnum) as foreign_columns
+            on att.attrelid = con.confrelid and att.attnum = u.attnum) as foreign_columns,
+       con.confdeltype as del_action,
+       con.confupdtype as upd_action
 from pg_constraint con
 join pg_class cl on cl.oid = con.conrelid
 join pg_namespace ns on ns.oid = cl.relnamespace
@@ -724,7 +742,10 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
             )
             continue
         fks_by_table.setdefault(fk["table_name"], []).append(
-            {"columns": cols, "foreign_table": fk["foreign_table"], "foreign_columns": fcols}
+            {"columns": cols, "foreign_table": fk["foreign_table"],
+             "foreign_columns": fcols,
+             "on_delete": FK_ACTION.get(fk.get("del_action", "a"), ""),
+             "on_update": FK_ACTION.get(fk.get("upd_action", "a"), "")}
         )
 
     order = topo_order(sorted(tables), intro["fks"])
@@ -796,7 +817,14 @@ def build_schema(intro: dict, project: str) -> tuple[str, dict]:
         for fk in fks_by_table.get(t, []):
             child = ", ".join(f'"{c}"' for c in fk["columns"])
             parent = ", ".join(f'"{c}"' for c in fk["foreign_columns"])
-            lines.append(f'  FOREIGN KEY ({child}) REFERENCES "{fk["foreign_table"]}" ({parent})')
+            actions = ""
+            if fk.get("on_delete"):
+                actions += f' ON DELETE {fk["on_delete"]}'
+            if fk.get("on_update"):
+                actions += f' ON UPDATE {fk["on_update"]}'
+            lines.append(
+                f'  FOREIGN KEY ({child}) REFERENCES "{fk["foreign_table"]}" '
+                f'({parent}){actions}')
         body = ",\n".join(lines)
         out.append(f'CREATE TABLE IF NOT EXISTS "{t}" (\n{body}\n);')
 

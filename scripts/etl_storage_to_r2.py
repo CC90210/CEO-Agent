@@ -43,6 +43,8 @@ import os
 import sys
 from pathlib import Path
 
+import requests
+
 SCRIPTS = Path(__file__).resolve().parent
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
@@ -85,7 +87,10 @@ POINTER_COLUMNS: dict[str, list[dict]] = {
     "propflow": [
         {"table": "areas", "column": "image_url", "kind": "url"},
         {"table": "buildings", "column": "image_url", "kind": "url"},
-        {"table": "properties", "column": "image_url", "kind": "url"},
+        # NOT properties.image_url — that column does not exist. It was added
+        # here from intuition and caught by verifying the list against
+        # PRAGMA table_info. A pointer column that is not real makes the rewrite
+        # cover less than it reports, which is exactly what the census prevents.
     ],
     "nostalgic": [
         {"table": "dj_profiles", "column": "profile_image_url", "kind": "url"},
@@ -95,19 +100,204 @@ POINTER_COLUMNS: dict[str, list[dict]] = {
 }
 
 
+# The agents env names these differently from the canonical R2 docs. Accept
+# both rather than making the operator rename working credentials.
+KEY_ALIASES: dict[str, tuple[str, ...]] = {
+    "R2_ACCESS_KEY_ID": ("cloudflare_Access_Key_ID", "CLOUDFLARE_ACCESS_KEY_ID"),
+    "R2_SECRET_ACCESS_KEY": ("cloudflare_Secret_Access_Key",
+                             "CLOUDFLARE_SECRET_ACCESS_KEY"),
+    "CLOUDFLARE_API_TOKEN": ("cloudflare_API_Token", "Cloudflare_token"),
+}
+
+# Private by default. Of the 4,118 migrated objects, 4,113 came from buckets
+# Supabase marked private — 4,088 of them merchant bank statements — so this
+# bucket must never be handed a public domain. Only the handful of genuinely
+# public prefixes are mirrored into DEFAULT_PUBLIC_BUCKET; see
+# scripts/r2_split_public_bucket.py.
+DEFAULT_BUCKET = "oasis-storage"
+DEFAULT_PUBLIC_BUCKET = "oasis-public"
+
+
 def _env() -> dict:
     return load_env()
 
 
+def _lookup(env: dict, key: str) -> str | None:
+    for name in (key, *KEY_ALIASES.get(key, ())):
+        v = env.get(name) or os.environ.get(name)
+        if v:
+            return v
+    return None
+
+
+def _derive_account_id(api_token: str) -> str | None:
+    """The account id is a lookup, not something to ask an operator to paste."""
+    hdr = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
+    try:
+        r = requests.get("https://api.cloudflare.com/client/v4/accounts",
+                         headers=hdr, timeout=30)
+        if r.status_code == 200:
+            for a in r.json().get("result") or []:
+                return a["id"]
+        # A zone-scoped token cannot list accounts, but every zone names one.
+        r = requests.get("https://api.cloudflare.com/client/v4/zones",
+                         headers=hdr, timeout=30)
+        if r.status_code == 200:
+            for z in r.json().get("result") or []:
+                if (z.get("account") or {}).get("id"):
+                    return z["account"]["id"]
+    except requests.RequestException:
+        return None
+    return None
+
+
 def _creds(env: dict) -> tuple[dict, list[str]]:
-    have, missing = {}, []
-    for k in REQUIRED_KEYS:
-        v = env.get(k) or os.environ.get(k)
+    """Resolve R2 credentials, deriving everything that can be derived.
+
+    Only the S3 key pair is genuinely secret and operator-supplied. The account
+    id, bucket name and public URL are all discoverable through the Cloudflare
+    API, so requiring them by hand just adds three ways for a cutover to stall
+    on a typo.
+    """
+    have: dict[str, str] = {}
+    missing: list[str] = []
+
+    for k in ("R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"):
+        v = _lookup(env, k)
         if v:
             have[k] = v
         else:
             missing.append(k)
+
+    api_token = _lookup(env, "CLOUDFLARE_API_TOKEN")
+    if api_token:
+        have["CLOUDFLARE_API_TOKEN"] = api_token
+
+    acct = _lookup(env, "CLOUDFLARE_ACCOUNT_ID")
+    if not acct and api_token:
+        acct = _derive_account_id(api_token)
+    if acct:
+        have["CLOUDFLARE_ACCOUNT_ID"] = acct
+    else:
+        missing.append("CLOUDFLARE_ACCOUNT_ID")
+
+    have["R2_BUCKET"] = _lookup(env, "R2_BUCKET") or DEFAULT_BUCKET
+    have["R2_PUBLIC_BUCKET"] = _lookup(env, "R2_PUBLIC_BUCKET") or DEFAULT_PUBLIC_BUCKET
+
+    base = _lookup(env, "R2_PUBLIC_BASE_URL")
+    if base:
+        have["R2_PUBLIC_BASE_URL"] = base.rstrip("/")
+    # Otherwise it is resolved by provision_r2(), which has to create the bucket
+    # first — a managed r2.dev domain cannot exist before its bucket does.
+
     return have, missing
+
+
+def provision_r2(creds: dict) -> list[str]:
+    """Create the buckets and resolve the public URL. Returns progress notes.
+
+    Split from _creds because the steps are ordered: a managed domain is a
+    property of an existing bucket.
+
+    TWO buckets, not one. Supabase carries a public/private flag per bucket, and
+    of the 4,118 migrated objects 4,113 came from PRIVATE ones — 4,088 of those
+    are merchant bank statements. An earlier version of this function enabled
+    the r2.dev domain on whatever R2_BUCKET pointed at, so simply re-running it
+    kept switching public access back on over the statements. The public URL now
+    only ever comes from the public bucket, and the private bucket is never
+    handed a domain.
+    """
+    notes: list[str] = []
+    if "CLOUDFLARE_ACCOUNT_ID" not in creds or "R2_ACCESS_KEY_ID" not in creds:
+        return notes
+    _created, msg = ensure_bucket(creds)
+    notes.append(msg)
+
+    token = creds.get("CLOUDFLARE_API_TOKEN")
+    if token:
+        # Belt and braces: assert the private bucket has no public domain on
+        # every run, so a stray dashboard click or an older build cannot leave
+        # one enabled unnoticed.
+        disabled = _ensure_no_public_domain(
+            creds["CLOUDFLARE_ACCOUNT_ID"], creds["R2_BUCKET"], token)
+        if disabled:
+            notes.append(f"disabled a public domain found on the PRIVATE bucket "
+                         f"{creds['R2_BUCKET']}")
+
+    if "R2_PUBLIC_BASE_URL" not in creds and token:
+        base = _managed_public_url(creds["CLOUDFLARE_ACCOUNT_ID"],
+                                   creds["R2_PUBLIC_BUCKET"], token)
+        if base:
+            creds["R2_PUBLIC_BASE_URL"] = base.rstrip("/")
+            notes.append(f"public base url ({creds['R2_PUBLIC_BUCKET']}): "
+                         f"{creds['R2_PUBLIC_BASE_URL']}")
+        else:
+            notes.append("public base url: could not enable the managed r2.dev "
+                         "domain — set R2_PUBLIC_BASE_URL explicitly")
+    return notes
+
+
+def _ensure_no_public_domain(acct: str, bucket: str, api_token: str) -> bool:
+    """Turn off the managed r2.dev domain on a bucket. True if one was on."""
+    hdr = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
+    url = (f"https://api.cloudflare.com/client/v4/accounts/{acct}"
+           f"/r2/buckets/{bucket}/domains/managed")
+    try:
+        r = requests.get(url, headers=hdr, timeout=30)
+        if r.status_code != 200:
+            return False
+        if not (r.json().get("result") or {}).get("enabled"):
+            return False
+        requests.put(url, headers=hdr, json={"enabled": False}, timeout=30)
+        return True
+    except requests.RequestException:
+        return False
+
+
+def resolve_r2(env: dict) -> tuple[dict, list[str], list[str]]:
+    """Full resolution: credentials, bucket, public URL. (creds, missing, notes)"""
+    creds, missing = _creds(env)
+    notes = provision_r2(creds) if not missing else []
+    if "R2_PUBLIC_BASE_URL" not in creds:
+        missing = [*missing, "R2_PUBLIC_BASE_URL"]
+    return creds, missing, notes
+
+
+def _managed_public_url(acct: str, bucket: str, api_token: str) -> str | None:
+    """The bucket's r2.dev domain, turning it on if it is not already."""
+    hdr = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
+    url = (f"https://api.cloudflare.com/client/v4/accounts/{acct}"
+           f"/r2/buckets/{bucket}/domains/managed")
+    try:
+        r = requests.get(url, headers=hdr, timeout=30)
+        if r.status_code == 200:
+            res = r.json().get("result") or {}
+            if res.get("enabled") and res.get("domain"):
+                return f"https://{res['domain']}"
+            r = requests.put(url, headers=hdr, json={"enabled": True}, timeout=30)
+            if r.status_code in (200, 201):
+                res = r.json().get("result") or {}
+                if res.get("domain"):
+                    return f"https://{res['domain']}"
+    except requests.RequestException:
+        return None
+    return None
+
+
+def ensure_bucket(creds: dict) -> tuple[bool, str]:
+    """Create the bucket if it is absent. Returns (created, message)."""
+    s3 = _client(creds)
+    bucket = creds["R2_BUCKET"]
+    try:
+        s3.head_bucket(Bucket=bucket)
+        return False, f"bucket {bucket}: already present"
+    except Exception:
+        pass
+    try:
+        s3.create_bucket(Bucket=bucket)
+        return True, f"bucket {bucket}: created"
+    except Exception as exc:
+        return False, f"bucket {bucket}: could not create — {str(exc)[:160]}"
 
 
 def _client(creds: dict):
@@ -166,10 +356,15 @@ def _content_type(entry: dict) -> str:
 
 def cmd_check() -> int:
     env = _env()
-    creds, missing = _creds(env)
+    creds, missing, notes = resolve_r2(env)
     print("R2 credentials:")
     for k in REQUIRED_KEYS:
-        print(f"  {k:26} {'present' if k in creds else 'MISSING'}")
+        how = ""
+        if k in creds and not _lookup(env, k):
+            how = "  (derived)"
+        print(f"  {k:26} {'present' if k in creds else 'MISSING'}{how}")
+    for n in notes:
+        print(f"  {n}")
     if missing:
         print("\nNOT READY. Add the missing keys to the agents env, then re-run.")
         print("Cloudflare dashboard -> R2 -> Manage API tokens -> Create API token")
@@ -245,17 +440,32 @@ def _rewrite_sql(project: str, creds: dict, apply: bool) -> dict:
         "row_id" TEXT NOT NULL, "old_value" TEXT NOT NULL, "new_value" TEXT NOT NULL,
         "rewritten_at" TEXT NOT NULL)""")
 
+    # Validate the pointer list against the live schema BEFORE touching anything.
+    # A stale entry used to be swallowed at INFO level, which meant the rewrite
+    # quietly covered fewer columns than it claimed — the schema drifts, the
+    # report still says success, and nobody finds out until a link 404s.
+    bad: list[str] = []
+    for spec in POINTER_COLUMNS.get(project, []):
+        cols = [r[1] for r in db.execute(
+            f'PRAGMA table_info("{spec["table"]}")').fetchall()]
+        if not cols:
+            bad.append(f'{spec["table"]} (table absent)')
+        elif spec["column"] not in cols:
+            bad.append(f'{spec["table"]}.{spec["column"]} (column absent)')
+        elif "id" not in cols:
+            bad.append(f'{spec["table"]} has no id column — the UPDATE keys on id')
+    if bad:
+        raise SystemExit(
+            f"POINTER_COLUMNS is stale for {project}; refusing to rewrite:\n  "
+            + "\n  ".join(bad)
+            + "\nFix the list in etl_storage_to_r2.py, then re-run.")
+
     planned = 0
     for spec in POINTER_COLUMNS.get(project, []):
         t, col, kind = spec["table"], spec["column"], spec["kind"]
-        try:
-            rows = db.execute(
-                f'SELECT id, "{col}" FROM "{t}" WHERE "{col}" IS NOT NULL '
-                f'AND trim("{col}") <> \'\'').fetchall()
-        except Exception as exc:  # table/column may not exist in this project
-            log.info("pointer column skipped", context={"table": t, "column": col,
-                                                        "reason": str(exc)[:120]})
-            continue
+        rows = db.execute(
+            f'SELECT id, "{col}" FROM "{t}" WHERE "{col}" IS NOT NULL '
+            f'AND trim("{col}") <> \'\'').fetchall()
         for row_id, val in rows:
             val = str(val)
             if val.startswith(new_base):
@@ -338,7 +548,9 @@ def main() -> int:
         return cmd_check()
 
     env = _env()
-    creds, missing = _creds(env)
+    creds, missing, notes = resolve_r2(env)
+    for n in notes:
+        print(f"r2: {n}")
     if missing:
         print(f"ERROR: missing R2 credentials: {', '.join(missing)}", file=sys.stderr)
         print("Run --check for setup instructions.", file=sys.stderr)
