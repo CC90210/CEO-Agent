@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-06T02:44:24.240783+00:00",
-  "script_count": 129,
-  "entry_count": 300,
+  "generated_at_iso": "2026-08-07T04:34:24.416333+00:00",
+  "script_count": 130,
+  "entry_count": 301,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -702,6 +702,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Archive Supabase Storage buckets to local disk, with a verifiable manifest."
+    },
+    {
+      "key": "etl_storage_to_r2",
+      "path": "scripts/etl_storage_to_r2.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Publish the archived Supabase Storage objects to Cloudflare R2, then repoint"
     },
     {
       "key": "etl_supabase_to_turso",
