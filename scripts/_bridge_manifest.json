@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-08T17:22:18.696786+00:00",
-  "script_count": 139,
-  "entry_count": 312,
+  "generated_at_iso": "2026-08-08T20:09:48.898896+00:00",
+  "script_count": 140,
+  "entry_count": 313,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1789,6 +1789,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "review_loop.py \u2014 drain the review queue: harvest \u2192 fix \u2192 push \u2192 report."
+    },
+    {
+      "key": "rewrite_image_pointers",
+      "path": "scripts/rewrite_image_pointers.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Point image columns at the app's media route instead of an r2.dev host."
     },
     {
       "key": "rlhf_outreach_build_dataset",
