@@ -35,6 +35,46 @@ tags: [governance, changes]
 
 ## Applied History
 
+### #8 — `memory/PATTERNS.md` · memory · **REVERTED**
+
+- **File:** `memory/PATTERNS.md`
+- **Reason:** post-refactor accept
+- **Evidence:** `python -c "print(open('memory/PATTERNS.md',encoding='utf-8').read().count('validated 3+ uses'))"`
+- **Measured:** before `0` → after `1`
+- **Rollback:** n/a — never applied (nothing to undo)
+- **Status:** REVERTED — reverted (byte-exact restore: True)
+- **Created:** 2026-08-08 04:42:45 (session `local`)
+
+### #7 — `memory/PATTERNS.md` · memory · **REJECTED**
+
+- **File:** `memory/PATTERNS.md`
+- **Reason:** post-refactor reject
+- **Evidence:** `python scripts/harness_eval.py --json` (key: `score`)
+- **Measured:** before `"9/10"` → after `"9/10"`
+- **Rollback:** n/a — never applied (nothing to undo)
+- **Status:** REJECTED — no measured effect — evidence unchanged ("9/10"); auto-reverted
+- **Created:** 2026-08-08 04:42:42 (session `local`)
+
+### #6 — `memory/PATTERNS.md` · memory · **REVERTED**
+
+- **File:** `memory/PATTERNS.md`
+- **Reason:** re-verify accept
+- **Evidence:** `python -c "print(open('memory/PATTERNS.md',encoding='utf-8').read().count('validated 3+ uses'))"`
+- **Measured:** before `0` → after `1`
+- **Rollback:** n/a — never applied (nothing to undo)
+- **Status:** REVERTED — reverted (byte-exact restore: True)
+- **Created:** 2026-08-08 04:29:18 (session `local`)
+
+### #5 — `memory/PATTERNS.md` · memory · **REJECTED**
+
+- **File:** `memory/PATTERNS.md`
+- **Reason:** re-verify reject
+- **Evidence:** `python scripts/harness_eval.py --json` (key: `score`)
+- **Measured:** before `"9/10"` → after `"9/10"`
+- **Rollback:** n/a — never applied (nothing to undo)
+- **Status:** REJECTED — no measured effect — evidence unchanged ("9/10"); auto-reverted
+- **Created:** 2026-08-08 04:29:15 (session `local`)
+
 ### #4 — `CLAUDE.md` · prompt_note · **WITHDRAWN**
 
 - **File:** `CLAUDE.md`

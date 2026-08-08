@@ -191,6 +191,41 @@ def test_harness_eval_is_volatile_unkeyed_and_stable_keyed():
 
 
 # --------------------------------------------------------------------------
+# 2b. byte fidelity — line endings must survive a round trip
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b"alpha\nbeta\ngamma\n",              # LF
+        b"alpha\r\nbeta\r\ngamma\r\n",        # CRLF
+        b"alpha\r\nbeta\ngamma\r\n",          # mixed
+        b"no-trailing-newline",
+    ],
+    ids=["lf", "crlf", "mixed", "no-eol"],
+)
+def test_read_write_round_trip_is_byte_exact(tmp_path, raw):
+    """The revert path must restore BYTES, not just text.
+
+    `Path.write_text()` translates \\n to os.linesep, so on Windows reverting an
+    LF-stored file rewrote every line ending to CRLF — text restored, bytes not.
+    Caught 2026-08-08 by porting to Maven (LF) after Bravo (CRLF) round-tripped by
+    luck; `git diff` hid it because git normalizes.
+    """
+    p = tmp_path / "f.md"
+    p.write_bytes(raw)
+    text = refine._read(p)
+    refine._write(p, text)
+    assert p.read_bytes() == raw, "line endings were rewritten"
+
+
+def test_write_does_not_translate_lf_on_windows(tmp_path):
+    """Directly pin the behaviour that broke, independent of read()."""
+    p = tmp_path / "f.md"
+    refine._write(p, "a\nb\n")
+    assert p.read_bytes() == b"a\nb\n"
+
+
+# --------------------------------------------------------------------------
 # 3. the gate decision
 # --------------------------------------------------------------------------
 def _ev(exit_code, value):
@@ -255,6 +290,53 @@ def test_gate_is_pure():
     snapshot = (dict(before), dict(after))
     refine.gate_verdict(before, after, None)
     assert (before, after) == snapshot
+
+
+# --------------------------------------------------------------------------
+# 3b. the operator-facing mirror
+# --------------------------------------------------------------------------
+def _row(**over):
+    base = {
+        "id": 1, "target_file": "memory/PATTERNS.md", "kind": "memory",
+        "status": "APPLIED", "reason": "r", "evidence_cmd": "echo x",
+        "evidence_key": None, "evidence_before": '{"value": "0"}',
+        "evidence_after": '{"value": "1"}', "detail": "d",
+        "created_at": "2026-08-08", "session_id": "local",
+    }
+    base.update(over)
+    return base
+
+
+def test_multiline_values_cannot_break_the_bullet_list():
+    """A resolver-output `detail` carries newlines; unescaped it mangles the file."""
+    noisy = "line one\nline two\n  (9.0)  skill  foo\n"
+    lines = refine._render_rows([_row(detail=noisy, reason=noisy, evidence_cmd=noisy)])
+    body = "\n".join(lines)
+    bullets = [l for l in body.split("\n") if l.strip()]
+    assert all(
+        l.startswith(("- ", "### ")) for l in bullets
+    ), f"a value escaped its bullet:\n{body}"
+
+
+@pytest.mark.parametrize(
+    "status,expect",
+    [
+        ("APPLIED", "refine.py revert"),
+        ("REVERTED", "already reverted"),
+        ("REJECTED", "never applied"),
+        ("WITHDRAWN", "never applied"),
+    ],
+)
+def test_rollback_line_tells_the_truth_per_status(status, expect):
+    """REVERTED was applied and undone — saying "never applied" misreports history."""
+    body = "\n".join(refine._render_rows([_row(status=status)]))
+    assert expect in body, f"{status} rendered the wrong rollback line:\n{body}"
+
+
+def test_oneline_collapses_and_caps():
+    assert refine._oneline("a\n\n  b\t c ") == "a b c"
+    assert refine._oneline(None) is None
+    assert len(refine._oneline("x" * 999)) == 300
 
 
 # --------------------------------------------------------------------------

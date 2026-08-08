@@ -191,6 +191,28 @@ def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
 
 
+def _read(path: Path) -> str:
+    """Read WITHOUT newline translation, so bytes round-trip through a revert.
+
+    `Path.read_text()`/`write_text()` default to newline=None: reading collapses
+    CRLF to LF and writing expands LF back to os.linesep. On Windows that means
+    reverting an LF-stored file silently rewrites EVERY line ending to CRLF — the
+    text is restored, the bytes are not. Found 2026-08-08 by porting to Maven,
+    whose memory/PATTERNS.md is LF; Bravo's is already CRLF so it round-tripped
+    by luck and the byte-hash checks passed. `git diff` showed nothing because git
+    normalizes, so the corruption was invisible on both sides.
+    See pattern_eol_normalize_checksum_gates.
+    """
+    with open(path, "r", encoding="utf-8", errors="replace", newline="") as fh:
+        return fh.read()
+
+
+def _write(path: Path, text: str) -> None:
+    """Write verbatim — no newline translation. Pairs with `_read`."""
+    with open(path, "w", encoding="utf-8", newline="") as fh:
+        fh.write(text)
+
+
 def _session_id() -> str:
     return os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("EMPIRE_SESSION_ID") or "local"
 
@@ -417,7 +439,7 @@ def propose(
     if not target.exists():
         return {"ok": False, "error": f"{rel_path} does not exist"}
 
-    body = target.read_text(encoding="utf-8", errors="replace")
+    body = _read(target)
     hits = body.count(current)
     if hits == 0:
         return {"ok": False, "error": "--current text not found in the target file (must match exactly)"}
@@ -566,7 +588,7 @@ def apply_refinement(rid: int, approve: bool = False) -> dict:
     if target is None or not target.exists():
         return {"ok": False, "error": f"{row['target_file']} missing"}
 
-    before_body = target.read_text(encoding="utf-8", errors="replace")
+    before_body = _read(target)
     hits = before_body.count(row["anchor"])
     if hits != 1:
         return {
@@ -582,7 +604,7 @@ def apply_refinement(rid: int, approve: bool = False) -> dict:
         render_mirror()
         return {"ok": False, "id": rid, "status": "REJECTED", "reason": "no-op edit (content unchanged)"}
 
-    target.write_text(after_body, encoding="utf-8")
+    _write(target, after_body)
 
     after = run_evidence(row["evidence_cmd"], row["evidence_key"])
     try:
@@ -592,7 +614,7 @@ def apply_refinement(rid: int, approve: bool = False) -> dict:
 
     reject = gate_verdict(before, after, row["evidence_key"])
     if reject:
-        target.write_text(before_body, encoding="utf-8")
+        _write(target, before_body)
         _update(
             rid,
             status="REJECTED",
@@ -607,7 +629,7 @@ def apply_refinement(rid: int, approve: bool = False) -> dict:
             "reason": reject,
             "evidence_value": str(after["value"])[:200],
             "evidence_exit": after["exit"],
-            "reverted_clean": target.read_text(encoding="utf-8", errors="replace") == before_body,
+            "reverted_clean": _read(target) == before_body,
         }
 
     _update(
@@ -639,7 +661,7 @@ def revert(rid: int) -> dict:
     if target is None or not target.exists():
         return {"ok": False, "error": f"{row['target_file']} missing"}
 
-    body = target.read_text(encoding="utf-8", errors="replace")
+    body = _read(target)
     if row["sha_after"] and _sha(body) != row["sha_after"]:
         return {
             "ok": False,
@@ -652,7 +674,7 @@ def revert(rid: int) -> dict:
         return {"ok": False, "error": "proposed text is not uniquely present; cannot revert deterministically"}
 
     restored = body.replace(row["proposed"], row["anchor"], 1)
-    target.write_text(restored, encoding="utf-8")
+    _write(target, restored)
     ok = _sha(restored) == (row["sha_before"] or _sha(restored))
     _update(rid, status="REVERTED", detail=f"reverted (byte-exact restore: {ok})")
     render_mirror()
@@ -729,6 +751,13 @@ def _ev_value(blob: str | None, cap: int = 80) -> str | None:
     return " ".join(str(val).split())[:cap] or "(empty)"
 
 
+def _oneline(text: str | None, cap: int = 300) -> str | None:
+    """Collapse whitespace so a value can't break out of a markdown bullet."""
+    if not text:
+        return None
+    return " ".join(str(text).split())[:cap] or None
+
+
 def _render_rows(rows: list[dict]) -> list[str]:
     if not rows:
         return ["", "*None.*", ""]
@@ -737,18 +766,23 @@ def _render_rows(rows: list[dict]) -> list[str]:
         out.append(f"### #{r['id']} — `{r['target_file']}` · {r['kind']} · **{r['status']}**")
         out.append("")
         out.append(f"- **File:** `{r['target_file']}`")
-        out.append(f"- **Reason:** {r.get('reason') or '—'}")
-        out.append(f"- **Evidence:** `{r['evidence_cmd']}`" + (f" (key: `{r['evidence_key']}`)" if r.get("evidence_key") else ""))
+        out.append(f"- **Reason:** {_oneline(r.get('reason')) or '—'}")
+        out.append(f"- **Evidence:** `{_oneline(r['evidence_cmd'])}`" + (f" (key: `{r['evidence_key']}`)" if r.get("evidence_key") else ""))
         ev_b = _ev_value(r.get("evidence_before"))
         ev_a = _ev_value(r.get("evidence_after"))
-        out.append(f"- **Measured:** before `{ev_b or '—'}` → after `{ev_a or '(never applied)'}`")
-        # Only an APPLIED refinement has something to roll back; offering the
-        # command on a rejected/withdrawn row invites a confusing no-op.
+        out.append(f"- **Measured:** before `{ev_b or '—'}` → after `{ev_a or '(not measured)'}`")
+        # Three distinct cases, and conflating them misreports history: APPLIED is
+        # the only state with something to undo, REVERTED was applied and already
+        # undone, and everything else never touched the file.
         if r["status"] == "APPLIED":
             out.append(f"- **Rollback:** `python scripts/core/refine.py revert {r['id']}`")
+        elif r["status"] == "REVERTED":
+            out.append("- **Rollback:** already reverted — the file is back to its prior text")
         else:
             out.append("- **Rollback:** n/a — never applied (nothing to undo)")
-        out.append(f"- **Status:** {r['status']} — {r.get('detail') or ''}")
+        # detail can carry a multi-line evidence value; a raw newline here breaks
+        # out of the bullet list and mangles every following entry.
+        out.append(f"- **Status:** {r['status']} — {_oneline(r.get('detail')) or ''}")
         out.append(f"- **Created:** {r.get('created_at')} (session `{r.get('session_id')}`)")
         out.append("")
     return out
@@ -762,7 +796,7 @@ def render_mirror() -> bool:
     active = [r for r in rows if r["status"] in ("PENDING", "HELD")]
     history = [r for r in rows if r["status"] in ("APPLIED", "REJECTED", "REVERTED", "WITHDRAWN")]
 
-    lines = MIRROR.read_text(encoding="utf-8", errors="replace").split("\n")
+    lines = _read(MIRROR).split("\n")
     for heading, body in (
         ("## Applied History", _render_rows(history)),   # bottom-up so indices stay valid
         ("## Active Proposals", _render_rows(active)),
@@ -771,7 +805,7 @@ def render_mirror() -> bool:
         if span is None:
             continue
         lines[span[0]:span[1]] = body
-    MIRROR.write_text("\n".join(lines), encoding="utf-8")
+    _write(MIRROR, "\n".join(lines))
     return True
 
 
