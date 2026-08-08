@@ -267,6 +267,28 @@ def load_rows(db: TursoDB, table: str, rows: list[dict], cols: list[str],
             params.append(json.dumps(v) if (c in vec_cols and isinstance(v, list)) else to_libsql(v))
         payload.append(params)
 
+    # INSERT OR REPLACE dedupes via a PRIMARY KEY or UNIQUE index. A table with
+    # NEITHER has nothing to conflict on, so "OR REPLACE" degrades to a plain
+    # INSERT and a second ETL pass DUPLICATES every row — silently, with the
+    # run reporting the same "table copied" line as a clean load.
+    #
+    # This is not hypothetical: bravo's underwriting_ungrounded_backup_20260806
+    # ended up at 642 rows for 321 source rows, every row present exactly twice.
+    # Row-count parity cannot see it either (the count is simply wrong in the
+    # other direction), which is why it survived several verification passes.
+    #
+    # For those tables, clear the target first so the load is a true replace and
+    # re-running is idempotent. Announced, because silently emptying a table is
+    # its own hazard.
+    if not _has_dedupe_key(db, table):
+        existing = db.query(f'SELECT count(*) AS n FROM "{table}"', allow_unscoped=True,
+                            reason="ETL idempotency check")[0]["n"]
+        if existing:
+            log.warning("no primary key — clearing before load so the re-run "
+                        "cannot duplicate", table=table, existing_rows=existing)
+            db.execute(f'DELETE FROM "{table}"', allow_unscoped=True,
+                       reason="ETL replace: table has no key to dedupe on")
+
     # MULTI-ROW VALUES, not executemany. Measured against remote Turso: libsql's
     # executemany still issues one round trip per row (~2,400 rows in 13 min, i.e.
     # ~8h for the Bravo project). A single INSERT with N value tuples is ONE round
@@ -284,6 +306,23 @@ def load_rows(db: TursoDB, table: str, rows: list[dict], cols: list[str],
         inserted += len(chunk)
     db.commit()
     return inserted
+
+
+def _has_dedupe_key(db: TursoDB, table: str) -> bool:
+    """Is there anything for INSERT OR REPLACE to conflict on?
+
+    A PRIMARY KEY or any UNIQUE index will do. Without one, "OR REPLACE" is
+    just INSERT and repeated loads accumulate.
+    """
+    # db.query() returns list[dict]; db.execute() returns a raw Cursor. Use the
+    # same accessor the rest of this module uses.
+    info = db.query(f'PRAGMA table_info("{table}")', allow_unscoped=True,
+                    reason="ETL key probe")
+    if any(r.get("pk") for r in info):  # 0 = not part of the primary key
+        return True
+    idx = db.query(f'PRAGMA index_list("{table}")', allow_unscoped=True,
+                   reason="ETL key probe")
+    return any(r.get("unique") for r in idx)
 
 
 # -------------------------------------------------------------------- parity
