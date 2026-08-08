@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-07-31T19:46:41.628664+00:00",
-  "script_count": 122,
-  "entry_count": 291,
+  "generated_at_iso": "2026-08-08T16:49:24.946726+00:00",
+  "script_count": 123,
+  "entry_count": 294,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -518,6 +518,42 @@
       "risk": "external_write",
       "project": "empire",
       "help": "agent_inbox \u2014 Async agent-to-agent messaging (mcp_agent_mail-inspired pattern). \u2014 subcommand: read"
+    },
+    {
+      "key": "refine_list",
+      "path": "scripts/core/refine.py",
+      "root": "bravo",
+      "subcmd": "list",
+      "mutating": false,
+      "category": "governance.self_improvement",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "project": "empire",
+      "help": "refine.py \u2014 evidence-gated harness refinement (V7.6.0). \u2014 subcommand: list"
+    },
+    {
+      "key": "refine_show",
+      "path": "scripts/core/refine.py",
+      "root": "bravo",
+      "subcmd": "show",
+      "mutating": false,
+      "category": "governance.self_improvement",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "project": "empire",
+      "help": "refine.py \u2014 evidence-gated harness refinement (V7.6.0). \u2014 subcommand: show"
+    },
+    {
+      "key": "refine_ledger",
+      "path": "scripts/core/refine.py",
+      "root": "bravo",
+      "subcmd": "ledger",
+      "mutating": false,
+      "category": "governance.self_improvement",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "project": "empire",
+      "help": "refine.py \u2014 evidence-gated harness refinement (V7.6.0). \u2014 subcommand: ledger"
     },
     {
       "key": "cost_audit",

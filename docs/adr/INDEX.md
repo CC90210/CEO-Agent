@@ -31,6 +31,10 @@ Recommended fix: renumber the **later** member of each pair (typed-workflow-step
 new one, then `grep -rn "0003-typed\|0004-field"` and update inbound references. Needs a yes
 from CC before anyone touches it — see [[brain/EXECUTION_RULES]] § shared-substrate rule.
 
+**0013 and 0014 stay reserved for that fix.** ADR-0015 (2026-08-07) deliberately skipped
+them rather than claim a number this plan has already spoken for; numbering forward is
+free, and un-reserving these would silently break the remediation above.
+
 ---
 
 ## Accepted
@@ -49,6 +53,7 @@ from CC before anyone touches it — see [[brain/EXECUTION_RULES]] § shared-sub
 | 0010 | [[docs/adr/0010-external-resource-catalog]] — Free-Tier Radar rows as capability-graph resource nodes | 2026-07-17 | capability graph |
 | 0011 | [[docs/adr/0011-typed-memory-taxonomy]] — typed memory with declared update semantics | 2026-07-18 | memory |
 | 0012 | [[docs/adr/0012-agent-fleet-contract]] — one agent schema, two dialects, scoped by default | 2026-07-19 | agent fleet |
+| 0015 | [[docs/adr/0015-evidence-gated-harness-refinement]] — evidence is an executed command, not a rationale | 2026-08-07 | self-improvement |
 
 ## Proposed
 

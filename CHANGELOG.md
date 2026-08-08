@@ -1,6 +1,6 @@
 ---
 tags: [root]
-last_updated: 2026-07-20
+last_updated: 2026-08-08
 ---
 
 # Changelog
@@ -19,6 +19,97 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 - **Patch** — production-hardening passes, doc syncs, test repairs.
 
 ## [Unreleased]
+
+## [9.2.0] — 2026-08-08
+
+**One version line, fleet-wide.** Four independent numbering schemes were running at
+once, and none of them could answer "what version are we on?":
+
+| Line | Was | Where it lived |
+|---|---|---|
+| Bravo substrate | `V7.6` | `brain/STATE.md architecture_version` |
+| Bravo protocol | `V9.1` | commit `358685af`; "V9.0 Defense #5" cited as live law in `brain/INTENTS.md` |
+| Maven | `V7.16` | `brain/STATE.md` title text — no canonical field |
+| Atlas | none | no version declared anywhere |
+
+`V8` was never used — zero commits on any branch. The failure mode was that the
+**higher** number (V9, protocols) named the **narrower** layer, so a bare "V9" read as
+superseding V7.6 when it did not. Unified at **V9.2.0**, above every number any agent
+had claimed, so nothing appears to regress. Bravo, Maven and Atlas now all carry
+`architecture_version: V9.2.0` in `brain/STATE.md`. Past commits keep their shipped
+labels (`V7.6.x`, `V9.1`) — those are real names in history. Going forward there is one
+line; do not open a second.
+
+- **Fleet propagation of evidence-gated refinement** (the V7.6 work below, now shared):
+  `scripts/core/refine.py` is deployed verbatim to Maven (`~/CMO-Agent`) and Atlas
+  (`~/APPS/CFO-Agent`); only `CAPABILITY_META["owner"]` differs, and a test asserts the
+  owner matches the repo so a bad copy-paste fails loudly. `state/` is created on demand
+  because Atlas had no such directory.
+- **What is deliberately NOT identical:** the evidence commands. Bravo has
+  `harness_eval.py` and `task_outcomes.py`; the siblings have neither, so each agent's
+  `skills/harness-refinement/SKILL.md` documents the commands that actually exist there.
+  `capability_query.py resolve` is the one every agent has, verified live in all three.
+  A shared tool pointing at commands that do not exist would be a dead surface — the
+  same reasoning that keeps this skill out of `.claude-plugin/plugin.json`.
+- **Lex-Agent** gets the vocabulary only: at 4 skills and no capability graph worth
+  measuring, an executor there would have nothing real to gate on.
+
+## [7.6.0] — 2026-08-08
+
+V7.6 — **Evidence-gated harness refinement.** The self-improvement machinery was open at
+every end: `harness_eval.py` had written 203 scored runs to
+`state/harness_eval_history.jsonl` and the only file referencing that path was
+`harness_eval.py` itself; `task_outcomes.py` held 46 verdicts whose one non-dashboard
+consumer called a subcommand that has never existed; `auto_dream.py` proposed promotions
+and printed them; `evolve.py` scaffolded skills without checking anything could route to
+them; and `memory/PROPOSED_CHANGES.md` had specified the correct schema since 2026-05-21
+while no code ever wrote to it. Imported the shape of prime-agent's Continual Harness
+(MIT — formats and mechanics only) and inverted its gate: upstream, `evidence` is the
+proposing model's own rationale and the stored `expectedOutcome` is never executed. Here
+evidence is an executed command, and a refinement that cannot move it is auto-reverted.
+
+- **`scripts/core/refine.py` (new):** `propose | list | show | apply | revert | cancel |
+  ledger`. `apply` re-runs the evidence command and rejects + auto-reverts on no delta.
+  The exact prior text is stored at apply time so `revert` is a data operation, and it
+  refuses if the file's hash moved. Auto-apply is a **fail-closed allowlist**
+  (`memory/*.md`, `skills/*/SKILL.md`); unmatched paths — the six entry points,
+  `PERSONAL.md`, `brain/**`, `scripts/state/**` — are held for CC. Ledger in
+  `empire_state.db`, mirrored into `PROPOSED_CHANGES.md`. Mutating subcommands are
+  hidden from the chat bridge because they take a free-text shell command.
+- **Volatility pre-check:** `propose` runs the evidence command twice and refuses it if
+  two identical runs already differ, pointing at `--evidence-key`. Without it,
+  `harness_eval --json`'s per-run `timestamp`/`run_id` would pass every refinement.
+- **`auto_heal.py`:** `tune_neural_routing_weights()` shelled `task_outcomes.py stats`,
+  which has never existed, so `telemetry_synced` was permanently `False` while auto_heal
+  reported "Synchronized neural routing telemetry and activation weights". Now
+  `read_outcome_telemetry()` against `rate --json`, returning real figures.
+- **`evolve.py`:** `--apply` measures `capability_query resolve` before/after a promotion
+  and says whether routing actually moved; `--kind` extended per ADR-0015, with
+  `prompt_note`/`subagent` handed off to `refine.py` instead of scaffolded.
+- **ADR-0015**, `skills/harness-refinement/`, `CONTEXT.md` § V7.6 (7 terms),
+  `self-improvement-protocol` Protocol 4 pointer. Sibling propagation was deferred here
+  and then shipped the same day on CC's call — see [9.2.0] above and the 2026-08-08 amendment
+  in ADR-0015. Deploying to a second repo immediately exposed an EOL-corruption bug
+  that one repo could not surface; waiting would have concentrated the risk, not
+  reduced it.
+
+- **`7.6.4` hardening — three real holes, found by attacking the above.** Codex's
+  adversarial audit returned *needs-attention / no-ship* on `7.6.0`, and it was right.
+  (a) The delta was measured on a digest folding in the exit code, so an edit that
+  **broke** the evidence command registered as success; the comparison is now on the
+  measured value, with exit codes judged by whether the command is keyed (a keyed exit
+  code is a result — `harness_eval --json` exits 1 at 9/10). (b) The "fail-closed
+  allowlist" was not one: `fnmatch`'s `*` matches `/`, so `memory/../CLAUDE.md`
+  classified as auto-appliable — classification now runs on the resolved path with
+  segment-exact rules. (c) The output cap capped what was stored but not what was hashed
+  or buffered; `_run` now streams with a hard read cap and kills the child past it.
+  Locked by `scripts/tests/test_refine.py` (44 cases), verified by reconstructing the
+  broken classifier and watching it leak 5/5 where the fixed one leaks 0/5.
+
+> **Numbering note:** 7.5.0–7.5.5 shipped 2026-08-03 (guard + continuity hardening from
+> the davidondrej/skills audit) and were never recorded here. Their record is
+> `CONTEXT.md` § "V7.5 Guard & Continuity" and commits `7afe35c3`…`2280ea2a`. This entry
+> does not attempt to reconstruct them.
 
 ## [7.4.1] — 2026-07-28
 

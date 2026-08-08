@@ -154,3 +154,92 @@ python scripts/build_capability_graph.py --check
 - External source: https://github.com/mattpocock/skills
 - Probationary pattern: `memory/PATTERNS.md` § "Surgical Import from External Skill Repos"
 - Related architecture decisions: `docs/adr/0001-skill-dependency-classification.md`, `docs/adr/0002-context-md-canonical-vocabulary.md`
+
+---
+
+# V7.6 — Evidence-Gated Refinement (prime-agent import, 2026-08-07)
+
+Fourth application of this contract (after mattpocock V6.8, Twenty V6.9, davidondrej V7.5). Source: [PrimeIntellect-ai/prime-agent](https://github.com/PrimeIntellect-ai/prime-agent) (MIT — formats and mechanics studied, no code copied). Plan: `~/.claude/plans/i-m-dropping-you-a-luminous-lighthouse.md`. Contract: `docs/adr/0015-evidence-gated-harness-refinement.md`.
+
+| Layer | What shipped | Commit |
+|---|---|---|
+| Substrate | `scripts/core/refine.py` — propose/apply/revert/cancel/list/show/ledger, evidence-as-executed-command with auto-revert on no delta, fail-closed auto-apply allowlist, `refinements` table + `PROPOSED_CHANGES.md` mirror. Plus the `auto_heal.py` placebo fix (`task_outcomes.py stats` never existed). | `7855f584` |
+| Conventions | `docs/adr/0015`, `skills/harness-refinement/` (hard dep per ADR-0001), `self-improvement-protocol` Protocol 4 pointer, `evolve.py` measured promotion + ADR-0015 kinds. | `c1e45ae9` |
+| Vocabulary | `CONTEXT.md` § V7.6 — 7 terms, verified retrievable at rank 2. `STATE.md` V7.4.1 → V7.6.0, `CHANGELOG` [7.6.0]. | `061d54ce` |
+| Distribution | This section + `.claude-plugin/plugin.json` `_note` (a documented **exclusion**, see below). | `0b6737a1` |
+| Hardening | Three real holes closed after a Codex adversarial audit returned *no-ship* on the substrate: a broken evidence command counted as success; the "fail-closed allowlist" let `memory/../CLAUDE.md` through because `fnmatch`'s `*` matches `/`; the output cap bounded storage but not the hash or the buffer. Plus `scripts/tests/test_refine.py` (44 cases). | `f42e0098` |
+
+## Sibling propagation — SHIPPED 2026-08-08 (CC overrode the deferral)
+
+**I originally deferred this, and CC's call was to propagate now.** The superseded reasoning
+is kept below because it named a real risk that is still live; it just wasn't a reason to
+wait.
+
+> *Original position (superseded):* the gate had not yet rejected a single **real**
+> proposal — every rejection was a verification case I authored — so copying an unproven
+> gate into three repos would triple the blast radius of a design mistake. The most likely
+> mistake is subtle: an evidence command that changes for unrelated reasons will launder a
+> bad refinement through, and there is still no field evidence about how often that
+> happens. Trigger was to be the first time the gate rejected something a human thought
+> was good.
+
+**That risk did not disappear — it is now spread across three repos, so read the rejection
+reasons rather than trusting a green `APPLIED`.** What the port bought in exchange was
+decisive: deploying to a second repo immediately exposed a corruption bug that Bravo alone
+could never have surfaced (see below). Two agents disagreeing about line endings found in
+an hour what one agent's byte-hash checks had missed across eight commits.
+
+| Agent | Version | refine.py | Skill | Mirror | PR |
+|---|---|---|---|---|---|
+| Bravo | `V9.2.0` | canonical | ✅ | ✅ | CEO #48 |
+| Maven | `V9.2.0` | verbatim, `owner=maven` | ✅ | ✅ | CMO #11 |
+| Atlas | `V9.2.0` | verbatim, `owner=atlas` | ✅ | ✅ created | CFO #3 |
+| Lex | — | **not installed** | — | — | pushed to main |
+
+**One implementation, not three forks.** The sibling copies differ from Bravo's by exactly
+6 lines: `CAPABILITY_META["owner"]` and the docstring paragraph naming the agent.
+`scripts/tests/test_fleet_parity.py` enforces it — verified by injecting a logic change and
+a wrong owner into Maven's copy and confirming both were caught. **Fix bugs in Bravo and
+redeploy with `python scripts/deploy_refinement.py --apply`; never patch a sibling copy.**
+
+**What is deliberately NOT identical: the evidence commands.** Bravo has `harness_eval.py`
+and `task_outcomes.py`; the siblings have neither, and Atlas also lacks
+`build_capability_graph.py`. Each agent's SKILL.md documents what actually runs there —
+`capability_query.py resolve` is the one all three share, verified live in each. A shared
+tool citing commands that do not exist is a dead surface, which is the same reasoning that
+keeps this skill out of the plugin manifest. Atlas additionally forbids financial figures
+as evidence: a changed MRR proves the market moved, not that the edit helped.
+
+**Lex is vocabulary-only.** 4 skills and no capability graph means `resolve` has nothing to
+measure, so the gate would have nothing real to gate on. Recorded in its own CONTEXT.md so
+nobody "finishes the job".
+
+## Distribution is an exclusion, not an addition
+
+`.claude-plugin/plugin.json` deliberately does **not** gain `harness-refinement` — but the
+reason is narrower than I first wrote. The original note claimed the implementation "is not
+portable", and the fleet port disproved that: it runs unmodified in three repos. The actual
+reason is that **this manifest ships skill directories only, no scripts** (verified:
+`skills` is the sole code-bearing key and every entry is `./skills/*`), so an installer
+would get a SKILL.md whose every command references a `scripts/core/refine.py` they do not
+have. Portability was never the problem; the manifest's shape is. Same call as V6.9's CRM
+exclusion, for a more precise reason.
+
+## What this import confirms about the contract
+
+V6.8: an audit yields vocabulary and conventions. V6.9: it holds at larger surface. V7.5: the most valuable import can be a diff rather than a skill. **V7.6 adds a fourth case — the most valuable import can be the upstream's mistake.**
+
+prime-agent had the entire right shape and cheated on the one thing that makes it work: `refinement.ts:783-790` sets `evidence: proposal.rationale`, and the `expectedOutcome` it carefully stores is never executed. Copying it faithfully would have shipped a ledger that launders the agent's own opinions into durable state — the exact defect our Anti-Slop matrix row #6 exists to stop. The import kept every format and inverted that single line of semantics.
+
+Practical consequences for future audits, both earned the hard way here:
+
+1. **Audit the upstream's gate before adopting its shape.** Find where the external design decides something is "good enough" and check what it actually inspects. That decision point is where a mature repo's standards and a fast-moving repo's standards diverge, and it is where the import earns or loses its value.
+2. **Check that the imported trick survives your own layout.** prime-agent detects a no-op with a git working-tree fingerprint. Here that is blind: `.gitignore:44` untracks `memory/PATTERNS.md`, i.e. most of the auto-apply allowlist, so an edit left the fingerprint byte-identical — caught only by running it. An imported mechanism can be correct upstream and vacuous here; the assumption it rests on is rarely written down.
+3. **Build the gate so you can make it fail, then make it fail.** The volatility pre-check exists only because `harness_eval --json` stamps a fresh `timestamp`/`run_id` per run, which would have made every refinement show a delta. A gate that passes everything is indistinguishable from no gate, and it looks identical in a green test run.
+
+## Source
+
+- Audit plan: `~/.claude/plans/i-m-dropping-you-a-luminous-lighthouse.md`
+- External source: https://github.com/PrimeIntellect-ai/prime-agent (MIT)
+- Probationary pattern: `memory/PATTERNS.md` § "[P] Import the Mechanism, Invert Its Weakest Gate"
+- Related decisions: `docs/adr/0015-evidence-gated-harness-refinement.md`, `docs/adr/0001-skill-dependency-classification.md`, `docs/adr/0011-typed-memory-taxonomy.md`

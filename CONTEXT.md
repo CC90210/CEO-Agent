@@ -140,6 +140,29 @@ Vocabulary for the merchant-funding domain. Captured 2026-06-08 with David's pro
 - **Stub mode** — Outbound webhook behavior when `tenants.crm_webhook_url` is empty: payload is written to `webhook_events` (visible in lender admin audit log) but no HTTP call is made. Lets the demo ship before the live integration spec arrives.
 - **Breeze brand color** — Default `#1e40af`. Per-tenant override stored in `tenants.brand_primary_color`, injected as `--brand` CSS variable at layout level so the merchant sees the funder's brand, not Breeze's.
 
+## V7.6 Evidence-Gated Refinement (prime-agent import, 2026-08-07)
+
+Terms from the [PrimeIntellect-ai/prime-agent](https://github.com/PrimeIntellect-ai/prime-agent) audit
+(MIT — formats and mechanics studied, no code copied). Contract:
+[[docs/adr/0015-evidence-gated-harness-refinement]]. Plan: `~/.claude/plans/i-m-dropping-you-a-luminous-lighthouse.md`.
+
+- **Refinement** — A single proposed change to the agent's *own* instructions — a memory entry, a skill, a standing rule, or a subagent spec — recorded as a row in the `refinements` table and driven by `scripts/core/refine.py`. Not a code change: refinements edit what the agent is told, not what it runs. A refinement always names one file, one exact anchor, and one evidence command.
+- **Evidence command** — The shell command whose **measured value** must change for a refinement to be kept. Supplied as `--evidence-cmd`, executed at propose time and re-executed at apply time; the comparison is on the value, never on a hash of the whole run, because folding in the exit code made an edit that *broke* the command look like a delta. A **keyed** command's exit code is a result, not a failure (`harness_eval --json` exits 1 whenever the harness is imperfect), so what proves a measurement happened is the key being present; an **unkeyed** command must exit 0 after the edit, since its output *is* the value. Exit 124/127 always reject. This is the canonical meaning of "evidence" in the refinement path: a paragraph of reasoning is **not** evidence and cannot be submitted as such. Contrast the upstream, where `evidence` is the proposing model's own rationale and the stored `expectedOutcome` is never run.
+- **Volatile evidence** — An evidence command whose output differs between two identical back-to-back runs, usually because of a timestamp or run id (`harness_eval.py --json` is the live example — it stamps a fresh `timestamp` and `run_id` every run). Refused at propose time, because a command that always differs would make every refinement look effective. Fix by narrowing with `--evidence-key <dotted.json.path>`, e.g. `--evidence-key score`.
+- **Inverse proposal** — The exact prior text of the edited region, stored **at apply time**, which `refine.py revert` replays to undo a refinement. Stored rather than reconstructed on demand: `.gitignore:44` untracks `memory/PATTERNS.md`, so git is not a rollback path for most refinement targets and the ledger is the only way back. `revert` refuses if the file's hash has moved since.
+- **Refinement ledger** — The append-only history of every refinement and its terminal status, held in `state/empire_state.db` and mirrored for CC into `memory/PROPOSED_CHANGES.md`. `REJECTED` means the gate measured no effect and auto-reverted; `WITHDRAWN` means the operator withdrew it. The two are not interchangeable — one is a fact about the change, the other about the operator.
+- **Self-edit kind** — Which of four destinations a lesson belongs in: `memory` (a fact to carry forward), `skill` (a routable procedure), `prompt_note` (a standing rule, always operator-gated), `subagent` (a delegation role, always operator-gated). A required argument, so the destination is a recorded decision rather than a default.
+- **Auto-apply allowlist** — The only paths `refine.py` may write without CC: `memory/<file>.md` and `skills/<skill>/SKILL.md` at exactly those depths, minus `SESSION_LOG.md`, `PROPOSED_CHANGES.md` and `skills/_archive/*`. An **allowlist**, so a path matching nothing is held rather than applied — the six entry points, `PERSONAL.md`, `brain/**` and `scripts/state/**` can never auto-apply, and a new sensitive directory is protected the day it is created. Matched on the **resolved** path with segment-exact rules, never with a path glob: `fnmatch`'s `*` crosses `/`, so a glob allowlist classified `memory/../CLAUDE.md` as auto-appliable. Locked by `scripts/tests/test_refine.py`.
+
+---
+
+## Versioning (unified 2026-08-08)
+
+- **`architecture_version`** — The frontmatter field in each agent's `brain/STATE.md`, and the **only** version number the fleet uses. Currently `V9.2.0` in Bravo, Maven and Atlas alike. Before 2026-08-08 four lines ran in parallel — Bravo substrate `V7.6`, Bravo protocol `V9.1`, Maven `V7.16`, Atlas none — and because the higher number named the narrower layer, a bare "V9" read as superseding "V7.6" when it did not. `V8` was never used. If you find a second version number anywhere, it is drift: fix it to read from this field rather than restating a value. Past commit labels (`V7.6.x`, `V9.1`) stay as they are — they are real names in history.
+- **Substrate vs protocol** — Two *layers*, one number. **Substrate** is the machinery: state DB, retrieval, guards, capability graph, vocabulary layer, refinement gate. **Protocol** is the instruction layer: agentic playbooks, the Phase-0 contract, the production defenses (`brain/INTENTS.md` still cites "V9.0 Defense #5" and that rule is live). Say which layer you mean; do not give either its own version.
+
+---
+
 ## North Star
 
 - **North Star (Bravo)** — Multiply CC's time and ship the systems that scale the empire. Bravo does **not** optimize for a dollar metric. All revenue targets, MRR, and deal economics are owned by **Atlas (CFO-Agent)** — route money questions there.

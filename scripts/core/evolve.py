@@ -18,11 +18,20 @@ a heuristic would be exactly the "mock data" defect (Anti-Slop #3) applied to
 documentation. The stub carries the evidence and a TODO; a human or an agent
 with context fills the body.
 
+V7.6.1 — the promotion is now MEASURED. `--apply` captures
+`capability_query.py resolve` before and after the scaffold (via refine.py's
+evidence runner) and says plainly whether the resolver output moved. A skill
+nothing routes to is a file, not a capability, and this used to report success
+either way. Kinds follow ADR-0015: `skill`/`sop` scaffold here, while
+`prompt_note`/`subagent` edit existing operator-gated files and are handed to
+`scripts/core/refine.py` instead of scaffolded.
+
 Usage:
     python scripts/core/evolve.py scan               # candidates, changes nothing
     python scripts/core/evolve.py scan --json
     python scripts/core/evolve.py promote "<pattern text>" --kind skill
     python scripts/core/evolve.py promote "<pattern text>" --kind sop --apply
+    python scripts/core/evolve.py promote "<pattern text>" --kind prompt_note
 """
 from __future__ import annotations
 
@@ -252,7 +261,72 @@ def scaffold_triggers(text: str) -> list[str]:
     return uniq[:2]
 
 
-def promote(text: str, kind: str, apply: bool) -> dict:
+# The four self-edit kinds from ADR-0015. evolve.py can only SCAFFOLD two of
+# them — a skill directory or an SOP file. `prompt_note` and `subagent` mean
+# editing a file that already exists and is operator-gated, which is refine.py's
+# job, not evolve's; for those we hand over the exact command instead of
+# pretending to scaffold. (`memory` is absent on purpose: patterns already live
+# in memory/, so it is this tool's input, never its output.)
+HANDOFF_KINDS = {
+    "prompt_note": "an entry point (CLAUDE.md and its five siblings) — lockstep, CC-gated",
+    "subagent": ".claude/agents/<name>.md — CC-gated",
+}
+PROMOTE_KINDS = ["skill", "sop", *HANDOFF_KINDS]
+
+
+def _routing_evidence(text: str) -> str:
+    """The command that proves a promotion changed routing."""
+    intent = " ".join(scaffold_triggers(text)[:1]) or text[:60]
+    return f'python scripts/capability_query.py resolve "{intent}"'
+
+
+def _measure(cmd: str) -> dict | None:
+    """Run an evidence command via refine.py's runner. Reuse, not a second copy.
+
+    Returns None only when measurement genuinely could not run, and SAYS SO on
+    stderr. The first version caught bare `Exception` and returned None, which
+    made "routing did not change" indistinguishable from "we never looked" — the
+    silent-swallow defect (Anti-Slop #2) this very release fixed in auto_heal.
+    """
+    try:
+        from core.refine import run_evidence
+    except ImportError as exc:
+        print(f"  [warn] routing measurement skipped: cannot import refine ({exc})",
+              file=sys.stderr)
+        return None
+    try:
+        return run_evidence(cmd, None)
+    except (OSError, ValueError) as exc:
+        print(f"  [warn] routing measurement skipped: {cmd!r} failed to run ({exc})",
+              file=sys.stderr)
+        return None
+
+
+def handoff(text: str, kind: str) -> dict:
+    """Emit the refine.py invocation for a kind evolve must not scaffold."""
+    return {
+        "slug": slugify(text),
+        "kind": kind,
+        "applied": False,
+        "handoff": HANDOFF_KINDS[kind],
+        "reason": (
+            f"'{kind}' edits an existing operator-gated file; evolve.py only scaffolds new "
+            "skills and SOPs. Route it through the evidence gate instead."
+        ),
+        "command": (
+            "python scripts/core/refine.py propose "
+            f"--kind {kind} --file <target> "
+            '--current "<exact existing text>" --proposed "<replacement>" '
+            f'--evidence-cmd \'{_routing_evidence(text)}\' '
+            f'--reason "promoted from a validated pattern: {text[:60]}"'
+        ),
+    }
+
+
+def promote(text: str, kind: str, apply: bool, measure: bool = False) -> dict:
+    if kind in HANDOFF_KINDS:
+        return handoff(text, kind)
+
     slug = slugify(text)
     today = date.today().isoformat()
     title = text[:70].rstrip(" .") if text else slug
@@ -285,10 +359,49 @@ def promote(text: str, kind: str, apply: bool) -> dict:
     if target.exists():
         result["skipped"] = "already exists"
         return result
-    if apply:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(body, encoding="utf-8")
-        result["applied"] = True
+    if not apply:
+        return result
+
+    # Measure routing BEFORE the write, so the comparison is real. The open loop
+    # this closes: promote() has always scaffolded without ever checking that the
+    # new file changed what the resolver returns. A skill nothing routes to is a
+    # file, not a capability.
+    ev_cmd = _routing_evidence(text)
+    before = _measure(ev_cmd) if measure else None
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(body, encoding="utf-8")
+    result["applied"] = True
+
+    if measure:
+        if before is None:
+            # Say it out loud rather than reporting a bare success.
+            result["routing"] = {
+                "evidence_cmd": ev_cmd,
+                "changed": None,
+                "note": "NOT MEASURED — the baseline evidence run failed (see warning above)",
+            }
+            return result
+        _measure("python scripts/build_capability_graph.py")  # the resolver reads the graph
+        after = _measure(ev_cmd)
+        if after is None:
+            result["routing"] = {
+                "evidence_cmd": ev_cmd,
+                "changed": None,
+                "note": "NOT MEASURED — the post-scaffold evidence run failed (see warning above)",
+            }
+            return result
+        moved = after.get("digest") != before.get("digest")
+        result["routing"] = {
+            "evidence_cmd": ev_cmd,
+            "changed": moved,
+            "note": (
+                "resolver output changed — the scaffold is reachable"
+                if moved else
+                "resolver output UNCHANGED — nothing routes to this yet; fix the triggers "
+                "before treating it as a capability"
+            ),
+        }
     return result
 
 
@@ -302,8 +415,11 @@ def main() -> None:
 
     p = sub.add_parser("promote", help="scaffold a skill or SOP from a pattern")
     p.add_argument("text")
-    p.add_argument("--kind", choices=["skill", "sop"], default="skill")
+    p.add_argument("--kind", choices=PROMOTE_KINDS, default="skill",
+                   help="skill|sop scaffold here; prompt_note|subagent hand off to refine.py")
     p.add_argument("--apply", action="store_true", help="write the file (default: dry run)")
+    p.add_argument("--no-measure", action="store_true",
+                   help="skip the post-apply routing check (default: measure)")
     p.add_argument("--json", action="store_true")
 
     a = ap.parse_args()
@@ -326,10 +442,19 @@ def main() -> None:
         print("\npromote with: python scripts/core/evolve.py promote \"<text>\" --kind skill --apply")
         return
 
-    r = promote(a.text, a.kind, a.apply)
-    print(json.dumps(r, indent=2) if a.json else
-          f"{'WROTE' if r['applied'] else 'DRY RUN'}: {r['target']}"
+    r = promote(a.text, a.kind, a.apply, measure=not a.no_measure)
+    if a.json:
+        print(json.dumps(r, indent=2))
+        return
+    if r.get("handoff"):
+        print(f"HANDOFF ({a.kind}): {r['handoff']}")
+        print(f"  {r['reason']}\n")
+        print(r["command"])
+        return
+    print(f"{'WROTE' if r['applied'] else 'DRY RUN'}: {r['target']}"
           + (f"  ({r['skipped']})" if r.get("skipped") else ""))
+    if r.get("routing"):
+        print(f"  routing changed: {r['routing']['changed']} — {r['routing']['note']}")
 
 
 if __name__ == "__main__":
