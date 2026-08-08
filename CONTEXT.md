@@ -175,6 +175,13 @@ Terms from the [PrimeIntellect-ai/prime-agent](https://github.com/PrimeIntellect
 
 ---
 
+## Versioning (unified 2026-08-08)
+
+- **`architecture_version`** — The frontmatter field in each agent's `brain/STATE.md`, and the **only** version number the fleet uses. Currently `V9.2.0` in Bravo, Maven and Atlas alike. Before 2026-08-08 four lines ran in parallel — Bravo substrate `V7.6`, Bravo protocol `V9.1`, Maven `V7.16`, Atlas none — and because the higher number named the narrower layer, a bare "V9" read as superseding "V7.6" when it did not. `V8` was never used. If you find a second version number anywhere, it is drift: fix it to read from this field rather than restating a value. Past commit labels (`V7.6.x`, `V9.1`) stay as they are — they are real names in history.
+- **Substrate vs protocol** — Two *layers*, one number. **Substrate** is the machinery: state DB, retrieval, guards, capability graph, vocabulary layer, refinement gate. **Protocol** is the instruction layer: agentic playbooks, the Phase-0 contract, the production defenses (`brain/INTENTS.md` still cites "V9.0 Defense #5" and that rule is live). Say which layer you mean; do not give either its own version.
+
+---
+
 ## North Star
 
 - **North Star (Bravo)** — Multiply CC's time and ship the systems that scale the empire. Bravo does **not** optimize for a dollar metric. All revenue targets, MRR, and deal economics are owned by **Atlas (CFO-Agent)** — route money questions there.

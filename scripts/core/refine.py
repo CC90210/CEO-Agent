@@ -30,6 +30,15 @@ remembering to add it. Entry points, PERSONAL.md, brain/ and scripts/state/ can
 never auto-apply — Rule 4 (lockstep) and Rule 10 (never silently rewrite shared
 substrate).
 
+FLEET-PORTABLE. This file is deployed verbatim into Maven (`~/CMO-Agent`) and
+Atlas (`~/APPS/CFO-Agent`); only `CAPABILITY_META["owner"]` differs per agent.
+Every path is derived from PROJECT_ROOT, `state/` is created on demand, and the
+allowlist is expressed in repo-relative terms that hold in any agent repo. What
+is NOT portable is the choice of evidence command: Bravo has `harness_eval.py`
+and `task_outcomes.py`, the siblings do not, so each agent's SKILL.md documents
+the evidence commands that actually exist there (`capability_query.py resolve`
+is the one every agent has). Never hardcode an evidence command here.
+
 CLI:
   python scripts/core/refine.py propose --kind memory --file memory/PATTERNS.md \\
       --current "<exact existing text>" --proposed "<replacement>" \\
@@ -140,6 +149,9 @@ _IS_WIN = sys.platform.startswith("win")
 # --------------------------------------------------------------------------
 def _connect() -> sqlite3.Connection | None:
     try:
+        # Create state/ on demand: this file is deployed verbatim into sibling
+        # agents (Maven, Atlas) and Atlas had no state/ directory at all.
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(DB_PATH), timeout=5.0, isolation_level=None)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA busy_timeout=5000")

@@ -67,11 +67,20 @@ HELD = [
     "memory/notes.txt",
 ]
 
+# Only paths that EXIST here: classification runs on the resolved path, and on
+# Windows a non-existent path keeps its given casing, so the case-variant row
+# below needs the real file present. This file is deployed to Maven and Atlas
+# verbatim, and their memory/ and skills/ contents differ.
 AUTO = [
-    "memory/PATTERNS.md",
-    "memory/MISTAKES.md",
-    "skills/anti-drift/SKILL.md",
-    "skills/harness-refinement/SKILL.md",
+    p for p in (
+        "memory/PATTERNS.md",
+        "memory/MISTAKES.md",
+        "skills/harness-refinement/SKILL.md",
+        # correct, not a leak: Windows resolves this to the real allowlisted
+        # file, so holding it would be over-blocking
+        "MEMORY/PATTERNS.md",
+    )
+    if (PROJECT_ROOT / p).exists()
 ]
 
 
@@ -160,6 +169,10 @@ def test_digest_is_stable_for_an_identical_run():
     assert a["digest"] == b["digest"]
 
 
+@pytest.mark.skipif(
+    not (PROJECT_ROOT / "scripts" / "harness_eval.py").exists(),
+    reason="harness_eval.py is Bravo-only; siblings use capability_query resolve as evidence",
+)
 def test_harness_eval_is_volatile_unkeyed_and_stable_keyed():
     """The live case the volatility pre-check exists for.
 
@@ -248,9 +261,27 @@ def test_gate_is_pure():
 # 4. capability metadata contract
 # --------------------------------------------------------------------------
 def test_capability_meta_satisfies_the_contract():
-    from lib.capability_metadata import validate_capability_meta
+    # Bravo-only module; siblings' graph builders do not require CAPABILITY_META
+    # for nested scripts, so refine.py registers there without it.
+    validate = pytest.importorskip(
+        "lib.capability_metadata",
+        reason="capability_metadata is Bravo-only",
+    ).validate_capability_meta
+    assert validate(refine.CAPABILITY_META) == []
 
-    assert validate_capability_meta(refine.CAPABILITY_META) == []
+
+def test_owner_matches_the_repo_it_is_deployed_in():
+    """The one field that legitimately differs per agent — catch a bad copy-paste."""
+    owner = refine.CAPABILITY_META["owner"]
+    repo = PROJECT_ROOT.name.lower()
+    expected = {
+        "business-empire-agent": "bravo",
+        "cmo-agent": "maven",
+        "cfo-agent": "atlas",
+    }.get(repo)
+    if expected is None:
+        pytest.skip(f"unknown agent repo {repo!r}")
+    assert owner == expected, f"{repo} is running a copy owned by {owner!r}"
 
 
 def test_mutating_subcommands_are_hidden_from_the_chat_bridge():

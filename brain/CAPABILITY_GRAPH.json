@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-08T04:30:49.885036+00:00",
+  "generated_at": "2026-08-08T16:06:09.682385+00:00",
   "totals": {
     "skills": 161,
-    "scripts": 148,
+    "scripts": 149,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 400,
-    "edges_total": 165,
+    "nodes_total": 401,
+    "edges_total": 167,
     "drift_count": 1
   },
   "nodes": [
@@ -6136,6 +6136,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:install_python_switch",
+      "kind": "script",
+      "name": "install_python_switch",
+      "path": "scripts/install_python_switch.py",
+      "description": "Install the Turso data-backend switch into the active venv.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:integration_health",
       "kind": "script",
       "name": "integration_health",
@@ -8750,6 +8760,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:apply_missing_tables",
+      "to": "script:apply_turso_migration",
+      "kind": "calls"
+    },
+    {
       "from": "script:audit_rls_coverage",
       "to": "script:apply_migration",
       "kind": "calls"
@@ -9367,6 +9382,11 @@
     {
       "from": "skill:gws-modelarmor-sanitize-response",
       "to": "skill:send-gateway",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:harness-refinement",
+      "to": "skill:self-improvement-protocol",
       "kind": "requires"
     },
     {

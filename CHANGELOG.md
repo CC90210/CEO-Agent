@@ -20,6 +20,40 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 
 ## [Unreleased]
 
+## [9.2.0] — 2026-08-08
+
+**One version line, fleet-wide.** Four independent numbering schemes were running at
+once, and none of them could answer "what version are we on?":
+
+| Line | Was | Where it lived |
+|---|---|---|
+| Bravo substrate | `V7.6` | `brain/STATE.md architecture_version` |
+| Bravo protocol | `V9.1` | commit `358685af`; "V9.0 Defense #5" cited as live law in `brain/INTENTS.md` |
+| Maven | `V7.16` | `brain/STATE.md` title text — no canonical field |
+| Atlas | none | no version declared anywhere |
+
+`V8` was never used — zero commits on any branch. The failure mode was that the
+**higher** number (V9, protocols) named the **narrower** layer, so a bare "V9" read as
+superseding V7.6 when it did not. Unified at **V9.2.0**, above every number any agent
+had claimed, so nothing appears to regress. Bravo, Maven and Atlas now all carry
+`architecture_version: V9.2.0` in `brain/STATE.md`. Past commits keep their shipped
+labels (`V7.6.x`, `V9.1`) — those are real names in history. Going forward there is one
+line; do not open a second.
+
+- **Fleet propagation of evidence-gated refinement** (the V7.6 work below, now shared):
+  `scripts/core/refine.py` is deployed verbatim to Maven (`~/CMO-Agent`) and Atlas
+  (`~/APPS/CFO-Agent`); only `CAPABILITY_META["owner"]` differs, and a test asserts the
+  owner matches the repo so a bad copy-paste fails loudly. `state/` is created on demand
+  because Atlas had no such directory.
+- **What is deliberately NOT identical:** the evidence commands. Bravo has
+  `harness_eval.py` and `task_outcomes.py`; the siblings have neither, so each agent's
+  `skills/harness-refinement/SKILL.md` documents the commands that actually exist there.
+  `capability_query.py resolve` is the one every agent has, verified live in all three.
+  A shared tool pointing at commands that do not exist would be a dead surface — the
+  same reasoning that keeps this skill out of `.claude-plugin/plugin.json`.
+- **Lex-Agent** gets the vocabulary only: at 4 skills and no capability graph worth
+  measuring, an executor there would have nothing real to gate on.
+
 ## [7.6.0] — 2026-08-08
 
 V7.6 — **Evidence-gated harness refinement.** The self-improvement machinery was open at
