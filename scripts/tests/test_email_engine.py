@@ -314,6 +314,42 @@ class TestReviewMailIsTerminal(unittest.TestCase):
         self.assertIn("processed_msgids", dumped,
                       "without the ledger write the next UNSEEN sweep reprocesses it")
 
+    def test_processed_ledger_write_is_guarded_by_imap_success(self):
+        """`processed` may only be recorded if IMAP accepted the \\Seen flag.
+
+        Raised by Codex's adversarial audit. Catching store() here (so one bad
+        UID cannot kill a batch) is right, but recording the Message-ID anyway
+        would leave the mail UNSEEN in Gmail while the local ledger calls it
+        done — the next sweep skips it and it is never retried. Unread forever,
+        silently. Putting the write in the try's `else` makes the path
+        self-healing: a failed store means a retry next sweep, and re-enqueue is
+        idempotent (keyed repo#pr).
+        """
+        import ast
+
+        branch = self._review_branch()
+        tries = [n for n in ast.walk(branch) if isinstance(n, ast.Try)]
+        self.assertTrue(tries, "the imap.store call must be guarded by a try")
+
+        guarded = [
+            t for t in tries
+            if "imap" in ast.dump(t) and "processed_msgids" in ast.dump(t)
+        ]
+        self.assertTrue(
+            guarded, "processed_msgids must be written near the guarded store call")
+
+        for t in guarded:
+            self.assertIn("processed_msgids", ast.dump(ast.Module(body=t.orelse,
+                                                                  type_ignores=[])),
+                          "the ledger write belongs in the try's `else` — reached "
+                          "only when imap.store did NOT raise")
+            for handler in t.handlers:
+                self.assertNotIn(
+                    "processed_msgids",
+                    ast.dump(ast.Module(body=handler.body, type_ignores=[])),
+                    "recording the Message-ID in the except branch is the exact "
+                    "unread-forever bug this test exists to prevent")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

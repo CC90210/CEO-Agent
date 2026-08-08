@@ -1557,12 +1557,30 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 print(f"[email_inbox] review notification suppressed "
                       f"({review_ping['kind']} {review_ping['repo']}): {subject[:70]}",
                       file=sys.stderr)
+                # Record "processed" ONLY if IMAP actually accepted the flag.
+                #
+                # Every other terminal path lets a store() failure propagate and
+                # abort the sweep. Catching it here (so one bad UID cannot kill a
+                # whole batch of suppressed mail) introduced a failure mode none
+                # of them have: the message stays UNSEEN in Gmail while the local
+                # ledger claims it is done, so the next UNSEEN sweep skips it and
+                # it is never retried — unread forever, silently.
+                #
+                # Leaving it unrecorded makes the path self-healing instead: the
+                # next sweep retries it, and re-enqueueing is free because
+                # _enqueue_review_harvest keys on repo#pr and de-dupes
+                # message_ids, so a retry updates a counter rather than creating
+                # work. If IMAP is broken badly enough for this to loop, that is
+                # an outage the hourly cron health check surfaces on its own.
+                #
+                # Caught in Codex's adversarial audit of this change.
                 try:
                     imap.store(uid, "+FLAGS", "\\Seen")
                 except Exception as seen_err:  # noqa: BLE001
-                    print(f"[email_inbox] could not mark review mail read: {seen_err}",
-                          file=sys.stderr)
-                processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
+                    print(f"[email_inbox] could not mark review mail read, will retry "
+                          f"next sweep: {seen_err}", file=sys.stderr)
+                else:
+                    processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
                 continue
 
             # Log to Supabase email_log (legacy SMTP-layer visibility)
