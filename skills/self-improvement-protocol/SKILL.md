@@ -132,6 +132,17 @@ Cite sources in the skill's frontmatter + examples section.
 
 ## Protocol 4 — SELF-IMPROVE (learn from outcomes)
 
+> **Making a lesson permanent (V7.6, Bravo):** logging below records what happened.
+> When the lesson should *change the harness* — a rule, a memory entry, a skill, a
+> subagent spec — route it through [[skills/harness-refinement/SKILL]], which requires an
+> executed command as evidence and auto-reverts any edit that moves nothing. Entry
+> points and `brain/` can never auto-apply there; they queue in
+> `memory/PROPOSED_CHANGES.md` for CC. Contract: [[docs/adr/0015-evidence-gated-harness-refinement]].
+> Live in **Bravo, Maven and Atlas** (V9.2.0, propagated 2026-08-08). Each agent's
+> evidence commands are its OWN — Bravo's `harness_eval.py`/`task_outcomes.py` do not
+> exist in the siblings, so read that repo's own skill rather than copying Bravo's
+> examples. Lex-Agent has the vocabulary only.
+
 ### Mistake logging (required)
 On every failure or CC correction:
 1. Write to `memory/MISTAKES.md` with structured entry:

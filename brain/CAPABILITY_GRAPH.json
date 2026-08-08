@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-07-31T08:00:58.404093+00:00",
+  "generated_at": "2026-08-08T16:49:33.351347+00:00",
   "totals": {
-    "skills": 155,
-    "scripts": 130,
+    "skills": 156,
+    "scripts": 133,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 376,
-    "edges_total": 153,
+    "nodes_total": 380,
+    "edges_total": 155,
     "drift_count": 0
   },
   "nodes": [
@@ -2590,6 +2590,48 @@
         "env": [],
         "daemons": [],
         "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:harness-refinement",
+      "kind": "skill",
+      "name": "harness-refinement",
+      "path": "skills/harness-refinement/SKILL.md",
+      "description": "Propose, measure, apply and roll back changes to Bravo's own prompts, memory, skills and subagent specs \u2014 with an executed command as the evidence gate. A refinement that cannot show a before/after delta on a real command is auto-reverted, never merged. Use when a lesson should b",
+      "tier": "T2",
+      "owner": "bravo",
+      "risk": "medium",
+      "triggers": [
+        "refine the harness",
+        "propose a change to my own rules",
+        "change an agent rule",
+        "queue a proposed change for CC",
+        "roll back a harness refinement",
+        "apply a refinement",
+        "show the refinement ledger",
+        "make this lesson permanent",
+        "prove this change helped"
+      ],
+      "tags": [
+        "skill",
+        "self-improvement",
+        "governance",
+        "refinement",
+        "v7.6",
+        "evidence"
+      ],
+      "status": "NEW",
+      "disable_model_invocation": false,
+      "argument_hint": "What should change, and what command would prove it worked?",
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": [
+          "state/empire_state.db"
+        ]
       },
       "archived": null,
       "superseded_by": null,
@@ -5559,6 +5601,39 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:dashboard_email_queue_monitor",
+      "kind": "script",
+      "name": "dashboard_email_queue_monitor",
+      "path": "scripts/dashboard_email_queue_monitor.py",
+      "description": "Dashboard-email queue monitor \u2014 catches a silent outbound stall.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:deploy_refinement",
+      "kind": "script",
+      "name": "deploy_refinement",
+      "path": "scripts/deploy_refinement.py",
+      "description": "deploy_refinement.py \u2014 push Bravo's refinement executor to the sibling agents.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "governance.self_improvement",
+      "lifecycle": "manual",
+      "risk": "local_write",
+      "triggers": [
+        "redeploy refine.py to the sibling agents",
+        "sync the refinement executor across the fleet",
+        "fix fleet parity drift"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false,
+        "confirm": true
+      }
+    },
+    {
       "id": "script:dns_reputation",
       "kind": "script",
       "name": "dns_reputation",
@@ -6637,6 +6712,68 @@
           "read": {
             "key": "agent_inbox_ack",
             "visible": true,
+            "confirm": true
+          }
+        }
+      }
+    },
+    {
+      "id": "script:refine",
+      "kind": "script",
+      "name": "refine",
+      "path": "scripts/core/refine.py",
+      "description": "refine.py \u2014 evidence-gated harness refinement (V7.6.0).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "governance.self_improvement",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "propose a change to my own rules",
+        "refine the harness with evidence",
+        "queue a proposed change for CC",
+        "roll back a harness refinement",
+        "show the refinement ledger"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": true,
+        "subcommands": {
+          "list": {
+            "key": "refine_list",
+            "visible": true,
+            "confirm": false
+          },
+          "show": {
+            "key": "refine_show",
+            "visible": true,
+            "confirm": false
+          },
+          "ledger": {
+            "key": "refine_ledger",
+            "visible": true,
+            "confirm": false
+          },
+          "propose": {
+            "key": "refine_propose",
+            "visible": false,
+            "confirm": true
+          },
+          "apply": {
+            "key": "refine_apply",
+            "visible": false,
+            "confirm": true
+          },
+          "revert": {
+            "key": "refine_revert",
+            "visible": false,
+            "confirm": true
+          },
+          "cancel": {
+            "key": "refine_cancel",
+            "visible": false,
             "confirm": true
           }
         }
@@ -8496,6 +8633,11 @@
       "kind": "exposed_via"
     },
     {
+      "from": "script:refine",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
       "from": "script:register",
       "to": "script:build_capability_graph",
       "kind": "calls"
@@ -8818,6 +8960,11 @@
     {
       "from": "skill:gws-modelarmor-sanitize-response",
       "to": "skill:send-gateway",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:harness-refinement",
+      "to": "skill:self-improvement-protocol",
       "kind": "requires"
     },
     {

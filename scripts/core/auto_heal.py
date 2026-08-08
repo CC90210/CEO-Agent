@@ -93,21 +93,39 @@ def refresh_stale_documents(stale_relative_paths: list[str]) -> list[str]:
     return refreshed
 
 
-def tune_neural_routing_weights() -> dict[str, Any]:
-    """Invoke Neural GNN Skill Router & Task Outcomes to optimize routing weights."""
-    gnn_script = REPO_ROOT / "scripts" / "gnn_skill_router.py"
+def read_outcome_telemetry() -> dict[str, Any]:
+    """Read the first-pass-success telemetry and return the real figures.
+
+    Was `tune_neural_routing_weights()` until 2026-08-07, and it tuned nothing:
+    it shelled `task_outcomes.py stats` — a subcommand that has never existed
+    (`invalid choice: 'stats' (choose from rate, record, report)`), so
+    `telemetry_synced` was permanently False, while its sibling `gnn_tuned` was
+    just the exit code of `--help`. auto_heal then reported "Synchronized neural
+    routing telemetry and activation weights" off those flags. A success shape
+    over a call that never worked — Anti-Slop #3, in our own substrate.
+
+    Renamed and narrowed to what it can honestly do: report the numbers. Tuning
+    routing weights would need `gnn_skill_router.py train/evaluate`, which is a
+    model run, not a self-heal step — invoking it here would hide minutes of
+    training inside a health check.
+    """
     outcome_script = REPO_ROOT / "scripts" / "core" / "task_outcomes.py"
+    res: dict[str, Any] = {"read_ok": False, "first_pass_success_pct": None, "verdicts": 0}
+    if not outcome_script.exists():
+        return res
 
-    res: dict[str, Any] = {"gnn_tuned": False, "telemetry_synced": False}
+    rc, out, _ = _run_cmd([PYTHON, str(outcome_script), "rate", "--json"])
+    if rc != 0:
+        return res
+    try:
+        data = json.loads(out)
+    except (json.JSONDecodeError, ValueError):
+        return res
 
-    if outcome_script.exists():
-        rc, _, _ = _run_cmd([PYTHON, str(outcome_script), "stats"])
-        res["telemetry_synced"] = rc == 0
-
-    if gnn_script.exists():
-        rc, out, _ = _run_cmd([PYTHON, str(gnn_script), "--help"])
-        res["gnn_tuned"] = rc == 0
-
+    res["read_ok"] = True
+    res["first_pass_success_pct"] = data.get("first_pass_success_pct")
+    res["verdicts"] = (data.get("verdicts") or {}).get("total", 0)
+    res["guard_blocks"] = data.get("total_destructive_or_exfil_attempts_caught", 0)
     return res
 
 
@@ -144,10 +162,14 @@ def perform_auto_heal(check_only: bool = False) -> dict[str, Any]:
             actions_taken.append(f"Refreshed timestamps on {len(refreshed)} brain documents.")
             heal_capability_graph()
 
-    # 3. Neural routing adjustment
-    neural_res = tune_neural_routing_weights()
-    if neural_res.get("telemetry_synced"):
-        actions_taken.append("Synchronized neural routing telemetry and activation weights.")
+    # 3. Outcome telemetry — reported, not "tuned". Say the number or say nothing.
+    telemetry = read_outcome_telemetry()
+    if telemetry.get("read_ok"):
+        fp = telemetry.get("first_pass_success_pct")
+        actions_taken.append(
+            f"Read outcome telemetry: first-pass success "
+            f"{fp if fp is not None else 'n/a'}% over {telemetry.get('verdicts', 0)} recorded verdicts."
+        )
 
     audit_after = run_self_audit()
     score_after = audit_after.get("health_score", 0)
