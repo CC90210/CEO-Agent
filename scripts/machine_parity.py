@@ -664,9 +664,44 @@ def check_pm2_persistence() -> tuple[str, bool, str, str]:
     return ("pm2-persistence", True, "boot trigger + battery-safe + fresh dump.pm2", "")
 
 
+def check_python_switch() -> tuple[str, bool, str, str]:
+    """Is the Supabase->Turso switch installed in this machine's venv?
+
+    The switch is a sitecustomize.py, so it must live in site-packages — which
+    is in no repo. It therefore existed on exactly one workstation and never on
+    the VPS, where setting EMPIRE_DATA_BACKEND=turso_cloud consequently did
+    nothing at all, silently. Provisioning a rig has to install it, and this is
+    the check that says whether it did.
+
+    Asks the interpreter rather than looking for the file: a present-but-stale
+    or shadowed sitecustomize is the same failure as an absent one.
+    """
+    fix = "python scripts/install_python_switch.py"
+    v = venv_python(_root_as_posix())
+    interp = str(v) if v else (_which("python3") or _which("python"))
+    if not interp:
+        return ("turso-switch", False, "no python interpreter", fix)
+    try:
+        proc = subprocess.run(
+            [interp, "-c",
+             "import supabase;print(getattr(supabase.create_client,'__module__','?'))"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=60, creationflags=_NO_WINDOW,
+            env={**os.environ, "EMPIRE_DATA_BACKEND": "turso_cloud"},
+        )
+        module = (proc.stdout or "").strip().splitlines()[-1] if proc.stdout else ""
+        if module == "lib.turso_supabase_compat":
+            return ("turso-switch", True, "installed; create_client -> turso compat", "")
+        detail = f"create_client -> {module or 'no output'} (Supabase, not Turso)"
+        return ("turso-switch", False, detail[:80], fix)
+    except Exception as exc:  # noqa: BLE001
+        return ("turso-switch", False, str(exc)[:80], fix)
+
+
 ALL_CHECKS = [
     check_hooks,
     check_python_deps,
+    check_python_switch,
     check_node_deps,
     check_system_bins,
     check_codex,

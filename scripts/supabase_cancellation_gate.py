@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -271,11 +272,50 @@ def check_writers(env: dict) -> dict:
     else:
         problems.append("n8n: N8N_API_URL/N8N_API_KEY absent — cannot verify")
 
+    # The Python switch is a sitecustomize.py in site-packages — not in any
+    # repo by nature, so "the flag is set" and "the flag does anything" are
+    # different facts. It was absent on the VPS entirely, which meant those
+    # daemons kept writing to Supabase while the operator believed otherwise.
+    # Asking the INTERPRETER is the only honest check.
+    probe = subprocess.run(
+        [sys.executable, "-c",
+         "import supabase;print(getattr(supabase.create_client,'__module__','?'))"],
+        capture_output=True, text=True, timeout=120,
+        env={**os.environ, "EMPIRE_DATA_BACKEND": "turso_cloud"})
+    module = (probe.stdout or "").strip().splitlines()[-1] if probe.stdout else ""
+    if module != "lib.turso_supabase_compat":
+        problems.append(
+            f"Python switch NOT active on this interpreter (create_client -> "
+            f"{module or 'no output'}). Run: python scripts/install_python_switch.py")
+
+    # A process that tried to patch and failed leaves this behind. stderr is
+    # discarded under PM2, so without the marker the failure is invisible.
+    marker = SCRIPTS.parent / "state" / "turso_switch_failed.json"
+    if marker.exists():
+        try:
+            rec = json.loads(marker.read_text(encoding="utf-8"))
+            problems.append(
+                f"Python switch FAILED on {rec.get('host','?')} at "
+                f"{rec.get('at','?')}: {str(rec.get('error'))[:90]} — that process "
+                f"was still writing to Supabase. Fix, then delete {marker.name}.")
+        except Exception:
+            problems.append(f"{marker} exists but is unreadable — investigate")
+
     eco = SCRIPTS.parent / "ecosystem.config.js"
     if eco.exists() and "EMPIRE_TURSO_CUTOVER" in eco.read_text(encoding="utf-8"):
         problems.append("PM2 harness: cutover is opt-in (EMPIRE_TURSO_CUTOVER). Confirm the "
                         "running processes were started WITH it — "
                         'python -c "import supabase; print(supabase.create_client.__module__)"')
+
+    # Off-machine writers are the ones this gate has been blindest to. The VPS
+    # runs SunBiz-Agent plus three daemons that no check here can see, and the
+    # traffic gate proves something is still writing without naming where.
+    problems.append(
+        "VPS: no check here can see it. Confirm the switch is installed there "
+        "(python scripts/install_python_switch.py) and its PM2 processes were "
+        "restarted with EMPIRE_TURSO_CUTOVER=1, or those daemons keep writing "
+        "to a cancelled database.")
+
     return {"pass": not problems, "problems": problems}
 
 
