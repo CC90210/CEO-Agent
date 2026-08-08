@@ -55,3 +55,5 @@ pyarrow==24.0.0
 # On Windows with a CPU-only setup you may need:
 #     pip install torch --index-url https://download.pytorch.org/whl/cpu
 #     pip install openai-whisper
+libsql>=0.1.11
+sqlglot>=30.7.0

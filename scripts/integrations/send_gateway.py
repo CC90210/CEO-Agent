@@ -196,6 +196,15 @@ except ImportError:
         return False
 
 try:
+    # (ok, reason) variant. notify()'s bare bool reads False for BOTH "deduped"
+    # and "failed", so callers that LOG a failure need the reason or they report
+    # a bug that isn't there.
+    from notify import notify_result as _telegram_notify_result  # noqa: F401
+except ImportError:
+    def _telegram_notify_result(*_a: Any, **_kw: Any) -> tuple[bool, str]:  # type: ignore[misc]
+        return False, "failed"
+
+try:
     from draft_critic import critique_draft  # noqa: F401
 except ImportError:
     def critique_draft(*_a: Any, **_kw: Any) -> dict:  # type: ignore[misc]
@@ -251,6 +260,7 @@ KNOWN_AGENT_SOURCES: frozenset[str] = frozenset({
     "email_engine",
     "booking_engine",
     "n8n_inbound",
+    "inbound_nurture",   # autonomous reply to a lead's inbound message (2026-08-01 policy)
     "manual_cc",
     "scheduler",
     "test_harness",
@@ -302,6 +312,34 @@ def _is_operator_initiated(agent_source: str) -> bool:
     """
     return (agent_source or "").strip().lower() in OPERATOR_INITIATED_SOURCES
 
+# 2026-08-01 policy change (CC, operator-approved): inbound nurture
+# responses send AUTONOMOUSLY. These callers exist to answer a lead's
+# inbound message, so for them the reply-since-last-outbound gate is
+# INVERTED — an inbound last-touch is exactly the trigger for the send,
+# not a reason to block and hand off to the operator.
+#
+# That ONE gate is skipped for these sources. They remain subject to
+# every other gate — kill switch, suppression, manual pause, sentinel
+# pause, send window, empty recipient, 90-min inter-touch gap,
+# cooldowns, hourly/daily caps — so this is NOT an operator-initiated
+# bypass and these sources must never be added to
+# OPERATOR_INITIATED_SOURCES. Every successful autonomous-nurture send
+# fires an immediate Telegram log ping to CC (see
+# _notify_autonomous_nurture_sent).
+AUTONOMOUS_NURTURE_SOURCES: frozenset[str] = frozenset({
+    "inbound_nurture",   # email_brain auto-reply path (send_reply_via_gateway)
+    "n8n_inbound",       # n8n inbound-reply workflow sends
+})
+
+
+def _is_autonomous_nurture(agent_source: str) -> bool:
+    """True if the send is an autonomous reply to a lead's inbound
+    message. Such sends skip ONLY the reply-since-last-outbound gate
+    (inverted for them by design); every other hygiene + compliance
+    gate still applies.
+    """
+    return (agent_source or "").strip().lower() in AUTONOMOUS_NURTURE_SOURCES
+
 # Canonical channel tags.
 KNOWN_CHANNELS: frozenset[str] = frozenset(DEFAULT_COOLDOWNS.keys())
 
@@ -315,13 +353,13 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
     "oasis": {
         "business_name": "OASIS AI Solutions",
         "sender_name": "Conaugh McKenna",
-        "business_address": "OASIS AI Solutions, Collingwood, ON, Canada",
+        "business_address": "OASIS AI Solutions, Montreal, QC, Canada",
         "from_display": "Conaugh McKenna — OASIS AI",
     },
     "conaugh_mckenna": {
         "business_name": "Conaugh McKenna",
         "sender_name": "CC (Conaugh McKenna)",
-        "business_address": "Conaugh McKenna, Collingwood, ON, Canada",
+        "business_address": "Conaugh McKenna, Montreal, QC, Canada",
         "from_display": "Conaugh McKenna",
     },
     "nostalgic": {
@@ -608,6 +646,43 @@ def _maybe_notify_daily_cap_threshold(db: Any, channel: str, count: int, cap: Op
         pass
 
 
+def _notify_autonomous_nurture_sent(
+    agent_source: str,
+    channel: str,
+    *,
+    to_email: Optional[str] = None,
+    to_phone: Optional[str] = None,
+    subject: Optional[str] = None,
+) -> None:
+    """2026-08-01 policy: every successful autonomous inbound-nurture
+    reply fires an immediate Telegram log ping to CC. Best-effort —
+    a notify failure never crashes the send, but it IS logged to
+    stderr (no silent swallow)."""
+    if not _is_autonomous_nurture(agent_source):
+        return
+    recipient = to_email or to_phone or "unknown"
+    try:
+        text = (f"[SENT] Responded to Lead: {recipient} — "
+                f"{subject or '(no subject)'} [{channel}]")
+        # notify()'s bare bool reads False for BOTH "deduped" and "failed", so
+        # this line used to report a delivery failure for a ping that was simply
+        # suppressed — sending whoever read the log after a bug that wasn't
+        # there. Two replies to the same recipient inside the window is exactly
+        # when it fires (2026-08-03).
+        _, reason = _telegram_notify_result(text)
+        if reason == "failed":
+            print(
+                f"[send_gateway] autonomous-nurture Telegram ping failed "
+                f"for {recipient}",
+                file=sys.stderr,
+            )
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"[send_gateway] autonomous-nurture Telegram ping failed: {exc}",
+            file=sys.stderr,
+        )
+
+
 # ---- Lead resolution --------------------------------------------------------
 
 def resolve_lead_id(
@@ -829,6 +904,22 @@ def resolve_lead_id(
             # as before. Possible if there's a duplicate at the DB layer.
             return rows[0]["id"]
         # No existing row — auto-create tenantless (legacy / OASIS-personal).
+        #
+        # NOT gated by lead_contract.should_create_lead(), deliberately. A first
+        # attempt on 2026-08-04 did exactly that, to stop send-path probes like
+        # probe-send@e2e.invalid becoming permanent CRM rows. It returned None
+        # for an ineligible recipient — and None from THIS function is already a
+        # load-bearing refusal signal: send() at the `was_email_resolution_attempt`
+        # check turns it into {"status": "blocked", reason: cross-tenant
+        # ambiguity}. So a CRM-hygiene rule silently blocked real outbound mail
+        # to any no-reply or reserved-domain recipient, with a misleading reason.
+        # test_12_auto_create_lead caught it.
+        #
+        # The inbound guard handles 35 of the 37 junk rows. The 2 that arrive
+        # here are cheap to retire with scripts/purge_junk_leads.py, and that is
+        # a far better trade than putting a lead-hygiene predicate in the path
+        # of whether an email sends at all. Reinstating it needs the caller to
+        # distinguish "no lead, proceed" from "refused, stop" first.
         now = datetime.now(timezone.utc).isoformat()
         created = db.table("leads").insert({
             "name": norm.split("@")[0],
@@ -1365,6 +1456,11 @@ def can_act(
     # (kill switch, suppression, manual pause, empty recipient,
     # concurrent send) ignore the classification.
     operator_initiated = _is_operator_initiated(agent_source)
+    # 2026-08-01: autonomous inbound-nurture replies skip ONLY the
+    # reply-since-last-outbound gate (gates 2b below) — an inbound
+    # last-touch is their trigger, not a block. Every other gate
+    # (including the inter-touch gap and caps/cooldowns) still applies.
+    autonomous_nurture = _is_autonomous_nurture(agent_source)
 
     env = load_env()
     # Effective caps start at the static defaults; operating mode below
@@ -1501,11 +1597,17 @@ def can_act(
     # for automated nurture flows; operator bypasses both because a
     # lender reply on Deal A shouldn't block sending Deal B and operator
     # judgment > 90-min gap.
+    #
+    # 2026-08-01: autonomous-nurture sources skip ONLY gate 2b — for an
+    # inbound-reply caller, a lead's inbound last-touch is the send
+    # trigger, not a hand-off signal. The inter-touch gap (2c) still
+    # runs for them so two agents can't rapid-fire the same lead.
     if lead_id and not operator_initiated:
-        reason_reply = _check_reply_since_last_outbound(db, lead_id)
-        if reason_reply:
-            result.update(allowed=False, reason=reason_reply)
-            return result
+        if not autonomous_nurture:
+            reason_reply = _check_reply_since_last_outbound(db, lead_id)
+            if reason_reply:
+                result.update(allowed=False, reason=reason_reply)
+                return result
 
         reason_gap = _check_inter_touch_gap(db, lead_id, lead_data, now)
         if reason_gap:
@@ -3575,6 +3677,10 @@ def send(
         # send + log have both succeeded. Never blocks; never raises; never
         # mutates the gateway's return value.
         _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
+        # 2026-08-01: autonomous inbound-nurture sends ping CC on Telegram.
+        _notify_autonomous_nurture_sent(
+            agent_source, channel, to_email=to_email, subject=subject,
+        )
         return {"status": "sent",
                 "reason": "ok",
                 "lead_id": lead_id,
@@ -3790,6 +3896,9 @@ def send(
             acted_by_user_id=acted_by_user_id,
         )
         _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
+        _notify_autonomous_nurture_sent(
+            agent_source, channel, to_phone=to_phone, subject=subject,
+        )
         return {"status": "sent",
                 "reason": f"sms via {provider_choice}",
                 "lead_id": lead_id,
@@ -3830,6 +3939,9 @@ def send(
     # happened — downstream subscribers care that send_gateway approved
     # the action, not which engine eventually delivered it.
     _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
+    _notify_autonomous_nurture_sent(
+        agent_source, channel, to_email=to_email, subject=subject,
+    )
     return {"status": "sent",
             "reason": "non-email channel: logged only, engine performs physical send",
             "lead_id": lead_id,
@@ -3847,6 +3959,24 @@ def _print_json(obj: Any) -> None:
 
 
 _ATTACHMENT_BUCKET = "lead-documents"
+
+
+class AttachmentResolutionError(RuntimeError):
+    """A requested attachment could not be materialized, so nothing is sent.
+
+    This exists because the previous behaviour was to log each failure to stderr
+    and carry on: a 3-of-3 shop-out quietly became 2-of-3, and an all-failed
+    resolve returned None, which send() reads as "this caller attached nothing."
+    A funder then receives a shop-out email with no contract and no bank
+    statements, and every log line says the send succeeded.
+
+    That was survivable while the bytes lived in Supabase Storage and a failure
+    meant one transient 5xx. Under EMPIRE_DATA_BACKEND=turso_cloud the objects
+    are in R2, and a misconfiguration fails EVERY attachment at once — the exact
+    shape that turns a silent skip into a package of nothing. So the rule is now
+    all-or-nothing: if the operator asked for attachments, either every one of
+    them is on the message or no message goes out.
+    """
 
 
 def _resolve_cli_attachments(args) -> list[dict] | None:
@@ -3874,9 +4004,13 @@ def _resolve_cli_attachments(args) -> list[dict] | None:
          here at the storage boundary.
       3. Drop entries with "..", absolute paths, or empty segments.
 
-    Per-file failure logs to stderr and skips that file — a 3-of-3 send
-    is better than 0-of-3 if one PDF is unreachable. send() handles
-    attachments=None for legacy callers.
+    ALL-OR-NOTHING. Any entry that cannot be materialized — malformed
+    JSON, a path outside the caller's tenant, an object missing from
+    storage — raises AttachmentResolutionError and the send is abandoned.
+    This used to skip the failed file and send the rest; see that
+    exception's docstring for why a partial shop-out package is worse
+    than no email at all. send() still handles attachments=None for
+    callers that passed no --attachments.
 
     The DICT KEY for the MIME type is 'content_type' (NOT 'mime_type') to
     match send()'s expected shape per its docstring.
@@ -3886,23 +4020,34 @@ def _resolve_cli_attachments(args) -> list[dict] | None:
         return None
     try:
         entries = json.loads(raw)
-        if not isinstance(entries, list):
-            print(f"[send_gateway] --attachments must be a JSON array, got {type(entries).__name__}", file=sys.stderr)
-            return None
     except json.JSONDecodeError as exc:
-        print(f"[send_gateway] --attachments JSON parse failed: {exc}", file=sys.stderr)
-        return None
+        raise AttachmentResolutionError(
+            f"--attachments is not valid JSON ({exc}); refusing to send an email "
+            f"whose attachments were requested but could not be read") from exc
+    if not isinstance(entries, list):
+        raise AttachmentResolutionError(
+            f"--attachments must be a JSON array, got {type(entries).__name__}")
+
+    # Path normalization is shared with the R2 adapter so both backends agree on
+    # what a stored pointer means. Imported locally: this module is the outbound
+    # chokepoint and runs on Supabase too when the flag is off — nothing at
+    # import time should depend on the storage backend.
+    from lib.r2_storage import normalize_object_path  # noqa: PLC0415
 
     tenant_id = (getattr(args, "tenant_id", None) or "").strip()
     db = get_supabase()
     materialized: list[dict] = []
-    for entry in entries:
+    failures: list[str] = []
+    for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
+            failures.append(f"entry #{index}: expected an object, got "
+                            f"{type(entry).__name__}")
             continue
         raw_path = str(entry.get("storage_path") or "").strip()
-        if not raw_path:
-            continue
         filename = str(entry.get("filename") or "attachment.bin")
+        if not raw_path:
+            failures.append(f"{filename}: no storage_path")
+            continue
         # Caller may send 'mime_type' (legacy / dashboard payload) or
         # 'content_type' (send() native). Accept either; forward as
         # 'content_type' to match send()'s contract.
@@ -3911,37 +4056,52 @@ def _resolve_cli_attachments(args) -> list[dict] | None:
         )
 
         # Same normalization shop_out_sender uses (bucket-prefix strip,
-        # tenant-prefix enforcement, traversal-token reject).
-        path = raw_path.replace("\\", "/").strip().lstrip("/")
-        if path.startswith(f"{_ATTACHMENT_BUCKET}/"):
-            path = path[len(_ATTACHMENT_BUCKET) + 1:]
+        # tenant-prefix enforcement, traversal-token reject) — plus the URL
+        # form. The R2 migration repointed lead_documents.storage_path at an
+        # absolute r2.dev URL, so the dashboard now hands this tool
+        # "https://<host>/lead-documents/<tenant>/<file>". Reducing it to the
+        # bucket-relative path FIRST is what keeps the tenant guard below
+        # meaningful: without it every path fails on parts[0] == "https:", which
+        # reads as a tenant mismatch and hides a plain format change behind a
+        # security refusal.
+        try:
+            path = normalize_object_path(_ATTACHMENT_BUCKET, raw_path)
+        except Exception as exc:
+            failures.append(f"{filename}: unusable storage_path {raw_path[:120]!r} ({exc})")
+            continue
         parts = [p for p in path.split("/") if p]
         if not parts or ".." in parts:
-            print(f"[send_gateway] attachment {filename}: rejected malformed path", file=sys.stderr)
+            failures.append(f"{filename}: malformed storage_path {raw_path!r}")
             continue
         # Confused-deputy: when --tenant-id is provided, require the first
         # path segment to match. shop_out_sender enforces this; we mirror.
         if tenant_id and parts[0] != tenant_id:
-            print(
-                f"[send_gateway] attachment {filename}: storage_path tenant prefix "
-                f"{parts[0]} != caller tenant {tenant_id}; rejected",
-                file=sys.stderr,
-            )
+            failures.append(
+                f"{filename}: storage_path tenant prefix {parts[0]} != caller "
+                f"tenant {tenant_id}")
             continue
         key = "/".join(parts)
         try:
+            # Under EMPIRE_DATA_BACKEND=turso_cloud this resolves to Cloudflare
+            # R2 via lib/r2_storage.py (key `lead-documents/<path>`); otherwise
+            # to Supabase Storage. Both raise on a miss — neither returns empty.
             content = db.storage.from_(_ATTACHMENT_BUCKET).download(key)
-            if not isinstance(content, (bytes, bytearray)) or not content:
-                print(f"[send_gateway] attachment {filename}: empty/non-bytes download from {key}", file=sys.stderr)
-                continue
-            materialized.append({
-                "filename": filename,
-                "content": bytes(content),
-                "content_type": content_type,
-            })
         except Exception as exc:
-            print(f"[send_gateway] attachment {filename}: download failed ({exc!s:.200})", file=sys.stderr)
+            failures.append(f"{filename}: download failed from {key} ({exc!s:.200})")
             continue
+        if not isinstance(content, (bytes, bytearray)) or not content:
+            failures.append(f"{filename}: empty/non-bytes download from {key}")
+            continue
+        materialized.append({
+            "filename": filename,
+            "content": bytes(content),
+            "content_type": content_type,
+        })
+
+    if failures:
+        raise AttachmentResolutionError(
+            f"{len(failures)} of {len(entries)} attachment(s) could not be read; "
+            f"nothing was sent — " + "; ".join(failures))
     return materialized or None
 
 
@@ -3959,10 +4119,22 @@ def _cmd_send(args) -> int:
         to_email = args.to
         to_phone = args.to_phone  # in case a caller wants both, but normally None for email
 
-    # Materialize attachments from --attachments JSON. Downloads each
-    # storage_path from Supabase Storage and packages as the dict shape
-    # send() expects. None when --attachments was absent or invalid.
-    attachments = _resolve_cli_attachments(args)
+    # Materialize attachments from --attachments JSON: each storage_path is
+    # downloaded (R2 under turso_cloud, Supabase Storage otherwise) and packaged
+    # as the dict shape send() expects. None only when --attachments was absent.
+    # If ANY requested attachment cannot be read we abort before send() — a
+    # shop-out email that reaches a funder without the contract is the failure
+    # this gate exists to prevent, and it is not recoverable after the fact.
+    try:
+        attachments = _resolve_cli_attachments(args)
+    except AttachmentResolutionError as exc:
+        if args.output_json:
+            _print_json({"status": "blocked", "reason": "attachments_unavailable",
+                         "detail": str(exc)})
+        else:
+            print(f"[send_gateway] ABORTED — attachments unavailable: {exc}",
+                  file=sys.stderr)
+        return 2
 
     result = send(
         channel=args.channel,

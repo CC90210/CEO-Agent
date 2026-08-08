@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-08T16:49:24.946726+00:00",
-  "script_count": 123,
-  "entry_count": 294,
+  "generated_at_iso": "2026-08-08T22:58:32.618009+00:00",
+  "script_count": 127,
+  "entry_count": 298,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -882,6 +882,14 @@
       "subcmd": "stats",
       "mutating": true,
       "help": "Inbound Classifier \u2014 the second half of V5.6's chokepoint. \u2014 subcommand: stats"
+    },
+    {
+      "key": "install_python_switch",
+      "path": "scripts/install_python_switch.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Install the Turso data-backend switch into the active venv."
     },
     {
       "key": "send_gateway_send",
@@ -1875,6 +1883,14 @@
       "help": "smoke_n8n_inbound_rpc.py \u2014 end-to-end smoke test for the n8n inbound bridge."
     },
     {
+      "key": "supabase_cancellation_gate",
+      "path": "scripts/supabase_cancellation_gate.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Can Supabase be cancelled? One command, one answer, no judgement calls."
+    },
+    {
       "key": "system_health",
       "path": "scripts/system_health.py",
       "root": "bravo",
@@ -1929,6 +1945,22 @@
       "subcmd": null,
       "mutating": true,
       "help": "Voice Note Transcriber \u2014 converts audio to text using OpenAI Whisper (local)."
+    },
+    {
+      "key": "turso_cred_fingerprint",
+      "path": "scripts/turso_cred_fingerprint.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Fingerprint the Turso credentials so two machines can be compared safely."
+    },
+    {
+      "key": "turso_vps_bundle",
+      "path": "scripts/turso_vps_bundle.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Write the VPS's Turso credentials to a file for scp, and fingerprint them."
     },
     {
       "key": "update_readme_stats",

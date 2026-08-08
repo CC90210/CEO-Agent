@@ -76,7 +76,7 @@ _VALID_INTENTS = frozenset({"commercial", "transactional", "internal"})
 #
 # Before this block, _build_message called build_casl_footer(to_email) bare and
 # render_branded_html without a brand — so every daemon-drained SunBiz lead
-# email signed "Conaugh McKenna — OASIS AI Solutions, Collingwood, ON, Canada"
+# email signed "Conaugh McKenna — OASIS AI Solutions, Montreal, QC, Canada"
 # inside an OASIS-branded shell. Wrong person, wrong company, wrong country.
 # It went unnoticed only because the daemon itself was down (2026-06-28..07-07
 # stall) and the synchronous Vercel routes did their own compose.
@@ -98,7 +98,7 @@ _DEFAULT_BRAND = "oasis"
 _BRAND_FOOTER_IDENTITY: dict[str, dict[str, str]] = {
     "oasis": {
         "business_name": "OASIS AI Solutions",
-        "business_address": "OASIS AI Solutions, Collingwood, ON, Canada",
+        "business_address": "OASIS AI Solutions, Montreal, QC, Canada",
         "sender_name": "Conaugh McKenna",
     },
     "sunbiz": {
