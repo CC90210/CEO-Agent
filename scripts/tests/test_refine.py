@@ -178,7 +178,74 @@ def test_harness_eval_is_volatile_unkeyed_and_stable_keyed():
 
 
 # --------------------------------------------------------------------------
-# 3. capability metadata contract
+# 3. the gate decision
+# --------------------------------------------------------------------------
+def _ev(exit_code, value):
+    return {"exit": exit_code, "value": value}
+
+
+# (label, before, after, key, expect_rejected)
+GATE_CASES = [
+    # The two Codex [high]/[medium] findings, as regressions.
+    ("edit BROKE an unkeyed command: 0 -> 1, output identical",
+     _ev(0, ""), _ev(1, ""), None, True),
+    ("only the exit code moved; the keyed value sat still",
+     _ev(1, '"9/10"'), _ev(0, '"9/10"'), "score", True),
+    # Genuine improvements must still pass.
+    ("keyed improvement 9/10 -> 10/10",
+     _ev(1, '"9/10"'), _ev(0, '"10/10"'), "score", False),
+    ("keyed red->green: exit stays 1, score moves 8 -> 9",
+     _ev(1, '"8/10"'), _ev(1, '"9/10"'), "score", False),
+    ("unkeyed, clean run, output changed",
+     _ev(0, "a"), _ev(0, "b"), None, False),
+    # No measurement happened.
+    ("evidence key vanished after the edit",
+     _ev(0, '"9/10"'), _ev(0, "<key-missing>"), "score", True),
+    ("command could not execute (127)",
+     _ev(0, "x"), _ev(127, "<could not execute>"), None, True),
+    ("command timed out (124)",
+     _ev(0, "x"), _ev(124, "<timeout>"), None, True),
+    ("124 rejects even when keyed and the value looks fine",
+     _ev(0, '"1"'), _ev(124, '"2"'), "score", True),
+    # The base case.
+    ("nothing changed at all", _ev(0, "same"), _ev(0, "same"), None, True),
+]
+
+
+@pytest.mark.parametrize(
+    "label,before,after,key,expect_rejected",
+    GATE_CASES,
+    ids=[c[0] for c in GATE_CASES],
+)
+def test_gate_verdict(label, before, after, key, expect_rejected):
+    verdict = refine.gate_verdict(before, after, key)
+    if expect_rejected:
+        assert verdict is not None, f"gate ACCEPTED what it must reject: {label}"
+    else:
+        assert verdict is None, f"gate REJECTED a genuine improvement: {label} ({verdict})"
+
+
+def test_gate_rejection_reasons_are_distinguishable():
+    """An operator has to be able to tell WHY it was rejected, not just that it was."""
+    broke = refine.gate_verdict(_ev(0, ""), _ev(1, ""), None)
+    static = refine.gate_verdict(_ev(0, "x"), _ev(0, "x"), None)
+    missing = refine.gate_verdict(_ev(0, "x"), _ev(0, "<key-missing>"), "score")
+    assert "broke" in broke
+    assert "no measured effect" in static
+    assert "vanished" in missing
+    assert len({broke, static, missing}) == 3
+
+
+def test_gate_is_pure():
+    """It must not mutate its inputs — apply_refinement stores them afterwards."""
+    before, after = _ev(0, "a"), _ev(0, "b")
+    snapshot = (dict(before), dict(after))
+    refine.gate_verdict(before, after, None)
+    assert (before, after) == snapshot
+
+
+# --------------------------------------------------------------------------
+# 4. capability metadata contract
 # --------------------------------------------------------------------------
 def test_capability_meta_satisfies_the_contract():
     from lib.capability_metadata import validate_capability_meta

@@ -281,14 +281,24 @@ def _routing_evidence(text: str) -> str:
 
 
 def _measure(cmd: str) -> dict | None:
-    """Run an evidence command via refine.py's runner. Reuse, not a second copy."""
+    """Run an evidence command via refine.py's runner. Reuse, not a second copy.
+
+    Returns None only when measurement genuinely could not run, and SAYS SO on
+    stderr. The first version caught bare `Exception` and returned None, which
+    made "routing did not change" indistinguishable from "we never looked" — the
+    silent-swallow defect (Anti-Slop #2) this very release fixed in auto_heal.
+    """
     try:
         from core.refine import run_evidence
-    except ImportError:
+    except ImportError as exc:
+        print(f"  [warn] routing measurement skipped: cannot import refine ({exc})",
+              file=sys.stderr)
         return None
     try:
         return run_evidence(cmd, None)
-    except Exception:  # measurement must never break a promotion
+    except (OSError, ValueError) as exc:
+        print(f"  [warn] routing measurement skipped: {cmd!r} failed to run ({exc})",
+              file=sys.stderr)
         return None
 
 
@@ -363,10 +373,25 @@ def promote(text: str, kind: str, apply: bool, measure: bool = False) -> dict:
     target.write_text(body, encoding="utf-8")
     result["applied"] = True
 
-    if before is not None:
+    if measure:
+        if before is None:
+            # Say it out loud rather than reporting a bare success.
+            result["routing"] = {
+                "evidence_cmd": ev_cmd,
+                "changed": None,
+                "note": "NOT MEASURED — the baseline evidence run failed (see warning above)",
+            }
+            return result
         _measure("python scripts/build_capability_graph.py")  # the resolver reads the graph
         after = _measure(ev_cmd)
-        moved = bool(after and after.get("digest") != before.get("digest"))
+        if after is None:
+            result["routing"] = {
+                "evidence_cmd": ev_cmd,
+                "changed": None,
+                "note": "NOT MEASURED — the post-scaffold evidence run failed (see warning above)",
+            }
+            return result
+        moved = after.get("digest") != before.get("digest")
         result["routing"] = {
             "evidence_cmd": ev_cmd,
             "changed": moved,

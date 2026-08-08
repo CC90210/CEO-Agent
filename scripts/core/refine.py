@@ -493,6 +493,48 @@ def _update(rid: int, **fields) -> None:
         conn.close()
 
 
+def gate_verdict(before: dict, after: dict, key: str | None) -> str | None:
+    """THE GATE. Returns a rejection reason, or None to accept.
+
+    Pure and side-effect free so it can be tested directly — extracted from
+    `apply_refinement` on 2026-08-08 because the single most important decision
+    in this tool was only reachable through a live file edit, and the "proof" I
+    first wrote reimplemented the rules instead of exercising them. A gate
+    verified by a copy of itself is not verified.
+
+    Two questions, in order: did a measurement actually happen, and did the
+    measured VALUE move?
+
+    Compares `value`, never `digest`. The digest folds in the exit code, so an
+    edit that only flipped the exit code would read as a delta while the measured
+    number sat still (Codex adversarial audit, 2026-08-08).
+
+    Exit codes are judged by whether the command carries a result channel:
+      * keyed   — the exit code is a RESULT, not a failure. `harness_eval --json`
+        exits 1 whenever the harness is imperfect; it is 9/10 today. Demanding
+        exit 0 would reject the very evidence command the skill documents. The
+        key being present is the proof a measurement happened.
+      * unkeyed — the output IS the value, so a crash changes it and mimics a
+        delta. Here exit 0 after the edit is required.
+    124 (timeout) and 127 (could not execute) mean no measurement happened.
+    """
+    measured_before = before.get("value")
+    measured_after = after.get("value")
+
+    if after.get("exit") in (124, 127):
+        return f"evidence command could not produce a measurement (exit {after.get('exit')})"
+    if measured_after == "<key-missing>":
+        return f"evidence key '{key}' vanished after the edit — nothing to compare"
+    if not key and after.get("exit") != 0:
+        return (
+            f"unkeyed evidence command failed after the edit (exit {after.get('exit')}) — "
+            "it changed because it broke, which is not an improvement"
+        )
+    if measured_after == measured_before:
+        return f"no measured effect — evidence unchanged ({str(measured_after)[:120]})"
+    return None
+
+
 def apply_refinement(rid: int, approve: bool = False) -> dict:
     row = _get(rid)
     if row is None:
@@ -536,38 +578,7 @@ def apply_refinement(rid: int, approve: bool = False) -> dict:
     except (json.JSONDecodeError, ValueError):
         before = {}
 
-    # THE GATE — the branch prime-agent does not have. Two questions, in order:
-    # did a measurement actually happen, and did the measured VALUE move?
-    #
-    # Compare `value`, never `digest`. The digest folds in the exit code, so an
-    # edit that only flipped the exit code would read as a delta while the
-    # measured number sat still (Codex adversarial audit, 2026-08-08).
-    #
-    # Exit codes are handled by whether the command carries a result channel:
-    #   * keyed  — the exit code is a RESULT, not a failure. `harness_eval --json`
-    #     exits 1 whenever the harness is imperfect; it is 9/10 today. Demanding
-    #     exit 0 would reject the very evidence command the skill documents. The
-    #     key being present is the proof a measurement happened.
-    #   * unkeyed — the output IS the value, so a crash changes it and looks like
-    #     a delta. Here exit 0 after the edit is required.
-    # 124/127 mean no measurement happened at all and always reject.
-    key = row["evidence_key"]
-    measured_before = before.get("value")
-    measured_after = after["value"]
-
-    reject: str | None = None
-    if after["exit"] in (124, 127):
-        reject = f"evidence command could not produce a measurement (exit {after['exit']})"
-    elif measured_after == "<key-missing>":
-        reject = f"evidence key '{key}' vanished after the edit — nothing to compare"
-    elif not key and after["exit"] != 0:
-        reject = (
-            f"unkeyed evidence command failed after the edit (exit {after['exit']}) — "
-            "it changed because it broke, which is not an improvement"
-        )
-    elif measured_after == measured_before:
-        reject = f"no measured effect — evidence unchanged ({str(measured_after)[:120]})"
-
+    reject = gate_verdict(before, after, row["evidence_key"])
     if reject:
         target.write_text(before_body, encoding="utf-8")
         _update(
