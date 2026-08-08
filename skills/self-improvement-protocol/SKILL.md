@@ -132,6 +132,14 @@ Cite sources in the skill's frontmatter + examples section.
 
 ## Protocol 4 — SELF-IMPROVE (learn from outcomes)
 
+> **Making a lesson permanent (V7.6, Bravo):** logging below records what happened.
+> When the lesson should *change the harness* — a rule, a memory entry, a skill, a
+> subagent spec — route it through [[skills/harness-refinement]], which requires an
+> executed command as evidence and auto-reverts any edit that moves nothing. Entry
+> points and `brain/` can never auto-apply there; they queue in
+> `memory/PROPOSED_CHANGES.md` for CC. Contract: [[docs/adr/0015-evidence-gated-harness-refinement]].
+> Bravo-only for now — Maven/Atlas keep the prose path until the gate has proven itself.
+
 ### Mistake logging (required)
 On every failure or CC correction:
 1. Write to `memory/MISTAKES.md` with structured entry:

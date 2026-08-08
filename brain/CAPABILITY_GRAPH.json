@@ -1,16 +1,16 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-08T04:03:23.385903+00:00",
+  "generated_at": "2026-08-08T04:11:57.885218+00:00",
   "totals": {
-    "skills": 160,
-    "scripts": 147,
+    "skills": 161,
+    "scripts": 148,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 398,
+    "nodes_total": 400,
     "edges_total": 165,
     "drift_count": 1
   },
@@ -2660,6 +2660,48 @@
         "env": [],
         "daemons": [],
         "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:harness-refinement",
+      "kind": "skill",
+      "name": "harness-refinement",
+      "path": "skills/harness-refinement/SKILL.md",
+      "description": "Propose, measure, apply and roll back changes to Bravo's own prompts, memory, skills and subagent specs \u2014 with an executed command as the evidence gate. A refinement that cannot show a before/after delta on a real command is auto-reverted, never merged. Use when a lesson should b",
+      "tier": "T2",
+      "owner": "bravo",
+      "risk": "medium",
+      "triggers": [
+        "refine the harness",
+        "propose a change to my own rules",
+        "change an agent rule",
+        "queue a proposed change for CC",
+        "roll back a harness refinement",
+        "apply a refinement",
+        "show the refinement ledger",
+        "make this lesson permanent",
+        "prove this change helped"
+      ],
+      "tags": [
+        "skill",
+        "self-improvement",
+        "governance",
+        "refinement",
+        "v7.6",
+        "evidence"
+      ],
+      "status": "NEW",
+      "disable_model_invocation": false,
+      "argument_hint": "What should change, and what command would prove it worked?",
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": [
+          "state/empire_state.db"
+        ]
       },
       "archived": null,
       "superseded_by": null,
@@ -5339,6 +5381,16 @@
       "name": "apply_migration",
       "path": "scripts/apply_migration.py",
       "description": "Apply SQL migration files to the Bravo Supabase project.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:apply_missing_tables",
+      "kind": "script",
+      "name": "apply_missing_tables",
+      "path": "scripts/apply_missing_tables.py",
+      "description": "Create tables that exist in Postgres but not yet in Turso.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
