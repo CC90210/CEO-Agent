@@ -115,7 +115,11 @@ def cmd_export(out_dir: Path) -> int:
         "tenant_id": SUNBIZ_TENANT_ID,
         "tables": {},
         "skipped_tables": {},
-        "storage": {"bucket": DOC_BUCKET, "objects": 0, "bytes": 0, "failed": 0},
+        "storage": {"bucket": DOC_BUCKET, "objects": 0, "bytes": 0, "failed": 0,
+                    # Objects the tenant-prefix guard refused. Counted, not
+                    # silently dropped — see the guard for why either cause
+                    # matters.
+                    "skipped_foreign": 0},
     }
 
     for table in TABLES:
@@ -140,10 +144,38 @@ def cmd_export(out_dir: Path) -> int:
         doc_rows = _page_table(sb, "lead_documents")
     except Exception:
         doc_rows = []
+    from lib.r2_storage import normalize_object_path  # noqa: PLC0415
+
     for d in doc_rows:
-        sp = (d.get("storage_path") or "").strip()
-        if not sp or not sp.startswith(SUNBIZ_TENANT_ID):
+        raw_sp = (d.get("storage_path") or "").strip()
+        if not raw_sp:
+            continue
+        # The R2 migration rewrote this column to an absolute r2.dev URL, so the
+        # tenant test below stopped matching ANY row and every document was
+        # skipped — an export that reported success with zero documents in it.
+        # Normalize first, then apply the guard to the real path.
+        try:
+            sp = normalize_object_path(DOC_BUCKET, raw_sp)
+        except Exception as exc:  # noqa: BLE001
+            manifest["storage"]["failed"] += 1
+            print(f"  storage UNUSABLE PATH {raw_sp[:60]}...: {str(exc)[:80]}",
+                  file=sys.stderr)
+            continue
+        if not sp.startswith(SUNBIZ_TENANT_ID):
             # Hard guard: never pull an object outside the SunBiz tenant prefix.
+            # The guard stays; the SILENCE does not. This used to `continue`
+            # without counting or printing anything, so the object vanished from
+            # the backup and the run still reported "export OK" — an archive
+            # that is quietly missing documents is worse than one that admits it.
+            #
+            # Reaching here means one of two things, and both want attention:
+            # the row belongs to another tenant (alarming — the query above
+            # filters on tenant_id), or the stored path simply does not carry
+            # the tenant prefix, in which case this guard is over-matching and
+            # real documents are being dropped.
+            manifest["storage"]["skipped_foreign"] += 1
+            print(f"  storage SKIPPED (outside tenant prefix) {raw_sp[:60]}",
+                  file=sys.stderr)
             continue
         try:
             blob = sb.storage.from_(DOC_BUCKET).download(sp)
@@ -158,12 +190,37 @@ def cmd_export(out_dir: Path) -> int:
         manifest["storage"]["bytes"] += len(blob)
 
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    print(
-        f"export OK: {len(manifest['tables'])} tables, "
+    summary = (
+        f"{len(manifest['tables'])} tables, "
         f"{sum(manifest['tables'].values())} rows, "
         f"{manifest['storage']['objects']} storage objects "
         f"({manifest['storage']['bytes']} bytes)"
     )
+    # A backup that could not read N documents is not an OK backup. This used to
+    # print "export OK" with the failure count buried in the manifest, which is
+    # how an archive gets trusted for a restore it cannot actually perform —
+    # and under EMPIRE_DATA_BACKEND=turso_cloud a missing R2 credential fails
+    # EVERY object at once while the table export still succeeds.
+    unreadable = manifest["storage"]["failed"]
+    skipped = manifest["storage"]["skipped_foreign"]
+    if unreadable or skipped:
+        parts = []
+        if unreadable:
+            parts.append(f"{unreadable} object(s) UNREADABLE (see the MISS lines)")
+        if skipped:
+            parts.append(
+                f"{skipped} object(s) SKIPPED by the tenant-prefix guard (see the "
+                f"SKIPPED lines) — either they belong to another tenant, which "
+                f"should be impossible given the tenant_id filter, or the guard is "
+                f"over-matching and real documents were dropped")
+        print(
+            f"export INCOMPLETE: {summary}; " + "; ".join(parts) +
+            f". The tables are exported; the documents are not. "
+            f"Do not treat {out_dir} as a restorable backup.",
+            file=sys.stderr,
+        )
+        return 4
+    print(f"export OK: {summary}")
     return 0
 
 

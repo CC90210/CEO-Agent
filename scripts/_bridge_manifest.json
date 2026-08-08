@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-08T16:39:53.393221+00:00",
-  "script_count": 138,
-  "entry_count": 311,
+  "generated_at_iso": "2026-08-08T17:20:22.674313+00:00",
+  "script_count": 139,
+  "entry_count": 312,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -2065,6 +2065,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Voice Note Transcriber \u2014 converts audio to text using OpenAI Whisper (local)."
+    },
+    {
+      "key": "turso_cred_fingerprint",
+      "path": "scripts/turso_cred_fingerprint.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Fingerprint the Turso credentials so two machines can be compared safely."
     },
     {
       "key": "update_readme_stats",

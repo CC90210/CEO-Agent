@@ -98,11 +98,21 @@ def test_upsert_on_conflict(client):
     assert row["status"] == "hot" and row["score"] == 9
 
 
-def test_auth_and_storage_refuse_loudly(client):
+def test_auth_refuses_loudly(client):
     with pytest.raises(CompatError, match="did not migrate"):
         client.auth.get_user()
-    with pytest.raises(CompatError, match="did not migrate"):
-        client.storage.from_("bucket")
+
+
+def test_storage_is_r2_backed_not_a_refuser(client):
+    """`.storage` used to raise. It now resolves to R2 — see r2_storage.py.
+
+    Asserted here rather than only in test_r2_storage.py because the wiring is
+    what production depends on: send_gateway reaches storage through this
+    attribute, and a `_Refuser` left in place sends the funder an email with no
+    contract attached."""
+    from lib.r2_storage import R2Bucket
+
+    assert isinstance(client.storage.from_("lead-documents"), R2Bucket)
 
 
 def test_unknown_rpc_raises_never_noops(client):

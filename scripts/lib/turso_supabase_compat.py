@@ -16,8 +16,14 @@ WHAT IS FAITHFUL:
                 database/rpc_sources/ and ported line-by-line below); unknown
                 RPCs raise loudly — never a silent no-op.
 
-WHAT IS NOT PROVIDED: .auth and .storage raise with guidance (auth flows are the
-apps' concern; harness code never used them). Realtime channels likewise.
+  .storage      backed by Cloudflare R2 (lib/r2_storage.py), keys shaped
+                `<supabase-bucket>/<path>` — the same convention
+                etl_storage_to_r2.py uploaded with and lib/r2-storage.ts writes
+                with in the Next.js repos. Reads RAISE on a miss, matching
+                supabase-py, so a missing attachment can never become an empty one.
+
+WHAT IS NOT PROVIDED: .auth raises with guidance (auth flows are the apps'
+concern; harness code never used them). Realtime channels likewise.
 
 GUARD POSTURE. Calls run through lib.db_turso with allow_unscoped=True and an
 audit reason naming the calling module: the harness is CC's single-operator
@@ -43,6 +49,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from lib.db_turso import TursoDB, resolve_project_target  # noqa: E402
+from lib.r2_storage import storage_surface as r2_storage_surface  # noqa: E402
 from lib.structured_log import get_logger  # noqa: E402
 
 log = get_logger("turso_supabase_compat")
@@ -603,7 +610,17 @@ class TursoSupabaseCompat:
             db = TursoDB(url, token, mode)
         self._db = db
         self.auth = _Refuser("auth")
-        self.storage = _Refuser("storage")
+        # .storage used to be a _Refuser too. That was the right fail-closed
+        # default while there was nowhere for the bytes to come from, and the
+        # wrong answer once there was: three runtime paths read objects
+        # (send_gateway shop-out attachments, extraction_consumer's application
+        # PDF, the SunBiz tenant export), and a refusal there means a funder gets
+        # an email with no contract attached. Cloudflare R2 holds every migrated
+        # object at `<supabase-bucket>/<path>`, so .storage now points at it.
+        # Building the surface touches neither credentials nor the network — an
+        # unconfigured R2 fails at the read, naming the missing keys, rather than
+        # breaking every process that merely constructs a client.
+        self.storage = r2_storage_surface()
 
     def table(self, name: str) -> CompatQuery:
         return CompatQuery(self._db, name)

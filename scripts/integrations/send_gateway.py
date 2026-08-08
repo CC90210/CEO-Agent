@@ -3961,6 +3961,24 @@ def _print_json(obj: Any) -> None:
 _ATTACHMENT_BUCKET = "lead-documents"
 
 
+class AttachmentResolutionError(RuntimeError):
+    """A requested attachment could not be materialized, so nothing is sent.
+
+    This exists because the previous behaviour was to log each failure to stderr
+    and carry on: a 3-of-3 shop-out quietly became 2-of-3, and an all-failed
+    resolve returned None, which send() reads as "this caller attached nothing."
+    A funder then receives a shop-out email with no contract and no bank
+    statements, and every log line says the send succeeded.
+
+    That was survivable while the bytes lived in Supabase Storage and a failure
+    meant one transient 5xx. Under EMPIRE_DATA_BACKEND=turso_cloud the objects
+    are in R2, and a misconfiguration fails EVERY attachment at once — the exact
+    shape that turns a silent skip into a package of nothing. So the rule is now
+    all-or-nothing: if the operator asked for attachments, either every one of
+    them is on the message or no message goes out.
+    """
+
+
 def _resolve_cli_attachments(args) -> list[dict] | None:
     """Materialize --attachments JSON into the {filename, content, content_type}
     shape send() expects (per the send() docstring at line 2252).
@@ -3986,9 +4004,13 @@ def _resolve_cli_attachments(args) -> list[dict] | None:
          here at the storage boundary.
       3. Drop entries with "..", absolute paths, or empty segments.
 
-    Per-file failure logs to stderr and skips that file — a 3-of-3 send
-    is better than 0-of-3 if one PDF is unreachable. send() handles
-    attachments=None for legacy callers.
+    ALL-OR-NOTHING. Any entry that cannot be materialized — malformed
+    JSON, a path outside the caller's tenant, an object missing from
+    storage — raises AttachmentResolutionError and the send is abandoned.
+    This used to skip the failed file and send the rest; see that
+    exception's docstring for why a partial shop-out package is worse
+    than no email at all. send() still handles attachments=None for
+    callers that passed no --attachments.
 
     The DICT KEY for the MIME type is 'content_type' (NOT 'mime_type') to
     match send()'s expected shape per its docstring.
@@ -3998,23 +4020,34 @@ def _resolve_cli_attachments(args) -> list[dict] | None:
         return None
     try:
         entries = json.loads(raw)
-        if not isinstance(entries, list):
-            print(f"[send_gateway] --attachments must be a JSON array, got {type(entries).__name__}", file=sys.stderr)
-            return None
     except json.JSONDecodeError as exc:
-        print(f"[send_gateway] --attachments JSON parse failed: {exc}", file=sys.stderr)
-        return None
+        raise AttachmentResolutionError(
+            f"--attachments is not valid JSON ({exc}); refusing to send an email "
+            f"whose attachments were requested but could not be read") from exc
+    if not isinstance(entries, list):
+        raise AttachmentResolutionError(
+            f"--attachments must be a JSON array, got {type(entries).__name__}")
+
+    # Path normalization is shared with the R2 adapter so both backends agree on
+    # what a stored pointer means. Imported locally: this module is the outbound
+    # chokepoint and runs on Supabase too when the flag is off — nothing at
+    # import time should depend on the storage backend.
+    from lib.r2_storage import normalize_object_path  # noqa: PLC0415
 
     tenant_id = (getattr(args, "tenant_id", None) or "").strip()
     db = get_supabase()
     materialized: list[dict] = []
-    for entry in entries:
+    failures: list[str] = []
+    for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
+            failures.append(f"entry #{index}: expected an object, got "
+                            f"{type(entry).__name__}")
             continue
         raw_path = str(entry.get("storage_path") or "").strip()
-        if not raw_path:
-            continue
         filename = str(entry.get("filename") or "attachment.bin")
+        if not raw_path:
+            failures.append(f"{filename}: no storage_path")
+            continue
         # Caller may send 'mime_type' (legacy / dashboard payload) or
         # 'content_type' (send() native). Accept either; forward as
         # 'content_type' to match send()'s contract.
@@ -4023,37 +4056,52 @@ def _resolve_cli_attachments(args) -> list[dict] | None:
         )
 
         # Same normalization shop_out_sender uses (bucket-prefix strip,
-        # tenant-prefix enforcement, traversal-token reject).
-        path = raw_path.replace("\\", "/").strip().lstrip("/")
-        if path.startswith(f"{_ATTACHMENT_BUCKET}/"):
-            path = path[len(_ATTACHMENT_BUCKET) + 1:]
+        # tenant-prefix enforcement, traversal-token reject) — plus the URL
+        # form. The R2 migration repointed lead_documents.storage_path at an
+        # absolute r2.dev URL, so the dashboard now hands this tool
+        # "https://<host>/lead-documents/<tenant>/<file>". Reducing it to the
+        # bucket-relative path FIRST is what keeps the tenant guard below
+        # meaningful: without it every path fails on parts[0] == "https:", which
+        # reads as a tenant mismatch and hides a plain format change behind a
+        # security refusal.
+        try:
+            path = normalize_object_path(_ATTACHMENT_BUCKET, raw_path)
+        except Exception as exc:
+            failures.append(f"{filename}: unusable storage_path {raw_path[:120]!r} ({exc})")
+            continue
         parts = [p for p in path.split("/") if p]
         if not parts or ".." in parts:
-            print(f"[send_gateway] attachment {filename}: rejected malformed path", file=sys.stderr)
+            failures.append(f"{filename}: malformed storage_path {raw_path!r}")
             continue
         # Confused-deputy: when --tenant-id is provided, require the first
         # path segment to match. shop_out_sender enforces this; we mirror.
         if tenant_id and parts[0] != tenant_id:
-            print(
-                f"[send_gateway] attachment {filename}: storage_path tenant prefix "
-                f"{parts[0]} != caller tenant {tenant_id}; rejected",
-                file=sys.stderr,
-            )
+            failures.append(
+                f"{filename}: storage_path tenant prefix {parts[0]} != caller "
+                f"tenant {tenant_id}")
             continue
         key = "/".join(parts)
         try:
+            # Under EMPIRE_DATA_BACKEND=turso_cloud this resolves to Cloudflare
+            # R2 via lib/r2_storage.py (key `lead-documents/<path>`); otherwise
+            # to Supabase Storage. Both raise on a miss — neither returns empty.
             content = db.storage.from_(_ATTACHMENT_BUCKET).download(key)
-            if not isinstance(content, (bytes, bytearray)) or not content:
-                print(f"[send_gateway] attachment {filename}: empty/non-bytes download from {key}", file=sys.stderr)
-                continue
-            materialized.append({
-                "filename": filename,
-                "content": bytes(content),
-                "content_type": content_type,
-            })
         except Exception as exc:
-            print(f"[send_gateway] attachment {filename}: download failed ({exc!s:.200})", file=sys.stderr)
+            failures.append(f"{filename}: download failed from {key} ({exc!s:.200})")
             continue
+        if not isinstance(content, (bytes, bytearray)) or not content:
+            failures.append(f"{filename}: empty/non-bytes download from {key}")
+            continue
+        materialized.append({
+            "filename": filename,
+            "content": bytes(content),
+            "content_type": content_type,
+        })
+
+    if failures:
+        raise AttachmentResolutionError(
+            f"{len(failures)} of {len(entries)} attachment(s) could not be read; "
+            f"nothing was sent — " + "; ".join(failures))
     return materialized or None
 
 
@@ -4071,10 +4119,22 @@ def _cmd_send(args) -> int:
         to_email = args.to
         to_phone = args.to_phone  # in case a caller wants both, but normally None for email
 
-    # Materialize attachments from --attachments JSON. Downloads each
-    # storage_path from Supabase Storage and packages as the dict shape
-    # send() expects. None when --attachments was absent or invalid.
-    attachments = _resolve_cli_attachments(args)
+    # Materialize attachments from --attachments JSON: each storage_path is
+    # downloaded (R2 under turso_cloud, Supabase Storage otherwise) and packaged
+    # as the dict shape send() expects. None only when --attachments was absent.
+    # If ANY requested attachment cannot be read we abort before send() — a
+    # shop-out email that reaches a funder without the contract is the failure
+    # this gate exists to prevent, and it is not recoverable after the fact.
+    try:
+        attachments = _resolve_cli_attachments(args)
+    except AttachmentResolutionError as exc:
+        if args.output_json:
+            _print_json({"status": "blocked", "reason": "attachments_unavailable",
+                         "detail": str(exc)})
+        else:
+            print(f"[send_gateway] ABORTED — attachments unavailable: {exc}",
+                  file=sys.stderr)
+        return 2
 
     result = send(
         channel=args.channel,
