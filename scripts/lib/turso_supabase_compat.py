@@ -185,7 +185,19 @@ class CompatQuery:
         if "->" in col:
             segs = col.replace("->>", "->").split("->")
             root, path = segs[0], "$." + ".".join(segs[1:])
-            return f"json_extract(\"{root}\", '{path}')"
+            # json_valid guard, not a bare json_extract. SQLite raises "malformed
+            # JSON" and aborts the WHOLE statement if ANY scanned row holds
+            # non-JSON text in that column -- one bad row makes the query return
+            # nothing instead of returning the good rows. Postgres's ->> yields
+            # NULL for such a row and keeps going, so this matches the semantics
+            # the callers were written against.
+            #
+            # dashboard_email_consumer._fetch_queued wraps its query in
+            # try/except, prints to stderr and returns []. PM2 discards stderr,
+            # so without this a single malformed row silently stops the email
+            # queue draining, with no error anywhere.
+            return (f'CASE WHEN json_valid("{root}") '
+                    f"THEN json_extract(\"{root}\", '{path}') END")
         return f'"{col}"'
 
     def _op(self, col: str, op: str, value: Any):
@@ -459,11 +471,18 @@ def _rpc_claim_events(db: TursoDB, p: dict) -> list[dict]:
 
     claimed: list[dict] = []
     for c in candidates:
-        cur = db.execute(
+        # RETURNING, not rowcount: a remote Hrana cursor reports rowcount as
+        # -1/None often enough that db_turso.claim() was hardened against it.
+        # Trusting it here would build an empty `claimed` list while the UPDATEs
+        # really did land -- the events end up marked 'processing', claimed by
+        # nobody, and are never handled until reap_stuck_events happens to
+        # rescue them.
+        won = _returning(
+            db,
             'UPDATE "agent_events" SET status = ?, processed_by = ?, visibility_until = ? '
-            "WHERE id = ? AND status = 'pending'",
-            ["processing", agent, until, c["id"]], allow_unscoped=True, reason=reason)
-        if getattr(cur, "rowcount", 0) > 0:
+            "WHERE id = ? AND status = 'pending' RETURNING id",
+            ["processing", agent, until, c["id"]], reason)
+        if won:
             claimed.append(c["id"])
         if len(claimed) >= p_max:
             break
@@ -477,13 +496,17 @@ def _rpc_claim_events(db: TursoDB, p: dict) -> list[dict]:
 
 
 def _rpc_ack_event(db: TursoDB, p: dict) -> bool:
-    cur = db.execute(
+    # RETURNING rather than rowcount -- see the note in _rpc_claim_events. A
+    # false negative here makes a consumer believe its ack failed and reprocess
+    # an event that was in fact already marked done.
+    won = _returning(
+        db,
         'UPDATE "agent_events" SET status = ?, processed_at = ?, processed_by = ? '
-        "WHERE id = ? AND status IN ('processing', 'pending')",
+        "WHERE id = ? AND status IN ('processing', 'pending') RETURNING id",
         ["done", _now(), p.get("p_agent"), p.get("p_event_id")],
-        allow_unscoped=True, reason="python-compat rpc: ack_event")
+        "python-compat rpc: ack_event")
     db.commit()
-    return getattr(cur, "rowcount", 0) > 0
+    return bool(won)
 
 
 def _rpc_fail_event(db: TursoDB, p: dict) -> str:
@@ -603,6 +626,142 @@ def _rpc_record_inbound_from_n8n(db: TursoDB, p: dict) -> dict:
             "severity": severity, "received_at": now}
 
 
+def _returning(db: TursoDB, sql: str, args: list, reason: str) -> list[dict]:
+    """Run a statement with RETURNING and map its rows to dicts.
+
+    Everything that needs to know whether a conditional UPDATE actually matched
+    goes through here rather than reading cursor.rowcount. Remote Hrana cursors
+    report rowcount as -1/None often enough that db_turso.claim() was hardened
+    against exactly that, and a claim loop that trusts it silently reports "I
+    claimed nothing" while the UPDATEs really did land -- rows are then marked
+    in-flight and never processed by anyone. RETURNING is authoritative: a row
+    comes back if and only if the row was updated. SQLite has supported it since
+    3.35; Turso is 3.45.
+    """
+    cur = db.execute(sql, args, allow_unscoped=True, reason=reason)
+    try:
+        rows = cur.fetchall()
+    except Exception:  # noqa: BLE001 - a statement that returned nothing
+        return []
+    desc = getattr(cur, "description", None)
+    if not desc:
+        return []
+    cols = [d[0] for d in desc]
+    return [dict(zip(cols, r)) for r in (rows or [])]
+
+
+def _rpc_claim_sequence_state_row(db: TursoDB, p: dict) -> list[dict]:
+    """claim_sequence_state_row: the drip engine's race guard.
+
+    Source: SunBiz-Agent database/046_sequence_state_atomic_claim.sql. Two
+    workers (or a daemon overlapping a PM2 restart across a tick boundary) can
+    both read the same scheduled row and both physically dispatch the send --
+    send_gateway's cooldown is downstream and only catches it after the second
+    message has left for the lead. The claim is the guard.
+
+    Without this port every candidate row raises CompatError, sequence_runner
+    catches it per row and continues, and execution_tick processes ZERO rows on
+    every 10-second tick forever while pm2 reports the daemon healthy.
+
+    A non-empty return means this caller won and may dispatch.
+    """
+    reason = "python-compat rpc: claim_sequence_state_row"
+    rows = _returning(
+        db,
+        'UPDATE "sequence_state" SET claimed_at = ?, claimed_by = ? '
+        "WHERE id = ? AND status = 'scheduled' AND claimed_at IS NULL "
+        "RETURNING *",
+        [_now(), p.get("claimer") or "sequence_runner", p.get("row_id")],
+        reason)
+    db.commit()
+    return [_row_out(r) for r in rows]
+
+
+def _rpc_release_sequence_state_claim(db: TursoDB, p: dict) -> None:
+    """Clear a claim so the row is picked up again on the next tick.
+
+    Called after a cooldown / transient reschedule. Terminal statuses do not
+    need it -- the claimable index only matches status='scheduled'. Missing this
+    port would strand every cooldowned row as permanently claimed.
+    """
+    db.execute('UPDATE "sequence_state" SET claimed_at = NULL, claimed_by = NULL '
+               "WHERE id = ?", [p.get("row_id")], allow_unscoped=True,
+               reason="python-compat rpc: release_sequence_state_claim")
+    db.commit()
+    return None
+
+
+def _rpc_query_sql(db: TursoDB, p: dict) -> list[dict]:
+    """query_sql: read-only raw SQL, the bridge's primary database tool.
+
+    supabase_tool.py `query` calls this and sys.exit(2)s when it raises, so
+    without the port every raw-SQL question asked through the dashboard chat
+    (the claude-bridge daemon) dies.
+
+    allow_unscoped is deliberately NOT set: the sqlglot tenant guard in
+    db_turso judges the statement, which is a stricter boundary than the
+    Postgres original had -- there the caller's RLS context did the work, and
+    Turso has no RLS to fall back on.
+    """
+    sql = (p.get("sql_query") or p.get("query") or p.get("sql") or "").strip()
+    if not sql:
+        raise CompatError("query_sql called with no SQL")
+    return db.query(sql, [], reason="python-compat rpc: query_sql")
+
+
+def _rpc_exec_sql(db: TursoDB, p: dict) -> dict:
+    """exec_sql: statement execution used by the migration applier.
+
+    apply_migration.py treats a False return as "RPC unavailable" and falls
+    through to the Supabase Management API -- which means DDL lands in Supabase
+    while the ledger records it against Turso. After cancellation that branch
+    fails outright. Porting it keeps migrations on the backend the ledger names.
+    """
+    sql = (p.get("sql") or p.get("sql_query") or "").strip()
+    if not sql:
+        raise CompatError("exec_sql called with no SQL")
+    db.execute(sql, [], allow_unscoped=True, reason="python-compat rpc: exec_sql")
+    db.commit()
+    return {"status": "ok"}
+
+
+def _rpc_patch_tenant_record_data(db: TursoDB, p: dict) -> dict:
+    """patch_tenant_record_data: shallow merge into tenant_records.data.
+
+    Postgres did `data = data || patch` (jsonb concat). SQLite's json_patch is
+    the RFC-7386 merge, which matches for the flat objects this is called with
+    and additionally deletes keys whose value is null -- the same thing jsonb
+    concat does not do, so nulls are filtered out first to keep the semantics
+    identical.
+
+    Without this, pause_lead succeeds and resume_lead silently does nothing:
+    the lead stays paused with every surface reporting the resume worked.
+    """
+    reason = "python-compat rpc: patch_tenant_record_data"
+    rec_id = p.get("p_id") or p.get("record_id") or p.get("id")
+    tenant_id = p.get("p_tenant_id") or p.get("tenant_id")
+    patch = p.get("p_patch") or p.get("patch") or {}
+    if isinstance(patch, str):
+        patch = _from_sql(patch) or {}
+    # jsonb `||` overwrites with null rather than deleting; json_patch deletes.
+    patch = {k: v for k, v in dict(patch).items() if v is not None}
+
+    sql = ('UPDATE "tenant_records" SET data = json_patch(COALESCE(data, \'{}\'), ?) '
+           "WHERE id = ?")
+    args: list = [json.dumps(patch, separators=(",", ":")), rec_id]
+    if tenant_id:
+        sql += " AND tenant_id = ?"
+        args.append(tenant_id)
+    rows = _returning(db, sql + " RETURNING id", args, reason)
+    db.commit()
+    if not rows:
+        raise CompatError(
+            f"patch_tenant_record_data matched no row (id={rec_id!r}, "
+            f"tenant_id={tenant_id!r}). Refusing to report success for a patch "
+            f"that changed nothing.")
+    return {"status": "ok", "id": rows[0].get("id")}
+
+
 RPC_REGISTRY = {
     "record_inbound_from_n8n": _rpc_record_inbound_from_n8n,
     "reserve_send_slot": _rpc_reserve_send_slot,
@@ -611,6 +770,11 @@ RPC_REGISTRY = {
     "fail_event": _rpc_fail_event,
     "mark_event_consumed": _rpc_mark_event_consumed,
     "reap_stuck_events": _rpc_reap_stuck_events,
+    "claim_sequence_state_row": _rpc_claim_sequence_state_row,
+    "release_sequence_state_claim": _rpc_release_sequence_state_claim,
+    "query_sql": _rpc_query_sql,
+    "exec_sql": _rpc_exec_sql,
+    "patch_tenant_record_data": _rpc_patch_tenant_record_data,
 }
 
 
