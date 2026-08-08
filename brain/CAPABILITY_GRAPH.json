@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-07T00:10:14.228610+00:00",
+  "generated_at": "2026-08-08T04:03:23.385903+00:00",
   "totals": {
     "skills": 160,
-    "scripts": 140,
+    "scripts": 147,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 391,
-    "edges_total": 162,
+    "nodes_total": 398,
+    "edges_total": 165,
     "drift_count": 1
   },
   "nodes": [
@@ -5934,6 +5934,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:etl_storage_to_r2",
+      "kind": "script",
+      "name": "etl_storage_to_r2",
+      "path": "scripts/etl_storage_to_r2.py",
+      "description": "Publish the archived Supabase Storage objects to Cloudflare R2, then repoint every database row that references them.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:etl_supabase_to_turso",
       "kind": "script",
       "name": "etl_supabase_to_turso",
@@ -5959,6 +5969,16 @@
       "name": "fleet_health",
       "path": "scripts/fleet_health.py",
       "description": "fleet_health.py \u2014 Cross-agent health rollup.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:fleet_health_check",
+      "kind": "script",
+      "name": "fleet_health_check",
+      "path": "scripts/fleet_health_check.py",
+      "description": "Fleet health \u2014 is every app serving, on every hostname it actually answers on?",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6444,6 +6464,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:r2_split_public_bucket",
+      "kind": "script",
+      "name": "r2_split_public_bucket",
+      "path": "scripts/r2_split_public_bucket.py",
+      "description": "Split the migrated objects into a private and a public R2 bucket.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:reap_orphan_mcps",
       "kind": "script",
       "name": "reap_orphan_mcps",
@@ -6479,6 +6509,16 @@
       "name": "register_skill",
       "path": "scripts/register_skill.py",
       "description": "Register Skill \u2014 the skill-onboarding tool.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:repair_turso_fk_actions",
+      "kind": "script",
+      "name": "repair_turso_fk_actions",
+      "path": "scripts/repair_turso_fk_actions.py",
+      "description": "Restore the ON DELETE / ON UPDATE actions the transpiler dropped.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6805,6 +6845,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:supabase_cancellation_gate",
+      "kind": "script",
+      "name": "supabase_cancellation_gate",
+      "path": "scripts/supabase_cancellation_gate.py",
+      "description": "Can Supabase be cancelled? One command, one answer, no judgement calls.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:system_health",
       "kind": "script",
       "name": "system_health",
@@ -6850,6 +6900,16 @@
       "name": "update_readme_stats",
       "path": "scripts/update_readme_stats.py",
       "description": "update_readme_stats.py \u2014 keep README.md (and any other doc) honest about what's actually in this repo.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:vercel_turso_cutover",
+      "kind": "script",
+      "name": "vercel_turso_cutover",
+      "path": "scripts/vercel_turso_cutover.py",
+      "description": "Put the Turso / R2 cutover variables on the Vercel projects.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6962,6 +7022,68 @@
           "read": {
             "key": "agent_inbox_ack",
             "visible": true,
+            "confirm": true
+          }
+        }
+      }
+    },
+    {
+      "id": "script:refine",
+      "kind": "script",
+      "name": "refine",
+      "path": "scripts/core/refine.py",
+      "description": "refine.py \u2014 evidence-gated harness refinement (V7.6.0).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "governance.self_improvement",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "propose a change to my own rules",
+        "refine the harness with evidence",
+        "queue a proposed change for CC",
+        "roll back a harness refinement",
+        "show the refinement ledger"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": true,
+        "subcommands": {
+          "list": {
+            "key": "refine_list",
+            "visible": true,
+            "confirm": false
+          },
+          "show": {
+            "key": "refine_show",
+            "visible": true,
+            "confirm": false
+          },
+          "ledger": {
+            "key": "refine_ledger",
+            "visible": true,
+            "confirm": false
+          },
+          "propose": {
+            "key": "refine_propose",
+            "visible": false,
+            "confirm": true
+          },
+          "apply": {
+            "key": "refine_apply",
+            "visible": false,
+            "confirm": true
+          },
+          "revert": {
+            "key": "refine_revert",
+            "visible": false,
+            "confirm": true
+          },
+          "cancel": {
+            "key": "refine_cancel",
+            "visible": false,
             "confirm": true
           }
         }
@@ -8851,6 +8973,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:refine",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
       "from": "script:register",
       "to": "script:build_capability_graph",
       "kind": "calls"
@@ -8966,6 +9093,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:supabase_cancellation_gate",
+      "to": "script:etl_storage_to_r2",
+      "kind": "calls"
+    },
+    {
       "from": "script:supabase_tool",
       "to": "runtime:bridge_chat_server",
       "kind": "exposed_via"
@@ -8978,6 +9110,11 @@
     {
       "from": "script:system_health",
       "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:vercel_turso_cutover",
+      "to": "script:etl_storage_to_r2",
       "kind": "calls"
     },
     {
