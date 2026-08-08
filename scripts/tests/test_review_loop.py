@@ -43,9 +43,64 @@ from review_harvest import (  # noqa: E402
     ("notifications@github.com",
      "Re: [CC90210/oasis-command-center] fix(offers): lender-reply classifier (PR #100)",
      {"repo": "CC90210/oasis-command-center", "pr": 100, "kind": "pr_review"}),
+
+    # ── "PR run failed:" — the pull_request-triggered sibling of "Run failed:".
+    # GitHub sends BOTH for a branch that has an open PR, and this variant was
+    # unmatched until 2026-08-08: 20 of the 22 undetected notifications in a
+    # 53-message, two-day sample. Each one fell through to the LLM classifier
+    # and the brain, which Telegrammed CC about its own red CI, over and over.
+    #
+    # The tail is the PR TITLE, not a branch — it contains spaces, colons,
+    # parentheses and em-dashes. Parsing it as a branch (what the `Run failed:`
+    # pattern does) would yield garbage like branch="V7.6:", so `branch` stays
+    # None and review_loop resolves the PR from the repo instead.
+    ("notifications@github.com",
+     "[CC90210/CEO-Agent] PR run failed: substrate-eval - V7.6: evidence-gated "
+     "harness refinement (prime-agent import) (2b4bf13)",
+     {"repo": "CC90210/CEO-Agent", "pr": None, "kind": "run_failed",
+      "branch": None, "workflow": "substrate-eval"}),
+    ("notifications@github.com",
+     "[CC90210/oasis-command-center] PR run failed: CI - feat(email): dual-brand "
+     "sending identity (SunBiz + Bluerise), Phase 1 (fe6ab46)",
+     {"repo": "CC90210/oasis-command-center", "pr": None, "kind": "run_failed",
+      "branch": None, "workflow": "CI"}),
+    # Two-word workflow name, and an em-dash inside the PR title: the workflow
+    # must stop at the FIRST " - " (ASCII hyphen, spaces both sides) and must
+    # not be confused by the "—" later in the title.
+    ("notifications@github.com",
+     "[CC90210/real-estate-App] PR run failed: Application quality - feat(turso): "
+     "PropFlow data plane — bridge replaces RLS, both server factories switched (4c5285d)",
+     {"repo": "CC90210/real-estate-App", "pr": None, "kind": "run_failed",
+      "branch": None, "workflow": "Application quality"}),
 ])
 def test_detects_review_notifications(sender, subject, expected):
     assert detect_review_notification(sender, subject) == expected
+
+
+def test_pr_run_failed_does_not_invent_a_branch():
+    """Regression lock: the PR-title tail must never be parsed as a branch.
+
+    `Run failed:` ends in a real branch token; `PR run failed:` ends in the PR
+    title. One regex serving both would set branch="V7.6:" here, and
+    review_loop would then ask `gh pr list --head V7.6:` forever.
+    """
+    got = detect_review_notification(
+        "notifications@github.com",
+        "[CC90210/CEO-Agent] PR run failed: substrate-eval - V7.6: evidence-gated "
+        "harness refinement (prime-agent import) (2b4bf13)")
+    assert got is not None
+    assert got["branch"] is None
+    assert got["workflow"] == "substrate-eval"
+
+
+def test_plain_run_failed_still_extracts_its_branch():
+    """The original pattern must keep working — the PR variant is additive."""
+    got = detect_review_notification(
+        "notifications@github.com",
+        "[CC90210/real-estate-marketing-suite] Run failed: Production gates - main (6078c6d)")
+    assert got == {"repo": "CC90210/real-estate-marketing-suite", "pr": None,
+                   "kind": "run_failed", "branch": "main",
+                   "workflow": "Production gates"}
 
 
 @pytest.mark.parametrize("sender,subject", [

@@ -1520,9 +1520,6 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             except Exception as rev_err:  # noqa: BLE001
                 print(f"[email_inbox] review-detect warning: {rev_err}", file=sys.stderr)
 
-            if review_ping:
-                _enqueue_review_harvest(review_ping, rfc_message_id)
-
             email_entry = {
                 "from": from_addr,
                 "subject": subject,
@@ -1530,6 +1527,43 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 "preview": preview,
             }
             found_emails.append(email_entry)
+
+            if review_ping:
+                _enqueue_review_harvest(review_ping, rfc_message_id)
+                # TERMINAL for machine mail. The comment above has promised
+                # "no LLM spend on machine mail" since 2026-07-29, but the code
+                # only ever enqueued and then fell through — every CI email
+                # still ran the classifier AND email_brain, and the brain
+                # Telegrams whatever it cannot auto-handle.
+                #
+                # So a red pipeline became a notification loop: on 2026-08-08
+                # CC had 53 CI/deploy emails in two days across five repos,
+                # each one an LLM call and a phone buzz about his own build.
+                # Fixing the builds stops today's flood; this stops the NEXT
+                # one, because a red pipeline is a normal state a tool should
+                # absorb rather than escalate.
+                #
+                # Suppressed here means "not classified and not Telegrammed",
+                # not "dropped": the queue entry above is the durable record,
+                # and the Review Harvest cron reports on it once per drain
+                # instead of once per email. Marking \\Seen + recording the
+                # Message-ID mirrors the other terminal paths so the next
+                # UNSEEN sweep does not reprocess it.
+                #
+                # Deliberately NOT suppressed: Vercel deployment-failure mail.
+                # It carries no repo, so it cannot be queued or harvested, and
+                # a broken production deploy is exactly the thing CC must still
+                # hear about. notify.py's 1h dedup keeps that to one ping.
+                print(f"[email_inbox] review notification suppressed "
+                      f"({review_ping['kind']} {review_ping['repo']}): {subject[:70]}",
+                      file=sys.stderr)
+                try:
+                    imap.store(uid, "+FLAGS", "\\Seen")
+                except Exception as seen_err:  # noqa: BLE001
+                    print(f"[email_inbox] could not mark review mail read: {seen_err}",
+                          file=sys.stderr)
+                processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
+                continue
 
             # Log to Supabase email_log (legacy SMTP-layer visibility)
             try:

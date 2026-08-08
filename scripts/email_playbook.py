@@ -272,6 +272,26 @@ _RUN_FAILED_RE = re.compile(
     r"^\[(?P<repo>[\w.-]+/[\w.-]+)\]\s*Run failed:\s*(?P<workflow>.+?)\s+-\s+"
     r"(?P<branch>\S+)", re.IGNORECASE)
 
+# "[owner/repo] PR run failed: <workflow> - <PR TITLE> (<sha>)".
+#
+# The pull_request-triggered sibling of the above: GitHub sends BOTH when a
+# branch with an open PR goes red, so a single failing push produces two
+# emails. This variant went unmatched from the day the detector shipped
+# (2026-07-29) until 2026-08-08 — 20 of the 22 undetected notifications in a
+# 53-message, two-day sample. Every one fell through to the LLM classifier and
+# then to email_brain, which Telegrammed CC about his own red CI on repeat.
+#
+# It needs its own pattern rather than an optional "PR " group, because the
+# tail means something different: `Run failed:` ends in a branch token, this
+# one ends in the PR title — free text with spaces, colons, parens and
+# em-dashes. Sharing the `(?P<branch>\S+)` capture would set branch="V7.6:"
+# and send review_loop hunting `gh pr list --head V7.6:` forever. So the
+# workflow is captured (it stops at the first " - ") and branch stays None;
+# review_loop resolves the PR from the repo instead.
+_PR_RUN_FAILED_RE = re.compile(
+    r"^\[(?P<repo>[\w.-]+/[\w.-]+)\]\s*PR run failed:\s*(?P<workflow>.+?)\s+-\s+",
+    re.IGNORECASE)
+
 
 def detect_review_notification(from_addr: str, subject: str) -> Optional[dict]:
     """Return {repo, pr, kind, branch?} when this email is an automated-review ping.
@@ -292,6 +312,15 @@ def detect_review_notification(from_addr: str, subject: str) -> Optional[dict]:
         return {"repo": run_fail.group("repo"), "pr": None, "kind": "run_failed",
                 "branch": branch or None,
                 "workflow": (run_fail.group("workflow") or "").strip() or None}
+
+    # Checked after the plain form: "PR run failed:" cannot match the pattern
+    # above (which requires "Run failed:" immediately after the "]"), so the
+    # order is for readability, not correctness.
+    pr_run_fail = _PR_RUN_FAILED_RE.match(subj)
+    if pr_run_fail:
+        return {"repo": pr_run_fail.group("repo"), "pr": None,
+                "kind": "run_failed", "branch": None,
+                "workflow": (pr_run_fail.group("workflow") or "").strip() or None}
 
     m = _PR_SUBJECT_RE.search(subj)
     if m:

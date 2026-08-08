@@ -251,5 +251,69 @@ class TestAttachmentMeta(unittest.TestCase):
         self.assertEqual(_extract_attachment_meta(MIMEText("plain email")), [])
 
 
+class TestReviewMailIsTerminal(unittest.TestCase):
+    """The `if review_ping:` branch in cmd_check_inbox must END the iteration.
+
+    Structural, not string-counting: this walks the AST of the real function
+    and asserts the branch's last statement is a `continue`, and that it
+    contains no notify/classifier call.
+
+    Why a test at all — from 2026-07-29 to 2026-08-08 the code above that
+    branch CLAIMED "no LLM spend on machine mail", while the branch only
+    enqueued and fell through. Every CI-failure email still hit the classifier
+    and email_brain, and the brain Telegrammed CC. Five repos went red at once
+    and CC got 53 notifications in two days. The comment was not the bug; the
+    missing `continue` was, and a comment cannot fail a build.
+    """
+
+    def _review_branch(self):
+        import ast
+        import pathlib
+
+        src = (pathlib.Path(__file__).resolve().parent.parent
+               / "integrations" / "email_engine.py").read_text(encoding="utf-8")
+        for fn in ast.walk(ast.parse(src)):
+            if isinstance(fn, ast.FunctionDef) and fn.name == "cmd_check_inbox":
+                for node in ast.walk(fn):
+                    if (isinstance(node, ast.If)
+                            and isinstance(node.test, ast.Name)
+                            and node.test.id == "review_ping"):
+                        return node
+        self.fail("no `if review_ping:` branch found in cmd_check_inbox")
+
+    def test_branch_ends_in_continue(self):
+        import ast
+
+        branch = self._review_branch()
+        self.assertIsInstance(
+            branch.body[-1], ast.Continue,
+            "review-notification mail must not fall through to the classifier "
+            "and email_brain — that is the notification loop this prevents")
+
+    def test_branch_never_notifies(self):
+        import ast
+
+        branch = self._review_branch()
+        called = {
+            node.func.id for node in ast.walk(branch)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        for banned in ("notify", "notify_cc", "notify_error", "process_email"):
+            self.assertNotIn(
+                banned, called,
+                f"{banned}() inside the review branch re-opens the spam loop")
+
+    def test_branch_still_queues_and_marks_read(self):
+        """Suppressed must mean 'absorbed', never 'silently dropped'."""
+        import ast
+
+        branch = self._review_branch()
+        dumped = ast.dump(branch)
+        self.assertIn("_enqueue_review_harvest", dumped,
+                      "the queue entry is the durable record the harvest cron drains")
+        self.assertIn("processed_msgids", dumped,
+                      "without the ledger write the next UNSEEN sweep reprocesses it")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
