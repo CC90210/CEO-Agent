@@ -24,7 +24,7 @@ model_standard: fable-5
      scripts/tests/test_entrypoint_parity.py. Released versions live in CHANGELOG.md. -->
 
 
-> Updated 2026-07-20 (V7.4 fleet modernization) | **Architecture is V7.4.0** — V6 (state DB, retrieval, guards, capability graph, vocabulary layer) remains the foundation, and V7.0–V7.4 shipped on top: reliability/observability (Loud Failures, sliced harness eval + history, substrate-eval CI), Free-Tier Radar (`resource:` graph nodes, ADR-0010), the V7.2 persona bench, typed memory (ADR-0011: dedup + memory_diff audits, retriever abstract layer + freshness ranking), and the V7.4 agent-fleet canonical contract (ADR-0012: 13 personas modernized, one schema, generated agent routing, resolver scores agents by trigger). Full narrative: `CHANGELOG.md`. Self-audit health: run `python scripts/core/self_audit.py` for the live score. Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
+> Updated 2026-08-08 (V7.6 evidence-gated refinement) | **Architecture version is the `architecture_version` frontmatter above — do not restate it here** (this line read V7.4.0 while the frontmatter said V7.6.0; a second copy of a canonical number only ever drifts). V6 (state DB, retrieval, guards, capability graph, vocabulary layer) remains the foundation, and V7.0–V7.6 shipped on top: reliability/observability (Loud Failures, sliced harness eval + history, substrate-eval CI), Free-Tier Radar (`resource:` graph nodes, ADR-0010), the V7.2 persona bench, typed memory (ADR-0011: dedup + memory_diff audits, retriever abstract layer + freshness ranking), and the V7.4 agent-fleet canonical contract (ADR-0012: 13 personas modernized, one schema, generated agent routing, resolver scores agents by trigger). Full narrative: `CHANGELOG.md`. Self-audit health: run `python scripts/core/self_audit.py` for the live score. Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
 >
 > **V6 Apex (2026-05-10 — closes the V6 architecture epic):**
 >   - **Phase 1** — `/api/state-health` two-tier read path: state-api passthrough preferred, Supabase mirror fallback for Vercel. The page renders a `via state-api` / `via supabase-mirror` tag so operators see which side served the payload.
@@ -149,11 +149,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-07
+- **Date:** 2026-08-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Turso: auth+storage+realtime replaced and executed (20/20 auth, 8/8 nudge) with the Supabase service key ABSENT; all 4 apps deployed READY; data parity green; blocked on R2 creds + n8n + PM2 + PropFlow flip
+- **Result:** V7.6 evidence-gated harness refinement (prime-agent import): refine.py executor closes the harness_eval/task_outcomes/PROPOSED_CHANGES open loops; 6 commits; Codex found 3 holes in the gate, all fixed + 44 regression tests; PR #48
 
-*Last updated: 2026-08-07*
+*Last updated: 2026-08-08*
 
 ## Manifest
 
