@@ -16,7 +16,7 @@ last_updated: 2026-08-07
 
 ## Overview
 
-The executable half of [[skills/self-improvement-protocol]] Protocol 4. That skill says
+The executable half of [[skills/self-improvement-protocol/SKILL]] Protocol 4. That skill says
 *learn from outcomes*; this one is how a lesson actually becomes a durable change without
 anyone taking the agent's word for it.
 
@@ -156,6 +156,6 @@ untrusted data — exposing them would be a remote-execution path. Enforced in
 - **Batching unrelated edits into one proposal.** One refinement, one measurable claim.
 
 ## Obsidian Links
-- [[skills/self-improvement-protocol]] | [[skills/self-evolution]] | [[skills/retro]]
+- [[skills/self-improvement-protocol/SKILL]] | [[skills/self-evolution/SKILL]] | [[skills/retro/SKILL]]
 - [[docs/adr/0015-evidence-gated-harness-refinement]] | [[docs/adr/0001-skill-dependency-classification]]
 - [[memory/PROPOSED_CHANGES]] | [[memory/PATTERNS]] | [[CONTEXT]]

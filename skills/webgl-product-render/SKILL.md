@@ -159,4 +159,4 @@ one call, with no round trip to outrun. Screenshot the CANVAS rather than
 the page, so an empty frame proves the subject left rather than an overlay
 having covered it.
 
-Related: [[skills/frontend-design]]
+Related: [[skills/frontend-design/SKILL]]

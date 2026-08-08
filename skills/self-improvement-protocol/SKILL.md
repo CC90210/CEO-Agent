@@ -134,7 +134,7 @@ Cite sources in the skill's frontmatter + examples section.
 
 > **Making a lesson permanent (V7.6, Bravo):** logging below records what happened.
 > When the lesson should *change the harness* — a rule, a memory entry, a skill, a
-> subagent spec — route it through [[skills/harness-refinement]], which requires an
+> subagent spec — route it through [[skills/harness-refinement/SKILL]], which requires an
 > executed command as evidence and auto-reverts any edit that moves nothing. Entry
 > points and `brain/` can never auto-apply there; they queue in
 > `memory/PROPOSED_CHANGES.md` for CC. Contract: [[docs/adr/0015-evidence-gated-harness-refinement]].
