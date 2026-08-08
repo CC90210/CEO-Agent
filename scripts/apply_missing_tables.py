@@ -35,36 +35,14 @@ ensure_os_trust()
 import libsql  # noqa: E402
 import requests  # noqa: E402
 
+# One splitter, in the module that already owned it — a second copy here is how
+# the two would come to disagree about where a trigger body ends.
+from apply_turso_migration import split_statements  # noqa: E402
 from core.turso_schema_transpiler import PROJECTS  # noqa: E402
 from lib.db_turso import resolve_project_target  # noqa: E402
 from lib.secret_loader import load_env  # noqa: E402
 
 MIGRATIONS = REPO / "database" / "turso_migrations"
-
-
-def split_sql(text: str) -> list[str]:
-    """Split on ';' while keeping trigger bodies (BEGIN ... END;) whole."""
-    out, buf, depth = [], [], 0
-    for line in text.splitlines():
-        s = line.strip()
-        if not s or s.startswith("--"):
-            continue
-        buf.append(line)
-        up = s.upper()
-        if re.search(r"\bBEGIN\b", up):
-            depth += 1
-        if re.search(r"\bEND\s*;", up):
-            depth = max(0, depth - 1)
-            if depth == 0:
-                out.append("\n".join(buf).strip().rstrip(";"))
-                buf = []
-                continue
-        if depth == 0 and s.endswith(";"):
-            out.append("\n".join(buf).strip().rstrip(";"))
-            buf = []
-    if buf:
-        out.append("\n".join(buf).strip().rstrip(";"))
-    return [s for s in out if s.strip()]
 
 
 def _stmt_table(stmt: str) -> str | None:
@@ -115,7 +93,7 @@ def main() -> int:
     if not schema.exists():
         print(f"ERROR: {schema} not found — run the transpiler first", file=sys.stderr)
         return 2
-    stmts = [s for s in split_sql(schema.read_text(encoding="utf-8"))
+    stmts = [s for s in split_statements(schema.read_text(encoding="utf-8"))
              if _stmt_table(s) in set(missing)]
     print(f"\nstatements for those tables: {len(stmts)}")
     if not args.apply:
