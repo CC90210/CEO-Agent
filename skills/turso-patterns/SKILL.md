@@ -2,6 +2,7 @@
 name: turso-patterns
 description: Use when working on the Supabase → Turso (libSQL) migration — transpiling schema, porting RPCs/views, flipping an app's backend, or verifying a migrated database. Encodes the failures this migration actually hit.
 tags: [turso, libsql, migration, database, sqlite, supabase]
+triggers: [turso, libsql, turso migration, supabase to turso, transpile schema, port rpc, turso verify, sqlite migration]
 ---
 
 # Turso / libSQL patterns

@@ -331,6 +331,7 @@ class TursoDB:
     def __init__(self, url: str, auth_token: str | None, mode: str):
         self.url = url
         self.mode = mode
+        self._auth_token = auth_token  # kept for auto-reconnect on stale streams
         self._lock = threading.RLock()
         if auth_token:
             self._conn = libsql.connect(database=url, auth_token=auth_token)
@@ -388,13 +389,52 @@ class TursoDB:
         )
 
     # -- raw execution ------------------------------------------------------
+
+    # Hrana stream errors that indicate a stale WebSocket connection. Long-running
+    # daemons (event-router, bravo-scheduler) hold a connection for hours; Turso's
+    # server-side stream expires after an idle period and never comes back. Without
+    # this, every query fails with "stream not found" until the process is manually
+    # restarted — which is exactly what happened on 2026-08-08 (event-router
+    # spamming the same error every 3 seconds for 18 hours).
+    _HRANA_RECONNECT_PATTERNS = ("stream not found", "stream_expired", "server_error",
+                                 "hrana", "connection closed")
+
+    def _is_hrana_stale(self, exc: Exception) -> bool:
+        msg = str(exc).lower()
+        return any(p in msg for p in self._HRANA_RECONNECT_PATTERNS)
+
+    def _reconnect(self) -> None:
+        """Drop the dead connection and open a fresh one."""
+        log.warn("Turso reconnecting — stale Hrana stream detected", mode=self.mode)
+        try:
+            if hasattr(self._conn, "close"):
+                self._conn.close()
+        except Exception:
+            pass
+        url, token = self.url, getattr(self, "_auth_token", None)
+        if token:
+            self._conn = libsql.connect(database=url, auth_token=token)
+        else:
+            self._conn = libsql.connect(url)
+        log.info("Turso reconnected", mode=self.mode)
+
     def execute(self, sql: str, params: Sequence[Any] | None = None, *,
                 allow_unscoped: bool = False, reason: str | None = None):
         self._enforce_scope(sql, allow_unscoped=allow_unscoped, reason=reason)
         with self._lock:
             try:
                 return self._conn.execute(sql, tuple(params or ()))
-            except Exception as exc:  # noqa: BLE001 - log the real cause, then re-raise
+            except Exception as exc:  # noqa: BLE001
+                if self._is_hrana_stale(exc):
+                    # Stale stream — reconnect and retry ONCE.
+                    try:
+                        self._reconnect()
+                        return self._conn.execute(sql, tuple(params or ()))
+                    except Exception as retry_exc:
+                        log.error("Turso execute failed after reconnect",
+                                  error=str(retry_exc), sql=sql[:400],
+                                  traceback=traceback.format_exc())
+                        raise
                 log.error("Turso execute failed", error=str(exc), sql=sql[:400],
                           traceback=traceback.format_exc())
                 raise
@@ -420,7 +460,16 @@ class TursoDB:
         with self._lock:
             try:
                 return self._conn.executemany(sql, list(seq_of_params))
-            except Exception as exc:  # noqa: BLE001 - log the real cause, then re-raise
+            except Exception as exc:  # noqa: BLE001
+                if self._is_hrana_stale(exc):
+                    try:
+                        self._reconnect()
+                        return self._conn.executemany(sql, list(seq_of_params))
+                    except Exception as retry_exc:
+                        log.error("Turso executemany failed after reconnect",
+                                  error=str(retry_exc), sql=sql[:400],
+                                  rows=len(seq_of_params), traceback=traceback.format_exc())
+                        raise
                 log.error("Turso executemany failed", error=str(exc), sql=sql[:400],
                           rows=len(seq_of_params), traceback=traceback.format_exc())
                 raise

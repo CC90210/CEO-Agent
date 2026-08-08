@@ -100,6 +100,41 @@ class CompatError(Exception):
 OPS = {"eq": "=", "neq": "<>", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
 
 
+class _CompatNot:
+    """Negation proxy returned by ``CompatQuery.not_``.
+
+    Mirrors the postgrest-py pattern: ``query.not_.is_("col", "null")``
+    negates the next filter and returns the original CompatQuery so further
+    chaining (.order, .limit, .execute, more filters) keeps working.
+
+    Only filter-like methods are proxied; structural calls (select, order,
+    limit, execute) are intentionally missing — calling them on a negation
+    proxy is a usage error, and an AttributeError there is the right signal.
+    """
+
+    def __init__(self, parent: "CompatQuery"):
+        self._parent = parent
+
+    def _neg(self, col: str, op: str, value):
+        """Build the filter on a scratch query, wrap it in NOT, append to parent."""
+        inner = CompatQuery(self._parent._db, self._parent._table)._op(col, op, value)
+        sql, args = inner._conds[-1]
+        self._parent._conds.append((f"NOT ({sql})", args))
+        return self._parent
+
+    def is_(self, c, v):   return self._neg(c, "is", v)      # noqa: E704
+    def in_(self, c, v):   return self._neg(c, "in", v)      # noqa: E704
+    def eq(self, c, v):    return self._neg(c, "eq", v)      # noqa: E704
+    def neq(self, c, v):   return self._neg(c, "neq", v)     # noqa: E704
+    def gt(self, c, v):    return self._neg(c, "gt", v)      # noqa: E704
+    def gte(self, c, v):   return self._neg(c, "gte", v)     # noqa: E704
+    def lt(self, c, v):    return self._neg(c, "lt", v)      # noqa: E704
+    def lte(self, c, v):   return self._neg(c, "lte", v)     # noqa: E704
+    def like(self, c, v):  return self._neg(c, "like", v)    # noqa: E704
+    def ilike(self, c, v): return self._neg(c, "ilike", v)   # noqa: E704
+    def contains(self, c, v): return self._neg(c, "cs", v)   # noqa: E704
+
+
 class CompatQuery:
     """postgrest-py builder over TursoDB. Terminal call is .execute()."""
 
@@ -200,6 +235,13 @@ class CompatQuery:
     def is_(self, c, v): return self._op(c, "is", v)         # noqa: E704
     def in_(self, c, v): return self._op(c, "in", v)         # noqa: E704
     def contains(self, c, v): return self._op(c, "cs", v)    # noqa: E704
+
+    @property
+    def not_(self):
+        """Supabase postgrest-py negation modifier: .not_.is_("col", "null")
+        becomes `col IS NOT NULL`.  Returns a thin proxy that wraps the next
+        filter call in NOT(...) and then hands control back to self."""
+        return _CompatNot(self)
 
     def filter(self, c, op, v):
         if op.startswith("not."):

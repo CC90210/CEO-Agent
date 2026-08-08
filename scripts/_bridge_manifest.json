@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-08T21:29:02.300817+00:00",
-  "script_count": 139,
-  "entry_count": 310,
+  "generated_at_iso": "2026-08-08T22:51:27.018164+00:00",
+  "script_count": 140,
+  "entry_count": 311,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -2045,6 +2045,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Fingerprint the Turso credentials so two machines can be compared safely."
+    },
+    {
+      "key": "turso_vps_bundle",
+      "path": "scripts/turso_vps_bundle.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Write the VPS's Turso credentials to a file for scp, and fingerprint them."
     },
     {
       "key": "update_readme_stats",
