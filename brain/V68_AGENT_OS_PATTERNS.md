@@ -1,9 +1,9 @@
 ---
 name: V68_AGENT_OS_PATTERNS
 description: V6.8 propagation contract — vocabulary layer (CONTEXT.md), ADR layer (docs/adr/), skill-invocation discipline (disable_model_invocation / argument_hint), skill lifecycle directories (in-progress/, _archive/), distribution manifest (.claude-plugin/plugin.json). What every CC agent (Bravo, Maven, Atlas, Hermes) must inherit and what each adapts per domain.
-last_updated: 2026-06-09
+last_updated: 2026-08-08
 freshness_threshold_days: 365
-verified: 2026-06-09
+verified: 2026-08-08
 tags: [brain]
 ---
 # V6.8 — Agent-OS Vocabulary Layer
@@ -187,3 +187,50 @@ Corollary, also from this import: `scripts/tests/` had 40+ test files and none f
 - External source: https://github.com/mattpocock/skills
 - Probationary pattern: `memory/PATTERNS.md` § "Surgical Import from External Skill Repos"
 - Related architecture decisions: `docs/adr/0001-skill-dependency-classification.md`, `docs/adr/0002-context-md-canonical-vocabulary.md`
+
+---
+
+# V7.6 — Evidence-Gated Refinement (prime-agent import, 2026-08-07)
+
+Fourth application of this contract (after mattpocock V6.8, Twenty V6.9, davidondrej V7.5). Source: [PrimeIntellect-ai/prime-agent](https://github.com/PrimeIntellect-ai/prime-agent) (MIT — formats and mechanics studied, no code copied). Plan: `~/.claude/plans/i-m-dropping-you-a-luminous-lighthouse.md`. Contract: `docs/adr/0015-evidence-gated-harness-refinement.md`.
+
+| Layer | What shipped | Commit |
+|---|---|---|
+| Substrate | `scripts/core/refine.py` — propose/apply/revert/cancel/list/show/ledger, evidence-as-executed-command with auto-revert on no delta, fail-closed auto-apply allowlist, `refinements` table + `PROPOSED_CHANGES.md` mirror. Plus the `auto_heal.py` placebo fix (`task_outcomes.py stats` never existed). | `7855f584` |
+| Conventions | `docs/adr/0015`, `skills/harness-refinement/` (hard dep per ADR-0001), `self-improvement-protocol` Protocol 4 pointer, `evolve.py` measured promotion + ADR-0015 kinds. | `c1e45ae9` |
+| Vocabulary | `CONTEXT.md` § V7.6 — 7 terms, verified retrievable at rank 2. `STATE.md` V7.4.1 → V7.6.0, `CHANGELOG` [7.6.0]. | `061d54ce` |
+| Distribution | This section + `.claude-plugin/plugin.json` `_note` (a documented **exclusion**, see below). | `0b6737a1` |
+| Hardening | Three real holes closed after a Codex adversarial audit returned *no-ship* on the substrate: a broken evidence command counted as success; the "fail-closed allowlist" let `memory/../CLAUDE.md` through because `fnmatch`'s `*` matches `/`; the output cap bounded storage but not the hash or the buffer. Plus `scripts/tests/test_refine.py` (44 cases). | `f42e0098` |
+
+## Sibling propagation — DEFERRED, deliberately
+
+Unlike V7.5's `gh` gap, this one is **not** urgent for Maven and Atlas, and shipping it to them now would be a mistake.
+
+The open loops are genuinely fleet-wide — all three run `skills/self-improvement-protocol`, and none of them measure whether a self-edit helped. But the gate has not yet rejected a single *real* proposal here; every rejection so far was a verification case I authored to prove the mechanism discriminates. Copying an unproven gate into three repos triples the blast radius of a design mistake in it, and the most likely mistake is subtle: an evidence command that changes for unrelated reasons will launder a bad refinement through, and we have no field evidence yet about how often that happens.
+
+**Trigger for propagation:** the first time the gate rejects a refinement that a human thought was good. That is the event that tells us the measurement is doing real work rather than agreeing with us. Until then, Maven and Atlas keep the prose path, and `self-improvement-protocol` says so explicitly.
+
+When it does propagate, the paths differ per sibling (each has its own memory file set and its own evidence commands — Maven's would be content-pipeline health, Atlas's would be its own eval surface), so this is **not** a byte-identical copy like the guard patch was.
+
+## Distribution is an exclusion, not an addition
+
+`.claude-plugin/plugin.json` deliberately does **not** gain `harness-refinement`. Every command in that skill invokes `scripts/core/refine.py` against `state/empire_state.db`, and the manifest ships skill directories only — no scripts. Installing it elsewhere would produce a skill whose entire body is broken commands. The V7.6 *pattern* is worth copying; this *implementation* is not portable, and the `_note` now says which and why. Same call as V6.9's CRM exclusion, for the same reason.
+
+## What this import confirms about the contract
+
+V6.8: an audit yields vocabulary and conventions. V6.9: it holds at larger surface. V7.5: the most valuable import can be a diff rather than a skill. **V7.6 adds a fourth case — the most valuable import can be the upstream's mistake.**
+
+prime-agent had the entire right shape and cheated on the one thing that makes it work: `refinement.ts:783-790` sets `evidence: proposal.rationale`, and the `expectedOutcome` it carefully stores is never executed. Copying it faithfully would have shipped a ledger that launders the agent's own opinions into durable state — the exact defect our Anti-Slop matrix row #6 exists to stop. The import kept every format and inverted that single line of semantics.
+
+Practical consequences for future audits, both earned the hard way here:
+
+1. **Audit the upstream's gate before adopting its shape.** Find where the external design decides something is "good enough" and check what it actually inspects. That decision point is where a mature repo's standards and a fast-moving repo's standards diverge, and it is where the import earns or loses its value.
+2. **Check that the imported trick survives your own layout.** prime-agent detects a no-op with a git working-tree fingerprint. Here that is blind: `.gitignore:44` untracks `memory/PATTERNS.md`, i.e. most of the auto-apply allowlist, so an edit left the fingerprint byte-identical — caught only by running it. An imported mechanism can be correct upstream and vacuous here; the assumption it rests on is rarely written down.
+3. **Build the gate so you can make it fail, then make it fail.** The volatility pre-check exists only because `harness_eval --json` stamps a fresh `timestamp`/`run_id` per run, which would have made every refinement show a delta. A gate that passes everything is indistinguishable from no gate, and it looks identical in a green test run.
+
+## Source
+
+- Audit plan: `~/.claude/plans/i-m-dropping-you-a-luminous-lighthouse.md`
+- External source: https://github.com/PrimeIntellect-ai/prime-agent (MIT)
+- Probationary pattern: `memory/PATTERNS.md` § "[P] Import the Mechanism, Invert Its Weakest Gate"
+- Related decisions: `docs/adr/0015-evidence-gated-harness-refinement.md`, `docs/adr/0001-skill-dependency-classification.md`, `docs/adr/0011-typed-memory-taxonomy.md`

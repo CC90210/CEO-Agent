@@ -56,6 +56,19 @@ evidence is an executed command, and a refinement that cannot move it is auto-re
   `self-improvement-protocol` Protocol 4 pointer. Bravo-only; sibling propagation
   deferred until the gate has rejected a real proposal.
 
+- **`7.6.4` hardening — three real holes, found by attacking the above.** Codex's
+  adversarial audit returned *needs-attention / no-ship* on `7.6.0`, and it was right.
+  (a) The delta was measured on a digest folding in the exit code, so an edit that
+  **broke** the evidence command registered as success; the comparison is now on the
+  measured value, with exit codes judged by whether the command is keyed (a keyed exit
+  code is a result — `harness_eval --json` exits 1 at 9/10). (b) The "fail-closed
+  allowlist" was not one: `fnmatch`'s `*` matches `/`, so `memory/../CLAUDE.md`
+  classified as auto-appliable — classification now runs on the resolved path with
+  segment-exact rules. (c) The output cap capped what was stored but not what was hashed
+  or buffered; `_run` now streams with a hard read cap and kills the child past it.
+  Locked by `scripts/tests/test_refine.py` (44 cases), verified by reconstructing the
+  broken classifier and watching it leak 5/5 where the fixed one leaks 0/5.
+
 > **Numbering note:** 7.5.0–7.5.5 shipped 2026-08-03 (guard + continuity hardening from
 > the davidondrej/skills audit) and were never recorded here. Their record is
 > `CONTEXT.md` § "V7.5 Guard & Continuity" and commits `7afe35c3`…`2280ea2a`. This entry
