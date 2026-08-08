@@ -100,20 +100,37 @@ STATUSES = ("PENDING", "HELD", "APPLIED", "REJECTED", "REVERTED", "WITHDRAWN")
 
 # --- The auto-apply allowlist. Fail-closed: anything not matched here is HELD.
 # Deliberately an allowlist and not a denylist — see module docstring.
-AUTO_APPLY_GLOBS = ("memory/*.md", "skills/*/SKILL.md")
+#
+# Expressed as (parent_parts, filename_glob) rather than a path glob, because
+# fnmatch's `*` matches `/`: `fnmatch("memory/../CLAUDE.md", "memory/*.md")` is
+# True, and so is `memory/a/b/deep.md`. A path-glob allowlist is therefore not a
+# boundary at all — verified live 2026-08-08, `memory/../CLAUDE.md` classified as
+# auto-appliable. Segment-exact matching plus resolving the path before
+# classification is what actually closes it. Same lesson as
+# pattern_security_boundary_needs_a_parser_not_a_regex: a security boundary needs
+# a parser, not a pattern.
+AUTO_APPLY_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("memory",), "*.md"),          # memory/<name>.md, no deeper
+    (("skills", "*"), "SKILL.md"),  # skills/<one-segment>/SKILL.md
+)
 
-# Carve-outs INSIDE the allowlist. SESSION_LOG is machine-generated between
-# AUTO-GENERATED markers and state_guard blocks hand-edits; PROPOSED_CHANGES is
-# this tool's own mirror and editing it through the tool would be circular.
+# Carve-outs INSIDE the allowlist, matched case-insensitively so a differently
+# cased spelling cannot slip past a deny rule. SESSION_LOG is machine-generated
+# between AUTO-GENERATED markers and state_guard blocks hand-edits;
+# PROPOSED_CHANGES is this tool's own mirror and editing it through the tool
+# would be circular.
 NEVER_AUTO = (
-    "memory/SESSION_LOG.md",
-    "memory/PROPOSED_CHANGES.md",
+    "memory/session_log.md",
+    "memory/proposed_changes.md",
     "skills/_archive/*",
 )
 
 # Gate defaults adopted verbatim from prime-agent's autonomous-gate config.
 GATE_TIMEOUT_S = 300
 GATE_OUTPUT_CAP = 6000
+# Hard read cap. Distinct from GATE_OUTPUT_CAP (what we *store*): this is what we
+# are willing to pull into memory at all, and the child is killed past it.
+GATE_READ_CAP = 256 * 1024
 
 _IS_WIN = sys.platform.startswith("win")
 
@@ -169,26 +186,64 @@ def _session_id() -> str:
 # --------------------------------------------------------------------------
 # evidence
 # --------------------------------------------------------------------------
-def _run(argv: list[str], timeout: int = GATE_TIMEOUT_S) -> tuple[int, str]:
+def _run(argv: list[str], timeout: int = GATE_TIMEOUT_S) -> tuple[int, str, bool]:
+    """Run a command with a HARD byte cap on captured output.
+
+    Returns (exit_code, output, truncated). Streams and kills the child once the
+    cap is passed rather than buffering everything: an evidence command is
+    operator-supplied, and `capture_output=True` would let a noisy one allocate
+    unbounded memory twice per propose and again per apply — a self-inflicted DoS
+    through the gate (Codex adversarial audit, 2026-08-08).
+    """
     kwargs: dict = {}
     if _IS_WIN:
         kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             argv,
             cwd=str(PROJECT_ROOT),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             **kwargs,
         )
-        return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
-    except subprocess.TimeoutExpired:
-        return 124, f"<timeout after {timeout}s>"
     except (OSError, ValueError) as e:
-        return 127, f"<could not execute: {e}>"
+        return 127, f"<could not execute: {e}>", False
+
+    chunks: list[bytes] = []
+    size = 0
+    truncated = False
+    try:
+        assert proc.stdout is not None
+        while True:
+            chunk = proc.stdout.read(4096)
+            if not chunk:
+                break
+            room = GATE_READ_CAP - size
+            if room <= 0:
+                truncated = True
+                break
+            chunks.append(chunk[:room])
+            size += min(len(chunk), room)
+            if len(chunk) > room:
+                truncated = True
+                break
+        if truncated:
+            proc.kill()
+        code = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        return 124, f"<timeout after {timeout}s>", truncated
+    except OSError as e:
+        proc.kill()
+        proc.wait()
+        return 127, f"<read failed: {e}>", truncated
+    finally:
+        if proc.stdout is not None:
+            proc.stdout.close()
+
+    out = b"".join(chunks).decode("utf-8", errors="replace")
+    return code, out, truncated
 
 
 def _dig(obj, dotted: str):
@@ -224,18 +279,22 @@ def run_evidence(cmd: str, key: str | None) -> dict:
     if not argv:
         return {"exit": 2, "output": "<empty command>", "value": None, "digest": None}
 
-    code, out = _run(argv)
-    value = out
+    code, out, truncated = _run(argv)
     if key:
         try:
             picked = _dig(json.loads(out), key)
         except (json.JSONDecodeError, ValueError):
             picked = None
         value = "<key-missing>" if picked is None else json.dumps(picked, sort_keys=True)
+    else:
+        # Bound what the digest hashes, not just what we store. An unkeyed
+        # command on a large output would otherwise hash megabytes per run.
+        value = out[:GATE_OUTPUT_CAP]
     return {
         "exit": code,
         "output": out[:GATE_OUTPUT_CAP],
         "value": value,
+        "truncated": truncated,
         "digest": _sha(f"{code}\x00{value}"),
     }
 
@@ -256,29 +315,71 @@ def run_evidence(cmd: str, key: str | None) -> dict:
 # --------------------------------------------------------------------------
 # policy
 # --------------------------------------------------------------------------
-def classify_target(rel_path: str) -> tuple[bool, str]:
-    """Return (requires_operator, reason). Fail-closed: unmatched => operator."""
-    rel = rel_path.replace("\\", "/").lstrip("./")
-    for pat in NEVER_AUTO:
-        if fnmatch.fnmatch(rel, pat):
-            return True, f"'{rel}' is carved out of the allowlist ({pat}) — operator only"
-    for pat in AUTO_APPLY_GLOBS:
-        if fnmatch.fnmatch(rel, pat):
-            return False, f"'{rel}' matches auto-apply allowlist ({pat})"
-    return True, (
-        f"'{rel}' matches no auto-apply glob {AUTO_APPLY_GLOBS} — held for CC "
-        "(allowlist is fail-closed by design)"
-    )
-
-
 def _resolve(rel_path: str) -> Path | None:
-    """Resolve inside the repo. Refuses traversal outside PROJECT_ROOT."""
-    p = (PROJECT_ROOT / rel_path).resolve()
+    """Resolve inside the repo. Refuses traversal outside PROJECT_ROOT.
+
+    `.resolve()` also collapses `..` and follows symlinks, which is why
+    classification must run on the OUTPUT of this, never on the caller's string.
+    """
+    try:
+        p = (PROJECT_ROOT / rel_path).resolve()
+    except (OSError, ValueError):
+        return None
     try:
         p.relative_to(PROJECT_ROOT.resolve())
     except ValueError:
         return None
     return p
+
+
+def canonical_rel(rel_path: str) -> str | None:
+    """The repo-relative POSIX path after resolving `..` and symlinks."""
+    p = _resolve(rel_path)
+    if p is None:
+        return None
+    return p.relative_to(PROJECT_ROOT.resolve()).as_posix()
+
+
+def _segments_match(parts: tuple[str, ...], pattern: tuple[str, ...]) -> bool:
+    """Segment-exact comparison; a pattern segment of '*' matches one segment."""
+    if len(parts) != len(pattern):
+        return False
+    return all(pat == "*" or pat == part for part, pat in zip(parts, pattern))
+
+
+def classify_target(rel_path: str) -> tuple[bool, str]:
+    """Return (requires_operator, reason). Fail-closed: unmatched => operator.
+
+    Classifies the RESOLVED path, so `memory/../CLAUDE.md` is judged as
+    `CLAUDE.md` and a symlink is judged as its target. Allow rules match
+    case-sensitively (so `MEMORY/x.md` falls through to held) and deny rules
+    case-insensitively (so `memory/Session_Log.md` is still denied) — both
+    directions err toward holding.
+    """
+    rel = canonical_rel(rel_path)
+    if rel is None:
+        return True, f"'{rel_path}' does not resolve inside the repo — refused"
+
+    lowered = rel.lower()
+    for pat in NEVER_AUTO:
+        if fnmatch.fnmatch(lowered, pat):
+            return True, f"'{rel}' is carved out of the allowlist ({pat}) — operator only"
+
+    parts = tuple(rel.split("/"))
+    for parent, name_glob in AUTO_APPLY_RULES:
+        if (
+            len(parts) == len(parent) + 1
+            and _segments_match(parts[:-1], parent)
+            and fnmatch.fnmatchcase(parts[-1], name_glob)
+        ):
+            shown = "/".join((*parent, name_glob))
+            return False, f"'{rel}' matches auto-apply allowlist ({shown})"
+
+    shown = [f"{'/'.join(p)}/{n}" for p, n in AUTO_APPLY_RULES]
+    return True, (
+        f"'{rel}' matches no auto-apply rule {shown} — held for CC "
+        "(allowlist is fail-closed by design)"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -435,23 +536,54 @@ def apply_refinement(rid: int, approve: bool = False) -> dict:
     except (json.JSONDecodeError, ValueError):
         before = {}
 
-    if after["digest"] == before.get("digest"):
-        # THE GATE. No measured effect => revert and reject. This is the branch
-        # prime-agent does not have.
+    # THE GATE — the branch prime-agent does not have. Two questions, in order:
+    # did a measurement actually happen, and did the measured VALUE move?
+    #
+    # Compare `value`, never `digest`. The digest folds in the exit code, so an
+    # edit that only flipped the exit code would read as a delta while the
+    # measured number sat still (Codex adversarial audit, 2026-08-08).
+    #
+    # Exit codes are handled by whether the command carries a result channel:
+    #   * keyed  — the exit code is a RESULT, not a failure. `harness_eval --json`
+    #     exits 1 whenever the harness is imperfect; it is 9/10 today. Demanding
+    #     exit 0 would reject the very evidence command the skill documents. The
+    #     key being present is the proof a measurement happened.
+    #   * unkeyed — the output IS the value, so a crash changes it and looks like
+    #     a delta. Here exit 0 after the edit is required.
+    # 124/127 mean no measurement happened at all and always reject.
+    key = row["evidence_key"]
+    measured_before = before.get("value")
+    measured_after = after["value"]
+
+    reject: str | None = None
+    if after["exit"] in (124, 127):
+        reject = f"evidence command could not produce a measurement (exit {after['exit']})"
+    elif measured_after == "<key-missing>":
+        reject = f"evidence key '{key}' vanished after the edit — nothing to compare"
+    elif not key and after["exit"] != 0:
+        reject = (
+            f"unkeyed evidence command failed after the edit (exit {after['exit']}) — "
+            "it changed because it broke, which is not an improvement"
+        )
+    elif measured_after == measured_before:
+        reject = f"no measured effect — evidence unchanged ({str(measured_after)[:120]})"
+
+    if reject:
         target.write_text(before_body, encoding="utf-8")
         _update(
             rid,
             status="REJECTED",
             evidence_after=json.dumps(after),
-            detail=f"no measured effect — evidence unchanged ({str(after['value'])[:120]}); auto-reverted",
+            detail=f"{reject}; auto-reverted",
         )
         render_mirror()
         return {
             "ok": False,
             "id": rid,
             "status": "REJECTED",
-            "reason": "no measured effect — evidence command output did not change; file auto-reverted",
+            "reason": reject,
             "evidence_value": str(after["value"])[:200],
+            "evidence_exit": after["exit"],
             "reverted_clean": target.read_text(encoding="utf-8", errors="replace") == before_body,
         }
 

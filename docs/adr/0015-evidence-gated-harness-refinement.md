@@ -59,6 +59,24 @@ Adopt the shape, invert the gate. **They store the expected outcome; we run it.*
    marked `REJECTED (no measured effect)`. Prose is not evidence and cannot be supplied
    as such. This is CLAUDE.md Rule 2 ("Proof: the verification command + its actual
    output") made mechanical.
+
+   **The comparison is on the measured value, never on a digest of the whole run.**
+   Folding the exit code into the compared hash made two distinct failures look like
+   success, both found by the Codex adversarial audit on 2026-08-08: an edit that
+   *breaks* the evidence command (exit 0 → 1) registered as a delta, and an edit that
+   moved only the exit code while the measured number sat still also registered as a
+   delta. "It changed" is not "it improved". Exit codes are therefore judged by whether
+   the command carries a result channel:
+   - **keyed** (`--evidence-key`): the exit code is a *result*, not a failure.
+     `harness_eval --json` exits 1 whenever the harness is imperfect — it is 9/10 today —
+     so requiring exit 0 would reject the evidence command this ADR recommends. The key
+     being present in the parsed output is the proof a measurement happened.
+   - **unkeyed**: the output *is* the value, so a crash changes it and mimics a delta.
+     Exit 0 after the edit is required.
+   - Exit 124 (timeout) and 127 (could not execute) always reject: no measurement happened.
+
+   A consequence worth stating: red → green *is* a legitimate refinement (a failing check
+   that the edit fixes), so a clean baseline is deliberately **not** required at propose time.
 2. **Volatile commands are refused at propose time.** `propose` runs the evidence command
    **twice** and rejects it if two back-to-back runs already differ, pointing the caller
    at `--evidence-key <dotted.json.path>`. Without this, `harness_eval --json`'s per-run
@@ -70,13 +88,26 @@ Adopt the shape, invert the gate. **They store the expected outcome; we run it.*
    at rollback time, which drifts if the file changed underneath. This matters more here
    than there: `.gitignore:44` untracks `memory/PATTERNS.md`, so **git is not a rollback
    path** for most refinement targets — the ledger is the only way back.
-4. **Auto-apply is a fail-closed allowlist.** Only `memory/*.md` and `skills/*/SKILL.md`
-   may be written autonomously, minus carve-outs (`SESSION_LOG.md` is machine-generated,
-   `PROPOSED_CHANGES.md` is this tool's own mirror, `skills/_archive/*` is frozen). Any
-   path matching no glob is `HELD` for CC. The six entry points, `PERSONAL.md`, `brain/**`
-   and `scripts/state/**` therefore can never auto-apply — Rule 4 (lockstep) and Rule 10
-   (never silently rewrite shared substrate) — and a new sensitive directory is protected
-   the day it is created, with nobody remembering to add it.
+4. **Auto-apply is a fail-closed allowlist, enforced on the RESOLVED path.** Only
+   `memory/<file>.md` and `skills/<skill>/SKILL.md` may be written autonomously, minus
+   carve-outs (`SESSION_LOG.md` is machine-generated, `PROPOSED_CHANGES.md` is this
+   tool's own mirror, `skills/_archive/*` is frozen). Any path matching no rule is `HELD`
+   for CC. The six entry points, `PERSONAL.md`, `brain/**` and `scripts/state/**`
+   therefore can never auto-apply — Rule 4 (lockstep) and Rule 10 (never silently rewrite
+   shared substrate) — and a new sensitive directory is protected the day it is created,
+   with nobody remembering to add it.
+
+   **This must not be a path glob.** The first implementation used
+   `fnmatch(rel, "memory/*.md")`, and `fnmatch`'s `*` matches `/` — so
+   `memory/../CLAUDE.md` and `memory/sub/deep.md` both classified as auto-appliable.
+   Verified live 2026-08-08 and independently flagged by Codex the same day; four
+   characters defeated the entire fail-closed claim. Classification now runs on the
+   output of `_resolve()` (which collapses `..` and follows symlinks) using
+   segment-exact rules with an explicit component count. Allow rules match
+   case-sensitively and deny rules case-insensitively, so both directions err toward
+   holding. Locked by `scripts/tests/test_refine.py`, which carries every traversal
+   spelling as a regression case — a boundary with no test is one edit from reopening,
+   and this one reopened inside a single session.
 5. **Four self-edit kinds, chosen explicitly.** `prompt_note | memory | skill | subagent`,
    a required `--kind`. prime-agent carries the same taxonomy as prose in
    `REFINEMENT_SYSTEM_PROMPT:146-147` with no classifier in code; here it is an argparse
@@ -123,6 +154,11 @@ Adopt the shape, invert the gate. **They store the expected outcome; we run it.*
 - `python scripts/build_capability_graph.py --check` — `script:refine` must stay
   registered with valid `CAPABILITY_META` (validated by
   `scripts/lib/capability_metadata.py validate_capability_meta`).
+- `python -m pytest scripts/tests/test_refine.py` — 44 cases locking the two boundaries:
+  every traversal/depth/case spelling that must stay `HELD`, and the evidence-runner
+  contract (bounded output, explicit `<key-missing>`, stable digest for a sane command,
+  and the live assertion that `harness_eval --json` is volatile unkeyed but stable when
+  keyed to `score`). **New allow rules require a new test in the `HELD`/`AUTO` tables.**
 - Review-time: a refinement whose evidence command cannot plausibly respond to the change
   is a bad proposal even when the gate passes it. Say so in review.
 

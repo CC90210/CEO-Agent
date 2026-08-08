@@ -95,16 +95,29 @@ The pre-check catches *noisy* commands. It cannot catch *irrelevant* ones: a com
 changes for unrelated reasons will launder a bad refinement through the gate. That judgment
 is yours.
 
+**Exit codes.** A keyed command's exit code is treated as a *result*, not a failure —
+`harness_eval --json` exits 1 whenever the harness is imperfect, and requiring exit 0 would
+reject it outright. What proves a measurement happened is the key being present. An
+**unkeyed** command must exit 0 after the edit, because its output *is* the value, so a
+crash would otherwise mimic a delta. Exit 124 (timeout) and 127 (could not execute) always
+reject. Red → green is a valid refinement, so a clean baseline is not required up front.
+
 ## What can auto-apply
 
-A fail-closed **allowlist** — `memory/*.md` and `skills/*/SKILL.md`. Everything else is
-`HELD` for CC, including all six entry points, `PERSONAL.md`, `brain/**` and
-`scripts/state/**`. Carve-outs inside the allowlist: `memory/SESSION_LOG.md` (machine
--generated between markers), `memory/PROPOSED_CHANGES.md` (this tool's own mirror),
-`skills/_archive/*`.
+A fail-closed **allowlist** — `memory/<file>.md` and `skills/<skill>/SKILL.md`, exactly
+those depths. Everything else is `HELD` for CC, including all six entry points,
+`PERSONAL.md`, `brain/**` and `scripts/state/**`. Carve-outs inside the allowlist:
+`memory/SESSION_LOG.md` (machine-generated between markers),
+`memory/PROPOSED_CHANGES.md` (this tool's own mirror), `skills/_archive/*`.
 
 Unmatched paths are held, not applied. A new sensitive directory is therefore safe on the
 day it is created, without anyone remembering to add it.
+
+Classification runs on the **resolved** path, so `memory/../CLAUDE.md` is judged as
+`CLAUDE.md` and a symlink is judged as its target — don't bother trying to spell your way
+around it, and don't "simplify" this back into a path glob: `fnmatch`'s `*` matches `/`, so
+a glob allowlist let `memory/../CLAUDE.md` through. `scripts/tests/test_refine.py` carries
+every spelling as a regression case. **A new allow rule needs a new test row.**
 
 ## Rollback
 
