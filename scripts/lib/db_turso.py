@@ -143,14 +143,29 @@ def resolve_target(env: dict | None = None) -> tuple[str, str | None, str]:
     # unrelated product. Including it as a fallback would have silently pointed
     # the Bravo harness at IG Setter's data. Callers who really want it must set
     # TURSO_DATABASE_URL explicitly.
+    #
+    # TURSO_API_KEY is excluded for the SAME reason, which the original version
+    # missed: it guarded the ig-setter-pro URL and then accepted the
+    # ig-setter-pro TOKEN one line later. docs/ENV_KEYS_TEMPLATE.md is explicit
+    # that TURSO_API_KEY belongs to that other product.
+    #
+    # This is not theoretical. On the VPS, TURSO_API_KEY is present and
+    # TURSO_AUTH_TOKEN is absent — so setting TURSO_DATABASE_URL there would
+    # have authenticated the Bravo harness with another product's credential and
+    # reported success. Caught by the VPS agent before the cutover, 2026-08-08.
     for key in ("TURSO_DATABASE_URL", "TURSO_DB_URL"):
         url = e.get(key)
         if url:
-            token = e.get("TURSO_AUTH_TOKEN") or e.get("TURSO_API_KEY")
+            token = e.get("TURSO_AUTH_TOKEN")
             if not token:
+                extra = ""
+                if e.get("TURSO_API_KEY"):
+                    extra = (" TURSO_API_KEY is set but is NOT a substitute — it is "
+                             "ig-setter-pro's database token, and using it would point "
+                             "this harness at another product's data.")
                 raise TursoConfigError(
-                    f"{key} is set but neither TURSO_AUTH_TOKEN nor TURSO_API_KEY is. "
-                    "A remote libSQL URL cannot authenticate without a database token."
+                    f"{key} is set but TURSO_AUTH_TOKEN is not. A remote libSQL URL "
+                    f"cannot authenticate without its own database token.{extra}"
                 )
             return url, token, f"remote({key})"
 

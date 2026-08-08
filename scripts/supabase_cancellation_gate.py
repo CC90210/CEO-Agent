@@ -23,8 +23,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -39,6 +37,7 @@ from lib.tls_trust import ensure_os_trust  # noqa: E402
 ensure_os_trust()
 
 from core.turso_schema_transpiler import PROJECTS, _mgmt_query  # noqa: E402
+from lib import turso_switch  # noqa: E402
 from lib.db_turso import resolve_project_target  # noqa: E402
 from lib.secret_loader import load_env  # noqa: E402
 
@@ -277,29 +276,21 @@ def check_writers(env: dict) -> dict:
     # different facts. It was absent on the VPS entirely, which meant those
     # daemons kept writing to Supabase while the operator believed otherwise.
     # Asking the INTERPRETER is the only honest check.
-    probe = subprocess.run(
-        [sys.executable, "-c",
-         "import supabase;print(getattr(supabase.create_client,'__module__','?'))"],
-        capture_output=True, text=True, timeout=120,
-        env={**os.environ, "EMPIRE_DATA_BACKEND": "turso_cloud"})
-    module = (probe.stdout or "").strip().splitlines()[-1] if probe.stdout else ""
-    if module != "lib.turso_supabase_compat":
+    status = turso_switch.probe()
+    if not status.active:
         problems.append(
-            f"Python switch NOT active on this interpreter (create_client -> "
-            f"{module or 'no output'}). Run: python scripts/install_python_switch.py")
+            f"Python switch NOT active on this interpreter ({status.detail}). "
+            f"Run: python scripts/install_python_switch.py")
 
     # A process that tried to patch and failed leaves this behind. stderr is
     # discarded under PM2, so without the marker the failure is invisible.
-    marker = SCRIPTS.parent / "state" / "turso_switch_failed.json"
-    if marker.exists():
-        try:
-            rec = json.loads(marker.read_text(encoding="utf-8"))
-            problems.append(
-                f"Python switch FAILED on {rec.get('host','?')} at "
-                f"{rec.get('at','?')}: {str(rec.get('error'))[:90]} — that process "
-                f"was still writing to Supabase. Fix, then delete {marker.name}.")
-        except Exception:
-            problems.append(f"{marker} exists but is unreadable — investigate")
+    rec = turso_switch.failure_record()
+    if rec:
+        problems.append(
+            f"Python switch FAILED on {rec.get('host','?')} at "
+            f"{rec.get('at','?')}: {str(rec.get('error'))[:90]} — that process "
+            f"was still writing to Supabase. Fix, then delete "
+            f"{turso_switch.FAILURE_MARKER.name}.")
 
     eco = SCRIPTS.parent / "ecosystem.config.js"
     if eco.exists() and "EMPIRE_TURSO_CUTOVER" in eco.read_text(encoding="utf-8"):

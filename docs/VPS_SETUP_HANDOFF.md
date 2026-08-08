@@ -308,6 +308,46 @@ Prefer compatibility symlinks over broad code rewrites during first boot.
 Use the existing CEO venv if healthy. Install requirements from both repos.
 Confirm imports before starting PM2.
 
+#### Phase 4b: Install the Turso data-backend switch (REQUIRED)
+
+`pip install -r requirements.txt` does **not** install this. It is a
+`sitecustomize.py` — the only module Python imports before harness code binds
+`create_client` — so it has to live in the venv's `site-packages`, which is in
+no repo and no requirements file.
+
+Omitting it is silent. `EMPIRE_DATA_BACKEND=turso_cloud` simply does nothing:
+every daemon keeps its Supabase client, the flag reads as set, and nothing logs
+a complaint. That is exactly how this VPS spent the migration writing to the
+database we were trying to cancel.
+
+```bash
+cd /srv/sunbiz/ceo-agent
+python scripts/install_python_switch.py
+```
+
+Expect the final line:
+
+```
+live check  : create_client -> lib.turso_supabase_compat OK
+```
+
+Then confirm independently, because "the file landed" and "the swap happens"
+are different facts — a sitecustomize can be stale, shadowed by another one
+earlier on `sys.path`, or unable to import its dependencies, and all three look
+identical on disk:
+
+```bash
+EMPIRE_DATA_BACKEND=turso_cloud python -c "import supabase; print(supabase.create_client.__module__)"
+# must print: lib.turso_supabase_compat
+```
+
+If it prints anything else, read `state/turso_switch_failed.json` — a failed
+patch records the host, interpreter and cause there, because stderr is
+discarded under PM2.
+
+`python scripts/machine_parity.py --check` reports this as `turso-switch`
+alongside hooks and deps; treat a red there as provisioning being incomplete.
+
 ### Phase 5: Populate Secrets Interactively
 
 Ask CC to fill `/srv/sunbiz/ceo-agent/.env.agents` directly in the VPS terminal.

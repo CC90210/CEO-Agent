@@ -30,6 +30,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 SOURCE = REPO / "scripts" / "_bootstrap" / "sitecustomize.py"
 
+sys.path.insert(0, str(REPO / "scripts"))
+from lib import turso_switch  # noqa: E402
+
 
 def _site_packages() -> Path | None:
     """Where this interpreter would import sitecustomize from.
@@ -102,21 +105,15 @@ def main() -> int:
     ok = installed == want
     print(f"installed   : {'OK' if ok else 'MISMATCH'} ({installed[:12]})")
 
-    # Proving the file landed is not the same as proving the swap works.
-    import os
-    import subprocess
-    probe = subprocess.run(
-        [sys.executable, "-c",
-         "import supabase;print(getattr(supabase.create_client,'__module__','?'))"],
-        capture_output=True, text=True, timeout=120,
-        env={**os.environ, "EMPIRE_DATA_BACKEND": "turso_cloud"})
-    module = (probe.stdout or "").strip().splitlines()[-1] if probe.stdout else ""
-    live = module == "lib.turso_supabase_compat"
-    print(f"live check  : create_client -> {module or '(no output)'} "
-          f"{'OK' if live else 'FAILED'}")
-    if not live and probe.stderr:
-        print(f"              {probe.stderr.strip().splitlines()[-1][:160]}")
-    return 0 if (ok and live) else 1
+    # Proving the file landed is not the same as proving the swap works: a
+    # sitecustomize can be present and still be stale, shadowed, or unable to
+    # import what it needs.
+    status = turso_switch.probe()
+    print(f"live check  : create_client -> {status.module or '(no output)'} "
+          f"{'OK' if status.active else 'FAILED'}")
+    if not status.active and status.error:
+        print(f"              {status.error[:160]}")
+    return 0 if (ok and status.active) else 1
 
 
 if __name__ == "__main__":
