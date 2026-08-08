@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 import sys
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -615,7 +616,64 @@ class TursoSupabaseCompat:
         return _RpcQuery(self._db, name, params)
 
 
+# Supabase project ref -> Turso project key. Refs verified live 2026-08-05;
+# same table as core/turso_schema_transpiler.PROJECTS, kept here so this module
+# has no import cycle back into scripts/core.
+_REF_TO_PROJECT = {
+    "phctllmtsogkovoilwos": "bravo",
+    "xugwrhvaoihyidtdgwkq": "breeze",
+    "jqybbrtzpvmefgzzdagz": "nostalgic",
+    "xusnasmzoxkaimyjqbie": "propflow",
+    "skgrbweyscysyetubemg": "oasis",
+}
+
+# One client per project; TursoDB introspects the schema on connect (a PRAGMA
+# per table, 118 tenant-scoped tables on bravo alone), so rebuilding per call
+# would put hundreds of round trips in front of every query.
+_CLIENT_CACHE: dict[str, TursoSupabaseCompat] = {}
+
+
+def _project_for_url(url: str) -> str:
+    """Which Turso database does this Supabase URL mean?
+
+    This used to be ignored entirely: create_client(url, key) discarded both
+    arguments and always returned bravo. For the ~49 bravo-scoped call sites
+    that was invisibly fine. For anything pointed at breeze, propflow, oasis or
+    nostalgic it was a silent wrong-database read — and only loud when the table
+    happened not to exist in bravo (which is how it was caught: a breeze query
+    for `interactions` died with "no such table"). Where a name exists in BOTH
+    schemas — leads, documents, webhook_events, automation_logs — it would have
+    returned another product's rows with no error at all.
+    """
+    m = re.search(r"https?://([a-z0-9]{20})\.supabase\.co", url or "", re.I)
+    if not m:
+        # No URL at all is the harness's own shorthand for "the bravo db".
+        if not (url or "").strip():
+            return "bravo"
+        raise ValueError(
+            f"turso compat: cannot tell which database {url!r} refers to. "
+            f"Pass a Supabase project URL, or construct "
+            f"TursoSupabaseCompat(TursoDB(*resolve_project_target('<project>'))) "
+            f"explicitly.")
+    ref = m.group(1).lower()
+    project = _REF_TO_PROJECT.get(ref)
+    if not project:
+        # Refusing beats guessing: defaulting to bravo is the original bug.
+        raise ValueError(
+            f"turso compat: Supabase project ref {ref!r} is not mapped to a "
+            f"Turso database. Add it to _REF_TO_PROJECT rather than letting it "
+            f"fall through to bravo.")
+    return project
+
+
 def create_client(url: str = "", key: str = "", *a, **kw) -> TursoSupabaseCompat:
     """Signature-compatible replacement for supabase.create_client."""
-    log.info("Turso compat client issued", caller=_caller())
-    return TursoSupabaseCompat()
+    project = _project_for_url(url)
+    cached = _CLIENT_CACHE.get(project)
+    if cached is not None:
+        return cached
+    turso_url, token, mode = resolve_project_target(project)
+    client = TursoSupabaseCompat(TursoDB(turso_url, token, mode))
+    _CLIENT_CACHE[project] = client
+    log.info("Turso compat client issued", caller=_caller(), project=project)
+    return client

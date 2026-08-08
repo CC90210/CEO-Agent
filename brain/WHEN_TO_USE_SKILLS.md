@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **160 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **161 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## [[skills/agent-forge/SKILL|agent-forge]]
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -418,6 +418,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **160 active skills**. Eac
 - **Use when:** Compact the current session into one paste-ready block a fresh agent can resume from — what happened, why, what is left, and what NOT to redo. Use when hitting context limits, ending a work session, switching runtimes (Claude to Gemini/Codex/OpenCode), or partitioning a task acro
 - **Triggers:** handoff, hand off, fresh session, context limit, switch runtime, resume elsewhere, pass this on
 - **Path:** `skills/handoff/SKILL.md` · tier `standard` · risk `low`
+
+## [[skills/harness-refinement/SKILL|harness-refinement]]
+- **Use when:** Propose, measure, apply and roll back changes to Bravo's own prompts, memory, skills and subagent specs — with an executed command as the evidence gate. A refinement that cannot show a before/after delta on a real command is auto-reverted, never merged. Use when a lesson should b
+- **Triggers:** refine the harness, propose a change to my own rules, change an agent rule, queue a proposed change for CC, roll back a harness refinement, apply a refinement, show the refinement ledger, make this lesson permanent, prove this change helped
+- **Path:** `skills/harness-refinement/SKILL.md` · tier `T2` · risk `medium`
 
 ## [[skills/heartbeat/SKILL|heartbeat]]
 - **Use when:** Proactive autonomous monitoring and session management. Runs at session start and end. Checks memory consistency, infrastructure health, pending tasks, and workspace cleanliness. Enables Bravo to act without prompting.

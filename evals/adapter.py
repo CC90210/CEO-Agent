@@ -43,7 +43,19 @@ def _routing(cd: Path) -> dict:
 
 def _send_policy(cd: Path) -> dict:
     import casl_compliance as casl
-    casl._check_supabase_suppression = lambda *a, **k: None      # force offline
+    # Patch by attribute NAME, and fail loudly if that name ever moves again:
+    # this read `_check_supabase_suppression`, which was renamed to
+    # `_check_db_suppression` when the module came off raw Supabase REST. The
+    # assignment then just created a dead attribute, the offline guard went
+    # inert, and this eval started querying the live data backend — silently,
+    # so the suite became nondeterministic (a real suppression row flips
+    # send -> suppress) and network-dependent.
+    _OFFLINE_TARGET = "_check_db_suppression"
+    if not hasattr(casl, _OFFLINE_TARGET):
+        raise AttributeError(
+            f"casl_compliance.{_OFFLINE_TARGET} is gone — the send_policy eval "
+            f"would silently query the live data backend. Update this patch.")
+    setattr(casl, _OFFLINE_TARGET, lambda *a, **k: None)         # force offline
     casl.SUPPRESSIONS_CSV = Path(str(REPO / "evals" / "__no_such_suppressions__.csv"))
     casl._SUPPRESSION_CACHE.clear()
     task = (cd / "task.md").read_text(encoding="utf-8")

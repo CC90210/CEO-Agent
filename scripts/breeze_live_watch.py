@@ -6,9 +6,10 @@ Polls every --interval seconds (default 300):
      any check flipping false EXCEPT the two known-acceptable baselines:
      resend_configured (tenant sends via its own Gmail, Resend unused) and
      vps_bridge_health_ok (AI assistant backend arrives with the Mac mini).
-  2. Breeze Supabase `interactions` rows with status=failed in the last window
+  2. Breeze portal `interactions` rows with status=failed in the last window
      — a failed merchant/staff email is exactly what CC wants to hear about
-     immediately during onboarding week.
+     immediately during onboarding week. Reads follow EMPIRE_DATA_BACKEND
+     (Supabase by default, breeze's Turso db when it is turso_cloud).
 
 Alert discipline: Telegram (scripts/notify.py) on STATE CHANGE only — one ping
 when something breaks, one when it recovers, re-ping hourly while still broken.
@@ -23,9 +24,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
-import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -84,35 +85,70 @@ def check_health() -> list[str]:
     return problems
 
 
-def check_failed_emails(window_min: int) -> list[str]:
+_BREEZE_CLIENT = None
+
+
+def _breeze_client():
+    """Supabase-dialect client for the BREEZE portal database, or None if unconfigured.
+
+    Deliberately NOT a bare `supabase.create_client(...)`. sitecustomize swaps
+    that factory for the Turso compat client when EMPIRE_DATA_BACKEND=turso_cloud,
+    and that client is hardwired to the *bravo* database
+    (turso_supabase_compat.py:601 — `resolve_project_target("bravo")`). But
+    `interactions` exists only in the *breeze* database, so the patched factory
+    would query the wrong db, get "no such table: interactions", and page CC with
+    a fake portal failure every 5 minutes. So the Turso path resolves breeze's own
+    target explicitly and the Supabase path stays exactly as it was.
+
+    Cached: the Turso client holds a live connection and discovers the schema on
+    connect, which is not something to redo on a 300s loop. Callers drop the cache
+    on a query failure so the next cycle reconnects.
+    """
+    global _BREEZE_CLIENT
+    if _BREEZE_CLIENT is not None:
+        return _BREEZE_CLIENT
+    if os.environ.get("EMPIRE_DATA_BACKEND") == "turso_cloud":
+        from lib.db_turso import TursoDB, resolve_project_target  # noqa: PLC0415
+        from lib.turso_supabase_compat import TursoSupabaseCompat  # noqa: PLC0415
+
+        t_url, t_token, t_mode = resolve_project_target("breeze")
+        _BREEZE_CLIENT = TursoSupabaseCompat(TursoDB(t_url, t_token, t_mode))
+        return _BREEZE_CLIENT
     env = load_env()
     url = (env.get("Breeze_SUPABASE_URL") or "").rstrip("/")
     key = env.get("Breeze_SUPABASE_SERVICE_ROLE_KEY") or ""
     if not url or not key:
+        return None
+    from supabase import create_client  # noqa: PLC0415
+
+    _BREEZE_CLIENT = create_client(url, key)
+    return _BREEZE_CLIENT
+
+
+def check_failed_emails(window_min: int) -> list[str]:
+    try:
+        client = _breeze_client()
+    except Exception as e:  # noqa: BLE001 - a config error must not kill the daemon loop
+        return [f"Breeze database credentials unusable: {e} (watch cannot see email failures)"]
+    if client is None:
         return ["Breeze Supabase creds missing in .env.agents (watch cannot see email failures)"]
     since = (datetime.now(timezone.utc) - timedelta(minutes=window_min)).isoformat()
-    qs = urllib.parse.urlencode({
-        "select": "to_address,subject,status,error,created_at",
-        "status": "in.(failed,bounced)",
-        "created_at": f"gt.{since}",
-        "order": "created_at.desc",
-        "limit": "10",
-    })
-    req = urllib.request.Request(
-        f"{url}/rest/v1/interactions?{qs}",
-        headers={"apikey": key, "Authorization": f"Bearer {key}"},
-    )
     try:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            rows = json.loads(r.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        detail = ""
-        try:
-            detail = e.read().decode("utf-8")[:200]
-        except Exception:  # noqa: BLE001
-            pass
-        return [f"could not query interactions: HTTP {e.code} {detail}"]
+        # `interactions` is tenant-scoped; this read is deliberately cross-tenant
+        # (CC's operator view of the whole portal) and lands in the Turso audit log.
+        rows = (
+            client.table("interactions")
+            .select("to_address,subject,status,error,created_at")
+            .in_("status", ["failed", "bounced"])
+            .gt("created_at", since)
+            .order("created_at", desc=True)
+            .limit(10)
+            .execute()
+            .data
+        ) or []
     except Exception as e:  # noqa: BLE001
+        global _BREEZE_CLIENT
+        _BREEZE_CLIENT = None  # a dead connection must not be reused every cycle
         return [f"could not query interactions: {e}"]
     return [
         f"EMAIL FAILED -> {row.get('recipient')} ({row.get('tag')}: {row.get('subject')})"

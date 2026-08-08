@@ -1,6 +1,6 @@
 -- bravo-empire master schema — transpiled from live Supabase
--- project ref: phctllmtsogkovoilwos  generated: 2026-08-07T16:25:30+00:00
--- tables: 164  indexes emitted: 552  views emitted: 2
+-- project ref: phctllmtsogkovoilwos  generated: 2026-08-08T04:03:00+00:00
+-- tables: 166  indexes emitted: 557  views emitted: 2
 --
 -- NOT TRANSPILED (DAL responsibility — see scripts/lib/db_turso.py):
 --   PL/pgSQL functions (60): ack_event, agents_touch_updated_at, approve_sunbiz_draft, bump_tenant_record_last_contact, calculate_activation_score, claim_events, claim_texttorrent_partition, client_signatures_append_only, consume_texttorrent_rate_token, conv_normalize_phone, conv_resolve_interaction_owner, conv_sync_lead_assignment, conv_thread_set_owner, conv_thread_upsert, decay_confidence_scores, exec_sql, fail_event, fail_texttorrent_inbound, finalize_texttorrent_inbound, find_similar_merchants...
@@ -1193,7 +1193,7 @@ CREATE TABLE IF NOT EXISTS "agent_alerts" (
   "resolved_by" TEXT,
   PRIMARY KEY ("id"),
   CONSTRAINT "agent_alerts_severity_check" CHECK ((severity IN ('info', 'warn', 'urgent'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "agent_decisions" (
@@ -1233,7 +1233,7 @@ CREATE TABLE IF NOT EXISTS "agent_messages" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "agent_messages_priority_check" CHECK ((priority IN ('low', 'normal', 'high', 'urgent'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "agent_model_config" (
@@ -1251,7 +1251,7 @@ CREATE TABLE IF NOT EXISTS "agent_model_config" (
   "user_id" TEXT,
   "display_name_override" TEXT,
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "agents" (
@@ -1273,7 +1273,7 @@ CREATE TABLE IF NOT EXISTS "agents" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "agents_category_check" CHECK ((category IN ('ceo', 'cfo', 'cmo', 'coo', 'operations', 'sales', 'support', 'research', 'content', 'engineering', 'finance', 'legal', 'industry_real_estate', 'industry_funding', 'industry_ecommerce', 'industry_agency', 'custom'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "application_lender_threads" (
@@ -1305,7 +1305,7 @@ CREATE TABLE IF NOT EXISTS "application_lender_threads" (
   PRIMARY KEY ("id"),
   CONSTRAINT "application_lender_threads_email_identity_check" CHECK ((email_identity IN ('sunbiz', 'funmate'))),
   CONSTRAINT "application_lender_threads_status_check" CHECK ((status IN ('pending', 'sending', 'sent', 'replied', 'offer_received', 'declined', 'error'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "application_signing_events" (
@@ -1318,7 +1318,7 @@ CREATE TABLE IF NOT EXISTS "application_signing_events" (
   "user_agent" TEXT,
   "meta" TEXT NOT NULL DEFAULT '{}',
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("request_id") REFERENCES "application_signing_requests" ("id")
+  FOREIGN KEY ("request_id") REFERENCES "application_signing_requests" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "bridge_pairings" (
@@ -1336,7 +1336,7 @@ CREATE TABLE IF NOT EXISTS "bridge_pairings" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "tool_capabilities" TEXT NOT NULL DEFAULT '[]',
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "campaign_metric_snapshots" (
@@ -1365,7 +1365,7 @@ CREATE TABLE IF NOT EXISTS "campaign_metric_snapshots" (
   "unique_clicks" INTEGER,
   "complaint_rate" TEXT,
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "campaign_number_health" (
@@ -1385,7 +1385,7 @@ CREATE TABLE IF NOT EXISTS "campaign_number_health" (
   "last_computed_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "repeat_n" INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "campaign_recipients" (
@@ -1402,7 +1402,7 @@ CREATE TABLE IF NOT EXISTS "campaign_recipients" (
   "conversion_stage" TEXT,
   "last_status_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "campaign_runs" (
@@ -1421,7 +1421,7 @@ CREATE TABLE IF NOT EXISTS "campaign_runs" (
   "channel" TEXT DEFAULT 'texttorrent',
   "provider_activity_id" TEXT,
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "cc_email_templates" (
@@ -1436,7 +1436,7 @@ CREATE TABLE IF NOT EXISTS "cc_email_templates" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "channel_accounts" (
@@ -1458,7 +1458,7 @@ CREATE TABLE IF NOT EXISTS "channel_accounts" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "chat_sessions" (
@@ -1476,7 +1476,7 @@ CREATE TABLE IF NOT EXISTS "chat_sessions" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "cold_leads" (
@@ -1496,7 +1496,7 @@ CREATE TABLE IF NOT EXISTS "cold_leads" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("list_id") REFERENCES "cold_lead_lists" ("id")
+  FOREIGN KEY ("list_id") REFERENCES "cold_lead_lists" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "cold_outreach_campaigns" (
@@ -1553,7 +1553,7 @@ CREATE TABLE IF NOT EXISTS "conversation_threads" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "cron_jobs" (
@@ -1595,7 +1595,7 @@ CREATE TABLE IF NOT EXISTS "deal_paper_snapshot" (
   "requested_amount" TEXT,
   "captured_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "drip_sequences" (
@@ -1614,7 +1614,7 @@ CREATE TABLE IF NOT EXISTS "drip_sequences" (
   "email_class" TEXT NOT NULL DEFAULT 'commercial',
   PRIMARY KEY ("id"),
   CONSTRAINT "drip_sequences_email_class_check" CHECK ((email_class IN ('transactional', 'commercial'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "drip_template_pool" (
@@ -1640,7 +1640,7 @@ CREATE TABLE IF NOT EXISTS "drip_template_pool" (
   CONSTRAINT "drip_template_pool_source_check" CHECK ((source IN ('ui', 'seed', 'imported', 'generated'))),
   CONSTRAINT "drip_template_pool_status_check" CHECK ((status IN ('draft', 'approved', 'retired'))),
   CONSTRAINT "drip_template_pool_weight_check" CHECK (((weight >= 0) AND (weight <= 100))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "email_click_events" (
@@ -1654,7 +1654,7 @@ CREATE TABLE IF NOT EXISTS "email_click_events" (
   "clicked_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "email_open_events" (
@@ -1668,7 +1668,7 @@ CREATE TABLE IF NOT EXISTS "email_open_events" (
   "suspicious_prefetch" INTEGER NOT NULL DEFAULT 0,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "email_suppressions" (
@@ -1682,7 +1682,7 @@ CREATE TABLE IF NOT EXISTS "email_suppressions" (
   "ip_address" TEXT,
   "added_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "esign_events" (
@@ -1697,7 +1697,7 @@ CREATE TABLE IF NOT EXISTS "esign_events" (
   "user_agent" TEXT,
   "meta" TEXT NOT NULL DEFAULT '{}',
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("envelope_id") REFERENCES "esign_envelopes" ("id")
+  FOREIGN KEY ("envelope_id") REFERENCES "esign_envelopes" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "esign_signers" (
@@ -1718,7 +1718,7 @@ CREATE TABLE IF NOT EXISTS "esign_signers" (
   "decline_reason" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("envelope_id") REFERENCES "esign_envelopes" ("id")
+  FOREIGN KEY ("envelope_id") REFERENCES "esign_envelopes" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "followup_drip_enrollments" (
@@ -1740,7 +1740,7 @@ CREATE TABLE IF NOT EXISTS "followup_drip_enrollments" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "followup_drip_enrollments_status_check" CHECK ((status IN ('active', 'done', 'stopped', 'error'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "forms" (
@@ -1759,7 +1759,7 @@ CREATE TABLE IF NOT EXISTS "forms" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "gmail_templates" (
@@ -1774,7 +1774,7 @@ CREATE TABLE IF NOT EXISTS "gmail_templates" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "health_alert_state" (
@@ -1786,7 +1786,7 @@ CREATE TABLE IF NOT EXISTS "health_alert_state" (
   "first_failed_at" TEXT,
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("alert_key"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "health_check_runs" (
@@ -1801,7 +1801,7 @@ CREATE TABLE IF NOT EXISTS "health_check_runs" (
   "ran_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "health_check_runs_verdict_check" CHECK ((verdict IN ('ok', 'degraded', 'failing', 'check_broken'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "inference_jobs" (
@@ -1825,7 +1825,7 @@ CREATE TABLE IF NOT EXISTS "inference_jobs" (
   CONSTRAINT "inference_jobs_max_tokens_check" CHECK (((max_tokens >= 1) AND (max_tokens <= 16000))),
   CONSTRAINT "inference_jobs_model_tier_check" CHECK ((model_tier IN ('fast', 'smart', 'max'))),
   CONSTRAINT "inference_jobs_status_check" CHECK ((status IN ('pending', 'running', 'complete', 'error'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "lead_documents" (
@@ -1841,7 +1841,7 @@ CREATE TABLE IF NOT EXISTS "lead_documents" (
   "uploaded_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "metadata" TEXT NOT NULL DEFAULT '{}',
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "lead_interactions" (
@@ -1873,7 +1873,7 @@ CREATE TABLE IF NOT EXISTS "lead_interactions" (
   "provider_message_id" TEXT,
   "from_email" TEXT,
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "leads" (
@@ -1895,7 +1895,7 @@ CREATE TABLE IF NOT EXISTS "leads" (
   "updated_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "tenant_id" TEXT,
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "lender_reply_outcomes" (
@@ -1916,7 +1916,7 @@ CREATE TABLE IF NOT EXISTS "lender_reply_outcomes" (
   "classified_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "list_intelligence" (
@@ -1936,7 +1936,7 @@ CREATE TABLE IF NOT EXISTS "list_intelligence" (
   "last_alerted_at" TEXT,
   "last_computed_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "marketing_asset" (
@@ -1968,7 +1968,7 @@ CREATE TABLE IF NOT EXISTS "marketing_asset" (
   CONSTRAINT "marketing_asset_channel_check" CHECK ((channel IN ('organic-instagram', 'organic-facebook', 'organic-tiktok', 'organic-youtube', 'paid-meta', 'paid-google', 'seo-article', 'seo-landing', 'email'))),
   CONSTRAINT "marketing_asset_format_check" CHECK ((format IN ('video', 'image', 'carousel', 'html', 'article', 'copy', 'audio'))),
   CONSTRAINT "marketing_asset_status_check" CHECK ((status IN ('draft', 'in_review', 'approved', 'scheduled', 'published', 'rejected', 'archived'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "merchant_background_checks" (
@@ -2000,7 +2000,7 @@ CREATE TABLE IF NOT EXISTS "merchant_background_checks" (
   PRIMARY KEY ("id"),
   CONSTRAINT "merchant_background_checks_risk_flag_check" CHECK ((risk_flag IN ('none', 'court_case', 'mca_default', 'ucc', 'lien', 'bankruptcy', 'unknown'))),
   CONSTRAINT "merchant_background_checks_status_check" CHECK ((status IN ('pending', 'running', 'completed', 'error', 'needs_assist'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "mrr_snapshots" (
@@ -2013,7 +2013,7 @@ CREATE TABLE IF NOT EXISTS "mrr_snapshots" (
   "metadata" TEXT NOT NULL DEFAULT '{}',
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "ops_alert_state" (
@@ -2026,7 +2026,7 @@ CREATE TABLE IF NOT EXISTS "ops_alert_state" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "scheduled_calls" (
@@ -2044,7 +2044,7 @@ CREATE TABLE IF NOT EXISTS "scheduled_calls" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "scheduled_calls_status_check" CHECK ((status IN ('pending', 'done', 'cancelled', 'missed'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "scheduled_sends" (
@@ -2068,7 +2068,7 @@ CREATE TABLE IF NOT EXISTS "scheduled_sends" (
   PRIMARY KEY ("id"),
   CONSTRAINT "scheduled_sends_channel_check" CHECK ((channel IN ('sms', 'email'))),
   CONSTRAINT "scheduled_sends_status_check" CHECK ((status IN ('pending', 'sending', 'sent', 'failed', 'cancelled'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "shop_out_runs" (
@@ -2086,7 +2086,7 @@ CREATE TABLE IF NOT EXISTS "shop_out_runs" (
   "completed_at" TEXT,
   PRIMARY KEY ("run_id"),
   CONSTRAINT "shop_out_runs_status_check" CHECK ((status IN ('in_progress', 'completed', 'failed'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "shopping_threads" (
@@ -2103,7 +2103,7 @@ CREATE TABLE IF NOT EXISTS "shopping_threads" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "shopping_threads_status_check" CHECK ((status IN ('pending', 'sending', 'sent', 'error'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "signing_otp_codes" (
@@ -2117,7 +2117,40 @@ CREATE TABLE IF NOT EXISTS "signing_otp_codes" (
   "consumed_at" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("request_id") REFERENCES "application_signing_requests" ("id")
+  FOREIGN KEY ("request_id") REFERENCES "application_signing_requests" ("id") ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS "sms_breaker_probes" (
+  "tenant_id" TEXT NOT NULL,
+  "last_probe_at" TEXT NOT NULL DEFAULT '1970-01-01 00:00:00+00',
+  "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY ("tenant_id"),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS "sms_delivery_receipts" (
+  "id" TEXT NOT NULL DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random())%4+1,1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
+  "tenant_id" TEXT NOT NULL,
+  "drip_run_id" TEXT,
+  "lead_id" TEXT,
+  "chat_id" TEXT NOT NULL,
+  "rep_key" TEXT,
+  "act_as_email" TEXT,
+  "from_number" TEXT,
+  "to_last4" TEXT,
+  "body_hash" TEXT NOT NULL,
+  "sent_at" TEXT NOT NULL,
+  "carrier_status" TEXT NOT NULL DEFAULT 'unknown',
+  "msg_sid" TEXT,
+  "segments" INTEGER,
+  "credits" INTEGER,
+  "check_attempts" INTEGER NOT NULL DEFAULT 0,
+  "last_checked_at" TEXT,
+  "resolved_at" TEXT,
+  "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY ("id"),
+  CONSTRAINT "sms_delivery_receipts_carrier_status_check" CHECK ((carrier_status IN ('delivered', 'failed', 'pending', 'unknown'))),
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "sms_sender_numbers" (
@@ -2131,7 +2164,7 @@ CREATE TABLE IF NOT EXISTS "sms_sender_numbers" (
   "last_seen_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "deactivated_at" TEXT,
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "sunbiz_agent_accounts" (
@@ -2156,7 +2189,7 @@ CREATE TABLE IF NOT EXISTS "sunbiz_agent_accounts" (
   CONSTRAINT "sunbiz_agent_accounts_daily_cap_check" CHECK (((daily_cap >= 0) AND (daily_cap <= 5000))),
   CONSTRAINT "sunbiz_agent_accounts_mode_check" CHECK ((mode IN ('off', 'shadow', 'semi', 'full', 'paused'))),
   CONSTRAINT "sunbiz_agent_accounts_provider_check" CHECK ((provider = 'texttorrent')),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "sunbiz_phone_suppressions" (
@@ -2168,7 +2201,7 @@ CREATE TABLE IF NOT EXISTS "sunbiz_phone_suppressions" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("tenant_id", "phone_last10"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "sunbiz_processing_leases" (
@@ -2179,7 +2212,7 @@ CREATE TABLE IF NOT EXISTS "sunbiz_processing_leases" (
   "expires_at" TEXT NOT NULL,
   "heartbeat_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("tenant_id", "partition_key"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "sunbiz_provider_rate_state" (
@@ -2193,7 +2226,7 @@ CREATE TABLE IF NOT EXISTS "sunbiz_provider_rate_state" (
   PRIMARY KEY ("bucket"),
   CONSTRAINT "sunbiz_provider_rate_state_provider_check" CHECK ((provider = 'texttorrent')),
   CONSTRAINT "sunbiz_provider_rate_state_request_count_check" CHECK ((request_count >= 0)),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "tenant_audit_log" (
@@ -2211,7 +2244,7 @@ CREATE TABLE IF NOT EXISTS "tenant_audit_log" (
   "metadata" TEXT NOT NULL DEFAULT '{}',
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "tenant_cron_jobs" (
@@ -2234,7 +2267,7 @@ CREATE TABLE IF NOT EXISTS "tenant_cron_jobs" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "tenant_cron_jobs_last_run_status_check" CHECK (((last_run_status IN ('success', 'error', NULL)) OR (last_run_status IS NULL))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "tenant_invites" (
@@ -2251,7 +2284,7 @@ CREATE TABLE IF NOT EXISTS "tenant_invites" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "tenant_invites_team_role_check" CHECK ((team_role IN ('admin', 'loan_officer', 'processor', 'read_only', 'member'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "tenant_manifests" (
@@ -2264,7 +2297,7 @@ CREATE TABLE IF NOT EXISTS "tenant_manifests" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "tenant_records" (
@@ -2275,7 +2308,7 @@ CREATE TABLE IF NOT EXISTS "tenant_records" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "user_integration_credentials" (
@@ -2291,7 +2324,7 @@ CREATE TABLE IF NOT EXISTS "user_integration_credentials" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "user_profiles" (
@@ -2327,7 +2360,7 @@ CREATE TABLE IF NOT EXISTS "user_profiles" (
   "admin_access_granted_at" TEXT,
   PRIMARY KEY ("id"),
   CONSTRAINT "user_profiles_team_role_check" CHECK ((team_role IN ('owner', 'admin', 'loan_officer', 'processor', 'read_only', 'member'))),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "bookings" (
@@ -2344,8 +2377,8 @@ CREATE TABLE IF NOT EXISTS "bookings" (
   "reminder_sent" INTEGER DEFAULT 0,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("lead_id") REFERENCES "leads" ("id"),
-  FOREIGN KEY ("slot_id") REFERENCES "booking_slots" ("id")
+  FOREIGN KEY ("lead_id") REFERENCES "leads" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("slot_id") REFERENCES "booking_slots" ("id") ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS "bridge_pair_codes" (
@@ -2360,7 +2393,7 @@ CREATE TABLE IF NOT EXISTS "bridge_pair_codes" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   FOREIGN KEY ("consumed_by_pairing_id") REFERENCES "bridge_pairings" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "chat_attachments" (
@@ -2379,8 +2412,8 @@ CREATE TABLE IF NOT EXISTS "chat_attachments" (
   "metadata" TEXT NOT NULL DEFAULT '{}',
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("session_id") REFERENCES "chat_sessions" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("session_id") REFERENCES "chat_sessions" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "chat_messages" (
@@ -2395,8 +2428,8 @@ CREATE TABLE IF NOT EXISTS "chat_messages" (
   "error" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("session_id") REFERENCES "chat_sessions" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("session_id") REFERENCES "chat_sessions" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "clair_reports" (
@@ -2430,8 +2463,8 @@ CREATE TABLE IF NOT EXISTS "clair_reports" (
   "entity_id" TEXT,
   PRIMARY KEY ("id"),
   CONSTRAINT "clair_reports_status_check" CHECK ((status IN ('pending', 'completed', 'no_results', 'error'))),
-  FOREIGN KEY ("lead_id") REFERENCES "tenant_records" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("lead_id") REFERENCES "tenant_records" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "cold_outreach_recipients" (
@@ -2450,8 +2483,8 @@ CREATE TABLE IF NOT EXISTS "cold_outreach_recipients" (
   "response_summary" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("campaign_id") REFERENCES "cold_outreach_campaigns" ("id"),
-  FOREIGN KEY ("cold_lead_id") REFERENCES "cold_leads" ("id")
+  FOREIGN KEY ("campaign_id") REFERENCES "cold_outreach_campaigns" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("cold_lead_id") REFERENCES "cold_leads" ("id") ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS "contracts" (
@@ -2474,7 +2507,7 @@ CREATE TABLE IF NOT EXISTS "contracts" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "contracts_status_check" CHECK ((status IN ('draft', 'sent', 'viewed', 'signed', 'expired', 'void'))),
-  FOREIGN KEY ("lead_id") REFERENCES "leads" ("id")
+  FOREIGN KEY ("lead_id") REFERENCES "leads" ("id") ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS "conversation_events" (
@@ -2487,8 +2520,8 @@ CREATE TABLE IF NOT EXISTS "conversation_events" (
   "metadata" TEXT NOT NULL DEFAULT '{}',
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id"),
-  FOREIGN KEY ("thread_id") REFERENCES "conversation_threads" ("id")
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("thread_id") REFERENCES "conversation_threads" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "daily_plans" (
@@ -2510,9 +2543,9 @@ CREATE TABLE IF NOT EXISTS "daily_plans" (
   "tenant_id" TEXT,
   "finalized_at" TEXT,
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("primary_lead_id") REFERENCES "leads" ("id"),
-  FOREIGN KEY ("profile_id") REFERENCES "user_profiles" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("primary_lead_id") REFERENCES "leads" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("profile_id") REFERENCES "user_profiles" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "drip_email_events" (
@@ -2530,9 +2563,9 @@ CREATE TABLE IF NOT EXISTS "drip_email_events" (
   "sent_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("drip_run_id") REFERENCES "drip_runs" ("id"),
-  FOREIGN KEY ("sequence_id") REFERENCES "drip_sequences" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("drip_run_id") REFERENCES "drip_runs" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("sequence_id") REFERENCES "drip_sequences" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "drip_sequence_versions" (
@@ -2544,8 +2577,8 @@ CREATE TABLE IF NOT EXISTS "drip_sequence_versions" (
   "edited_by" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("sequence_id") REFERENCES "drip_sequences" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("sequence_id") REFERENCES "drip_sequences" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "email_log" (
@@ -2563,9 +2596,9 @@ CREATE TABLE IF NOT EXISTS "email_log" (
   "error_message" TEXT,
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("lead_id") REFERENCES "leads" ("id"),
-  FOREIGN KEY ("sequence_id") REFERENCES "nurture_sequences" ("id"),
-  FOREIGN KEY ("template_id") REFERENCES "email_templates" ("id")
+  FOREIGN KEY ("lead_id") REFERENCES "leads" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("sequence_id") REFERENCES "nurture_sequences" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("template_id") REFERENCES "email_templates" ("id") ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS "esign_fields" (
@@ -2584,8 +2617,8 @@ CREATE TABLE IF NOT EXISTS "esign_fields" (
   "placeholder" TEXT,
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("envelope_id") REFERENCES "esign_envelopes" ("id"),
-  FOREIGN KEY ("signer_id") REFERENCES "esign_signers" ("id")
+  FOREIGN KEY ("envelope_id") REFERENCES "esign_envelopes" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("signer_id") REFERENCES "esign_signers" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "exec_overrides" (
@@ -2611,7 +2644,7 @@ CREATE TABLE IF NOT EXISTS "exec_overrides" (
   "cwd_path" TEXT,
   "workspace_label" TEXT NOT NULL DEFAULT 'unknown',
   PRIMARY KEY ("request_id"),
-  FOREIGN KEY ("dashboard_decided_by") REFERENCES "user_profiles" ("id")
+  FOREIGN KEY ("dashboard_decided_by") REFERENCES "user_profiles" ("id") ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS "followup_drip_sends" (
@@ -2628,8 +2661,8 @@ CREATE TABLE IF NOT EXISTS "followup_drip_sends" (
   PRIMARY KEY ("id"),
   CONSTRAINT "followup_drip_sends_channel_check" CHECK ((channel IN ('sms', 'email'))),
   CONSTRAINT "followup_drip_sends_status_check" CHECK ((status IN ('claimed', 'sent', 'failed', 'skipped'))),
-  FOREIGN KEY ("enrollment_id") REFERENCES "followup_drip_enrollments" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("enrollment_id") REFERENCES "followup_drip_enrollments" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "form_submissions" (
@@ -2644,8 +2677,8 @@ CREATE TABLE IF NOT EXISTS "form_submissions" (
   "user_agent" TEXT,
   "submitted_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("form_id") REFERENCES "forms" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("form_id") REFERENCES "forms" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "form_views" (
@@ -2657,8 +2690,8 @@ CREATE TABLE IF NOT EXISTS "form_views" (
   "user_agent" TEXT,
   "viewed_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("form_id") REFERENCES "forms" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("form_id") REFERENCES "forms" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "funded_deals" (
@@ -2691,8 +2724,8 @@ CREATE TABLE IF NOT EXISTS "funded_deals" (
   CONSTRAINT "funded_deals_points_pct_check" CHECK (((points_pct IS NULL) OR ((points_pct >= (0)) AND (points_pct <= (100))))),
   CONSTRAINT "funded_deals_term_months_check" CHECK (((term_months IS NULL) OR ((term_months >= 1) AND (term_months <= 60)))),
   CONSTRAINT "funded_deals_term_unit_check" CHECK ((((term_value IS NULL) AND (term_unit IS NULL)) OR ((term_unit = 'months') AND ((term_value >= 1) AND (term_value <= 60))) OR ((term_unit = 'weeks') AND ((term_value >= 1) AND (term_value <= 260))) OR ((term_unit = 'days') AND ((term_value >= 1) AND (term_value <= 1825))))),
-  FOREIGN KEY ("lender_id") REFERENCES "tenant_records" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("lender_id") REFERENCES "tenant_records" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "funnel_entries" (
@@ -2705,8 +2738,8 @@ CREATE TABLE IF NOT EXISTS "funnel_entries" (
   "dropped_at" TEXT,
   "metadata" TEXT DEFAULT '{}',
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("funnel_id") REFERENCES "funnels" ("id"),
-  FOREIGN KEY ("lead_id") REFERENCES "leads" ("id")
+  FOREIGN KEY ("funnel_id") REFERENCES "funnels" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("lead_id") REFERENCES "leads" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "integrations_health" (
@@ -2720,8 +2753,8 @@ CREATE TABLE IF NOT EXISTS "integrations_health" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "tenant_id" TEXT,
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("profile_id") REFERENCES "user_profiles" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("profile_id") REFERENCES "user_profiles" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "manifest_audit_log" (
@@ -2735,8 +2768,8 @@ CREATE TABLE IF NOT EXISTS "manifest_audit_log" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "manifest_audit_log_actor_type_check" CHECK ((actor_type IN ('user', 'ai', 'system', 'seed'))),
-  FOREIGN KEY ("manifest_id") REFERENCES "tenant_manifests" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("manifest_id") REFERENCES "tenant_manifests" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "marketing_asset_media" (
@@ -2754,8 +2787,8 @@ CREATE TABLE IF NOT EXISTS "marketing_asset_media" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "marketing_asset_media_kind_check" CHECK ((kind IN ('video', 'poster', 'preview', 'thumb', 'audio', 'html', 'source', 'caption'))),
-  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "marketing_corpus" (
@@ -2782,8 +2815,8 @@ CREATE TABLE IF NOT EXISTS "marketing_corpus" (
   CONSTRAINT "marketing_corpus_kind_check" CHECK ((kind IN ('media', 'link', 'metrics', 'lesson', 'verdict'))),
   CONSTRAINT "marketing_corpus_label_check" CHECK ((label IN ('exemplar', 'counter_example', 'neutral'))),
   CONSTRAINT "marketing_corpus_state_check" CHECK ((state IN ('queued', 'extracting', 'indexed', 'failed', 'skipped'))),
-  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id") ON DELETE SET NULL,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "marketing_event" (
@@ -2794,8 +2827,8 @@ CREATE TABLE IF NOT EXISTS "marketing_event" (
   "verb" TEXT NOT NULL,
   "asset_id" TEXT,
   "detail" TEXT,
-  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id") ON DELETE SET NULL,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "marketing_metric_daily" (
@@ -2816,8 +2849,8 @@ CREATE TABLE IF NOT EXISTS "marketing_metric_daily" (
   "source" TEXT NOT NULL,
   "captured_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("tenant_id", "asset_id", "date", "source"),
-  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "marketing_request" (
@@ -2839,8 +2872,8 @@ CREATE TABLE IF NOT EXISTS "marketing_request" (
   PRIMARY KEY ("id"),
   CONSTRAINT "marketing_request_kind_check" CHECK ((kind IN ('generate', 'variant', 'revise', 'research', 'question'))),
   CONSTRAINT "marketing_request_status_check" CHECK ((status IN ('open', 'claimed', 'done', 'dropped'))),
-  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id") ON DELETE SET NULL,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "marketing_review" (
@@ -2856,8 +2889,8 @@ CREATE TABLE IF NOT EXISTS "marketing_review" (
   PRIMARY KEY ("id"),
   CONSTRAINT "marketing_review_decision_check" CHECK ((decision IN ('approve', 'approve_with_changes', 'request_changes', 'reject', 'comment'))),
   CONSTRAINT "marketing_review_reason_required" CHECK (((decision IN ('approve', 'comment')) OR (COALESCE(trim(note), '') <> ''))),
-  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("tenant_id", "asset_id") REFERENCES "marketing_asset" ("tenant_id", "id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "n8n_webhook_secrets" (
@@ -2871,8 +2904,8 @@ CREATE TABLE IF NOT EXISTS "n8n_webhook_secrets" (
   "revoked_at" TEXT,
   "tenant_id" TEXT,
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("profile_id") REFERENCES "user_profiles" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("profile_id") REFERENCES "user_profiles" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "phone_lookup_jobs" (
@@ -2904,8 +2937,8 @@ CREATE TABLE IF NOT EXISTS "phone_lookup_jobs" (
   "completed_at" TEXT,
   PRIMARY KEY ("id"),
   CONSTRAINT "phone_lookup_jobs_status_check" CHECK ((status IN ('pending', 'running', 'completed', 'no_results', 'blocked', 'error'))),
-  FOREIGN KEY ("lead_id") REFERENCES "tenant_records" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("lead_id") REFERENCES "tenant_records" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "plan_templates" (
@@ -2922,8 +2955,8 @@ CREATE TABLE IF NOT EXISTS "plan_templates" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("profile_id") REFERENCES "user_profiles" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("profile_id") REFERENCES "user_profiles" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "sequence_state" (
@@ -2944,8 +2977,8 @@ CREATE TABLE IF NOT EXISTS "sequence_state" (
   "claimed_by" TEXT,
   PRIMARY KEY ("id"),
   CONSTRAINT "sequence_state_status_check" CHECK ((status IN ('scheduled', 'sent', 'failed', 'cancelled', 'skipped'))),
-  FOREIGN KEY ("sequence_id") REFERENCES "drip_sequences" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("sequence_id") REFERENCES "drip_sequences" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "sunbiz_conversation_state" (
@@ -2967,8 +3000,8 @@ CREATE TABLE IF NOT EXISTS "sunbiz_conversation_state" (
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "sunbiz_conversation_state_provider_check" CHECK ((provider = 'texttorrent')),
-  FOREIGN KEY ("agent_account_id") REFERENCES "sunbiz_agent_accounts" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("agent_account_id") REFERENCES "sunbiz_agent_accounts" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "tenant_integration_credentials" (
@@ -2984,8 +3017,8 @@ CREATE TABLE IF NOT EXISTS "tenant_integration_credentials" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("created_by") REFERENCES "user_profiles" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("created_by") REFERENCES "user_profiles" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "texttorrent_inbound_work" (
@@ -3012,8 +3045,8 @@ CREATE TABLE IF NOT EXISTS "texttorrent_inbound_work" (
   "completed_at" TEXT,
   PRIMARY KEY ("id"),
   CONSTRAINT "texttorrent_inbound_work_status_check" CHECK ((status IN ('pending', 'running', 'drafted', 'escalated', 'suppressed', 'dead_letter'))),
-  FOREIGN KEY ("account_id") REFERENCES "sunbiz_agent_accounts" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("account_id") REFERENCES "sunbiz_agent_accounts" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "client_signatures" (
@@ -3030,7 +3063,7 @@ CREATE TABLE IF NOT EXISTS "client_signatures" (
   "signed_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY ("id"),
   CONSTRAINT "client_signatures_signature_kind_check" CHECK ((signature_kind IN ('drawn', 'typed'))),
-  FOREIGN KEY ("contract_id") REFERENCES "contracts" ("id")
+  FOREIGN KEY ("contract_id") REFERENCES "contracts" ("id") ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS "renewal_outreach_events" (
@@ -3054,10 +3087,10 @@ CREATE TABLE IF NOT EXISTS "renewal_outreach_events" (
   PRIMARY KEY ("id"),
   CONSTRAINT "renewal_outreach_events_event_kind_check" CHECK ((event_kind = '50_percent')),
   CONSTRAINT "renewal_outreach_events_status_check" CHECK ((status IN ('review_required', 'pending', 'queued', 'sent', 'blocked', 'failed', 'cancelled'))),
-  FOREIGN KEY ("funded_deal_id") REFERENCES "funded_deals" ("id"),
-  FOREIGN KEY ("lender_id") REFERENCES "tenant_records" ("id"),
-  FOREIGN KEY ("scheduled_send_id") REFERENCES "scheduled_sends" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("funded_deal_id") REFERENCES "funded_deals" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("lender_id") REFERENCES "tenant_records" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("scheduled_send_id") REFERENCES "scheduled_sends" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "sunbiz_reply_drafts" (
@@ -3091,10 +3124,10 @@ CREATE TABLE IF NOT EXISTS "sunbiz_reply_drafts" (
   CONSTRAINT "sunbiz_reply_drafts_final_text_check" CHECK (((final_text IS NULL) OR ((length(final_text) >= 1) AND (length(final_text) <= 1600)))),
   CONSTRAINT "sunbiz_reply_drafts_original_text_check" CHECK (((length(original_text) >= 1) AND (length(original_text) <= 1600))),
   CONSTRAINT "sunbiz_reply_drafts_status_check" CHECK ((status IN ('pending', 'approved', 'rejected', 'cancelled', 'sent', 'failed'))),
-  FOREIGN KEY ("agent_account_id") REFERENCES "sunbiz_agent_accounts" ("id"),
-  FOREIGN KEY ("conversation_state_id") REFERENCES "sunbiz_conversation_state" ("id"),
-  FOREIGN KEY ("scheduled_send_id") REFERENCES "scheduled_sends" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("agent_account_id") REFERENCES "sunbiz_agent_accounts" ("id") ON DELETE RESTRICT,
+  FOREIGN KEY ("conversation_state_id") REFERENCES "sunbiz_conversation_state" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("scheduled_send_id") REFERENCES "scheduled_sends" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "texttorrent_dead_letters" (
@@ -3108,9 +3141,9 @@ CREATE TABLE IF NOT EXISTS "texttorrent_dead_letters" (
   "created_at" TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "resolved_at" TEXT,
   PRIMARY KEY ("id"),
-  FOREIGN KEY ("account_id") REFERENCES "sunbiz_agent_accounts" ("id"),
-  FOREIGN KEY ("inbound_work_id") REFERENCES "texttorrent_inbound_work" ("id"),
-  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id")
+  FOREIGN KEY ("account_id") REFERENCES "sunbiz_agent_accounts" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("inbound_work_id") REFERENCES "texttorrent_inbound_work" ("id") ON DELETE SET NULL,
+  FOREIGN KEY ("tenant_id") REFERENCES "tenants" ("id") ON DELETE CASCADE
 );
 
 -- indexes
@@ -3558,6 +3591,10 @@ CREATE INDEX IF NOT EXISTS "idx_lead_interactions_phone_by_tenant" ON "lead_inte
 CREATE INDEX IF NOT EXISTS "idx_lead_interactions_from_phone" ON "lead_interactions" (from_phone);
 CREATE UNIQUE INDEX IF NOT EXISTS "ux_lead_interactions_provider_msg" ON "lead_interactions" (provider, provider_message_id);
 CREATE UNIQUE INDEX IF NOT EXISTS "ux_lead_interactions_kixie_call_id" ON "lead_interactions" (kixie_call_id);
+CREATE UNIQUE INDEX IF NOT EXISTS "sms_delivery_receipts_pkey" ON "sms_delivery_receipts" (id);
+CREATE INDEX IF NOT EXISTS "idx_sms_receipts_open" ON "sms_delivery_receipts" (tenant_id, sent_at) WHERE (resolved_at IS NULL);
+CREATE INDEX IF NOT EXISTS "idx_sms_receipts_recent" ON "sms_delivery_receipts" (tenant_id, sent_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_sms_receipts_dedup" ON "sms_delivery_receipts" (tenant_id, chat_id, body_hash, sent_at);
 CREATE UNIQUE INDEX IF NOT EXISTS "esign_envelopes_pkey" ON "esign_envelopes" (id);
 CREATE INDEX IF NOT EXISTS "esign_env_tenant_idx" ON "esign_envelopes" (tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS "esign_env_status_idx" ON "esign_envelopes" (tenant_id, status);
@@ -3568,6 +3605,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "esign_fields_pkey" ON "esign_fields" (id);
 CREATE INDEX IF NOT EXISTS "esign_field_env_idx" ON "esign_fields" (envelope_id, signer_id);
 CREATE UNIQUE INDEX IF NOT EXISTS "esign_events_pkey" ON "esign_events" (id);
 CREATE INDEX IF NOT EXISTS "esign_event_env_idx" ON "esign_events" (envelope_id, at);
+CREATE UNIQUE INDEX IF NOT EXISTS "sms_breaker_probes_pkey" ON "sms_breaker_probes" (tenant_id);
 CREATE UNIQUE INDEX IF NOT EXISTS "call_appointments_pkey" ON "call_appointments" (id);
 CREATE INDEX IF NOT EXISTS "idx_call_appt_when" ON "call_appointments" (tenant_id, scheduled_for);
 CREATE INDEX IF NOT EXISTS "idx_call_appt_assignee" ON "call_appointments" (tenant_id, assigned_to, status);

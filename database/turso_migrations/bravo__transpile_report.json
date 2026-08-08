@@ -1,8 +1,8 @@
 {
   "project": "bravo",
-  "generated": "2026-08-07T16:25:30+00:00",
-  "table_count": 164,
-  "index_count": 552,
+  "generated": "2026-08-08T04:03:00+00:00",
+  "table_count": 166,
+  "index_count": 557,
   "view_count": 2,
   "ported_trigger_count": 3,
   "turso_native_statements": 3,
@@ -154,10 +154,5 @@
     "VIEWS_LOST": [
       "merchant_summary: needs manual port \u2014 WITH ranked_apps AS ( SELECT a.id AS application_id, a.tenant_id, a.data ->> 'lead_id'::text AS lead_id_str, a.data, a.c"
     ]
-  },
-  "executed": {
-    "applied_tables": 166,
-    "failures": 0,
-    "failure_sample": []
   }
 }

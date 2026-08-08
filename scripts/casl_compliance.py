@@ -28,9 +28,6 @@ import csv
 import os
 import re
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 from pathlib import Path
 from typing import Optional
 
@@ -176,88 +173,138 @@ _E164_REGEX = re.compile(r"^\+[1-9][0-9]{7,14}$", re.ASCII)
 
 
 # ----------------------------------------------------------------------------
-# Supabase suppression read path (2026-06-06 — closes the /unsubscribe loop)
+# Suppression read path (2026-06-06 — closes the /unsubscribe loop)
 # ----------------------------------------------------------------------------
 #
-# Before today should_suppress() only checked data/email_suppressions.csv.
+# Before 2026-06-06 should_suppress() only checked data/email_suppressions.csv.
 # After shipping /unsubscribe on the agent-dashboard the new
-# email_suppressions Supabase table became the authoritative store for
+# email_suppressions table became the authoritative store for
 # web-form unsubscribes (per-tenant, per-brand, CASL s. 6 scoped). The
 # CSV stays in place for legacy inbound STOP detection on email/SMS;
 # should_suppress now consults BOTH so a web unsub silences future
 # sends even when the operator hasn't replicated the row into the CSV.
 #
+# 2026-08-08 — moved off raw Supabase REST onto the data-backend switch.
+# This used to hand-build a PostgREST URL and fetch it with urllib, which
+# pinned the legal check to Supabase no matter what EMPIRE_DATA_BACKEND
+# said. Once the web app started recording unsubscribes into Turso that
+# meant an unsubscribed person kept getting mailed — the suppression row
+# existed, just not in the store this file was reading. It now goes through
+# supabase.create_client + the builder dialect, which sitecustomize swaps
+# for the Turso compat client when EMPIRE_DATA_BACKEND=turso_cloud. Same
+# filters, same limit, same returned shape, same fail-open posture.
+#
 # In-process cache: 60s TTL keyed on (email, tenant_id, brand). Drip
 # runners call should_suppress() hundreds of times per minute during a
-# campaign; without caching the Supabase REST hop would dominate latency
+# campaign; without caching the per-check round trip would dominate latency
 # and burn through the Vercel-side rate limit on the service role key.
 #
-# Fail-open on Supabase errors: if the REST call fails (network blip,
-# bad credentials, table missing), we fall through to the CSV check.
+# Fail-open on backend errors: if the query fails (network blip, bad
+# credentials, table missing), we fall through to the CSV check.
 # CSV-read errors still fail-CLOSED per the existing behaviour — that
 # path is local-disk and "we lost our suppression list" is a serious
-# CASL hazard, while a transient Supabase outage isn't.
+# CASL hazard, while a transient backend outage isn't.
 
 _SUPPRESSION_CACHE: dict[str, tuple[bool, float]] = {}
 _SUPPRESSION_CACHE_TTL = 60.0  # seconds
+
+# The client is memoized because constructing one is NOT free on the Turso
+# side: TursoDB.__init__ introspects the live schema (one PRAGMA per table)
+# to build its tenant-scope registry. Rebuilding that per should_suppress()
+# call would put a few hundred round trips in front of every send. Keyed on
+# the resolved (backend, url, key) so flipping EMPIRE_DATA_BACKEND — or
+# rotating credentials — rebuilds instead of serving a stale connection.
+_DB_CLIENT: object | None = None
+_DB_CLIENT_KEY: Optional[tuple[str, str, str]] = None
 
 
 def _cache_key(email: str, tenant_id: Optional[str], brand: Optional[str]) -> str:
     return f"{email}|{tenant_id or ''}|{brand or ''}"
 
 
-def _check_supabase_suppression(
+def _suppression_client():
+    """Return a client for email_suppressions, or None if unconfigured.
+
+    Follows EMPIRE_DATA_BACKEND: sitecustomize swaps create_client for the
+    Turso compat client when the flag is turso_cloud, so this one call site
+    serves both backends.
+    """
+    global _DB_CLIENT, _DB_CLIENT_KEY
+    backend = os.environ.get("EMPIRE_DATA_BACKEND", "").strip().lower()
+    url = os.environ.get("BRAVO_SUPABASE_URL") or ""
+    key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or ""
+    # On the Turso backend create_client ignores url/key entirely (it resolves
+    # TURSO_* through lib.db_turso), so demanding Supabase credentials there
+    # would silently disable the suppression check the day CC cancels the
+    # subscription and removes those keys — precisely the CASL hazard this
+    # module exists to prevent.
+    if backend != "turso_cloud" and (not url or not key):
+        return None
+    ck = (backend, url, key)
+    if _DB_CLIENT is not None and _DB_CLIENT_KEY == ck:
+        return _DB_CLIENT
+    from supabase import ClientOptions, create_client
+    # 4s ceiling preserves the urllib timeout this path used to carry.
+    # postgrest-py's default is 120s, which would stall a drip run behind a
+    # single hung legal check. Ignored (harmlessly) by the compat client.
+    _DB_CLIENT = create_client(
+        url, key, options=ClientOptions(postgrest_client_timeout=4)
+    )
+    _DB_CLIENT_KEY = ck
+    return _DB_CLIENT
+
+
+def _check_db_suppression(
     email: str,
     tenant_id: Optional[str],
     brand: Optional[str],
 ) -> Optional[bool]:
-    """Query the Supabase email_suppressions table.
+    """Query the email_suppressions table on the active data backend.
 
     Returns True if a matching row is found, False if the table has no
     match, or None when the query couldn't run (credentials missing,
     network error, etc.). Callers treat None as "fall through to CSV."
     """
-    url = os.environ.get("BRAVO_SUPABASE_URL")
-    key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
-        return None
-    # Match rows where email matches AND tenant_id matches (or is global
-    # NULL) AND brand matches (or is global NULL). NULL on either column
-    # is the "global" suppression — always wins. PostgREST `or=` lets us
-    # express each OR-with-NULL in one round trip.
     try:
-        encoded_email = urllib.parse.quote(email, safe="@")
-        tenant_filter = (
-            f"&or=(tenant_id.is.null,tenant_id.eq.{urllib.parse.quote(tenant_id)})"
-            if tenant_id
-            else "&tenant_id=is.null"
+        client = _suppression_client()
+        if client is None:
+            return None
+        # Match rows where email matches AND tenant_id matches (or is global
+        # NULL) AND brand matches (or is global NULL). NULL on either column
+        # is the "global" suppression — always wins. Two or_() calls are
+        # AND-ed together by PostgREST and by the compat client alike, which
+        # is exactly what the two `or=` query params did before.
+        q = (
+            client.table("email_suppressions")
+            .select("tenant_id,brand")
+            .eq("email", email)
         )
-        brand_filter = (
-            f"&or=(brand.is.null,brand.eq.{urllib.parse.quote(brand)})"
-            if brand
-            else ""
-            # When no brand supplied, we accept any brand-scope match
-            # (existing callers don't know the sender brand yet —
-            # they're legacy paths from before the per-brand schema).
-        )
-        query_url = (
-            f"{url.rstrip('/')}/rest/v1/email_suppressions"
-            f"?email=eq.{encoded_email}{tenant_filter}{brand_filter}"
-            f"&select=tenant_id,brand&limit=1"
-        )
-        req = urllib.request.Request(
-            query_url,
-            headers={
-                "apikey": key,
-                "Authorization": f"Bearer {key}",
-                "Accept": "application/json",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=4) as resp:
-            import json
-            rows = json.loads(resp.read() or b"[]")
-        return bool(rows)
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, OSError):
+        if tenant_id:
+            q = q.or_(f"tenant_id.is.null,tenant_id.eq.{tenant_id}")
+        else:
+            q = q.is_("tenant_id", "null")
+        # When no brand supplied, we accept any brand-scope match (existing
+        # callers don't know the sender brand yet — they're legacy paths
+        # from before the per-brand schema), so no brand filter is added.
+        if brand:
+            q = q.or_(f"brand.is.null,brand.eq.{brand}")
+        return bool(q.limit(1).execute().data)
+    except Exception as exc:  # noqa: BLE001
+        # Fail OPEN to the CSV check, as the urllib version did. Deliberately
+        # broad: the exception surface moved with the backend (postgrest
+        # APIError, httpx timeouts, libsql errors, CompatError, ImportError)
+        # and a transient data-plane fault must not crash the send path.
+        # Logged rather than swallowed — a silent fail-open here means
+        # unsubscribed people get mailed, so it must leave a trail.
+        try:
+            from lib.structured_log import get_logger  # noqa: PLC0415
+            get_logger("casl_compliance").error(
+                "email_suppressions lookup failed — falling back to CSV",
+                error=str(exc), error_type=type(exc).__name__,
+                backend=os.environ.get("EMPIRE_DATA_BACKEND", "supabase"),
+            )
+        except Exception:  # noqa: BLE001 - logging must never break the send path
+            pass
         return None
 
 
@@ -268,19 +315,20 @@ def should_suppress(
 ) -> bool:
     """Return True if the email is on the suppression list.
 
-    Sources, in order: in-process cache → Supabase email_suppressions
-    table → data/email_suppressions.csv. Supabase fail-opens to CSV;
+    Sources, in order: in-process cache → the email_suppressions table on
+    the active data backend (Supabase or Turso, per EMPIRE_DATA_BACKEND)
+    → data/email_suppressions.csv. The table check fail-opens to CSV;
     CSV read errors still fail-CLOSED (we suppress, since losing the
     list is the worse CASL hazard).
 
     Args:
         email: The recipient address (case-insensitive).
-        tenant_id: Optional tenant UUID. If supplied, the Supabase check
+        tenant_id: Optional tenant UUID. If supplied, the table check
             matches global (tenant_id IS NULL) OR same-tenant rows.
             When omitted, only global suppressions match — preserves
             backward compat with existing callers like email_engine.
         brand: Optional brand label (e.g. "OASIS AI", "SunBiz"). When
-            supplied, the Supabase check narrows to rows whose `brand`
+            supplied, the table check narrows to rows whose `brand`
             is NULL (global) OR matches — enforces CASL s. 6 per-sender
             scoping (a SunBiz unsub does not silence OASIS AI sends).
 
@@ -297,8 +345,8 @@ def should_suppress(
     if cached and cached[1] > now:
         return cached[0]
 
-    # 1. Supabase check (authoritative for web unsubs; fail-open).
-    sb = _check_supabase_suppression(normalized, tenant_id, brand)
+    # 1. Backend check (authoritative for web unsubs; fail-open).
+    sb = _check_db_suppression(normalized, tenant_id, brand)
     if sb is True:
         _SUPPRESSION_CACHE[ck] = (True, now + _SUPPRESSION_CACHE_TTL)
         return True
