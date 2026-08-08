@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-08T04:39:24.042946+00:00",
-  "script_count": 137,
-  "entry_count": 310,
+  "generated_at_iso": "2026-08-08T16:06:37.912716+00:00",
+  "script_count": 138,
+  "entry_count": 311,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -962,6 +962,14 @@
       "subcmd": "stats",
       "mutating": true,
       "help": "Inbound Classifier \u2014 the second half of V5.6's chokepoint. \u2014 subcommand: stats"
+    },
+    {
+      "key": "install_python_switch",
+      "path": "scripts/install_python_switch.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Install the Turso data-backend switch into the active venv."
     },
     {
       "key": "send_gateway_send",
