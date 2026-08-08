@@ -138,7 +138,10 @@ Cite sources in the skill's frontmatter + examples section.
 > executed command as evidence and auto-reverts any edit that moves nothing. Entry
 > points and `brain/` can never auto-apply there; they queue in
 > `memory/PROPOSED_CHANGES.md` for CC. Contract: [[docs/adr/0015-evidence-gated-harness-refinement]].
-> Bravo-only for now — Maven/Atlas keep the prose path until the gate has proven itself.
+> Live in **Bravo, Maven and Atlas** (V9.2.0, propagated 2026-08-08). Each agent's
+> evidence commands are its OWN — Bravo's `harness_eval.py`/`task_outcomes.py` do not
+> exist in the siblings, so read that repo's own skill rather than copying Bravo's
+> examples. Lex-Agent has the vocabulary only.
 
 ### Mistake logging (required)
 On every failure or CC correction:

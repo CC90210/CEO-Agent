@@ -91,6 +91,45 @@ def test_architecture_version_is_one_line_fleet_wide(name):
 
 
 @pytest.mark.parametrize("name", sorted(SIBLINGS))
+def test_graph_node_matches_the_skill_file(name):
+    """Atlas's node was hand-injected — it has no graph builder — so pin it to the file.
+
+    A hand-maintained graph entry is a lie waiting to happen: edit the SKILL.md triggers
+    and the resolver keeps routing on the old ones. This asserts the two agree, for
+    whichever sibling has both.
+    """
+    import json
+
+    repo = _present(name)
+    graph_path = repo / "brain" / "CAPABILITY_GRAPH.json"
+    skill_path = repo / "skills" / "harness-refinement" / "SKILL.md"
+    if not (graph_path.exists() and skill_path.exists()):
+        pytest.skip(f"{name} lacks a graph or the skill")
+
+    nodes = json.loads(graph_path.read_text(encoding="utf-8")).get("nodes", [])
+    node = next((n for n in nodes if n.get("id") == "skill:harness-refinement"), None)
+    if node is None:
+        pytest.skip(f"{name}'s graph has no harness-refinement node (builder may not index it)")
+
+    fm = re.search(r"^---\n(.*?)\n---", skill_path.read_text(encoding="utf-8"), re.S)
+    assert fm, f"{name}'s SKILL.md has no frontmatter"
+    body = fm.group(1)
+
+    def field(key):
+        m = re.search(rf"^{key}:\s*(.*)$", body, re.M)
+        return m.group(1).strip() if m else None
+
+    assert node.get("owner") == field("owner"), (
+        f"{name}: graph owner={node.get('owner')!r} but SKILL.md says {field('owner')!r}"
+    )
+    file_triggers = json.loads(field("triggers"))
+    assert sorted(node.get("triggers") or []) == sorted(file_triggers), (
+        f"{name}: graph triggers drifted from SKILL.md — the resolver is routing on stale "
+        "triggers. Re-inject the node or regenerate the graph."
+    )
+
+
+@pytest.mark.parametrize("name", sorted(SIBLINGS))
 def test_sibling_documents_its_own_evidence_commands(name):
     """The one thing that must NOT be copied: Bravo's evidence commands.
 

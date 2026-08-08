@@ -142,8 +142,44 @@ Adopt the shape, invert the gate. **They store the expected outcome; we run it.*
 - One additive table (`refinements`) in `state/empire_state.db`, created with
   `CREATE TABLE IF NOT EXISTS` on the `task_outcomes.py` pattern. No guard, hook, daemon
   or cron changed.
-- Sibling propagation to Maven and Atlas is deliberately deferred until the gate has
-  rejected at least one real proposal here — see [[brain/V68_AGENT_OS_PATTERNS]].
+- ~~Sibling propagation to Maven and Atlas is deliberately deferred until the gate has
+  rejected at least one real proposal here~~ — see the amendment below.
+
+## Amendment — 2026-08-08: propagated, same day
+
+The deferral above was **overruled by CC on the day this ADR was accepted**, so it is struck
+rather than left to mislead. The decision itself is unchanged; only its rollout is.
+(This ADR is otherwise immutable per [[docs/adr/INDEX]] — amend with a dated note, never
+rewrite the reasoning.)
+
+`scripts/core/refine.py` now runs in **Bravo, Maven and Atlas**, deployed verbatim with only
+`CAPABILITY_META["owner"]` differing, alongside a single `architecture_version: V9.2.0`
+across all three. Lex-Agent takes the vocabulary only — 4 skills and no capability graph
+means the gate would have nothing real to gate on.
+
+Three things the original deferral got right, wrong, and didn't foresee:
+
+1. **Right:** the risk it named is still live. An evidence command that changes for
+   unrelated reasons will launder a bad refinement through, and there is *still* no field
+   evidence about how often that happens — now across three repos instead of one. Read the
+   recorded rejection reasons; do not trust a bare `APPLIED`.
+2. **Wrong:** waiting was framed as risk reduction. It was risk *concentration*. Deploying
+   to a second repo immediately surfaced a corruption bug Bravo alone could not:
+   `Path.write_text()` translates `\n` to `os.linesep`, so reverting an LF-stored file
+   rewrote every line ending. Bravo's memory files are CRLF and round-tripped by luck, so
+   every byte-hash check I ran had passed. Maven's are LF. Atlas's are **mixed**. One repo
+   cannot test a portability claim.
+3. **Didn't foresee:** the per-agent surface is the evidence command, not the code. Bravo's
+   `harness_eval.py` / `task_outcomes.py` do not exist in either sibling and Atlas also
+   lacks `build_capability_graph.py`, so each agent's SKILL.md documents its own commands
+   with `capability_query.py resolve` as the shared floor. Atlas additionally forbids
+   financial figures as evidence — a changed MRR proves the market moved, not that the edit
+   helped, and it would pass any refinement on the next tick.
+
+Enforced by `scripts/tests/test_fleet_parity.py` (drift, owner, one version line, and that
+no sibling cites an evidence command it does not have) and redeployed by
+`python scripts/deploy_refinement.py --apply`. **Fix bugs in Bravo and redeploy; never
+patch a sibling copy.**
 
 ## Enforcement
 

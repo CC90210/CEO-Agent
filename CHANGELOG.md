@@ -87,8 +87,11 @@ evidence is an executed command, and a refinement that cannot move it is auto-re
   and says whether routing actually moved; `--kind` extended per ADR-0015, with
   `prompt_note`/`subagent` handed off to `refine.py` instead of scaffolded.
 - **ADR-0015**, `skills/harness-refinement/`, `CONTEXT.md` § V7.6 (7 terms),
-  `self-improvement-protocol` Protocol 4 pointer. Bravo-only; sibling propagation
-  deferred until the gate has rejected a real proposal.
+  `self-improvement-protocol` Protocol 4 pointer. Sibling propagation was deferred here
+  and then shipped the same day on CC's call — see [9.2.0] above and the 2026-08-08 amendment
+  in ADR-0015. Deploying to a second repo immediately exposed an EOL-corruption bug
+  that one repo could not surface; waiting would have concentrated the risk, not
+  reduced it.
 
 - **`7.6.4` hardening — three real holes, found by attacking the above.** Codex's
   adversarial audit returned *needs-attention / no-ship* on `7.6.0`, and it was right.

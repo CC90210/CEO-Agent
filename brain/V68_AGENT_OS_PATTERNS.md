@@ -202,19 +202,61 @@ Fourth application of this contract (after mattpocock V6.8, Twenty V6.9, davidon
 | Distribution | This section + `.claude-plugin/plugin.json` `_note` (a documented **exclusion**, see below). | `0b6737a1` |
 | Hardening | Three real holes closed after a Codex adversarial audit returned *no-ship* on the substrate: a broken evidence command counted as success; the "fail-closed allowlist" let `memory/../CLAUDE.md` through because `fnmatch`'s `*` matches `/`; the output cap bounded storage but not the hash or the buffer. Plus `scripts/tests/test_refine.py` (44 cases). | `f42e0098` |
 
-## Sibling propagation — DEFERRED, deliberately
+## Sibling propagation — SHIPPED 2026-08-08 (CC overrode the deferral)
 
-Unlike V7.5's `gh` gap, this one is **not** urgent for Maven and Atlas, and shipping it to them now would be a mistake.
+**I originally deferred this, and CC's call was to propagate now.** The superseded reasoning
+is kept below because it named a real risk that is still live; it just wasn't a reason to
+wait.
 
-The open loops are genuinely fleet-wide — all three run `skills/self-improvement-protocol`, and none of them measure whether a self-edit helped. But the gate has not yet rejected a single *real* proposal here; every rejection so far was a verification case I authored to prove the mechanism discriminates. Copying an unproven gate into three repos triples the blast radius of a design mistake in it, and the most likely mistake is subtle: an evidence command that changes for unrelated reasons will launder a bad refinement through, and we have no field evidence yet about how often that happens.
+> *Original position (superseded):* the gate had not yet rejected a single **real**
+> proposal — every rejection was a verification case I authored — so copying an unproven
+> gate into three repos would triple the blast radius of a design mistake. The most likely
+> mistake is subtle: an evidence command that changes for unrelated reasons will launder a
+> bad refinement through, and there is still no field evidence about how often that
+> happens. Trigger was to be the first time the gate rejected something a human thought
+> was good.
 
-**Trigger for propagation:** the first time the gate rejects a refinement that a human thought was good. That is the event that tells us the measurement is doing real work rather than agreeing with us. Until then, Maven and Atlas keep the prose path, and `self-improvement-protocol` says so explicitly.
+**That risk did not disappear — it is now spread across three repos, so read the rejection
+reasons rather than trusting a green `APPLIED`.** What the port bought in exchange was
+decisive: deploying to a second repo immediately exposed a corruption bug that Bravo alone
+could never have surfaced (see below). Two agents disagreeing about line endings found in
+an hour what one agent's byte-hash checks had missed across eight commits.
 
-When it does propagate, the paths differ per sibling (each has its own memory file set and its own evidence commands — Maven's would be content-pipeline health, Atlas's would be its own eval surface), so this is **not** a byte-identical copy like the guard patch was.
+| Agent | Version | refine.py | Skill | Mirror | PR |
+|---|---|---|---|---|---|
+| Bravo | `V9.2.0` | canonical | ✅ | ✅ | CEO #48 |
+| Maven | `V9.2.0` | verbatim, `owner=maven` | ✅ | ✅ | CMO #11 |
+| Atlas | `V9.2.0` | verbatim, `owner=atlas` | ✅ | ✅ created | CFO #3 |
+| Lex | — | **not installed** | — | — | pushed to main |
+
+**One implementation, not three forks.** The sibling copies differ from Bravo's by exactly
+6 lines: `CAPABILITY_META["owner"]` and the docstring paragraph naming the agent.
+`scripts/tests/test_fleet_parity.py` enforces it — verified by injecting a logic change and
+a wrong owner into Maven's copy and confirming both were caught. **Fix bugs in Bravo and
+redeploy with `python scripts/deploy_refinement.py --apply`; never patch a sibling copy.**
+
+**What is deliberately NOT identical: the evidence commands.** Bravo has `harness_eval.py`
+and `task_outcomes.py`; the siblings have neither, and Atlas also lacks
+`build_capability_graph.py`. Each agent's SKILL.md documents what actually runs there —
+`capability_query.py resolve` is the one all three share, verified live in each. A shared
+tool citing commands that do not exist is a dead surface, which is the same reasoning that
+keeps this skill out of the plugin manifest. Atlas additionally forbids financial figures
+as evidence: a changed MRR proves the market moved, not that the edit helped.
+
+**Lex is vocabulary-only.** 4 skills and no capability graph means `resolve` has nothing to
+measure, so the gate would have nothing real to gate on. Recorded in its own CONTEXT.md so
+nobody "finishes the job".
 
 ## Distribution is an exclusion, not an addition
 
-`.claude-plugin/plugin.json` deliberately does **not** gain `harness-refinement`. Every command in that skill invokes `scripts/core/refine.py` against `state/empire_state.db`, and the manifest ships skill directories only — no scripts. Installing it elsewhere would produce a skill whose entire body is broken commands. The V7.6 *pattern* is worth copying; this *implementation* is not portable, and the `_note` now says which and why. Same call as V6.9's CRM exclusion, for the same reason.
+`.claude-plugin/plugin.json` deliberately does **not** gain `harness-refinement` — but the
+reason is narrower than I first wrote. The original note claimed the implementation "is not
+portable", and the fleet port disproved that: it runs unmodified in three repos. The actual
+reason is that **this manifest ships skill directories only, no scripts** (verified:
+`skills` is the sole code-bearing key and every entry is `./skills/*`), so an installer
+would get a SKILL.md whose every command references a `scripts/core/refine.py` they do not
+have. Portability was never the problem; the manifest's shape is. Same call as V6.9's CRM
+exclusion, for a more precise reason.
 
 ## What this import confirms about the contract
 

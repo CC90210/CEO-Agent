@@ -737,9 +737,15 @@ def _section_bounds(lines: list[str], heading: str) -> tuple[int, int] | None:
     return start, end
 
 
+def _oneline(text: str | None, cap: int = 300) -> str | None:
+    """Collapse whitespace so a value can't break out of a markdown bullet."""
+    if text is None or text == "":
+        return None
+    return " ".join(str(text).split())[:cap] or None
+
+
 def _ev_value(blob: str | None, cap: int = 80) -> str | None:
-    """Pull the comparable value out of a stored evidence blob, flattened to one
-    line so it renders inside a markdown bullet."""
+    """The comparable value out of a stored evidence blob, flattened for markdown."""
     if not blob:
         return None
     try:
@@ -748,14 +754,7 @@ def _ev_value(blob: str | None, cap: int = 80) -> str | None:
         return None
     if val is None:
         return None
-    return " ".join(str(val).split())[:cap] or "(empty)"
-
-
-def _oneline(text: str | None, cap: int = 300) -> str | None:
-    """Collapse whitespace so a value can't break out of a markdown bullet."""
-    if not text:
-        return None
-    return " ".join(str(text).split())[:cap] or None
+    return _oneline(val, cap) or "(empty)"
 
 
 def _render_rows(rows: list[dict]) -> list[str]:
