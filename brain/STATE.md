@@ -1,7 +1,7 @@
 ---
 tags: [state, ephemeral, fable-5]
-architecture_version: V7.4.1
-last_updated: 2026-07-26
+architecture_version: V7.6.0
+last_updated: 2026-08-08
 freshness_threshold_days: 30
 verified: 2026-07-26
 model_standard: fable-5
@@ -47,7 +47,7 @@ model_standard: fable-5
 
 | Dimension | Level | Notes |
 |-----------|-------|-------|
-| **Version** | **V7.4.0** (frontmatter `architecture_version` is canonical) | V6 foundation + V7.0 reliability + V7.1 Radar + V7.2 persona bench + V7.3 typed memory + V7.4 agent-fleet contract. Released history: CHANGELOG.md. |
+| **Version** | **V7.6.0** (frontmatter `architecture_version` is canonical) | V6 foundation + V7.0 reliability + V7.1 Radar + V7.2 persona bench + V7.3 typed memory + V7.4 agent-fleet contract + V7.5 guard/continuity + V7.6 evidence-gated refinement. Released history: CHANGELOG.md — note V7.5.x shipped 2026-08-03 but was never entered there; `CONTEXT.md` § V7.5 is its record. |
 | **Position**| EXECUTING — PAID CLIENT WORK | SunBiz + Breeze (BreezeAdvance) are active paying-client development. Deal terms and revenue are tracked by Atlas (CFO). Top priority: deliver the client work that keeps them retained. |
 | **Confidence** | 0.80 | Core automations production-grade and verified running (Montreal fleet reset 2026-07-07). SunBiz/Breeze delivered at spec. |
 | **Focus Area** | **HARNESS INTEGRITY + ONGOING CLIENT DELIVERY** | Montreal turnkey reset (2026-07-07): fleet persistence + identity truth. SunBiz / Breeze delivery continues. |
@@ -151,7 +151,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Turso migration: fixed self-inflicted schema regression (execution-verified transpiler), ported 8 of 9 Postgres views live (breeze merchant dashboard was broken), fixed 2 GENERATED money columns, PropFlow bundle fix + PR #3 + tenant isolation proven E2E
+- **Result:** Turso: auth+storage+realtime replaced and executed (20/20 auth, 8/8 nudge) with the Supabase service key ABSENT; all 4 apps deployed READY; data parity green; blocked on R2 creds + n8n + PM2 + PropFlow flip
 
 *Last updated: 2026-08-07*
 

@@ -2,7 +2,7 @@
 name: CONTEXT
 description: Canonical vocabulary for the Business-Empire-Agent / Bravo OS. Every skill, agent, and entry-point must use these terms with these meanings. If a new domain term needs to enter the codebase, add it here first.
 tags: [vocabulary, canonical, context]
-last_updated: 2026-07-17
+last_updated: 2026-08-08
 ---
 
 # CONTEXT — Canonical Vocabulary
@@ -158,6 +158,22 @@ Terms from the [davidondrej/skills](https://github.com/davidondrej/skills) audit
 - **Handoff block** — A single paste-ready fenced block that lets an agent with zero session memory resume the work, emitted by `skills/handoff/`. The **carry**, as opposed to the **archive** (`state_sync.py` → `SESSION_LOG.md`). Both, not either — a handoff that contradicts the archive is worse than neither.
 - **Atomic setup step** — One indivisible operator action (a single click, field, or paste-block) handed to CC by `skills/setup-help/`, always followed by the full remaining list. If it contains an "and", it is not atomic.
 - **Low-confidence decision surface** — The output of `skills/decisions/`: choices the agent made but is genuinely unsure about, each with a named alternative and the check that would settle it. Covers what tests structurally cannot — tests verify what was written, not what was chosen.
+
+## V7.6 Evidence-Gated Refinement (prime-agent import, 2026-08-07)
+
+Terms from the [PrimeIntellect-ai/prime-agent](https://github.com/PrimeIntellect-ai/prime-agent) audit
+(MIT — formats and mechanics studied, no code copied). Contract:
+[[docs/adr/0015-evidence-gated-harness-refinement]]. Plan: `~/.claude/plans/i-m-dropping-you-a-luminous-lighthouse.md`.
+
+- **Refinement** — A single proposed change to the agent's *own* instructions — a memory entry, a skill, a standing rule, or a subagent spec — recorded as a row in the `refinements` table and driven by `scripts/core/refine.py`. Not a code change: refinements edit what the agent is told, not what it runs. A refinement always names one file, one exact anchor, and one evidence command.
+- **Evidence command** — The shell command whose output must **change** for a refinement to be kept. Supplied as `--evidence-cmd`, executed at propose time and re-executed at apply time. This is the canonical meaning of "evidence" in the refinement path: a paragraph of reasoning is **not** evidence and cannot be submitted as such. Contrast the upstream, where `evidence` is the proposing model's own rationale and the stored `expectedOutcome` is never run.
+- **Volatile evidence** — An evidence command whose output differs between two identical back-to-back runs, usually because of a timestamp or run id (`harness_eval.py --json` is the live example — it stamps a fresh `timestamp` and `run_id` every run). Refused at propose time, because a command that always differs would make every refinement look effective. Fix by narrowing with `--evidence-key <dotted.json.path>`, e.g. `--evidence-key score`.
+- **Inverse proposal** — The exact prior text of the edited region, stored **at apply time**, which `refine.py revert` replays to undo a refinement. Stored rather than reconstructed on demand: `.gitignore:44` untracks `memory/PATTERNS.md`, so git is not a rollback path for most refinement targets and the ledger is the only way back. `revert` refuses if the file's hash has moved since.
+- **Refinement ledger** — The append-only history of every refinement and its terminal status, held in `state/empire_state.db` and mirrored for CC into `memory/PROPOSED_CHANGES.md`. `REJECTED` means the gate measured no effect and auto-reverted; `WITHDRAWN` means the operator withdrew it. The two are not interchangeable — one is a fact about the change, the other about the operator.
+- **Self-edit kind** — Which of four destinations a lesson belongs in: `memory` (a fact to carry forward), `skill` (a routable procedure), `prompt_note` (a standing rule, always operator-gated), `subagent` (a delegation role, always operator-gated). A required argument, so the destination is a recorded decision rather than a default.
+- **Auto-apply allowlist** — The only paths `refine.py` may write without CC: `memory/*.md` and `skills/*/SKILL.md`, minus `SESSION_LOG.md`, `PROPOSED_CHANGES.md` and `skills/_archive/*`. An **allowlist**, so a path matching nothing is held rather than applied — the six entry points, `PERSONAL.md`, `brain/**` and `scripts/state/**` can never auto-apply, and a new sensitive directory is protected the day it is created.
+
+---
 
 ## North Star
 

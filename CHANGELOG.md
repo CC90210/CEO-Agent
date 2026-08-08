@@ -1,6 +1,6 @@
 ---
 tags: [root]
-last_updated: 2026-07-20
+last_updated: 2026-08-08
 ---
 
 # Changelog
@@ -19,6 +19,47 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 - **Patch** — production-hardening passes, doc syncs, test repairs.
 
 ## [Unreleased]
+
+## [7.6.0] — 2026-08-08
+
+V7.6 — **Evidence-gated harness refinement.** The self-improvement machinery was open at
+every end: `harness_eval.py` had written 203 scored runs to
+`state/harness_eval_history.jsonl` and the only file referencing that path was
+`harness_eval.py` itself; `task_outcomes.py` held 46 verdicts whose one non-dashboard
+consumer called a subcommand that has never existed; `auto_dream.py` proposed promotions
+and printed them; `evolve.py` scaffolded skills without checking anything could route to
+them; and `memory/PROPOSED_CHANGES.md` had specified the correct schema since 2026-05-21
+while no code ever wrote to it. Imported the shape of prime-agent's Continual Harness
+(MIT — formats and mechanics only) and inverted its gate: upstream, `evidence` is the
+proposing model's own rationale and the stored `expectedOutcome` is never executed. Here
+evidence is an executed command, and a refinement that cannot move it is auto-reverted.
+
+- **`scripts/core/refine.py` (new):** `propose | list | show | apply | revert | cancel |
+  ledger`. `apply` re-runs the evidence command and rejects + auto-reverts on no delta.
+  The exact prior text is stored at apply time so `revert` is a data operation, and it
+  refuses if the file's hash moved. Auto-apply is a **fail-closed allowlist**
+  (`memory/*.md`, `skills/*/SKILL.md`); unmatched paths — the six entry points,
+  `PERSONAL.md`, `brain/**`, `scripts/state/**` — are held for CC. Ledger in
+  `empire_state.db`, mirrored into `PROPOSED_CHANGES.md`. Mutating subcommands are
+  hidden from the chat bridge because they take a free-text shell command.
+- **Volatility pre-check:** `propose` runs the evidence command twice and refuses it if
+  two identical runs already differ, pointing at `--evidence-key`. Without it,
+  `harness_eval --json`'s per-run `timestamp`/`run_id` would pass every refinement.
+- **`auto_heal.py`:** `tune_neural_routing_weights()` shelled `task_outcomes.py stats`,
+  which has never existed, so `telemetry_synced` was permanently `False` while auto_heal
+  reported "Synchronized neural routing telemetry and activation weights". Now
+  `read_outcome_telemetry()` against `rate --json`, returning real figures.
+- **`evolve.py`:** `--apply` measures `capability_query resolve` before/after a promotion
+  and says whether routing actually moved; `--kind` extended per ADR-0015, with
+  `prompt_note`/`subagent` handed off to `refine.py` instead of scaffolded.
+- **ADR-0015**, `skills/harness-refinement/`, `CONTEXT.md` § V7.6 (7 terms),
+  `self-improvement-protocol` Protocol 4 pointer. Bravo-only; sibling propagation
+  deferred until the gate has rejected a real proposal.
+
+> **Numbering note:** 7.5.0–7.5.5 shipped 2026-08-03 (guard + continuity hardening from
+> the davidondrej/skills audit) and were never recorded here. Their record is
+> `CONTEXT.md` § "V7.5 Guard & Continuity" and commits `7afe35c3`…`2280ea2a`. This entry
+> does not attempt to reconstruct them.
 
 ## [7.4.1] — 2026-07-28
 
