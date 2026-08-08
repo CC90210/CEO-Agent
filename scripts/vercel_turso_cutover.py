@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import time
 import secrets as _secrets
 import sys
 from pathlib import Path
@@ -104,6 +105,41 @@ def upsert(project: str, key: str, value: str, token: str, team: str | None,
     return f"FAILED {r.status_code} {r.text[:120]}"
 
 
+def redeploy_production(slug: str, token: str, team: str | None,
+                        wait_s: int = 900) -> tuple[bool, str]:
+    """Rebuild production from its latest READY deployment, and WAIT.
+
+    Returning as soon as the build is queued would report success for something
+    that can still fail, so this blocks until Vercel settles. A cutover that
+    reports OK while the build errors is worse than one that reports slowly.
+    """
+    r = _api("GET", "/v6/deployments", token, team,
+             params={"app": slug, "limit": 1, "target": "production",
+                     "state": "READY"})
+    deps = r.json().get("deployments", []) if r.status_code == 200 else []
+    if not deps:
+        return False, f"no READY production deployment to rebuild from ({slug})"
+
+    r = _api("POST", "/v13/deployments", token, team, params={"forceNew": "1"},
+             json={"name": slug, "deploymentId": deps[0]["uid"],
+                   "target": "production",
+                   "meta": {"redeployReason": "turso cutover env"}})
+    if r.status_code not in (200, 201):
+        return False, f"redeploy rejected HTTP {r.status_code} {r.text[:120]}"
+
+    dep_id = r.json().get("id")
+    deadline = time.time() + wait_s
+    state = "UNKNOWN"
+    while time.time() < deadline:
+        time.sleep(15)
+        s = _api("GET", f"/v13/deployments/{dep_id}", token, team)
+        body = s.json() if s.status_code == 200 else {}
+        state = body.get("readyState") or body.get("status") or "UNKNOWN"
+        if state in ("READY", "ERROR", "CANCELED"):
+            break
+    return state == "READY", f"{slug} -> {state}"
+
+
 def desired_for(slug: str, cfg: dict, env: dict) -> dict[str, str]:
     """Everything this project needs, resolved. Values never printed."""
     want: dict[str, str] = {"EMPIRE_DATA_BACKEND": "turso_cloud"}
@@ -140,6 +176,11 @@ def main() -> int:
     ap.add_argument("--rotate-session-secret", action="store_true",
                     help="replace AUTH_SESSION_SECRET even if one is already set "
                          "(this signs every user out)")
+    ap.add_argument("--redeploy", action="store_true",
+                    help="rebuild production after writing env vars, and wait for "
+                         "it. Without this the variables are set but the RUNNING "
+                         "build has never seen them — Vercel bakes env at build "
+                         "time, so a cutover looks applied and is not.")
     ap.add_argument("--targets", default=",".join(DEFAULT_TARGETS),
                     help="comma-separated environments for the cutover flags "
                          "(default: production). R2 keys always cover all three.")
@@ -182,6 +223,7 @@ def main() -> int:
         unmet = [k for k in want
                  if not set(targets_for(k)).issubset(existing.get(k, set()))]
 
+        wrote_any = False
         print(f"\n=== {slug} ({cfg['turso']})  targets={','.join(base_targets)}")
         print(f"    already covered : {len(want) - len(unmet)}/{len(want)}")
         if unmet:
@@ -191,24 +233,51 @@ def main() -> int:
             continue
 
         for key, value in want.items():
+            tg = targets_for(key)
             # An existing session secret is left alone: replacing it invalidates
             # every live cookie and signs the whole userbase out mid-migration.
-            if (key == "AUTH_SESSION_SECRET" and key in existing
+            #
+            # But "already set" has to mean set ON THE TARGETS WE ARE WRITING.
+            # This used to check `key in existing`, i.e. set ANYWHERE — so a
+            # secret that existed only on PREVIEW blocked the production write,
+            # silently. PropFlow ended up with EMPIRE_AUTH_BACKEND=turso and no
+            # AUTH_SESSION_SECRET in production, which is the worst of the three
+            # states: the data plane is on Turso, auth falls back to Supabase,
+            # and the browser bridge 404s because it requires both. It looks
+            # healthy until someone logs in.
+            if (key == "AUTH_SESSION_SECRET"
+                    and set(tg).issubset(existing.get(key, set()))
                     and not args.rotate_session_secret):
-                print(f"    keep      {key} (already set; --rotate-session-secret to replace)")
+                print(f"    keep      {key} (already covers {','.join(tg)}; "
+                      f"--rotate-session-secret to replace)")
                 continue
-            tg = targets_for(key)
             if set(tg).issubset(existing.get(key, set())):
                 print(f"    ok        {key}")
                 continue
             result = upsert(slug, key, value, token, team, existing, tg)
             if result != "set":
                 failures += 1
+            wrote_any = wrote_any or result == "set"
             print(f"    {result:<9} {key} -> {','.join(tg)}")
 
+        # Vercel bakes env vars at BUILD time, so everything above is inert
+        # until a fresh deployment. This tool used to end by printing "redeploy
+        # each project" and leaving it — which is how a cutover ends up half
+        # applied: the flags read as set, the running build has never seen them,
+        # and the status check above says covered.
+        if wrote_any and args.redeploy:
+            ok, detail = redeploy_production(slug, token, team)
+            failures += not ok
+            print(f"    {'redeploy ':<9} {detail}")
+        elif wrote_any:
+            print(f"    NOTE: {slug} still runs the OLD env until it is "
+                  f"redeployed — pass --redeploy, or deploy it yourself.")
+
     print("\n" + "=" * 58)
-    if args.apply:
-        print("Redeploy each project for the new variables to take effect.")
+    if args.apply and not args.redeploy:
+        print("Anything written above is INERT until that project is rebuilt — "
+              "Vercel bakes env at build time. Re-run with --redeploy, or deploy "
+              "each changed project yourself.")
     print(f"{'FAILURES: ' + str(failures) if failures else 'OK'}")
     return 1 if failures else 0
 
