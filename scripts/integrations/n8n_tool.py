@@ -146,13 +146,20 @@ class N8nClient:
         """Delete a workflow."""
         return self._request("DELETE", f"/workflows/{workflow_id}")
 
+    # The public n8n API exposes activation as DEDICATED POST endpoints, not as a
+    # PATCH of the `active` field. PATCH /workflows/{id} returns
+    # "405 PATCH method not allowed", so BOTH of these were dead on arrival --
+    # every activate/deactivate through this tool has always failed. Found while
+    # trying to switch off the workflows still writing to a Supabase project we
+    # are cancelling, which is the worst possible time to discover that the
+    # off-switch does not work.
     def activate_workflow(self, workflow_id: str):
         """Activate a workflow."""
-        return self._request("PATCH", f"/workflows/{workflow_id}", data={"active": True})
+        return self._request("POST", f"/workflows/{workflow_id}/activate")
 
     def deactivate_workflow(self, workflow_id: str):
         """Deactivate a workflow."""
-        return self._request("PATCH", f"/workflows/{workflow_id}", data={"active": False})
+        return self._request("POST", f"/workflows/{workflow_id}/deactivate")
 
     # --- Execution ---
 
