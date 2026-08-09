@@ -810,8 +810,152 @@ def _rpc_ping_integration(db: TursoDB, p: dict) -> None:
     return None
 
 
+def _rpc_shop_out_next_round_number(db: TursoDB, p: dict) -> int:
+    """shop_out_next_round_number: the next round for a lead's shop-out.
+
+    Source: database/rpc_sources/bravo__shop_out_next_round_number__2arg.sql.
+
+    AUTHORIZATION. The Postgres version branches on auth.role()/auth.uid() and
+    refuses non-members of the tenant. There is no auth context here: a Turso
+    token is a full-database credential, so every caller through this shim is
+    service-role equivalent — which is the branch the original takes for its
+    only real callers (server-side daemons). The tenant argument is still
+    applied to the query, so the ANSWER is tenant-scoped even though the
+    caller's membership is not re-checked. Do not expose this RPC to a browser.
+
+    pg_advisory_xact_lock is dropped deliberately: it serialised concurrent
+    callers for the same (tenant, lead) so two rounds could not take the same
+    number. SQLite serialises writers globally, so the read is already
+    consistent with respect to other writes through this connection.
+    """
+    reason = "python-compat rpc: shop_out_next_round_number"
+    rows = db.query(
+        'SELECT COALESCE(MAX(round_number), 0) + 1 AS n FROM "shopping_threads" '
+        "WHERE tenant_id = ? AND lead_id = ?",
+        [p.get("p_tenant_id"), p.get("p_lead_id")], reason=reason)
+    return int(rows[0]["n"]) if rows else 1
+
+
+def _rpc_shop_out_patch_lender(db: TursoDB, p: dict):
+    """shop_out_patch_lender: merge a patch into one lender inside lenders[].
+
+    Source: database/rpc_sources/bravo__shop_out_patch_lender__3arg.sql.
+
+    Postgres located the element with jsonb_array_elements WITH ORDINALITY and
+    rewrote it via jsonb_set(..., existing || patch). Two things carry over
+    exactly:
+
+      * the merge is jsonb `||` — a SHALLOW merge that KEEPS null values.
+        json_patch would delete null-valued keys, so the merge happens in
+        Python. Wiping a lender field by patching it to null is a real
+        operation here (e.g. clearing a declined reason).
+      * a miss returns None, and so does a lender_id that is not in the array —
+        the original deliberately makes "no such round" and "no such lender"
+        indistinguishable.
+
+    See the authorization note on shop_out_next_round_number; it applies here
+    too, except that this one is a WRITE, so it must never be reachable from a
+    browser-held credential.
+    """
+    reason = "python-compat rpc: shop_out_patch_lender"
+    round_id = p.get("p_round_id")
+    lender_id = p.get("p_lender_id")
+    patch = p.get("p_patch") or {}
+    if isinstance(patch, str):
+        patch = _from_sql(patch) or {}
+
+    rows = db.query('SELECT lenders FROM "shopping_threads" WHERE id = ?',
+                    [round_id], allow_unscoped=True, reason=reason)
+    if not rows:
+        return None
+    lenders = _from_sql(rows[0]["lenders"]) or []
+    if not isinstance(lenders, list):
+        return None
+
+    idx = next((i for i, el in enumerate(lenders)
+                if isinstance(el, dict) and el.get("lender_id") == lender_id), None)
+    if idx is None:
+        return None
+
+    lenders[idx] = {**(lenders[idx] or {}), **dict(patch)}   # jsonb `||`
+
+    out = _returning(
+        db,
+        'UPDATE "shopping_threads" SET lenders = ?, updated_at = ? '
+        "WHERE id = ? RETURNING *",
+        [json.dumps(lenders, separators=(",", ":")), _now(), round_id], reason)
+    db.commit()
+    return _row_out(out[0]) if out else None
+
+
+def _rpc_materialize_today_plan(db: TursoDB, p: dict):
+    """materialize_today_plan: get-or-create today's plan for a profile.
+
+    Source: database/rpc_sources/bravo__materialize_today_plan__2arg.sql.
+    Driven by a daily Vercel cron (/api/cron/materialize-plans, 03:00).
+
+    The original is insert-or-no-op: ON CONFLICT DO NOTHING returns no row when
+    the plan already exists, and a follow-up SELECT fetches the existing id, so
+    EVERY caller gets a real id and none sees a duplicate-key error. Preserved
+    exactly — returning None on the second call of the day would make the cron
+    look broken on every run after the first.
+
+    EXTRACT(DOW) is 0=Sunday..6=Saturday. Python's weekday() is 0=Monday, so it
+    is converted rather than used directly; getting this wrong silently applies
+    the weekday template on a Saturday.
+    """
+    reason = "python-compat rpc: materialize_today_plan"
+    profile_id = p.get("p_profile_id")
+    target = p.get("p_target_date")
+    if not target:
+        target = datetime.now(timezone.utc).date().isoformat()
+    target = str(target)[:10]
+
+    d = datetime.strptime(target, "%Y-%m-%d")
+    dow = (d.weekday() + 1) % 7            # Python Mon=0 -> Postgres Sun=0
+    kind = "weekend" if dow in (0, 6) else "weekday"
+
+    prof = db.query('SELECT tenant_id FROM "user_profiles" WHERE id = ?',
+                    [profile_id], allow_unscoped=True, reason=reason)
+    tenant_id = prof[0]["tenant_id"] if prof else None
+    if not tenant_id:
+        raise CompatError("profile has no tenant_id")
+
+    tpl_rows = db.query(
+        'SELECT mission, target_calls, target_emails, target_bookings, schedule '
+        'FROM "plan_templates" WHERE profile_id = ? AND kind = ? AND enabled = 1 '
+        "LIMIT 1", [profile_id, kind], allow_unscoped=True, reason=reason)
+    t = tpl_rows[0] if tpl_rows else {}
+
+    new_id = str(uuid.uuid4())
+    inserted = _returning(
+        db,
+        'INSERT INTO "daily_plans" (id, tenant_id, profile_id, plan_date, mission, '
+        " target_calls, target_emails, target_bookings, schedule) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(profile_id, plan_date) DO NOTHING RETURNING id",
+        [new_id, tenant_id, profile_id, target,
+         t.get("mission") or "Daily ops",
+         t.get("target_calls") or 0,
+         t.get("target_emails") or 0,
+         t.get("target_bookings") if t.get("target_bookings") is not None else 1,
+         _to_sql(t.get("schedule") if t.get("schedule") is not None else [])],
+        reason)
+    db.commit()
+    if inserted:
+        return inserted[0].get("id")
+
+    existing = db.query(
+        'SELECT id FROM "daily_plans" WHERE profile_id = ? AND plan_date = ?',
+        [profile_id, target], allow_unscoped=True, reason=reason)
+    return existing[0]["id"] if existing else None
+
+
 RPC_REGISTRY = {
     "ping_integration": _rpc_ping_integration,
+    "shop_out_next_round_number": _rpc_shop_out_next_round_number,
+    "shop_out_patch_lender": _rpc_shop_out_patch_lender,
+    "materialize_today_plan": _rpc_materialize_today_plan,
     "record_inbound_from_n8n": _rpc_record_inbound_from_n8n,
     "reserve_send_slot": _rpc_reserve_send_slot,
     "claim_events": _rpc_claim_events,
