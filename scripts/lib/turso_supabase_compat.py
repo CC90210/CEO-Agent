@@ -762,7 +762,56 @@ def _rpc_patch_tenant_record_data(db: TursoDB, p: dict) -> dict:
     return {"status": "ok", "id": rows[0].get("id")}
 
 
+def _rpc_ping_integration(db: TursoDB, p: dict) -> None:
+    """ping_integration: the heartbeat behind EVERY integrations_health row.
+
+    Source: database/rpc_sources/bravo__ping_integration__5arg.sql.
+
+    Its absence from this registry is why health monitoring went dark fleet-wide
+    at the cutover and nobody noticed. integration_health.ping() is best-effort
+    by design -- it catches everything, prints to stderr and returns False -- so
+    an unported RPC produced no exception, no alert, and a frozen
+    integrations_health table that still LOOKED populated because the old rows
+    were still there. Every daemon reported healthy by virtue of saying nothing.
+
+    resolve_tenant_for_profile() is a plpgsql helper; the tenant is resolved
+    here with the equivalent lookup instead of porting a second function whose
+    only caller is this one.
+    """
+    reason = "python-compat rpc: ping_integration"
+    profile_id = p.get("p_profile_id")
+    service = p.get("p_service")
+    status = p.get("p_status") or "healthy"
+    err = p.get("p_error")
+    meta = p.get("p_metadata")
+    if isinstance(meta, str):
+        meta = _from_sql(meta) or {}
+    now = _now()
+
+    rows = db.query('SELECT tenant_id FROM "user_profiles" WHERE id = ?',
+                    [profile_id], allow_unscoped=True, reason=reason)
+    tenant_id = rows[0]["tenant_id"] if rows else None
+
+    # COALESCE(EXCLUDED.tenant_id, existing) — a profile that cannot be resolved
+    # must not blank a tenant_id that is already correct.
+    db.execute(
+        'INSERT INTO "integrations_health" '
+        "(tenant_id, profile_id, service, status, last_ping_at, last_error, "
+        " metadata, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(profile_id, service) DO UPDATE SET "
+        '  tenant_id = COALESCE(excluded.tenant_id, "integrations_health".tenant_id), '
+        "  status = excluded.status, last_ping_at = ?, "
+        "  last_error = excluded.last_error, metadata = excluded.metadata, "
+        "  updated_at = ?",
+        [tenant_id, profile_id, service, status, now, err,
+         json.dumps(meta or {}, separators=(",", ":")), now, now, now],
+        allow_unscoped=True, reason=reason)
+    db.commit()
+    return None
+
+
 RPC_REGISTRY = {
+    "ping_integration": _rpc_ping_integration,
     "record_inbound_from_n8n": _rpc_record_inbound_from_n8n,
     "reserve_send_slot": _rpc_reserve_send_slot,
     "claim_events": _rpc_claim_events,
