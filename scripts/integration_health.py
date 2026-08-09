@@ -108,6 +108,29 @@ def ping(
     if metadata is None:
         metadata = {}
 
+    # WHO WROTE THIS ROW. A health row that cannot name its writer is a
+    # diagnostic dead end: during the Turso cutover a single process kept
+    # heartbeating to a database we were trying to cancel, and identifying it
+    # cost hours of stopping daemons one at a time because the row recorded
+    # nothing about its origin. These four fields are cheap and make the table
+    # self-describing forever.
+    try:
+        import socket
+
+        metadata = {
+            **metadata,
+            "_host": socket.gethostname(),
+            "_pid": os.getpid(),
+            "_argv": " ".join(sys.argv)[:200],
+            # Which backend this PROCESS believes it is writing to. When the row
+            # lands in Supabase while this says turso_cloud, the switch failed
+            # to apply in that interpreter -- which is the exact bug class the
+            # cutover has to rule out.
+            "_backend": os.environ.get("EMPIRE_DATA_BACKEND") or "supabase",
+        }
+    except Exception:  # noqa: BLE001 - diagnostics must never break a ping
+        pass
+
     if client is None:
         url = os.environ.get("BRAVO_SUPABASE_URL") or _env_fallback("BRAVO_SUPABASE_URL")
         key = (
