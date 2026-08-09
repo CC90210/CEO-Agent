@@ -2,7 +2,7 @@
 name: CONTEXT
 description: Canonical vocabulary for the Business-Empire-Agent / Bravo OS. Every skill, agent, and entry-point must use these terms with these meanings. If a new domain term needs to enter the codebase, add it here first.
 tags: [vocabulary, canonical, context]
-last_updated: 2026-07-17
+last_updated: 2026-08-08
 ---
 
 # CONTEXT — Canonical Vocabulary
@@ -40,7 +40,11 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 - **Tenant** — A customer-facing namespace inside the empire DB. Tenant-scoped data is filtered by `tenant_id`. Examples: OASIS, PropFlow, submissions (SunBiz). (CC-Funnel was a tenant until it retired 2026-06-18 — funnel is now native at `oasisai.work/f/`.)
 - **Tenant manifest** — Config object describing a tenant's nav, theme, feature flags. Lives in code under `oasis-command-center:config/tenants/`.
 - **Tenant-scoped feature** — A feature that should appear in ONE tenant's nav only (e.g., `/forms` lives in the SunBiz `submissions` tenant, NOT in OASIS). Infrastructure features extrapolate across tenants; product features do not. See `feedback_tenant_scoped_nav.md`.
-- **Empire DB** — CC's Supabase project. Single source for all empire + client data; tenant_id-scoped. (Turso-per-tenant was deferred 2026-05-15.)
+- **Empire DB** — the tenant_id-scoped store behind all empire + client data. **Turso (libSQL) is the database. Five isolated databases: bravo, breeze, propflow, oasis, nostalgic.** New tables, migrations and queries target Turso; do not add a Supabase table. This REVERSES the 2026-05-15 "Turso-per-tenant deferred" decision; the driver was cost (dropping the Supabase Pro plan). As of 2026-08-09 every surface we own is cut over and verified: all 5 databases at parity (no row exists in Supabase that is absent from Turso), 4 Vercel apps, 13 VPS daemons, Atlas, Maven, and the TextTorrent SMS runtime. The Supabase project still EXISTS but is no longer a destination — the only thing still writing to it is APEX (Adon's agent), which is a handover item, not ours.
+- **Turso mode flags** — Turso is enabled per process and each flag gates a different layer, so setting one is not "on": `EMPIRE_DATA_BACKEND=turso_cloud` switches the server data plane; `EMPIRE_AUTH_BACKEND=turso` + `AUTH_SESSION_SECRET` gate auth AND the `/api/data/bridge` + `/api/data/rpc` routes (they 404 without them). Plus `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`. Unset any of them and that process falls back to Supabase — which was the safe default DURING the migration and is now a silent misconfiguration. `EMPIRE_DATA_BACKEND` must be a real process env var: the switch reads `os.environ` at interpreter start, so putting it in `.env.agents` does nothing.
+- **The Python switch** — `scripts/_bootstrap/sitecustomize.py`, installed by `scripts/install_python_switch.py` as a **`.pth`** (`empire_turso_switch.py` + `zzz_empire_turso_switch.pth`), NOT as `sitecustomize.py`. Debian ships its own `sitecustomize` two `sys.path` entries ahead of any venv, so the obvious install is silently never imported. It resolves the repo from the **running script**, so sibling agents (Bravo / Atlas / Maven) sharing one interpreter each load their own `lib` — pointing `EMPIRE_REPO_ROOT` at another repo shadows theirs and crash-loops them.
+- **Unported RPC** — every Postgres stored procedure a live code path calls must exist in `RPC_REGISTRY` (Python: `scripts/lib/turso_supabase_compat.py`) or `TURSO_RPC_SHIM` (TS). Turso is SQLite; there is no PL/pgSQL. An unported name raises, and callers that swallow errors turn that into silent no-work — which is how fleet-wide health monitoring went dark unnoticed. Source SQL for every ported function lives in `database/rpc_sources/`; it exists nowhere else once Supabase is gone. Search for call sites with a MULTILINE regex, not `git grep -o`: `.rpc(` frequently wraps onto the next line and a line-based grep under-reports.
+- **Data bridge** — the route that replaces RLS in browser-querying apps (PropFlow). Turso tokens are full-database credentials and can never ship to a browser, so tenant scope is derived from the session and forced AFTER client filters. Prove it with `scripts/verify_tenant_isolation.py` before any flip.
 
 ## Sales / CRM vocabulary
 
@@ -139,6 +143,23 @@ Vocabulary for the merchant-funding domain. Captured 2026-06-08 with David's pro
 - **Lender CRM** — David's existing back-office system (vendor unknown at v1). Breeze talks to it via HMAC-signed webhooks: outbound on `draw.approved`, inbound on `advance.funded` / `advance.closed` / `repayment.posted`. Stub mode by default until David shares the spec.
 - **Stub mode** — Outbound webhook behavior when `tenants.crm_webhook_url` is empty: payload is written to `webhook_events` (visible in lender admin audit log) but no HTTP call is made. Lets the demo ship before the live integration spec arrives.
 - **Breeze brand color** — Default `#1e40af`. Per-tenant override stored in `tenants.brand_primary_color`, injected as `--brand` CSS variable at layout level so the merchant sees the funder's brand, not Breeze's.
+
+## Partner coordination & channel isolation (2026-08-03)
+
+- **APEX / Knut** — **One agent, two names.** "Apex" is the persona; "Knut" is the bot (`@KnutRPEbot`). Both belong to **Adon's agent**. Never treat them as separate peers: `PEER_KEYS` in `scripts/integrations/agent_activity.py` and `coordination_agent.js` both default to `apex,knut`, because a row written under one key while only the other was watched is invisible — a Knut-authored file claim would not have stopped Bravo editing the same file.
+- **OASIS partner group** — the shared Telegram group `OASIS 🏝️💸` (`COORD_GROUP_CHAT_ID`, id `-5165125484`): CC + Adon + Bravo + APEX/Knut, reached by `@BravoGCAdon_bot`. Adon is a 50/50 partner on **PropFlow only**, so the group's contents are partner-scoped by definition. It is the **human↔agent** channel; `agent_activity` is the **agent↔agent** channel.
+- **Channel isolation** — internal operational traffic (blocked sending numbers, scraper logs, cron failures, tracebacks, daemon crashes) belongs in **CC's private DM** (`TELEGRAM_ALLOWED_USERS`), never the partner group. Enforced in two places by content, not just by lane: `_GROUP_BLOCKED_TERMS_RE` in `scripts/notify.py` (reroutes `group=True` to CC's DM) and in `scripts/integrations/agent_activity.py` (refuses the `--mirror` broadcast; the DB row is still written, so nothing is lost). `coordination_agent.js` applies the same denylist to **automated** posts only.
+- **Reply exemption** — a message answering a human who spoke *in the group* is exempt from the isolation filter. Consent is the distinction: an unprompted broadcast is noise; an answer to a question asked in that room is not. Gagging it would break the bridge's purpose.
+
+## V7.5 Guard & Continuity (davidondrej/skills import, 2026-08-03)
+
+Terms from the [davidondrej/skills](https://github.com/davidondrej/skills) audit (MIT — patterns studied, no code copied). Plan: `~/.claude/plans/integrate-davidondrej-skills.md`.
+
+- **Dangerous-command denylist** — The `HARD_BLOCKS` table in `scripts/state/exec_guard.py`: named regexes that block a command outright (exit 2) before it runs. Distinct from the **irreversible-op allowlist** in the same file, which logs and permits. "Blocked" and "logged" are different outcomes; say which one you mean. Contract locked by `scripts/tests/test_exec_guard.py` — every rule needs both a BLOCK case and the adjacent ALLOW case that proves it isn't over-broad.
+- **Credential-exfil path** — A route that reveals a secret without reading a guarded *file*, so `secret_guard.py` (which is path-based) never sees it. `gh auth token` was the live example: it reads from gh's own keychain. When adding a tool that can print a credential, the guard that stops it is `exec_guard`, not `secret_guard`.
+- **Handoff block** — A single paste-ready fenced block that lets an agent with zero session memory resume the work, emitted by `skills/handoff/`. The **carry**, as opposed to the **archive** (`state_sync.py` → `SESSION_LOG.md`). Both, not either — a handoff that contradicts the archive is worse than neither.
+- **Atomic setup step** — One indivisible operator action (a single click, field, or paste-block) handed to CC by `skills/setup-help/`, always followed by the full remaining list. If it contains an "and", it is not atomic.
+- **Low-confidence decision surface** — The output of `skills/decisions/`: choices the agent made but is genuinely unsure about, each with a named alternative and the check that would settle it. Covers what tests structurally cannot — tests verify what was written, not what was chosen.
 
 ## V7.6 Evidence-Gated Refinement (prime-agent import, 2026-08-07)
 

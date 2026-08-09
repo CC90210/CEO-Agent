@@ -42,7 +42,7 @@ Default to the lighter path. The cost of an over-eager file-read on a casual mes
 1. **`brain/AGENT_ROUTER.md`** — routing-by-intent table. Read on the first OPERATIONAL turn that needs routing — never on a "wsp."
 2. **`brain/EXECUTION_RULES.md`** — the iron law (self-execute, never tell CC to run commands, confirm after every mutation). Read once per session, at the moment you're about to act.
 3. **`brain/INTENTS.md`** — verb-by-verb playbooks (send-email, apply-migration, push-to-prod, etc). Read when an intent matches.
-4. **`brain/WHEN_TO_USE_SKILLS.md`** — trigger map for the 150 active skills. Read when an operator request might match a skill.
+4. **`brain/WHEN_TO_USE_SKILLS.md`** — trigger map for the 157 active skills. Read when an operator request might match a skill.
 5. **`CONTEXT.md`** — canonical empire vocabulary (OASIS, PropFlow, tenant, drip sequence, Pulse, etc). Read when a domain term needs to be canonicalized or a new term is about to enter the codebase. See [docs/adr/0002-context-md-canonical-vocabulary.md](docs/adr/0002-context-md-canonical-vocabulary.md).
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are no longer auto-loaded — they're per-intent reads now. The router tells you when.
@@ -62,7 +62,7 @@ Fix obvious issues without asking. Answer questions in 1-5 sentences, then act. 
 ## WHAT — Project & Stack
 
 - **Project:** Business-Empire-Agent — autonomous AI operations hub
-- **Stack:** TypeScript, Next.js 14, Supabase (PostgreSQL), Vercel, Stripe, n8n. Platform: Windows 11, bash.
+- **Stack:** TypeScript, Next.js 14, **Turso (libSQL)** + Cloudflare R2, Vercel, Stripe. Platform: Windows 11, bash. Turso replaced Supabase 2026-08-09 — five isolated databases, parity verified; never add a Supabase table. n8n is deprecated (2 client webhooks remain live). Vocabulary + flags: CONTEXT.md "Empire DB" / "Turso mode flags" / "Unported RPC".
 - Identity and values: brain/SOUL.md | CC's profile: brain/USER.md | App routing: brain/APP_REGISTRY.md
 
 ## WHY — Purpose
@@ -114,7 +114,7 @@ Changing ANY other config/entry point content → update ALL files that referenc
 
 ### RULE 5: Verification
 
-Always verify — run tests, check Supabase, use `git status`. If you can't verify it, don't ship it.
+Always verify — run tests, query **Turso** (`python scripts/integrations/turso_tool.py`), use `git status`. If you can't verify it, don't ship it. A row that only exists in Supabase is stale by definition now.
 
 **V6.0 — exec_guard is law.** Every Bash command runs through `scripts/state/exec_guard.py`. Hard blocks: `DROP TABLE`, `TRUNCATE`, `DELETE FROM` without `WHERE`, `ALTER … DROP COLUMN`, `rm -rf /` outside tmp, `git push --force` to main, `git reset --hard <ref>`, `git clean -fdx`, fork bombs, `dd` to disks. If a command is blocked, fix the underlying intent and re-issue a safer form — DO NOT bypass with eval, base64, or `--no-verify`. Bypass attempts are logged to `state/exec_guard.log` and reviewed.
 
@@ -226,15 +226,17 @@ Bravo coordinates with **APEX** (Adon's agent, `@KnutRPEbot`) in the shared **OA
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/USER]] | [[brain/APP_REGISTRY]]
 - [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[brain/QUICK_REFERENCE]]
 
-## Inventory (synced 2026-06-17)
+## Inventory (synced 2026-08-01)
 
-- **Skills:** 150 active (10 archived in `skills/_archive/`) — graph-registered with frontmatter
-- **Python scripts:** 105 top-level production CLI tools under `scripts/` (238 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
+> Live counts: `brain/INVENTORY.md` (auto-generated monthly by `scripts/core/generate_inventory.py`) — treat the hard numbers below as a snapshot.
+
+- **Skills:** 157 active (2 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 128 top-level production CLI tools under `scripts/` (317 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
 - **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
-- **Subagents:** 32 agent nodes in the capability graph (7 native `.claude/agents/` + `agents/` incl. voltagent + V7.2.0 agency imports) — live count: `CAPABILITY_GRAPH.json` totals, don't hand-count
+- **Subagents:** 8 in `.claude/agents/` (7 agents + INDEX.md); 31 agent nodes in the capability graph (incl. `agents/` voltagent + V7.2.0 agency imports) — live count: `CAPABILITY_GRAPH.json` totals, don't hand-count
 - **Workflows:** 35 in `.agents/workflows/`
-- **Cron jobs:** 23 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
-- **North Star:** Multiply CC's time & build the empire through AI automation. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
+- **Cron jobs:** 28 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain, plus the 2026-08-01 Monthly Inventory Sync. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
+- **North Star:** Multiply CC's time and ship the systems that scale OASIS. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 
 <!-- LOCKSTEP:untrusted_content -->
 ## Untrusted Content Discipline (prompt-injection defense — non-negotiable)
