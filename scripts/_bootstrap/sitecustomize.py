@@ -39,28 +39,78 @@ import os
 import sys
 
 
-def _install() -> None:
+def _find_root():
+    """Locate the repo whose shim THIS PROCESS should use.
+
+    Resolution order matters enormously, because one interpreter can serve
+    several sibling agents. Bravo, Atlas (CFO-Agent) and Maven (CMO-Agent) each
+    ship their own REGULAR `scripts/lib` package. Python binds a regular package
+    to exactly one directory, so whichever repo lands on sys.path first owns
+    `lib` for the whole process — and every sibling's lib.* module becomes
+    invisible.
+
+    2026-08-08: pointing EMPIRE_REPO_ROOT at Bravo to flip atlas-scheduler put
+    Bravo's scripts/ first and Atlas crash-looped on
+    `ModuleNotFoundError: lib.schedule_helpers`. It had been up 29h.
+
+    So the SCRIPT BEING RUN wins. Each pm2 app runs its own repo's script, so
+    each process resolves to its own repo, loads its own lib, and no sibling is
+    shadowed. EMPIRE_REPO_ROOT drops to last resort: it is a global answer to a
+    per-process question, which is exactly why it was the wrong first choice.
+    """
     from pathlib import Path
 
-    # Walk up from this file until the repo shows itself. Independent of venv
-    # layout, and of how deep site-packages happens to be.
     marker = Path("scripts") / "lib" / "turso_supabase_compat.py"
-    here = Path(__file__).resolve()
-    root = None
-    for parent in here.parents:
-        if (parent / marker).exists():
-            root = parent
-            break
-    if root is None:
-        # Fall back to an explicit override before giving up, so an unusual
-        # deployment can still be told where the repo is.
-        env_root = os.environ.get("EMPIRE_REPO_ROOT")
-        if env_root and (Path(env_root) / marker).exists():
-            root = Path(env_root)
+
+    def walk(start):
+        try:
+            start = Path(start).resolve()
+        except Exception:  # noqa: BLE001
+            return None
+        for parent in (start, *start.parents):
+            if (parent / marker).exists():
+                return parent
+        return None
+
+    # 1. The script this interpreter was invoked with. Most specific, and the
+    #    only candidate that is correct when siblings share an interpreter.
+    argv0 = sys.argv[0] if sys.argv and sys.argv[0] else ""
+    if argv0:
+        root = walk(argv0)
+        if root:
+            return root
+
+    # 2. Working directory — covers `python -m package` where argv[0] is not a
+    #    path. pm2 sets cwd per app, so this is still per-process.
+    root = walk(Path.cwd())
+    if root:
+        return root
+
+    # 3. This file's own location — correct for a per-venv install, where
+    #    site-packages sits inside the repo's .venv.
+    root = walk(__file__)
+    if root:
+        return root
+
+    # 4. Explicit override, LAST. Global, so it cannot distinguish siblings.
+    env_root = os.environ.get("EMPIRE_REPO_ROOT")
+    if env_root:
+        from pathlib import Path as _P
+
+        if (_P(env_root) / marker).exists():
+            return _P(env_root)
+    return None
+
+
+def _install() -> None:
+    root = _find_root()
     if root is None:
         raise RuntimeError(
-            f"could not locate the repo from {here} — no ancestor contains "
-            f"{marker}. Set EMPIRE_REPO_ROOT.")
+            "could not locate a repo containing scripts/lib/"
+            "turso_supabase_compat.py from the running script, the working "
+            "directory, this file, or EMPIRE_REPO_ROOT. Copy the shim into "
+            "this repo rather than pointing at a sibling's — a sibling's "
+            "scripts/ on sys.path shadows this repo's own lib package.")
 
     scripts = str(root / "scripts")
     if scripts not in sys.path:
