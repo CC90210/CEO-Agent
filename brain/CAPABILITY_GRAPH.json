@@ -1,18 +1,18 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-08T16:35:29.375069+00:00",
+  "generated_at": "2026-08-09T08:03:21.192560+00:00",
   "totals": {
     "skills": 161,
-    "scripts": 150,
+    "scripts": 152,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 402,
+    "nodes_total": 404,
     "edges_total": 167,
-    "drift_count": 1
+    "drift_count": 0
   },
   "nodes": [
     {
@@ -4918,7 +4918,16 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "turso",
+        "libsql",
+        "turso migration",
+        "supabase to turso",
+        "transpile schema",
+        "port rpc",
+        "turso verify",
+        "sqlite migration"
+      ],
       "tags": [
         "turso",
         "libsql",
@@ -6679,6 +6688,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:rewrite_image_pointers",
+      "kind": "script",
+      "name": "rewrite_image_pointers",
+      "path": "scripts/rewrite_image_pointers.py",
+      "description": "Point image columns at the app's media route instead of an r2.dev host.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:rlhf_outreach",
       "kind": "script",
       "name": "rlhf_outreach",
@@ -6980,6 +6999,26 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:turso_cred_fingerprint",
+      "kind": "script",
+      "name": "turso_cred_fingerprint",
+      "path": "scripts/turso_cred_fingerprint.py",
+      "description": "Fingerprint the Turso credentials so two machines can be compared safely.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:turso_vps_bundle",
+      "kind": "script",
+      "name": "turso_vps_bundle",
+      "path": "scripts/turso_vps_bundle.py",
+      "description": "Write the VPS's Turso credentials to a file for scp, and fingerprint them.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:update_readme_stats",
       "kind": "script",
       "name": "update_readme_stats",
@@ -7107,68 +7146,6 @@
           "read": {
             "key": "agent_inbox_ack",
             "visible": true,
-            "confirm": true
-          }
-        }
-      }
-    },
-    {
-      "id": "script:refine",
-      "kind": "script",
-      "name": "refine",
-      "path": "scripts/core/refine.py",
-      "description": "refine.py \u2014 evidence-gated harness refinement (V7.6.0).",
-      "tier": "tool",
-      "owner": "bravo",
-      "discovery": "auto-capability-meta",
-      "category": "governance.self_improvement",
-      "lifecycle": "active",
-      "risk": "local_write",
-      "triggers": [
-        "propose a change to my own rules",
-        "refine the harness with evidence",
-        "queue a proposed change for CC",
-        "roll back a harness refinement",
-        "show the refinement ledger"
-      ],
-      "project": "empire",
-      "bridge": {
-        "visible": true,
-        "confirm": true,
-        "subcommands": {
-          "list": {
-            "key": "refine_list",
-            "visible": true,
-            "confirm": false
-          },
-          "show": {
-            "key": "refine_show",
-            "visible": true,
-            "confirm": false
-          },
-          "ledger": {
-            "key": "refine_ledger",
-            "visible": true,
-            "confirm": false
-          },
-          "propose": {
-            "key": "refine_propose",
-            "visible": false,
-            "confirm": true
-          },
-          "apply": {
-            "key": "refine_apply",
-            "visible": false,
-            "confirm": true
-          },
-          "revert": {
-            "key": "refine_revert",
-            "visible": false,
-            "confirm": true
-          },
-          "cancel": {
-            "key": "refine_cancel",
-            "visible": false,
             "confirm": true
           }
         }
@@ -9063,11 +9040,6 @@
       "kind": "calls"
     },
     {
-      "from": "script:refine",
-      "to": "runtime:bridge_chat_server",
-      "kind": "exposed_via"
-    },
-    {
       "from": "script:register",
       "to": "script:build_capability_graph",
       "kind": "calls"
@@ -9200,6 +9172,11 @@
     {
       "from": "script:system_health",
       "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:turso_vps_bundle",
+      "to": "script:turso_cred_fingerprint",
       "kind": "calls"
     },
     {
@@ -9553,10 +9530,5 @@
       "kind": "requires"
     }
   ],
-  "drift": [
-    {
-      "node": "skill:turso-patterns",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    }
-  ]
+  "drift": []
 }

@@ -62,7 +62,7 @@ Fix obvious issues without asking. Answer questions in 1-5 sentences, then act. 
 ## WHAT — Project & Stack
 
 - **Project:** Business-Empire-Agent — autonomous AI operations hub
-- **Stack:** TypeScript, Next.js 14, Supabase (PostgreSQL), Vercel, Stripe, n8n. Platform: Windows 11, bash.
+- **Stack:** TypeScript, Next.js 14, **Turso (libSQL)** + Cloudflare R2, Vercel, Stripe. Platform: Windows 11, bash. Turso replaced Supabase 2026-08-09 — five isolated databases, parity verified; never add a Supabase table. n8n is deprecated (2 client webhooks remain live). Vocabulary + flags: CONTEXT.md "Empire DB" / "Turso mode flags" / "Unported RPC".
 - Identity and values: brain/SOUL.md | CC's profile: brain/USER.md | App routing: brain/APP_REGISTRY.md
 
 ## WHY — Purpose
@@ -114,7 +114,7 @@ Changing ANY other config/entry point content → update ALL files that referenc
 
 ### RULE 5: Verification
 
-Always verify — run tests, check Supabase, use `git status`. If you can't verify it, don't ship it.
+Always verify — run tests, query **Turso** (`python scripts/integrations/turso_tool.py`), use `git status`. If you can't verify it, don't ship it. A row that only exists in Supabase is stale by definition now.
 
 **V6.0 — exec_guard is law.** Every Bash command runs through `scripts/state/exec_guard.py`. Hard blocks: `DROP TABLE`, `TRUNCATE`, `DELETE FROM` without `WHERE`, `ALTER … DROP COLUMN`, `rm -rf /` outside tmp, `git push --force` to main, `git reset --hard <ref>`, `git clean -fdx`, fork bombs, `dd` to disks. If a command is blocked, fix the underlying intent and re-issue a safer form — DO NOT bypass with eval, base64, or `--no-verify`. Bypass attempts are logged to `state/exec_guard.log` and reviewed.
 

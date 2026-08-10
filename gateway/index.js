@@ -3,6 +3,15 @@
 /**
  * gateway/index.js — Multi-platform messaging gateway entry point.
  *
+ * ⚠️  DORMANT — DO NOT START (2026-08-03 review). This gateway is NOT the live
+ * Telegram path: telegram_agent.js (PM2 "bravo-telegram") is. This layer is not
+ * in PM2/ecosystem, its health.json is stale, and the Telegram adapter has
+ * DRIFTED from the live bridge (missing /ping + /sb, no 401 handling, no
+ * scripts/bridge_lock.py multi-machine arbitration — starting it while
+ * bravo-telegram runs anywhere causes 409 poll conflicts and message loss).
+ * If you ever revive it: add bridge_lock arbitration to adapters/telegram.js
+ * FIRST, then reconcile the command surface with telegram_agent.js.
+ *
  * Loads all adapters that have credentials configured, wires them to
  * GatewayDispatcher, starts the HTTP control server, and writes
  * periodic heartbeats to gateway/health.json.

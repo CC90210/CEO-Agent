@@ -1,7 +1,7 @@
 ---
 description: "Lookup table routing app names to local paths and GitHub repos; enforces that code changes happen in external app repos, not Business-Empire-Agent"
 tags: [apps, routing]
-last_updated: 2026-07-13
+last_updated: 2026-08-09
 freshness_threshold_days: 30
 verified: 2026-07-13
 ---
@@ -49,6 +49,7 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **BreezeAdvance (website)** | breezeadvance, breeze advance, breezeadvance.com, breeze marketing site, breeze funding website, david website | `C:\Users\User\APPS\breezeadvance-website` | [CC90210/breezeadvance-website](https://github.com/CC90210/breezeadvance-website) (private) | none yet — keeps David's EXISTING destinations: Apply embeds his live JotForm (`220397353791058`); Contact emails `admin@breezeadvance.com` via Resend. No empire DB. | Next.js 16, React 19, TypeScript, Tailwind v4, Sora + Inter | **Vercel — LIVE at https://breezeadvance-website.vercel.app** (project `breezeadvance-website`, auto-deploys on push to `main`). Marketing rebuild of the WordPress/Elementor breezeadvance.com — NOT the `breeze-portal` merchant app. "Velocity" navy (#2D487C) + cyan (#60B0E6) design; keeps David's logo. DNS cutover pending; `RESEND_API_KEY` pending for contact email. |
 | **Blue Rise Website** | blue rise, blue-rise, bluerisebusinesscapital, former sunbiz front, sunbiz-front legacy | `C:\Users\User\APPS\sunbiz-front-website` | [CC90210/blue-rise-website](https://github.com/CC90210/blue-rise-website) (private) | none - no backend DB; use Turso/libSQL if this later needs storage | Next.js 16, React 19, TypeScript, Tailwind v4, IBM Plex Sans + Fraunces | **Vercel - LIVE at https://bluerisebusinesscapital.com** (project `blue-rise-website`, GitHub-linked, auto-deploys on push to `main`; legacy alias `https://sunbiz-front-website.vercel.app` currently points here). Rebranded lending-company front end; legal pages are starter copy pending counsel review. |
 | **Arthrisil** | arthrisil, arthrisil.com | `C:\Users\User\APPS\arthrisil-website` | CC90210/arthrisil-website | — | Next.js, React, Tailwind | **Vercel — LIVE at https://arthrisil.com** (auto-deploys on push to `main`). PayPal + YouTube + $29.95 offer; lead capture → Resend/Supabase. |
+| **Opt-in Vault** | opt-in-vault, optinvault, consent vault, drip engine | `C:\Users\User\APPS\opt-in-vault` | CC90210/opt-in-vault | — (Turso/libSQL + Drizzle, zero Supabase) | Next.js 15, React 19, TypeScript, Drizzle ORM, Nodemailer, ImapFlow | Vercel (required — `CONSENT_TRUSTED_EDGE_PROVIDER=vercel`). Compliance-grade outbound drip engine + tamper-evident consent evidence (TCPA/CASL/CAN-SPAM/GDPR, RFC 8058). Self-contained SMTP gateway — does NOT route through empire `send_gateway.py`. Full context: [[APPS_CONTEXT/OPT_IN_VAULT_CLAUDE]]. |
 
 
 ## App Context Files
@@ -61,6 +62,7 @@ Detailed business context for primary brands:
 - Gritly: @APPS_CONTEXT/GRITLY_CLAUDE.md
 - IG Setter Pro: @APPS_CONTEXT/IG_SETTER_PRO_CLAUDE.md
 - Skool Community (ARCHIVED 2026-05-18 — historical snapshot): @APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE.md
+- Opt-in Vault: @APPS_CONTEXT/OPT_IN_VAULT_CLAUDE.md
 
 ## Session Logging Pattern
 
