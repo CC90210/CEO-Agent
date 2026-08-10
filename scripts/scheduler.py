@@ -335,6 +335,38 @@ def _as_text(raw: Any) -> str:
     return str(raw).strip()
 
 
+def _slug(label: str) -> str:
+    """The dump-filename slug. Shared so the reader and the writer cannot drift."""
+    return re.sub(r"[^a-z0-9]+", "-", (label or "").lower()).strip("-")[:48] or "job"
+
+
+def failure_dump_hint(job_name: str, job: Optional[dict] = None) -> str:
+    """Return the 'Full traceback: …' line ONLY when a dump actually exists.
+
+    run_script_action() — the `script_run` path — never calls persist_failure()
+    (only run_script() does, at its two failure exits). So for every script_run
+    job this line pointed whoever was debugging at a directory that is never
+    written for that job. An alert that cites evidence which does not exist costs
+    a round-trip and quietly teaches people to distrust the alert. Name the file
+    when there is one, say nothing when there isn't.
+    """
+    try:
+        if not FAILURE_DUMP_DIR.exists():
+            return ""
+        script = ((job or {}).get("action_config") or {}).get("script") or ""
+        candidates = {_slug(job_name)}
+        if script:
+            candidates.add(_slug(script))
+        newest = None
+        for path in FAILURE_DUMP_DIR.glob("*.log"):
+            if any(path.name.startswith(f"{c}-") for c in candidates):
+                if newest is None or path.stat().st_mtime > newest.stat().st_mtime:
+                    newest = path
+        return f"\nFull traceback: tmp/cron_failures/{newest.name}" if newest else ""
+    except OSError:
+        return ""
+
+
 def persist_failure(label: str, cmd: List[str], returncode: "int | str",
                     stderr: str, stdout: str = "") -> Optional[str]:
     """Write a failed child's FULL stderr to tmp/cron_failures/ and return the path.
@@ -352,7 +384,7 @@ def persist_failure(label: str, cmd: List[str], returncode: "int | str",
     """
     try:
         FAILURE_DUMP_DIR.mkdir(parents=True, exist_ok=True)
-        slug = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")[:48] or "job"
+        slug = _slug(label)
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         path = FAILURE_DUMP_DIR / f"{slug}-{ts}.log"
 
@@ -1117,6 +1149,274 @@ def log(msg: str):
     print(f"[{ts}] {msg}", flush=True)
 
 
+# ── Cron result → something readable on a phone ────────────────────────────
+# Until 2026-08-04 a job's raw stdout went straight to Telegram sliced at 200
+# chars: CC got `Inbound Email Sweep: { "status": "checked", "unread_count": 1,
+# "emails": [ { "from": "noreply-dmarc-...` — a JSON blob truncated mid-value,
+# so the one field that mattered (the full Report-ID) was the part cut off.
+# The scheduler already knows the shape; rendering it is cheap and the alert
+# only has value if it can be read at a glance.
+
+# Count keys worth putting in the headline, in the order they should appear.
+_COUNT_LABELS = (
+    ("unread_count", "unread"),
+    ("sent", "sent"),
+    ("published", "published"),
+    ("synced", "synced"),
+    ("inserted", "inserted"),
+    ("updated", "updated"),
+    ("processed", "processed"),
+    ("skipped", "skipped"),
+    ("failed", "failed"),
+)
+
+# Keys whose value is a list of things worth listing individually.
+_ITEM_KEYS = ("emails", "leads", "items", "posts", "messages", "results", "rows")
+
+# Fields that carry WHY something went wrong. These always render, even when a
+# count headline exists — dropping them is how an alert becomes decoration.
+_SIGNAL_KEYS = ("error", "errors", "failure", "failures", "reason",
+                "detail", "details", "warning", "warnings")
+
+# Status values that mean "nothing to report" and don't need their own line.
+_BENIGN_STATUS = {"ok", "okay", "success", "succeeded", "done", "checked",
+                  "complete", "completed", "clean", "healthy", "true"}
+
+# Per-item label candidates: who it's from, then what it's about.
+_WHO_KEYS = ("from", "email", "sender", "name", "to", "lead", "account")
+_WHAT_KEYS = ("subject", "title", "summary", "message", "status", "reason")
+
+
+def _clip(text: str, limit: int) -> str:
+    """Truncate on a word boundary with an ellipsis — never mid-token.
+
+    The old `[:200]` slice cut through a Report-ID and left CC a half-number.
+    """
+    text = " ".join(str(text).split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0]
+    return (cut or text[:limit]).rstrip(" ,;:-") + "…"
+
+
+def _item_line(item) -> str:
+    """One bullet for a single result item."""
+    if not isinstance(item, dict):
+        return f"• {_clip(item, 100)}"
+    who = next((item[k] for k in _WHO_KEYS if item.get(k)), None)
+    what = next((item[k] for k in _WHAT_KEYS if item.get(k)), None)
+    if who and what:
+        return f"• {_clip(who, 60)}\n   {_clip(what, 120)}"
+    if who or what:
+        return f"• {_clip(who or what, 120)}"
+    # Unknown shape: show its fields as plain text rather than raw JSON.
+    return "• " + _clip(" · ".join(f"{k}: {v}" for k, v in item.items()), 120)
+
+
+# Status strings that mean the JOB itself failed.
+_FAILURE_STATUS = {"error", "failed", "failure", "partial_failure", "exception",
+                   "crashed", "timeout", "aborted"}
+
+# Failure fields. Narrower than _SIGNAL_KEYS on purpose: a warning is worth
+# printing, but it is not a job failure and must not feed the escalation ladder.
+_FAILURE_KEYS = ("error", "errors", "failure", "failures")
+
+
+def _looks_like_failure(result_msg: str) -> bool:
+    """True when the JOB failed — not when its payload merely mentions failure.
+
+    The old test was `"ERROR" in result_msg or "FAILED" in result_msg`, a
+    substring scan of the ENTIRE payload. For the Inbound Email Sweep that
+    payload contains inbound email subjects and senders, so a prospect writing
+    "Re: your invoice FAILED to process" — or any of the endless "ERROR:
+    action required" phishing subjects — flipped a perfectly healthy sweep to
+    'failed', routed it to notify_error, and fed the consecutive-failure
+    escalation ladder. CC gets paged about a broken job that isn't broken, and
+    the real signal gets one notch harder to trust.
+
+    Structured results are judged on their own status/error fields. Plain-text
+    results keep the substring heuristic, because it is the only signal there.
+    """
+    raw = (result_msg or "").strip()
+    if not raw:
+        return False
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return "ERROR" in raw or "FAILED" in raw
+
+    if isinstance(data, dict):
+        if str(data.get("status", "")).strip().lower() in _FAILURE_STATUS:
+            return True
+        if data.get("ok") is False or data.get("success") is False:
+            return True
+
+    # Recursive scan. The first version returned False for any non-dict and
+    # only looked at top-level scalars, so `["ERROR: database unavailable"]` and
+    # {"result": {"error": "connection refused"}} — both failures under the old
+    # substring check — became silence. Turning a broken job into silence is a
+    # worse bug than the false alarm this replaced.
+    return _scan_for_failure(data)
+
+
+def _scan_for_failure(node, depth: int = 0, trusted: bool = True) -> bool:
+    """Find failure evidence anywhere in a result, without trusting mail text.
+
+    `trusted` is the whole trick. Inside an item list (emails/leads/rows) the
+    free-text substring heuristic is OFF — that content is written by strangers,
+    and "Re: your invoice FAILED" is their wording, not our job status. But an
+    explicit `error` field on an item is OUR structure and still counts. So a
+    per-row {"id": 7, "error": "rejected"} escalates while a subject line
+    saying FAILED does not.
+    """
+    if depth > 6:  # depth guard; real job results are shallow
+        return False
+    if isinstance(node, str):
+        return trusted and ("ERROR" in node.upper() or "FAILED" in node.upper())
+    if isinstance(node, list):
+        return any(_scan_for_failure(v, depth + 1, trusted) for v in node)
+    if isinstance(node, dict):
+        # Structured indicators are OUR schema wherever they appear, so they
+        # count even inside an item list. Only the free-text substring heuristic
+        # is suppressed there. Missing this made {"results":[{"status":"FAILED"}]}
+        # — which the old substring check DID catch — return False, so a genuinely
+        # failing job stopped retrying and reset its own fail_count.
+        if str(node.get("status", "")).strip().lower() in _FAILURE_STATUS:
+            return True
+        if node.get("ok") is False or node.get("success") is False:
+            return True
+        for key, value in node.items():
+            if key in _FAILURE_KEYS and value not in (None, "", [], {}, False, 0):
+                return True
+            if _scan_for_failure(value, depth + 1, trusted and key not in _ITEM_KEYS):
+                return True
+    return False
+
+
+def _is_nothing_happened(result_msg: str) -> bool:
+    """True when a structured result reports zero of everything it counts.
+
+    Backstop for the literal `'"unread_count": 0' in result_lower` probes, which
+    match exactly one spelling and miss the compact/reordered forms.
+    """
+    raw = (result_msg or "").strip()
+    if not raw.startswith("{"):
+        return False
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return False
+    if not isinstance(data, dict) or _looks_like_failure(raw):
+        return False
+    counts = [v for k, v in data.items()
+              if any(k == key for key, _ in _COUNT_LABELS)
+              and isinstance(v, int) and not isinstance(v, bool)]
+    if not counts or any(c != 0 for c in counts):
+        return False
+    # Zero counts is NOT enough. {"unread_count": 0, "status": "changed",
+    # "message": "OAuth token refreshed"} counts nothing and still matters —
+    # suppressing it here makes the notification disappear entirely rather than
+    # merely get reformatted. Require the status to be explicitly benign and no
+    # signal field populated before calling a tick a no-op.
+    status = str(data.get("status") or data.get("message") or "").strip().lower()
+    if status and status not in _BENIGN_STATUS:
+        return False
+    if any(data.get(k) not in (None, "", [], {}, False, 0) for k in _SIGNAL_KEYS):
+        return False
+    # Zero counts, benign status, nothing itemised — genuinely a no-op tick.
+    return not any(isinstance(data.get(k), list) and data.get(k) for k in _ITEM_KEYS)
+
+
+def humanize_job_result(job_name: str, result_msg: str, max_items: int = 3) -> str:
+    """Render a cron job's result as plain text CC can read at a glance.
+
+    Falls back to the (whitespace-collapsed, word-boundary-clipped) raw string
+    for any shape it doesn't recognise — it never emits raw JSON punctuation,
+    and it never returns something less informative than what it was given.
+    """
+    raw = (result_msg or "").strip()
+    if not raw:
+        return f"{job_name} — ran, no output"
+    try:
+        return _render_job_result(job_name, raw, max_items)
+    except Exception as exc:  # noqa: BLE001
+        # This runs inside check_and_run_due_jobs, AFTER the job's state update
+        # and outside any per-job try. An unhandled error here would abort the
+        # whole due-job loop: no notification, and every later due job skipped
+        # for that tick. Deeply nested JSON raises RecursionError, which is not
+        # a ValueError, so the narrow except below was not enough.
+        # Fail loud in the log, degrade to the raw string CC used to get.
+        print(f"[humanize_job_result] {job_name}: falling back to raw output "
+              f"({type(exc).__name__}: {exc})", file=sys.stderr, flush=True)
+        return f"{job_name} — {_clip(raw, 300)}"
+
+
+def _render_job_result(job_name: str, raw: str, max_items: int) -> str:
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return f"{job_name} — {_clip(raw, 300)}"
+
+    if not isinstance(data, dict):
+        if isinstance(data, list):
+            lines = [_item_line(i) for i in data[:max_items]]
+            extra = len(data) - len(lines)
+            head = f"{job_name} — {len(data)} item{'s' if len(data) != 1 else ''}"
+            if extra > 0:
+                lines.append(f"• …and {extra} more")
+            return "\n".join([head, *lines])
+        return f"{job_name} — {_clip(raw, 300)}"
+
+    # `not isinstance(v, bool)` matters: bool subclasses int in Python, so
+    # {"sent": true} rendered as "True sent" without it.
+    counts = [f"{data[key]} {label}" for key, label in _COUNT_LABELS
+              if isinstance(data.get(key), int) and not isinstance(data.get(key), bool)]
+    headline = f"{job_name} — " + (" · ".join(counts) if counts
+                                   else _clip(data.get("status") or data.get("message") or "done", 120))
+
+    lines = [headline]
+
+    # Failure detail survives REGARDLESS of counts. First version gated the
+    # fallback on `not counts`, so {"processed":10,"failed":1,"error":"database
+    # write rejected"} rendered as just "10 processed · 1 failed" — the error
+    # text silently dropped, making the alert strictly LESS informative than the
+    # raw prefix it replaced. That is the one thing this formatter must never do.
+    for key in _SIGNAL_KEYS:
+        value = data.get(key)
+        if value in (None, "", [], {}, False):
+            continue
+        if isinstance(value, (list, tuple)):
+            value = "; ".join(str(v) for v in list(value)[:3])
+        elif isinstance(value, dict):
+            value = " · ".join(f"{k}: {v}" for k, v in list(value.items())[:4])
+        lines.append(f"{key}: {_clip(value, 160)}")
+
+    # A status that isn't just "fine" is signal too, and the counts headline
+    # hides it.
+    status = data.get("status") or data.get("message")
+    if counts and status and str(status).strip().lower() not in _BENIGN_STATUS:
+        lines.insert(1, f"status: {_clip(status, 100)}")
+
+    for key in _ITEM_KEYS:
+        items = data.get(key)
+        if isinstance(items, list) and items:
+            for item in items[:max_items]:
+                lines.append(_item_line(item))
+            extra = len(items) - min(len(items), max_items)
+            if extra > 0:
+                lines.append(f"• …and {extra} more")
+            break
+
+    # Still nothing concrete beyond the headline: surface remaining scalars.
+    if len(lines) == 1 and not counts:
+        scalars = [f"{k}: {_clip(v, 60)}" for k, v in data.items()
+                   if isinstance(v, (str, int, float, bool)) and k not in ("status", "message")]
+        if scalars:
+            lines.append(_clip(" · ".join(scalars), 200))
+
+    return "\n".join(lines)
+
+
 def check_and_run_due_jobs(client, env_vars: dict[str, str]):
     """Core loop iteration: find due jobs and execute them."""
     now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -1194,7 +1494,14 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         # New: if the result is an ERROR, schedule a retry in 5 minutes instead
         # of waiting for the full schedule. Max 5 consecutive retries before
         # giving up and waiting for the next scheduled slot.
-        result_is_error = "ERROR" in result_msg or "FAILED" in result_msg
+        # Same classifier as the alerting path below (2026-08-04). This copy was
+        # missed in the first pass and it is the more damaging of the two: it
+        # does not just page CC, it increments fail_count, reschedules the job
+        # to retry in 5 minutes, and "gives up" after 5 attempts. A raw
+        # substring scan means an inbound email whose SUBJECT says "FAILED"
+        # made a healthy Inbound Email Sweep burn its whole retry budget and
+        # corrupt its own failure counter, every time such a mail arrived.
+        result_is_error = _looks_like_failure(result_msg)
         new_count = (job.get("run_count") or 0) + 1
         fail_count = (job.get("fail_count") or 0) if hasattr(job, "get") else 0
 
@@ -1235,8 +1542,8 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                          else "gave up after 5 attempts")
                 notify_error(
                     job_name,
-                    f"{stage} — {result_msg[:220]}\n"
-                    f"Full traceback: tmp/cron_failures/ (most recent for this job)",
+                    f"{stage} — {result_msg[:220]}"
+                    f"{failure_dump_hint(job_name, job)}",
                     # Distinct dedup identity from the per-tick page below.
                     # They shared one key until 2026-07-30, so the noisy
                     # first-failure alert consumed the slot and silenced THIS
@@ -1362,8 +1669,12 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             or '"unread_count":0' in result_lower
             or '"published": 0' in result_lower
             or '"message": "no unread' in result_lower
+            # Structured backstop for the four string probes above, which only
+            # match one exact spelling of the JSON. Purely additive: it can make
+            # a nothing-happened tick quieter, never noisier.
+            or _is_nothing_happened(result_msg)
         )
-        is_error = "ERROR" in result_msg or "FAILED" in result_msg
+        is_error = _looks_like_failure(result_msg)
 
         # Route the alert to the agent that OWNS the job, not to Bravo by
         # default (2026-07-30). A failed content_post is Maven's problem and a
@@ -1388,10 +1699,36 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                 log(f"  (transient failure on fast job {job_name} — "
                     f"escalation at 2 consecutive owns this alert)")
             else:
-                notify_error(job_name, result_msg[:200], agent=owner)
+                # The failure path was the LAST place still shipping raw
+                # `[:200]` JSON. It is also the path where detail matters most —
+                # this is the message CC reads at 2am to decide whether to get
+                # up. Same renderer, so the error field leads instead of being
+                # the part the slice cut off. Job name is passed separately by
+                # notify_error, so strip the headline the renderer prepends.
+                # Strip the EXACT headline the renderer prepended — not "split
+                # on the first em dash", which corrupts the detail when the job
+                # name itself contains one and silently doubles the name when
+                # the renderer returns no separator at all.
+                detail = humanize_job_result(job_name, result_msg)
+                headline = f"{job_name} — "
+                if detail.startswith(headline):
+                    detail = detail[len(headline):]
+                notify_error(job_name, detail[:400], agent=owner)
         elif not is_routine:
-            notify(f"{job_name}: {result_msg[:200]}", category=cat, silent=True,
-                   agent=owner)
+            # Was: f"{job_name}: {result_msg[:200]}" — raw JSON, sliced
+            # mid-value.
+            #
+            # NO dedup_key here, deliberately. Identity stays the rendered
+            # text, which is what notify's design intends: "distinct alerts
+            # (different sender/subject → different text) always pass, so this
+            # only ever collapses genuine repeats." A result notification is
+            # CONTENT, not a condition — pinning it to the job name would mean
+            # the 06:30 sweep reporting a DMARC report suppresses the 06:35
+            # sweep reporting a real prospect, for the full 1h window.
+            # dedup_key belongs on condition alerts ("job failed again"),
+            # never on a message whose whole value is what changed.
+            notify(humanize_job_result(job_name, result_msg), category=cat,
+                   silent=True, agent=owner)
 
     return len(due_jobs)
 
@@ -1434,7 +1771,44 @@ def _scheduler_heartbeat(status: str, focus: str) -> None:
         pass
 
 
+def _parse_args() -> None:
+    """Refuse to start on an unrecognised argument, and answer --help.
+
+    This file had no argument handling at all, so `sys.argv` was ignored
+    entirely and ANY invocation started the daemon. On 2026-08-08 an agent ran
+    `scheduler.py --help` to read the usage text and instead started a second
+    production scheduler, which ran for 33 hours executing every cron a second
+    time -- against the database the fleet had already been migrated off. It was
+    found by tracing an open socket, not by anything reporting it, because a
+    scheduler that starts successfully looks exactly like one that was asked to.
+
+    A daemon whose only argument-handling behaviour is "start anyway" cannot
+    tell an operator apart from a typo. Same defect class as
+    scripts/state/notify.py before it grew a parser.
+    """
+    argv = sys.argv[1:]
+    if not argv:
+        return
+    if argv[0] in ("-h", "--help"):
+        print(
+            "usage: scheduler.py\n\n"
+            "The Bravo scheduler daemon. Takes no arguments; it is started by\n"
+            "PM2 (see ecosystem config) and polls cron_jobs every "
+            f"{CHECK_INTERVAL_SECONDS}s.\n\n"
+            "Running it by hand starts a SECOND scheduler alongside the PM2 one\n"
+            "and every due job then runs twice. To inspect or trigger jobs use\n"
+            "  python scripts/core/cron_engine.py --help\n"
+        )
+        raise SystemExit(0)
+    print(f"scheduler.py: unrecognised argument {argv[0]!r} -- it takes none.",
+          file=sys.stderr)
+    print("Refusing to start rather than silently running a second scheduler. "
+          "Try --help.", file=sys.stderr)
+    raise SystemExit(2)
+
+
 def main():
+    _parse_args()
     log("=" * 60)
     log("BRAVO SCHEDULER v1.0 - Business Operations Daemon")
     log("=" * 60)
