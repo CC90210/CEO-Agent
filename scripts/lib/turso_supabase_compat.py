@@ -1,4 +1,4 @@
-"""supabase-py–compatible client over Turso — the harness data-plane switch.
+﻿"""supabase-pyâ€“compatible client over Turso â€” the harness data-plane switch.
 
 WHY. 49 modules in scripts/ call `supabase.create_client(...)` and speak the
 postgrest-py builder dialect (`.table().select().eq()....execute().data`), plus
@@ -6,7 +6,7 @@ postgrest-py builder dialect (`.table().select().eq()....execute().data`), plus
 is weeks of churn on production automations; giving them a byte-compatible
 client over Turso means ZERO call-site changes. sitecustomize.py patches
 `supabase.create_client` to return this class when EMPIRE_DATA_BACKEND=
-turso_cloud — one env var flips the whole harness, deleting it flips it back.
+turso_cloud â€” one env var flips the whole harness, deleting it flips it back.
 
 WHAT IS FAITHFUL:
   .table(name)  select/insert/update/upsert/delete
@@ -14,10 +14,10 @@ WHAT IS FAITHFUL:
                 order limit range single maybe_single execute -> resp.data/.count
   .rpc(name)    dispatched to PYTHON ports of the PL/pgSQL sources (extracted to
                 database/rpc_sources/ and ported line-by-line below); unknown
-                RPCs raise loudly — never a silent no-op.
+                RPCs raise loudly â€” never a silent no-op.
 
   .storage      backed by Cloudflare R2 (lib/r2_storage.py), keys shaped
-                `<supabase-bucket>/<path>` — the same convention
+                `<supabase-bucket>/<path>` â€” the same convention
                 etl_storage_to_r2.py uploaded with and lib/r2-storage.ts writes
                 with in the Next.js repos. Reads RAISE on a miss, matching
                 supabase-py, so a missing attachment can never become an empty one.
@@ -29,7 +29,7 @@ GUARD POSTURE. Calls run through lib.db_turso with allow_unscoped=True and an
 audit reason naming the calling module: the harness is CC's single-operator
 infra whose queries already carry their own tenant predicates where relevant
 (e.g. the event bus is deliberately cross-tenant). Every unscoped statement
-still lands in the audit log — permissive-but-audited, vs the strict fail-closed
+still lands in the audit log â€” permissive-but-audited, vs the strict fail-closed
 guard the multi-tenant web apps keep.
 """
 from __future__ import annotations
@@ -99,6 +99,11 @@ class CompatError(Exception):
 
 OPS = {"eq": "=", "neq": "<>", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
 
+# (table, sorted columns) -> the index's exact expression list, or None when the
+# caller's bare column list is already correct. Populated lazily from
+# sqlite_master; see CompatQuery._resolve_conflict_target.
+_CONFLICT_TARGET_CACHE: dict[tuple[str, tuple[str, ...]], str | None] = {}
+
 
 class _CompatNot:
     """Negation proxy returned by ``CompatQuery.not_``.
@@ -108,7 +113,7 @@ class _CompatNot:
     chaining (.order, .limit, .execute, more filters) keeps working.
 
     Only filter-like methods are proxied; structural calls (select, order,
-    limit, execute) are intentionally missing — calling them on a negation
+    limit, execute) are intentionally missing â€” calling them on a negation
     proxy is a usage error, and an AttributeError there is the right signal.
     """
 
@@ -170,6 +175,63 @@ class CompatQuery:
         self._payload = values if isinstance(values, list) else [values]
         self._on_conflict = on_conflict
         return self
+
+    def _resolve_conflict_target(self, tcols: list[str]) -> str | None:
+        """Real ON CONFLICT target for a requested set of columns, or None.
+
+        Returns an index's exact column/expression list when a UNIQUE index on
+        this table covers precisely those columns but spells them differently
+        (a COALESCE expression index). Returns None for ordinary column
+        indexes, so the generated SQL is unchanged for every normal table.
+
+        Matching is on the SET of column names, because PostgREST callers write
+        `on_conflict` in whatever order reads well while the index has its own.
+
+        Cached per (table, columns) â€” this costs a sqlite_master read and
+        upserts run on hot paths.
+        """
+        if not tcols:
+            return None
+        key = (self._table, tuple(sorted(c.lower() for c in tcols)))
+        if key in _CONFLICT_TARGET_CACHE:
+            return _CONFLICT_TARGET_CACHE[key]
+
+        resolved: str | None = None
+        try:
+            rows = self._db.query(
+                "SELECT sql FROM sqlite_master WHERE type='index' "
+                "AND tbl_name = ? AND sql IS NOT NULL",
+                [self._table], allow_unscoped=True,
+                reason="python-compat: resolve ON CONFLICT target")
+            wanted = sorted(c.lower() for c in tcols)
+            for row in rows:
+                ddl = str(row.get("sql") or "")
+                if not re.search(r"CREATE\s+UNIQUE\s+INDEX", ddl, re.I):
+                    continue
+                o, c = ddl.find("("), ddl.rfind(")")
+                if o < 0 or c <= o:
+                    continue
+                inner = ddl[o + 1:c]
+                # Only expression indexes need rewriting.
+                if "COALESCE" not in inner.upper() and "(" not in inner:
+                    continue
+                # Strip string literals FIRST. The transpiler's sentinel is the
+                # literal text "__null__", and an identifier regex happily
+                # matches `u001f__null__` inside it â€” which makes the column set
+                # look wrong and silently defeats this whole lookup. That exact
+                # mistake shipped once on the TypeScript side.
+                bare = re.sub(r"'(?:[^']|'')*'", "''", inner)
+                words = [w.lower() for w in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", bare)]
+                cols_seen = sorted({w for w in words
+                                    if w not in ("coalesce", "lower", "upper",
+                                                 "nullif", "ifnull")})
+                if cols_seen == wanted:
+                    resolved = inner.strip()
+                    break
+        except Exception:  # noqa: BLE001 â€” never let this break the write path
+            resolved = None
+        _CONFLICT_TARGET_CACHE[key] = resolved
+        return resolved
 
     def update(self, values: dict):
         self._mode = "update"
@@ -362,7 +424,20 @@ class CompatQuery:
                 tcols: list[str] = []
                 if self._on_conflict:
                     tcols = [c.strip() for c in self._on_conflict.split(",")]
-                    target = "(" + ", ".join(f'"{c}"' for c in tcols) + ")"
+                    # SQLite matches an ON CONFLICT target against an index's
+                    # columns AND EXPRESSIONS, exactly. Postgres
+                    # `UNIQUE ... NULLS NOT DISTINCT` was transpiled into an
+                    # EXPRESSION index â€” UNIQUE (email, COALESCE(tenant_id,'â€¦'))
+                    # â€” which a bare column list does not match, so the whole
+                    # statement is rejected.
+                    #
+                    # This silently killed the CASL unsubscribe endpoint on the
+                    # TypeScript side; the same shape exists here, and
+                    # bravo.cold_leads carries such an index â€” a failing upsert
+                    # there means duplicate cold outreach to the same lead.
+                    expr = self._resolve_conflict_target(tcols)
+                    target = (f"({expr})" if expr
+                              else "(" + ", ".join(f'"{c}"' for c in tcols) + ")")
                 setters = ", ".join(f'"{c}" = excluded."{c}"' for c in cols if c not in tcols)
                 conflict = (f" ON CONFLICT {target} DO UPDATE SET {setters}"
                             if setters else f" ON CONFLICT {target} DO NOTHING")
@@ -558,7 +633,7 @@ def _rpc_reap_stuck_events(db: TursoDB, p: dict) -> int:
 
 
 def _rpc_record_inbound_from_n8n(db: TursoDB, p: dict) -> dict:
-    """Port of record_inbound_from_n8n — the */5-min inbound email chokepoint.
+    """Port of record_inbound_from_n8n â€” the */5-min inbound email chokepoint.
 
     Upsert lead by email -> insert interaction -> publish inbound.classified on
     the event bus, returning the same jsonb handles. Steps run in sequence with
@@ -792,7 +867,7 @@ def _rpc_ping_integration(db: TursoDB, p: dict) -> None:
                     [profile_id], allow_unscoped=True, reason=reason)
     tenant_id = rows[0]["tenant_id"] if rows else None
 
-    # COALESCE(EXCLUDED.tenant_id, existing) — a profile that cannot be resolved
+    # COALESCE(EXCLUDED.tenant_id, existing) â€” a profile that cannot be resolved
     # must not blank a tenant_id that is already correct.
     db.execute(
         'INSERT INTO "integrations_health" '
@@ -818,7 +893,7 @@ def _rpc_shop_out_next_round_number(db: TursoDB, p: dict) -> int:
     AUTHORIZATION. The Postgres version branches on auth.role()/auth.uid() and
     refuses non-members of the tenant. There is no auth context here: a Turso
     token is a full-database credential, so every caller through this shim is
-    service-role equivalent — which is the branch the original takes for its
+    service-role equivalent â€” which is the branch the original takes for its
     only real callers (server-side daemons). The tenant argument is still
     applied to the query, so the ANSWER is tenant-scoped even though the
     caller's membership is not re-checked. Do not expose this RPC to a browser.
@@ -845,11 +920,11 @@ def _rpc_shop_out_patch_lender(db: TursoDB, p: dict):
     rewrote it via jsonb_set(..., existing || patch). Two things carry over
     exactly:
 
-      * the merge is jsonb `||` — a SHALLOW merge that KEEPS null values.
+      * the merge is jsonb `||` â€” a SHALLOW merge that KEEPS null values.
         json_patch would delete null-valued keys, so the merge happens in
         Python. Wiping a lender field by patching it to null is a real
         operation here (e.g. clearing a declined reason).
-      * a miss returns None, and so does a lender_id that is not in the array —
+      * a miss returns None, and so does a lender_id that is not in the array â€”
         the original deliberately makes "no such round" and "no such lender"
         indistinguishable.
 
@@ -897,7 +972,7 @@ def _rpc_materialize_today_plan(db: TursoDB, p: dict):
     The original is insert-or-no-op: ON CONFLICT DO NOTHING returns no row when
     the plan already exists, and a follow-up SELECT fetches the existing id, so
     EVERY caller gets a real id and none sees a duplicate-key error. Preserved
-    exactly — returning None on the second call of the day would make the cron
+    exactly â€” returning None on the second call of the day would make the cron
     look broken on every run after the first.
 
     EXTRACT(DOW) is 0=Sunday..6=Saturday. Python's weekday() is 0=Monday, so it
@@ -995,7 +1070,7 @@ class _Refuser:
     def __getattr__(self, item):
         raise CompatError(
             f"supabase.{self._surface}.{item} is not available on the Turso compat "
-            f"client — {self._surface} did not migrate. If this call is essential, "
+            f"client â€” {self._surface} did not migrate. If this call is essential, "
             f"the module must be ported explicitly."
         )
 
@@ -1016,7 +1091,7 @@ class TursoSupabaseCompat:
         # PDF, the SunBiz tenant export), and a refusal there means a funder gets
         # an email with no contract attached. Cloudflare R2 holds every migrated
         # object at `<supabase-bucket>/<path>`, so .storage now points at it.
-        # Building the surface touches neither credentials nor the network — an
+        # Building the surface touches neither credentials nor the network â€” an
         # unconfigured R2 fails at the read, naming the missing keys, rather than
         # breaking every process that merely constructs a client.
         self.storage = r2_storage_surface()
@@ -1055,10 +1130,10 @@ def _project_for_url(url: str) -> str:
     This used to be ignored entirely: create_client(url, key) discarded both
     arguments and always returned bravo. For the ~49 bravo-scoped call sites
     that was invisibly fine. For anything pointed at breeze, propflow, oasis or
-    nostalgic it was a silent wrong-database read — and only loud when the table
+    nostalgic it was a silent wrong-database read â€” and only loud when the table
     happened not to exist in bravo (which is how it was caught: a breeze query
     for `interactions` died with "no such table"). Where a name exists in BOTH
-    schemas — leads, documents, webhook_events, automation_logs — it would have
+    schemas â€” leads, documents, webhook_events, automation_logs â€” it would have
     returned another product's rows with no error at all.
     """
     m = re.search(r"https?://([a-z0-9]{20})\.supabase\.co", url or "", re.I)
