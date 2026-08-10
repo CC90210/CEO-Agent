@@ -1,3 +1,6 @@
+-- Extracted from Supabase project phctllmtsogkovoilwos before cancellation.
+-- Signature: consume_texttorrent_rate_token(p_bucket text, p_worker_id text, p_priority integer, p_limit integer, p_window_seconds integer)
+-- This PL/pgSQL existed ONLY in the live database.
 CREATE OR REPLACE FUNCTION public.consume_texttorrent_rate_token(p_bucket text, p_worker_id text, p_priority integer, p_limit integer DEFAULT 60, p_window_seconds integer DEFAULT 60)
  RETURNS boolean
  LANGUAGE plpgsql
