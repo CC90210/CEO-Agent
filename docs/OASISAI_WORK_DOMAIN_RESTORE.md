@@ -89,18 +89,31 @@ page — including the SunBiz form URLs. That is the breakage that was reported.
 validate correctly on the Vercel hostname; post-migration submissions land in
 Turso complete and tenant-stamped, with zero missing a tenant.
 
-**Separate, and also open:** the PM2 harness has been down since
-**2026-08-05 14:41 UTC**. Its logs end mid-cycle with no crash trace, and both
-the scheduler and the telegram agent stop at the same second — consistent with a
+**RESOLVED 2026-08-07.** The harness had been down since
+**2026-08-05 14:41 UTC**. Its logs ended mid-cycle with no crash trace, and both
+the scheduler and the telegram agent stopped at the same second — consistent with a
 reboot without `pm2 resurrect`, not a fault. Inbound email processing stopped
-with it (50–113/day through 2026-08-05, then nothing). This predates the
-migration session by ~33 hours and is unrelated to it.
+with it (50–113/day through 2026-08-05, then nothing). This predated the
+migration session by ~33 hours and was unrelated to it.
 
-To bring it back:
+Root cause found during restore: the reboot fired the `PM2 Resurrect`
+scheduled task via S4U (no interactive logon), where neither `HOME` nor
+`HOMEPATH` is set — so PM2 silently defaulted to `pm2_home=C:\etc\.pm2`,
+found no `dump.pm2` there, and left an **empty elevated daemon squatting on
+the global `\\.\pipe\rpc.sock`**. Every user-session `pm2` call then failed
+with `connect EPERM //./pipe/rpc.sock` and spawned another wedged daemon
+(34 had piled up). Fix shipped in `scripts/pm2_resurrect_hidden.vbs` +
+`scripts/pm2_resurrect_hidden.cmd`: pin `PM2_HOME`/`HOME`, `pm2 kill` first,
+then resurrect + save. 10 apps + pm2-logrotate restored and `pm2 save`d.
 
-```bash
-pm2 resurrect          # or: pm2 start ecosystem.config.js
-pm2 save
+**Still open (needs one elevated action from CC):** the task's RunLevel is
+`Highest`, so after the next reboot the daemon runs elevated again and
+unelevated `pm2` clients get EPERM. From an elevated PowerShell:
+
+```powershell
+$t = Get-ScheduledTask -TaskName 'PM2 Resurrect'
+Set-ScheduledTask -TaskName 'PM2 Resurrect' -Principal `
+  (New-ScheduledTaskPrincipal -UserId $t.Principal.UserId -LogonType S4U -RunLevel Limited)
 ```
 
 That is safe to run as-is: the Turso cutover flag in `ecosystem.config.js` is
