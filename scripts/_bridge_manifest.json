@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-09T03:12:46.757723+00:00",
-  "script_count": 127,
-  "entry_count": 298,
+  "generated_at_iso": "2026-08-10T04:14:11.450391+00:00",
+  "script_count": 128,
+  "entry_count": 299,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1953,6 +1953,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Fingerprint the Turso credentials so two machines can be compared safely."
+    },
+    {
+      "key": "turso_lossy_audit",
+      "path": "scripts/turso_lossy_audit.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Check that everything the transpiler could not port has actually been dealt with."
     },
     {
       "key": "turso_vps_bundle",
