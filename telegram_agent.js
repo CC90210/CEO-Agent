@@ -1384,18 +1384,22 @@ bot.on('callback_query', async (query) => {
     // stale Telegram buttons from before the removal will fall through to the
     // generic "No pending confirmation found." branch — safe no-op.
 
+    const [action, nonce] = String(data || '').split(':');
     const pending = PENDING_CONFIRMATIONS[String(chatId)];
 
     await bot.answerCallbackQuery(query.id).catch(() => {});
 
-    if (!pending) {
-        await bot.sendMessage(chatId, 'No pending confirmation found.');
+    // Nonce-bound (2026-08-03 hardening): a tap must match the exact pending
+    // request — a stale button from an older proposal can never approve a
+    // newer one.
+    if (!pending || pending.nonce !== nonce) {
+        await bot.sendMessage(chatId, 'That approval has expired or was superseded. Ask Bravo to re-propose.').catch(() => {});
         return;
     }
 
     delete PENDING_CONFIRMATIONS[String(chatId)];
 
-    if (data === 'approve_yes') {
+    if (action === 'approve_yes') {
         await bot.sendMessage(chatId, '✅ Approved. Executing...');
         log(`[APPROVAL] User approved: ${pending.description}`);
         addToHistory(chatId, 'user', `APPROVED: Proceed with: ${pending.description}`);
