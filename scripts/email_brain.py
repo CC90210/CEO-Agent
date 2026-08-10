@@ -50,6 +50,14 @@ DEFAULT_ARCHIVE_THRESHOLD = 0.6
 # number attached to it.
 DEFAULT_FINANCIAL_THRESHOLD = 0.65
 
+# Operator tenant for stamped rows — mirrors lead_engine.py. Rows written
+# without tenant_id land NULL and are invisible to tenant-scoped reads.
+OASIS_TENANT_ID = (
+    os.environ.get("OASIS_TENANT_ID")
+    or os.environ.get("EMPIRE_TENANT_ID")
+    or "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+)
+
 
 # ---- Pure policy ------------------------------------------------------------
 
@@ -571,6 +579,10 @@ def store_draft_row(email: dict, draft: dict, category: str, *, db=None) -> Opti
             "subject": (draft.get("subject") or "")[:500] or None,
             "content": (draft.get("body") or "")[:4000],
             "agent_source": "email_brain",
+            # Same tenant the inbound email carried (see send() call above);
+            # fall back to the operator tenant so the draft row is visible to
+            # tenant-scoped pipeline reads.
+            "tenant_id": email.get("tenant_id") or OASIS_TENANT_ID,
             "metadata": {
                 "category": category,
                 "from_identity": email.get("from") or email.get("from_identity"),

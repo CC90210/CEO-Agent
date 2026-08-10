@@ -229,6 +229,13 @@ def _unstamped_insert_advisory() -> str:
     good enough to say "all clear" (Codex audit 2026-08-04 — a zero from a
     heuristic reading as a guarantee is the same false-confidence bug this
     whole check was relabelled for).
+
+    VERIFIED 2026-08-08: all 13 then-flagged sites were traced to the payload.
+    5 were real gaps and are now stamped (funnel_sync, inbound_classifier x2,
+    email_brain, scrape_firecrawl_leads); the rest stamp upstream of the
+    16-line window or are deliberately tenantless (send_gateway legacy branch
+    :906, reservations stamped at finalize :2186). The residual count is
+    expected non-zero — it only re-earns attention if it GROWS.
     """
     try:
         scripts_dir = Path(__file__).resolve().parent

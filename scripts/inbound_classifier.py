@@ -90,6 +90,14 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
+# Operator tenant for stamped rows — mirrors lead_engine.py. Rows written
+# without tenant_id land NULL and are invisible to tenant-scoped reads.
+OASIS_TENANT_ID = (
+    os.environ.get("OASIS_TENANT_ID")
+    or os.environ.get("EMPIRE_TENANT_ID")
+    or "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+)
+
 
 # Notify import. Fixes a latent bug: _notify_platform_alert() called
 # `_telegram_notify(...)` which was never imported/defined → NameError on
@@ -1132,13 +1140,15 @@ def record_inbound(
     # Resolve lead by email if not provided. For IG/skool channels the
     # from_identity is a @username, so we store it in metadata but don't
     # auto-create a lead row without an email.
+    lead_tenant: Optional[str] = None
     if not lead_id and from_identity and "@" in from_identity and "." in from_identity:
         try:
-            r = (db.table("leads").select("id")
+            r = (db.table("leads").select("id, tenant_id")
                  .eq("email", from_identity.strip().lower())
                  .limit(1).execute().data)
             if r:
                 lead_id = r[0]["id"]
+                lead_tenant = r[0].get("tenant_id")
             else:
                 # Create a minimal inbound-only lead record. Source='inbound'
                 # distinguishes from outbound gateway auto-creates.
@@ -1167,11 +1177,13 @@ def record_inbound(
                     ins = db.table("leads").insert({
                         **raw_lead,
                         "status": "new",
+                        "tenant_id": OASIS_TENANT_ID,
                         "created_at": now.isoformat(),
                         "updated_at": now.isoformat(),
                     }).execute().data
                     if ins:
                         lead_id = ins[0]["id"]
+                        lead_tenant = OASIS_TENANT_ID
         except Exception as exc:  # noqa: BLE001
             print(f"[inbound_classifier] lead resolve warning: {exc}", file=sys.stderr)
 
@@ -1197,6 +1209,12 @@ def record_inbound(
         "subject": (subject or "")[:500] or None,
         "content": (content or "")[:2000],
         "agent_source": "inbound_classifier",
+        # Tenant comes from the lead row resolved/created above (no extra
+        # query — the select now fetches tenant_id). When lead_id was passed
+        # in by the caller we skip that lookup on this hot path and fall back
+        # to the operator tenant; a non-OASIS caller-supplied lead would be
+        # mis-stamped, but no such caller exists today.
+        "tenant_id": lead_tenant or OASIS_TENANT_ID,
         "metadata": full_metadata,
         "created_at": now.isoformat(),
     }

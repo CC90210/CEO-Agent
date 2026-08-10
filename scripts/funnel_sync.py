@@ -45,6 +45,10 @@ from lib.tls_trust import ensure_os_trust  # noqa: E402
 
 ensure_os_trust()
 
+# Operator tenant (CC's funnel is OASIS inbound) — mirrors lead_engine.py.
+# Stamped on every leads insert so tenant-scoped pipeline reads see the row.
+OASIS_TENANT_ID = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+
 
 def load_env() -> dict[str, str]:
     env_path = PROJECT_ROOT / ".env.agents"
@@ -219,6 +223,7 @@ def run_sync(env_vars: dict[str, str], as_json: bool = False, window_seconds: in
             "email": email,
             "source": "cc_funnel",
             "status": "new",
+            "tenant_id": OASIS_TENANT_ID,
         }
         if lead.get("phone"):
             payload["phone"] = lead["phone"]

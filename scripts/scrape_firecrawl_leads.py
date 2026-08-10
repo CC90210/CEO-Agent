@@ -37,6 +37,11 @@ from lib.lead_contract import (  # noqa: E402
     enrich_lead_defaults, has_hard_required, validate_lead,
 )
 
+# Operator tenant default for stamped rows — mirrors lead_engine.py. Rows
+# written without tenant_id land NULL and are invisible to tenant-scoped
+# pipeline reads. Overridable via --tenant.
+OASIS_TENANT_ID = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+
 # Schema Firecrawl uses to pull structured contact info from each website
 EXTRACT_SCHEMA = {
     "type": "object",
@@ -181,6 +186,9 @@ def main() -> None:
     p.add_argument("--dry-run", action="store_true",
                    help="Don't write to Supabase, just produce the JSON")
     p.add_argument("--json", action="store_true", help="Output JSON summary")
+    p.add_argument("--tenant", default=None,
+                   help="Tenant UUID to stamp on inserted leads "
+                        "(default: OASIS tenant)")
     args = p.parse_args()
 
     cities = [c.strip() for c in args.cities.split(",") if c.strip()]
@@ -298,6 +306,7 @@ def main() -> None:
                 "tags": [L["niche"], "firecrawl"],
                 "notes": " | ".join(notes_parts),
                 "assigned_to": "bravo",
+                "tenant_id": args.tenant or OASIS_TENANT_ID,
                 "created_at": now,
                 "updated_at": now,
             }
@@ -322,6 +331,11 @@ def main() -> None:
             rows.append(enriched)
         for i in range(0, len(rows), 25):
             chunk = rows[i:i + 25]
+            # Defense-in-depth: the enrich/pop pipeline above must never drop
+            # the tenant stamp — a NULL tenant_id row is invisible to the
+            # tenant-scoped pipeline reads.
+            for row in chunk:
+                row.setdefault("tenant_id", args.tenant or OASIS_TENANT_ID)
             try:
                 res = db.table("leads").insert(chunk).execute()
                 inserted += len(res.data or [])
