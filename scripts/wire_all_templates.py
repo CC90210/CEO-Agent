@@ -53,11 +53,11 @@ def get_supabase(env: dict[str, str]):
 
     url = (
         env.get("BRAVO_SUPABASE_URL")
-        or os.environ.get("BRAVO_SUPABASE_URL")
+        or os.environ.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
     )
     key = (
         env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-        or os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+        or os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key"
     )
     if not url or not key:
         raise RuntimeError(

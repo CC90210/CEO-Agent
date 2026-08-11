@@ -116,8 +116,37 @@ def test_storage_is_r2_backed_not_a_refuser(client):
 
 
 def test_unknown_rpc_raises_never_noops(client):
+    """An unported RPC must raise, never return an empty result.
+
+    The name here is deliberately one that will never exist. The original used
+    `materialize_today_plan` as its example of "unported" -- and when that
+    function was actually ported, this test failed for the wrong reason. A test
+    whose fixture is a real backlog item goes stale the moment someone clears
+    the backlog, and the failure looks like a regression instead of progress.
+    """
     with pytest.raises(CompatError, match="no Turso port"):
-        client.rpc("materialize_today_plan", {}).execute()
+        client.rpc("a_function_that_will_never_be_ported__fixture", {}).execute()
+
+
+def test_every_registered_rpc_is_callable_by_name(client):
+    """The registry and the dispatcher must not disagree.
+
+    A name present in RPC_REGISTRY but unreachable through .rpc() would raise
+    "no Turso port" for a function that HAS been ported -- the same loud failure
+    as a genuine gap, which would send the next person porting it twice.
+    """
+    from lib.turso_supabase_compat import RPC_REGISTRY
+
+    for name in RPC_REGISTRY:
+        try:
+            client.rpc(name, {}).execute()
+        except CompatError as exc:
+            assert "no Turso port" not in str(exc), (
+                f"{name} is in RPC_REGISTRY but .rpc() reports it unported")
+        except Exception:
+            # Any other error means it dispatched and the body ran with empty
+            # args, which is all this test cares about.
+            pass
 
 
 # ------------------------------------------------------ reserve_send_slot port

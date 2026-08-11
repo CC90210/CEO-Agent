@@ -5,9 +5,9 @@ only place that runs before all 49 harness modules bind `create_client` via
 `from supabase import create_client`. So the swap has to happen here, not in
 application code.
 
-When EMPIRE_DATA_BACKEND=turso_cloud, supabase.create_client is replaced with
-the Turso compat client. Any other value (or none): this file does nothing.
-Rollback is unsetting the env var.
+Defaults to EMPIRE_DATA_BACKEND=turso_cloud when unset (post-Supabase decommissioning).
+To bypass Turso and use real Supabase, set EMPIRE_DATA_BACKEND=supabase.
+Rollback to direct Supabase is EMPIRE_DATA_BACKEND=supabase.
 
 TWO THINGS THIS FIXES, both of which made the switch a no-op off this machine:
 
@@ -151,7 +151,7 @@ def _record_failure(exc: Exception) -> None:
         pass
 
 
-if os.environ.get("EMPIRE_DATA_BACKEND") == "turso_cloud":
+if os.environ.get("EMPIRE_DATA_BACKEND", "turso_cloud") == "turso_cloud":
     try:
         _install()
     except Exception as exc:  # noqa: BLE001 — NEVER break interpreter start

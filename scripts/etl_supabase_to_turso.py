@@ -300,10 +300,23 @@ def load_rows(db: TursoDB, table: str, rows: list[dict], cols: list[str],
         chunk = payload[start:start + per_stmt]
         values_sql = ", ".join(f"({placeholders})" for _ in chunk)
         flat: list = [v for params in chunk for v in params]
-        db.execute(f'INSERT OR REPLACE INTO "{table}" ({col_sql}) VALUES {values_sql}',
-                   flat, allow_unscoped=True,
-                   reason="bulk ETL — tenant_id copied verbatim from source rows")
-        inserted += len(chunk)
+        try:
+            db.execute(f'INSERT OR REPLACE INTO "{table}" ({col_sql}) VALUES {values_sql}',
+                       flat, allow_unscoped=True,
+                       reason="bulk ETL — tenant_id copied verbatim from source rows")
+            inserted += len(chunk)
+        except Exception as exc:
+            # Fallback to single-row inserts on batch collision
+            log.warning("batch insert failed, retrying row-by-row", table=table, error=str(exc)[:120])
+            for params in chunk:
+                single_sql = f'INSERT OR REPLACE INTO "{table}" ({col_sql}) VALUES ({placeholders})'
+                try:
+                    db.execute(single_sql, params, allow_unscoped=True,
+                               reason="bulk ETL fallback — single row retry")
+                    inserted += 1
+                except Exception as row_exc:
+                    log.error("single row insert failed on constraint failure", table=table, error=str(row_exc)[:120])
+                    raise RuntimeError(f"ETL row insert failed for table '{table}': {row_exc}") from row_exc
     db.commit()
     return inserted
 

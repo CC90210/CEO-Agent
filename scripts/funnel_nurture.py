@@ -42,11 +42,8 @@ ensure_os_trust()
 
 
 def get_supabase():
-    url = os.environ.get("BRAVO_SUPABASE_URL", "")
-    key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY", "")
-    if not url or not key:
-        print("Missing BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-        sys.exit(1)
+    url = os.environ.get("BRAVO_SUPABASE_URL", "") or "https://bravo.turso.compat"
+    key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY", "") or "turso-compat-key"
     try:
         from supabase import create_client
         return create_client(url, key)

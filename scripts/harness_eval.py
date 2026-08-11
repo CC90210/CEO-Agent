@@ -27,6 +27,7 @@ state/harness_eval_history.jsonl for drift tracking across sessions.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import shutil
@@ -340,6 +341,38 @@ def check_pm2_fleet():
     return True, f"{len(REQUIRED_PM2)} required processes online ({len(online)} total)"
 
 
+def check_fleet_compiles():
+    """ast.parse every production script under scripts/ — a SyntaxError anywhere
+    in the fleet must fail the eval NOW, not when the cron that runs that script
+    next hits it.
+
+    WHY (2026-08-11): a session cut off mid-batch-edit left 12 scripts with
+    truncated Supabase->Turso fallback edits — 10 with a SyntaxError (one of
+    them a live PM2 app), 2 with a collided line that compiled but skipped the
+    env-var fallback. Every existing gate stayed green because none of them
+    PARSES the fleet: harness_eval reported ALL GREEN over a codebase whose
+    next cron run would crash. A gate that cannot see a syntax error in the
+    files it claims to cover is not a gate.
+    """
+    root = Path(__file__).resolve().parent
+    broken: list[str] = []
+    scanned = 0
+    for path in root.rglob("*.py"):
+        parts = path.parts
+        if "_archive" in parts or "__pycache__" in parts or "tests" in parts:
+            continue
+        scanned += 1
+        try:
+            ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+        except SyntaxError as e:
+            broken.append(f"{path.relative_to(root.parent)}:{e.lineno}")
+        except (ValueError, UnicodeDecodeError) as e:
+            broken.append(f"{path.relative_to(root.parent)}:decode({type(e).__name__})")
+    if broken:
+        return False, f"syntax errors in {len(broken)} scripts: {broken[:6]}"
+    return True, f"{scanned} production scripts ast-parse clean"
+
+
 def check_model_call_path():
     from lib.claude_cli import run_claude_cli  # noqa: E402
     text = run_claude_cli("Reply with exactly one word: ready", model="haiku", timeout=90)
@@ -362,6 +395,7 @@ CHECKS = [
     ("safety guards in enforce", check_guards_enforce, False, "guards"),
     ("cron table healthy (no ERROR, no MRR digest)", check_cron_health, False, "live-health"),
     ("PM2 fleet online", check_pm2_fleet, False, "live-health"),
+    ("fleet compiles (no SyntaxError anywhere)", check_fleet_compiles, False, "live-health"),
     ("model-call path live (claude CLI probe)", check_model_call_path, True, "model-call"),  # --with-model only
 ]
 

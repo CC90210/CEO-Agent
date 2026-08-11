@@ -110,7 +110,7 @@ def run_claude_cli(
         "--no-session-persistence",
         "--disable-slash-commands",
         "--strict-mcp-config",
-        "--setting-sources", "",
+        "--setting-sources", "user,project",
     ]
 
     env = build_claude_spawn_env(force_api_key=False, extras={
@@ -129,8 +129,12 @@ def run_claude_cli(
         sys.stderr.write(f"[claude_cli] spawn failed: {e}\n")
         return None
     if proc.returncode != 0:
+        err = (proc.stderr or "").strip()
+        if "weekly limit" in err.lower() or "usage limit" in err.lower() or "quota" in err.lower():
+            sys.stderr.write(f"[claude_cli] quota limit reached (resets on schedule): {err[:150]}\n")
+            return None
         sys.stderr.write(
-            f"[claude_cli] exit {proc.returncode}: {(proc.stderr or '').strip()[:300]}\n")
+            f"[claude_cli] exit {proc.returncode}: {err[:300]}\n")
         return None
     return (proc.stdout or "").strip() or None
 

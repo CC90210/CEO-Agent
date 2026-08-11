@@ -503,9 +503,8 @@ _ENV_NOISE = {
 # so we report that as an ADVISORY count, never a hard parity failure.
 REQUIRED_ENV_GROUPS = [
     ("ANTHROPIC_API_KEY", "BRAVO_ANTHROPIC_API_KEY", "CLAUDE_API_KEY"),
-    ("BRAVO_SUPABASE_URL", "SUPABASE_URL"),
-    # Service-role key is its own group: a URL alone must NOT satisfy Supabase parity.
-    ("BRAVO_SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"),
+    ("TURSO_DATABASE_URL", "BRAVO_SUPABASE_URL", "SUPABASE_URL"),
+    ("TURSO_AUTH_TOKEN", "BRAVO_SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"),
     ("TELEGRAM_BOT_TOKEN",),
 ]
 
@@ -609,14 +608,9 @@ def check_tls_keylog() -> tuple[str, bool, str, str]:
 
     if poisoned:
         return ("tls-keylog", False,
-                f"PM2 apps carrying a frozen SSLKEYLOGFILE: {', '.join(poisoned)}",
-                "add SSLKEYLOGFILE: \"\" to that app's env, then "
-                "`pm2 restart <app> --update-env`")
-
-    note = "guard active" + (
-        f"; ambient env is poisoned ({ambient['keylog_value']}) but neutralized"
-        if ambient["keylog_present"] and not ambient["keylog_usable"] else "")
-    return ("tls-keylog", True, note, "")
+                f"PM2 apps carrying SSLKEYLOGFILE: {', '.join(poisoned)}",
+                "add SSLKEYLOGFILE: \"\" to app env and pm2 restart")
+    return ("tls-keylog", True, "guard active; no poisoned PM2 app env", "")
 
 
 def check_pm2_persistence() -> tuple[str, bool, str, str]:

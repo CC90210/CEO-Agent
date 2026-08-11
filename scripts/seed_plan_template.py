@@ -81,10 +81,8 @@ WEEKEND_TEMPLATE = {
 
 
 def db() -> "Client":
-    url = os.environ.get("BRAVO_SUPABASE_URL")
-    key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
-        raise RuntimeError("Missing BRAVO_SUPABASE_URL / BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+    url = os.environ.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
+    key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key"
     return create_client(url, key)
 
 

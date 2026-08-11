@@ -99,6 +99,11 @@ class CompatError(Exception):
 
 OPS = {"eq": "=", "neq": "<>", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
 
+# (table, sorted columns) -> the index's exact expression list, or None when the
+# caller's bare column list is already correct. Populated lazily from
+# sqlite_master; see CompatQuery._resolve_conflict_target.
+_CONFLICT_TARGET_CACHE: dict[tuple[str, tuple[str, ...]], str | None] = {}
+
 
 class _CompatNot:
     """Negation proxy returned by ``CompatQuery.not_``.
@@ -170,6 +175,63 @@ class CompatQuery:
         self._payload = values if isinstance(values, list) else [values]
         self._on_conflict = on_conflict
         return self
+
+    def _resolve_conflict_target(self, tcols: list[str]) -> str | None:
+        """Real ON CONFLICT target for a requested set of columns, or None.
+
+        Returns an index's exact column/expression list when a UNIQUE index on
+        this table covers precisely those columns but spells them differently
+        (a COALESCE expression index). Returns None for ordinary column
+        indexes, so the generated SQL is unchanged for every normal table.
+
+        Matching is on the SET of column names, because PostgREST callers write
+        `on_conflict` in whatever order reads well while the index has its own.
+
+        Cached per (table, columns) — this costs a sqlite_master read and
+        upserts run on hot paths.
+        """
+        if not tcols:
+            return None
+        key = (id(self._db), self._table, tuple(sorted(c.lower() for c in tcols)))
+        if key in _CONFLICT_TARGET_CACHE:
+            return _CONFLICT_TARGET_CACHE[key]
+
+        resolved: str | None = None
+        try:
+            rows = self._db.query(
+                "SELECT sql FROM sqlite_master WHERE type='index' "
+                "AND tbl_name = ? AND sql IS NOT NULL",
+                [self._table], allow_unscoped=True,
+                reason="python-compat: resolve ON CONFLICT target")
+            wanted = sorted(c.lower() for c in tcols)
+            for row in rows:
+                ddl = str(row.get("sql") or "")
+                if not re.search(r"CREATE\s+UNIQUE\s+INDEX", ddl, re.I):
+                    continue
+                o, c = ddl.find("("), ddl.rfind(")")
+                if o < 0 or c <= o:
+                    continue
+                inner = ddl[o + 1:c]
+                # Only expression indexes need rewriting.
+                if "COALESCE" not in inner.upper() and "(" not in inner:
+                    continue
+                # Strip string literals FIRST. The transpiler's sentinel is the
+                # literal text "__null__", and an identifier regex happily
+                # matches `u001f__null__` inside it — which makes the column set
+                # look wrong and silently defeats this whole lookup. That exact
+                # mistake shipped once on the TypeScript side.
+                bare = re.sub(r"'(?:[^']|'')*'", "''", inner)
+                words = [w.lower() for w in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", bare)]
+                cols_seen = sorted({w for w in words
+                                    if w not in ("coalesce", "lower", "upper",
+                                                 "nullif", "ifnull")})
+                if cols_seen == wanted:
+                    resolved = inner.strip()
+                    break
+        except Exception:  # noqa: BLE001 — never let this break the write path
+            resolved = None
+        _CONFLICT_TARGET_CACHE[key] = resolved
+        return resolved
 
     def update(self, values: dict):
         self._mode = "update"
@@ -362,7 +424,17 @@ class CompatQuery:
                 tcols: list[str] = []
                 if self._on_conflict:
                     tcols = [c.strip() for c in self._on_conflict.split(",")]
-                    target = "(" + ", ".join(f'"{c}"' for c in tcols) + ")"
+                    # SQLite matches an ON CONFLICT target against an index's
+                    # columns AND EXPRESSIONS, exactly. Postgres
+                    # `UNIQUE ... NULLS NOT DISTINCT` was transpiled into an
+                    # EXPRESSION index — UNIQUE (email, COALESCE(tenant_id,'…'))
+                    # — which a bare column list does not match, so the whole
+                    expr = self._resolve_conflict_target(tcols)
+                    target = (f"({expr})" if expr
+                              else "(" + ", ".join(f'"{c}"' for c in tcols) + ")")
+                elif "id" in cols:
+                    tcols = ["id"]
+                    target = '("id")'
                 setters = ", ".join(f'"{c}" = excluded."{c}"' for c in cols if c not in tcols)
                 conflict = (f" ON CONFLICT {target} DO UPDATE SET {setters}"
                             if setters else f" ON CONFLICT {target} DO NOTHING")
@@ -1043,6 +1115,13 @@ _REF_TO_PROJECT = {
     "skgrbweyscysyetubemg": "oasis",
 }
 
+# Project names accepted by the .turso.compat URL shim — mirrors
+# lib.db_turso.PROJECT_ENV_VARS, which resolve_project_target() validates
+# against. Kept as a set so `https://<project>.turso.compat` fallback URLs
+# (built by integrations/supabase_tool.py when a product's legacy Supabase
+# keys are absent) resolve to a real database instead of raising NameError.
+_TARGETS = frozenset(_REF_TO_PROJECT.values())
+
 # One client per project; TursoDB introspects the schema on connect (a PRAGMA
 # per table, 118 tenant-scoped tables on bravo alone), so rebuilding per call
 # would put hundreds of round trips in front of every query.
@@ -1063,8 +1142,13 @@ def _project_for_url(url: str) -> str:
     """
     m = re.search(r"https?://([a-z0-9]{20})\.supabase\.co", url or "", re.I)
     if not m:
-        # No URL at all is the harness's own shorthand for "the bravo db".
-        if not (url or "").strip():
+        m_compat = re.search(r"https?://([a-z0-9_-]+)\.turso\.compat", url or "", re.I)
+        if m_compat:
+            target_proj = m_compat.group(1).lower()
+            if target_proj in _TARGETS:
+                return target_proj
+        # No URL at all or bare turso.compat is the harness's own shorthand for "the bravo db".
+        if not (url or "").strip() or "turso.compat" in (url or "").lower():
             return "bravo"
         raise ValueError(
             f"turso compat: cannot tell which database {url!r} refers to. "

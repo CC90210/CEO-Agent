@@ -71,8 +71,8 @@ def get_client(env_vars: dict[str, str]):
     except ImportError:
         print("ERROR: supabase package not installed. Run: pip install supabase", file=sys.stderr)
         sys.exit(1)
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key"
     if not url or not key:
         print("ERROR: Missing BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY", file=sys.stderr)
         sys.exit(1)

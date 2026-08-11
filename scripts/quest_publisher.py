@@ -87,8 +87,8 @@ def _supabase_client():
         print(f"[quest_publisher] cannot load env: {e}", file=sys.stderr)
         return None
     env = load_env()
-    url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
-    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+    url = (env.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat").strip()
+    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key").strip()
     if not url or not key:
         print("[quest_publisher] missing BRAVO_SUPABASE_URL/SERVICE_ROLE_KEY",
               file=sys.stderr)

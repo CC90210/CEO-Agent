@@ -198,8 +198,9 @@ def main() -> int:
             # The decisive test: fetch one of each with no credentials.
             def fetch(domain, key):
                 try:
-                    with urllib.request.urlopen(f"https://{domain}/{key}",
-                                                timeout=25) as r:
+                    req = urllib.request.Request(f"https://{domain}/{key}",
+                                                 headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                    with urllib.request.urlopen(req, timeout=25) as r:
                         return r.status, len(r.read(64))
                 except Exception as e:
                     return getattr(e, "code", None), str(e)[:70]

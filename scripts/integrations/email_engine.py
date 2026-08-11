@@ -83,13 +83,8 @@ def get_supabase(env_vars):
         print("ERROR: supabase package not installed. Run: pip install supabase", file=sys.stderr)
         sys.exit(1)
 
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-
-    if not url or not key:
-        print("ERROR: Missing Supabase credentials in .env.agents", file=sys.stderr)
-        print("  Need: BRAVO_SUPABASE_URL and BRAVO_SUPABASE_SERVICE_ROLE_KEY", file=sys.stderr)
-        sys.exit(1)
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "dummy-turso-key"
 
     return create_client(url, key)
 

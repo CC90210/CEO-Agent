@@ -69,8 +69,8 @@ WEBSITE CONTENT BELOW
 def _supabase():
     env = load_env()
     from supabase import create_client
-    url = env.get("BRAVO_SUPABASE_URL")
-    key = env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+    url = env.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
+    key = env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key"
     if not url or not key:
         raise SystemExit("missing BRAVO_SUPABASE_URL / BRAVO_SUPABASE_SERVICE_ROLE_KEY")
     return create_client(url, key)

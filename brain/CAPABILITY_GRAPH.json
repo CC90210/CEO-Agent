@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-09T08:03:21.192560+00:00",
+  "generated_at": "2026-08-11T08:03:21.290560+00:00",
   "totals": {
     "skills": 161,
-    "scripts": 152,
+    "scripts": 154,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 404,
-    "edges_total": 167,
+    "nodes_total": 406,
+    "edges_total": 168,
     "drift_count": 0
   },
   "nodes": [
@@ -7009,6 +7009,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:turso_lossy_audit",
+      "kind": "script",
+      "name": "turso_lossy_audit",
+      "path": "scripts/turso_lossy_audit.py",
+      "description": "Check that everything the transpiler could not port has actually been dealt with.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:turso_vps_bundle",
       "kind": "script",
       "name": "turso_vps_bundle",
@@ -7146,6 +7156,68 @@
           "read": {
             "key": "agent_inbox_ack",
             "visible": true,
+            "confirm": true
+          }
+        }
+      }
+    },
+    {
+      "id": "script:refine",
+      "kind": "script",
+      "name": "refine",
+      "path": "scripts/core/refine.py",
+      "description": "refine.py \u2014 evidence-gated harness refinement (V7.6.0).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "governance.self_improvement",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "propose a change to my own rules",
+        "refine the harness with evidence",
+        "queue a proposed change for CC",
+        "roll back a harness refinement",
+        "show the refinement ledger"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": true,
+        "subcommands": {
+          "list": {
+            "key": "refine_list",
+            "visible": true,
+            "confirm": false
+          },
+          "show": {
+            "key": "refine_show",
+            "visible": true,
+            "confirm": false
+          },
+          "ledger": {
+            "key": "refine_ledger",
+            "visible": true,
+            "confirm": false
+          },
+          "propose": {
+            "key": "refine_propose",
+            "visible": false,
+            "confirm": true
+          },
+          "apply": {
+            "key": "refine_apply",
+            "visible": false,
+            "confirm": true
+          },
+          "revert": {
+            "key": "refine_revert",
+            "visible": false,
+            "confirm": true
+          },
+          "cancel": {
+            "key": "refine_cancel",
+            "visible": false,
             "confirm": true
           }
         }
@@ -9038,6 +9110,11 @@
       "from": "script:purge_junk_leads",
       "to": "script:supabase_tool",
       "kind": "calls"
+    },
+    {
+      "from": "script:refine",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
     },
     {
       "from": "script:register",

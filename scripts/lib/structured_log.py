@@ -98,17 +98,20 @@ class _GzipRotatingFileHandler(RotatingFileHandler):
     """RotatingFileHandler that gzips the rotated backup."""
 
     def doRollover(self) -> None:  # noqa: N802 — stdlib override
-        super().doRollover()
-        # Gzip the most recent rotated file (e.g., module.log.1)
-        rotated = Path(f"{self.baseFilename}.1")
-        if rotated.exists():
-            gz_path = rotated.with_suffix(rotated.suffix + ".gz")
-            try:
-                with rotated.open("rb") as src, gzip.open(gz_path, "wb") as dst:
-                    shutil.copyfileobj(src, dst)
-                rotated.unlink()
-            except OSError:
-                pass  # leave uncompressed if gzip fails — don't break the daemon
+        try:
+            super().doRollover()
+            # Gzip the most recent rotated file (e.g., module.log.1)
+            rotated = Path(f"{self.baseFilename}.1")
+            if rotated.exists():
+                gz_path = rotated.with_suffix(rotated.suffix + ".gz")
+                try:
+                    with rotated.open("rb") as src, gzip.open(gz_path, "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+                    rotated.unlink()
+                except OSError:
+                    pass  # leave uncompressed if gzip fails — don't break the daemon
+        except OSError:
+            pass  # Windows file lock collision on rotation — ignore gracefully
 
 
 class StructuredLogger:

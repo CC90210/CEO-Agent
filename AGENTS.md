@@ -132,7 +132,7 @@ The `scripts/` directory contains 128 top-level production CLI tools (317 script
 | Look up a lead's relationship context | `python scripts/core/context_builder.py show --lead-id <id>` |
 | Apply a SQL migration | `python scripts/apply_migration.py database/NNN_...sql` |
 | Classify an inbound message | `python scripts/inbound_classifier.py classify --channel email ...` |
-| Supabase query | `python scripts/integrations/supabase_tool.py select <table> [--project bravo]` |
+| Turso / Database query | `python scripts/integrations/turso_tool.py select <table>` |
 | Stripe operations | `python scripts/integrations/stripe_tool.py <command>` |
 | Google Workspace | `python scripts/integrations/google_tool.py <subcommand>` |
 | n8n workflow operations | `python scripts/integrations/n8n_tool.py <command>` |
@@ -222,7 +222,7 @@ This rule does NOT apply when YOU are the Codex-the-backend-executor invocation 
 **Databases you can touch (Bravo project):**
 - `lead_interactions` (the unified outbound/inbound ledger — **write through `send_gateway` only for outbound**)
 - `leads`, `email_log`, `agent_events`, `agent_decisions`, `memories_*`, `template_performance`
-- Full list: run `python scripts/integrations/supabase_tool.py list-tables --project bravo`
+- Full list: run `python scripts/integrations/turso_tool.py tables`
 
 **Tables OFF LIMITS without explicit CC approval:**
 - `revenue_events`, `monthly_metrics` (financial truth — changes affect MRR reporting)

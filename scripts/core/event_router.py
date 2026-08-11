@@ -98,8 +98,8 @@ def _client():
     except Exception as e:
         _fail("load_env", f"{type(e).__name__}: {e}")
         return None
-    url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
-    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+    url = (env.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat").strip()
+    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key").strip()
     if not url or not key:
         _fail("env_missing", "BRAVO_SUPABASE_URL or _SERVICE_ROLE_KEY missing/empty")
         return None

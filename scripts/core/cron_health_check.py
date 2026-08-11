@@ -68,7 +68,7 @@ def find_bad_crons() -> list[dict]:
     )
     bad: list[dict] = []
     for row in r.data or []:
-        lr = (row.get("last_result") or "").strip()
+        lr = str(row.get("last_result") or "").strip()
         if not lr:
             continue
         upper = lr.upper()

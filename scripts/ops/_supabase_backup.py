@@ -70,8 +70,8 @@ TABLES = [
 
 def _client():
     env = load_env()
-    url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
-    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+    url = (env.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat").strip()
+    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key").strip()
     if not url or not key:
         print("FATAL missing BRAVO_SUPABASE_URL / SERVICE_ROLE_KEY", file=sys.stderr)
         sys.exit(2)

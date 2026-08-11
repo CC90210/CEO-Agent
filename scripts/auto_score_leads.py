@@ -103,8 +103,8 @@ SCORABLE_STAGES = {"new", "contacted", "qualified", "proposal", "negotiation"}
 def _client():
     from lib.secret_loader import load_env  # noqa: E402
     env = load_env()
-    url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
-    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+    url = (env.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat").strip()
+    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key").strip()
     if not url or not key:
         sys.stderr.write("ERROR: missing Supabase credentials\n")
         sys.exit(2)

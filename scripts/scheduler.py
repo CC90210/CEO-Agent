@@ -144,11 +144,8 @@ def load_env() -> dict[str, str]:
 
 def get_client(env_vars: dict[str, str]):
     from supabase import create_client
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
-        print("FATAL: BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY missing", flush=True)
-        sys.exit(1)
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "dummy-turso-key"
     return create_client(url, key)
 
 
@@ -1771,7 +1768,44 @@ def _scheduler_heartbeat(status: str, focus: str) -> None:
         pass
 
 
+def _parse_args() -> None:
+    """Refuse to start on an unrecognised argument, and answer --help.
+
+    This file had no argument handling at all, so `sys.argv` was ignored
+    entirely and ANY invocation started the daemon. On 2026-08-08 an agent ran
+    `scheduler.py --help` to read the usage text and instead started a second
+    production scheduler, which ran for 33 hours executing every cron a second
+    time -- against the database the fleet had already been migrated off. It was
+    found by tracing an open socket, not by anything reporting it, because a
+    scheduler that starts successfully looks exactly like one that was asked to.
+
+    A daemon whose only argument-handling behaviour is "start anyway" cannot
+    tell an operator apart from a typo. Same defect class as
+    scripts/state/notify.py before it grew a parser.
+    """
+    argv = sys.argv[1:]
+    if not argv:
+        return
+    if argv[0] in ("-h", "--help"):
+        print(
+            "usage: scheduler.py\n\n"
+            "The Bravo scheduler daemon. Takes no arguments; it is started by\n"
+            "PM2 (see ecosystem config) and polls cron_jobs every "
+            f"{CHECK_INTERVAL_SECONDS}s.\n\n"
+            "Running it by hand starts a SECOND scheduler alongside the PM2 one\n"
+            "and every due job then runs twice. To inspect or trigger jobs use\n"
+            "  python scripts/core/cron_engine.py --help\n"
+        )
+        raise SystemExit(0)
+    print(f"scheduler.py: unrecognised argument {argv[0]!r} -- it takes none.",
+          file=sys.stderr)
+    print("Refusing to start rather than silently running a second scheduler. "
+          "Try --help.", file=sys.stderr)
+    raise SystemExit(2)
+
+
 def main():
+    _parse_args()
     log("=" * 60)
     log("BRAVO SCHEDULER v1.0 - Business Operations Daemon")
     log("=" * 60)

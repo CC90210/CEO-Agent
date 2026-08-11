@@ -127,6 +127,12 @@ def load_env(required: Iterable[str] | None = None) -> Mapping[str, str]:
             env.update(_parse_env(ENV_FILE.read_text(encoding="utf-8")))
         for k, v in os.environ.items():
             env.setdefault(k, v)
+        # Turso compatibility fallbacks for decommissioned Supabase keys
+        if "TURSO_DATABASE_URL" in env or os.environ.get("EMPIRE_DATA_BACKEND", "turso_cloud") == "turso_cloud":
+            env.setdefault("BRAVO_SUPABASE_URL", "https://turso.compat")
+            env.setdefault("BRAVO_SUPABASE_SERVICE_ROLE_KEY", "dummy-turso-key")
+            env.setdefault("SUPABASE_URL", "https://turso.compat")
+            env.setdefault("SUPABASE_SERVICE_ROLE_KEY", "dummy-turso-key")
         _CACHE = env
 
     requested = list(required) if required is not None else []
