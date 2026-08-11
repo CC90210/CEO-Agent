@@ -101,6 +101,49 @@ def _log_access(caller: Path | None, keys: Iterable[str]) -> None:
         pass
 
 
+# --- Turso cutover (2026-08-09): Supabase-shaped ROUTING keys ---------------
+# The Supabase project was cancelled and its hostname no longer resolves.
+# empire_turso_switch replaces supabase.create_client with the
+# turso_supabase_compat client, which uses the URL ONLY to decide WHICH Turso
+# database to open (see turso_supabase_compat._REF_TO_PROJECT). It never dials
+# Supabase and never reads the service-role key.
+#
+# BRAVO_SUPABASE_URL was therefore deleted from the environment as a dead
+# credential. It is not a credential. It is a routing token, and deleting it
+# broke every caller that named it in load_env(required=[...]) — because this
+# function RAISES on a missing required key, killing the call BEFORE it ever
+# reaches the compat shim that would have handled it fine.
+#
+# That is what took shopping out down. From 2026-08-06 the operator clicked
+# "Send to lenders" and the bridge answered:
+#     supabase init failed: missing required env keys: ['BRAVO_SUPABASE_URL']
+# and until 2026-08-11 the dashboard rendered that as a green success.
+#
+# Synthesised here rather than at the ~50 call sites because the compat layer's
+# entire design is "zero call-site changes". Gated on the same env var as the
+# switch itself, so with Turso off these stay absent and callers fail loudly
+# exactly as before.
+_TURSO_ROUTING_KEYS = {
+    # MUST match turso_supabase_compat._REF_TO_PROJECT, which maps this ref to
+    # the "bravo" Turso database. A wrong ref here routes writes at the wrong
+    # database, so it is asserted by tests/test_turso_routing_keys.py.
+    "BRAVO_SUPABASE_URL": "https://phctllmtsogkovoilwos.supabase.co",
+}
+
+
+def _apply_turso_routing_defaults(env: dict) -> None:
+    """Backfill routing tokens when the Turso backend is the active data plane.
+
+    setdefault, never overwrite: a real value in the environment always wins, so
+    this cannot mask a deliberate override or a rollback to Supabase.
+    """
+    if os.environ.get("EMPIRE_DATA_BACKEND") != "turso_cloud":
+        return
+    for key, value in _TURSO_ROUTING_KEYS.items():
+        if not env.get(key):
+            env[key] = value
+
+
 def load_env(required: Iterable[str] | None = None) -> Mapping[str, str]:
     """Return cached `.env.agents` dict, layered over `os.environ` for missing keys.
 
@@ -127,6 +170,7 @@ def load_env(required: Iterable[str] | None = None) -> Mapping[str, str]:
             env.update(_parse_env(ENV_FILE.read_text(encoding="utf-8")))
         for k, v in os.environ.items():
             env.setdefault(k, v)
+        _apply_turso_routing_defaults(env)
         _CACHE = env
 
     requested = list(required) if required is not None else []
