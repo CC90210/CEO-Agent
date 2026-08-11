@@ -126,8 +126,20 @@ def _log_access(caller: Path | None, keys: Iterable[str]) -> None:
 _TURSO_ROUTING_KEYS = {
     # MUST match turso_supabase_compat._REF_TO_PROJECT, which maps this ref to
     # the "bravo" Turso database. A wrong ref here routes writes at the wrong
-    # database, so it is asserted by tests/test_turso_routing_keys.py.
+    # database.
     "BRAVO_SUPABASE_URL": "https://phctllmtsogkovoilwos.supabase.co",
+    # NOT a credential and NOT a secret. turso_supabase_compat.create_client
+    # ignores the key argument entirely — it opens Turso using the project it
+    # resolved from the URL. This placeholder exists only so that the three
+    # remaining callers which name the key in load_env(required=[...]) do not
+    # raise: bravo_cli/bridge_tools.py, scripts/provision_client_tenant.py and
+    # sunbiz-agent/scripts/bridge_tool_underwriting_run.py.
+    #
+    # Synthesising it is what lets EVERY Supabase-shaped key be deleted from
+    # .env.agents. A real dead service-role key sitting in an env file is worse
+    # than this string: it looks live, it gets copied, and it is one restart
+    # away from being trusted again.
+    "BRAVO_SUPABASE_SERVICE_ROLE_KEY": "turso-compat-placeholder-not-a-credential",
 }
 
 

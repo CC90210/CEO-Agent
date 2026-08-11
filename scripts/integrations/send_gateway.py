@@ -454,17 +454,48 @@ def load_env() -> dict[str, str]:
 
 
 def get_supabase(env_vars: Optional[dict[str, str]] = None):
-    env = env_vars if env_vars is not None else load_env()
-    url = env.get("BRAVO_SUPABASE_URL") or os.environ.get("BRAVO_SUPABASE_URL")
-    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-           or os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY"))
-    if not url or not key:
-        raise RuntimeError(
-            "Missing BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY "
-            "in .env.agents — send_gateway cannot query the interaction ledger."
+    """Open the bravo data plane. TURSO IS THE DATA PLANE — there is no Supabase.
+
+    The Supabase project was cancelled on 2026-08-09; its hostname does not
+    resolve, so anything that reaches it fails with a DNS error rather than an
+    auth error. This function therefore opens Turso DIRECTLY and takes no
+    Supabase-shaped input at all.
+
+    Why it is written this way, and must stay this way:
+
+    The previous version raised when BRAVO_SUPABASE_URL or
+    BRAVO_SUPABASE_SERVICE_ROLE_KEY were absent. Those are not credentials any
+    more — nothing authenticates with them — so they were deleted as dead, which
+    is correct. But deleting them made this function raise, and this function
+    sits behind EVERY outbound email: the raise happened inside
+    _resolve_cli_attachments, before a single message was composed.
+
+    That is what took shopping out down from 2026-08-06. The operator clicked
+    Send, six lender packages were queued, each send_gateway subprocess exited 1,
+    and the failure reason was truncated to 300 characters by the bridge tool, so
+    the row's last_error said nothing and the dashboard showed green.
+
+    Taking NO env input is the fix. A credential that does not exist cannot be
+    missing, and a routing key that is not read cannot be deleted. If Supabase is
+    ever needed again it should be a new, explicitly-named function, not a
+    fallback here — a fallback to a cancelled database is a write that silently
+    vanishes.
+    """
+    del env_vars  # accepted for signature compatibility; deliberately unused
+    try:
+        from lib.turso_supabase_compat import (
+            TursoSupabaseCompat,
+            resolve_project_target,
         )
-    from supabase import create_client
-    return create_client(url, key)
+        from lib.db_turso import TursoDB
+    except ImportError:  # not on sys.path yet (subprocess entry points)
+        sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+        from lib.turso_supabase_compat import (
+            TursoSupabaseCompat,
+            resolve_project_target,
+        )
+        from lib.db_turso import TursoDB
+    return TursoSupabaseCompat(TursoDB(*resolve_project_target("bravo")))
 
 
 # HTML body detection — chokepoint defense against malformed body_html.
