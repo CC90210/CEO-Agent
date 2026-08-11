@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-11
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Turnkey finalisation COMPLETE: harness gained fleet-compile gate (11/11 ALL GREEN, 308 scripts ast-parse clean); repaired booking_engine embedded-select runtime bug (PostgREST *,booking_slots(...) pattern crashed on Turso — rewrote as 2-query merge, verified list/remind/cron paths live); auto_score_leads real run OK; login.html stray artifact moved to tmp/; all gates re-verified GREEN. Ready to come back — nothing in flight.
+- **Result:** Turso cutover finalized, peer review reconciled, working tree clean.
 
 *Last updated: 2026-08-11*
 
