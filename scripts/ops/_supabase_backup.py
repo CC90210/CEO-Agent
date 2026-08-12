@@ -50,7 +50,18 @@ TABLES = [
     "lead_interactions",
     "follow_up_tasks",
     "daily_plan_items",
-    "conversations",
+    # "conversations" did not survive the 2026-08-09 Turso cutover. Its
+    # successors are these three, verified against sqlite_master on
+    # 2026-08-12: conversation_threads 1680 rows, conversation_events 6,
+    # sunbiz_conversation_state 1.
+    #
+    # The export ABORTS on a missing table rather than skipping it, which is
+    # correct and is how this was found — the backup had failed every night
+    # since 2026-08-11 rather than quietly shipping an incomplete archive.
+    # Keep that behaviour: fix the list, never soften the check.
+    "conversation_threads",
+    "conversation_events",
+    "sunbiz_conversation_state",
     "personalized_form_links",
     "agent_memory_notes",
     "offer_sources",

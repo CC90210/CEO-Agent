@@ -85,4 +85,42 @@ if [ -x "$REPO_ROOT/scripts/ops/backups_push.sh" ]; then
   "$REPO_ROOT/scripts/ops/backups_push.sh" || log "WARN off-box push reported a problem"
 fi
 
+# 6. Storage completeness gate.
+#
+# The restore drill above verifies TABLE row counts. It says nothing about the
+# documents, so on 2026-08-12 this script logged "storage: 0 objects, failed=3481",
+# then VERIFY PASS, then done — a 4.6M artifact where the baseline was 1.8G, with
+# every bank statement missing, and exited 0. systemd recorded a clean run.
+#
+# A backup missing 100% of its documents is not a successful backup. The artifact
+# is KEPT (the table data is real and worth having) but the job exits non-zero so
+# the failure is visible instead of silent.
+# Parse the manifest with the venv python, not sed. The first version matched
+# `"failed"` anywhere in the file and picked a table's field instead of the
+# storage block, read 0, and stayed quiet on a run that lost 3481 documents —
+# the gate reproducing the exact bug it was written to catch.
+STORAGE_STATS="$("$PY" - "$STAGE/manifest.json" <<'PYGATE'
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        s = (json.load(fh).get("storage") or {})
+    print(int(s.get("objects") or 0), int(s.get("failed") or 0))
+except Exception:
+    print(-1, -1)          # unreadable manifest is itself a failure
+PYGATE
+)"
+STORAGE_CAPTURED="$(printf %s "$STORAGE_STATS" | cut -d' ' -f1)"
+STORAGE_FAILED="$(printf %s "$STORAGE_STATS" | cut -d' ' -f2)"
+if [ "$STORAGE_CAPTURED" -lt 0 ]; then
+  log "ERROR could not read storage stats from manifest.json — treating as failure"
+  exit 4
+fi
+if [ "$STORAGE_CAPTURED" -eq 0 ] && [ "$STORAGE_FAILED" -gt 0 ]; then
+  log "ERROR storage capture TOTAL FAILURE: 0 of $STORAGE_FAILED objects. Artifact kept ($SIZE) and its TABLE data is verified, but every document is missing. Cause on this host: no Cloudflare R2 credentials (scripts/etl_storage_to_r2.py absent). Exiting non-zero so this is not recorded as a clean run."
+  exit 3
+fi
+if [ "$STORAGE_FAILED" -gt 0 ]; then
+  log "WARN storage partially incomplete: captured $STORAGE_CAPTURED, failed $STORAGE_FAILED"
+fi
+
 log "done ($SIZE)"
