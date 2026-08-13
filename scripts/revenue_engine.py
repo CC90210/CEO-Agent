@@ -121,22 +121,29 @@ def _stripe_get_all(secret_key: str, endpoint: str, params: dict | None = None, 
 # -- Supabase client ------------------------------------------------------------
 
 def get_supabase(env_vars: dict[str, str]):
-    """Return a Supabase client for the bravo project. Exits on missing credentials."""
+    """Return a DB client for the bravo project.
+
+    `https://bravo.turso.compat` / `turso-compat-key` are NOT placeholder
+    credentials — they are the fleet-wide sentinel the post-Turso-migration
+    harness uses (40+ call sites; see lib/turso_supabase_compat._project_for_url,
+    which maps the `.turso.compat` host to the real bravo Turso database and
+    RAISES rather than guessing on an unknown host). The credentials that
+    actually authenticate are TURSO_DATABASE_URL / TURSO_AUTH_TOKEN, resolved
+    inside the compat layer; if those are absent, resolve_project_target raises
+    and this call fails closed rather than returning an empty client.
+
+    The old `if not url or not key: sys.exit(1)` guard was removed with the
+    fallback that made it unreachable — a dead branch advertising a check it no
+    longer performs is worse than no branch.
+    """
     try:
         from supabase import create_client
     except ImportError:
         print("ERROR: 'supabase' package not installed. Run: pip install supabase", file=sys.stderr)
         sys.exit(1)
 
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-
-    if not url or not key:
-        print(
-            "ERROR: BRAVO_SUPABASE_URL and BRAVO_SUPABASE_SERVICE_ROLE_KEY required in .env.agents",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key"
 
     return create_client(url, key)
 
@@ -227,7 +234,14 @@ def _mrr_manual_from_supabase(db) -> float:
             if row["client_name"] not in cancelled_clients
         )
         return round(total, 2)
-    except Exception:
+    except Exception as e:  # noqa: BLE001
+        # Behaviour deliberately unchanged (still 0.0 so a missing table keeps
+        # the engine usable), but NO LONGER SILENT. Flagged by Codex 2026-08-13:
+        # this path carries $6,191 of the $6,263 total MRR, so a Turso outage
+        # would report $72 with a straight face and nothing in any log. Whether
+        # it should hard-fail instead is CC's call — Atlas owns MRR reporting.
+        print(f"[revenue_engine] WARNING manual-MRR read failed, reporting $0 for "
+              f"the manual component: {type(e).__name__}: {e}", file=sys.stderr)
         return 0.0
 
 

@@ -19,6 +19,7 @@ import datetime
 import json
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
@@ -318,9 +319,50 @@ def _progress_bar(pct: float, width: int = 10) -> str:
 # Dashboard sections
 # ---------------------------------------------------------------------------
 
+# Sub-engine CLIs query live Turso + Stripe and measured ~35s each on
+# 2026-08-13. The previous 20s cap meant EVERY call raised TimeoutExpired into a
+# bare `except Exception: pass`, so the briefing reported "0 active leads" and
+# "client health 0.0" while the CRM actually held 11 active leads. A plausible
+# fake zero is worse than an error, so the ceiling is now well clear of real
+# runtime and failures are recorded in the payload instead of swallowed.
+SUBENGINE_TIMEOUT_SEC = 90
+
+
+def _run_engine(script: Path, *args: str) -> tuple[Optional[str], Optional[str]]:
+    """Run a sub-engine CLI. Returns (stdout, None) or (None, error-string).
+
+    Never raises: the briefing must still render when one engine is down — but
+    the caller gets the reason so it can be surfaced rather than zeroed out.
+    """
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script), *args],
+            capture_output=True, text=True, timeout=SUBENGINE_TIMEOUT_SEC,
+            creationflags=WINDOWLESS_FLAGS, encoding="utf-8", errors="replace",
+        )
+    except subprocess.TimeoutExpired:
+        return None, f"timed out after {SUBENGINE_TIMEOUT_SEC}s"
+    except (OSError, subprocess.SubprocessError) as e:
+        return None, f"{type(e).__name__}: {e}"
+    if result.returncode != 0:
+        return None, f"exit {result.returncode}: {(result.stderr or '').strip()[:200]}"
+    return result.stdout, None
+
+
 def _build_north_star(env: dict, as_json: bool) -> dict:
     """Gather all 5 North Star metrics."""
     stripe_key = env.get("STRIPE_SECRET_KEY") or env.get("STRIPE_API_KEY") or ""
+
+    # Both sub-engines are independent of each other AND of the in-process MRR
+    # calculation below, so they start now and are collected after MRR returns.
+    # Sequentially this function took ~75s — past briefing_snapshot's 45s cap,
+    # which is what produced "Pipeline — unavailable" in the daily brief.
+    errors: dict[str, str] = {}
+    lead_engine = PROJECT_ROOT / "scripts" / "lead_engine.py"
+    client_script = PROJECT_ROOT / "scripts" / "client_health.py"
+    pool = ThreadPoolExecutor(max_workers=2)
+    fut_pipeline = pool.submit(_run_engine, lead_engine, "--json", "pipeline") if lead_engine.exists() else None
+    fut_health = pool.submit(_run_engine, client_script, "--json", "report") if client_script.exists() else None
 
     # --- MRR ---
     stripe_mrr = 0.0
@@ -353,16 +395,26 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
     # the dead CSV with a stage-name vocabulary (Discovery/Proposal/...)
     # that doesn't match the canonical new/contacted/qualified/won statuses.
     pipeline = {"total_pipeline": 0.0, "active_count": 0, "by_stage": {}}
-    lead_engine = PROJECT_ROOT / "scripts" / "lead_engine.py"
-    if lead_engine.exists():
+    if fut_pipeline is not None:
+        # .result() is inside the guard too: _run_engine is written not to
+        # raise, but a future that somehow does must not take the whole
+        # briefing down — the old code had the subprocess call inside a try.
         try:
-            result = subprocess.run(
-                [sys.executable, str(lead_engine), "--json", "pipeline"],
-                capture_output=True, text=True, timeout=20,
-                creationflags=(0x08000000 if sys.platform == "win32" else 0),
-            )
-            if result.returncode == 0 and result.stdout.strip().startswith("{"):
-                pdata = json.loads(result.stdout)
+            out, err = fut_pipeline.result()
+        except Exception as e:  # noqa: BLE001 - degrade, but say why
+            out, err = None, f"{type(e).__name__}: {e}"
+        if err:
+            errors["pipeline"] = err
+        try:
+            if out is not None and not out.strip().startswith("{"):
+                # Exit 0 but no JSON object. lead_engine ALWAYS emits a dict for
+                # `--json pipeline`, so this is a malformed run, not an empty
+                # pipeline — record it or it reads as a genuine zero.
+                errors.setdefault(
+                    "pipeline", f"non-JSON output: {out.strip()[:120]!r}" if out.strip()
+                    else "empty output")
+            if out and out.strip().startswith("{"):
+                pdata = json.loads(out)
                 # lead_engine returns { new: {count, avg_score, total_value?}, contacted: {...}, ... }
                 ACTIVE_STAGES = {"new", "contacted", "qualified", "proposal"}
                 by_stage: dict[str, int] = {}
@@ -381,8 +433,8 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
                     "active_count": active_count,
                     "by_stage": by_stage,
                 }
-        except Exception:
-            pass
+        except (ValueError, TypeError, json.JSONDecodeError) as e:
+            errors["pipeline"] = f"unparseable output: {type(e).__name__}: {e}"
 
     # --- Client health (via client_health.py if available) ---
     # NOTE: argparse on client_health.py puts --json on the TOP-LEVEL parser,
@@ -391,16 +443,19 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
     # showing "0 alerts, score 0" when there were actually 2 at-risk clients.
     client_health_avg = 0.0
     clients_at_risk = 0
-    client_script = PROJECT_ROOT / "scripts" / "client_health.py"
-    if client_script.exists():
+    if fut_health is not None:
         try:
-            result = subprocess.run(
-                [sys.executable, str(client_script), "--json", "report"],
-                capture_output=True, text=True, timeout=20,
-                creationflags=(0x08000000 if sys.platform == "win32" else 0),
-            )
-            if result.returncode == 0:
-                health_data = json.loads(result.stdout)
+            out, err = fut_health.result()
+        except Exception as e:  # noqa: BLE001 - degrade, but say why
+            out, err = None, f"{type(e).__name__}: {e}"
+        if err:
+            errors["client_health"] = err
+        try:
+            # client_health prints a human line ("No clients found ...") rather
+            # than JSON when nobody is tagged status='client' — a real empty,
+            # not a failure, so it must not land in `errors`.
+            if out and out.strip()[:1] in ("{", "["):
+                health_data = json.loads(out.strip())
                 # client_health.py --json report returns a LIST of clients
                 # directly (not wrapped in {"clients": [...]}). Be tolerant
                 # of both shapes — the wrapped form was assumed for months
@@ -414,8 +469,10 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
                 if scores:
                     client_health_avg = round(sum(scores) / len(scores), 1)
                     clients_at_risk = sum(1 for s in scores if s < 55)
-        except Exception:
-            pass
+        except (ValueError, TypeError, AttributeError, json.JSONDecodeError) as e:
+            errors["client_health"] = f"unparseable output: {type(e).__name__}: {e}"
+
+    pool.shutdown(wait=False)
 
     # --- Cash position ---
     cash_stripe = _stripe_balance(stripe_key) if stripe_available else 0.0
@@ -456,6 +513,12 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
             "by_platform": content_counts,
         },
     }
+
+    # Degraded sources announce themselves. Without this a failed sub-engine is
+    # indistinguishable from a genuine zero, which is how "0 active leads" sat
+    # in CC's brief for weeks while the CRM held 11.
+    if errors:
+        data["_errors"] = errors
 
     return data
 

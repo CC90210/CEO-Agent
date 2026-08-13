@@ -9,8 +9,15 @@ api.anthropic.com.
 It spawns the local `claude` CLI with build_claude_spawn_env(force_api_key=False),
 which STRIPS ANTHROPIC_API_KEY from the child env so the CLI authenticates with
 CC's Claude Code subscription (OAuth token from `claude setup-token`). The boot
-is lean and side-effect-free: no MCP servers, no slash commands, no
-settings/CLAUDE.md/hooks (--setting-sources "").
+is lean and side-effect-free: no MCP servers, no slash commands, no tools.
+
+CAVEAT (documented 2026-08-13, behaviour left as-is): run_claude_cli passes
+--setting-sources "user,project", so user+project settings (and therefore hooks)
+DO load — this docstring previously claimed "" and was wrong. The sibling
+run_claude_cli_on_document does pass "". Measured cost of the difference on a
+one-shot haiku call: 11.1s with "user,project" vs 5.3s with "". Flagged for CC
+rather than changed unilaterally, since every automation on this path (daily
+brief, sleep agent, email classifier) would shift behaviour at once.
 
 Returns the model's text, or None on ANY failure (missing CLI, expired token,
 timeout, non-zero exit) so callers degrade gracefully instead of crashing.
@@ -130,11 +137,20 @@ def run_claude_cli(
         return None
     if proc.returncode != 0:
         err = (proc.stderr or "").strip()
-        if "weekly limit" in err.lower() or "usage limit" in err.lower() or "quota" in err.lower():
-            sys.stderr.write(f"[claude_cli] quota limit reached (resets on schedule): {err[:150]}\n")
+        out = (proc.stdout or "").strip()
+        # The CLI does not always explain itself on stderr. On 2026-08-13 the
+        # nightly sleep agent recorded a bare "[claude_cli] exit 1: " — stderr
+        # empty, stdout discarded — which left the failure un-diagnosable after
+        # the fact. Scan BOTH streams for the quota marker and report whichever
+        # one actually carried text, so the next occurrence names its own cause.
+        blob = f"{err}\n{out}".lower()
+        if "weekly limit" in blob or "usage limit" in blob or "quota" in blob:
+            sys.stderr.write(
+                f"[claude_cli] quota limit reached (resets on schedule): {(err or out)[:150]}\n")
             return None
-        sys.stderr.write(
-            f"[claude_cli] exit {proc.returncode}: {err[:300]}\n")
+        detail = err[:300] if err else (f"(stderr empty) stdout: {out[:300]}" if out
+                                        else "(no output on either stream)")
+        sys.stderr.write(f"[claude_cli] exit {proc.returncode}: {detail}\n")
         return None
     return (proc.stdout or "").strip() or None
 

@@ -23,9 +23,11 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from concurrent.futures import ThreadPoolExecutor
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT_DIR = PROJECT_ROOT / "state" / "snapshots"
-TIMEOUT_SEC = 30
+TIMEOUT_SEC = 45
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
@@ -56,26 +58,30 @@ def _call(args: list[str]) -> dict | list | None:
 
 
 def build_snapshot() -> dict:
-    # argparse on these CLIs places --json on the top-level parser, not on
-    # subcommand parsers. The 2026-05-18 brief shipped 3 stale rows because
-    # the calls below had --json AFTER the verb (e.g. `pipeline --json`),
-    # which argparse rejects as "unrecognized arguments: --json". Order
-    # matters: --json must come FIRST, then the subcommand.
-    mrr = _call(["scripts/revenue_engine.py", "--json", "mrr"])
-    goal = _call(["scripts/revenue_engine.py", "--json", "goal"])
-    pipeline = _call(["scripts/lead_engine.py", "--json", "pipeline"])
-    followups = _call(["scripts/lead_engine.py", "--json", "followups"])
-    health_alerts = _call(["scripts/client_health.py", "--json", "alerts"])
-    # Full client list for the monitored-count signal (see below).
-    health_full = _call(["scripts/client_health.py", "--json", "report"])
-    briefing = _call(["scripts/ceo_dashboard.py", "--json", "briefing"])
+    calls = {
+        "mrr": ["scripts/revenue_engine.py", "--json", "mrr"],
+        "goal": ["scripts/revenue_engine.py", "--json", "goal"],
+        "pipeline": ["scripts/lead_engine.py", "--json", "pipeline"],
+        "followups": ["scripts/lead_engine.py", "--json", "followups"],
+        "health_alerts": ["scripts/client_health.py", "--json", "alerts"],
+        "health_full": ["scripts/client_health.py", "--json", "report"],
+        "briefing": ["scripts/ceo_dashboard.py", "--json", "briefing"],
+    }
 
-    # Disambiguate "all clients healthy" from "no clients monitored" — the
-    # second is a CRM data-hygiene gap, not a green light. On 2026-05-18 the
-    # brief told CC "All clients GREEN, no fires" while his real Stripe
-    # subscribers were sitting outside the health engine entirely (none
-    # tagged status='client' in leads). Surfacing the monitored_count lets
-    # the AI narrator (or any downstream consumer) tell the truth.
+    results: dict[str, dict | list | None] = {}
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {key: executor.submit(_call, cmd) for key, cmd in calls.items()}
+        for key, future in futures.items():
+            results[key] = future.result()
+
+    mrr = results["mrr"]
+    goal = results["goal"]
+    pipeline = results["pipeline"]
+    followups = results["followups"]
+    health_alerts = results["health_alerts"]
+    health_full = results["health_full"]
+    briefing = results["briefing"]
+
     monitored_count = 0
     if isinstance(health_full, list):
         monitored_count = len(health_full)

@@ -172,7 +172,13 @@ def _call_model(prompt: str) -> str:
     # alias: cheapest tier is correct for a nightly daemon.
     sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
     from lib.claude_cli import run_claude_cli  # type: ignore
-    text = run_claude_cli(prompt, model="haiku", timeout=120)
+    # Timeout is 180s, not the CLI default: this runs at 04:00 behind PYTHONW
+    # with the whole nightly cron block, and a cold `claude -p` spawn measured
+    # 11s idle. No prompt truncation here — the assembled prompt measured ~1KB
+    # (50 session-log rows + git log), so a character cap would be a no-op that
+    # falsely implies length was ever the failure mode. If this call starts
+    # failing again, the reason now comes back in the claude_cli error text.
+    text = run_claude_cli(prompt, model="haiku", timeout=180)
     if not text:
         raise RuntimeError("claude CLI returned no text (missing CLI / expired token / timeout)")
     return text
