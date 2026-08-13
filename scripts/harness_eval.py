@@ -96,7 +96,33 @@ def check_entry_point_lockstep():
             drifted.append(f)
     if drifted:
         return False, f".gemini/rules mirrors differ from roots: {', '.join(drifted)}"
-    return True, "6 entry points carry the lockstep line; mirrors byte-identical"
+
+    # Anti-hallucination clause must be present AND byte-identical everywhere.
+    # Every runtime (Claude Code, Codex CLI, OpenCode, Gemini CLI, Antigravity)
+    # reads its own entry point, so a rule that drifts in one file is a rule
+    # that one chassis does not have. The recurring failure it prevents: an
+    # agent claiming a credential is missing, or telling CC to install a plugin
+    # / paste an env var, without running capability_probe first.
+    clause_lines = {}
+    for f in ENTRY_POINTS:
+        for line in _read(f).splitlines():
+            if line.startswith("**Credentials before"):
+                clause_lines.setdefault(line.strip(), []).append(f)
+                break
+    covered = sum(len(v) for v in clause_lines.values())
+    if covered != len(ENTRY_POINTS):
+        have = {f for fs in clause_lines.values() for f in fs}
+        return False, ("anti-hallucination credentials clause missing from: "
+                       f"{', '.join(sorted(set(ENTRY_POINTS) - have))}")
+    if len(clause_lines) != 1:
+        return False, (f"credentials clause has drifted into {len(clause_lines)} variants — "
+                       "edit PERSONAL.md then run scripts/genome_sync.py")
+    clause = next(iter(clause_lines))
+    for token in ("capability_probe.py", "AVAILABLE means you are authorized"):
+        if token not in clause:
+            return False, f"credentials clause no longer states {token!r}"
+    return True, ("6 entry points carry the lockstep line + identical "
+                  "anti-hallucination clause; mirrors byte-identical")
 
 
 def check_capability_graph():

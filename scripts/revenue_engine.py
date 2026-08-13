@@ -206,7 +206,23 @@ def _mrr_from_stripe(secret_key: str, account_id: str | None = None) -> tuple[fl
     return round(total, 2), rows
 
 
-def _mrr_manual_from_supabase(db) -> float:
+def _manual_mrr_from_snapshot() -> tuple[float, str] | None:
+    """Last known-good manual MRR from the briefing snapshot, with its stamp.
+
+    Read-only and never raises — this is the degraded path, so it must not be
+    able to add a second failure on top of the one that got us here.
+    """
+    snap = Path(__file__).resolve().parent.parent / "state" / "snapshots" / "latest_briefing.json"
+    try:
+        data = json.loads(snap.read_text(encoding="utf-8"))
+        value = float(data["revenue"]["mrr"]["manual_mrr"])
+        stamped = str(data.get("ts") or data.get("date") or "unknown")
+        return value, stamped
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _mrr_manual_from_supabase(db) -> tuple[float, str | None]:
     """
     Sum manual recurring entries from revenue_events:
     type='subscription_start' with no matching 'subscription_cancel' for the same client.
@@ -233,16 +249,23 @@ def _mrr_manual_from_supabase(db) -> float:
             for row in (starts.data or [])
             if row["client_name"] not in cancelled_clients
         )
-        return round(total, 2)
+        return round(total, 2), None
     except Exception as e:  # noqa: BLE001
-        # Behaviour deliberately unchanged (still 0.0 so a missing table keeps
-        # the engine usable), but NO LONGER SILENT. Flagged by Codex 2026-08-13:
-        # this path carries $6,191 of the $6,263 total MRR, so a Turso outage
-        # would report $72 with a straight face and nothing in any log. Whether
-        # it should hard-fail instead is CC's call — Atlas owns MRR reporting.
-        print(f"[revenue_engine] WARNING manual-MRR read failed, reporting $0 for "
-              f"the manual component: {type(e).__name__}: {e}", file=sys.stderr)
-        return 0.0
+        # This path carries $6,191 of the $6,263 total MRR, so returning a bare
+        # 0.0 here reported a fake $72 total — a plausible number nobody would
+        # investigate. Prefer the last known-good value from the briefing
+        # snapshot, tagged stale, over a confident zero.
+        reason = f"{type(e).__name__}: {e}"
+        cached = _manual_mrr_from_snapshot()
+        if cached is not None:
+            value, stamped = cached
+            print(f"[revenue_engine] WARNING manual-MRR live read failed ({reason}); "
+                  f"using cached ${value:,.2f} from snapshot {stamped}", file=sys.stderr)
+            return value, f"stale: live read failed ({reason}); cached from {stamped}"
+        print(f"[revenue_engine] ERROR manual-MRR live read failed ({reason}) and no "
+              f"cached snapshot is available — manual component reported as $0",
+              file=sys.stderr)
+        return 0.0, f"unavailable: live read failed ({reason}); no cached snapshot"
 
 
 def calculate_mrr(env_vars: dict[str, str], db) -> dict:
@@ -276,10 +299,10 @@ def calculate_mrr(env_vars: dict[str, str], db) -> dict:
     if not stripe_available and not stripe_error:
         stripe_error = "No Stripe keys configured in .env.agents"
 
-    manual_mrr = _mrr_manual_from_supabase(db)
+    manual_mrr, manual_stale = _mrr_manual_from_supabase(db)
     total_mrr = round(stripe_mrr + manual_mrr, 2)
 
-    return {
+    payload = {
         "stripe_mrr": stripe_mrr,
         "manual_mrr": manual_mrr,
         "total_mrr": total_mrr,
@@ -287,6 +310,12 @@ def calculate_mrr(env_vars: dict[str, str], db) -> dict:
         "stripe_error": stripe_error,
         "stripe_subs": stripe_subs,
     }
+    # Present ONLY when the manual component could not be read live, so any
+    # consumer (sync_mrr, the brief, Atlas) can tell a real total from a
+    # carried-forward one instead of silently persisting a degraded figure.
+    if manual_stale:
+        payload["manual_stale"] = manual_stale
+    return payload
 
 
 # -- Pipeline + lead stats from Supabase ---------------------------------------

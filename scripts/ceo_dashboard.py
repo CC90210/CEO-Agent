@@ -43,6 +43,13 @@ CONTENT_TARGETS: dict[str, int] = {
     "threads": 5,
 }
 
+# Late reports the bird site as "twitter"; CONTENT_TARGETS keys it as "x", so
+# without this every tweet landed in a phantom "twitter" bucket and the X row
+# read 0/7 BEHIND while posts were going out. Verified against live API data
+# 2026-08-13, which also returns "youtube" — deliberately NOT aliased, it has
+# no target row and should surface as its own untracked platform.
+_PLATFORM_ALIASES: dict[str, str] = {"twitter": "x"}
+
 MONTHLY_OVERHEAD_USD = 184.0  # Claude $140 + Supabase $25 + Hostinger $14 + buffer
 
 
@@ -267,24 +274,45 @@ def _content_this_week() -> tuple[dict[str, int], Optional[str]]:
 
     counts: dict[str, int] = {}
     for post in posts:
+        # Field names verified against the live Late API 2026-08-13. A post has
+        # NO `publishedAt` at all: the publish time is `scheduledFor`, and the
+        # platform lives in `platforms` — a LIST of {platform, accountId} dicts,
+        # not a scalar `platform`. The old names matched nothing, so this loop
+        # `continue`d on every post and content velocity was structurally
+        # pinned at 0 no matter what Maven shipped. Legacy names kept as
+        # fallbacks in case the API ever returns them.
         published_at_str = (
-            post.get("publishedAt") or post.get("published_at") or post.get("scheduledAt") or ""
+            post.get("scheduledFor") or post.get("publishedAt")
+            or post.get("published_at") or post.get("scheduledAt")
+            or post.get("createdAt") or ""
         )
         if not published_at_str:
             continue
         try:
             # Handle ISO 8601 with or without Z
             published_at = datetime.datetime.fromisoformat(
-                published_at_str.replace("Z", "+00:00")
+                str(published_at_str).replace("Z", "+00:00")
             ).replace(tzinfo=None)
         except ValueError:
             continue
 
-        if published_at >= week_start:
-            platform = (post.get("platform") or post.get("account_platform") or "unknown").lower()
-            counts[platform] = counts.get(platform, 0) + 1
+        if published_at < week_start:
+            continue
 
-    return counts
+        # One post can fan out to several platforms; CONTENT_TARGETS is
+        # per-platform, so each destination counts once against its own target.
+        entries = post.get("platforms")
+        if isinstance(entries, list) and entries:
+            for entry in entries:
+                name = (entry.get("platform") if isinstance(entry, dict) else entry) or "unknown"
+                key = _PLATFORM_ALIASES.get(str(name).lower(), str(name).lower())
+                counts[key] = counts.get(key, 0) + 1
+        else:
+            raw = (post.get("platform") or post.get("account_platform") or "unknown").lower()
+            key = _PLATFORM_ALIASES.get(raw, raw)
+            counts[key] = counts.get(key, 0) + 1
+
+    return counts, None
 
 
 # ---------------------------------------------------------------------------
