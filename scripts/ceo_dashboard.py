@@ -231,22 +231,35 @@ def _pipeline_stats(leads: list[dict]) -> dict:
 # subprocess to Maven's copy of late_tool.py for read-only stats. Override
 # Maven's location with the MAVEN_REPO env var if your machine differs.
 
-def _content_this_week() -> dict[str, int]:
-    """Count posts published this week by platform via Maven's late_tool.py."""
+def _content_this_week() -> tuple[dict[str, int], Optional[str]]:
+    """Count posts published this week by platform via Maven's late_tool.py.
+
+    Returns (counts, error). `({}, None)` means a genuine zero; `({}, "...")`
+    means we could not find out — the caller must not render those the same way.
+    """
     from sibling_repos import script_in
     script = script_in("maven", "scripts", "late_tool.py")
     if script is None or not script.exists():
-        # Maven not installed on this machine — return empty rather than error.
-        return {}
+        # Maven not installed on this machine — a real "no data", not a failure.
+        return {}, None
 
     try:
         result = subprocess.run(
-            [sys.executable, str(script), "posts", "--status", "published", "--json"],
-            capture_output=True, text=True, timeout=20,
-         creationflags=WINDOWLESS_FLAGS)
-        posts = json.loads(result.stdout) if result.returncode == 0 else []
-    except Exception:
-        return {}
+            # `--json` sits on late_tool's TOP-LEVEL parser, so it must precede
+            # the `posts` verb. The old `posts --status published --json` order
+            # exited 2 with "unrecognized arguments: --json" on every single
+            # run, and the bare `except` below turned that into "0 posts" — so
+            # the brief reported "content pipeline dead across every platform"
+            # without ever reaching the API. Same argparse trap already fixed
+            # for lead_engine.py and client_health.py; late_tool was missed.
+            [sys.executable, str(script), "--json", "posts", "--status", "published"],
+            capture_output=True, text=True, timeout=60,
+            creationflags=WINDOWLESS_FLAGS, encoding="utf-8", errors="replace")
+        if result.returncode != 0:
+            return {}, f"late_tool exit {result.returncode}: {(result.stderr or '').strip()[-200:]}"
+        posts = json.loads(result.stdout)
+    except Exception as e:  # noqa: BLE001
+        return {}, f"{type(e).__name__}: {e}"
 
     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     week_start = now - datetime.timedelta(days=now.weekday())
@@ -478,7 +491,9 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
     cash_stripe = _stripe_balance(stripe_key) if stripe_available else 0.0
 
     # --- Content velocity ---
-    content_counts = _content_this_week()
+    content_counts, content_err = _content_this_week()
+    if content_err:
+        errors["content"] = content_err
     total_posts = sum(content_counts.values())
     total_target = sum(CONTENT_TARGETS.values())
 
@@ -672,7 +687,7 @@ def _format_pipeline() -> str:
 
 
 def _format_content() -> str:
-    counts = _content_this_week()
+    counts, err = _content_this_week()
     total = sum(counts.values())
     target = sum(CONTENT_TARGETS.values())
 
@@ -680,6 +695,12 @@ def _format_content() -> str:
         "=" * 54,
         f"CONTENT DASHBOARD -- {datetime.date.today().isoformat()}",
         "=" * 54,
+    ]
+    if err:
+        # Never let "could not reach Late" read as "nothing was published".
+        lines += [f"!! CONTENT DATA UNAVAILABLE -- {err}",
+                  "   Counts below are NOT a real zero.", ""]
+    lines += [
         "",
         f"Posts this week: {total} / {target} target",
         "",
@@ -763,9 +784,13 @@ def main() -> None:
             print(_format_pipeline())
 
     elif args.command == "content":
-        counts = _content_this_week()
+        counts, err = _content_this_week()
         if args.as_json:
-            print(json.dumps({"by_platform": counts, "total": sum(counts.values()), "target": sum(CONTENT_TARGETS.values())}, indent=2))
+            payload = {"by_platform": counts, "total": sum(counts.values()),
+                       "target": sum(CONTENT_TARGETS.values())}
+            if err:
+                payload["_error"] = err
+            print(json.dumps(payload, indent=2))
         else:
             print(_format_content())
 
@@ -778,11 +803,15 @@ def main() -> None:
             }
             leads = _read_lead_tracker()
             pipeline = _pipeline_stats(leads)
-            content_counts = _content_this_week()
+            content_counts, content_err = _content_this_week()
+            content_block: dict = {"by_platform": content_counts,
+                                   "total": sum(content_counts.values())}
+            if content_err:
+                content_block["_error"] = content_err
             print(json.dumps({
                 "north_star": data,
                 "pipeline": pipeline,
-                "content": {"by_platform": content_counts, "total": sum(content_counts.values())},
+                "content": content_block,
             }, indent=2))
         else:
             print(_format_full(env, data))

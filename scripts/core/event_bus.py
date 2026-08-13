@@ -93,10 +93,17 @@ def _load_env() -> dict[str, str]:
 
 def _get_supabase(env: Optional[dict[str, str]] = None):
     env = env or _load_env()
-    url = env.get("BRAVO_SUPABASE_URL") or env.get("SUPABASE_URL")
-    key = env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or env.get("SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
-        raise RuntimeError("BRAVO_SUPABASE_URL/KEY missing in .env.agents")
+    # Turso-migration fallback, matching the ~40 other call sites. This module
+    # was missed in that sweep because it has its OWN _load_env() and never goes
+    # through lib.secret_loader (which injects the same sentinel via setdefault)
+    # — so unlike its neighbours it saw a genuinely empty BRAVO_SUPABASE_URL and
+    # raised. The "Event Bus Offline Drain" cron sat in ERROR as a result.
+    # The sentinel is resolved by lib.turso_supabase_compat to the real bravo
+    # database; TURSO_* are the credentials that actually authenticate.
+    url = (env.get("BRAVO_SUPABASE_URL") or env.get("SUPABASE_URL")
+           or "https://bravo.turso.compat")
+    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or env.get("SUPABASE_SERVICE_ROLE_KEY")
+           or "turso-compat-key")
     try:
         from supabase import create_client  # type: ignore
     except ImportError as e:
@@ -500,7 +507,12 @@ def _cli() -> int:
         return 0 if n >= 0 else 1
 
     if args.cmd == "drain":
-        print(json.dumps(drain_offline_queue(), indent=2))
+        # Compact, NOT indent=2: the scheduler records the last stdout line as
+        # last_result, so an indented block made the cron report a bare "}" —
+        # the same trap Daily MRR Auto-Sync hit on 2026-06-06. One line parses
+        # identically for any json.loads consumer and reads as a real result.
+        # (`reap` above already prints compact, which is why it never had this.)
+        print(json.dumps(drain_offline_queue()))
         return 0
 
     if args.cmd == "tail":

@@ -128,7 +128,12 @@ def _regenerate_snapshot() -> bool:
         r = subprocess.run(
             [sys.executable, "scripts/snapshots/briefing_snapshot.py"],
             cwd=str(PROJECT_ROOT),
-            timeout=60,
+            # Budget math against the scheduler's 150s outer cap for this job:
+            # 85s regen + 60s narration = 145s. The old 60s was below the
+            # snapshot's actual ~74s runtime, so --regenerate ALWAYS timed out
+            # and CC silently read a stale snapshot. The snapshot now runs all
+            # 7 engines concurrently (~40s), so 85s is real headroom, not hope.
+            timeout=85,
             capture_output=True,
             text=True,
             creationflags=WINDOWLESS_FLAGS,

@@ -69,7 +69,12 @@ def build_snapshot() -> dict:
     }
 
     results: dict[str, dict | list | None] = {}
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    # One worker per call: with 7 tasks through 4 workers the run took two
+    # batches (~74s), which overran daily_brief's 60s regen budget and left CC
+    # reading a snapshot stamped `_stale: true`. These are subprocesses blocking
+    # on Turso/Stripe I/O, not CPU work, so widening costs nothing and makes
+    # wall-clock ≈ the single slowest engine (~40s).
+    with ThreadPoolExecutor(max_workers=len(calls)) as executor:
         futures = {key: executor.submit(_call, cmd) for key, cmd in calls.items()}
         for key, future in futures.items():
             results[key] = future.result()
