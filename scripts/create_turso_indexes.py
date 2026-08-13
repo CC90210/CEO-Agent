@@ -1,3 +1,5 @@
+"""Create turso indexes — provides main."""
+
 import sys
 from pathlib import Path
 

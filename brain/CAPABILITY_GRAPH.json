@@ -1,16 +1,16 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-11T08:03:21.290560+00:00",
+  "generated_at": "2026-08-13T08:02:50.232213+00:00",
   "totals": {
     "skills": 161,
-    "scripts": 154,
+    "scripts": 155,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 406,
+    "nodes_total": 407,
     "edges_total": 168,
     "drift_count": 0
   },
@@ -5772,6 +5772,16 @@
       "name": "cost_tracker",
       "path": "scripts/cost_tracker.py",
       "description": "Cost Tracker \u2014 Per-Operation Label:Units Tracking for Business-Empire-Agent Follows the Claude Code internal cost tracking pattern: label:units per operation. Covers all CLI tools (supabase, stripe, n8n, late, playwright) and MCP calls. No external dependencies \u2014 stdlib only (sql",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:create_turso_indexes",
+      "kind": "script",
+      "name": "create_turso_indexes",
+      "path": "scripts/create_turso_indexes.py",
+      "description": "Create turso indexes \u2014 provides main.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"

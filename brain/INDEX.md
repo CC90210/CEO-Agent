@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **61 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **62 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -64,6 +64,7 @@ Auto-generated index of tracked `brain/*.md` — **61 files**. Each file's first
 - [SUBCONSCIOUS_LAYER.md](SUBCONSCIOUS_LAYER.md) — THE SUBCONSCIOUS LAYER — What Runs Beneath the Conscious Brain
 - [TOOL_SHED.md](TOOL_SHED.md) — 🧰 TOOL SHED — CC's GitHub Repository Catalog
 - [V6_ARCHITECTURE.md](V6_ARCHITECTURE.md) — Substrate Architecture — current: **V7.3.3** (foundation history V6.0 → V6.8 below)
+- [VERCEL_TO_CLOUDFLARE_MIGRATION.md](VERCEL_TO_CLOUDFLARE_MIGRATION.md) — Vercel to Cloudflare Migration: Master Handover Plan
 
 ## Routing & capability map
 - [AGENT_INDEX.md](AGENT_INDEX.md) — Agent Index — The 4-Agent Graph Hub

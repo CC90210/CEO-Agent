@@ -746,7 +746,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **161 active skills**. Eac
 
 ## [[skills/turso-patterns/SKILL|turso-patterns]]
 - **Use when:** Use when working on the Supabase → Turso (libSQL) migration — transpiling schema, porting RPCs/views, flipping an app's backend, or verifying a migrated database. Encodes the failures this migration actually hit.
-- **Triggers:** —
+- **Triggers:** turso, libsql, turso migration, supabase to turso, transpile schema, port rpc, turso verify, sqlite migration
 - **Path:** `skills/turso-patterns/SKILL.md` · tier `specialized` · risk `low`
 
 ## [[skills/using-git-worktrees/SKILL|using-git-worktrees]]
