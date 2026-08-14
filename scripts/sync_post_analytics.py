@@ -59,20 +59,53 @@ def _db():
     return supabase_tool.get_client(secret_loader.bootstrap(), project="bravo")
 
 
-def fetch_analytics() -> dict:
-    key = secret_loader.get("LATE_API_KEY")
-    if not key:
-        raise SystemExit("LATE_API_KEY unavailable — cannot reach Zernio analytics")
-    req = urllib.request.Request(
-        f"{BASE}/v1/analytics?limit={PAGE_LIMIT}", headers={"Authorization": f"Bearer {key}"}
-    )
+def _get(path: str, key: str) -> dict:
+    req = urllib.request.Request(f"{BASE}{path}", headers={"Authorization": f"Bearer {key}"})
     try:
         with urllib.request.urlopen(req, timeout=90) as r:
             return json.load(r)
     except urllib.error.HTTPError as e:
         raise RuntimeError(
-            f"Zernio analytics returned {e.code}: {e.read()[:300].decode('utf-8', 'replace')}"
+            f"Zernio {path} returned {e.code}: {e.read()[:300].decode('utf-8', 'replace')}"
         ) from e
+
+
+def fetch_analytics() -> dict:
+    """
+    Every page, not just the first.
+
+    The first cut stopped at one page of 100. Today there are 79 posts so it
+    read everything and looked complete — which is exactly why it had to be
+    fixed now rather than at post 101, when the dashboard would quietly start
+    undercounting and nothing would say so. Zernio hands us `pagination.pages`;
+    the only reason not to follow it is that today's answer happens to fit.
+    """
+    key = secret_loader.get("LATE_API_KEY")
+    if not key:
+        raise SystemExit("LATE_API_KEY unavailable — cannot reach Zernio analytics")
+
+    first = _get(f"/v1/analytics?limit={PAGE_LIMIT}", key)
+    pag = first.get("pagination") or {}
+    pages = int(pag.get("pages") or 1)
+    posts = list(first.get("posts") or first.get("data") or [])
+
+    for page in range(2, pages + 1):
+        nxt = _get(f"/v1/analytics?limit={PAGE_LIMIT}&page={page}", key)
+        got = list(nxt.get("posts") or nxt.get("data") or [])
+        if not got:
+            # Ran dry earlier than the header promised. Say so — a short read
+            # that returns quietly is the failure this whole function exists to
+            # prevent.
+            print(f"  ! analytics page {page}/{pages} came back empty, stopping")
+            break
+        posts.extend(got)
+
+    total = int(pag.get("total") or len(posts))
+    if len(posts) < total:
+        print(f"  ! read {len(posts)} of {total} posts — totals below are INCOMPLETE")
+
+    first["posts"] = posts
+    return first
 
 
 def _int(v) -> int:
@@ -117,6 +150,12 @@ def rows_from(payload: dict, asset_by_external: dict[str, str]) -> list[dict]:
                 continue
             a = entry.get("analytics") or post.get("analytics") or {}
             out.append({
+                # Whether this response actually carried numbers, as opposed to
+                # carrying nothing and being read as a row of zeros. The write
+                # path uses this to refuse to overwrite good stored metrics with
+                # a transient empty response — a network blip must not be able
+                # to reset a post's view count to 0 and look like a real result.
+                "_has_metrics": bool(a),
                 "tenant_id": TENANT,
                 "zernio_post_id": zid,
                 "platform_post_id": ppid,
@@ -185,14 +224,37 @@ def main() -> int:
         print("\n(dry run — nothing written)")
         return 0
 
-    wrote = failed = 0
+    # Counters, and the fields that merely describe the post. When a response
+    # arrives with no analytics at all, the description is still worth updating
+    # and the counters must be left exactly as they were.
+    METRICS = ("impressions", "views", "likes", "comments", "shares", "saves",
+               "clicks", "follows", "engagement_rate", "avg_watch_s", "duration_s")
+
+    wrote = skipped_metrics = failed = 0
     for r in rows:
+        has_metrics = r.pop("_has_metrics", True)
         try:
-            existing = db.table("post_analytics").select("id").eq(
-                "tenant_id", TENANT).eq("platform_post_id", r["platform_post_id"]).execute().data
+            # Scoped by platform as well as by id. Platform post ids live in
+            # per-network namespaces so they do not collide today, but keying a
+            # write on something that is only incidentally unique is how one
+            # network silently overwrites another's row later.
+            q = db.table("post_analytics").select("id").eq("tenant_id", TENANT).eq(
+                "platform", r["platform"]).eq("platform_post_id", r["platform_post_id"])
+            existing = q.execute().data
+
             if existing:
-                db.table("post_analytics").update(r).eq(
-                    "tenant_id", TENANT).eq("platform_post_id", r["platform_post_id"]).execute()
+                payload = dict(r)
+                if not has_metrics:
+                    # Provenance only. Zeroing a post that really has 3,952
+                    # views because one poll came back thin would be worse than
+                    # not running at all: the number stays plausible and nobody
+                    # can tell it is wrong.
+                    for k in METRICS:
+                        payload.pop(k, None)
+                    skipped_metrics += 1
+                db.table("post_analytics").update(payload).eq(
+                    "tenant_id", TENANT).eq("platform", r["platform"]).eq(
+                    "platform_post_id", r["platform_post_id"]).execute()
             else:
                 db.table("post_analytics").insert(r).execute()
             wrote += 1
@@ -201,8 +263,14 @@ def main() -> int:
             print(f"  ! {r['platform']} {r['platform_post_id']}: {exc}")
             traceback.print_exc(limit=2)
 
-    print(f"synced: {wrote}  ·  failed: {failed}")
-    return 1 if failed and not wrote else 0
+    print(f"synced: {wrote}  ·  failed: {failed}"
+          + (f"  ·  kept existing metrics on {skipped_metrics} (empty response)"
+             if skipped_metrics else ""))
+
+    # ANY failure is a failure. The first cut returned 0 whenever at least one
+    # row landed, so "1 wrote, 78 failed" reported healthy to cron and nobody
+    # would ever have been paged.
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
