@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-14T15:41:07.769182+00:00",
-  "script_count": 143,
-  "entry_count": 316,
+  "generated_at_iso": "2026-08-14T19:46:13.067312+00:00",
+  "script_count": 145,
+  "entry_count": 318,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -964,6 +964,14 @@
       "help": "Inbound Classifier \u2014 the second half of V5.6's chokepoint. \u2014 subcommand: stats"
     },
     {
+      "key": "ingest_training_link",
+      "path": "scripts/ingest_training_link.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "ingest_training_link \u2014 turn a dropped link into something Maven can learn from."
+    },
+    {
       "key": "install_python_switch",
       "path": "scripts/install_python_switch.py",
       "root": "bravo",
@@ -1254,6 +1262,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling."
+    },
+    {
+      "key": "migrate_carousels",
+      "path": "scripts/migrate_carousels.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "migrate_carousels \u2014 register the carousel slides that were never uploaded."
     },
     {
       "key": "migrate_subprocess_calls",

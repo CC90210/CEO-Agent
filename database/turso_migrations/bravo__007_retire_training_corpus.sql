@@ -1,0 +1,35 @@
+-- ============================================================================
+-- bravo__007 — retire training_corpus. It should never have been created.
+--
+-- MY MISTAKE, RECORDED RATHER THAN QUIETLY BURIED
+-- bravo__006 created `training_corpus` from a task description without first
+-- checking whether a corpus table already existed. One does — `marketing_corpus`
+-- — and it covers every field the new table was meant to hold, with better
+-- names, and the working ingest route already writes to it:
+--
+--     training_corpus (mine)      marketing_corpus (real)
+--     url                    ->   source_url
+--     category               ->   label
+--     status                 ->   state
+--     extracted_transcript   ->   transcript
+--     style_analysis         ->   extraction
+--     submitted_by           ->   contributed_by
+--                                 + attempts, last_error, indexed_at,
+--                                   storage_bucket/path, asset_id, search_text
+--
+-- app/api/founders/marketing/ingest/route.ts has been inserting into
+-- marketing_corpus the whole time. A second corpus table would have forked the
+-- concept: two schemas, two writers, and eventually two disagreeing answers to
+-- "what has Maven learned" — the same failure as a second publisher.
+--
+-- WHY RENAMED AND NOT DROPPED
+-- scripts/apply_turso_migration.py refuses DROP TABLE by design and I am not
+-- going around a safety guard to tidy up after myself. The table is empty (0
+-- rows, created and retired the same hour), so renaming it out of the way costs
+-- nothing and destroys nothing. The name says what it is; a future reader does
+-- not have to guess which corpus is real.
+--
+-- Its indexes travel with it under SQLite's ALTER TABLE RENAME.
+-- ============================================================================
+
+alter table training_corpus rename to _retired_training_corpus_20260814;
