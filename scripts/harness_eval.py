@@ -61,6 +61,41 @@ _SELF_CRON_NAME = "Bravo — Nightly Harness Eval"
 _SELF_SCORE_MARKER = "HARNESS EVAL"
 
 
+def _normalize_dash(s: str) -> str:
+    """Fold em/en/non-breaking/minus dashes to ASCII '-' and squash whitespace.
+
+    Defensive, NOT a bug fix: verified 2026-08-13 that the constant above and
+    the live cron_jobs row are both U+2014 byte-for-byte
+    (hex 427261766F20E28094...), so today they match exactly. The hazard is
+    future re-registration — SEED_JOBS is edited by hand across five runtimes,
+    and a job renamed with a plain '-' would silently stop matching, which
+    turns the self-score suppression below off with no error anywhere. Cheap
+    insurance against a failure mode that is invisible when it happens.
+    """
+    if not s:
+        return ""
+    for dash in ("—", "–", "‒", "−", "‐", "‑", "­"):
+        s = s.replace(dash, "-")
+    return " ".join(s.split())
+
+
+def _same_cron_name(a: str, b: str) -> bool:
+    """Case-insensitive, dash-normalized cron-name equality."""
+    return _normalize_dash(a).casefold() == _normalize_dash(b).casefold()
+
+
+def is_self_scored_failure(job: dict) -> bool:
+    """True only for THIS eval's own cron row failing because it scored itself.
+
+    Public so the alerting path (core/cron_health_check.py) applies the exact
+    same rule instead of keeping a second copy that can drift — the drift is
+    what pages CC hourly about a job that is actually healthy.
+    """
+    if not _same_cron_name(str(job.get("name") or ""), _SELF_CRON_NAME):
+        return False
+    return _SELF_SCORE_MARKER in str(job.get("last_result") or "").upper()
+
+
 def _run(cmd: list[str], timeout: int = 60, env_extra: dict | None = None) -> tuple[int, str, str]:
     import os
     env = dict(os.environ)
@@ -320,28 +355,25 @@ def check_cron_health():
         jobs = json.loads(out)
     except json.JSONDecodeError:
         return False, "cron_engine returned non-JSON"
-    def _is_self_scored_failure(job: dict) -> bool:
-        """True only for this eval's own row failing because it scored ITSELF.
-
-        The deadlock (2026-07-28): a transient failure stamps
-        last_result="ERROR: script_run exit 1: HARNESS EVAL — 9/10 ..." on this
-        eval's row; the check below then sees that row, fails, and re-stamps
-        ERROR — forever, no matter how healthy the fleet actually is.
-
-        Narrow, not blanket: only a failure whose text is this eval's own
-        scoreboard is skipped. If the row fails for any OTHER reason — script
-        path broken, timeout, interpreter missing — the text won't carry the
-        scoreboard marker and the job is still reported, so "the scheduled
-        harness cron is broken" remains detectable.
-        """
-        if job.get("name") != _SELF_CRON_NAME:
-            return False
-        return _SELF_SCORE_MARKER in str(job.get("last_result") or "").upper()
-
+    # Self-scored suppression lives at module level as is_self_scored_failure()
+    # so core/cron_health_check.py enforces the identical rule. Rationale kept
+    # here because this is where it bites:
+    #
+    # The deadlock (2026-07-28): a transient failure stamps
+    # last_result="ERROR: script_run exit 1: HARNESS EVAL — 9/10 ..." on this
+    # eval's row; the check below then sees that row, fails, and re-stamps
+    # ERROR — forever, no matter how healthy the fleet actually is.
+    #
+    # Narrow, not blanket: only a failure whose text is this eval's own
+    # scoreboard is skipped. If the row fails for any OTHER reason — script
+    # path broken, timeout, interpreter missing — the text won't carry the
+    # scoreboard marker and the job is still reported, so "the scheduled
+    # harness cron is broken" remains detectable.
     bad = [j["name"] for j in jobs if j.get("is_active")
-           and not _is_self_scored_failure(j)
+           and not is_self_scored_failure(j)
            and str(j.get("last_result") or "").upper().startswith(("ERROR", "FAILED"))]
-    mrr_on = [j["name"] for j in jobs if j.get("is_active") and j.get("name") == "Weekly MRR Report"]
+    mrr_on = [j["name"] for j in jobs if j.get("is_active")
+              and _same_cron_name(str(j.get("name") or ""), "Weekly MRR Report")]
     if bad:
         return False, f"active crons in ERROR: {bad}"
     if mrr_on:

@@ -55,6 +55,20 @@ ensure_os_trust()
 
 from supabase_tool import get_client, load_env  # noqa: E402
 
+# Single source of truth for "this failure is the harness scoring itself".
+# Guarded import: this watchdog must still run and alert if harness_eval is
+# mid-edit or missing — degrading to "report everything" is the safe direction
+# for a watchdog, so the fallback never suppresses anything.
+try:
+    from harness_eval import is_self_scored_failure as _is_self_scored_failure  # noqa: E402
+except Exception as _exc:  # noqa: BLE001
+    print(f"[cron_health_check] WARNING: harness_eval import failed ({type(_exc).__name__}: {_exc}); "
+          "self-scored suppression DISABLED — the nightly eval's own row may alert.",
+          file=sys.stderr)
+
+    def _is_self_scored_failure(job: dict) -> bool:  # type: ignore[misc]
+        return False
+
 
 def find_bad_crons() -> list[dict]:
     """Return list of {name, last_result, last_run_at} for any active
@@ -72,12 +86,22 @@ def find_bad_crons() -> list[dict]:
         if not lr:
             continue
         upper = lr.upper()
-        if upper.startswith("ERROR") or upper.startswith("FAILED"):
-            bad.append({
-                "name": row["name"],
-                "last_result": lr[:200],
-                "last_run_at": row.get("last_run_at"),
-            })
+        if not (upper.startswith("ERROR") or upper.startswith("FAILED")):
+            continue
+        # Same suppression harness_eval.check_cron_health already applied — the
+        # nightly eval scoring ITSELF 10/11 is not a broken cron, it is the eval
+        # reporting a fleet gap that has usually been fixed by the time this
+        # runs. Without this the watchdog paged CC hourly (12:02, 12:30, 13:30,
+        # 14:02 on 2026-08-13) about run ffb0b9a0e90d, a result already stale.
+        # Imported, never re-implemented: two copies of this rule drifting apart
+        # is exactly how the alert and the eval ended up disagreeing.
+        if _is_self_scored_failure(row):
+            continue
+        bad.append({
+            "name": row["name"],
+            "last_result": lr[:200],
+            "last_run_at": row.get("last_run_at"),
+        })
     return bad
 
 

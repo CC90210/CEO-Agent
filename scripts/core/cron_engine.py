@@ -782,6 +782,19 @@ def cmd_due(client, args, output_json: bool) -> None:
 CC_EMPIRE_TENANT_ID = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
 
 
+def _normalize_dash(s: str) -> str:
+    """Fold em/en/minus dashes to ASCII '-' and squash whitespace.
+
+    Keep in lockstep with harness_eval._normalize_dash — that copy is what
+    decides whether the nightly eval recognises its OWN cron row.
+    """
+    if not s:
+        return ""
+    for dash in ("—", "–", "‒", "−", "‐", "‑", "­"):
+        s = s.replace(dash, "-")
+    return " ".join(s.split())
+
+
 def cmd_seed(client, args, output_json: bool) -> None:
     """Seed the initial set of business automation cron jobs (skips existing by name).
 
@@ -789,7 +802,16 @@ def cmd_seed(client, args, output_json: bool) -> None:
     here is empire-scoped to CC's tenant by construction — SunBiz / Atlas
     / other-tenant crons live in tenant_cron_jobs."""
     existing_result = client.table("cron_jobs").select("name").execute()
-    existing_names: set[str] = {r["name"] for r in (existing_result.data or [])}
+    # Dash-normalized so a row registered as "Bravo - X" is recognised as the
+    # same job as SEED_JOBS' "Bravo — X". Exact matching here would not error —
+    # it would INSERT A DUPLICATE cron, and the fleet would then run that job
+    # twice a night with two rows to keep green. Mirrors
+    # harness_eval._normalize_dash (kept as a local 5-liner rather than an
+    # import: cron_engine is loaded by the always-on scheduler and should not
+    # pull in the eval to compare two strings).
+    existing_names: set[str] = {
+        _normalize_dash(r["name"]) for r in (existing_result.data or [])
+    }
 
     inserted: list[dict] = []
     skipped: list[str] = []
@@ -797,7 +819,7 @@ def cmd_seed(client, args, output_json: bool) -> None:
     now = datetime.now(timezone.utc).isoformat()
 
     for definition in SEED_JOBS:
-        if definition["name"] in existing_names:
+        if _normalize_dash(definition["name"]) in existing_names:
             skipped.append(definition["name"])
             continue
 
