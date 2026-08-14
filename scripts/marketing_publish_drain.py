@@ -39,7 +39,7 @@ import pathlib
 import sys
 import tempfile
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 HERE = pathlib.Path(__file__).resolve().parent
 BRAVO = HERE.parent
@@ -151,7 +151,7 @@ def fetch_media(asset_id: str, tenant_id: str, db) -> tuple[pathlib.Path, str] |
     return tmp, pick.get("kind", "video")
 
 
-def claim(db, intent_id: str) -> bool:
+def claim(db, intent_id: str, attempts: int = 0) -> bool:
     """queued -> running, and ONLY if this call is the one that changed it.
 
     The returned rows are the lock. An earlier version updated with the same
@@ -167,13 +167,61 @@ def claim(db, intent_id: str) -> bool:
     """
     res = (
         db.table("marketing_publish_intent")
-        .update({"state": "running", "started_at": _now()})
+        .update({"state": "running", "started_at": _now(), "attempts": attempts + 1})
         .eq("id", intent_id)
         .eq("state", "queued")
         .select("id")
         .execute()
     )
     return bool(list(res.data or []))
+
+
+# How long a `running` intent may sit before it is presumed dead, and how many
+# times we will re-try it before giving up for good.
+STALE_AFTER_MINUTES = 20
+MAX_ATTEMPTS = 3
+
+
+def reap_stale(db) -> int:
+    """Rescue intents left `running` by a drain that died mid-publish.
+
+    WITHOUT THIS, ONE CRASH BLOCKS AN ASSET FOREVER. `running` exists so two
+    drains cannot publish the same reel twice, but nothing releases it: if the
+    process is killed — cron timeout, reboot, an exception outside the handler —
+    the row stays `running`, the drain skips it (it only reads `queued`) and the
+    API keeps returning 409 "already queued" for that asset. Silent, permanent,
+    and invisible until someone asks why a video will not post.
+
+    Found exactly that way: a probe intent sat `running` while the cron logged
+    "nothing queued" every minute afterwards.
+
+    Retries are capped. An intent that dies three times is failing for a reason
+    that will not fix itself, and re-queueing forever would hide it.
+    """
+    now = datetime.now(timezone.utc)
+    cutoff = (now - timedelta(minutes=STALE_AFTER_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    stuck = db.table("marketing_publish_intent").select("*").eq("state", "running").execute()
+    rescued = 0
+    for row in list(stuck.data or []):
+        started = str(row.get("started_at") or "")
+        if started and started > cutoff:
+            continue  # still plausibly working
+        attempts = int(row.get("attempts") or 0)
+        if attempts >= MAX_ATTEMPTS:
+            db.table("marketing_publish_intent").update({
+                "state": "failed",
+                "error": (f"abandoned after {attempts} attempts — the drain died mid-publish "
+                          f"each time. Check the platform response and requeue deliberately."),
+                "finished_at": _now(),
+            }).eq("id", row["id"]).eq("state", "running").execute()
+            print(f"  reaped {row['id']}: giving up after {attempts} attempts")
+        else:
+            db.table("marketing_publish_intent").update({
+                "state": "queued", "started_at": None,
+            }).eq("id", row["id"]).eq("state", "running").execute()
+            print(f"  reaped {row['id']}: back to queued (attempt {attempts} died)")
+        rescued += 1
+    return rescued
 
 
 def finish(db, intent_id: str, *, state: str, result: dict, error: str | None) -> None:
@@ -206,7 +254,7 @@ def drain_one(db, intent: dict, PublishRequest, publish, dry_run: bool) -> bool:
         print("    (dry run — not claimed, nothing published)")
         return False
 
-    if not claim(db, iid):
+    if not claim(db, iid, int(intent.get("attempts") or 0)):
         print("    another drain claimed it first — skipping")
         return False
 
@@ -291,6 +339,13 @@ def main() -> int:
     args = ap.parse_args()
 
     db = _db()
+
+    # Before anything: release intents a dead drain is still holding, or they
+    # block their asset forever.
+    reaped = reap_stale(db)
+    if reaped:
+        print(f"reaped {reaped} stale claim(s)")
+
     q = db.table("marketing_publish_intent").select("*").eq("state", "queued").execute()
     queued = sorted(list(q.data or []), key=lambda r: str(r.get("created_at") or ""))
     if not queued:

@@ -538,7 +538,10 @@ SEED_JOBS: list[dict] = [
         "description": "Every minute — publish assets the founders Library queued in marketing_publish_intent, through CMO-Agent's send_gateway (killswitch, daily caps, audit trail). No-ops when the queue is empty.",
         "schedule": "* * * * *",
         "action_type": "script_run",
-        "action_config": {"script": "scripts/marketing_publish_drain.py", "args": []},
+        # 900s, not the 300s default: publishing a 10 MB reel to five networks
+        # legitimately takes minutes, and a kill mid-publish is what strands an
+        # intent in  — the state the reaper then has to rescue.
+        "action_config": {"script": "scripts/marketing_publish_drain.py", "args": [], "timeout": 900},
         "is_active": True,
     },
 ]
