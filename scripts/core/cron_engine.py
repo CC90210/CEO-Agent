@@ -576,6 +576,23 @@ SEED_JOBS: list[dict] = [
         "action_config": {"script": "scripts/ingest_training_link.py", "args": [], "timeout": 900},
         "is_active": True,
     },
+    {
+        # Added 2026-08-14. The Performance tab was a greyed chip captioned
+        # "Phase 5" while Zernio had been collecting the numbers the whole time —
+        # 68 of 79 published posts carry non-zero metrics nobody could see.
+        #
+        # A POLLER, not a webhook: Zernio's /v1/webhooks path returns the
+        # dashboard HTML rather than an API, so there is no event schema to parse
+        # and no way to register an endpoint. Hourly because these are vanity
+        # metrics on a slow clock — the networks refresh every few hours, so a
+        # tighter loop would spend rate limit re-reading the same numbers.
+        "name": "Post Analytics Sync",
+        "description": "Hourly — pull per-post, per-platform metrics from Zernio into post_analytics so the founders Performance tab has real numbers.",
+        "schedule": "17 * * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/sync_post_analytics.py", "args": [], "timeout": 600},
+        "is_active": True,
+    },
 ]
 
 

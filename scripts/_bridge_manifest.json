@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-14T19:46:13.067312+00:00",
-  "script_count": 145,
-  "entry_count": 318,
+  "generated_at_iso": "2026-08-14T22:46:09.962123+00:00",
+  "script_count": 146,
+  "entry_count": 319,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -2033,6 +2033,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Can Supabase be cancelled? One command, one answer, no judgement calls."
+    },
+    {
+      "key": "sync_post_analytics",
+      "path": "scripts/sync_post_analytics.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "sync_post_analytics \u2014 pull what the work actually did into post_analytics."
     },
     {
       "key": "system_health",
