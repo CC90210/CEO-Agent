@@ -520,6 +520,27 @@ SEED_JOBS: list[dict] = [
         "action_config": {"script": "scripts/core/generate_inventory.py", "args": []},
         "is_active": True,
     },
+    {
+        # Added 2026-08-14. CC: "I should be able to click on one of these videos
+        # and then manually post it to all the social media channels via our API
+        # key that we have connected."
+        #
+        # The Command Center runs on Vercel and cannot call the only sanctioned
+        # publisher — CMO-Agent/publishers/base.publish() is Python, runs
+        # send_gateway first (killswitch, daily caps, audit trail) and needs
+        # credentials that live on this machine. So the app records intent in
+        # marketing_publish_intent and this drains it, here, where the gateway is.
+        #
+        # Every minute because a click should feel like a click. The drain claims
+        # each intent with a compare-and-set, so an overlapping run cannot publish
+        # the same reel twice — there is no unsending.
+        "name": "Marketing Publish Drain",
+        "description": "Every minute — publish assets the founders Library queued in marketing_publish_intent, through CMO-Agent's send_gateway (killswitch, daily caps, audit trail). No-ops when the queue is empty.",
+        "schedule": "* * * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/marketing_publish_drain.py", "args": []},
+        "is_active": True,
+    },
 ]
 
 

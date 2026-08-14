@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-11T20:16:18.297345+00:00",
-  "script_count": 142,
-  "entry_count": 315,
+  "generated_at_iso": "2026-08-14T15:41:07.769182+00:00",
+  "script_count": 143,
+  "entry_count": 316,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1238,6 +1238,14 @@
       "subcmd": "evaluate",
       "mutating": true,
       "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: evaluate"
+    },
+    {
+      "key": "marketing_publish_drain",
+      "path": "scripts/marketing_publish_drain.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "marketing_publish_drain \u2014 turn queued publish intents into published posts."
     },
     {
       "key": "md_to_gdoc",
