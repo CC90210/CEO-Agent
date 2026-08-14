@@ -309,10 +309,17 @@ def drain_one(db, intent: dict, PublishRequest, publish, dry_run: bool) -> bool:
         if any_ok:
             # The library must stop claiming this is still awaiting a verdict.
             first_id = next((v.get("post_id") for v in result.values() if v.get("ok")), None)
+            # Stamp WHERE IT ACTUALLY WENT. `channel` holds one value and an
+            # asset goes to six places, which is the whole reason the Library
+            # read INSTAGRAM for everything (CC: "it's only posting to
+            # Instagram"). Only the platforms that ACCEPTED it are recorded —
+            # a refusal is not a distribution.
+            landed = sorted(p for p, v in result.items() if v.get("ok"))
             db.table("marketing_asset").update({
                 "status": "published",
                 "published_at": _now(),
                 "external_id": first_id,
+                "platforms": json.dumps(landed),
                 "updated_at": _now(),
             }).eq("tenant_id", tenant_id).eq("id", asset_id).execute()
 
