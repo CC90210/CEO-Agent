@@ -50,6 +50,7 @@ from lib.tls_trust import ensure_os_trust  # noqa: E402
 ensure_os_trust()
 
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.gh_auth import gh_env, gh_exe, status_is_authenticated  # noqa: E402
 from lib.json_ledger import load_ledger, save_ledger  # noqa: E402
 
 # Per-thread ledger. Without it a harvest run that fires every 15 minutes would
@@ -99,64 +100,18 @@ def canonical_repo(slug: str) -> str:
     return REPO_ALIASES.get(slug.strip().lower(), slug.strip())
 
 
-_GH_ENV_CACHE: dict | None = None
-
-
-def _gh_env() -> dict:
-    """Child env for gh, with GH_TOKEN injected from the agents env.
-
-    Why this exists (measured 2026-08-13). gh was being spawned with a bare
-    inherited environment, and gh's OWN stored login had gone bad
-    ("The token in default is invalid" for account CC90210). Anonymous limits:
-
-        core     limit=60    remaining=60
-        graphql  limit=0     remaining=0     <-- GraphQL requires auth, period
-
-    which is precisely the "graphql failed: gh: API rate limit exceeded" that
-    made review_loop give up on oasis-command-center#172 and #174 after 10
-    failed harvests each. With the token from .env.agents injected:
-
-        core     limit=5000
-        graphql  limit=5000
-
-    The token is stored as GITHUB_PERSONAL_ACCESS_TOKEN, which gh does NOT
-    read — it only honours GH_TOKEN / GITHUB_TOKEN. That name mismatch is why
-    a credential the capability probe reports AVAILABLE was doing nothing here.
-
-    Loaded through lib.secret_loader (RULE 3) and never logged. Falls back to
-    the plain inherited env when no token is configured, so this can only ever
-    improve on the previous behaviour.
-    """
-    global _GH_ENV_CACHE
-    if _GH_ENV_CACHE is not None:
-        return _GH_ENV_CACHE
-    import os
-    env = dict(os.environ)
-    try:
-        sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-        from lib.secret_loader import get as _secret  # noqa: E402
-        token = (_secret("GITHUB_PERSONAL_ACCESS_TOKEN")
-                 or _secret("GITHUB_TOKEN") or _secret("GH_TOKEN"))
-        if token:
-            env["GH_TOKEN"] = token
-            # A stale GITHUB_TOKEN in the ambient env outranks nothing but adds
-            # a second candidate gh may prefer; drop it so the source is single.
-            env.pop("GITHUB_TOKEN", None)
-    except Exception as exc:  # noqa: BLE001 — never block a harvest on this
-        print(f"[review_harvest] WARNING: could not load GH token ({type(exc).__name__}); "
-              "gh will run with whatever auth it already has (likely anonymous: "
-              "60 core/hr, 0 graphql).", file=sys.stderr)
-    _GH_ENV_CACHE = env
-    return env
-
-
 def gh(args: list[str], timeout: int = 90) -> tuple[int, str, str]:
-    """Run gh. Returns (rc, stdout, stderr) — never raises on a non-zero exit."""
+    """Run gh authenticated. Returns (rc, stdout, stderr) — never raises.
+
+    Auth + binary resolution live in lib.gh_auth so every gh caller in the
+    fleet shares one implementation; see that module for why a bare spawn
+    silently ran anonymous (core 60/hr, graphql 0).
+    """
     try:
-        r = subprocess.run(["gh", *args], capture_output=True, text=True,
+        r = subprocess.run([gh_exe(), *args], capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=timeout,
                            cwd=str(PROJECT_ROOT), creationflags=WINDOWLESS_FLAGS,
-                           env=_gh_env())
+                           env=gh_env())
         return r.returncode, (r.stdout or "").strip(), (r.stderr or "").strip()
     except FileNotFoundError:
         return 127, "", "gh CLI not found on PATH"
@@ -372,16 +327,12 @@ def main() -> None:
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    # `gh auth status` exits 1 if ANY stored account is unhealthy, even when a
-    # working one is active. On this box the keyring still holds a dead entry
-    # ("X Failed to log in to github.com account CC90210 (default)") alongside
-    # the good injected one ("✓ Logged in to github.com account CC90210
-    # (GH_TOKEN)"), so a bare `rc != 0` aborted every harvest despite full API
-    # access. Trust the presence of a logged-in account, not the exit code.
-    # "Logged in to" appears only in success lines; the failure line reads
-    # "Failed to log in", so this cannot match a broken account.
+    # gh exits 1 if ANY stored account is unhealthy, even when a working one is
+    # active — this box holds a dead keyring entry beside the good injected
+    # token, and a bare `rc != 0` aborted every harvest despite full API access.
+    # Interpretation lives in lib.gh_auth so other gh callers judge it the same.
     rc, out, err = gh(["auth", "status"], timeout=30)
-    if rc != 0 and "Logged in to" not in f"{out}\n{err}":
+    if not status_is_authenticated(rc, f"{out}\n{err}"):
         msg = f"gh not authenticated: {err[:200]}"
         print(json.dumps({"error": msg}) if args.json else msg, file=sys.stderr)
         sys.exit(1)
