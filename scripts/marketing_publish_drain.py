@@ -132,23 +132,67 @@ def caption_for(asset: dict, professional: bool) -> str:
     return "\n\n".join(p for p in parts if p).strip()
 
 
-def fetch_media(asset_id: str, tenant_id: str, db) -> tuple[pathlib.Path, str] | None:
-    """Pull the asset's video (or image) out of R2 into a temp file."""
+def _download(bucket: str, key: str, dest: pathlib.Path) -> pathlib.Path:
+    dest.write_bytes(r2_storage.storage_surface().from_(bucket).download(key))
+    return dest
+
+
+def fetch_media(asset_id: str, tenant_id: str, db,
+                asset: dict | None = None) -> tuple[pathlib.Path, str, list[pathlib.Path]] | None:
+    """(cover, kind, extra_slides). Every slide for a carousel, in ORDER.
+
+    THIS USED TO RETURN ONE FILE. It took the first video row, or failing that
+    `next(m for m in rows if kind == "image")` — whichever image row the driver
+    happened to return first. So a five-slide carousel published as a SINGLE
+    image, and after the slide backfill it was not even reliably slide 1: row
+    order is not slide order, and nothing had ever made it be.
+
+    The order lives in marketing_asset.media_urls, recorded from the render
+    manifest at migration time. That is the only ordering that means anything —
+    the media rows carry no rank, and sorting by storage_path would sort by an
+    upload timestamp embedded in the key.
+    """
     r = db.table("marketing_asset_media").select(
         "kind, storage_bucket, storage_path, mime"
     ).eq("tenant_id", tenant_id).eq("asset_id", asset_id).execute()
     rows = list(r.data or [])
+    if not rows:
+        return None
+
+    tmpdir = pathlib.Path(tempfile.gettempdir())
+    by_path = {str(m.get("storage_path")): m for m in rows}
+
+    ordered: list[str] = []
+    raw = (asset or {}).get("media_urls")
+    if isinstance(raw, list):
+        ordered = [str(x) for x in raw]
+    elif isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+            ordered = [str(x) for x in parsed] if isinstance(parsed, list) else []
+        except json.JSONDecodeError:
+            print("    media_urls is unparseable; falling back to the cover only")
+
+    # Only trust the recorded order for paths that actually exist as media rows.
+    ordered = [p for p in ordered if p in by_path]
+
+    if (asset or {}).get("asset_type") == "carousel" and len(ordered) > 1:
+        paths: list[pathlib.Path] = []
+        for i, key in enumerate(ordered, 1):
+            m = by_path[key]
+            suffix = pathlib.Path(key).suffix or ".png"
+            paths.append(_download(m["storage_bucket"], key,
+                                   tmpdir / f"publish_{asset_id}_slide{i}{suffix}"))
+        return paths[0], "image", paths[1:]
+
     pick = next((m for m in rows if m.get("kind") == "video"), None) or \
         next((m for m in rows if m.get("kind") == "image"), None)
     if not pick:
         return None
-    bucket = pick["storage_bucket"]
     key = pick["storage_path"]
     suffix = pathlib.Path(key).suffix or (".mp4" if pick.get("kind") == "video" else ".jpg")
-    surface = r2_storage.storage_surface().from_(bucket)
-    tmp = pathlib.Path(tempfile.gettempdir()) / f"publish_{asset_id}{suffix}"
-    tmp.write_bytes(surface.download(key))
-    return tmp, pick.get("kind", "video")
+    cover = _download(pick["storage_bucket"], key, tmpdir / f"publish_{asset_id}{suffix}")
+    return cover, pick.get("kind", "video"), []
 
 
 def claim(db, intent_id: str, attempts: int = 0) -> bool:
@@ -259,13 +303,16 @@ def drain_one(db, intent: dict, PublishRequest, publish, dry_run: bool) -> bool:
         return False
 
     media = None
+    slides: list[pathlib.Path] = []
     try:
-        got = fetch_media(asset_id, tenant_id, db)
+        got = fetch_media(asset_id, tenant_id, db, asset)
         if not got:
             finish(db, iid, state="failed", result={}, error="no media attached to the asset")
             print("    FAILED: no media attached")
             return False
-        media, _kind = got
+        media, _kind, slides = got
+        if slides:
+            print(f"    carousel: {len(slides) + 1} slides in recorded order")
 
         short = [p for p in platforms if p in SHORT_FORM]
         longform = [p for p in platforms if p not in SHORT_FORM]
@@ -280,6 +327,7 @@ def drain_one(db, intent: dict, PublishRequest, publish, dry_run: bool) -> bool:
                 caption=caption_for(asset, professional=pro),
                 platforms=group,
                 media_path=str(media),
+                extra_media_paths=[str(p) for p in slides] or None,
                 title=(asset.get("title") or "")[:95],
                 creative_id=asset_id,
                 idempotency_key=f"intent-{iid}-{'pro' if pro else 'short'}",
@@ -331,11 +379,13 @@ def drain_one(db, intent: dict, PublishRequest, publish, dry_run: bool) -> bool:
         print(f"    FAILED: {exc}")
         return False
     finally:
-        if media and media.exists():
-            try:
-                media.unlink()
-            except OSError:
-                pass
+        # Every slide, not just the cover — a carousel leaves N temp files.
+        for f in [media, *(slides or [])]:
+            if f and f.exists():
+                try:
+                    f.unlink()
+                except OSError:
+                    pass
 
 
 def main() -> int:
