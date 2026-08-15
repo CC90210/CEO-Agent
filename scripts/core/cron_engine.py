@@ -541,23 +541,7 @@ SEED_JOBS: list[dict] = [
         # 900s, not the 300s default: publishing a 10 MB reel to five networks
         # legitimately takes minutes, and a kill mid-publish is what strands an
         # intent in  — the state the reaper then has to rescue.
-        "action_config": {"script": "scripts/marketing_publish_drain.py", "args": [    {
-        # Added 2026-08-14. The Train Maven drop-zone enqueued links into
-        # marketing_corpus and NOTHING consumed the queue — every link CC or
-        # Adon dropped would have sat at "Waiting" forever, which is worse than
-        # a disabled button because it looks like it worked.
-        #
-        # Five minutes, not one: each link is a real fetch (Firecrawl, escalating
-        # to CloakBrowser) plus a model call. There is no hurry, and a tighter
-        # loop would just collide with itself on a slow scrape.
-        "name": "Training Corpus Ingest",
-        "description": "Every 5 minutes — fetch and analyse links dropped in Train Maven, write style exemplars to CMO-Agent/brain/exemplars/. No-ops when the queue is empty.",
-        "schedule": "*/5 * * * *",
-        "action_type": "script_run",
-        "action_config": {"script": "scripts/ingest_training_link.py", "args": [], "timeout": 900},
-        "is_active": True,
-    },
-], "timeout": 900},
+        "action_config": {"script": "scripts/marketing_publish_drain.py", "args": [], "timeout": 900},
         "is_active": True,
     },
     {

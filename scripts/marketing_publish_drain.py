@@ -353,8 +353,20 @@ def drain_one(db, intent: dict, PublishRequest, publish, dry_run: bool) -> bool:
                 errors.append(f"{group}: {reason}")
 
         any_ok = any(v.get("ok") for v in result.values())
+        # Both arms of the old `if any_ok and not errors else (if any_ok ...)`
+        # returned "done", so it read as if it distinguished a partial publish
+        # and did not. It cannot: state is CHECK-constrained to
+        # queued/running/done/failed (bravo__003), and there is no `partial`.
+        #
+        # `done` here means "at least one network took it", which is the only
+        # answer that keeps the reaper from re-queueing an intent whose post is
+        # already live — a re-publish cannot be undone. What actually failed is
+        # not lost: `error` carries every refusal, `result` carries per-platform
+        # detail, and the asset records ONLY the platforms that accepted it (see
+        # `landed` below), so nothing downstream claims a distribution that did
+        # not happen.
         finish(db, iid,
-               state="done" if any_ok and not errors else ("done" if any_ok else "failed"),
+               state="done" if any_ok else "failed",
                result=result,
                error="; ".join(errors) if errors else None)
 
@@ -424,8 +436,16 @@ def main() -> int:
             done += 1
         if args.once:
             break
-    print(f"published: {done}/{len(queued)}")
-    return 0
+    failed = len(queued) - done
+    print(f"published: {done}/{len(queued)}"
+          + (f"  ·  failed: {failed}" if failed else ""))
+
+    # Non-zero when ANY intent failed. This returned 0 unconditionally, so a run
+    # where every publish was refused reported healthy — the cron badge stayed
+    # green and the watchdog never paged, which is the same defect the analytics
+    # poller had (`return 1 if failed and not wrote else 0`). A publish that did
+    # not happen is exactly the thing CC needs told about.
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
