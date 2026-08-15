@@ -230,6 +230,33 @@ STALE_AFTER_MINUTES = 20
 MAX_ATTEMPTS = 3
 
 
+def dispatched(row: dict) -> bool:
+    """Did this attempt get as far as contacting a network?
+
+    Pure so it can be tested without a database, because the cost of being wrong
+    is asymmetric and worth pinning down: a false NO republishes a post that is
+    already live and cannot be unsent; a false YES costs one manual requeue.
+    Everything ambiguous therefore answers YES.
+    """
+    raw = row.get("result")
+    if not raw:
+        return False
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return True          # unparseable is not "no marker"
+    if not isinstance(parsed, dict):
+        return True
+    if parsed.get("_dispatch_started_at"):
+        return True
+    # A finished run's result is per-platform outcomes. If any platform reports
+    # a post_id, something went out — retrying would duplicate it.
+    return any(
+        isinstance(v, dict) and v.get("post_id")
+        for v in parsed.values()
+    )
+
+
 def reap_stale(db) -> int:
     """Rescue intents left `running` by a drain that died mid-publish.
 
@@ -264,10 +291,29 @@ def reap_stale(db) -> int:
             }).eq("id", row["id"]).eq("state", "running").execute()
             print(f"  reaped {row['id']}: giving up after {attempts} attempts")
         else:
-            db.table("marketing_publish_intent").update({
-                "state": "queued", "started_at": None,
-            }).eq("id", row["id"]).eq("state", "running").execute()
-            print(f"  reaped {row['id']}: back to queued (attempt {attempts} died)")
+            # Did this attempt get as far as contacting a network?
+            #
+            # CMO-Agent's publisher checks data/content_pool/_posted.jsonl for
+            # duplicates but only schedule_posts WRITES that ledger — a publish
+            # driven from here is never recorded in it, so the shared dedupe
+            # guard cannot save us. The marker drain_one writes before dispatch
+            # is what we have, and it is enough: no marker means we died before
+            # any network was touched, which is safe to retry.
+            if dispatched(row):
+                db.table("marketing_publish_intent").update({
+                    "state": "failed",
+                    "error": ("died AFTER dispatch began — the post may already be live. "
+                              "Not retried automatically, because a duplicate post cannot be "
+                              "undone. Check the channels, then requeue deliberately if nothing "
+                              "went out."),
+                    "finished_at": _now(),
+                }).eq("id", row["id"]).eq("state", "running").execute()
+                print(f"  reaped {row['id']}: died mid-dispatch — NOT retried, needs a human")
+            else:
+                db.table("marketing_publish_intent").update({
+                    "state": "queued", "started_at": None,
+                }).eq("id", row["id"]).eq("state", "running").execute()
+                print(f"  reaped {row['id']}: back to queued (attempt {attempts} died before dispatch)")
         rescued += 1
     return rescued
 
@@ -320,6 +366,22 @@ def drain_one(db, intent: dict, PublishRequest, publish, dry_run: bool) -> bool:
 
         short = [p for p in platforms if p in SHORT_FORM]
         longform = [p for p in platforms if p not in SHORT_FORM]
+
+        # DISPATCH MARKER — written before the first network call, on purpose.
+        #
+        # claim() stamps `running` before we publish and finish() records the
+        # outcome after. A process killed BETWEEN those two — cron timeout,
+        # reboot, OOM — leaves a row that looks identical whether the post went
+        # out or not, and reap_stale used to put every such row back to `queued`.
+        # If the post had already landed, the retry published it a second time,
+        # and there is no unsending.
+        #
+        # This marker is the one bit that tells those cases apart. finish()
+        # overwrites `result` with the real outcome, so it exists only inside the
+        # dangerous window.
+        db.table("marketing_publish_intent").update({
+            "result": json.dumps({"_dispatch_started_at": _now(), "platforms": platforms}),
+        }).eq("id", iid).eq("state", "running").execute()
 
         result: dict = {}
         errors: list[str] = []
