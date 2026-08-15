@@ -84,6 +84,10 @@ def _load_publisher():
         if val and not os.environ.get(key):
             os.environ[key] = val
 
+    # path-drift-ok: "scripts/publishers/base.py" is rooted at CMO,
+    # the CMO-Agent repo, not at this one. system_health's drift check reads
+    # segmented Path builds without knowing their root, so it reports a file
+    # that is deliberately not here.
     if not (CMO / "scripts" / "publishers" / "base.py").exists():
         raise SystemExit(
             f"no publisher at {CMO}. Set CMO_REPO to CMO-Agent's path — this drain "
