@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 import traceback
@@ -46,7 +47,17 @@ sys.path.insert(0, str(HERE))
 from lib import secret_loader  # noqa: E402
 from integrations import supabase_tool  # noqa: E402
 
-TENANT = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+# The OASIS tenant. Bare-constant form matches ingest_training_link.py and
+# migrate_carousels.py, but email_brain.py / lead_engine.py / inbound_classifier.py
+# use the override form below and it is strictly better: an independent audit
+# flagged the bare constant as an isolation risk, and while there is exactly one
+# Zernio key and one founders tenant today, "today" is not a guarantee worth
+# hardcoding. Costs one line to let a second tenant run this without a fork.
+TENANT = (
+    os.environ.get("OASIS_TENANT_ID")
+    or os.environ.get("EMPIRE_TENANT_ID")
+    or "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+)
 BASE = "https://zernio.com/api"
 PAGE_LIMIT = 100
 
