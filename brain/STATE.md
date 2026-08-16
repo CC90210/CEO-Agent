@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-16
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Self-review pass on PR #199: proved the 4 brand tabs partition marketing_asset exactly (43+0+0+4=47) against live Turso rather than asserting it; confirmed sibling API routes are tenant-scoped so verdicts work cross-brand (consistent with the untouched corpus rule); named DEGRADED_MARKETING_FACETS instead of inlining the fallback twice.
+- **Result:** Vercel review for CC: production HEALTHY (all prod deploys Ready, oasisai.work 200 on 6 routes incl /founders/marketing). The failure was PREVIEW-only OOM, 9 builds over 2 days across 4 branches incl APEX's — not Adon's code. Root cause: uncapped V8 heap sizing against the 8GB container, 2 workers racing; 38-46min GC death spiral then SIGKILL. Fix: cpus 1 + NODE_OPTIONS max-old-space-size=5120 in vercel.json. New scripts/integrations/vercel_deploy_tool.py.
 
 *Last updated: 2026-08-16*
 
