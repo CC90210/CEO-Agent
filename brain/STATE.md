@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-16
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Closed the point-1 blind spot: scan_secrets.py now scans git remotes (the leaked PAT was in .git/config, which neither the tree nor history walk reaches). Matrix + portable prompt point 1 renamed from the act (committed) to the locations. 2 new tests, both verified.
+- **Result:** Founders Marketing: brand tabs (OASIS/Conaugh/Music/Clients, Clients residual), channel tiles demoted, Library-is-not-a-queue copy, publish-panel honesty fix + stalePublishWarning; founders-marketing suites added to CI (never ran before). PR #199. Held the state filter — library_sync stamps in_review on published rows (46/1 live).
 
 *Last updated: 2026-08-16*
 
