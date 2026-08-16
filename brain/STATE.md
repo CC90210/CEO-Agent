@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-16
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Cron reliability + alert damping: breeze 2-strike soak with PAIRED recovery; in-process transient retry on breeze health, turso connect and IMAP; scheduler escalates at 3 for fast jobs / 2 for slow via one escalation_threshold() that also gates recovery (Codex caught a max() that stranded slow-job alerts); drain exits 0 for recorded intent failures, 1 only for DB loss. 1632 passed, 6/6 mutations caught.
+- **Result:** Shipped: 4 commits pushed to origin/feat/v7.6-evidence-gated-refinement (d3a508d3..6297e680) — 20-point vibe-security matrix + ADR-0016, SQL identifier guard at lib/db_turso.quote_ident, telegram webhook fail-closed, cron alert damping across 4 daemons. CI substrate-eval green. Working tree clean. NOT opened as a PR: branch is 171 ahead / 15 behind main — CC's call.
 
 *Last updated: 2026-08-16*
 
