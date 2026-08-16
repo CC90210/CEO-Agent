@@ -84,19 +84,29 @@ def main() -> int:
 
     for p in (p_list, p_logs, p_inspect):
         p.add_argument("--scope", default=DEFAULT_SCOPE)
+        # Every other wrapper in scripts/integrations takes --json, and the
+        # fleet rule is "CLI-anything, always --json" — a human table is fine to
+        # read and miserable to branch on. The Vercel CLI exposes it as
+        # `-F json`, verified with `vercel ls --help` rather than assumed.
+        #
+        # NOT the default: `logs` under --format json emits one JSON object per
+        # log line, and the failure diagnosis this tool exists for is far easier
+        # to read as plain text.
+        p.add_argument("--json", action="store_true", help="machine-readable output (-F json)")
 
     args = ap.parse_args()
     token = load_env(required=["VERCEL_TOKEN"])["VERCEL_TOKEN"]
 
     scope = ["--scope", args.scope] if args.scope else []
+    fmt = ["-F", "json"] if args.json else []
     if args.verb == "list":
-        cmd = ["ls", args.project, *scope]
+        cmd = ["ls", args.project, *scope, *fmt]
         if args.prod:
             cmd += ["--prod"]
     elif args.verb == "logs":
-        cmd = ["inspect", args.url, "--logs", *scope]
+        cmd = ["inspect", args.url, "--logs", *scope, *fmt]
     else:
-        cmd = ["inspect", args.url, *scope]
+        cmd = ["inspect", args.url, *scope, *fmt]
 
     return _run(cmd, token)
 

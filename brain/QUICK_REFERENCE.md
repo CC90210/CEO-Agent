@@ -203,6 +203,8 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | `turso_tool.py` | libSQL/Turso CRUD — tenant guard enforced | CLI tool |
 | `turso_admin.py` | Turso database provisioning (Platform API) | CLI tool |
 | `n8n_tool.py` | Workflow automation | CLI tool |
+| `git_push_tool.py` | **Push branches / open PRs / read PR checks.** The gh CLI's stored login is stale and plain `git push` cannot authenticate; this feeds the PAT via GIT_ASKPASS + GH_TOKEN. `--checks` reads check CONCLUSIONS, not review state | CLI tool |
+| `integrations/vercel_deploy_tool.py` | Deployment state + build logs (`list`/`logs`/`inspect`, `--json`). Read-only by design — promote/rollback/redeploy are an operator call | CLI tool |
 | `firecrawl_tool.py` | Web scraping, extraction | CLI tool |
 | `browser_harness_doctor.py` | Browser Harness install/attach diagnostics | CLI tool |
 | `onboarding_diagnostics.py` | Productized Bravo onboarding health check | CLI tool |
