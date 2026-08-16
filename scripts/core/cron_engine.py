@@ -462,7 +462,12 @@ SEED_JOBS: list[dict] = [
         # PR per pass, so 1500s is a ceiling, not an expectation.
         "action_config": {"script": "scripts/review_loop.py",
                           "args": ["--once", "--json"], "timeout": 1500},
-        "is_active": True,
+        # Retired 2026-08-16 (CC). It only pays off on repos with active PR
+        # review and there were no open PRs, so it was draining a slot every 15
+        # minutes to do nothing. It also depends on a `gh` login that had
+        # expired, which meant it was failing silently rather than idling.
+        # Re-enable with `cron_engine.py toggle` if PR review becomes a habit.
+        "is_active": False,
     },
     # 'Bravo — Override Queue Cleanup' removed 2026-05-22 along with the
     # entire exec_override approval-request system. exec_guard still blocks
