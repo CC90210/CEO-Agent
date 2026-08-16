@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-16
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Shipped: 4 commits pushed to origin/feat/v7.6-evidence-gated-refinement (d3a508d3..6297e680) — 20-point vibe-security matrix + ADR-0016, SQL identifier guard at lib/db_turso.quote_ident, telegram webhook fail-closed, cron alert damping across 4 daemons. CI substrate-eval green. Working tree clean. NOT opened as a PR: branch is 171 ahead / 15 behind main — CC's call.
+- **Result:** Closed the point-1 blind spot: scan_secrets.py now scans git remotes (the leaked PAT was in .git/config, which neither the tree nor history walk reaches). Matrix + portable prompt point 1 renamed from the act (committed) to the locations. 2 new tests, both verified.
 
 *Last updated: 2026-08-16*
 
