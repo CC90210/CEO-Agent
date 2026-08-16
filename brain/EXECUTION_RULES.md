@@ -3,9 +3,9 @@ name: EXECUTION RULES
 description: Non-negotiables for the chat agent. Never tell the operator to run commands you can run yourself. Self-execute, audit, confirm.
 mutability: IMMUTABLE
 tags: [brain, agent-only, iron-law]
-last_updated: 2026-07-20
+last_updated: 2026-08-15
 freshness_threshold_days: 30
-verified: 2026-07-20
+verified: 2026-08-15
 ---
 # EXECUTION RULES — The Iron Law
 
@@ -316,7 +316,84 @@ expensive failure: work that reads as finished. A stub with a confident summary 
 plan with no output land identically in CC's inbox — as "done". The contract makes the outcome
 the first thing said and an unfinished part impossible to leave unsaid.
 
+## 21. THE 20-POINT VIBE-SECURITY MATRIX — AUDIT WHAT WAS ALREADY BUILT (added 2026-08-15)
+
+Rules 13, 14, 15 and 17 each fix one security hole this fleet actually shipped. They are
+reactive by construction: every one was written *after* CC or Codex found the bug. The
+20-Point Vibe-Security Matrix is the proactive form — twenty defects that recur in
+AI-generated code, each with a mechanical check, so a codebase can be swept before anyone
+has been bitten by it.
+
+**The matrix itself lives in one place: [[skills/security-protocol/SKILL]].** Do not restate
+the twenty rows here or anywhere else. Two copies of a twenty-row table is drift with a
+schedule attached — the same hazard `test_antislop_matrix_sync.py` exists to catch on the
+seven-row matrix. `scripts/tests/test_20_point_security_contract.py` pins the single source.
+
+### Three matrices, three jobs — do not merge them
+
+| Matrix | Where | When it applies | Count |
+|---|---|---|---|
+| **Production Defenses** | `prompts/_TEMPLATE_SYSTEM_PROMPT.md` § 3.1 + [[skills/vibe-to-execution/SKILL]] | **Build-time** — what a change must satisfy as you write it | 7 |
+| **Vibe-Security Matrix** | [[skills/security-protocol/SKILL]] | **Audit-time** — what you sweep for in code that already exists | 20 |
+| **Anti-Slop Matrix** | `PERSONAL.md` LOCKSTEP `anti_patterns` → all six entry points, § 19 above | **Always** — process defects, not security holes | 7 |
+
+The seven defenses do not cover the twenty points. Five of them — rate limiting, injection,
+input validation, XSS, and dependency hygiene — have **no owning defense at all**, because the
+defenses were written for building a feature and never treated untrusted input or dependency
+staleness as first-class. An audit run against the defenses alone misses a quarter of the
+matrix. The full mapping, including that gap, is the second table in the skill.
+
+### When the audit is mandatory
+
+Run it — `python scripts/capability_query.py resolve "audit codebase for security vulnerabilities"`
+routes to the skill; [[prompts/20_POINT_SECURITY_AUDITOR_SYSTEM_PROMPT]] is the portable
+system message for a fresh context, Codex, or a sibling agent:
+
+- **Before any public flip** — a repo going public, a route going unauthenticated, a form
+  going out to prospects. This is the case that has already cost us twice.
+- **Before a new app's first production deploy**, and on any diff that adds an unauthenticated
+  surface, a file upload, a webhook receiver, or a new tenant-scoped table.
+- **Quarterly across the portfolio**, or whenever a point's check is cheap and the repo is new
+  to us.
+
+**The auditor may not be the author.** Rule 8 already requires an independent Codex pass on big
+tasks; for security specifically it is the whole mechanism, not a second opinion. Bravo's
+self-review of Bravo's own boundary has now failed on record twice — the public-forms diff
+below, and the `fnmatch` allowlist in [[docs/adr/0015-evidence-gated-harness-refinement]] that
+was asserted as fail-closed in an ADR, four commits and a PR body while `memory/../CLAUDE.md`
+walked straight through it.
+
+### The incident behind the matrix
+
+**2026-05-18 — the public form-share diff.** Bravo declared it "TypeScript clean + deploy
+ready" **twice**. Two Codex adversarial passes then found **nine real bugs in that same diff**,
+and eight of them are one of the twenty points:
+
+| Point | The bug, as found |
+|---|---|
+| 5 — bypassable rate limit | `anonymous_init`'s bucket keyed on `lead_id`, which is freshly minted per anonymous request — so every bot request got its own bucket. The limiter existed and defended nothing. |
+| 7 — no input validation | `inline_base64` blobs accepted against *any* payload key, with attacker-controlled MIME and no form-schema validation. |
+| 14 — IDOR | Form lookup by `slug` alone allowed cross-tenant collision plus tenant enumeration through the 404 difference; separately the signed-URL minter trusted a mutable `storage_path` (a confused deputy, enabled by a `FOR ALL` RLS policy on `lead_documents`). |
+| 15 — raw body persisted | `file_attachments` taken straight off the request body and stored — a path for planting foreign-tenant storage paths that the underwrite route then forwarded downstream. |
+| 20 — unvalidated upload | SVG left in the tenant-logo MIME allowlist, served from a public bucket as `Content-Type: image/svg+xml` — stored script execution. |
+| 4 — frontend-only authz | `read_only` was enforced as a paragraph in Solara's persona while the cloud-tool palette still contained `create_record` / `update_record` / `delete_record`. |
+| 3 — RLS shape | The `FOR ALL` policy that made the confused-deputy possible; `database/057b_lead_documents_drop_member_all.sql` removes it. |
+| 11 — admin chrome on a public page | The operator sidebar rendered over a prospect's form view — the layout half of the § 13 two-layer gate. |
+
+The durable fix for #20 is the one worth copying: `database/057_lead_documents_storage_path_check.sql`
+adds `CHECK (storage_path LIKE tenant_id::text || '/%')`. Application code can regress; the
+constraint cannot. **Where a point can be enforced by the database, enforce it there** — an
+allowlist in a route handler is one refactor away from being deleted.
+
+**Why this is a rule and not a checklist.** The nine bugs were not found because the code was
+sloppy; they were found because someone other than the author went looking with a specific
+list. Points 5 and 4 are the sharpest illustration: both surfaces *had* a control — a rate
+limiter, a role restriction — and both controls were decorative. **A defense you have not
+tried to defeat is a defense you have not verified**, which is
+the *attack the boundary before you claim it* pattern ([[memory/PATTERNS]]) wearing a security hat.
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]
 - [[brain/EXTERNAL_REVIEW_INTEGRATION]] | [[brain/SUBCONSCIOUS_LAYER]]
+- [[skills/security-protocol/SKILL]] (the 20-point matrix) | [[docs/adr/0016-20-point-vibe-code-security-standard]] | [[prompts/20_POINT_SECURITY_AUDITOR_SYSTEM_PROMPT]]

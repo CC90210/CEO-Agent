@@ -249,6 +249,13 @@ question twice.**
 
 ## Phase 2 — The 7 mandatory production defenses
 
+> **Audit-time expansion.** These seven are the *build-time* contract. When auditing code that
+> already exists, each defense decomposes into the **20-Point Vibe-Security Matrix**
+> ([[skills/security-protocol/SKILL]], [[brain/EXECUTION_RULES]] § 21) — and five points
+> (rate limiting, injection, input validation, XSS, dependency hygiene) have **no owning
+> defense here**, so the seven are a floor and not a ceiling. Marking a defense
+> `N/A — <reason>` also declares its points out of scope.
+
 These are the defects that reach production from vibe-coded work. **Every** system message this
 skill emits carries this block verbatim, scoped to the task at hand — a defense that does not
 apply is marked `N/A — <reason>`, never deleted. Silence reads as "handled".
@@ -325,7 +332,8 @@ Phases cover UI, backend, DB schema/migration, and agent/harness wiring as appli
 
 ### 3.1 Mandatory Production Defenses — all 7 apply
 [Paste the Phase 2 table, scoped to this task. Any defense that does not apply is
-marked `N/A — <reason>`. Never delete a row.]
+marked `N/A — <reason>`. Never delete a row. On an audit or hardening task, expand each
+defense through the 20-Point Vibe-Security Matrix — see skills/security-protocol/SKILL.md.]
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 tags: [docs, adr, decision, index, hub]
-last_updated: 2026-07-28
+last_updated: 2026-08-15
 ---
 
 # Architecture Decision Records — Index
@@ -54,6 +54,7 @@ free, and un-reserving these would silently break the remediation above.
 | 0011 | [[docs/adr/0011-typed-memory-taxonomy]] — typed memory with declared update semantics | 2026-07-18 | memory |
 | 0012 | [[docs/adr/0012-agent-fleet-contract]] — one agent schema, two dialects, scoped by default | 2026-07-19 | agent fleet |
 | 0015 | [[docs/adr/0015-evidence-gated-harness-refinement]] — evidence is an executed command, not a rationale | 2026-08-07 | self-improvement |
+| 0016 | [[docs/adr/0016-20-point-vibe-code-security-standard]] — 20-point vibe-security matrix, single-sourced with a tested defense mapping | 2026-08-15 | security |
 
 ## Proposed
 

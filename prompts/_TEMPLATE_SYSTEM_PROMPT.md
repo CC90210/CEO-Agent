@@ -82,6 +82,13 @@ works" is not a verification — name the command and the string.]
 
 ### 3.1 Mandatory Production Defenses — all 7 apply
 
+> **Audit-time expansion.** These seven are the *build-time* contract. When auditing code that
+> already exists, each defense decomposes into the **20-Point Vibe-Security Matrix**
+> ([[skills/security-protocol/SKILL]], [[brain/EXECUTION_RULES]] § 21) — and five points
+> (rate limiting, injection, input validation, XSS, dependency hygiene) have **no owning
+> defense here**, so the seven are a floor and not a ceiling. Marking a defense
+> `N/A — <reason>` also declares its points out of scope.
+
 | # | Defense | Applies here as |
 |---|---|---|
 | 1 | **Probe credentials first** | `python scripts/capability_probe.py check <service>` before claiming any gap. AVAILABLE = authorized. Never read `.env*` — `secret_guard` blocks it and logs the attempt to `state/secret_guard.log`. |
