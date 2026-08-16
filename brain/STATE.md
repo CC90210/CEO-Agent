@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-16
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Vercel review for CC: production HEALTHY (all prod deploys Ready, oasisai.work 200 on 6 routes incl /founders/marketing). The failure was PREVIEW-only OOM, 9 builds over 2 days across 4 branches incl APEX's — not Adon's code. Root cause: uncapped V8 heap sizing against the 8GB container, 2 workers racing; 38-46min GC death spiral then SIGKILL. Fix: cpus 1 + NODE_OPTIONS max-old-space-size=5120 in vercel.json. New scripts/integrations/vercel_deploy_tool.py.
+- **Result:** PR #201 MERGED to main (b542c231) — all 4 checks green on head b3077ced. Production deploying. Library now: lifecycle pills (Needs review 41/Approved 0/Posted 1/Archived 1), Restore on archived tiles, PAID tile disclaims spend, Performance captions link to live posts.
 
 *Last updated: 2026-08-16*
 

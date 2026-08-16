@@ -69,6 +69,10 @@ def main() -> int:
     ap.add_argument("--pr", action="store_true", help="open a pull request instead of pushing")
     ap.add_argument("--edit-body", action="store_true",
                     help="replace the PR body with --body-file")
+    # Merging is the one MUTATION here and it is gated on the operator asking
+    # for it. --squash keeps main readable; the branch is deleted after so the
+    # remote does not accumulate merged heads.
+    ap.add_argument("--merge", action="store_true", help="squash-merge the PR (operator-directed only)")
     ap.add_argument("--checks", action="store_true",
                     help="report CI check conclusions for the branch's PR (read-only)")
     ap.add_argument("--title")
@@ -84,7 +88,7 @@ def main() -> int:
     env_vals = load_env(required=["GITHUB_PERSONAL_ACCESS_TOKEN"])
     token = env_vals["GITHUB_PERSONAL_ACCESS_TOKEN"]
 
-    if args.pr or args.checks or args.edit_body:
+    if args.pr or args.checks or args.edit_body or args.merge:
         gh = os.environ.get("GH_BIN", r"C:\Program Files\GitHub CLI\gh.exe")
         if not Path(gh).exists():
             print(f"gh not found at {gh}; set GH_BIN", file=sys.stderr)
@@ -93,7 +97,9 @@ def main() -> int:
         # Overrides the stored (currently invalid) CLI credential for this call
         # only. Nothing is written to the gh config.
         child["GH_TOKEN"] = token
-        if args.edit_body:
+        if args.merge:
+            cmd = [gh, "pr", "merge", args.branch, "--squash", "--delete-branch"]
+        elif args.edit_body:
             cmd = [gh, "pr", "edit", args.branch, "--body-file", args.body_file]
         elif args.checks:
             # `gh pr checks` reports the CHECK conclusions, which is a different
