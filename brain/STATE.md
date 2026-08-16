@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-16
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Founders Marketing: brand tabs (OASIS/Conaugh/Music/Clients, Clients residual), channel tiles demoted, Library-is-not-a-queue copy, publish-panel honesty fix + stalePublishWarning; founders-marketing suites added to CI (never ran before). PR #199. Held the state filter — library_sync stamps in_review on published rows (46/1 live).
+- **Result:** PR #199 founders brand tabs: OASIS/Conaugh/Music/Clients (Clients residual), channel demoted, publish-panel honesty. CORRECTION: repeated Maven's false 'no publish drainer' claim — it exists in THIS repo, 1320 runs 0 fails; fixed in commit f5e5468, PR body, inbox 5c10e6303c32. CI build green 4m12s with new founders-marketing suites.
 
 *Last updated: 2026-08-16*
 
