@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-16
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** PR #199 founders brand tabs: OASIS/Conaugh/Music/Clients (Clients residual), channel demoted, publish-panel honesty. CORRECTION: repeated Maven's false 'no publish drainer' claim — it exists in THIS repo, 1320 runs 0 fails; fixed in commit f5e5468, PR body, inbox 5c10e6303c32. CI build green 4m12s with new founders-marketing suites.
+- **Result:** Self-review pass on PR #199: proved the 4 brand tabs partition marketing_asset exactly (43+0+0+4=47) against live Turso rather than asserting it; confirmed sibling API routes are tenant-scoped so verdicts work cross-brand (consistent with the untouched corpus rule); named DEGRADED_MARKETING_FACETS instead of inlining the fallback twice.
 
 *Last updated: 2026-08-16*
 
