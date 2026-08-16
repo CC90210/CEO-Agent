@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-16
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** SESSION CLOSED: 6 PRs merged (199/201/202/203/204/205). Production Ready, verified 200 on all 3 marketing routes. Marketing tab complete + Vercel OOM root-caused + paging deduped. AWAITING CC: (1) drop Clients tab, (2) join the 2 content pipelines, (3) revive DM automation.
+- **Result:** SESSION CLOSED: 7 PRs merged (199/201/202/203/204/205/206). Production Ready, verified 200 on all 3 marketing routes. Delivered: marketing tab (brand tabs, lifecycle, archive+restore, paid disclaimer, permalinks), Vercel OOM root-cause, paging dedupe, and 2 live unordered-paging defects fixed (outreach-intel stage map, drip send-ceiling governor) + repo-wide CI guard. AWAITING CC: (1) drop Clients tab, (2) revive DM automation, (3) join the 2 content pipelines.
 
 *Last updated: 2026-08-16*
 
