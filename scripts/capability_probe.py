@@ -85,8 +85,15 @@ SERVICES: dict[str, tuple[list[list[str]], str]] = {
                "python scripts/integrations/google_tool.py <verb> --json"),
     "n8n": ([["N8N_API_KEY"], ["N8N_API_URL", "N8N_BASE_URL", "N8N_URL"]],
             "python scripts/integrations/n8n_tool.py <verb> --json"),
+    # TWO wrappers on one token, and the probe has to name both or the half it
+    # omits reads as unavailable. env_tool covers environment variables;
+    # deploy_tool covers deployment state and build logs. Diagnosing the
+    # 2026-08-16 preview OOM needed the second one, and the probe pointing only
+    # at the first is exactly the "I don't have access to that" false negative
+    # this tool exists to kill.
     "vercel": ([["VERCEL_TOKEN"]],
-               "python scripts/integrations/vercel_env_tool.py <verb> --json"),
+               "python scripts/integrations/vercel_env_tool.py --json <verb>  (env vars)  |  "
+               "python scripts/integrations/vercel_deploy_tool.py {list,logs,inspect}  (deploys, read-only)"),
     "cloudflare": ([["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_TOKEN"]],
                    "python scripts/integrations/cloudflare_admin.py <verb>"),
     # notify.py gates on TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_USERS. It does NOT
@@ -104,8 +111,22 @@ SERVICES: dict[str, tuple[list[list[str]], str]] = {
              "python ../CMO-Agent/scripts/late_tool.py   (Maven's repo — route content to Maven)"),
     "lendsaas": ([["LENDSAAS_API_TOKEN", "LENDSAAS_"]],
                  "python scripts/integrations/lendsaas_tool.py"),
+    # NOT "gh <cmd> (or plain git)", which is what this said and was wrong in the
+    # one way that matters: the key IS present, so the probe reports AVAILABLE,
+    # and then the advice it gives fails. 2026-08-16: `gh auth status` reports
+    # the stored CLI token invalid and a plain `git push` dies with "could not
+    # read Username for https://github.com" — re-authenticating needs an
+    # interactive browser flow no agent can run.
+    #
+    # A probe that says AVAILABLE and hands over a command that cannot work is
+    # worse than one that says nothing: it sends the reader down a dead end while
+    # a working path (the PAT below, via the wrapper) sits unused. The wrapper
+    # feeds the token to git through GIT_ASKPASS and to gh through GH_TOKEN,
+    # so it works regardless of the CLI's own login state.
     "github": ([["GITHUB_TOKEN", "GITHUB_PERSONAL_ACCESS_TOKEN", "GH_TOKEN"]],
-               "gh <cmd>   (or plain git)"),
+               "python scripts/git_push_tool.py --repo <path> --branch <b> "
+               "[--set-upstream|--pr|--checks|--edit-body]   "
+               "(the gh CLI's own login is stale; plain `git push` cannot authenticate)"),
 }
 
 KEY_RE = re.compile(r"`([A-Z][A-Z0-9_]{2,})`")
