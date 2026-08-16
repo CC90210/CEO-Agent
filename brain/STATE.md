@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-16
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** PR #201 MERGED to main (b542c231) — all 4 checks green on head b3077ced. Production deploying. Library now: lifecycle pills (Needs review 41/Approved 0/Posted 1/Archived 1), Restore on archived tiles, PAID tile disclaims spend, Performance captions link to live posts.
+- **Result:** PR #202 merged (5c48c8f2) — all 4 checks green on head e76e41ad. Marketing tab now fully shipped: brand tabs, lifecycle pills+badges, Archive/Restore, paid-spend disclaimer, Performance permalinks. 3 PRs merged this session (199/201/202). OPEN FOR CC: drop Clients tab? link the 2 pipelines (43 Library vs 100 live posts, 1 link)? revive DM automation (ig-setter-pro dormant 10wk)?
 
 *Last updated: 2026-08-16*
 
