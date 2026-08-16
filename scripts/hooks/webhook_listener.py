@@ -251,7 +251,16 @@ async def n8n_webhook(hook: str, request: Request) -> JSONResponse:
 @app.post("/webhooks/telegram")
 async def telegram_webhook(request: Request) -> JSONResponse:
     secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-    if TELEGRAM_SECRET_TOKEN and not hmac.compare_digest(secret, TELEGRAM_SECRET_TOKEN):
+    # Fail CLOSED when the token is unconfigured. This previously read
+    # `if TELEGRAM_SECRET_TOKEN and not hmac.compare_digest(...)`, so an unset
+    # TELEGRAM_WEBHOOK_SECRET made the whole condition false and every unverified
+    # update was accepted and published onto the agent event bus — the check was
+    # present in review and absent in any environment where the var was never set.
+    # Both siblings in this file already fail closed: the n8n gate below at
+    # `not WEBHOOK_N8N_TOKEN or not hmac.compare_digest(...)` and
+    # `_verify_stripe_sig`'s `if not sig_header or not secret: return False`.
+    # Telegram was the only one of the three that did not. (2026-08-15, point 16.)
+    if not TELEGRAM_SECRET_TOKEN or not hmac.compare_digest(secret, TELEGRAM_SECRET_TOKEN):
         _COUNTERS["rejected"] += 1
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "bad secret")
     raw = await request.body()

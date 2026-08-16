@@ -40,6 +40,7 @@ an interactive transaction (which is not reliable over remote HTTP).
 from __future__ import annotations
 
 import os
+import re
 import sys
 import threading
 import traceback
@@ -327,6 +328,39 @@ def unscoped_tables(sql: str, tenant_tables: frozenset[str]) -> set[str]:
 
 # ------------------------------------------------------------------- the client
 
+# A plain unquoted SQL identifier. Table and column names in this codebase are
+# literals written by us, so anything outside this shape is a caller bug.
+_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
+
+
+def quote_ident(name: str) -> str:
+    """Validate a SQL identifier, then return it double-quoted.
+
+    THE canonical identifier guard for the Turso data path. Values are always
+    bound (`?`); identifiers cannot be, so table and column names reach the
+    statement by interpolation and are the one place injection can enter.
+
+    Lives here rather than in turso_supabase_compat because this module is the
+    layer every caller reaches — the compat shim is only ONE of them, and a guard
+    that sits in the shim leaves every direct `get_db().insert(...)` unprotected.
+    The compat shim delegates here (2026-08-15, point 6 of the 20-point matrix).
+
+    An allowlist, not an escape: a name that is not a plain identifier is refused
+    loudly rather than quoted-and-hoped.
+
+    NOTE the deliberate gap: `select(where=..., order_by=..., columns=...)` are
+    free-form SQL fragments by design — the documented escape hatch this API
+    already exposes to 49 modules — and are NOT validated here. Never build them
+    from untrusted input; pass values through `params` instead.
+    """
+    if not isinstance(name, str) or not _IDENT_RE.match(name):
+        raise ValueError(
+            f"unsafe SQL identifier: {name!r} — must match {_IDENT_RE.pattern}. "
+            "Values are bound with ?; only table and column NAMES pass through here."
+        )
+    return f'"{name}"'
+
+
 class TursoDB:
     def __init__(self, url: str, auth_token: str | None, mode: str):
         self.url = url
@@ -351,7 +385,7 @@ class TursoDB:
         for (name,) in rows:
             if name in GLOBAL_TABLES:
                 continue
-            cols = self._conn.execute(f'PRAGMA table_info("{name}")').fetchall()
+            cols = self._conn.execute(f"PRAGMA table_info({quote_ident(name)})").fetchall()
             if any(c[1] == TENANT_COLUMN for c in cols):
                 scoped.add(name.lower())
         return frozenset(scoped)
@@ -497,7 +531,7 @@ class TursoDB:
         if where:
             clauses.append(f"({where})")
             args.extend(params or ())
-        sql = f'SELECT {columns} FROM "{table}"'
+        sql = f"SELECT {columns} FROM {quote_ident(table)}"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         if order_by:
@@ -524,8 +558,8 @@ class TursoDB:
                          reason=reason or "(no reason given)")
         cols = list(row)
         placeholders = ", ".join("?" for _ in cols)
-        col_sql = ", ".join(f'"{c}"' for c in cols)
-        sql = f'INSERT INTO "{table}" ({col_sql}) VALUES ({placeholders})'
+        col_sql = ", ".join(quote_ident(c) for c in cols)
+        sql = f"INSERT INTO {quote_ident(table)} ({col_sql}) VALUES ({placeholders})"
         self.execute(sql, [row[c] for c in cols], allow_unscoped=True,
                      reason="insert stamps tenant_id via values")
 
@@ -555,11 +589,11 @@ class TursoDB:
                 f"claim() requires a non-NULL owner token for {unclaimed_col!r} — "
                 f"setting it back to NULL re-opens the row to every other worker."
             )
-        sets = ", ".join(f'"{c}" = ?' for c in set_values)
+        sets = ", ".join(f"{quote_ident(c)} = ?" for c in set_values)
         args: list[Any] = list(set_values.values())
-        conds = [f'"{unclaimed_col}" IS NULL']
+        conds = [f"{quote_ident(unclaimed_col)} IS NULL"]
         for col, val in key.items():
-            conds.append(f'"{col}" = ?')
+            conds.append(f"{quote_ident(col)} = ?")
             args.append(val)
         if tenant_id is not None:
             conds.append(f'"{TENANT_COLUMN}" = ?')
@@ -569,7 +603,7 @@ class TursoDB:
                 f'claim("{table}") requires tenant_id — cross-tenant claims would let '
                 f"one tenant's worker take another tenant's row."
             )
-        sql = f'UPDATE "{table}" SET {sets} WHERE ' + " AND ".join(conds)
+        sql = f"UPDATE {quote_ident(table)} SET {sets} WHERE " + " AND ".join(conds)
         cur = self.execute(sql, args, allow_unscoped=True, reason="claim scopes explicitly")
         self.commit()
         changed = getattr(cur, "rowcount", -1)
@@ -578,12 +612,13 @@ class TursoDB:
         # Driver did not report rowcount — read the row back and require the
         # marker to equal OUR token. Comparing against set_values without the
         # non-NULL check above would make None == None report a false win.
-        check_conds = " AND ".join(f'"{c}" = ?' for c in key)
+        check_conds = " AND ".join(f"{quote_ident(c)} = ?" for c in key)
         check_args = list(key.values())
         if tenant_id is not None:
             check_conds += f' AND "{TENANT_COLUMN}" = ?'
             check_args.append(tenant_id)
-        probe = f'SELECT "{unclaimed_col}" AS v FROM "{table}" WHERE {check_conds}'
+        probe = (f"SELECT {quote_ident(unclaimed_col)} AS v "
+                 f"FROM {quote_ident(table)} WHERE {check_conds}")
         rows = self.query(probe, check_args, allow_unscoped=True,
                           reason="claim verification read")
         return bool(rows) and rows[0]["v"] == set_values[unclaimed_col]

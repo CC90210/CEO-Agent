@@ -48,7 +48,11 @@ _SCRIPTS = Path(__file__).resolve().parent.parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from lib.db_turso import TursoDB, resolve_project_target  # noqa: E402
+from lib.db_turso import (  # noqa: E402
+    TursoDB,
+    quote_ident,
+    resolve_project_target,
+)
 from lib.r2_storage import storage_surface as r2_storage_surface  # noqa: E402
 from lib.structured_log import get_logger  # noqa: E402
 
@@ -145,6 +149,10 @@ class CompatQuery:
 
     def __init__(self, db: TursoDB, table: str):
         self._db = db
+        # Validate once here so every downstream f-string that interpolates
+        # `self._table` (SELECT/INSERT/UPDATE/DELETE/count) is safe by
+        # construction rather than each needing its own guard.
+        self._ident(table)
         self._table = table
         self._mode = "select"
         self._cols = "*"
@@ -243,10 +251,40 @@ class CompatQuery:
         return self
 
     # -- filters
+    @staticmethod
+    def _ident(name: str) -> str:
+        """Validate a SQL identifier, then quote it.
+
+        Values in this builder are always bound (`?`); identifiers cannot be, so
+        table and column names reach the statement by interpolation. Before
+        2026-08-15 that interpolation was unguarded — `_q` returned `f'"{col}"'`
+        with no validation and no escaping, so a name carrying a double quote
+        closed the quoted identifier and the rest of the string was parsed as SQL.
+        The TypeScript twin of this builder already regex-guarded both; the Python
+        side did not, and this file sits on every DB call in the harness.
+
+        An allowlist, not a denylist: anything that is not a plain identifier is
+        refused rather than escaped-and-hoped. Call sites pass literals from our
+        own code, so a rejection here means a bug in the caller, not a legitimate
+        name we failed to anticipate — and it fails loudly instead of composing
+        attacker-influenced SQL. Point 6 of the 20-Point Vibe-Security Matrix.
+        """
+        # Delegates to lib.db_turso.quote_ident — ONE guard for the whole data
+        # path. Codex's audit of the first fix showed why this must not be a
+        # local copy: a guard that lives in the shim leaves every direct
+        # get_db().insert(...) caller unprotected, and the shim is only one of them.
+        return quote_ident(name)
+
     def _q(self, col: str) -> str:
         if "->" in col:
             segs = col.replace("->>", "->").split("->")
             root, path = segs[0], "$." + ".".join(segs[1:])
+            # `root` is an identifier; `path` lands inside a single-quoted SQL
+            # string literal, so it needs literal-escaping (doubling) rather than
+            # identifier validation — a segment containing an apostrophe would
+            # otherwise terminate that literal.
+            root = self._ident(root)[1:-1]
+            path = path.replace("'", "''")
             # json_valid guard, not a bare json_extract. SQLite raises "malformed
             # JSON" and aborts the WHOLE statement if ANY scanned row holds
             # non-JSON text in that column -- one bad row makes the query return
@@ -260,7 +298,7 @@ class CompatQuery:
             # queue draining, with no error anywhere.
             return (f'CASE WHEN json_valid("{root}") '
                     f"THEN json_extract(\"{root}\", '{path}') END")
-        return f'"{col}"'
+        return self._ident(col)
 
     def _op(self, col: str, op: str, value: Any):
         if op in OPS:
@@ -390,8 +428,7 @@ class CompatQuery:
                 if getattr(self, "_head", False):
                     return SimpleNamespace(data=None, count=count)
             cols = self._cols if self._cols == "*" else ", ".join(
-                f'"{c.strip()}"' if "->" not in c else self._q(c.strip())
-                for c in self._cols.split(","))
+                self._q(c.strip()) for c in self._cols.split(","))
             sql = f'SELECT {cols} FROM "{self._table}"{where}'
             if self._order:
                 sql += " ORDER BY " + ", ".join(self._order)
@@ -416,7 +453,7 @@ class CompatQuery:
             if not rows:
                 return SimpleNamespace(data=[], count=None)
             cols = sorted({k for r in rows for k in r})
-            col_sql = ", ".join(f'"{c}"' for c in cols)
+            col_sql = ", ".join(self._ident(c) for c in cols)
             one = "(" + ", ".join("?" for _ in cols) + ")"
             conflict = ""
             if self._mode == "upsert":
@@ -431,11 +468,12 @@ class CompatQuery:
                     # — which a bare column list does not match, so the whole
                     expr = self._resolve_conflict_target(tcols)
                     target = (f"({expr})" if expr
-                              else "(" + ", ".join(f'"{c}"' for c in tcols) + ")")
+                              else "(" + ", ".join(self._ident(c) for c in tcols) + ")")
                 elif "id" in cols:
                     tcols = ["id"]
                     target = '("id")'
-                setters = ", ".join(f'"{c}" = excluded."{c}"' for c in cols if c not in tcols)
+                setters = ", ".join(f"{self._ident(c)} = excluded.{self._ident(c)}"
+                                    for c in cols if c not in tcols)
                 conflict = (f" ON CONFLICT {target} DO UPDATE SET {setters}"
                             if setters else f" ON CONFLICT {target} DO NOTHING")
             sql = (f'INSERT INTO "{self._table}" ({col_sql}) VALUES '
@@ -451,7 +489,7 @@ class CompatQuery:
             if not where:
                 raise CompatError("update without filters refused")
             values = self._payload[0]
-            sets = ", ".join(f'"{c}" = ?' for c in values)
+            sets = ", ".join(f"{self._ident(c)} = ?" for c in values)
             sql = f'UPDATE "{self._table}" SET {sets}{where} RETURNING *'
             out = [_row_out(r) for r in self._db.query(
                 sql, [_to_sql(v) for v in values.values()] + args,
