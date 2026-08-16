@@ -483,6 +483,58 @@ def _sanitize_scanner_source(path: str, text: str) -> str:
     return sanitized
 
 
+# --- git remote credentials (added 2026-08-16) --------------------------------
+# A remote of the form https://<token>@host/owner/repo stores a live credential
+# in plaintext in .git/config. Nothing else in this scanner can see it: the file
+# is never committed, so --history misses it; it is outside the tree walk; and
+# "config" is not a suspicious filename. It leaks to anyone with filesystem
+# access, any backup, any screen-share of `git remote -v`, and any script that
+# echoes the remote — which is exactly how it surfaced.
+_REMOTE_CRED_RE = re.compile(r"^(?P<scheme>https?://)(?P<cred>[^/@]+)@(?P<rest>.+)$")
+
+# Classify without ever emitting the value.
+_CRED_KINDS = (
+    ("ghp_", "GitHub classic PAT"),
+    ("github_pat_", "GitHub fine-grained PAT"),
+    ("gho_", "GitHub OAuth token"),
+    ("ghs_", "GitHub server token"),
+    ("glpat-", "GitLab PAT"),
+    ("xoxb-", "Slack bot token"),
+)
+
+
+def scan_remotes(repo_root: Path) -> dict:
+    """Report remotes whose URL embeds a credential. Never returns the value."""
+    findings: list[dict] = []
+    rc, out = _git_cmd(["remote"], repo_root)
+    if rc != 0:
+        return {"mode": "remotes", "repo": str(repo_root),
+                "remotes_scanned": 0, "findings": [], "error": out.strip()}
+    names = [n for n in out.split() if n]
+    for name in names:
+        rc, url = _git_cmd(["remote", "get-url", name], repo_root)
+        if rc != 0:
+            continue
+        m = _REMOTE_CRED_RE.match(url.strip())
+        if not m:
+            continue
+        cred = m.group("cred")
+        kind = next((label for prefix, label in _CRED_KINDS
+                     if cred.startswith(prefix)), None)
+        if kind is None:
+            # user:password, or a token shape we do not recognise. Still a
+            # credential in plaintext — report it, still without the value.
+            kind = ("username:password" if ":" in cred else "unrecognised token")
+        findings.append({
+            "path": f".git/config [remote \"{name}\"]",
+            "rule": f"Credential embedded in remote URL ({kind})",
+            # The clean URL is safe to print and is the remediation.
+            "match": f"{m.group('scheme')}{m.group('rest')}",
+        })
+    return {"mode": "remotes", "repo": str(repo_root),
+            "remotes_scanned": len(names), "findings": findings}
+
+
 def scan_tree(repo_root: Path) -> dict:
     findings: list[dict] = []
     files_scanned = 0
@@ -840,6 +892,14 @@ def main() -> int:
         return 2
 
     result = scan_history(repo_root) if args.history else scan_tree(repo_root)
+
+    # Remotes are checked on every run, in both modes. They are cheap (one git
+    # call per remote) and they are the one credential location neither the tree
+    # walk nor the history walk can reach.
+    remotes = scan_remotes(repo_root)
+    if remotes.get("findings"):
+        result.setdefault("findings", []).extend(remotes["findings"])
+    result["remotes_scanned"] = remotes.get("remotes_scanned", 0)
     if args.json:
         print(json.dumps(result, indent=2))
         if result.get("error"):

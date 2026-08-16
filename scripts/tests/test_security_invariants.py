@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -110,6 +111,76 @@ def test_point_1_no_plugin_data_json_is_tracked():
     tracked = [t for t in _tracked()
                if t.endswith("data.json") and ".obsidian" in t]
     assert not tracked, f"obsidian plugin data.json tracked: {tracked}"
+
+
+def test_point_1_no_remote_url_embeds_a_credential():
+    """`.git/config` is a credential location the file scanners cannot reach.
+
+    2026-08-16: Nostalgic-Requests' origin was
+    https://<classic-PAT>@github.com/... — a live GitHub token in plaintext.
+    Every existing point-1 check missed it, three ways at once: the file is
+    never committed so the history walk cannot see it, it is outside the working
+    tree walk, and "config" is not a suspicious filename. It surfaced only
+    because a script echoed the remote.
+
+    Point 1 said "secrets committed to git". The token was never committed and
+    was exposed anyway — which is why the row now names the storage location
+    rather than the act of committing.
+    """
+    import subprocess
+    out = subprocess.run(["git", "-C", str(REPO), "remote"],
+                         capture_output=True, text=True,
+                         encoding="utf-8", errors="ignore").stdout
+    offenders = []
+    for name in out.split():
+        url = subprocess.run(["git", "-C", str(REPO), "remote", "get-url", name],
+                             capture_output=True, text=True,
+                             encoding="utf-8", errors="ignore").stdout.strip()
+        # scheme://<something>@host  — the <something> is a credential.
+        if re.match(r"^https?://[^/@]+@", url):
+            offenders.append(name)   # never the url; it contains the secret
+    assert not offenders, (
+        f"remote(s) {offenders} embed a credential in .git/config. "
+        "Fix: git remote set-url <name> <url-without-credentials>, then ROTATE "
+        "the exposed token — stripping it locally does not un-expose it.")
+
+
+def test_point_1_scanner_detects_a_planted_remote_credential():
+    """The guard must fire, and must never echo the value it found.
+
+    A scanner that reports the secret in order to report the secret has moved
+    the leak rather than closed it.
+    """
+    import json
+    import subprocess
+    import tempfile
+
+    scanner = REPO / "scripts" / "scan_secrets.py"
+    if not scanner.exists():
+        pytest.skip("scan_secrets.py not present")
+
+    with tempfile.TemporaryDirectory() as td:
+        probe = Path(td) / "probe"
+        probe.mkdir()
+        subprocess.run(["git", "init", "-q", str(probe)], capture_output=True)
+        planted = "ghp_" + "A" * 36          # PAT-shaped, not a real credential
+        subprocess.run(["git", "-C", str(probe), "remote", "add", "origin",
+                        f"https://{planted}@github.com/acme/widget.git"],
+                       capture_output=True)
+        subprocess.run(["git", "-C", str(probe), "remote", "add", "upstream",
+                        "https://github.com/acme/widget.git"], capture_output=True)
+
+        r = subprocess.run([sys.executable, str(scanner), "--json", "--path", str(probe)],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        payload = r.stdout
+        data = json.loads(payload)
+
+    hits = [f for f in data.get("findings", []) if "remote URL" in f.get("rule", "")]
+    assert len(hits) == 1, f"expected exactly one remote finding, got {len(hits)}"
+    assert "classic PAT" in hits[0]["rule"], hits[0]["rule"]
+    assert planted not in payload, "the scanner echoed the credential it found"
+    assert hits[0]["match"] == "https://github.com/acme/widget.git", (
+        "the finding should carry the CLEAN url as the remediation")
 
 
 # ── Point 9 — no hand-rolled password handling anywhere ─────────────────────
