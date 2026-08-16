@@ -250,6 +250,30 @@ ask permission between them unless a step's own gate says to.
 say so explicitly in the report ("no schema change", "no remote CI on this repo") — silence
 reads as "done" and that is how a red check reaches `main`.
 
+**Step 6.5 — long-running processes hold the OLD code. Restart them, or nothing shipped.**
+A green suite, a clean push and a passing CI say the *file* changed. They say nothing about
+the *process*. Anything under PM2 — `bravo-scheduler`, `breeze-live-watch`, the Telegram
+bridges, `event-router` — loaded its Python at boot and keeps running it until restarted, so
+an edit to `scheduler.py` changes the operator's experience not at all. Scripts the scheduler
+*spawns* per run (`email_engine.py`, `marketing_publish_drain.py`) do pick up new code, because
+each run is a fresh interpreter — that asymmetry is exactly what makes this easy to miss: half
+the change goes live and half does not.
+
+```bash
+pm2 jlist            # is the process older than your edit?
+pm2 restart <name> --update-env
+```
+Then **prove it took**: a new field your change writes appearing in the process's own state
+file, a log line only the new code emits, or the behaviour itself. `pm2 status: online` proves
+the process is running, not that it is running *your* code — see
+[[memory/PATTERNS]] "verify the running daemon, not the repo".
+
+**Why this is step 6.5 and not a footnote:** 2026-08-15, four cron/monitor daemons were fixed,
+tested (19 tests, 6/6 mutations caught), committed and pushed with CI green — and two of the
+four were still paging CC with the exact alerts the change removed, because
+`bravo-scheduler` and `breeze-live-watch` had been up since the previous day. The work was
+correct, verified, and inert.
+
 **On big tasks** (≥3 commits, ≥5 files, or any user-facing change) step 7 also requires an
 independent audit: `python scripts/core/codex_review.py review --session "<slug>"`, presented
 verbatim alongside your own self-review. A self-review by the agent that wrote the code is
