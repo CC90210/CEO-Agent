@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-13T08:02:50.232213+00:00",
+  "generated_at": "2026-08-15T21:54:01.512030+00:00",
   "totals": {
     "skills": 161,
-    "scripts": 155,
+    "scripts": 159,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 407,
-    "edges_total": 168,
+    "nodes_total": 411,
+    "edges_total": 173,
     "drift_count": 0
   },
   "nodes": [
@@ -4105,7 +4105,7 @@
       "kind": "skill",
       "name": "security-protocol",
       "path": "skills/security-protocol/SKILL.md",
-      "description": "Secrets and authentication management. Ensures API keys, tokens, and credentials are NEVER exposed in plain text. Use when handling any credential, API key, or sensitive configuration.",
+      "description": "Application security protocol. Credential handling plus the 20-Point Vibe-Security Matrix \u2014 the mechanical audit for the twenty defects that recur in AI-generated code (RLS off, IDOR, unverified webhooks, client-side authz, injection, XSS, unvalidated uploads). Use when handling ",
       "tier": "core",
       "owner": "bravo",
       "risk": "low",
@@ -4119,7 +4119,25 @@
         "token",
         "password",
         "leak",
-        "gitguardian"
+        "gitguardian",
+        "security audit",
+        "vulnerability",
+        "vulnerabilities",
+        "audit codebase",
+        "harden",
+        "RLS",
+        "row level security",
+        "IDOR",
+        "XSS",
+        "CORS",
+        "SQL injection",
+        "webhook signature",
+        "rate limit",
+        "input validation",
+        "file upload",
+        "OWASP",
+        "pentest",
+        "vibe-code security"
       ],
       "tags": [
         "skill",
@@ -6178,6 +6196,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:ingest_training_link",
+      "kind": "script",
+      "name": "ingest_training_link",
+      "path": "scripts/ingest_training_link.py",
+      "description": "ingest_training_link \u2014 turn a dropped link into something Maven can learn from.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:install_python_switch",
       "kind": "script",
       "name": "install_python_switch",
@@ -6238,11 +6266,31 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:marketing_publish_drain",
+      "kind": "script",
+      "name": "marketing_publish_drain",
+      "path": "scripts/marketing_publish_drain.py",
+      "description": "marketing_publish_drain \u2014 turn queued publish intents into published posts.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:md_to_gdoc",
       "kind": "script",
       "name": "md_to_gdoc",
       "path": "scripts/md_to_gdoc.py",
       "description": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:migrate_carousels",
+      "kind": "script",
+      "name": "migrate_carousels",
+      "path": "scripts/migrate_carousels.py",
+      "description": "migrate_carousels \u2014 register the carousel slides that were never uploaded.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6964,6 +7012,16 @@
       "name": "supabase_cancellation_gate",
       "path": "scripts/supabase_cancellation_gate.py",
       "description": "Can Supabase be cancelled? One command, one answer, no judgement calls.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:sync_post_analytics",
+      "kind": "script",
+      "name": "sync_post_analytics",
+      "path": "scripts/sync_post_analytics.py",
+      "description": "sync_post_analytics \u2014 pull what the work actually did into post_analytics.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -8798,6 +8856,16 @@
     },
     {
       "from": "runtime:cron_engine",
+      "to": "script:ingest_training_link",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:marketing_publish_drain",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
       "to": "script:pulse_publish",
       "kind": "schedules"
     },
@@ -8810,6 +8878,11 @@
       "from": "runtime:cron_engine",
       "to": "script:schedule_helpers",
       "kind": "calls"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:sync_post_analytics",
+      "kind": "schedules"
     },
     {
       "from": "runtime:cron_engine",
@@ -8899,16 +8972,6 @@
     {
       "from": "script:build_maven_env",
       "to": "script:sibling_repos",
-      "kind": "calls"
-    },
-    {
-      "from": "script:ceo_dashboard",
-      "to": "script:client_health",
-      "kind": "calls"
-    },
-    {
-      "from": "script:ceo_dashboard",
-      "to": "script:lead_engine",
       "kind": "calls"
     },
     {
@@ -9074,6 +9137,26 @@
     {
       "from": "script:inbound_classifier",
       "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ingest_training_link",
+      "to": "script:research_fetch",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ingest_training_link",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:marketing_publish_drain",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:migrate_carousels",
+      "to": "script:supabase_tool",
       "kind": "calls"
     },
     {
@@ -9254,6 +9337,11 @@
     {
       "from": "script:supabase_tool",
       "to": "script:integration_health",
+      "kind": "calls"
+    },
+    {
+      "from": "script:sync_post_analytics",
+      "to": "script:supabase_tool",
       "kind": "calls"
     },
     {
@@ -9554,11 +9642,6 @@
     {
       "from": "skill:score-b2b-lead-quality",
       "to": "script:skill_metrics",
-      "kind": "uses"
-    },
-    {
-      "from": "skill:security-protocol",
-      "to": "script:scan_secrets",
       "kind": "uses"
     },
     {

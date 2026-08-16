@@ -625,8 +625,8 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **161 active skills**. Eac
 - **Path:** `skills/score-b2b-lead-quality/SKILL.md` · tier `specialized` · risk `low`
 
 ## [[skills/security-protocol/SKILL|security-protocol]]
-- **Use when:** Secrets and authentication management. Ensures API keys, tokens, and credentials are NEVER exposed in plain text. Use when handling any credential, API key, or sensitive configuration.
-- **Triggers:** secret, credential, API key, exposed, rotation, security, token, password, leak, gitguardian
+- **Use when:** Application security protocol. Credential handling plus the 20-Point Vibe-Security Matrix — the mechanical audit for the twenty defects that recur in AI-generated code (RLS off, IDOR, unverified webhooks, client-side authz, injection, XSS, unvalidated uploads). Use when handling
+- **Triggers:** secret, credential, API key, exposed, rotation, security, token, password, leak, gitguardian, security audit, vulnerability, vulnerabilities, audit codebase, harden, RLS, row level security, IDOR, XSS, CORS, SQL injection, webhook signature, rate limit, input validation, file upload, OWASP, pentest, vibe-code security
 - **Path:** `skills/security-protocol/SKILL.md` · tier `core` · risk `low`
 
 ## [[skills/self-evolution/SKILL|self-evolution]]
