@@ -539,6 +539,31 @@ SEED_JOBS: list[dict] = [
         # Every minute because a click should feel like a click. The drain claims
         # each intent with a compare-and-set, so an overlapping run cannot publish
         # the same reel twice — there is no unsending.
+        # Added 2026-08-16. CC, looking at a Library that showed 41 assets "in
+        # review" while five of them were live on Instagram: "we already have
+        # posted the unpaved mile... some of it's not taken account for
+        # correctly... it should automatically update itself."
+        #
+        # marketing_asset and post_analytics are filled by two different roads —
+        # produced creative arrives via library_sync, live numbers arrive from
+        # Zernio — and the id-based join between them only fires for posts Zernio
+        # itself created. Everything Maven produced had no Zernio id, so the
+        # Library could not tell posted from unposted and defaulted to "needs a
+        # verdict" for all of it. The one-off backfill linked 14 assets across 54
+        # analytics rows; this keeps it true without anyone remembering to run it.
+        #
+        # Hourly, because post_analytics itself is polled rather than pushed —
+        # linking more often than the numbers arrive buys nothing. Idempotent and
+        # a no-op once everything is linked, so a missed run costs nothing but a
+        # later refresh.
+        "name": "Library Post Linker",
+        "description": "Hourly — link founders Library assets to the posts that actually went out (hook-to-caption match), stamping published_at and the real platform list. Precision-first: an ambiguous or multi-day match is reported, never guessed.",
+        "schedule": "17 * * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/link_library_to_posts.py", "args": ["--execute"], "timeout": 300},
+        "is_active": True,
+    },
+    {
         "name": "Marketing Publish Drain",
         "description": "Every minute — publish assets the founders Library queued in marketing_publish_intent, through CMO-Agent's send_gateway (killswitch, daily caps, audit trail). No-ops when the queue is empty.",
         "schedule": "* * * * *",

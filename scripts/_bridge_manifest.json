@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-16T21:20:16.049731+00:00",
-  "script_count": 147,
-  "entry_count": 320,
+  "generated_at_iso": "2026-08-16T23:59:42.011577+00:00",
+  "script_count": 148,
+  "entry_count": 321,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1206,6 +1206,14 @@
       "subcmd": "funnel",
       "mutating": true,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: funnel"
+    },
+    {
+      "key": "link_library_to_posts",
+      "path": "scripts/link_library_to_posts.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "link_library_to_posts \u2014 join the Library to the posts that actually went out."
     },
     {
       "key": "machine_parity",
