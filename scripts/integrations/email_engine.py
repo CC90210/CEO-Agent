@@ -24,6 +24,8 @@ import imaplib
 import json
 import os
 import re
+import socket
+import time
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -56,6 +58,64 @@ from name_utils import sanitize_template_vars as _sanitize_template_vars
 
 
 # -- Credentials -------------------------------------------
+
+
+# --- transient-network retry (2026-08-15) ------------------------------------
+# The inbox sweep's two failure modes in tmp/cron_failures/ are both transport,
+# not logic: `ConnectionResetError [WinError 10054]` on the Gmail TLS handshake,
+# and `ValueError: Hrana: ... tcp connect error ... (os error 10060)` when the
+# Turso connect in get_supabase() cannot reach the host. Each one exits 1, which
+# pages CC. Retrying in-process turns a 2-second network blip into a no-op.
+CONNECT_ATTEMPTS = 3
+CONNECT_RETRY_SLEEP = 2
+
+# WHY NOT lib/retry.py: that module already exists, is used by 8 integration
+# tools, and is the right home for this — but its RetryConfig selects retries by
+# EXCEPTION TYPE (`retryable_exceptions`) and exposes only a decorator. Neither
+# fits here. The libSQL driver reports transport failures as a plain ValueError
+# whose text starts "Hrana:", so a type-based policy would have to list
+# ValueError — and that swallows lib/db_turso.quote_ident's guard, which raises
+# ValueError for an unsafe SQL identifier. Retrying THAT would burn three
+# attempts and then surface a security defect as a network complaint.
+#
+# So this matches on transport MARKERS, not on type. The clean consolidation is
+# an optional predicate on RetryConfig (`retryable_predicate`) with all three
+# call sites — here, breeze_live_watch.check_health, and the integration tools —
+# routed through it. That edits shared substrate and needs CC's go-ahead first.
+# Do NOT "simplify" this by adding ValueError to a type-based retry list.
+_TRANSIENT_MARKERS = (
+    "hrana", "tcp connect", "connection reset", "forcibly closed", "timed out",
+    "timeout", "temporarily unavailable", "os error 10054", "os error 10060",
+    "connection aborted", "broken pipe", "eof occurred",
+)
+
+
+def _is_transient(exc: BaseException) -> bool:
+    if isinstance(exc, (ConnectionResetError, ConnectionAbortedError,
+                        ConnectionRefusedError, TimeoutError, socket.timeout)):
+        return True
+    if isinstance(exc, OSError):
+        return True
+    return any(m in str(exc).lower() for m in _TRANSIENT_MARKERS)
+
+
+def _retry_transient(label: str, fn, attempts: int = CONNECT_ATTEMPTS,
+                     sleep_s: int = CONNECT_RETRY_SLEEP):
+    """Call fn(), retrying only faults that look like the network dropped.
+
+    A non-transient exception is re-raised on the FIRST attempt — this must not
+    become a blanket except that turns a real bug into a slow one.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - re-raised unless transient
+            if attempt == attempts or not _is_transient(exc):
+                raise
+            print(f"[email_engine] {label}: transient "
+                  f"{type(exc).__name__}: {exc} — retry {attempt}/{attempts - 1}",
+                  file=sys.stderr)
+            time.sleep(sleep_s)
 
 
 def load_env():
@@ -1338,12 +1398,16 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             print(msg, file=sys.stderr)
         sys.exit(1)
 
-    db = get_supabase(env_vars)
+    # Both of these are network connects and both have failed transiently in
+    # production (tmp/cron_failures/): the Turso connect with os error 10060,
+    # the Gmail TLS handshake with WinError 10054.
+    db = _retry_transient("turso connect", lambda: get_supabase(env_vars))
     imap = None
     found_emails = []
 
     try:
-        imap = imaplib.IMAP4_SSL("imap.gmail.com", 993)
+        imap = _retry_transient(
+            "imap connect", lambda: imaplib.IMAP4_SSL("imap.gmail.com", 993))
         imap.socket().settimeout(30)
         imap.login(address, password)
         imap.select("INBOX")

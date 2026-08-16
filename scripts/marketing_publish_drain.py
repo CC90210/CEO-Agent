@@ -473,7 +473,17 @@ def main() -> int:
     ap.add_argument("--once", action="store_true", help="drain at most one intent")
     args = ap.parse_args()
 
-    db = _db()
+    # Exit 1 is reserved for "the drain could not do its job". A dead Turso
+    # connection is exactly that, and it is what actually paged CC on
+    # 2026-08-15 (Hrana: tcp connect error, os error 10060) — as a raw
+    # traceback. Catch it, keep the traceback in stderr for the failure dump
+    # (Defense 4), and return a clean 1 instead of an unhandled crash.
+    try:
+        db = _db()
+    except Exception as exc:  # noqa: BLE001 - re-raised as a clean exit code
+        traceback.print_exc()
+        print(f"ERROR: database unavailable: {exc}", file=sys.stderr)
+        return 1
 
     # Before anything: release intents a dead drain is still holding, or they
     # block their asset forever.
@@ -502,12 +512,23 @@ def main() -> int:
     print(f"published: {done}/{len(queued)}"
           + (f"  ·  failed: {failed}" if failed else ""))
 
-    # Non-zero when ANY intent failed. This returned 0 unconditionally, so a run
-    # where every publish was refused reported healthy — the cron badge stayed
-    # green and the watchdog never paged, which is the same defect the analytics
-    # poller had (`return 1 if failed and not wrote else 0`). A publish that did
-    # not happen is exactly the thing CC needs told about.
-    return 1 if failed else 0
+    # Exit code semantics (2026-08-15, set by CC):
+    #   0 — the drain RAN and recorded what happened, per-intent failures
+    #       included. finish() writes state + error to marketing_publish_intent,
+    #       so the row is the signal and the dashboard is where it is read.
+    #   1 — the drain could NOT run: DB unreachable (above) or an unhandled
+    #       exception (which exits non-zero on its own).
+    #
+    # This deliberately replaces `return 1 if failed else 0`. Recording why that
+    # line existed, because deleting the reason is how it comes back: an earlier
+    # version returned 0 unconditionally, so a run where every publish was
+    # refused reported healthy and nothing paged. The signal is not being
+    # dropped — it moves from the exit code to the persisted row plus the
+    # summary line above. The tradeoff CC accepted: a cron that fails to publish
+    # every single time now shows green at the scheduler and red only in the
+    # data. If per-intent failures ever stop being written by finish(), this
+    # exit code will no longer catch that, and nothing else will either.
+    return 0
 
 
 if __name__ == "__main__":

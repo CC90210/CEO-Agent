@@ -27,6 +27,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -54,6 +55,27 @@ STATE_FILE = ROOT / "state" / "breeze_live_watch.json"
 BASELINE_FALSE = {"resend_configured", "vps_bridge_health_ok"}
 REALERT_SECONDS = 3600
 
+# --- alert damping (2026-08-15) ---------------------------------------------
+# A problem must persist across this many consecutive cycles before it pages CC.
+# At the default 300s interval that is a 10-minute soak, which absorbs a Vercel
+# cold start or a transient TLS reset without waking anyone, while a genuine
+# outage still pages within ten minutes.
+ALERT_AFTER_CONSECUTIVE = 2
+# In-process retry for the health fetch itself.
+NETWORK_ATTEMPTS = 3
+NETWORK_RETRY_SLEEP = 2
+# Faults worth retrying: the network dropped, not the server answered badly.
+# ConnectionResetError/TimeoutError are OSError subclasses; URLError usually
+# wraps one. socket.timeout is an alias of TimeoutError on 3.10+.
+#
+# Type-based selection is sufficient HERE (urlopen raises real socket/URL
+# errors), unlike the Turso path in integrations/email_engine.py where the
+# driver flattens transport faults into a plain ValueError. Both are local
+# rather than lib/retry.py because that module is decorator-only and selects on
+# exception type; the consolidation into a shared predicate-based helper is
+# written up in email_engine.py next to _is_transient.
+TRANSIENT_NET_ERRORS = (urllib.error.URLError, OSError)
+
 
 def _load_state() -> dict:
     try:
@@ -68,14 +90,32 @@ def _save_state(s: dict) -> None:
 
 
 def check_health() -> list[str]:
-    """Return a list of problem strings (empty = healthy)."""
+    """Return a list of problem strings (empty = healthy).
+
+    Retries transient network faults in-process before reporting a problem. A
+    single 15s timeout or a TCP reset is a property of the network between here
+    and Vercel, not of the portal — and on 2026-08-15 exactly that produced a
+    "problem detected" page at 8:19 PM and a "recovered" page five minutes later.
+    Only the fetch is retried; a bad status or unparseable body is a real answer
+    from the server and is returned immediately.
+    """
+    req = urllib.request.Request(HEALTH_URL, headers={"User-Agent": "bravo-live-watch"})
+    raw = status = None
+    for attempt in range(1, NETWORK_ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r:
+                raw, status = r.read(), r.status
+            break
+        except TRANSIENT_NET_ERRORS as e:
+            if attempt == NETWORK_ATTEMPTS:
+                return [f"health endpoint unreachable after {NETWORK_ATTEMPTS} attempts: {e}"]
+            time.sleep(NETWORK_RETRY_SLEEP)
+        except Exception as e:  # noqa: BLE001 - not a transient fault; do not retry
+            return [f"health endpoint unreachable: {e}"]
     try:
-        req = urllib.request.Request(HEALTH_URL, headers={"User-Agent": "bravo-live-watch"})
-        with urllib.request.urlopen(req, timeout=15) as r:
-            body = json.loads(r.read().decode("utf-8"))
-            status = r.status
+        body = json.loads(raw.decode("utf-8"))
     except Exception as e:  # noqa: BLE001
-        return [f"health endpoint unreachable: {e}"]
+        return [f"health endpoint returned unparseable body: {e}"]
     if status != 200:
         return [f"health endpoint HTTP {status}"]
     problems = []
@@ -163,23 +203,41 @@ def run_once(window_min: int) -> dict:
     now = time.time()
     changed = sorted(problems) != sorted(prev)
     stale = now - float(state.get("last_alert_ts") or 0) > REALERT_SECONDS
+    streak = int(state.get("consecutive_failures") or 0)
+    # Did we ACTUALLY page CC about the current episode? The old code inferred
+    # this from `prev` being non-empty, which is not the same thing: the problem
+    # alert was gated on `changed or stale` while recovery was not, so a blip
+    # that never paged still sent "recovered. All checks green again." That is
+    # the recovery spam in CC's 2026-08-15 Telegram log — a notification whose
+    # matching alert was never sent. Track the fact, don't infer it.
+    alerted = bool(state.get("alerted"))
 
-    if problems and (changed or stale):
-        notify(
-            "BREEZE LIVE WATCH — problem detected:\n- " + "\n- ".join(problems[:8])
-            + "\n\nPortal: https://breezeadvance.credit (merchant onboarding in progress)",
-            category="system", force=True,
-        )
-        state["last_alert_ts"] = now
-    elif not problems and prev:
-        notify("BREEZE LIVE WATCH — recovered. All checks green again.",
-               category="system", force=True)
-        state["last_alert_ts"] = now
+    if problems:
+        streak += 1
+        if streak >= ALERT_AFTER_CONSECUTIVE and (not alerted or changed or stale):
+            notify(
+                "BREEZE LIVE WATCH — problem detected:\n- " + "\n- ".join(problems[:8])
+                + f"\n\n(persisted {streak} consecutive checks)"
+                + "\n\nPortal: https://breezeadvance.credit (merchant onboarding in progress)",
+                category="system", force=True,
+            )
+            state["last_alert_ts"] = now
+            alerted = True
+    else:
+        if alerted:
+            notify("BREEZE LIVE WATCH — recovered. All checks green again.",
+                   category="system", force=True)
+            state["last_alert_ts"] = now
+        alerted = False
+        streak = 0
 
+    state["consecutive_failures"] = streak
+    state["alerted"] = alerted
     state["problems"] = problems
     state["last_run"] = datetime.now(timezone.utc).isoformat()
     _save_state(state)
-    return {"ok": not problems, "problems": problems}
+    return {"ok": not problems, "problems": problems,
+            "consecutive_failures": streak, "alerted": alerted}
 
 
 def main() -> int:

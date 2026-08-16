@@ -157,6 +157,33 @@ def get_client(env_vars: dict[str, str]):
 # time — for those the first failure is the only useful moment to alert.
 FAST_JOB_PERIOD = timedelta(minutes=15)
 
+# --- consecutive-failure thresholds before CC is paged (2026-08-15) ----------
+# A fast job retries within minutes, so one — and now two — bad ticks are noise
+# it heals on its own. CC's 2026-08-15 Telegram log is the evidence: Inbound
+# Email Sweep, Marketing Publish Drain and the Hourly Cron Health Check all
+# paged and then self-recovered inside eight minutes, and every one of the
+# underlying failures was a transport fault (WinError 10054 / os error 10060).
+# A slow job is the opposite — a daily brief that fails at 06:00 does not try
+# again for 24h, so its second failure is already a real signal.
+ESCALATE_AFTER_FAST = 3
+ESCALATE_AFTER_SLOW = 2
+
+
+def escalation_threshold(period) -> int:
+    """Consecutive failures before CC is paged — and, identically, before a
+    recovery ping is worth sending.
+
+    ONE function so the two can never drift. The first version of this change
+    used a separate RECOVERY_MIN_FAILURES constant, and Codex's audit caught what
+    that produced: a slow job escalated at 2 but recovered at max(2, 3) = 3, so
+    every slow-job alert stayed unresolved forever. That is the same unpaired-
+    notification defect this whole change exists to remove, just inverted —
+    alert with no recovery instead of recovery with no alert. Both call sites now
+    read the threshold from here.
+    """
+    is_fast = period is not None and period <= FAST_JOB_PERIOD
+    return ESCALATE_AFTER_FAST if is_fast else ESCALATE_AFTER_SLOW
+
 
 def parse_cron_schedule(schedule: str) -> Optional[timedelta]:
     """
@@ -1502,6 +1529,12 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         new_count = (job.get("run_count") or 0) + 1
         fail_count = (job.get("fail_count") or 0) if hasattr(job, "get") else 0
 
+        # Computed once: both the retry-delay cap below and the escalation
+        # threshold further down need to know whether this job self-heals.
+        job_period = parse_cron_schedule(job.get("schedule", "") or "")
+        job_is_fast = job_period is not None and job_period <= FAST_JOB_PERIOD
+        escalate_at = escalation_threshold(job_period)
+
         if result_is_error:
             fail_count += 1
             if fail_count < 5:
@@ -1511,8 +1544,8 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                 # stall pushed the 60-second funnel poll out to 5 minutes,
                 # stretching its cadence 5x at the exact moment it was already
                 # degraded. Cap the delay at the job's own period.
-                period = parse_cron_schedule(job.get("schedule", "") or "")
-                delay = min(timedelta(minutes=5), period) if period else timedelta(minutes=5)
+                delay = (min(timedelta(minutes=5), job_period) if job_period
+                         else timedelta(minutes=5))
                 retry_dt = datetime.now(timezone.utc) + delay
                 next_run = retry_dt.isoformat()
                 mins = delay.total_seconds() / 60
@@ -1534,8 +1567,9 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             # Fires at exactly 2 and at the give-up boundary, not on every tick;
             # notify.py's disk-persisted dedup then collapses repeats of the
             # same text to one per hour.
-            if fail_count == 2 or fail_count == 0:
-                stage = ("failing repeatedly" if fail_count == 2
+            if fail_count == escalate_at or fail_count == 0:
+                stage = (f"failing repeatedly ({fail_count} consecutive)"
+                         if fail_count == escalate_at
                          else "gave up after 5 attempts")
                 notify_error(
                     job_name,
@@ -1551,7 +1585,13 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             next_run = calculate_next_run(job.get("schedule", ""))
             # Recovery ping: if this job had been failing, say so. A silent
             # recovery leaves CC unsure whether the earlier alert still stands.
-            if fail_count >= 2:
+            # Was `>= 2`, which paged "recovered after 2 failed run(s)" for
+            # episodes whose failure alert had never been sent — the recovery
+            # spam in CC's 2026-08-15 log. Gate recovery on EXACTLY the threshold
+            # that gated the alert: `escalate_at`, not a separate constant and
+            # not max() of the two. A recovery that can fire below the alert
+            # threshold is noise; one that fires above it strands an open alert.
+            if fail_count >= escalate_at:
                 notify(f"{job_name}: recovered after {fail_count} failed run(s).",
                        category="system", silent=True, force=True)
             fail_count = 0  # successful run resets the counter
@@ -1690,11 +1730,9 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             # will not retry for a day, so its first failure IS the signal.
             # The cutoff is "will it try again before CC could reasonably
             # act", not an arbitrary severity call.
-            period = parse_cron_schedule(job.get("schedule", "") or "")
-            self_healing = period is not None and period <= FAST_JOB_PERIOD
-            if self_healing:
+            if job_is_fast:
                 log(f"  (transient failure on fast job {job_name} — "
-                    f"escalation at 2 consecutive owns this alert)")
+                    f"escalation at {ESCALATE_AFTER_FAST} consecutive owns this alert)")
             else:
                 # The failure path was the LAST place still shipping raw
                 # `[:200]` JSON. It is also the path where detail matters most —
