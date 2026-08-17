@@ -107,30 +107,16 @@ def norm(s: str | None) -> str:
     return s.strip()
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--execute", action="store_true", help="apply (default is a dry run)")
-    ap.add_argument("--json", action="store_true")
-    ap.add_argument("--tenant", default=None, help="restrict to one tenant_id")
-    args = ap.parse_args()
+def plan_links(assets: list[dict], posts: list[dict]) -> dict:
+    """Work out which assets shipped, and where. PURE — no database, no clock.
 
-    db = _db()
-
-    aq = db.table("marketing_asset").select(
-        "id,tenant_id,title,hook,published_at,platforms,status,brand_slug"
-    )
-    if args.tenant:
-        aq = aq.eq("tenant_id", args.tenant)
-    assets = aq.execute().data or []
-
-    pq = db.table("post_analytics").select(
-        "id,tenant_id,platform,platform_post_id,content_excerpt,published_at,asset_id"
-    )
-    if args.tenant:
-        pq = pq.eq("tenant_id", args.tenant)
-    posts = pq.execute().data or []
-
-    # ── match ────────────────────────────────────────────────────────────────
+    Split out from main() so the rules that decide what gets WRITTEN TO
+    PRODUCTION can be exercised without one: the tenant boundary, the hook-length
+    floor, the ambiguity refusal and the re-post rule are all decisions, and a
+    decision nothing tests is a decision nobody has checked. This script runs
+    hourly against live data; that is precisely the code that should not be
+    reachable only through a network call.
+    """
     usable = [a for a in assets if len(norm(a.get("hook"))) >= MIN_HOOK]
     skipped_short = len(assets) - len(usable)
 
@@ -142,6 +128,11 @@ def main() -> int:
         if not cap:
             continue
         for a in usable:
+            # THE TENANT BOUNDARY. This reads every tenant in one pass so a single
+            # run covers the fleet, which makes this line the only thing standing
+            # between our asset and someone else's view counts. Linking across it
+            # would be invisible once written and would look like working
+            # accounting. Pinned by test_link_library_to_posts.
             if a["tenant_id"] != p["tenant_id"]:
                 continue
             h = norm(a.get("hook"))
@@ -172,7 +163,7 @@ def main() -> int:
         by_asset[aa[0]["id"]].append(post_by_id[pid])
 
     asset_by_id = {a["id"]: a for a in assets}
-    plan, conflicts, reposts = [], [], []
+    plan, reposts = [], []
     for aid, ps in by_asset.items():
         stamps = sorted([p["published_at"] for p in ps if p.get("published_at")])
         if not stamps:
@@ -214,12 +205,11 @@ def main() -> int:
 
     plan.sort(key=lambda r: r["published_at"])
 
-    result = {
+    return {
         "assets": len(assets),
         "posts": len(posts),
         "skipped_short_hook": skipped_short,
         "ambiguous_posts": len(ambiguous_posts),
-        "conflicts": conflicts,
         "reposts": reposts,
         "linkable_assets": len(plan),
         "linked_posts": sum(len(r["post_ids"]) for r in plan),
@@ -227,41 +217,73 @@ def main() -> int:
         "plan": plan,
     }
 
+
+def _apply(db, plan: list[dict]) -> None:
+    """Write the links. Separated from planning so the decisions above can be
+    tested without a database and this can stay dumb enough to read at a glance."""
+    for row in plan:
+        db.table("marketing_asset").update({
+            "published_at": row["published_at"],
+            "platforms": json.dumps(row["platforms"]),
+        }).eq("id", row["asset_id"]).execute()
+        for pid in row["post_ids"]:
+            db.table("post_analytics").update(
+                {"asset_id": row["asset_id"]}
+            ).eq("id", pid).execute()
+
+
+def _print(result: dict, executed: bool) -> None:
+    mode = "APPLIED" if executed else "DRY RUN — nothing written"
+    print(f"link_library_to_posts [{mode}]")
+    print(f"  assets {result['assets']} · analytics rows {result['posts']}")
+    print(f"  hook too short to match safely : {result['skipped_short_hook']}")
+    print(f"  captions matching >1 asset     : {result['ambiguous_posts']} (skipped)")
+    print(f"  RE-POSTED (same creative twice+): {len(result['reposts'])}")
+    print(f"  LINKABLE ASSETS                : {result['linkable_assets']}  "
+          f"({result['linked_posts']} analytics rows)")
+    for row in result["plan"]:
+        mark = "=" if row["already_linked"] else "+"
+        print(f"   {mark} {row['published_at'][:10]}  {row['title'][:52]:<52} "
+              f"{','.join(row['platforms'])}")
+    for r in result["reposts"]:
+        print(f"   ~ {r['title'][:52]:<52} PUBLISHED {len(r['days'])}x: {', '.join(r['days'])}")
+    if not executed:
+        print("\n  re-run with --execute to write these links")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--execute", action="store_true", help="apply (default is a dry run)")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--tenant", default=None, help="restrict to one tenant_id")
+    args = ap.parse_args()
+
+    db = _db()
+
+    aq = db.table("marketing_asset").select(
+        "id,tenant_id,title,hook,published_at,platforms,status,brand_slug"
+    )
+    if args.tenant:
+        aq = aq.eq("tenant_id", args.tenant)
+    assets = aq.execute().data or []
+
+    pq = db.table("post_analytics").select(
+        "id,tenant_id,platform,platform_post_id,content_excerpt,published_at,asset_id"
+    )
+    if args.tenant:
+        pq = pq.eq("tenant_id", args.tenant)
+    posts = pq.execute().data or []
+
+    result = plan_links(assets, posts)
+
     if args.execute:
-        for row in plan:
-            db.table("marketing_asset").update({
-                "published_at": row["published_at"],
-                "platforms": json.dumps(row["platforms"]),
-            }).eq("id", row["asset_id"]).execute()
-            for pid in row["post_ids"]:
-                db.table("post_analytics").update(
-                    {"asset_id": row["asset_id"]}
-                ).eq("id", pid).execute()
+        _apply(db, result["plan"])
         result["executed"] = True
 
     if args.json:
         print(json.dumps(result, indent=2))
-        return 0
-
-    mode = "APPLIED" if args.execute else "DRY RUN — nothing written"
-    print(f"link_library_to_posts [{mode}]")
-    print(f"  assets {result['assets']} · analytics rows {result['posts']}")
-    print(f"  hook too short to match safely : {skipped_short}")
-    print(f"  captions matching >1 asset     : {len(ambiguous_posts)} (skipped)")
-    print(f"  conflicts needing a human      : {len(conflicts)}")
-    print(f"  RE-POSTED (same creative twice+): {len(reposts)}")
-    print(f"  LINKABLE ASSETS                : {len(plan)}  "
-          f"({result['linked_posts']} analytics rows)")
-    for row in plan:
-        mark = "=" if row["already_linked"] else "+"
-        print(f"   {mark} {row['published_at'][:10]}  {row['title'][:52]:<52} "
-              f"{','.join(row['platforms'])}")
-    for c in conflicts:
-        print(f"   ! {c['title'][:52]:<52} {c['reason']} {c['dates']}")
-    for r in reposts:
-        print(f"   ~ {r['title'][:52]:<52} PUBLISHED {len(r['days'])}x: {', '.join(r['days'])}")
-    if not args.execute:
-        print("\n  re-run with --execute to write these links")
+    else:
+        _print(result, result["executed"])
     return 0
 
 
