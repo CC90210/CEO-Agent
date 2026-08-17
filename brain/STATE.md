@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Self-review caught me claiming the carousel rendered on DB evidence alone. Added --verify to merge_assets_to_carousel: signs every slide through the app's own storage surface (Library signs all-or-nothing, so 1 bad object collapses a 6-slide deck to a cover while SQL still looks perfect). Result 6/6 signable, deck genuinely renders. --undo dry-run confirmed 5 restores. CC Quote Cards deck live on the Personal tab.
+- **Result:** CC's refinement plan: LEAK FIXED + LIVE (PR #212 merged, prod Ready) — Breeze/SunBiz underwriting queue was rendering on OASIS /automations via 'isOperator ||'; API deliberately resolves operators to the SunBiz tenant so it served REAL client rows. Gated on tenantSlug alone + tests/client-surface-isolation in CI. ATLAS CRON FIXED (CFO-Agent 11a0439): two faults — hand-rolled env parser, then a post-Turso-cutover sentinel URL; now exit 0. PR #213 open: The Day + templates + Known Facts + Just-for-me removed, Credentials folded, bridge-offline linked, CLI runtime key de-duplicated into lib/cli-runtime with a CI guard.
 
 *Last updated: 2026-08-17*
 
