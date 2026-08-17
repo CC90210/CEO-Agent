@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** PR #207 merged: Library now knows what shipped. link_library_to_posts.py joins marketing_asset<->post_analytics on hook/caption; 16 assets + 77 analytics rows linked; Library 41/1 -> 25 needs-review/17 posted/1 archived. Hourly cron seeded. Tabs renamed OASIS AI/Personal/Music/Clients. authorName() shows Adon+CC. Found 2 REAL duplicate publishes (Tick Tax 08-04+08-05, Receipt Week 08-01/02/03). Adon notified via OASIS group (mirrored:true); Maven briefed on stamping author_email=adon.
+- **Result:** Self-review 9: removed a dead conflicts path in link_library_to_posts (could never populate after the re-post rule changed) and gave the hourly production-writing job its first test — plan_links() split out pure, 20 assertions pinning the tenant boundary, hook floor, ambiguity refusal, re-post rule, idempotence. Tenant guard verified by deletion.
 
 *Last updated: 2026-08-17*
 
