@@ -188,6 +188,31 @@ def rows_from(payload: dict, asset_by_external: dict[str, str]) -> list[dict]:
                 "content_excerpt": excerpt,
                 "published_at": published,
                 "last_synced_at": _now(),
+                # REAL FIGURES ARRIVED, so stamp it. `measured_at` NULL is the
+                # signal for a row that exists because the post was DISPATCHED
+                # and nobody has asked the platform yet — Maven writes those at
+                # publish time so the linker can join on a real id instead of
+                # reconstructing it from caption text.
+                #
+                # Every metric column is `not null default 0`, so an unmeasured
+                # row carries a full set of honest-looking zeros, and 18 live
+                # rows genuinely have views = 0. Without this stamp the two are
+                # the same row and the Performance tab counts a just-published
+                # post as a failed one. See database/145 and
+                # lib/founders-performance-core.ts isMeasured().
+                #
+                # NOT last_synced_at: that is not-null with a now() default, so
+                # it stamps itself on Maven's insert too and answers a different
+                # question — when did we last talk to the API, rather than have
+                # numbers ever come back.
+                #
+                # None when this response carried nothing, matching `_has_metrics`
+                # directly above. A thin poll must not be able to claim a row was
+                # measured, and on a NEW row it must leave the NULL that means
+                # "shipped, nobody has asked the platform yet". The write path
+                # additionally strips this key when updating an existing row from
+                # an empty response, so a good stamp is never rolled back.
+                "measured_at": _now() if a else None,
             })
     return out
 
@@ -238,8 +263,15 @@ def main() -> int:
     # Counters, and the fields that merely describe the post. When a response
     # arrives with no analytics at all, the description is still worth updating
     # and the counters must be left exactly as they were.
+    # `measured_at` belongs in here for exactly the same reason as the counters:
+    # it is a claim about the numbers, so a poll that carried none must not
+    # advance it. Leaving it out would let a thin response mark a row "measured"
+    # while the metrics it describes were deliberately left untouched — and on a
+    # NEW row it would overwrite the NULL that means "dispatched, nobody has
+    # asked the platform yet" (database/145).
     METRICS = ("impressions", "views", "likes", "comments", "shares", "saves",
-               "clicks", "follows", "engagement_rate", "avg_watch_s", "duration_s")
+               "clicks", "follows", "engagement_rate", "avg_watch_s", "duration_s",
+               "measured_at")
 
     wrote = skipped_metrics = failed = 0
     for r in rows:

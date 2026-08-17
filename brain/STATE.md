@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Self-review 9: removed a dead conflicts path in link_library_to_posts (could never populate after the re-post rule changed) and gave the hourly production-writing job its first test — plan_links() split out pure, 20 assertions pinning the tenant boundary, hook floor, ambiguity refusal, re-post rule, idempotence. Tenant guard verified by deletion.
+- **Result:** Self-review 10: CAUGHT MY OWN BAD CLAIM — told Maven the post_analytics upsert key was (tenant_id, platform, platform_post_id); the real unique index is (tenant_id, platform_post_id). I read it off sync_post_analytics's existence check instead of sqlite_master. Corrected via inbox 4d2235971082 before Maven built on it. Logged the app/DB key mismatch (script reads 3 cols, DB enforces 2 — fails loud, not silent) as mine, deliberately not fixed tonight. PR #208 merged, production Ready, routes 200.
 
 *Last updated: 2026-08-17*
 
