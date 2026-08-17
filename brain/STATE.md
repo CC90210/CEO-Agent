@@ -164,11 +164,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-16
+- **Date:** 2026-08-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** SESSION CLOSED: 7 PRs merged (199/201/202/203/204/205/206). Production Ready, verified 200 on all 3 marketing routes. Delivered: marketing tab (brand tabs, lifecycle, archive+restore, paid disclaimer, permalinks), Vercel OOM root-cause, paging dedupe, and 2 live unordered-paging defects fixed (outreach-intel stage map, drip send-ceiling governor) + repo-wide CI guard. AWAITING CC: (1) drop Clients tab, (2) revive DM automation, (3) join the 2 content pipelines.
+- **Result:** PR #207 merged: Library now knows what shipped. link_library_to_posts.py joins marketing_asset<->post_analytics on hook/caption; 16 assets + 77 analytics rows linked; Library 41/1 -> 25 needs-review/17 posted/1 archived. Hourly cron seeded. Tabs renamed OASIS AI/Personal/Music/Clients. authorName() shows Adon+CC. Found 2 REAL duplicate publishes (Tick Tax 08-04+08-05, Receipt Week 08-01/02/03). Adon notified via OASIS group (mirrored:true); Maven briefed on stamping author_email=adon.
 
-*Last updated: 2026-08-16*
+*Last updated: 2026-08-17*
 
 ## Manifest
 
