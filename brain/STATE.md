@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** CC refinement plan COMPLETE. PR #212 (leak) + #213 (settings/planner cleanup) both merged, production Ready, / /settings /automations all 200. CFO-Agent 11a0439 pushed to master. SWEEP RESULT: audited every isOperator use in the render layer — no second instance. API uses are correct authorization (!isOperatorEmail -> deny); Settings:352 gates the operator's OWN CLI card; /feed's operator bypass is empire-scoped and 'feed' is not a tenant page kind so the catch-all cannot mount it at /t/<slug>/feed. The leak was singular.
+- **Result:** PR #214 merged + live: ENTIRE settings page now collapsible (9 sections via SettingsSection, native details, server component). CC had to ask twice — my previous pass only folded the 2 panels inside Credentials. Critical catch: 8 deep links to /settings#providers and #agents (several chat FAILURE states) would have landed on closed bars since browsers scroll to a details without opening it; OpenSectionOnHash fixes it, tests/settings-collapsible guards it (verified by deleting the opener). Prod Ready, 3 routes 200. Session total: PRs 212/213/214 merged + CFO-Agent 11a0439.
 
 *Last updated: 2026-08-17*
 
