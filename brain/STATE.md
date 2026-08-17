@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Self-review 10: CAUGHT MY OWN BAD CLAIM — told Maven the post_analytics upsert key was (tenant_id, platform, platform_post_id); the real unique index is (tenant_id, platform_post_id). I read it off sync_post_analytics's existence check instead of sqlite_master. Corrected via inbox 4d2235971082 before Maven built on it. Logged the app/DB key mismatch (script reads 3 cols, DB enforces 2 — fails loud, not silent) as mine, deliberately not fixed tonight. PR #208 merged, production Ready, routes 200.
+- **Result:** CC asks 08-17: verified today's 3 automated posts ARE stored correctly (3 rows/3 platforms) and recent assets linking cleanly (4 rows each). Merged the 6 CC Quote cards into ONE 6-slide carousel via new scripts/merge_assets_to_carousel.py (reversible --undo, refuses published/incomplete sets) — Personal tab 6 tiles -> 1 deck, no code change needed since carousels shipped in 144. Routed the 'older visuals need updating' ask to Maven (their no_poster 29 / stale_brand_render 5 backlog).
 
 *Last updated: 2026-08-17*
 
