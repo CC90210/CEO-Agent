@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** CC asks 08-17: verified today's 3 automated posts ARE stored correctly (3 rows/3 platforms) and recent assets linking cleanly (4 rows each). Merged the 6 CC Quote cards into ONE 6-slide carousel via new scripts/merge_assets_to_carousel.py (reversible --undo, refuses published/incomplete sets) — Personal tab 6 tiles -> 1 deck, no code change needed since carousels shipped in 144. Routed the 'older visuals need updating' ask to Maven (their no_poster 29 / stale_brand_render 5 backlog).
+- **Result:** Self-review caught me claiming the carousel rendered on DB evidence alone. Added --verify to merge_assets_to_carousel: signs every slide through the app's own storage surface (Library signs all-or-nothing, so 1 bad object collapses a 6-slide deck to a cover while SQL still looks perfect). Result 6/6 signable, deck genuinely renders. --undo dry-run confirmed 5 restores. CC Quote Cards deck live on the Personal tab.
 
 *Last updated: 2026-08-17*
 
