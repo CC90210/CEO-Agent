@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** PR #214 merged + live: ENTIRE settings page now collapsible (9 sections via SettingsSection, native details, server component). CC had to ask twice — my previous pass only folded the 2 panels inside Credentials. Critical catch: 8 deep links to /settings#providers and #agents (several chat FAILURE states) would have landed on closed bars since browsers scroll to a details without opening it; OpenSectionOnHash fixes it, tests/settings-collapsible guards it (verified by deleting the opener). Prod Ready, 3 routes 200. Session total: PRs 212/213/214 merged + CFO-Agent 11a0439.
+- **Result:** PR #215 merged + live: consolidated the two disclosure components (Fold deleted, SettingsSection gains tone=panel|nested). Self-review catch — I'd shipped both the same afternoon. Also verified group-open: is a real supported variant here (3 existing uses, Tailwind 3.4.14) rather than assuming the chevron animates. NOTE: CodeRabbit did not run on #215 (rate limited, absent from checks entirely); build+Vercel green and merged on that basis. Prod Ready, 3 routes 200. SESSION: PRs 212/213/214/215 + CFO-Agent 11a0439, all merged and verified live.
 
 *Last updated: 2026-08-17*
 
