@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-17T00:08:22.281833+00:00",
-  "script_count": 148,
-  "entry_count": 321,
+  "generated_at_iso": "2026-08-17T16:11:09.564100+00:00",
+  "script_count": 149,
+  "entry_count": 322,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1278,6 +1278,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling."
+    },
+    {
+      "key": "merge_assets_to_carousel",
+      "path": "scripts/merge_assets_to_carousel.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "merge_assets_to_carousel \u2014 collapse N single images into one swipeable deck."
     },
     {
       "key": "migrate_carousels",

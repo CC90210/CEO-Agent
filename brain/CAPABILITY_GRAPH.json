@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-16T08:02:27.789561+00:00",
+  "generated_at": "2026-08-17T08:02:28.506537+00:00",
   "totals": {
     "skills": 161,
-    "scripts": 159,
+    "scripts": 161,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 411,
-    "edges_total": 173,
+    "nodes_total": 413,
+    "edges_total": 175,
     "drift_count": 0
   },
   "nodes": [
@@ -6166,6 +6166,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:git_push_tool",
+      "kind": "script",
+      "name": "git_push_tool",
+      "path": "scripts/git_push_tool.py",
+      "description": "git_push_tool \u2014 push a branch using the PAT from `.env.agents`, without the token ever reaching the agent's context, the shell history, or the repo.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:gnn_skill_router",
       "kind": "script",
       "name": "gnn_skill_router",
@@ -6231,6 +6241,16 @@
       "name": "lead_engine",
       "path": "scripts/lead_engine.py",
       "description": "Lead Engine - OASIS AI CRM CLI Zero-paid-service lead management backed by Supabase (project: bravo). Replaces ManyChat, HubSpot, and every other CRM CC doesn't need to pay for.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:link_library_to_posts",
+      "kind": "script",
+      "name": "link_library_to_posts",
+      "path": "scripts/link_library_to_posts.py",
+      "description": "link_library_to_posts \u2014 join the Library to the posts that actually went out.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -8861,6 +8881,11 @@
     },
     {
       "from": "runtime:cron_engine",
+      "to": "script:link_library_to_posts",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
       "to": "script:marketing_publish_drain",
       "kind": "schedules"
     },
@@ -9146,6 +9171,11 @@
     },
     {
       "from": "script:ingest_training_link",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:link_library_to_posts",
       "to": "script:supabase_tool",
       "kind": "calls"
     },
