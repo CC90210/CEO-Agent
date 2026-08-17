@@ -36,7 +36,14 @@ the whole merge stops rather than silently skipping it.
 Usage:
     python scripts/merge_assets_to_carousel.py --brand conaugh --campaign quote-card
     python scripts/merge_assets_to_carousel.py --brand conaugh --campaign quote-card --execute
+    python scripts/merge_assets_to_carousel.py --verify <survivor-id>
     python scripts/merge_assets_to_carousel.py --undo <survivor-id> --execute
+
+VERIFY, DO NOT ASSUME. `--verify` signs every slide through the same storage
+surface the app uses. The database cannot answer whether the deck renders: the
+Library signs slides all-or-nothing, so ONE unsignable object collapses a
+six-slide carousel back to a static cover while the row still reads
+`asset_type=carousel, slide_count=6` and looks perfect in SQL.
 """
 
 from __future__ import annotations
@@ -79,6 +86,70 @@ def load_media(db, asset_ids: list[str]) -> dict[str, list[dict]]:
     return out
 
 
+def do_verify(db, asset_id: str) -> int:
+    """Prove the deck will actually RENDER, not merely that the row looks right.
+
+    The Library signs slides ALL OR NOTHING — app/founders/marketing/library:
+
+        return signedSlides.every(Boolean) ? signedSlides : [];
+
+    because a carousel that silently renumbers when one slide fails to sign is a
+    different post. So a single missing or unsignable object does not degrade the
+    deck, it collapses it back to a static cover with no error anywhere. The row
+    would still read `asset_type=carousel, slide_count=6` and look perfect in SQL.
+
+    Checking the database therefore proves nothing about what CC sees. This
+    fetches every slide through the same storage surface the app uses and reports
+    per-slide, which is the only version of "it works" worth saying out loud.
+    """
+    from lib import r2_storage  # noqa: PLC0415 — optional dep, only this path needs it
+
+    rows = db.table("marketing_asset").select(
+        "id,title,asset_type,slide_count,media_urls").eq("id", asset_id).execute().data
+    if not rows:
+        print(f"no such asset: {asset_id}", file=sys.stderr)
+        return 2
+    a = rows[0]
+    raw = a.get("media_urls")
+    try:
+        paths = json.loads(raw) if isinstance(raw, str) else (raw or [])
+    except (TypeError, ValueError):
+        paths = []
+    paths = [p for p in paths if isinstance(p, str) and p]
+
+    print(f"verify: {a['title']}")
+    print(f"  asset_type  : {a.get('asset_type')}")
+    print(f"  slide_count : {a.get('slide_count')}  ·  media_urls entries: {len(paths)}")
+
+    if a.get("asset_type") != "carousel" or len(paths) < 2:
+        # isRenderableCarousel() demands both. Claiming to be a carousel with one
+        # slide is the state that printed "01/05 · swipe →" over a single image.
+        print("  RESULT: will NOT render as a carousel "
+              "(needs asset_type=carousel AND >1 slide)", file=sys.stderr)
+        return 1
+
+    surface = r2_storage.storage_surface().from_(SLIDE_BUCKET)
+    ok = 0
+    for i, p in enumerate(paths, 1):
+        try:
+            signed = surface.create_signed_url(p, 60)
+            url = (signed or {}).get("signedURL") or (signed or {}).get("signedUrl")
+            if url:
+                ok += 1
+                print(f"   {i}. ok    {p.rsplit('/', 1)[-1][:58]}")
+            else:
+                print(f"   {i}. FAIL  {p}  (no URL returned)")
+        except Exception as exc:  # noqa: BLE001 — report every failure, never swallow
+            print(f"   {i}. FAIL  {p}  ({exc})")
+
+    if ok != len(paths):
+        print(f"  RESULT: {ok}/{len(paths)} slides signable — the tile will fall back to "
+              "the cover, because the Library signs all-or-nothing.", file=sys.stderr)
+        return 1
+    print(f"  RESULT: all {ok} slides signable — renders as a {ok}-slide deck.")
+    return 0
+
+
 def do_undo(db, survivor_id: str, execute: bool) -> int:
     a = db.table("marketing_asset").select("*").eq("id", survivor_id).execute().data
     if not a:
@@ -116,10 +187,14 @@ def main() -> int:
     ap.add_argument("--ids", help="comma-separated asset ids, instead of brand/campaign")
     ap.add_argument("--title", help="title for the resulting deck")
     ap.add_argument("--undo", metavar="SURVIVOR_ID", help="reverse a previous merge")
+    ap.add_argument("--verify", metavar="ASSET_ID",
+                    help="prove the deck renders: sign every slide the way the app does")
     ap.add_argument("--execute", action="store_true", help="apply (default is a dry run)")
     args = ap.parse_args()
 
     db = _db()
+    if args.verify:
+        return do_verify(db, args.verify)
     if args.undo:
         return do_undo(db, args.undo, args.execute)
 
