@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** CC's refinement plan: LEAK FIXED + LIVE (PR #212 merged, prod Ready) — Breeze/SunBiz underwriting queue was rendering on OASIS /automations via 'isOperator ||'; API deliberately resolves operators to the SunBiz tenant so it served REAL client rows. Gated on tenantSlug alone + tests/client-surface-isolation in CI. ATLAS CRON FIXED (CFO-Agent 11a0439): two faults — hand-rolled env parser, then a post-Turso-cutover sentinel URL; now exit 0. PR #213 open: The Day + templates + Known Facts + Just-for-me removed, Credentials folded, bridge-offline linked, CLI runtime key de-duplicated into lib/cli-runtime with a CI guard.
+- **Result:** CC refinement plan COMPLETE. PR #212 (leak) + #213 (settings/planner cleanup) both merged, production Ready, / /settings /automations all 200. CFO-Agent 11a0439 pushed to master. SWEEP RESULT: audited every isOperator use in the render layer — no second instance. API uses are correct authorization (!isOperatorEmail -> deny); Settings:352 gates the operator's OWN CLI card; /feed's operator bypass is empire-scoped and 'feed' is not a tenant page kind so the catch-all cannot mount it at /t/<slug>/feed. The leak was singular.
 
 *Last updated: 2026-08-17*
 
