@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-17
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** PR #215 merged + live: consolidated the two disclosure components (Fold deleted, SettingsSection gains tone=panel|nested). Self-review catch — I'd shipped both the same afternoon. Also verified group-open: is a real supported variant here (3 existing uses, Tailwind 3.4.14) rather than assuming the chevron animates. NOTE: CodeRabbit did not run on #215 (rate limited, absent from checks entirely); build+Vercel green and merged on that basis. Prod Ready, 3 routes 200. SESSION: PRs 212/213/214/215 + CFO-Agent 11a0439, all merged and verified live.
+- **Result:** Today-page metrics audit for CC. FOUND: Content (7d) tile read content_calendar — 123 rows, newest 2026-03-29, dead 5 months — while post_analytics had 42 sends that week; repointed and counting DISTINCT captions (15 pieces vs 42 rows) since post_analytics is per-platform. Also removed the dead Streak tile + its query, fixed 'Top open · null' (company||name both null stringified), and replaced the 5-month-stale mission line (said $5K by May 30 above tiles reading $10k/09-30). VERIFIED LIVE vs Turso: Pipeline(all)=8 correct, Outbound(7d)=2 correct and properly tenant-scoped (705 of 785 are SunBiz's). NOTED not fixed: 75 lead_interactions with tenant_id NULL appear in no tenant count. PR #218; #216 merged.
 
 *Last updated: 2026-08-17*
 
