@@ -68,8 +68,8 @@ verified: 2026-06-09
 ### Database & Infrastructure
 | CC Says | Tool | Command |
 |---------|------|---------|
-| Supabase query / CRUD | `supabase_tool.py` | `select <table> --project bravo`, `insert`, `update`, `query` |
-| Turso query / CRUD (migration target) | `integrations/turso_tool.py` | `status`, `tables`, `schema <t>`, `select <t> --tenant <id>`, `sql "<read-only>"`. `--db-path <file>` for local libSQL. **Tenant-scoped tables REQUIRE `--tenant`** — Turso has no RLS, the guard in `lib/db_turso.py` is the substitute |
+| Turso query / CRUD (PRIMARY) | `integrations/turso_tool.py` | `status`, `tables`, `schema <t>`, `select <t> --tenant <id>`, `sql "<read-only>"`. `--db-path <file>` for local libSQL. **Tenant-scoped tables REQUIRE `--tenant`** — Turso has no RLS, the guard in `lib/db_turso.py` is the substitute |
+| Supabase query / CRUD (DEPRECATED — legacy apps only) | `integrations/supabase_tool.py` | `select <table> --project bravo`, `insert`, `update`, `query`. Use only for apps not yet cut over to Turso |
 | Provision Turso databases | `integrations/turso_admin.py` | `status`, `create --all --write-env`, `token --db <n> --write-env`, `set-org --org <slug>`. Needs `TURSO_PLATFORM_TOKEN` (org-scoped, `turso auth api-tokens mint`) — **NOT** `TURSO_API_KEY`, which is a database token for ig-setter-pro |
 | Generate Turso schema from live Postgres | `core/turso_schema_transpiler.py` | `--project bravo --verify`. Introspects the LIVE db — `database/*.sql` covers only 43% of real tables |
 | Apply Turso DDL / copy rows | `apply_turso_migration.py`, `etl_supabase_to_turso.py` | `--test-mode` (throwaway local db); ETL: `--project bravo`, `--verify-parity`, `--dry-run`, `--source mgmt` (Management-API rows when PostgREST keys are dead). Refuses to overwrite populated target tables without `--allow-overwrite` |
@@ -135,7 +135,7 @@ When multiple tools could handle a request, use this precedence:
 1. **One-off email** → `google_tool.py` | **Email sequence/template** → `email_engine.py`
 2. **Any "fetch URL X" task** → **`research_fetch.py` (default, auto-escalates + remembers per-domain)**. Specific tiers only when you need their unique features: `firecrawl_tool.py` (crawl / extract / map / search), `cloak_browser_tool.py` (interactive goto / screenshot / direct Cloak), Playwright MCP (interactive flow on unprotected), Browser Harness (act as CC under CC's login).
 3. **Quick post** → Maven (`../CMO-Agent/scripts/late_tool.py`) | **Full content pipeline** → Maven (`../CMO-Agent/scripts/content_pipeline.py`)
-4. **Simple DB query** → `supabase_tool.py` | **Operational metrics (pipeline/health)** → `ceo_dashboard.py` | **MRR/revenue** → ATLAS-owned, defer
+4. **Simple DB query** → `turso_tool.py` (PRIMARY) / `supabase_tool.py` (legacy only) | **Operational metrics (pipeline/health)** → `ceo_dashboard.py` | **MRR/revenue** → ATLAS-owned, defer
 5. **Structured memory** → markdown files | **Fuzzy recall** → `mem0_tool.py`
 6. **Model call from ANY automation/script** → `scripts/lib/claude_cli.py` `run_claude_cli()` — local `claude` CLI on CC's subscription OAuth, toolless. NEVER call api.anthropic.com / `ANTHROPIC_API_KEY` from an automation (key is out of credits AND banned — CLI-only rule).
 7. **Is the harness itself healthy? (ANY runtime, session-start on unfamiliar machines, after substrate changes)** → `python scripts/harness_eval.py` — 10 deterministic checks (entry-point lockstep, skill routing, Atlas boundary, guards, crons, PM2, tenant scoping); `--json` for machines, `--with-model` adds a live claude-CLI probe. All-green = turnkey. Nightly cron runs it at 03:30 and Telegrams CC on any red.
@@ -199,9 +199,9 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | `instagram_engine.py` | Instagram DM/engagement | Daemon |
 | _(LinkedIn outreach removed 2026-04-25)_ | research-only via Browser Harness — no automation by design | n/a |
 | **--- Infrastructure ---** | | |
-| `supabase_tool.py` | Database CRUD (3 projects) | CLI tool |
-| `turso_tool.py` | libSQL/Turso CRUD — tenant guard enforced | CLI tool |
+| `turso_tool.py` | libSQL/Turso CRUD — PRIMARY backend, tenant guard enforced | CLI tool |
 | `turso_admin.py` | Turso database provisioning (Platform API) | CLI tool |
+| `supabase_tool.py` | Database CRUD (DEPRECATED — legacy apps) | CLI tool |
 | `n8n_tool.py` | Workflow automation | CLI tool |
 | `git_push_tool.py` | **Push branches / open PRs / read PR checks.** The gh CLI's stored login is stale and plain `git push` cannot authenticate; this feeds the PAT via GIT_ASKPASS + GH_TOKEN. `--checks` reads check CONCLUSIONS, not review state | CLI tool |
 | `integrations/vercel_deploy_tool.py` | Deployment state + build logs (`list`/`logs`/`inspect`, `--json`). Read-only by design — promote/rollback/redeploy are an operator call | CLI tool |

@@ -3,7 +3,7 @@ name: AGENT ROUTER
 description: Runtime-agnostic routing-by-intent table, loaded after the active entry point for operational requests.
 mutability: SEMI-MUTABLE
 tags: [brain, router, rag-entry, agent-only]
-last_updated: 2026-07-19
+last_updated: 2026-08-19
 freshness_threshold_days: 30
 verified: 2026-07-19
 ---

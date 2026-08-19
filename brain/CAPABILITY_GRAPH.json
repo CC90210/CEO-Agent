@@ -1,18 +1,18 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-17T08:02:28.506537+00:00",
+  "generated_at": "2026-08-19T21:41:28.267696+00:00",
   "totals": {
-    "skills": 161,
-    "scripts": 161,
+    "skills": 162,
+    "scripts": 162,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 413,
-    "edges_total": 175,
-    "drift_count": 0
+    "nodes_total": 415,
+    "edges_total": 176,
+    "drift_count": 1
   },
   "nodes": [
     {
@@ -255,6 +255,35 @@
         "orchestration",
         "quality",
         "agents"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:architecture-migration-gate",
+      "kind": "skill",
+      "name": "architecture-migration-gate",
+      "path": "skills/architecture-migration-gate/SKILL.md",
+      "description": "Fires during any architectural migration (DB, hosting, framework swap). Generates a documentation impact manifest pre-migration and enforces a doc sweep post-migration so no brain/memory file is left with stale references.",
+      "tier": "core",
+      "owner": "bravo",
+      "risk": "normal",
+      "triggers": [],
+      "tags": [
+        "architecture",
+        "migration",
+        "documentation",
+        "integrity",
+        "gate"
       ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
@@ -6306,6 +6335,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:merge_assets_to_carousel",
+      "kind": "script",
+      "name": "merge_assets_to_carousel",
+      "path": "scripts/merge_assets_to_carousel.py",
+      "description": "merge_assets_to_carousel \u2014 collapse N single images into one swipeable deck.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:migrate_carousels",
       "kind": "script",
       "name": "migrate_carousels",
@@ -9185,6 +9224,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:merge_assets_to_carousel",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
       "from": "script:migrate_carousels",
       "to": "script:supabase_tool",
       "kind": "calls"
@@ -9730,5 +9774,10 @@
       "kind": "requires"
     }
   ],
-  "drift": []
+  "drift": [
+    {
+      "node": "skill:architecture-migration-gate",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    }
+  ]
 }

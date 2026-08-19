@@ -1,0 +1,42 @@
+fix(doc_sweep): the migration gate could never pass, so it would have been bypassed
+
+Verified the incoming Turso-documentation handoff rather than taking it. Its
+ground truth checks out exactly - turso_tool.py status reports 191 tables and 132
+tenant-scoped, matching the claim to the row. The new tooling exists and the tier
+classification works. The gate does not.
+
+doc_sweep.py exited 1 on ANY Tier 1/2 hit, and there were 108 of them the day it
+shipped (53 Tier-1, 55 Tier-2). Many are not drift - they are correct sentences
+that must keep naming the old component, e.g. "sibling agents subscribe via the
+shared Supabase agent_events table", which is TRUE and which the handoff's own
+section 2 confirms: Postgres LISTEN/NOTIFY has no libSQL equivalent, so the event
+bus stays put by design.
+
+So the gate was unpassable from its first run. That is worse than no gate: an
+always-red check gets bypassed, and a bypassed check still reads as coverage.
+
+The design already accounted for this. The skill specifies "un-annotated Tier 1
+or Tier 2 hits" and tells the operator to annotate transitional references. The
+annotation half was never implemented - no marker, no flag, nothing in --help.
+This adds it.
+
+A hit is exempt when `legacy-ok` appears inline or on the line directly above.
+The second form matters because a marker inside a markdown table row renders as
+visible text in the cell, and most of these hits are table rows. Annotated hits
+are counted and reported separately - a decision someone recorded, not a task
+left undone - and the exit code keys on the un-annotated counts only.
+
+Also fixed while testing: my first cut printed the summary unconditionally, which
+appended prose AFTER the JSON blob and made --json unparseable. That is the mode
+the skill and any CI step consume, so it would have broken the gate exactly where
+it runs. Caught by parsing the output rather than reading it.
+
+Skill updated with the concrete marker syntax and a note on saying WHY - an
+unexplained marker is a silencer, and the next reader cannot tell a decision from
+a snooze.
+
+Proof: sweep parses as JSON and exits 1 on 53 un-annotated Tier-1; annotating one
+genuine legacy reference moves it to 52 with annotated=1; test annotation
+reverted.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>

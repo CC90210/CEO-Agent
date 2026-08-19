@@ -29,16 +29,25 @@ Automation model calls run on the LOCAL `claude` CLI with subscription OAuth (`c
 | `OPENAI_API_KEY` | OPTIONAL | Codex/GPT paths only |
 | `OPENAI_ORG_ID` | OPTIONAL | If multi-org OpenAI account |
 
-## Database — Supabase
-Agent state, CRM, revenue tracking, session logs, memory, self-modification audit.
+## Database — Turso / libSQL (PRIMARY)
+Agent state, CRM, revenue tracking, session logs, memory, self-modification audit. 191 tables, 132 tenant-scoped.
 
 | Key | Priority | Notes |
 |---|---|---|
-| `SUPABASE_URL` | REQUIRED | `https://<project-ref>.supabase.co` |
-| `SUPABASE_ANON_KEY` | REQUIRED | Client-side reads (respects RLS) |
-| `SUPABASE_SERVICE_ROLE_KEY` | REQUIRED | Server-side writes. Bypasses RLS — treat like a root password |
-| `SUPABASE_MANAGEMENT_TOKEN` | CORE | `sbp_...` — expires every 30 days. Programmatic project management |
-| `SUPABASE_PROJECT_ID` | CORE | Project ref id (same as subdomain) |
+| `TURSO_DATABASE_URL` | REQUIRED | `libsql://bravo-<org>.turso.io` — the primary backend |
+| `TURSO_AUTH_TOKEN` | REQUIRED | Database auth token from `turso db tokens create bravo` |
+| `TURSO_PLATFORM_TOKEN` | CORE | Org-scoped platform token from `turso auth api-tokens mint` — used by `turso_admin.py` for provisioning |
+
+## Database — Supabase (DEPRECATED — legacy apps only)
+Retained only for: Event Bus (Postgres LISTEN/NOTIFY), Command Center dashboard (Supabase SSR), Breeze portal. Being decommissioned incrementally.
+
+| Key | Priority | Notes |
+|---|---|---|
+| `SUPABASE_URL` | LEGACY | `https://<project-ref>.supabase.co` — only needed if legacy apps still run |
+| `SUPABASE_ANON_KEY` | LEGACY | Client-side reads (respects RLS) |
+| `SUPABASE_SERVICE_ROLE_KEY` | LEGACY | Server-side writes. Bypasses RLS — treat like a root password |
+| `SUPABASE_MANAGEMENT_TOKEN` | OPTIONAL | `sbp_...` — expires every 30 days. Only for legacy migration tooling |
+| `SUPABASE_PROJECT_ID` | OPTIONAL | Project ref id (same as subdomain) |
 
 ## Revenue — Stripe
 MRR tracking, subscription ops, invoice generation, payment links.
@@ -66,14 +75,12 @@ Outreach, nurture sequences, calendar, drive, docs, sheets.
 
 Auth is via `gws auth login --scopes ...`. `.env.agents` does not contain OAuth refresh tokens — the GWS keyring does.
 
-## Community Automation — Skool
-No API key. Session-based via persistent Playwright Chromium profile.
+## Community Automation — Skool (ARCHIVED 2026-05-18)
+Skool community feature was retired. References preserved for historical context.
 
 | Key | Priority | Notes |
 |---|---|---|
-| `SKOOL_COMMUNITY_SLUG` | CORE | e.g., `agency-accelerants-6209` |
-
-Setup: `python scripts/skool_engine.py login` once → auth persists in `tmp/skool-browser/` profile.
+| `SKOOL_COMMUNITY_SLUG` | ARCHIVED | e.g., `agency-accelerants-6209` — no longer used |
 
 ## Workflows — n8n
 Visual workflow automation.
@@ -174,13 +181,13 @@ On a fresh machine (e.g., CC's MacBook):
 
 6. **One-time service logins**
    ```bash
-   python scripts/skool_engine.py login    # manual Skool auth
+   # python scripts/skool_engine.py login    # ARCHIVED — Skool community retired 2026-05-18
    gws auth login                          # Google Workspace OAuth
    ```
 
-7. **Start the daemon**
+7. **Verify Turso connection**
    ```bash
-   python scripts/skool_engine.py daemon --interval 5 &
+   python scripts/integrations/turso_tool.py status
    ```
 
 ## Secret Rotation Protocol

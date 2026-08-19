@@ -29,7 +29,7 @@ Auto-generated index of tracked `brain/*.md` — **62 files**. Each file's first
 - [VPS_SUNBIZ_TASK2_PROMPT.md](VPS_SUNBIZ_TASK2_PROMPT.md) — VPS Agent — Task 2 (close the self-test gap + fix the SMS-step defect)
 
 ## Prompts & playbooks
-- [CLIENT_PLAYBOOK.md](CLIENT_PLAYBOOK.md) — 🎯 CLIENT PLAYBOOK — What CC Does, How He's Different, How to Run a Meeting
+- [CLIENT_PLAYBOOK.md](CLIENT_PLAYBOOK.md) — OASIS WEBSITE APPOINTMENT-SETTING PLAYBOOK V5
 
 ## Reference & architecture
 - [APP_REGISTRY.md](APP_REGISTRY.md) — APP REGISTRY — External Codebase Routing
@@ -45,7 +45,7 @@ Auto-generated index of tracked `brain/*.md` — **62 files**. Each file's first
 - [DAILY_SCHEDULE.md](DAILY_SCHEDULE.md) — CC'S DAILY SCHEDULE
 - [DASHBOARD.md](DASHBOARD.md) — Command Center
 - [DATA_TAXONOMY.md](DATA_TAXONOMY.md) — Data Taxonomy
-- [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS AI (V1.0, 2026-04-30)
+- [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS Website Sales Engine V4
 - [EMAIL_PIPELINE.md](EMAIL_PIPELINE.md) — Inbound Email Pipeline — Runbook
 - [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) — EVENT BUS CONTRACT — V6 BUILD 3
 - [EXTERNAL_REVIEW_INTEGRATION.md](EXTERNAL_REVIEW_INTEGRATION.md) — EXTERNAL REVIEW INTEGRATION — Fold the Bots Into the Loop

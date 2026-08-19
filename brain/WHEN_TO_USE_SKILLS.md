@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **161 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **162 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## [[skills/agent-forge/SKILL|agent-forge]]
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -43,6 +43,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **161 active skills**. Eac
 - **Use when:** Prevents agent divergence from task intent through checkpoint validation, scope monitoring, and alignment gates. Detects scope creep, time overruns, and error cascades, then forces re-alignment before work continues. Use for multi-agent tasks, complex implementations, long-runnin
 - **Triggers:** anti drift, use anti drift, run anti drift
 - **Path:** `skills/anti-drift/SKILL.md` · tier `standard` · risk `low`
+
+## [[skills/architecture-migration-gate/SKILL|architecture-migration-gate]]
+- **Use when:** Fires during any architectural migration (DB, hosting, framework swap). Generates a documentation impact manifest pre-migration and enforces a doc sweep post-migration so no brain/memory file is left with stale references.
+- **Triggers:** —
+- **Path:** `skills/architecture-migration-gate/SKILL.md` · tier `core` · risk `normal`
 
 ## [[skills/auto-generated/SKILL|auto-generated]] — _explicit `/command` only_
 - **Use when:** Container for skills synthesized at runtime by skill_synthesizer.py. Each child directory is a [NEW] skill with its own SKILL.md + metrics.json. Promoted to skills/<slug>/ after 3 successful uses (skill_metrics.py promote).

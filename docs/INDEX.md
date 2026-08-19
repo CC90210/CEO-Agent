@@ -1,6 +1,6 @@
 ---
 tags: [docs, index, hub]
-last_updated: 2026-07-09
+last_updated: 2026-08-19
 ---
 
 # Documentation Index
@@ -28,6 +28,8 @@ last_updated: 2026-07-09
 ## Cross-Agent Prompts
 
 Committed paste-ready `*_PROMPT.md` runbooks (VPS deploy/verify, Mac sync, etc.) live in `docs/deploy/` — check the superseded banners before reusing any of them.
+- [[docs/LISTING_STUDIO_VPS_AGENT_SYSTEM_MESSAGE]] — paste-in system message for the Listing Studio VPS agent (colour-grading, leads UI, DM + SMS automations, CRM profiles)
+- [[docs/SUNBIZ_VPS_TURNKEY_SYSTEM_MESSAGE]] — paste-in system message for the SunBiz VPS bring-up
 
 ## Workstation
 - [[docs/AI_WORKSTATION_ROADMAP]] — Full AI workstation upgrade plan
