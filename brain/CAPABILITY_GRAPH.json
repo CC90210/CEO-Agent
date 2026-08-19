@@ -1,7 +1,7 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-19T21:41:28.267696+00:00",
+  "generated_at": "2026-08-19T23:52:43.751352+00:00",
   "totals": {
     "skills": 162,
     "scripts": 162,
@@ -12,7 +12,7 @@
     "runtime_entrypoints": 3,
     "nodes_total": 415,
     "edges_total": 176,
-    "drift_count": 1
+    "drift_count": 0
   },
   "nodes": [
     {
@@ -277,7 +277,22 @@
       "tier": "core",
       "owner": "bravo",
       "risk": "normal",
-      "triggers": [],
+      "triggers": [
+        "migrate",
+        "migration",
+        "cut over",
+        "cutover",
+        "switch backend",
+        "replace database",
+        "decommission",
+        "deprecate component",
+        "swap framework",
+        "change hosting",
+        "doc sweep",
+        "documentation drift",
+        "stale references",
+        "architecture change"
+      ],
       "tags": [
         "architecture",
         "migration",
@@ -9774,10 +9789,5 @@
       "kind": "requires"
     }
   ],
-  "drift": [
-    {
-      "node": "skill:architecture-migration-gate",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    }
-  ]
+  "drift": []
 }

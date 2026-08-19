@@ -46,7 +46,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **162 active skills**. Eac
 
 ## [[skills/architecture-migration-gate/SKILL|architecture-migration-gate]]
 - **Use when:** Fires during any architectural migration (DB, hosting, framework swap). Generates a documentation impact manifest pre-migration and enforces a doc sweep post-migration so no brain/memory file is left with stale references.
-- **Triggers:** —
+- **Triggers:** migrate, migration, cut over, cutover, switch backend, replace database, decommission, deprecate component, swap framework, change hosting, doc sweep, documentation drift, stale references, architecture change
 - **Path:** `skills/architecture-migration-gate/SKILL.md` · tier `core` · risk `normal`
 
 ## [[skills/auto-generated/SKILL|auto-generated]] — _explicit `/command` only_

@@ -1,11 +1,21 @@
 ---
 name: architecture-migration-gate
 description: "Fires during any architectural migration (DB, hosting, framework swap). Generates a documentation impact manifest pre-migration and enforces a doc sweep post-migration so no brain/memory file is left with stale references."
-trigger: "CC says 'migrate', 'switch from X to Y', 'cut over', 'decommission', or any architectural change that replaces a named component."
 tier: core
 owner: bravo
 risk: normal
 tags: [architecture, migration, documentation, integrity, gate]
+# `triggers` (plural, keyword list) is what build_capability_graph indexes and
+# capability_query resolves against. This skill shipped with `trigger:` — singular,
+# one prose sentence — which the graph does not read, so harness_eval flagged
+# "skill has no triggers — agent can't route to it". A gate nobody can discover is
+# a gate that never fires: the same failure this skill exists to prevent, one
+# level up.
+# KEEP THIS ON ONE LINE. _read_frontmatter is line-based (splitlines +
+# partition(":"), not a YAML parser), so a wrapped list silently loses every line
+# after the first — which is how the first attempt at this fix still read as zero
+# triggers.
+triggers: [migrate, migration, cut over, cutover, switch backend, replace database, decommission, deprecate component, swap framework, change hosting, doc sweep, documentation drift, stale references, architecture change]
 ---
 
 # Architecture Migration Gate
