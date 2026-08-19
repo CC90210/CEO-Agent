@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Verified the Turso-doc handoff (Rule 10). Ground truth CONFIRMED: 191 tables / 132 tenant-scoped exactly. But doc_sweep.py's gate was UNPASSABLE — exited 1 on any Tier1/2 hit and there were 108, many of them correct (event bus genuinely stays Supabase per the handoff's own §2). An always-red gate gets bypassed and still reads as coverage. Implemented the missing 'un-annotated' half the skill already specified:  marker inline or line-above, annotated hits counted separately, exit keys on un-annotated only. Also fixed my own bug: summary prints appended prose after the JSON blob, breaking --json which is the mode the gate consumes. Committed cb3b37d7. Session PRs 212-219 all merged; production recovered (4096 heap cap on main, prod deploys Ready 3m).
+- **Result:** Handoff verification complete. Fixed doc_sweep's unpassable gate (added the missing annotation half the skill already specified) and synced CAPABILITIES.md's app table to APP_REGISTRY.md — 4 apps contradicted between two boot files. Tier-1 un-annotated 53 to 51. self_audit clean on all 5 checks. REMAINING FOR CC: 51 Tier-1 hits need architectural triage, not find-and-replace — some are TRUE (event bus on LISTEN/NOTIFY, PropFlow's own Supabase project), some incomplete (RLS guidance is right for breeze-portal/command-center, wrong for Turso). Commits cb3b37d7, f9955462.
 
 *Last updated: 2026-08-19*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-19T21:42:15.887676+00:00_
 
 - **Date:** 2026-08-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Verified the Turso-doc handoff (Rule 10). Ground truth CONFIRMED: 191 tables / 132 tenant-scoped exactly. But doc_sweep.py's gate was UNPASSABLE — exited 1 on any Tier1/2 hit and there were 108, many of them correct (event bus genuinely stays Supabase per the handoff's own §2). An always-red gate gets bypassed and still reads as coverage. Implemented the missing 'un-annotated' half the skill already specified:  marker inline or line-above, annotated hits counted separately, exit keys on un-annotated only. Also fixed my own bug: summary prints appended prose after the JSON blob, breaking --json which is the mode the gate consumes. Committed cb3b37d7. Session PRs 212-219 all merged; production recovered (4096 heap cap on main, prod deploys Ready 3m).
+- **Result:** Handoff verification complete. Fixed doc_sweep's unpassable gate (added the missing annotation half the skill already specified) and synced CAPABILITIES.md's app table to APP_REGISTRY.md — 4 apps contradicted between two boot files. Tier-1 un-annotated 53 to 51. self_audit clean on all 5 checks. REMAINING FOR CC: 51 Tier-1 hits need architectural triage, not find-and-replace — some are TRUE (event bus on LISTEN/NOTIFY, PropFlow's own Supabase project), some incomplete (RLS guidance is right for breeze-portal/command-center, wrong for Turso). Commits cb3b37d7, f9955462.
 
 *Last updated: 2026-08-19*
