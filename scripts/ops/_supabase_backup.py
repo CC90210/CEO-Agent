@@ -50,7 +50,18 @@ TABLES = [
     "lead_interactions",
     "follow_up_tasks",
     "daily_plan_items",
-    "conversations",
+    # "conversations" did not survive the 2026-08-09 Turso cutover. Its
+    # successors are these three, verified against sqlite_master on
+    # 2026-08-12: conversation_threads 1680 rows, conversation_events 6,
+    # sunbiz_conversation_state 1.
+    #
+    # The export ABORTS on a missing table rather than skipping it, which is
+    # correct and is how this was found — the backup had failed every night
+    # since 2026-08-11 rather than quietly shipping an incomplete archive.
+    # Keep that behaviour: fix the list, never soften the check.
+    "conversation_threads",
+    "conversation_events",
+    "sunbiz_conversation_state",
     "personalized_form_links",
     "agent_memory_notes",
     "offer_sources",
@@ -136,10 +147,32 @@ def cmd_export(out_dir: Path) -> int:
         print(f"  table {table}: {len(rows)} rows")
 
     # Storage objects for this tenant (application PDFs etc.).
-    try:
-        doc_rows = _page_table(sb, "lead_documents")
-    except Exception:
+    #
+    # SCOPE DECISION (Adon, 2026-08-12): documents are deliberately NOT included.
+    # This host has no Cloudflare R2 credentials, and rather than put a key to
+    # every merchant file on a second machine, we rely on R2's own redundancy and
+    # spend the effort on getting these artifacts OFF this box instead.
+    #
+    # Recorded in the manifest as an explicit exclusion, not as zero-objects.
+    # Those two states look identical in a file listing and mean opposite things:
+    # "we chose not to" versus "we tried and lost 3481 documents". A restore that
+    # cannot tell them apart will assume the archive is complete.
+    #
+    # Set BACKUP_INCLUDE_STORAGE=1 to turn document capture back on.
+    include_storage = os.environ.get("BACKUP_INCLUDE_STORAGE", "0") == "1"
+    if not include_storage:
+        manifest["storage"]["excluded"] = True
+        manifest["storage"]["exclusion_reason"] = (
+            "database-only by decision 2026-08-12: no R2 credentials on this host; "
+            "relying on Cloudflare R2 redundancy. DOCUMENTS ARE NOT IN THIS ARCHIVE."
+        )
+        print("  storage: EXCLUDED BY CONFIG (database-only backup) — documents are NOT in this archive")
         doc_rows = []
+    else:
+        try:
+            doc_rows = _page_table(sb, "lead_documents")
+        except Exception:
+            doc_rows = []
     for d in doc_rows:
         sp = (d.get("storage_path") or "").strip()
         if not sp or not sp.startswith(SUNBIZ_TENANT_ID):
