@@ -1,124 +1,85 @@
 ---
-description: "Three-tier deal framework (One-Off Automation, Custom Software, C-Suite Consulting) with free-trial conversion model and partner recruitment layer for scaling"
-tags: [sales, deals, partners, canonical]
-last_updated: 2026-06-09
-freshness_threshold_days: 90
-verified: 2026-06-09
+name: DEAL ARCHITECTURE
+description: Canonical OASIS website-first offer, compensation, and sales rules.
+last_updated: 2026-08-19
+freshness_threshold_days: 30
 ---
-# DEAL ARCHITECTURE — OASIS AI (V1.0, 2026-04-30)
+# DEAL ARCHITECTURE — OASIS Website Sales Engine V4
 
-> CC's restructured deal framework. Replaces old "implementation + retainer" hard-pitch flow with a value-quantified, free-trial-anchored model that makes saying yes a no-brainer. Strategic partners get equity-grade rev share; casual referrers get clean commissions.
+## Positioning
 
-## Why this exists
+OASIS sells conversion-focused websites to local-service SMBs in Canada and the United States. The website is the entry offer because owners already understand it, can see the quality gap, and can connect it to calls and bookings. Focused automations are prescribed only after discovery exposes a matching operational leak. Agent harnesses and custom software are not the opening pitch.
 
-The old model — flat implementation fee + monthly retainer pitched cold — wasn't converting. The friction was real: prospects had to pay before they saw proof. Every objection collapsed into "I need to think about it" because we were asking them to take the risk.
+## Packages
 
-**Bravo's read:** the value of what we sell is genuinely massive (1 process automated saves a service business 5-15 hours/week, $50K-300K of custom software value at exit). The math works. The ASK was the problem, not the offer. So we flip it: we take the risk, they see the result, then they pay. And we recruit a network around it instead of selling deal-by-deal in isolation.
+| Package | Setup floor | Monthly floor | Includes |
+|---|---:|---:|---|
+| Essential | $2,000 | $250 | Conversion website, lead form, hosting, maintenance, analytics, basic SEO |
+| Growth | $3,500 | $350 | Essential, more pages, copy support, booking/review integration, one standard automation |
+| Authority | $5,000+ | $500+ | Growth, advanced SEO, custom integrations, two standard automations |
 
-## The Three Client Offers
+Prices use the client's selling currency: CAD in Canada and USD in the United States. No automatic conversion. The default payment schedule is 50% of setup at signature, 50% before launch, with monthly service beginning at launch.
 
-### Offer 1 — One-Off Automation (most common)
+Only CC or Adon may discount, customize scope, promise a delivery date, or approve a below-floor quote. Reps qualify and book; they do not negotiate or close.
 
-| Stage | What happens | Duration | Cost to client |
-|-------|--------------|----------|----------------|
-| Discovery | 15-min call, identify ONE high-pain process | Free | $0 |
-| Pilot Build | We build the automation, hand it over | 5-10 days | $0 |
-| Free Trial | Client runs it in production | 14 days | $0 |
-| Quantification | We measure: hours saved, errors prevented, revenue captured. Joint review call. | Day 14 | $0 |
-| Conversion | Client pays implementation + locks in maintenance retainer | — | **$1,500 implementation + $400-800/mo retainer** |
+## Approved Automation Menu
 
-**Why 14 days, not 30:** for clear single-process automations (lead routing, follow-up sequences, review responses, scheduling), value shows up within a week. 14 days is enough for proof, not so long that the client forgets why they signed up.
+1. Google review request and follow-up.
+2. Website lead capture, notification, and CRM routing.
+3. Gmail inbound classification and routing.
+4. Missed-call and after-hours lead recovery.
+5. Quote or estimate follow-up.
+6. Appointment reminders and no-show recovery.
+7. Dormant-lead reactivation.
+8. Invoice, estimate, or document generation.
+9. Local SEO content and reporting.
 
-**Conversion clause (in scope doc):** "If the automation does not save you at least [N] hours/week or [$M]/month in measurable value, you owe nothing. Otherwise the implementation fee + retainer activates on day 15."
+Custom automation is “quoted after discovery.” A rep never improvises feasibility or price.
 
-**Walk-away math:** if 1 in 4 pilots converts, our effective build cost is 4× — still profitable on the lifetime retainer. If 2 in 4 convert, we're printing.
+## ICP and Qualification
 
-### Offer 2 — Custom Software Build (Gritly-style, what landed Jonathan)
+Prioritize owner-operated trades, professional services, wellness/beauty, and local home services with no website, weak mobile presentation, outdated design, unclear calls to action, broken forms, poor local search visibility, or slow lead response.
 
-| Stage | What happens | Duration | Cost to client |
-|-------|--------------|----------|----------------|
-| Strategy Session | Map their use cases, scope the build | Free | $0 |
-| Scope + Quote | Fixed-price quote, no retainer until live | 1 week | $0 |
-| Build | We build, they have weekly demos | 4-12 weeks | **50% deposit on signed scope** |
-| Launch | Software goes live | — | **50% balance + maintenance retainer activates** |
-| Ongoing | Support, evolution, asset stays theirs | Ongoing | **$300-1,500/mo maintenance** |
+A lead is qualified only when the rep confirms decision authority, a specific website/conversion problem, real timing, and willingness to invest at least $2,000.
 
-**Why this works:** the client OWNS the software. It's an asset on their balance sheet that increases business sale value at exit (Jonathan's hook — 15-year exit value angle).
+## Roles and Attribution
 
-### Offer 3 — C-Suite AI Consulting (associate-grade access)
+- Adon/APEX owns the upstream lead-scraping fleet, `leadgen_*` territory model, and Command Center lead-sheets surface. Its promoted output is a normal `tenant_records` lead with `data.assigned_to`, `website`, `website_condition`, `audit_findings`, `icp_track`, and initial stage `researched`.
+- CC and Adon choose territories, approve batches, and assign the promoted leads; this sales engine does not duplicate scraping or territory storage.
+- Sales reps call assigned leads, diagnose, qualify, and book a founder Google Meet.
+- CC or Adon owns the audit/demo, package, automation discovery, price, proposal, and close.
+- The fulfillment owner collects assets, builds, runs QA, launches, and maintains.
 
-| Stage | What happens | Duration | Cost to client |
-|-------|--------------|----------|----------------|
-| Pitch Call | Define the strategic problem | 30 min | Free |
-| Strategy Sprint | 1 deliverable: roadmap, audit, or system design | 7 days | **One-off $1,500-3,000** |
-| Retainer | Async access + monthly Google Meets | Monthly | **$450-1,500/mo** |
+The rep assigned when the founder meeting is booked owns attribution. Later reassignment does not rewrite earned attribution.
 
-**Why this works for Alejandro-tier prospects:** they're already paying for advisory somewhere. We position as the AI-native fractional CTO/strategist. Lower volume, higher margin, builds the brand.
+## Rep Compensation
 
-## Partner Tiers (the recruitment layer)
+Commission applies only to collected website setup revenue. There is no recurring commission in V1.
 
-Goal: don't sell deal-by-deal forever. Build a network that brings deals to us. Partners are graded by what they bring to the table.
+| Collected setup | Rate |
+|---:|---:|
+| $2,000–$3,499.99 | 10% |
+| $3,500–$4,999.99 | 12.5% |
+| $5,000+ | 15% |
 
-### Tier 1 — Strategic Partners (50% rev share)
-**Who qualifies:**
-- Brings 3+ qualified introductions per quarter
-- Has direct decision-maker relationships in our target verticals (HVAC, real estate, dental, professional services)
-- Co-sells (joins discovery calls, vouches for us, closes deals with us)
-- Has their own brand authority (consultants, business coaches, agencies with adjacent services)
+Commission accrues only after payment clears. It moves through accrued → approved → paid. A refund creates an offset instead of deleting history. Each payment/deal can create one accrual only.
 
-**The deal:**
-- 50% of net revenue (implementation + retainer) on every deal they originate, for the lifetime of the client
-- Paid monthly via Stripe split (or invoice if simpler)
-- Co-branded option: their logo on the work they sourced
-- 90-day exclusivity in their vertical (we don't sign their direct competitor on their list)
+## Lifecycle
 
-**Why this generosity makes sense:** if a partner reliably sources 4 clients/year averaging $600/mo retainer + $1,500 implementation, that's $34K/year of revenue we wouldn't have. Half of that ($17K) is still pure upside, and it scales without our cold outreach burning hours. The math compares to a salaried sales hire: $17K paid only when revenue lands beats $60K salary with no guarantee.
+Researched → Assigned → Attempting Contact → Connected → Qualified → Founder Meeting Booked → Demo Completed → Proposal Sent → Won/Lost → Onboarding → In Build → Client Review → Launched.
 
-### Tier 2 — Network Referrers (5-15% commission)
-**Who qualifies:**
-- Casually plugged into a target vertical (one-off "you should talk to Conaugh" intros)
-- No co-selling, just warm intro
-- Friends-of-friends, satisfied clients, social network
+### Role-specific pipeline contract
 
-**The deal:**
-- 10% of first-year retainer revenue, OR
-- 5% of implementation + 10% of first 6 months retainer (smoother for the partner if they want a quicker payout), OR
-- Flat $200 finder's fee at deal close (for one-off referrers who don't want ongoing tracking)
+- `Agent` is the sales-rep role. An Agent sees only leads whose `assigned_to` value is that Agent's authenticated user UUID.
+- The Agent interface has exactly five tabs: Assigned, Attempting Contact, Connected, Qualified, and Founder Meeting.
+- Member, Admin, and Owner users operate the internal pipeline. Admin/Owner assign leads and control founder-close, payment, commission, and fulfilment mutations.
+- Research is an internal intake queue. A scraped lead must carry `sales_program=website_sales_v1`; this separates the fresh website campaign from historical OASIS records without deleting history.
+- No Answer and Voicemail are dispositions, not stages. Both keep the lead in Attempting Contact and require a next-action timestamp.
+- Connected advances only after a real conversation. Qualified requires authority, a confirmed website/conversion need, timing, and willingness to consider at least $2,000.
+- Booking freezes attribution, requires one selected founder, a meeting time, and the exact promised audit/demo. From that point the founder owns scope, price, and close; delivery stages are never exposed to Agents.
 
-**Pick the structure that the referrer prefers** — whatever closes the loop.
+All calls, notes, emails, and dispositions stay in the existing lead-interaction ledger. Outbound email always goes through `scripts/integrations/send_gateway.py`; import or assignment never triggers a live send.
 
-### Tier 3 — Affiliate (5% flat, future, not active yet)
-For when we have content traffic / a course product. Not the play right now.
+## Launch KPIs
 
-## Partner Recruitment Pitch (script-grade)
-
-> "I'm building a partner network around OASIS — basically, anyone who's already trusted in [their vertical] and wants a no-friction way to bring AI into their book of business. I don't sell into your clients without you. You stay the relationship owner. We just plug in the AI piece, you get half of every deal we close together. If that's interesting, I'll send you the one-pager. If it's not, no harm — just figured you'd be the right call to make."
-
-## What This Replaces
-
-- ❌ Cold pitch with implementation + retainer up front (high friction, low conversion)
-- ❌ Hourly consulting (capped income, no asset value)
-- ❌ One-shot project work without retainer (no recurring revenue)
-
-## Tracking + Hygiene
-
-| Item | Where it lives | Owner |
-|------|---------------|-------|
-| Partner agreements | `contracts/partners/[name]_v1.pdf` | CC + lawyer (light) |
-| Pilot conversion stats | `data/pilot_outcomes.json` | Bravo |
-| Partner-sourced deals | `lead_interactions.metadata.partner_id` | Bravo (CRM) |
-| Commission ledger | Stripe Connect or monthly invoice | CC |
-
-## Risks to watch
-
-1. **Pilot defaults** — client sees value but plays "didn't notice the difference" to dodge payment. Mitigation: written, signed scope doc with measurable conversion criteria. Every pilot has a SLA.
-2. **Partner cannibalization** — strategic partner takes our process, hires their own dev, cuts us out. Mitigation: 50% is generous enough that DIY economics don't beat it for the first 18 months.
-3. **Free trial drift** — clients extending the trial indefinitely. Mitigation: hard 14-day calendar, system access revokes day 15 unless paid.
-
-## Status
-
-**Active as of 2026-04-30.** First test deals: any cold call closing this week uses Offer 1. Jonathan Hutton (Basque Landscaping) closes under Offer 2. Alejandro deal already in flight as Offer 3.
-
-## Obsidian Links
-- [[brain/CLIENT_READY]] | [[skills/sales-closing/SKILL]] | [[skills/proposal-generation/SKILL]]
-- [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]]
+Track attempts, conversations, qualified rate, founder meetings booked/held, proposals sent, close rate, average setup value, monthly value, collected revenue, commission accrued, days to launch, and automation attach rate by rep, founder, ICP track, geography, and loss reason.
