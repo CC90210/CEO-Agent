@@ -1,42 +1,42 @@
-fix(doc_sweep): the migration gate could never pass, so it would have been bypassed
+docs: CAPABILITIES' app table still said Supabase for four apps APP_REGISTRY calls migrated
 
-Verified the incoming Turso-documentation handoff rather than taking it. Its
-ground truth checks out exactly - turso_tool.py status reports 191 tables and 132
-tenant-scoped, matching the claim to the row. The new tooling exists and the tier
-classification works. The gate does not.
+Not drift I had to judge — a contradiction between two boot files stating the
+same fact. The handoff updated brain/APP_REGISTRY.md:
 
-doc_sweep.py exited 1 on ANY Tier 1/2 hit, and there were 108 of them the day it
-shipped (53 Tier-1, 55 Tier-2). Many are not drift - they are correct sentences
-that must keep naming the old component, e.g. "sibling agents subscribe via the
-shared Supabase agent_events table", which is TRUE and which the handoff's own
-section 2 confirms: Postgres LISTEN/NOTIFY has no libSQL equivalent, so the event
-bus stays put by design.
+    | OASIS AI Platform | ... | Turso `oasis` (migrated from Supabase ...) |
+    | PropFlow          | ... | Turso (migrated from Supabase)             |
+    | Nostalgic Requests| ... | Turso (migrated from Supabase ...)         |
+    | TIKTIK            | ... | Turso (migrated from Supabase ...)         |
 
-So the gate was unpassable from its first run. That is worse than no gate: an
-always-red check gets bypassed, and a bypassed check still reads as coverage.
+and left the PARALLEL table in brain/CAPABILITIES.md reading "React 18, Vite,
+Supabase", "Next.js 14, Supabase, Stripe", and so on for the same four apps. Both
+files boot every session, so an agent's answer to "what is PropFlow on" depended
+on which one it happened to read.
 
-The design already accounted for this. The skill specifies "un-annotated Tier 1
-or Tier 2 hits" and tells the operator to annotate transitional references. The
-annotation half was never implemented - no marker, no flag, nothing in --help.
-This adds it.
+Synced the four rows APP_REGISTRY had already confirmed. Deliberately left every
+other row alone: CC Funnel is retired, Lafreniere has no registry row saying
+otherwise, and guessing at the rest is precisely what produced this drift.
 
-A hit is exempt when `legacy-ok` appears inline or on the line directly above.
-The second form matters because a marker inside a markdown table row renders as
-visible text in the cell, and most of these hits are table rows. Annotated hits
-are counted and reported separately - a decision someone recorded, not a task
-left undone - and the exit code keys on the un-annotated counts only.
+Tier-1 un-annotated: 53 -> 51.
 
-Also fixed while testing: my first cut printed the summary unconditionally, which
-appended prose AFTER the JSON blob and made --json unparseable. That is the mode
-the skill and any CI step consume, so it would have broken the gate exactly where
-it runs. Caught by parsing the output rather than reading it.
+WHAT I DID NOT DO, and why it is not laziness. 51 Tier-1 hits remain and they are
+NOT all drift. A crude pass splits them roughly 26 already-framed-as-legacy to 29
+reading-as-current, but the split does not survive contact:
 
-Skill updated with the concrete marker syntax and a note on saying WHY - an
-unexplained marker is a silencer, and the next reader cannot tell a decision from
-a snooze.
+  - "sibling agents subscribe via the shared Supabase agent_events table" is TRUE
+    — the event bus stays on LISTEN/NOTIFY by design.
+  - "Enforce Supabase RLS" is not simply wrong either; breeze-portal and
+    oasis-command-center are still Postgres, where RLS is exactly right. It is
+    INCOMPLETE — Turso has no RLS and uses the lib/db_turso.py guard instead.
+  - PropFlow genuinely has its own Supabase project per CONTEXT.md, so a row
+    naming Supabase there may be correct rather than stale.
 
-Proof: sweep parses as JSON and exits 1 on 53 un-annotated Tier-1; annotating one
-genuine legacy reference moves it to 52 with annotated=1; test annotation
-reverted.
+Deciding which sentences are still true is a claim about the architecture, not a
+find-and-replace, and mass-editing boot files another chassis just authored is
+how one agent breaks every other agent's context. The gate now makes that triage
+possible; someone with the authority to say what is true should do it.
+
+Proof: doc_sweep re-run shows 51; self_audit clean on all five checks
+(graph_matches_disk, docs drift, orphans, broken links, mcp in sync).
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>

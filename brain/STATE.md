@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Completed documentation integrity overhaul and capability graph sync
+- **Result:** Verified the Turso-doc handoff (Rule 10). Ground truth CONFIRMED: 191 tables / 132 tenant-scoped exactly. But doc_sweep.py's gate was UNPASSABLE — exited 1 on any Tier1/2 hit and there were 108, many of them correct (event bus genuinely stays Supabase per the handoff's own §2). An always-red gate gets bypassed and still reads as coverage. Implemented the missing 'un-annotated' half the skill already specified:  marker inline or line-above, annotated hits counted separately, exit keys on un-annotated only. Also fixed my own bug: summary prints appended prose after the JSON blob, breaking --json which is the mode the gate consumes. Committed cb3b37d7. Session PRs 212-219 all merged; production recovered (4096 heap cap on main, prod deploys Ready 3m).
 
 *Last updated: 2026-08-19*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-19T21:42:15.887676+00:00_
 
 - **Date:** 2026-08-19
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Completed documentation integrity overhaul and capability graph sync
+- **Result:** Verified the Turso-doc handoff (Rule 10). Ground truth CONFIRMED: 191 tables / 132 tenant-scoped exactly. But doc_sweep.py's gate was UNPASSABLE — exited 1 on any Tier1/2 hit and there were 108, many of them correct (event bus genuinely stays Supabase per the handoff's own §2). An always-red gate gets bypassed and still reads as coverage. Implemented the missing 'un-annotated' half the skill already specified:  marker inline or line-above, annotated hits counted separately, exit keys on un-annotated only. Also fixed my own bug: summary prints appended prose after the JSON blob, breaking --json which is the mode the gate consumes. Committed cb3b37d7. Session PRs 212-219 all merged; production recovered (4096 heap cap on main, prod deploys Ready 3m).
 
 *Last updated: 2026-08-19*

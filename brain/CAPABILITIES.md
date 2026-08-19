@@ -84,14 +84,14 @@ Full routing table with local paths, GitHub URLs, tech stacks: `brain/APP_REGIST
 
 | App | Local Path | Stack | CLAUDE.md |
 |-----|-----------|-------|-----------|
-| OASIS AI Platform | `APPS/oasis-ai-platform` | React 18, Vite, Supabase | Yes |
-| PropFlow | `realestate-App` | Next.js 14, Supabase, Stripe | Yes |
-| Nostalgic Requests | `APPS/nostalgic-requests` | Next.js 16, Supabase, Stripe Connect | Yes |
+| OASIS AI Platform | `APPS/oasis-ai-platform` | React 18, Vite, Turso | Yes |
+| PropFlow | `realestate-App` | Next.js 14, Turso, Stripe | Yes |
+| Nostalgic Requests | `APPS/nostalgic-requests` | Next.js 16, Turso, Stripe Connect | Yes |
 | Grape Vine Cottage | `APPS/Grape-Vine-Cottage` | Vite, React 18 | No |
 | Mindset Companion | `APPS/MINDSET COMPANION APP/cc-mindset` | Next.js 16, React 19 | No |
 | On The Hill | `APPS/ON-THE-HILL-WEBSITE` | Vite, React 19 | No |
 | Atlas (CFO) | `APPS/CFO-Agent` | Python 3.11+, CCXT, Claude API | Yes |
-| TIKTIK | `APPS/tiktik` | Next.js 14, Supabase, Tailwind | Yes |
+| TIKTIK | `APPS/tiktik` | Next.js 14, Turso, Tailwind | Yes |
 | CC Funnel | `APPS/cc-funnel` | Next.js 14, Supabase, Tailwind | Yes |
 | Shopify Ad Engine | `APPS/shopify-ad-engine` | Remotion 4, React 19, Three.js | Yes |
 | Lafreniere PM | `APPS/lafreniere-pm` | Next.js 16, Supabase, Stripe | Yes |
