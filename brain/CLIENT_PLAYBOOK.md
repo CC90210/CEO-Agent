@@ -4,11 +4,11 @@ description: Website-first sales scripts and fulfillment SOP for OASIS.
 last_updated: 2026-08-19
 freshness_threshold_days: 30
 ---
-# OASIS WEBSITE SALES PLAYBOOK V4
+# OASIS WEBSITE APPOINTMENT-SETTING PLAYBOOK V5
 
 ## The Rep's Job
 
-Find one visible website problem, connect it to lost trust/calls/bookings, qualify the owner, and book CC or Adon. Do not quote custom work, negotiate, promise feasibility, or turn the call into an AI lecture.
+Find one visible website problem, connect it to lost trust/calls/bookings, qualify the owner, and book a Google Meet with CC or Adon. You are an appointment setter, not the closer. Do not quote custom work, negotiate, promise feasibility, or turn the call into an AI lecture.
 
 ## Core Cold Call
 

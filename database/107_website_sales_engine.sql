@@ -63,6 +63,9 @@ create table if not exists public.website_onboarding (
 create index if not exists website_deals_pipeline_idx on public.website_deals (tenant_id, status, updated_at desc);
 create index if not exists website_commissions_rep_idx on public.website_sales_commissions (tenant_id, rep_user_id, status, created_at desc);
 create index if not exists website_onboarding_board_idx on public.website_onboarding (tenant_id, status, updated_at desc);
+create unique index if not exists website_sales_interaction_request_uidx
+  on public.lead_interactions (tenant_id, ((metadata->>'request_id')))
+  where agent_source='website_sales_pipeline' and metadata->>'request_id' is not null;
 
 alter table public.website_deals enable row level security;
 alter table public.website_deals force row level security;

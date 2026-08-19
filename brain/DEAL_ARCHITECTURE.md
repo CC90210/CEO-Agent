@@ -70,13 +70,14 @@ Researched → Assigned → Attempting Contact → Connected → Qualified → F
 
 ### Role-specific pipeline contract
 
-- `Agent` is the sales-rep role. An Agent sees only leads whose `assigned_to` value is that Agent's authenticated user UUID.
+- `Agent` is the launch-V1 appointment-setter role. An Agent sees only leads whose `assigned_to` value is that Agent's authenticated user UUID. Their job ends with a qualified Google Meet for CC or Adon; they do not negotiate or close.
 - The Agent interface has exactly five tabs: Assigned, Attempting Contact, Connected, Qualified, and Founder Meeting.
 - Member, Admin, and Owner users operate the internal pipeline. Admin/Owner assign leads and control founder-close, payment, commission, and fulfilment mutations.
-- Research is an internal intake queue. A scraped lead must carry `sales_program=website_sales_v1`; this separates the fresh website campaign from historical OASIS records without deleting history.
+- Research is an internal intake queue. APEX owns scraping and enrichment; promoted records enter the `oasis-webdev` tenant with `sales_program=website_sales_v1`. This separates the fresh website campaign from historical OASIS records without deleting history.
 - No Answer and Voicemail are dispositions, not stages. Both keep the lead in Attempting Contact and require a next-action timestamp.
 - Connected advances only after a real conversation. Qualified requires authority, a confirmed website/conversion need, timing, and willingness to consider at least $2,000.
 - Booking freezes attribution, requires one selected founder, a meeting time, and the exact promised audit/demo. From that point the founder owns scope, price, and close; delivery stages are never exposed to Agents.
+- A proven Agent may later enter a separately trained closer track with new permissions and compensation. Closing authority is never implied by the base Agent role.
 
 All calls, notes, emails, and dispositions stay in the existing lead-interaction ledger. Outbound email always goes through `scripts/integrations/send_gateway.py`; import or assignment never triggers a live send.
 
