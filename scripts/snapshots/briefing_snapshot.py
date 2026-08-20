@@ -27,7 +27,10 @@ from concurrent.futures import ThreadPoolExecutor
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT_DIR = PROJECT_ROOT / "state" / "snapshots"
-TIMEOUT_SEC = 45
+# Must remain above ceo_dashboard.SUBENGINE_TIMEOUT_SEC and below
+# daily_brief.SNAPSHOT_REGEN_TIMEOUT_SEC. See the timeout-contract regression
+# test in test_harness_reporting_integrity.py.
+TIMEOUT_SEC = 65
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 

@@ -1,6 +1,6 @@
 """
 Outreach Engine - Personalized email outreach with Google Meet + .ics invite.
-Zero n8n dependency. Gmail SMTP directly. Supabase for logging and history.
+Zero n8n dependency. Gmail SMTP directly. Turso (via supabase-compat shim) for logging and history.
 All credentials loaded from .env.agents (never hardcoded).
 
 Usage:

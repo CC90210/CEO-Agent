@@ -1,4 +1,4 @@
-"""Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table.
+"""Publish memory/ACTIVE_TASKS.md tasks to the `oasis_quests` table (Turso via supabase-compat shim).
 
 Used by OASIS Town's Quest Log panel — the game polls /api/quests every minute
 and visualizes the live state of CC's actual TODO list.

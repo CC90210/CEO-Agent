@@ -1,6 +1,6 @@
 """
 Revenue Engine - OASIS Business Operations CLI
-Combines Stripe subscription data with Supabase manual tracking.
+Combines Stripe subscription data with Turso-backed manual tracking (via supabase-compat shim).
 All credentials loaded from .env.agents (never hardcoded).
 
 Usage:

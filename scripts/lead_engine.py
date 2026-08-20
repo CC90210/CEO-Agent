@@ -1,6 +1,6 @@
 """
 Lead Engine - OASIS AI CRM CLI
-Zero-paid-service lead management backed by Supabase (project: bravo).
+Zero-paid-service lead management backed by Turso/libSQL (bravo DB, via supabase-compat shim; pre-2026-08: Supabase project bravo).
 Replaces ManyChat, HubSpot, and every other CRM CC doesn't need to pay for.
 
 All credentials loaded from .env.agents (never hardcoded).

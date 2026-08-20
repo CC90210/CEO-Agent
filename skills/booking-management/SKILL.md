@@ -1,6 +1,6 @@
 ---
 name: booking-management
-description: Manage discovery call scheduling using booking_engine.py — a self-hosted Cal.com replacement backed by Supabase. Covers opening slots, booking leads, sending reminders, and completing meetings.
+description: Manage discovery call scheduling using booking_engine.py — a self-hosted Cal.com replacement backed by Turso (via supabase-compat shim). Covers opening slots, booking leads, sending reminders, and completing meetings.
 triggers: [booking, calendar, schedule, discovery call, slot, reminder, appointment, meeting]
 tier: standard
 dependencies: [lead-management, email-marketing]
@@ -12,7 +12,7 @@ last_updated: 2026-07-09
 
 ## Overview
 
-`booking_engine.py` replaces Cal.com with zero subscription cost. Slots and bookings are stored in the Supabase bravo project. The engine handles the full lifecycle: open slots, confirm bookings, send email reminders, and log meeting outcomes back to the lead record. Run `remind` daily in the heartbeat to catch same-day and next-day meetings automatically.
+`booking_engine.py` replaces Cal.com with zero subscription cost. Slots and bookings are stored in the bravo Turso DB (via supabase-compat shim). The engine handles the full lifecycle: open slots, confirm bookings, send email reminders, and log meeting outcomes back to the lead record. Run `remind` daily in the heartbeat to catch same-day and next-day meetings automatically.
 
 ---
 

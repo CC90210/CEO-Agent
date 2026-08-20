@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""crm_reset.py — archive cold/dead leads from the bravo Supabase CRM.
+"""crm_reset.py — archive cold/dead leads from the bravo CRM (Turso via supabase-compat shim).
 
 CC's directive (2026-04-30 PM): the CRM has accumulated cold-outreach noise.
 Only keep ACTUAL warm leads + ACTUAL clients. Everything else gets archived

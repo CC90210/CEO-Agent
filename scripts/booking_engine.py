@@ -1,6 +1,6 @@
 """
 Booking Engine - Self-hosted scheduling system replacing Cal.com.
-Zero paid services. Backed by Supabase (bravo project).
+Zero paid services. Backed by Turso/libSQL (bravo DB, via supabase-compat shim; pre-2026-08: Supabase).
 All credentials loaded from .env.agents (never hardcoded).
 
 Tables required (bravo Supabase project):

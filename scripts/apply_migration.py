@@ -1,4 +1,8 @@
-"""Apply SQL migration files to the Bravo Supabase project.
+"""Apply SQL migration files to the Bravo legacy Supabase project.
+
+LEGACY PATH (post-2026-08 cutover): the primary backend is Turso — use
+`scripts/apply_turso_migration.py` for empire DB DDL. This tool remains for
+the legacy Supabase projects only.
 
 Uses the Supabase Management API (https://api.supabase.com) with the
 personal access token from .env.agents. This is the only supported path
