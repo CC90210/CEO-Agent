@@ -54,24 +54,11 @@ SEEDERS = {
     "ai-audit": "scripts/seed-ai-audit-funnel.ts",
 }
 
-# Production runs Turso, so the Turso pair is what actually carries the write.
-REQUIRED = ("TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN")
-
-# The seeders hard-require the Supabase-shaped pair and exit 3 without it, even
-# though getServiceSupabase() hands back a Turso proxy when EMPIRE_DATA_BACKEND
-# is turso_cloud. Supabase is retired, so those keys are absent from .env.agents;
-# the same compat placeholders scripts/enrich_oasis_leads.py already uses satisfy
-# the check without pointing at anything real. Real values win when present.
-COMPAT_DEFAULTS = {
-    "BRAVO_SUPABASE_URL": "https://bravo.turso.compat",
-    "BRAVO_SUPABASE_SERVICE_ROLE_KEY": "turso-compat-key",
-    "EMPIRE_DATA_BACKEND": "turso_cloud",
-}
-
+# Credential rules live in run_dashboard_script.dashboard_env() — one
+# definition, so the two wrappers cannot drift apart.
+from run_dashboard_script import dashboard_env  # noqa: E402
 
 def main() -> int:
-    from lib.secret_loader import load_env  # type: ignore
-
     argv = sys.argv[1:]
     apply = "--apply" in argv
     only = None
@@ -89,16 +76,11 @@ def main() -> int:
         print(f"ERROR: dashboard dir not found: {DASHBOARD_DIR}", file=sys.stderr)
         return 2
 
-    loaded = load_env()
-    env = dict(os.environ)
-    for k in REQUIRED:
-        v = (loaded.get(k) or "").strip()
-        if not v:
-            print(f"ERROR: {k} missing from .env.agents", file=sys.stderr)
-            return 2
-        env[k] = v
-    for k, fallback in COMPAT_DEFAULTS.items():
-        env[k] = (loaded.get(k) or "").strip() or fallback
+    try:
+        env = dashboard_env()
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
 
     targets = {only: SEEDERS[only]} if only else SEEDERS
     failures = 0
