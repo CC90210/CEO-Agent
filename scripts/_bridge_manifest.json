@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-20T00:15:32.566698+00:00",
-  "script_count": 151,
+  "generated_at_iso": "2026-08-20T19:33:01.364438+00:00",
+  "script_count": 152,
   "entry_count": 324,
   "entries": [
     {
@@ -26,7 +26,7 @@
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
-      "help": "Apply SQL migration files to the Bravo Supabase project."
+      "help": "Apply SQL migration files to the Bravo legacy Supabase project."
     },
     {
       "key": "apply_missing_tables",
@@ -409,7 +409,7 @@
       "root": "bravo",
       "subcmd": "report",
       "mutating": true,
-      "help": "Client health \u2014 provides load env. \u2014 subcommand: report"
+      "help": "Client Health Scoring Engine \u2014 CEO Dashboard Component. \u2014 subcommand: report"
     },
     {
       "key": "client_health_score",
@@ -417,7 +417,7 @@
       "root": "bravo",
       "subcmd": "score",
       "mutating": true,
-      "help": "Client health \u2014 provides load env. \u2014 subcommand: score"
+      "help": "Client Health Scoring Engine \u2014 CEO Dashboard Component. \u2014 subcommand: score"
     },
     {
       "key": "client_health_alerts",
@@ -425,7 +425,7 @@
       "root": "bravo",
       "subcmd": "alerts",
       "mutating": true,
-      "help": "Client health \u2014 provides load env. \u2014 subcommand: alerts"
+      "help": "Client Health Scoring Engine \u2014 CEO Dashboard Component. \u2014 subcommand: alerts"
     },
     {
       "key": "client_health_trends",
@@ -433,7 +433,7 @@
       "root": "bravo",
       "subcmd": "trends",
       "mutating": true,
-      "help": "Client health \u2014 provides load env. \u2014 subcommand: trends"
+      "help": "Client Health Scoring Engine \u2014 CEO Dashboard Component. \u2014 subcommand: trends"
     },
     {
       "key": "competitive_intel_add",
@@ -625,7 +625,7 @@
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
-      "help": "crm_reset.py \u2014 archive cold/dead leads from the bravo Supabase CRM."
+      "help": "crm_reset.py \u2014 archive cold/dead leads from the bravo CRM (Turso via supabase-compat shim)."
     },
     {
       "key": "daily_brief",
@@ -1048,76 +1048,64 @@
       "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: doctor"
     },
     {
-      "key": "supabase_tool_list_projects",
-      "path": "scripts/integrations/supabase_tool.py",
+      "key": "turso_status",
+      "path": "scripts/integrations/turso_tool.py",
       "root": "bravo",
-      "subcmd": "list-projects",
+      "subcmd": "status",
       "mutating": false,
-      "category": "data.supabase",
+      "category": "data.turso",
       "lifecycle": "active",
-      "risk": "destructive",
+      "risk": "read_only",
       "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: list-projects"
+      "help": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso. \u2014 subcommand: status"
     },
     {
-      "key": "supabase_tool_list_tables",
-      "path": "scripts/integrations/supabase_tool.py",
+      "key": "turso_tables",
+      "path": "scripts/integrations/turso_tool.py",
       "root": "bravo",
-      "subcmd": "list-tables",
+      "subcmd": "tables",
       "mutating": false,
-      "category": "data.supabase",
+      "category": "data.turso",
       "lifecycle": "active",
-      "risk": "destructive",
+      "risk": "read_only",
       "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: list-tables"
+      "help": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso. \u2014 subcommand: tables"
     },
     {
-      "key": "supabase_sql",
-      "path": "scripts/integrations/supabase_tool.py",
+      "key": "turso_schema",
+      "path": "scripts/integrations/turso_tool.py",
       "root": "bravo",
-      "subcmd": "query",
-      "mutating": true,
-      "category": "data.supabase",
+      "subcmd": "schema",
+      "mutating": false,
+      "category": "data.turso",
       "lifecycle": "active",
-      "risk": "destructive",
+      "risk": "read_only",
       "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: query"
+      "help": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso. \u2014 subcommand: schema"
     },
     {
-      "key": "supabase_select",
-      "path": "scripts/integrations/supabase_tool.py",
+      "key": "turso_select",
+      "path": "scripts/integrations/turso_tool.py",
       "root": "bravo",
       "subcmd": "select",
       "mutating": false,
-      "category": "data.supabase",
+      "category": "data.turso",
       "lifecycle": "active",
-      "risk": "destructive",
+      "risk": "read_only",
       "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: select"
+      "help": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso. \u2014 subcommand: select"
     },
     {
-      "key": "supabase_insert",
-      "path": "scripts/integrations/supabase_tool.py",
+      "key": "turso_sql_read",
+      "path": "scripts/integrations/turso_tool.py",
       "root": "bravo",
-      "subcmd": "insert",
-      "mutating": true,
-      "category": "data.supabase",
+      "subcmd": "sql",
+      "mutating": false,
+      "category": "data.turso",
       "lifecycle": "active",
-      "risk": "destructive",
+      "risk": "read_only",
       "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: insert"
-    },
-    {
-      "key": "supabase_update",
-      "path": "scripts/integrations/supabase_tool.py",
-      "root": "bravo",
-      "subcmd": "update",
-      "mutating": true,
-      "category": "data.supabase",
-      "lifecycle": "active",
-      "risk": "destructive",
-      "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: update"
+      "help": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso. \u2014 subcommand: sql"
     },
     {
       "key": "lead_engine_list",
@@ -1676,7 +1664,7 @@
       "root": "bravo",
       "subcmd": "publish",
       "mutating": true,
-      "help": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table. \u2014 subcommand: publish"
+      "help": "Publish memory/ACTIVE_TASKS.md tasks to the `oasis_quests` table (Turso via supabase-compat shim). \u2014 subcommand: publish"
     },
     {
       "key": "quest_publisher_dry_run",
@@ -1684,7 +1672,7 @@
       "root": "bravo",
       "subcmd": "dry-run",
       "mutating": true,
-      "help": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table. \u2014 subcommand: dry-run"
+      "help": "Publish memory/ACTIVE_TASKS.md tasks to the `oasis_quests` table (Turso via supabase-compat shim). \u2014 subcommand: dry-run"
     },
     {
       "key": "quest_publisher_loop",
@@ -1692,7 +1680,7 @@
       "root": "bravo",
       "subcmd": "loop",
       "mutating": true,
-      "help": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table. \u2014 subcommand: loop"
+      "help": "Publish memory/ACTIVE_TASKS.md tasks to the `oasis_quests` table (Turso via supabase-compat shim). \u2014 subcommand: loop"
     },
     {
       "key": "r2_split_public_bucket",
@@ -2185,6 +2173,18 @@
       "subcmd": null,
       "mutating": true,
       "help": "Put the Turso / R2 cutover variables on the Vercel projects."
+    },
+    {
+      "key": "weekly_truth_digest",
+      "path": "scripts/weekly_truth_digest.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "category": "governance.health",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Weekly full-truth harness digest, always delivered to CC's private Telegram."
     },
     {
       "key": "wire_all_templates",

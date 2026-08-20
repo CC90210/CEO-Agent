@@ -1,7 +1,9 @@
-"""
-Supabase SDK Integration — Universal Agent Tool
-Replaces the broken Supabase MCP server with direct Python SDK access.
-All credentials loaded from .env.agents (never hardcoded).
+"""Deprecated filename-compatible database CLI.
+
+The empire backend is Turso. sitecustomize routes this module's SDK-shaped
+calls through lib.turso_supabase_compat; it is retained only for old scripts
+and explicit compatibility diagnostics. New agent/database routing must use
+scripts/integrations/turso_tool.py.
 
 Usage (from any agent via terminal):
   python scripts/integrations/supabase_tool.py list-tables [--project bravo|oasis|nostalgic]
@@ -30,19 +32,17 @@ from lib.tls_trust import ensure_os_trust  # noqa: E402
 ensure_os_trust()
 
 CAPABILITY_META = {
-    "category": "data.supabase",
-    "lifecycle": "active",
+    "category": "data.turso_compat",
+    "lifecycle": "deprecated",
     "risk": "destructive",
     "triggers": [
-        "query Supabase",
-        "select database rows",
-        "insert database row",
-        "update database rows",
+        "run the deprecated supabase_tool compatibility CLI",
+        "diagnose the Turso Supabase SDK shim",
     ],
     "owner": "bravo",
     "project": "empire",
     "bridge": {
-        "visible": True,
+        "visible": False,
         "confirm": True,
         "subcommands": {
             "list-projects": {"visible": True, "confirm": False},

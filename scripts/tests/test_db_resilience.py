@@ -26,10 +26,14 @@ from lib import db_resilience as dbr  # noqa: E402
 def _patched_class():
     """supabase's sync Client, or None when supabase isn't installed here."""
     try:
-        from supabase._sync.client import Client
-        return Client
+        from supabase._sync.client import SyncClient
+        return SyncClient
     except Exception:  # noqa: BLE001
-        return None
+        try:
+            from supabase._sync.client import Client
+            return Client
+        except Exception:  # noqa: BLE001
+            return None
 
 
 @pytest.fixture(autouse=True)
@@ -71,10 +75,27 @@ def _fresh(monkeypatch):
             cls.__init__ = entry_init
 
 
+DUMMY_JWT = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYwOTQ1OTIwMCwiZXhwIjoyMDE1Mzg1NjAwfQ."
+    "signature"
+)
+
+
 def _client():
-    """A real supabase client against a dummy URL — constructs no connection."""
-    from supabase import create_client
-    return create_client("https://xxxxxxxxxxxx.supabase.co", "dummy-key")
+    """A real legacy Supabase client; construction performs no network call.
+
+    Use the package's internal factory deliberately. The public
+    ``supabase.create_client`` is the Turso cutover boundary and is patched in
+    normal operation; this resilience helper is retained only for the explicit
+    emergency rollback mode and must be tested against the real pinned client.
+    """
+    from supabase._sync.client import create_client as create_supabase_client
+
+    return create_supabase_client(
+        "https://xxxxxxxxxxxx.supabase.co",
+        DUMMY_JWT,
+    )
 
 
 # ── the defaults the library ships, which are the bug ────────────────────────
@@ -139,10 +160,10 @@ def test_install_hardens_clients_made_via_a_pre_bound_factory():
     late. Patching the class the factory instantiates catches it anyway.
     """
     import supabase  # noqa: F401  (must be in sys.modules for install())
-    from supabase import create_client as prebound
+    from supabase._sync.client import create_client as prebound
 
     dbr.install()
-    d = dbr.diagnostics(prebound("https://x.supabase.co", "dummy"))
+    d = dbr.diagnostics(prebound("https://xxxxxxxxxxxx.supabase.co", DUMMY_JWT))
     assert d["retries"] == dbr.DEFAULT_RETRIES
     assert str(int(dbr.DEFAULT_TIMEOUT_SEC)) in d["timeout"]
 
@@ -158,15 +179,16 @@ def test_install_patches_the_class_exactly_once():
     stack of them would grow without bound across a long-lived daemon.
     """
     import supabase  # noqa: F401
-    from supabase._sync.client import Client as SyncClient
+    cls = _patched_class()
+    assert cls is not None
 
     dbr.install()
-    first = SyncClient.__init__
+    first = cls.__init__
     assert getattr(first, "_empire_hardened", False) is True
 
     importlib.reload(dbr)          # resets the module flag, not the class
     dbr.install()
-    assert SyncClient.__init__ is first, "install() nested a second wrapper"
+    assert cls.__init__ is first, "install() nested a second wrapper"
 
 
 def test_install_noops_when_supabase_is_not_imported(monkeypatch):
@@ -193,10 +215,9 @@ def test_ensure_os_trust_installs_the_hardening():
     verification AND kills sockets."""
     import supabase  # noqa: F401
     from lib.tls_trust import ensure_os_trust
-    from supabase import create_client
 
     ensure_os_trust()
-    d = dbr.diagnostics(create_client("https://x.supabase.co", "dummy"))
+    d = dbr.diagnostics(_client())
     assert d["retries"] == dbr.DEFAULT_RETRIES, "ensure_os_trust did not harden"
 
 

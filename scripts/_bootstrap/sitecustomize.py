@@ -5,9 +5,11 @@ only place that runs before all 49 harness modules bind `create_client` via
 `from supabase import create_client`. So the swap has to happen here, not in
 application code.
 
-Defaults to EMPIRE_DATA_BACKEND=turso_cloud when unset (post-Supabase decommissioning).
-To bypass Turso and use real Supabase, set EMPIRE_DATA_BACKEND=supabase.
-Rollback to direct Supabase is EMPIRE_DATA_BACKEND=supabase.
+Defaults to EMPIRE_DATA_BACKEND=turso_cloud when unset (post-Supabase
+decommissioning). The only direct-Supabase escape hatch is the deliberately
+verbose emergency mode EMPIRE_DATA_BACKEND=legacy_supabase_rollback. Old or
+unknown backend names are rejected so a stale setting cannot silently select
+the retired data plane.
 
 TWO THINGS THIS FIXES, both of which made the switch a no-op off this machine:
 
@@ -23,13 +25,13 @@ TWO THINGS THIS FIXES, both of which made the switch a no-op off this machine:
    It printed to stderr and continued on Supabase. A PM2 daemon discards
    stderr, so "the operator asked for Turso and silently got Supabase" produced
    no signal anywhere — which is precisely the state that keeps a cancelled
-   database load-bearing. It still must never break interpreter start (every
-   recovery tool is a Python process too), so instead of raising it records a
-   durable marker at state/turso_switch_failed.json that the cancellation gate
-   and harness health check can read.
+   database load-bearing. Failure now records a durable marker at
+   state/turso_switch_failed.json AND stops interpreter startup.
 
-   Set EMPIRE_TURSO_PATCH_REQUIRED=1 to make it hard-fail instead. Daemons that
-   must never quietly fall back should set it.
+   This module is imported from a .pth file. Python's .pth loader catches
+   ordinary Exception subclasses, so RuntimeError would still continue startup.
+   The fail-closed path deliberately raises SystemExit (a BaseException) after
+   recording the marker. Only explicit legacy_supabase_rollback skips the patch.
 
 DEPLOYMENT: this file is TRACKED. `python scripts/install_python_switch.py`
 copies it into the active venv's site-packages on either platform. The previous
@@ -37,6 +39,12 @@ copy existed only inside .venv on one machine and was in no repo.
 """
 import os
 import sys
+from typing import NoReturn
+
+
+TURSO_BACKEND = "turso_cloud"
+LEGACY_SUPABASE_ROLLBACK_BACKEND = "legacy_supabase_rollback"
+_ALLOWED_BACKENDS = {TURSO_BACKEND, LEGACY_SUPABASE_ROLLBACK_BACKEND}
 
 
 def _find_root():
@@ -125,8 +133,13 @@ def _install() -> None:
 
 def _record_failure(exc: Exception) -> None:
     """Leave a durable trace. stderr alone is invisible under a daemon."""
-    print(f"[sitecustomize] Turso backend patch FAILED — Supabase client left "
-          f"in place: {exc}", file=sys.stderr)
+    print(f"[sitecustomize] data-backend activation FAILED — startup blocked: "
+          f"{exc}", file=sys.stderr)
+    # Installer/health probes deliberately exercise rejected and broken modes.
+    # Their subprocess failure is the evidence; writing the production marker
+    # would turn a successful negative test into a false live incident.
+    if os.environ.get("EMPIRE_TURSO_SWITCH_PROBE") == "1":
+        return
     try:
         import json
         import socket
@@ -142,20 +155,51 @@ def _record_failure(exc: Exception) -> None:
                     "host": socket.gethostname(),
                     "python": sys.executable,
                     "error": str(exc),
-                    "effect": "EMPIRE_DATA_BACKEND=turso_cloud was requested but "
-                              "the Supabase client was NOT swapped — this process "
-                              "is still writing to Supabase.",
+                    "effect": "The requested data-backend mode could not be "
+                              "activated. Process startup was blocked; no "
+                              "automatic fallback to Supabase was allowed.",
                 }, indent=2), encoding="utf-8")
                 return
     except Exception:  # noqa: BLE001 — recording must never break startup
         pass
 
 
-if os.environ.get("EMPIRE_DATA_BACKEND", "turso_cloud") == "turso_cloud":
+def _requested_backend() -> str:
+    """Return the one validated startup mode; unset means Turso."""
+    backend = os.environ.get("EMPIRE_DATA_BACKEND", "").strip().lower()
+    backend = backend or TURSO_BACKEND
+    if backend not in _ALLOWED_BACKENDS:
+        allowed = ", ".join(sorted(_ALLOWED_BACKENDS))
+        raise RuntimeError(
+            f"invalid EMPIRE_DATA_BACKEND={backend!r}; allowed values: {allowed}. "
+            "Direct Supabase is available only through the explicit emergency "
+            f"mode {LEGACY_SUPABASE_ROLLBACK_BACKEND!r}.")
+    return backend
+
+
+def _stop_startup(exc: Exception) -> NoReturn:
+    """Record the fault, then escape the .pth loader's Exception catch."""
+    _record_failure(exc)
+    raise SystemExit(
+        "[sitecustomize] startup blocked: Turso is the required data backend "
+        f"and no silent Supabase fallback is permitted ({exc})") from exc
+
+
+def _activate() -> str:
+    """Install Turso by default or enter the one explicit rollback mode."""
+    try:
+        backend = _requested_backend()
+    except Exception as exc:  # noqa: BLE001 — configuration errors fail closed
+        _stop_startup(exc)
+
+    if backend == LEGACY_SUPABASE_ROLLBACK_BACKEND:
+        return backend
+
     try:
         _install()
-    except Exception as exc:  # noqa: BLE001 — NEVER break interpreter start
-        _record_failure(exc)
-        if os.environ.get("EMPIRE_TURSO_PATCH_REQUIRED") == "1":
-            # Opt-in hard failure for daemons that must not fall back silently.
-            raise
+    except Exception as exc:  # noqa: BLE001 — patch failures fail closed
+        _stop_startup(exc)
+    return backend
+
+
+_ACTIVE_BACKEND = _activate()
