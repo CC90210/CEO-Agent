@@ -96,8 +96,16 @@ SERVICES: dict[str, tuple[list[list[str]], str]] = {
                "python scripts/integrations/stripe_tool.py <verb> --json"),
     "google": ([["GMAIL_USER", "GMAIL_ADDRESS"], ["GMAIL_APP_PASSWORD"]],
                "python scripts/integrations/google_tool.py <verb> --json"),
+    # Genuinely reachable, so OK is the honest status — but DEPRECATED, and a bare
+    # OK invites an agent to build new automation on a platform being retired. Only
+    # two client webhooks remain live (Oasis Voice Agent; GrapeVine Cottage, a
+    # churned client) and the replacement endpoint is already proven. Same lesson as
+    # the supabase entry above, one notch softer: the status was never wrong, the
+    # missing context was.
     "n8n": ([["N8N_API_KEY"], ["N8N_API_URL", "N8N_BASE_URL", "N8N_URL"]],
-            "python scripts/integrations/n8n_tool.py <verb> --json"),
+            "python scripts/integrations/n8n_tool.py <verb> --json  "
+            "(DEPRECATED — read/repair existing workflows only. Build nothing new "
+            "here; new inbound automation goes to POST /api/ingest/automation-log.)"),
     # TWO wrappers on one token, and the probe has to name both or the half it
     # omits reads as unavailable. env_tool covers environment variables;
     # deploy_tool covers deployment state and build logs. Diagnosing the
