@@ -62,10 +62,23 @@ SERVICES: dict[str, tuple[list[list[str]], str]] = {
     "openai": ([["OPENAI_API_KEY"]],
                "node ~/.claude/codex-plugin/scripts/codex-companion.mjs task --write '<ctx>'"),
     "openrouter": ([["OPENROUTER_API_KEY"]], "python scripts/model_router.py"),
-    "supabase": ([["SUPABASE_URL", "SUPABASE_URL_BRAVO", "BRAVO_SUPABASE_URL"],
-                  ["SUPABASE_SERVICE_ROLE_KEY", "BRAVO_SUPABASE_SERVICE_ROLE_KEY",
-                   "SUPABASE_SERVICE_ROLE_KEY_BRAVO"]],
-                 "python scripts/integrations/supabase_tool.py <verb> --json"),
+    # RETIRED 2026-08-09 — and this entry was the most dangerous kind of stale:
+    # it reported "supabase: AVAILABLE" long after the migration, because those
+    # SUPABASE_*/BRAVO_SUPABASE_* keys are the values the TURSO COMPAT SHIM reads.
+    # supabase_tool.py speaks Turso despite its name (it logs
+    # "turso_supabase_compat"), so key presence proved the shim was wired, never
+    # that a Supabase project answers. An agent following the "probe before you
+    # claim a service is missing" rule got AVAILABLE and reasonably concluded
+    # Supabase was live — the harness's own diagnostic teaching the wrong fact.
+    # The credential that actually distinguishes them is the management token
+    # SUPABASE_ACCESS_TOKEN, which IS gone; that absence is why
+    # migration_completeness_audit.py and etl_supabase_to_turso.py can no longer
+    # run. Probing it now routes the agent to Turso instead of lying by omission.
+    "supabase": ([["SUPABASE_ACCESS_TOKEN"]],
+                 "RETIRED — empire data is on Turso. Use "
+                 "`python scripts/integrations/turso_tool.py <verb> --json`. "
+                 "(scripts/integrations/supabase_tool.py still exists and still "
+                 "works, but it is the Turso compat shim, not Supabase.)"),
     # Turso needs BOTH a database URL and a token, and the URL must be the
     # canonical key. TURSO_API_KEY alone reads as access but is not: the token in
     # the agents env is database-scoped (JWT claims a/id/rid) and belongs to the
