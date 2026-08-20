@@ -14,7 +14,7 @@ verified: 2026-06-09
 **Name (working):** *Business in a Box — Your AI C-Suite*
 **What it is:** 3 core AI agents (CEO, CFO, CMO) + optional 4th (Life) that clone, customize, and run on a solo founder's laptop. Not a SaaS. Not a chatbot. A full executive team in 4 git repos.
 **Target buyer:** solo founder, agency owner, consultant, SaaS dev doing $0-50K MRR who can't afford to hire a real exec team yet and is tired of chatbot wrappers.
-**Differentiator:** not "ask GPT to pretend to be a CFO." Real sovereign agents with shared state (pulse protocol), per-role deep skills, cross-agent coordination, 4-layer memory (markdown + Obsidian + Supabase + claude-mem).
+**Differentiator:** not "ask GPT to pretend to be a CFO." Real sovereign agents with shared state (pulse protocol), per-role deep skills, cross-agent coordination, 4-layer memory (markdown + Obsidian + Turso + claude-mem).
 
 ## Two-Layer Architecture
 

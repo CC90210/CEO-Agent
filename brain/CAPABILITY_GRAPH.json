@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-19T23:52:43.751352+00:00",
+  "generated_at": "2026-08-20T19:08:43.621778+00:00",
   "totals": {
     "skills": 162,
-    "scripts": 162,
+    "scripts": 167,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 415,
-    "edges_total": 176,
+    "nodes_total": 420,
+    "edges_total": 183,
     "drift_count": 0
   },
   "nodes": [
@@ -377,7 +377,7 @@
       "kind": "skill",
       "name": "booking-management",
       "path": "skills/booking-management/SKILL.md",
-      "description": "Manage discovery call scheduling using booking_engine.py \u2014 a self-hosted Cal.com replacement backed by Supabase. Covers opening slots, booking leads, sending reminders, and completing meetings.",
+      "description": "Manage discovery call scheduling using booking_engine.py \u2014 a self-hosted Cal.com replacement backed by Turso (via supabase-compat shim). Covers opening slots, booking leads, sending reminders, and completing meetings.",
       "tier": "standard",
       "owner": "bravo",
       "risk": "low",
@@ -5451,7 +5451,7 @@
       "kind": "script",
       "name": "apply_migration",
       "path": "scripts/apply_migration.py",
-      "description": "Apply SQL migration files to the Bravo Supabase project.",
+      "description": "Apply SQL migration files to the Bravo legacy Supabase project.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5541,7 +5541,7 @@
       "kind": "script",
       "name": "booking_engine",
       "path": "scripts/booking_engine.py",
-      "description": "Booking Engine - Self-hosted scheduling system replacing Cal.com. Zero paid services. Backed by Supabase (bravo project). All credentials loaded from .env.agents (never hardcoded).",
+      "description": "Booking Engine - Self-hosted scheduling system replacing Cal.com. Zero paid services. Backed by Turso/libSQL (bravo DB, via supabase-compat shim; pre-2026-08: Supabase). All credentials loaded from .env.agents (never hardcoded).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5751,7 +5751,7 @@
       "kind": "script",
       "name": "client_health",
       "path": "scripts/client_health.py",
-      "description": "Client health \u2014 provides load env.",
+      "description": "Client Health Scoring Engine \u2014 CEO Dashboard Component.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5863,7 +5863,7 @@
       "kind": "script",
       "name": "crm_reset",
       "path": "scripts/crm_reset.py",
-      "description": "crm_reset.py \u2014 archive cold/dead leads from the bravo Supabase CRM.",
+      "description": "crm_reset.py \u2014 archive cold/dead leads from the bravo CRM (Turso via supabase-compat shim).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6284,7 +6284,7 @@
       "kind": "script",
       "name": "lead_engine",
       "path": "scripts/lead_engine.py",
-      "description": "Lead Engine - OASIS AI CRM CLI Zero-paid-service lead management backed by Supabase (project: bravo). Replaces ManyChat, HubSpot, and every other CRM CC doesn't need to pay for.",
+      "description": "Lead Engine - OASIS AI CRM CLI Zero-paid-service lead management backed by Turso/libSQL (bravo DB, via supabase-compat shim; pre-2026-08: Supabase project bravo). Replaces ManyChat, HubSpot, and every other CRM CC doesn't need to pay for.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6516,7 +6516,7 @@
       "kind": "script",
       "name": "outreach_engine",
       "path": "scripts/outreach_engine.py",
-      "description": "Outreach Engine - Personalized email outreach with Google Meet + .ics invite. Zero n8n dependency. Gmail SMTP directly. Supabase for logging and history. All credentials loaded from .env.agents (never hardcoded).",
+      "description": "Outreach Engine - Personalized email outreach with Google Meet + .ics invite. Zero n8n dependency. Gmail SMTP directly. Turso (via supabase-compat shim) for logging and history. All credentials loaded from .env.agents (never hardcoded).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6632,7 +6632,7 @@
       "kind": "script",
       "name": "provision_client_tenant",
       "path": "scripts/provision_client_tenant.py",
-      "description": "Provision a client tenant in Supabase: create the auth user with email pre-confirmed, then create/patch a tenant + user_profile using the same brand-hint provisioning logic as the dashboard's /api/auth/provision route (lib/client-provisioning.ts).",
+      "description": "Provision a client tenant: create the auth user with email pre-confirmed, then create/patch a tenant + user_profile using the same brand-hint provisioning logic as the dashboard's /api/auth/provision route (lib/client-provisioning.ts). Backend: Turso via supabase-compat shim (pre",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6643,6 +6643,16 @@
       "name": "provision_secrets",
       "path": "scripts/provision_secrets.py",
       "description": "provision_secrets.py \u2014 materialize a tenant's integration secrets onto this host.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:prune_merged_branches",
+      "kind": "script",
+      "name": "prune_merged_branches",
+      "path": "scripts/prune_merged_branches.py",
+      "description": "prune_merged_branches \u2014 delete remote branches whose commits are already in main.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6684,7 +6694,7 @@
       "kind": "script",
       "name": "quest_publisher",
       "path": "scripts/quest_publisher.py",
-      "description": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table.",
+      "description": "Publish memory/ACTIVE_TASKS.md tasks to the `oasis_quests` table (Turso via supabase-compat shim).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6784,7 +6794,7 @@
       "kind": "script",
       "name": "revenue_engine",
       "path": "scripts/revenue_engine.py",
-      "description": "Revenue Engine - OASIS Business Operations CLI Combines Stripe subscription data with Supabase manual tracking. All credentials loaded from .env.agents (never hardcoded).",
+      "description": "Revenue Engine - OASIS Business Operations CLI Combines Stripe subscription data with Turso-backed manual tracking (via supabase-compat shim). All credentials loaded from .env.agents (never hardcoded).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6862,6 +6872,29 @@
       }
     },
     {
+      "id": "script:run_seed_oasis_forms",
+      "kind": "script",
+      "name": "run_seed_oasis_forms",
+      "path": "scripts/run_seed_oasis_forms.py",
+      "description": "run_seed_oasis_forms.py \u2014 inject service-role creds and re-seed the LIVE OASIS funnel forms (the /start funnel and the AI-audit funnel).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.oasis",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "reseed oasis forms",
+        "deploy oasis funnel form",
+        "refresh live oasis forms",
+        "push form field changes live"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
       "id": "script:run_sql_via_mgmt_api",
       "kind": "script",
       "name": "run_sql_via_mgmt_api",
@@ -6927,6 +6960,16 @@
       "name": "scrape_firecrawl_leads",
       "path": "scripts/scrape_firecrawl_leads.py",
       "description": "Lead scraper using Firecrawl API (replaces slow Playwright + Google Maps flow).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:scrape_website_sales_leads",
+      "kind": "script",
+      "name": "scrape_website_sales_leads",
+      "path": "scripts/scrape_website_sales_leads.py",
+      "description": "Website-sales lead scraper \u2014 fills the oasis-webdev pipeline at stage 'researched'.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -7189,6 +7232,29 @@
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:weekly_truth_digest",
+      "kind": "script",
+      "name": "weekly_truth_digest",
+      "path": "scripts/weekly_truth_digest.py",
+      "description": "Weekly full-truth harness digest, always delivered to CC's private Telegram.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "governance.health",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "run the weekly full truth health digest",
+        "report complete harness health",
+        "check self audit fleet health and all tests"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": true
+      }
     },
     {
       "id": "script:wiki_link_auditor",
@@ -7467,22 +7533,20 @@
       "kind": "script",
       "name": "supabase_tool",
       "path": "scripts/integrations/supabase_tool.py",
-      "description": "Supabase SDK Integration \u2014 Universal Agent Tool Replaces the broken Supabase MCP server with direct Python SDK access. All credentials loaded from .env.agents (never hardcoded).",
+      "description": "Deprecated filename-compatible database CLI.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-capability-meta",
-      "category": "data.supabase",
-      "lifecycle": "active",
+      "category": "data.turso_compat",
+      "lifecycle": "deprecated",
       "risk": "destructive",
       "triggers": [
-        "query Supabase",
-        "select database rows",
-        "insert database row",
-        "update database rows"
+        "run the deprecated supabase_tool compatibility CLI",
+        "diagnose the Turso Supabase SDK shim"
       ],
       "project": "empire",
       "bridge": {
-        "visible": true,
+        "visible": false,
         "confirm": true,
         "subcommands": {
           "list-projects": {
@@ -7512,6 +7576,57 @@
             "key": "supabase_sql",
             "visible": true,
             "confirm": true
+          }
+        }
+      }
+    },
+    {
+      "id": "script:turso_tool",
+      "kind": "script",
+      "name": "turso_tool",
+      "path": "scripts/integrations/turso_tool.py",
+      "description": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "data.turso",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "query the empire database",
+        "select database rows",
+        "inspect Turso tables",
+        "check the live database status"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": false,
+        "subcommands": {
+          "status": {
+            "key": "turso_status",
+            "visible": true,
+            "confirm": false
+          },
+          "tables": {
+            "key": "turso_tables",
+            "visible": true,
+            "confirm": false
+          },
+          "schema": {
+            "key": "turso_schema",
+            "visible": true,
+            "confirm": false
+          },
+          "select": {
+            "key": "turso_select",
+            "visible": true,
+            "confirm": false
+          },
+          "sql": {
+            "key": "turso_sql_read",
+            "visible": true,
+            "confirm": false
           }
         }
       }
@@ -8969,6 +9084,11 @@
       "kind": "schedules"
     },
     {
+      "from": "runtime:cron_engine",
+      "to": "script:weekly_truth_digest",
+      "kind": "schedules"
+    },
+    {
       "from": "runtime:telegram_agent",
       "to": "script:cost_tracker",
       "kind": "exposes"
@@ -9364,6 +9484,26 @@
       "kind": "calls"
     },
     {
+      "from": "script:scrape_website_sales_leads",
+      "to": "script:name_utils",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_website_sales_leads",
+      "to": "script:research_fetch",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_website_sales_leads",
+      "to": "script:scrape_firecrawl_leads",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_website_sales_leads",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
       "from": "script:send_gateway",
       "to": "runtime:bridge_chat_server",
       "kind": "exposed_via"
@@ -9420,11 +9560,6 @@
     },
     {
       "from": "script:supabase_tool",
-      "to": "runtime:bridge_chat_server",
-      "kind": "exposed_via"
-    },
-    {
-      "from": "script:supabase_tool",
       "to": "script:integration_health",
       "kind": "calls"
     },
@@ -9439,6 +9574,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:turso_tool",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
       "from": "script:turso_vps_bundle",
       "to": "script:turso_cred_fingerprint",
       "kind": "calls"
@@ -9446,6 +9586,16 @@
     {
       "from": "script:vercel_turso_cutover",
       "to": "script:etl_storage_to_r2",
+      "kind": "calls"
+    },
+    {
+      "from": "script:weekly_truth_digest",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:weekly_truth_digest",
+      "to": "script:notify",
       "kind": "calls"
     },
     {

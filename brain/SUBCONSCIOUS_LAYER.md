@@ -3,7 +3,7 @@ name: SUBCONSCIOUS LAYER
 description: The map of the automatic substrate that runs beneath conscious reasoning — hook injection, hybrid retrieval, confidence decay, memory consolidation, capability routing — and the zoom-out↔zoom-in strengthening plan that makes the conscious brain (the 7-phase cycle) rely on a powerful subconscious instead of remembering to do everything by hand.
 mutability: EVOLVING
 tags: [brain, subconscious, retrieval, memory, self-improvement, zoom, architecture, autonomy]
-last_updated: 2026-07-20
+last_updated: 2026-08-20
 freshness_threshold_days: 30
 verified: 2026-07-20
 ---

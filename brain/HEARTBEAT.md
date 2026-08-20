@@ -1,5 +1,5 @@
 ---
-description: "Session-start heartbeat system: checklist of proactive checks (memory, infrastructure, Supabase sync, pending tasks) that run before engaging with CC's requests"
+description: "Session-start heartbeat system: checklist of proactive checks (memory, infrastructure, Turso sync, pending tasks) that run before engaging with CC's requests"
 tags: [heartbeat, monitoring]
 last_updated: 2026-07-22
 freshness_threshold_days: 30
@@ -41,7 +41,7 @@ CHECK: Are critical systems operational?
 ACTION: Report any issues before starting work.
 ```
 
-### 3. Supabase State Sync (Priority: HIGH)
+### 3. Turso State Sync (Priority: HIGH)
 ```
 CHECK: Is the database in sync with files?
 - Query agent_state table → compare with brain/STATE.md
@@ -86,13 +86,13 @@ ACTION: Log insights to brain/GROWTH.md. Promote validated items. Archive low-ac
 Execute the full session-end protocol from `brain/INTERACTION_PROTOCOL.md` Section 8:
 
 1. **Context Diagnostics** — Prune temp files, compress logs
-2. **API Hardening** — Did anything fail? Log to MISTAKES.md + Supabase
+2. **API Hardening** — Did anything fail? Log to MISTAKES.md + Turso
 3. **Code Verification** — Any uncommitted changes? Remind CC.
 4. **Pattern Distillation** — Extract new patterns/mistakes from this session
 5. **Reflexion Check** — Any failed tasks this session? Generate structured reflections.
 6. **Memory Sync** — Update ACTIVE_TASKS, SESSION_LOG
 7. **State Update** — Update brain/STATE.md with current operational state
-8. **Supabase Sync** — Update agent_state, insert session_logs, flush agent_traces, insert new memories/growth
+8. **Turso Sync** — Update agent_state, insert session_logs, flush agent_traces, insert new memories/growth
 9. **Git Commit** — Stage brain/ + memory/ changes → commit with `bravo: sync — session YYYY-MM-DD`
 10. **Confirmation** — State to CC: "Memory synced. [X] files updated, [Y] traces logged, [Z] new learnings captured."
 
@@ -103,7 +103,7 @@ When reporting heartbeat results to CC:
 HEARTBEAT COMPLETE (V5.5)
 - Memory: [OK/ISSUES FOUND] ([X] probationary items, [Y] pending validation)
 - Infrastructure: [OK/ISSUES FOUND]
-- Supabase Sync: [IN SYNC/DIVERGED — files win]
+- Turso Sync: [IN SYNC/DIVERGED — files win]
 - Pending Tasks: [X items] ([Y] blocked)
 - Workspace: [CLEAN/NEEDS ATTENTION]
 - Growth: [X new insights] ([Y] items promoted to VALIDATED)

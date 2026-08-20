@@ -56,7 +56,7 @@ Each agent's brain/ is its own sovereign space — this is intentional. Cross-ag
 
 - **Pulse files** (JSON, per-agent sovereign path): fast "now-state" — runway, MRR, content pipeline, presence
 - **Shared Turso DB** (primary backend, 191 tables): long-term memory — `agent_traces`, `skill_activation`, `session_logs`, `agent_state`, `content_calendar`, `leads`, `funnels`, etc. Legacy Supabase (`phctllmtsogkovoilwos`) retained for event bus (Postgres LISTEN/NOTIFY) only.
-- **Each app's own DB**: Turso for PULSE, OASIS Supabase, Nostalgic Supabase, etc.
+- **Each app's own DB**: Turso for PULSE, OASIS, Nostalgic, PropFlow, TIKTIK, etc. (all migrated off Supabase)
 
 ## When You Need To Find Something
 

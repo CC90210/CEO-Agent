@@ -64,7 +64,7 @@ Every agent MUST update its OWN pulse with:
 
 ## V6.0 Substrate (added 2026-05-10 — Bravo first)
 
-Bravo is the first agent on V6.0. The cross-agent contract is unchanged: pulses still drive sibling awareness, Supabase is still the deep record. V6.0 adds two optional enrichments siblings can pick up when ready:
+Bravo is the first agent on V6.0. The cross-agent contract is unchanged: pulses still drive sibling awareness, Turso is the deep record (Supabase legacy — event bus only). V6.0 adds two optional enrichments siblings can pick up when ready:
 
 1. **Bravo's pulse now carries a `v6` block** — `state_db` row counts, `fts5` index size, `hook_modes` (enforce/report/off), and `mode` (off/shadow/on). Sibling agents reading `ceo_pulse.json` can use `pulse.v6.state_db.last_heartbeat` for sub-second liveness instead of the day-precision markdown frontmatter. JSON additive — old siblings ignore the field.
 
@@ -74,11 +74,11 @@ Bravo is the first agent on V6.0. The cross-agent contract is unchanged: pulses 
 
 4. **Push-mode coordination (V6 BUILD 3, 2026-05-10):** the Supabase `agent_events` table is now the canonical low-latency broadcast layer. Producers call `scripts/event_bus.publish(event_type, payload, source, target)` — INSERT fires a `pg_notify` trigger; subscribers running `await event_bus.subscribe(agent, handlers={...})` wake on the notification and atomically dequeue via `claim_events()` (uses `FOR UPDATE SKIP LOCKED` — multiple workers of the same agent never claim the same row). Standard event-type registry: `brain/EVENT_BUS_CONTRACT.md`. Bravo emits `BRAVO_SESSION_LOG_APPENDED`, `BRAVO_PULSE_REFRESHED`, `BRAVO_CHAT_INTERACTION` today; siblings can subscribe to any of them. Pulse files remain the canonical "current state" snapshot — the bus broadcasts changes; the file is the authoritative read.
 
-## Shared Supabase as the Deep Record
+## Shared Turso as the Deep Record
 
-Pulses are the "what's happening now" layer. Supabase (`phctllmtsogkovoilwos`) is the "what happened over time" layer.
+Pulses are the "what's happening now" layer. The shared Turso `bravo` DB is the "what happened over time" layer (legacy Supabase `phctllmtsogkovoilwos` retained for event bus only).
 
-- **Every material action** each agent takes should log to Supabase's `agent_traces` table with `agent`, `action`, `payload`
+- **Every material action** each agent takes should log to Turso's `agent_traces` table with `agent`, `action`, `payload`
 - When CC asks "what happened in marketing last week," the answering agent queries `agent_traces WHERE agent = 'maven' AND created_at > now() - interval '7 days'`
 - This is the only way to know cross-session, cross-agent history
 
@@ -107,10 +107,10 @@ Aura serves a household with 2+ residents (CC + Adon currently; possibly more ov
 - **Never ask Aura about the other resident's habits, health, mood,
   spending, or schedule.** If a question requires that data, tell CC
   and let CC decide whether to include Adon in the loop.
-- Cross-resident data reads are logged to Supabase `agent_traces` for
+- Cross-resident data reads are logged to Turso `agent_traces` for
   transparency.
 
-When Adon's AIOS agent joins the shared Supabase DB, its rows will carry
+When Adon's AIOS agent joins the shared Turso DB, its rows will carry
 `resident: 'adon'` alongside `agent: 'adon_<name>'`. CC's agents continue
 tagging `resident: 'cc'`. Rows tagged `resident: 'shared'` are readable
 by any agent (apartment status, utilities, etc.).
@@ -143,5 +143,5 @@ If any test fails, fix it before starting the next session.
 
 ## Related Docs
 - `brain/C_SUITE_ARCHITECTURE.md` — governance + decision rights + spend gate
-- `../CMO-Agent/brain/SHARED_DB.md` — shared Supabase schema
+- `../CMO-Agent/brain/SHARED_DB.md` — shared Turso schema
 - Each agent's own pulse at `data/pulse/{ceo,cfo,cmo}_pulse.json`

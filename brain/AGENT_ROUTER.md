@@ -100,7 +100,7 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Get current MRR | ATLAS-OWNED — do not self-serve; defer to Atlas (read Atlas cfo_pulse/STATE.md READ-ONLY if CC insists) | `brain/C_SUITE_ARCHITECTURE.md` |
 | CEO daily briefing | `ceo_dashboard` (legacy fail-closed; currently needs `confirm: true`) | — |
 | Read a Supabase table | `supabase_select` (args: table, --eq, --limit) | `brain/CAPABILITIES.md` |
-| Write to Supabase | `supabase_insert` / `supabase_update` (mutating; needs `confirm: true`) | `brain/CAPABILITIES.md` |
+| Write to Database (legacy-ok Supabase) | `supabase_insert` / `supabase_update` (mutating; needs `confirm: true`) | `brain/CAPABILITIES.md` |
 | List leads | `lead_engine_list` (args: --status, --limit; legacy fail-closed confirmation) | `brain/STATE.md` |
 | Score a lead | `lead_engine_score` (positional lead UUID; legacy fail-closed confirmation) | — |
 | Add a lead | `lead_engine_add` (mutating; needs `confirm: true`) | `skills/outreach-send/SKILL.md` |

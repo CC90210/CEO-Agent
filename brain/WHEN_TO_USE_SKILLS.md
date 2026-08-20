@@ -60,7 +60,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **162 active skills**. Eac
 - **Path:** `skills/background-workers/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/booking-management/SKILL|booking-management]]
-- **Use when:** Manage discovery call scheduling using booking_engine.py — a self-hosted Cal.com replacement backed by Supabase. Covers opening slots, booking leads, sending reminders, and completing meetings.
+- **Use when:** Manage discovery call scheduling using booking_engine.py — a self-hosted Cal.com replacement backed by Turso (via supabase-compat shim). Covers opening slots, booking leads, sending reminders, and completing meetings.
 - **Triggers:** booking, calendar, schedule, discovery call, slot, reminder, appointment, meeting
 - **Path:** `skills/booking-management/SKILL.md` · tier `standard` · risk `low`
 

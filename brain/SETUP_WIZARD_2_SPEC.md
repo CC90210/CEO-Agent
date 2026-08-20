@@ -40,7 +40,7 @@ URL stays as the manifest-only flow for tenants that already exist in
 the OASIS SaaS plan). The new wizard answers:
 
 1. **Where does this install run?**
-   - **Hosted by OASIS** (default — uses CC's Supabase + the shared
+   - **Hosted by OASIS** (default — uses CC's Turso + the shared
      SaaS dashboard). Lowest friction, no operator infrastructure.
    - **Local install** (operator's laptop / desktop) — PM2 stack on
      their machine; OASIS hosts the dashboard but the bridge runs

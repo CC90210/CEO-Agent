@@ -64,13 +64,13 @@ Run the SELF-HEAL checklist from skills/self-improvement-protocol/:
   *.key files from being committed.
 
 ### Protocol 2 — OPTIMIZE
-Query your own traces from Supabase:
+Query your own traces from Turso:
 ```
-python scripts/integrations/supabase_tool.py query \
+python scripts/integrations/turso_tool.py sql \
   "SELECT action, COUNT(*), AVG(execution_time_ms)
    FROM agent_traces WHERE agent='atlas'
-   AND created_at > now() - interval '7 days'
-   GROUP BY action ORDER BY COUNT(*) DESC" --project bravo
+   AND created_at > datetime('now', '-7 days')
+   GROUP BY action ORDER BY COUNT(*) DESC"
 ```
 Report the top 3 most-invoked actions and their average time.
 Flag anything >5s or with <70% success.
@@ -195,15 +195,15 @@ repo. Your job today is to internalize them + self-diagnose + level up.
   yet — required before Remotion studio works).
 
 ### Protocol 2 — OPTIMIZE
-Query your own traces from shared Supabase:
+Query your own traces from shared Turso:
 ```
-python scripts/integrations/supabase_tool.py query \
+python scripts/integrations/turso_tool.py sql \
   "SELECT action, COUNT(*), AVG(execution_time_ms)
    FROM agent_traces WHERE agent='maven'
-   AND created_at > now() - interval '7 days'
-   GROUP BY action ORDER BY COUNT(*) DESC" --project bravo
+   AND created_at > datetime('now', '-7 days')
+   GROUP BY action ORDER BY COUNT(*) DESC"
 ```
-(Path to supabase_tool.py is in Bravo's repo — shell out if you don't
+(Path to turso_tool.py is in Bravo's repo — shell out if you don't
 have your own copy.)
 
 Identify: top 3 most-used skills. Top 3 skills never used. If any
@@ -239,8 +239,8 @@ brain/ATTRIBUTION_MODEL.md documenting:
 - Every published piece gets an ID (content_id)
 - Every lead captured tags content_id from UTM or last-touch
 - Every closed deal surfaces full content journey
-- Schema: extend shared Supabase `leads` table with
-  `source_content_ids JSONB`, `attribution_touches JSONB`
+- Schema: extend shared Turso `leads` table with
+  `source_content_ids TEXT` (JSON), `attribution_touches TEXT` (JSON)
 - Reporting queries: LTV-by-content-piece, best-converting-content-type
 Implementation can be stubbed for now; the DESIGN is what matters.
 
@@ -334,10 +334,10 @@ a few polish gaps remain. Your self-improvement kit is now installed.
 ### Protocol 2 — OPTIMIZE
 Query your own traces + skill_activation scores:
 ```
-python scripts/integrations/supabase_tool.py query \
+python scripts/integrations/turso_tool.py sql \
   "SELECT action, COUNT(*) FROM agent_traces
-   WHERE agent='aura' AND created_at > now() - interval '7 days'
-   GROUP BY action" --project bravo
+   WHERE agent='aura' AND created_at > datetime('now', '-7 days')
+   GROUP BY action"
 ```
 
 Review your 10 feature modules (aura_drops, mirror_mode, deja_vu,
@@ -471,7 +471,7 @@ Produce a shortlist for CC approval.
   10. Paul Graham essays + YC wisdom
 
 **Gap B**: cohort retention analytics skill — per-source cohort LTV
-tracking. Skill in skills/cohort-analytics/SKILL.md, using Supabase
+tracking. Skill in skills/cohort-analytics/SKILL.md, using Turso
 leads + lead_interactions + closed_deals tables.
 
 **Gap C**: content ROI attribution — extend attribution from Maven's

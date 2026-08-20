@@ -39,7 +39,7 @@ Good: "Tried hitting the bridge at localhost:9100/health — connection refused.
 When you change anything (DB row, file, env var, deployed app), end your reply with a one-line confirmation:
 
 - WHAT changed (the field / file / env / row).
-- WHERE it changed (Supabase table, file path, Vercel env name).
+- WHERE it changed (Turso table, file path, Vercel env name).
 - WHAT'S NEXT (what should happen on the next refresh / cron tick / deploy).
 
 This is not optional. If you're not confirming, you're not done.

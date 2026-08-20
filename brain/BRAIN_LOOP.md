@@ -26,8 +26,8 @@ Search for relevant prior knowledge, prioritized by activation score (recency ×
 - `memory/LONG_TERM.md` — Any relevant persistent facts?
 - `memory/SOP_LIBRARY.md` — Is there an SOP for this? (Check execution count + success rate)
 - `memory/SELF_REFLECTIONS.md` — Any prior reflections on this task type?
-- Supabase `memories` table — Semantic search for related context
-- Supabase `skill_activation` — Which skills/patterns are most active for this domain?
+- Turso `memories` table — Semantic search for related context
+- Turso `skill_activation` — Which skills/patterns are most active for this domain?
 
 ### Step 3: ASSESS (+ Task Routing)
 Evaluate the situation:
@@ -63,7 +63,7 @@ Cross-check the plan:
 ### Step 6: EXECUTE (+ Anti-Drift Monitoring)
 Carry out the plan:
 - One tool at a time. Verify each result before proceeding.
-- **Log each meaningful action** to Supabase `agent_traces` (Tier 1 logging)
+- **Log each meaningful action** to Turso `agent_traces` (Tier 1 logging)
 - **Anti-drift checkpoint** every 5 steps (`skills/anti-drift/SKILL.md`): validate alignment with original intent, check scope creep, monitor error cascades
 - If a step fails: **try alternative approach from Step 4** before retrying same approach
 - If 2 consecutive steps fail → **error cascade detected** → STOP, switch approach (don't retry same)
@@ -83,18 +83,18 @@ Evaluate the outcome using structured Reflexion (Shinn et al., 2023):
   3. Why did it fail? (root cause)
   4. What should be done differently? (concrete alternative)
   5. Confidence in this reflection? (0.0-1.0)
-- Store reflection in `memory/SELF_REFLECTIONS.md` and Supabase
+- Store reflection in `memory/SELF_REFLECTIONS.md` and Turso
 - Was my confidence calibrated correctly? (If I was 0.9 confident and failed → recalibrate)
 
-### Step 8: STORE (Dual-Write: Files + Supabase)
-Update memory with confidence scores — **write to both files AND Supabase:**
-- New mistake? → `memory/MISTAKES.md` + Supabase `memories` (category='mistake')
-- New pattern? → `memory/PATTERNS.md` (tag `[PROBATIONARY]`) + Supabase `memories` (category='pattern')
-- New fact? → `memory/LONG_TERM.md` + Supabase `memories` (category='fact')
-- Session activity → `memory/SESSION_LOG.md` + Supabase `session_logs`
+### Step 8: STORE (Dual-Write: Files + Turso)
+Update memory with confidence scores — **write to both files AND the empire DB (Turso via supabase-compat shim):**
+- New mistake? → `memory/MISTAKES.md` + `memories` table (category='mistake')
+- New pattern? → `memory/PATTERNS.md` (tag `[PROBATIONARY]`) + `memories` table (category='pattern')
+- New fact? → `memory/LONG_TERM.md` + `memories` table (category='fact')
+- Session activity → `memory/SESSION_LOG.md` + `session_logs` table
 - Task status → `memory/ACTIVE_TASKS.md`
-- Interaction traces → Supabase `agent_traces`
-- Self-modifications → `brain/CHANGELOG.md` + Supabase `self_modification_log`
+- Interaction traces → `agent_traces` table
+- Self-modifications → `brain/CHANGELOG.md` + `self_modification_log` table
 
 ### Step 9: EVOLVE (Voyager-Inspired Skill Growth)
 Check for growth opportunities:
@@ -102,7 +102,7 @@ Check for growth opportunities:
 - Should this become an SOP? (If done 3+ times the same way → create `[PROBATIONARY]` SOP)
 - Can an existing skill be improved based on this experience?
 - **Compositionality check**: Can this skill be built from existing simpler skills?
-- **Activation update**: Increment access_count for any patterns/SOPs used in Supabase `skill_activation`
+- **Activation update**: Increment access_count for any patterns/SOPs used in Turso `skill_activation`
 - Is this a genuinely novel solution? If yes, flag as skill library candidate
 
 ### Step 10: HEAL (Self-Healing + Integrity Checks)
@@ -114,7 +114,7 @@ Run self-healing checks on affected systems:
 - Did any MCP call fail? Log to MISTAKES.md.
 - Is memory still consistent? No contradictions?
 - Update `brain/STATE.md` with post-task operational state.
-- **Supabase sync**: Flush any pending traces, update agent_state
+- **Turso sync**: Flush any pending traces, update agent_state
 - **Git checkpoint**: If significant changes, stage + commit with `bravo: [verb] — [reason]`
 
 **Referential Integrity Scan (MANDATORY after file changes):**
