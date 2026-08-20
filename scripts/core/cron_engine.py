@@ -2,7 +2,7 @@
 Cron Engine - Business Automation Job Manager
 Defines and tracks all automated business workflows. Not a cron runner itself -
 n8n handles scheduling. This is the source of truth for what should be automated,
-seeded into Supabase so n8n and agents share a single registry.
+seeded into Turso so the scheduler and agents share a single registry.
 
 All credentials loaded from .env.agents (never hardcoded).
 
@@ -52,7 +52,7 @@ def load_env() -> dict[str, str]:
 
 
 def get_client(env_vars: dict[str, str]):
-    """Create a Supabase client for the bravo project."""
+    """Create the Turso-backed compatibility client for the Bravo project."""
     configure_ca_bundle()
     try:
         from supabase import create_client
@@ -323,10 +323,24 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
-        # In the live DB since 2026-06 (row bb0d5f2b) but was never seeded —
-        # a fresh-machine reseed would silently lose it. Added 2026-07-09.
-        # Runs the cross-agent self-improvement sweep (Bravo + Atlas + Maven
-        # digest via scripts/core/agent_self_improvement.py).
+        # Broad weekly truth surface. Unlike the narrow nightly harness, this
+        # also consumes fleet/pulse/inbox state and the complete Python suite.
+        "name": "Weekly Full-Truth Health Digest",
+        "description": "Sunday 07:00 ET — run self-audit, fleet health, and the complete Python suite; always send one private Telegram truth report.",
+        "schedule": "0 7 * * SUN",
+        "action_type": "script_run",
+        # The child pytest gate has a 1200s hard stop. The scheduler must expire
+        # after the child so its timeout diagnostic can be delivered and saved.
+        "action_config": {
+            "script": "scripts/weekly_truth_digest.py",
+            "args": [],
+            "timeout": 1500,
+        },
+        "is_active": True,
+    },
+    {
+        # In the live DB since 2026-06 but was never seeded; a fresh-machine
+        # reseed would silently lose it. Runs the Bravo/Atlas/Maven sweep.
         "name": "Cross-Agent Self-Improvement Sweep",
         "description": "Nightly cross-agent self-improvement sweep — mistakes/patterns digest across Bravo, Atlas, Maven",
         "schedule": "0 4 * * *",
@@ -883,11 +897,14 @@ def _normalize_dash(s: str) -> str:
 
 
 def cmd_seed(client, args, output_json: bool) -> None:
-    """Seed the initial set of business automation cron jobs (skips existing by name).
+    """Seed registered automation jobs (skips existing by normalized name).
 
     Migration 084 made cron_jobs.tenant_id NOT NULL. Every seed row written
     here is empire-scoped to CC's tenant by construction — SunBiz / Atlas
-    / other-tenant crons live in tenant_cron_jobs."""
+    / other-tenant crons live in tenant_cron_jobs. ``--only`` is the safe path
+    for adding one newly approved production schedule without inserting other
+    definitions that happen to be absent on that machine.
+    """
     existing_result = client.table("cron_jobs").select("name").execute()
     # Dash-normalized so a row registered as "Bravo - X" is recognised as the
     # same job as SEED_JOBS' "Bravo — X". Exact matching here would not error —
@@ -900,12 +917,24 @@ def cmd_seed(client, args, output_json: bool) -> None:
         _normalize_dash(r["name"]) for r in (existing_result.data or [])
     }
 
+    only = getattr(args, "only", None)
+    definitions = SEED_JOBS
+    if only:
+        wanted = _normalize_dash(only).casefold()
+        definitions = [
+            definition for definition in SEED_JOBS
+            if _normalize_dash(definition["name"]).casefold() == wanted
+        ]
+        if not definitions:
+            print(f"ERROR: no SEED_JOBS definition named {only!r}", file=sys.stderr)
+            raise SystemExit(2)
+
     inserted: list[dict] = []
     skipped: list[str] = []
 
     now = datetime.now(timezone.utc).isoformat()
 
-    for definition in SEED_JOBS:
+    for definition in definitions:
         if _normalize_dash(definition["name"]) in existing_names:
             skipped.append(definition["name"])
             continue
@@ -949,7 +978,7 @@ def cmd_seed(client, args, output_json: bool) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cron_engine.py",
-        description="Cron Engine - Business Automation Job Manager (Supabase-backed)",
+        description="Cron Engine - Business Automation Job Manager (Turso-backed)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -961,6 +990,7 @@ Examples:
   %(prog)s run <job_id> --result "error: timeout"
   %(prog)s due
   %(prog)s seed
+  %(prog)s seed --only "Weekly Full-Truth Health Digest"
   %(prog)s --json list
   %(prog)s --json due
         """,
@@ -1005,7 +1035,11 @@ Examples:
     subparsers.add_parser("due", help="Show active jobs that are due or overdue right now")
 
     # -- seed ------------------------------------------------------------------
-    subparsers.add_parser("seed", help="Seed the initial 12 business automation cron jobs")
+    p_seed = subparsers.add_parser("seed", help="Seed registered business automation jobs")
+    p_seed.add_argument(
+        "--only",
+        help="Seed exactly one definition by name (recommended for production changes)",
+    )
 
     return parser
 

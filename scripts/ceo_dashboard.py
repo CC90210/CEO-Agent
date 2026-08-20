@@ -360,13 +360,13 @@ def _progress_bar(pct: float, width: int = 10) -> str:
 # Dashboard sections
 # ---------------------------------------------------------------------------
 
-# Sub-engine CLIs query live Turso + Stripe and measured ~35s each on
-# 2026-08-13. The previous 20s cap meant EVERY call raised TimeoutExpired into a
-# bare `except Exception: pass`, so the briefing reported "0 active leads" and
-# "client health 0.0" while the CRM actually held 11 active leads. A plausible
-# fake zero is worse than an error, so the ceiling is now well clear of real
-# runtime and failures are recorded in the payload instead of swallowed.
-SUBENGINE_TIMEOUT_SEC = 90
+# Nested timeout contract (inner -> outer): dashboard child 50s, briefing
+# snapshot child 65s, daily-brief snapshot wrapper 75s, scheduler job 150s.
+# Each layer must expire before its parent so the parent can report the real
+# failing component instead of being killed first. The child CLIs measured
+# ~35s on 2026-08-13, so 50s preserves operating headroom without contradicting
+# the snapshot's budget.
+SUBENGINE_TIMEOUT_SEC = 50
 
 
 def _run_engine(script: Path, *args: str) -> tuple[Optional[str], Optional[str]]:

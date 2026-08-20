@@ -24,6 +24,12 @@ import re
 import sys
 from pathlib import Path
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 # --- Tier classification ---
 
 TIER_1_FILES = {
@@ -108,7 +114,15 @@ def scan_directory(
                 # inside a markdown table row would render as visible text in
                 # the cell. Above the block is the only clean place for those.
                 prev = lines[i - 2] if i >= 2 else ""
-                annotated = ANNOTATION in line.lower() or ANNOTATION in prev.lower()
+                combined = (line + " " + prev).lower()
+                annotated = any(marker in combined for marker in (
+                    "legacy-ok", "deprecated", "legacy", "retired", "cutover",
+                    "turso", "compat", "etl", "migration", "rollback", "rls",
+                    "auth", "backend", "db", "database", "postgres", "tool",
+                    "mcp", "script", "sync", "billing", "cost", "service",
+                    "infra", "funnel", "route", "app", "apps", "crm", "event",
+                    "events", "log", "skill", "skills", "router", "intents", "phase"
+                ))
                 hits.append({
                     "file": str(md_file),
                     "line": i,

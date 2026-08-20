@@ -643,11 +643,23 @@ def _archive_session_log(dry_run: bool) -> list[dict]:
     if current_lines:
         sections.append((current_date_str, current_lines))
 
+    # The undated section is the document preamble (YAML frontmatter + title),
+    # not a session. Keep it out of `keep`: the old implementation retained it
+    # there *and* prepended it separately while rebuilding, doubling the whole
+    # preamble on every archive pass.
+    header_lines: list[str] = []
+    dated_sections: list[tuple[str, list[str]]] = []
+    for date_str, sec_lines in sections:
+        if not date_str and not header_lines:
+            header_lines = sec_lines
+        else:
+            dated_sections.append((date_str, sec_lines))
+
     cutoff     = TODAY - timedelta(days=SESSION_LOG_ARCHIVE_DAYS)
     keep: list[tuple[str, list[str]]]    = []
     archive: list[tuple[str, list[str]]] = []
 
-    for date_str, sec_lines in sections:
+    for date_str, sec_lines in dated_sections:
         d = _parse_date(date_str)
         if d and d < cutoff:
             archive.append((date_str, sec_lines))
@@ -681,15 +693,11 @@ def _archive_session_log(dry_run: bool) -> list[dict]:
                 encoding="utf-8",
             )
 
-    if not dry_run and keep:
+    if not dry_run:
         # Rebuild SESSION_LOG.md with only the kept sections
-        # Preserve YAML frontmatter and document header (lines before first ### section)
-        header_lines: list[str] = []
-        for _, sec_lines in sections:
-            if not _parse_date(_):
-                header_lines = sec_lines
-                break
-
+        # Preserve YAML frontmatter and document header exactly once. Rebuild
+        # even when every dated entry was archived; otherwise those entries
+        # remain in the source and get appended to the archive again next run.
         new_content = "".join(header_lines) + "".join(
             l for _, sec in keep for l in sec
         )

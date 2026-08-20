@@ -7,8 +7,10 @@ Windows Task Scheduler / systemd / PM2) can call safely:
   python scripts/core/cron_dispatcher.py due --execute
   python scripts/core/cron_dispatcher.py run <cron_job_uuid>
 
-Only allowlisted action types can execute local scripts. Unknown action types
-remain registry-only and must be handled by their existing n8n workflows.
+Only the small cross-repo allowlist below executes here. Empire `script_run`
+jobs are owned by scripts/scheduler.py; unknown types remain registry-only and
+must be handled by their declared runner. Both Python runners use the canonical
+action_config `timeout` key (`timeout_seconds` remains a compatibility alias).
 """
 
 from __future__ import annotations
@@ -117,7 +119,8 @@ def execute_job(client, job: dict[str, Any], dry_run: bool = False) -> dict[str,
 
     env = os.environ.copy()
     env.update(load_env())
-    timeout = int((job.get("action_config") or {}).get("timeout_seconds", 300))
+    config = job.get("action_config") or {}
+    timeout = int(config.get("timeout", config.get("timeout_seconds", 300)))
     proc = subprocess.run(
         cmd,
         cwd=str(cwd),

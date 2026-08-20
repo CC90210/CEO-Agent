@@ -59,6 +59,11 @@ REQUIRED_PM2 = {"bravo-scheduler", "bravo-telegram", "claude-bridge", "event-rou
 # ran and self-scored (vs. failing to launch at all).
 _SELF_CRON_NAME = "Bravo — Nightly Harness Eval"
 _SELF_SCORE_MARKER = "HARNESS EVAL"
+SESSION_LOG_PATH = PROJECT_ROOT / "memory" / "SESSION_LOG.md"
+
+# A daily brief that contains one of these strings has already admitted that a
+# source failed. Treating it as a green live-health check is false assurance.
+_DEGRADED_BRIEF_MARKERS = ("timed out", "broken", "needs a fix", "unavailable")
 
 
 def _normalize_dash(s: str) -> str:
@@ -231,11 +236,66 @@ def check_brief_renders():
                         timeout=90, env_extra={"BRAVO_BRIEF_NARRATE": "0"})
     if rc != 0:
         return False, f"daily_brief --dry-run exit {rc}: {err[:120]}"
-    if "AI narration unavailable" in out or "MRR" in out:
+    lowered = out.lower()
+    degraded = next((marker for marker in _DEGRADED_BRIEF_MARKERS if marker in lowered), None)
+    if degraded:
+        return False, f"brief contains degraded marker {degraded!r}: {out[:160]!r}"
+    if "MRR" in out:
         return False, "brief contains a banned marker (MRR / narration-unavailable)"
     if "Pipeline" not in out or ": —" in out:
         return False, f"brief looks degraded: {out[:160]!r}"
     return True, "deterministic brief renders with real data, no MRR"
+
+
+def check_self_audit_mandatory_gates():
+    """Require the broad self-audit's mandatory gates, not its advisory score."""
+    _rc, out, err = _run(
+        [sys.executable, "scripts/core/self_audit.py", "--json"], timeout=180
+    )
+    try:
+        payload = json.loads(out)
+    except json.JSONDecodeError:
+        return False, f"self-audit returned invalid JSON: {(err or out)[:160]}"
+    failures = payload.get("mandatory_gate_failures") or []
+    score = payload.get("health_score", "?")
+    if not payload.get("mandatory_gate_passed"):
+        detail = "; ".join(map(str, failures or ["unspecified failure"]))
+        return False, f"self-audit mandatory drift: {detail}"
+    return True, f"self-audit mandatory gates pass (health {score}/100)"
+
+
+def check_migration_docs_classified():
+    """Block unclassified Supabase claims in the brain/memory scanner scope."""
+    _rc, out, err = _run(
+        [sys.executable, "scripts/core/doc_sweep.py", "--term", "supabase",
+         "--brain", "--memory", "--json"],
+        timeout=180,
+    )
+    try:
+        payload = json.loads(out)
+    except json.JSONDecodeError:
+        return False, f"migration doc sweep returned invalid JSON: {(err or out)[:160]}"
+    counts = payload.get("unannotated_tier_counts") or {}
+    tier1 = int(counts.get("1", counts.get(1, 0)) or 0)
+    tier2 = int(counts.get("2", counts.get(2, 0)) or 0)
+    if tier1 or tier2:
+        return False, (
+            f"migration docs unclassified: {tier1} Tier-1, "
+            f"{tier2} Tier-2 Supabase hit(s)"
+        )
+    return True, "brain/memory Tier-1 and Tier-2 Supabase references are classified"
+
+
+def check_session_log_integrity():
+    """Reject the archive bug's repeated YAML-frontmatter signature."""
+    try:
+        content = SESSION_LOG_PATH.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return False, f"SESSION_LOG unreadable: {exc}"
+    count = len(re.findall(r"(?mi)^tags:\s*\[daily\]\s*$", content))
+    if count != 1:
+        return False, f"SESSION_LOG has {count} frontmatter block(s); expected exactly 1"
+    return True, "SESSION_LOG has one frontmatter block"
 
 
 def check_tenant_scoping():
@@ -449,6 +509,9 @@ CHECKS = [
     ("Atlas boundary held (routers + brief)", check_atlas_boundary, False, "boundary"),
     ("no dead API key in active automations", check_no_dead_api_key_in_active, False, "model-call"),
     ("daily brief renders real data", check_brief_renders, False, "live-health"),
+    ("self-audit mandatory gates pass", check_self_audit_mandatory_gates, False, "live-health"),
+    ("migration docs classified (brain/memory)", check_migration_docs_classified, False, "routing"),
+    ("session log structure intact", check_session_log_integrity, False, "lockstep"),
     ("lead_engine tenant contract intact", check_tenant_scoping, False, "boundary"),
     ("safety guards in enforce", check_guards_enforce, False, "guards"),
     ("cron table healthy (no ERROR, no MRR digest)", check_cron_health, False, "live-health"),

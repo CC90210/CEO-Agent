@@ -63,6 +63,8 @@ NARRATION_MODEL_CLI = "sonnet"          # CLI alias — always resolves
 # daily_brief (150s) so the inner narration bails to the deterministic brief
 # BEFORE the scheduler kills the whole process. Observed narration ~22s.
 CLI_NARRATION_TIMEOUT_SEC = 60
+SNAPSHOT_REGEN_TIMEOUT_SEC = 75
+SCHEDULER_JOB_TIMEOUT_SEC = 150
 SNAPSHOT_STALENESS_SEC = 5 * 60  # 5 min — was 24h, but CC's revenue events
 # (subscription_start / cancel logged manually) change throughout the day. A
 # 24h-old snapshot caused the 2026-05-18 15:15 brief to report MRR $3,322 / 12d
@@ -129,11 +131,10 @@ def _regenerate_snapshot() -> bool:
             [sys.executable, "scripts/snapshots/briefing_snapshot.py"],
             cwd=str(PROJECT_ROOT),
             # Budget math against the scheduler's 150s outer cap for this job:
-            # 85s regen + 60s narration = 145s. The old 60s was below the
-            # snapshot's actual ~74s runtime, so --regenerate ALWAYS timed out
-            # and CC silently read a stale snapshot. The snapshot now runs all
-            # 7 engines concurrently (~40s), so 85s is real headroom, not hope.
-            timeout=85,
+            # 75s regen + 60s narration = 135s, leaving 15s for imports,
+            # rendering and notification. Nested children expire at 50s/65s,
+            # so this layer can preserve and surface their diagnostics.
+            timeout=SNAPSHOT_REGEN_TIMEOUT_SEC,
             capture_output=True,
             text=True,
             creationflags=WINDOWLESS_FLAGS,
