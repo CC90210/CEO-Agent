@@ -1,7 +1,14 @@
 ---
 tags: [turso, supabase, migration, handover, runbook]
-last_updated: 2026-08-10
+last_updated: 2026-08-20
 ---
+
+> **READ THIS BEFORE THE GATE IN §4 — re-verified 2026-08-20.** Supabase access is
+> already gone: `SUPABASE_ACCESS_TOKEN` is absent from the agents env. Three of the
+> four commands in the original cancellation gate therefore **cannot run**, and two
+> of them fail *because the migration already succeeded*. §4 has been rewritten to a
+> gate that actually executes. Do **not** "fix" it by restoring a Supabase token —
+> the point of the project is that nothing needs one.
 
 # Supabase to Turso Migration & Cancellation Handover
 
@@ -98,28 +105,81 @@ python realestate-App/scripts/verify_tenant_isolation.py
 ### Item 5: APEX / Adon's Agent Alignment
 Adon's agent (APEX) logs to `agent_activity`. Ensure APEX writes to Turso directly or via `POST /api/ingest/agent-activity`.
 
+**Status 2026-08-20 — done on the Turso side, verified live.** `agent_activity` is
+served from Turso and both agents are writing to it: Bravo posts via
+`python scripts/integrations/agent_activity.py post --mirror`, and APEX's rows are
+readable with `... peers` / `... claims`. APEX has also shipped its own `leadgen_*`
+fleet (12 tables, 124,166 businesses) directly on Turso, so its data path no longer
+touches Supabase at all.
+
+Two live caveats worth carrying into the next session:
+- **The Mac still thinks it needs Supabase.** It reported "Supabase unreachable — DNS
+  resolution failure" while trying to read `agent_activity`. That is not a network
+  fault; that host is gone. The Mac's `.env.agents` was never migrated to Turso. See
+  the Mac repair message in the 2026-08-20 session notes.
+- **The Telegram coordination bot is contended.** A duplicate poller (the Mac) fights
+  this rig for `CC_AGENT_BOT_TOKEN`, producing a repeating 409 and dropped group
+  messages. Until one machine owns the token, the `agent_activity` **table** is the
+  reliable Bravo↔APEX channel, not the chat.
+
 ---
 
 ## 4. Final Cancellation Verification Gate Command
 
-Immediately before cancelling the Supabase subscription, run the master verification gate:
+### Why the original gate is dead (verified 2026-08-20)
+
+The gate written on 2026-08-10 compared Turso **against a live Supabase**. That
+comparison is no longer possible, and its impossibility is not a regression — it is
+the migration having finished. Measured, not assumed:
+
+| Original command | Result today | Why |
+|---|---|---|
+| `turso_lossy_audit.py` | ✅ **exit 0, PASS** | Reads Turso only. Still the real gate. |
+| `migration_completeness_audit.py` | ❌ `ERROR: SUPABASE_ACCESS_TOKEN absent` | Counts rows on BOTH sides; the Supabase side is unreachable. |
+| `etl_storage_to_r2.py --all --verify` | ⛔ cannot run | Needs `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`. `capability_probe check cloudflare` → **NOT CONFIGURED**. |
+| `etl_supabase_to_turso.py` | ❌ `SourceUnavailable` (`scripts/etl_supabase_to_turso.py:103`) | It *reads from Supabase*. There is nothing left to read. |
+
+A gate that can never return green is worse than no gate: it either blocks the
+operator indefinitely or teaches them to cancel without verifying. **Do not restore a
+Supabase token to make these pass.** The question changed. It is no longer "does
+Turso match Supabase" — that can never be re-asked — it is **"does Turso independently
+satisfy every consumer?"**
+
+### The gate that actually runs
 
 ```bash
-# 1. Verify schema & transpiler lossy audit
+# 1. Nothing the transpiler dropped is unaccounted for.  (verified PASS 2026-08-20)
 python scripts/turso_lossy_audit.py
 
-# 2. Verify dataset completeness
-python scripts/migration_completeness_audit.py
+# 2. The whole agent harness is turnkey on Turso across every runtime.
+#    11 slices: boundary, guards, live-health, lockstep, model-call, routing.
+python scripts/harness_eval.py
 
-# 3. Verify public R2 object serving
-python scripts/etl_storage_to_r2.py --all --verify
+# 3. Turso answers as the live backend, with the expected surface.
+python scripts/integrations/turso_tool.py --json status
 
-# 4. Perform final incremental database delta sync
-python scripts/etl_supabase_to_turso.py --project bravo --allow-overwrite
-python scripts/etl_supabase_to_turso.py --project oasis --allow-overwrite
+# 4. Auth works with NO Supabase service-role key present.
+python scripts/verify_turso_auth.py
+
+# 5. No code path still expects a live Supabase. Any hit here is a real blocker;
+#    `supabase_tool.py` and `BRAVO_SUPABASE_*` are the Turso COMPAT SHIM and are
+#    expected — a raw `*.supabase.co` URL or `SUPABASE_ACCESS_TOKEN` read is not.
+grep -rn "supabase\.co\|SUPABASE_ACCESS_TOKEN" scripts/ --include=*.py | grep -v _archive
 ```
 
-When all 4 commands return green, Supabase can be cancelled with zero risk of data loss or service disruption.
+Green on 1–4, and 5 returning only the retired ETL/audit scripts, means every live
+consumer is served by Turso. Supabase can be cancelled at that point; the ETL and
+parity-audit scripts are *expected* to break, because their source is gone.
+
+### Retire, do not repair
+
+These exist only to serve a migration that is over. Cancelling Supabase is what makes
+them permanently non-functional, which is correct:
+`scripts/etl_supabase_to_turso.py`, `scripts/migration_completeness_audit.py`,
+`scripts/etl_storage_to_r2.py` (once R2 is populated and verified once).
+Move them to `scripts/_archive/` rather than leaving them to look like live tooling —
+an agent that finds a runnable-looking script will run it and read the failure as a
+system fault.
 
 ---
 
@@ -128,15 +188,29 @@ When all 4 commands return green, Supabase can be cancelled with zero risk of da
 Copy and paste the prompt below when starting your next chat:
 
 ```markdown
-I am resuming the Supabase to Turso Migration & Cancellation project. 
-Please read `docs/SUPABASE_TO_TURSO_MIGRATION_HANDOVER.md` and `docs/SUPABASE_CANCELLATION_RUNBOOK.md`.
+I am resuming the Supabase to Turso migration & cancellation project.
+Read `docs/SUPABASE_TO_TURSO_MIGRATION_HANDOVER.md` §4 FIRST — the original
+verification gate is dead and §4 explains why. Do NOT restore a Supabase token
+to make old commands pass; Supabase access is already gone and that is the
+intended end state.
 
-All schema transpiling, database data parity (100% matched across all 5 databases), and Real Estate Listing Studio daemons are complete and verified. 
+Establish ground truth before doing anything:
+  python scripts/turso_lossy_audit.py        # expect PASS, exit 0
+  python scripts/harness_eval.py             # expect ALL GREEN
+  python scripts/integrations/turso_tool.py --json status
 
-Let's execute the remaining cancellation items:
-1. Check Cloudflare R2 credentials and run storage sync (`scripts/etl_storage_to_r2.py`).
-2. Verify n8n workflow repointing to `POST /api/ingest/automation-log`.
-3. Run PM2 harness cutover (`EMPIRE_TURSO_CUTOVER=1`).
-4. Sync PropFlow production to Turso (`vercel_turso_sync.py`).
-5. Run the master cancellation gate (`python scripts/turso_lossy_audit.py` and `python scripts/migration_completeness_audit.py`).
+Then work only the items still genuinely open:
+1. Cloudflare R2 — `capability_probe check cloudflare` reports NOT CONFIGURED.
+   Needs CLOUDFLARE_ACCOUNT_ID + R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY +
+   R2_BUCKET in .env.agents (CC action), then one verified storage sync.
+2. n8n — 2 client webhooks remain (Oasis Voice Agent; GrapeVine Cottage, a
+   churned client). Replacement endpoint POST /api/ingest/automation-log is
+   proven. Confirm before assuming either still matters.
+3. PropFlow production env sync.
+4. Archive the migration-only scripts (§4 "Retire, do not repair") so no agent
+   mistakes them for live tooling.
+
+Report what you VERIFIED with command output, not what you assume. If a
+document contradicts a live command, the command wins and the document is the
+bug — say so instead of working around it.
 ```

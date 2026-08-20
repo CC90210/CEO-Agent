@@ -1,6 +1,14 @@
 ---
 tags: [turso, supabase, migration, runbook, cancellation]
+last_updated: 2026-08-20
 ---
+
+> **STOP — re-verified 2026-08-20. Two sections of this runbook are now false.**
+> `SUPABASE_ACCESS_TOKEN` is already absent from the agents env, which invalidates
+> both the Step 6 gate and the rollback promise at the bottom of this file. Both are
+> corrected in place below. The authoritative, runnable gate lives in
+> `docs/SUPABASE_TO_TURSO_MIGRATION_HANDOVER.md` §4 — use that, and do not restore a
+> Supabase token to make old commands pass.
 
 # Supabase cancellation runbook
 
@@ -128,26 +136,54 @@ python realestate-App/scripts/verify_tenant_isolation.py
 
 ## Step 6 — final gate, immediately before cancelling
 
+> **This gate no longer runs, and that is not a regression.** Measured 2026-08-20:
+> `migration_completeness_audit.py` exits `ERROR: SUPABASE_ACCESS_TOKEN absent`, and
+> `etl_supabase_to_turso.py` raises `SourceUnavailable` at line 103. Both READ FROM
+> SUPABASE, and there is nothing left to read. The token is already gone, so the
+> "take a final export while the project still exists" window has closed — the
+> migration completed and the delta-sync question can no longer be asked.
+>
+> **Use the replacement gate in `docs/SUPABASE_TO_TURSO_MIGRATION_HANDOVER.md` §4.**
+> It verifies the surviving system rather than comparing against a dead one:
+> `turso_lossy_audit.py` (PASS), `harness_eval.py` (ALL GREEN), Turso status, and
+> auth working with no Supabase key present. Kept below only so nobody re-derives
+> the dead commands from memory and wonders why they fail:
+
 ```bash
-python scripts/migration_completeness_audit.py          # ALL DATA ACCOUNTED FOR
+# DEAD — do not run. Requires a Supabase that no longer answers.
+# python scripts/migration_completeness_audit.py
+# python scripts/etl_supabase_to_turso.py --project bravo --allow-overwrite
+# python scripts/etl_supabase_to_turso.py --project oasis --allow-overwrite
+
+# STILL VALID once R2 credentials exist (capability_probe: NOT CONFIGURED today):
 python scripts/etl_storage_to_r2.py --all --verify      # objects + public URL
-python scripts/etl_supabase_to_turso.py --project bravo --allow-overwrite   # final delta
-python scripts/etl_supabase_to_turso.py --project oasis --allow-overwrite
 ```
 
-The last two matter because Supabase keeps receiving writes until every writer
-has moved. Run them **after** n8n and PM2 are switched, not before — otherwise
-they capture a moment that is already stale.
+## Rollback — THIS PATH IS GONE (corrected 2026-08-20)
 
-Take a final export while the project still exists. Every export tool needs
-`SUPABASE_ACCESS_TOKEN` and dies with the project; there is no second chance.
+This section previously read: *"Unset `EMPIRE_DATA_BACKEND` / `EMPIRE_AUTH_BACKEND`
+and the affected app returns to Supabase with no deploy."* **That is now false and
+acting on it would cause an outage.** Unsetting the flag does not return the app to a
+working system; it points it at a project that is no longer maintained or verified.
 
-## Rollback, at every point above
+**Do not use `capability_probe check supabase` to decide this — it is actively
+misleading here.** It reports `supabase: AVAILABLE` because `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` / `BRAVO_SUPABASE_*` are still present: those are the
+**Turso compat-shim** values that `scripts/integrations/supabase_tool.py` consumes to
+speak Turso. AVAILABLE means "the shim is wired", not "a live Supabase answers".
+The key that actually distinguishes them is `SUPABASE_ACCESS_TOKEN` — the management
+token every export/ETL tool needs — and that one is genuinely absent, which is why
+`migration_completeness_audit.py` and `etl_supabase_to_turso.py` cannot run.
 
-Unset `EMPIRE_DATA_BACKEND` / `EMPIRE_AUTH_BACKEND` (or the R2 vars) and the
-affected app returns to Supabase with no deploy. **That is why Supabase must
-stay paid until the last item above is green** — the rollback path runs through
-it.
+The safety net is no longer "flip back to Supabase". It is:
+- **Turso itself**, verified by `python scripts/turso_lossy_audit.py` (PASS) and
+  `python scripts/harness_eval.py` (ALL GREEN).
+- **The daily Turso backup** (`Daily State DB Backup` in `cron_engine.py SEED_JOBS`).
+- **Restore from a Turso snapshot**, not from Supabase.
+
+Consequently the old reason to keep paying Supabase — preserving the rollback path —
+no longer applies. Whether to cancel is CC's call, but it is no longer insurance
+against anything; nothing can route back to it.
 
 ## Things that will NOT be true after cancellation
 
