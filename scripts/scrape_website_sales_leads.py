@@ -85,10 +85,13 @@ VALID_CONDITIONS = {
     "broken", "outdated", "weak_mobile", "unclear_cta", "no_online_booking",
     "thin_content", "decent", "strong", "unreachable",
 }
+# Must mirror AUTOMATION_ADD_ONS in oasis-command-center/lib/website-sales.ts.
+# document_generation and local_seo were retired from the sell sheet on
+# 2026-08-20 — suggesting them here would hand a rep an upsell the playbook
+# no longer prices.
 AUTOMATION_MENU = {
     "google_reviews", "lead_routing", "gmail_classifier", "missed_call_recovery",
     "quote_followup", "appointment_reminders", "lead_reactivation",
-    "document_generation", "local_seo",
 }
 
 # Geo gate: Firecrawl search for "Hamilton Ontario" happily returns Hamilton,
@@ -141,8 +144,9 @@ Return STRICT JSON only:
   "conversion_score": 0-10 (how well the CURRENT site converts visitors: 10 = excellent),
   "automation_openings": [0-3 items from: "google_reviews","lead_routing","gmail_classifier",
                           "missed_call_recovery","quote_followup","appointment_reminders",
-                          "lead_reactivation","document_generation","local_seo" — only ones
-                          this business plausibly needs based on what you saw],
+                          "lead_reactivation" — only ones this business plausibly needs
+                          based on what you saw. These are text/email automations only;
+                          nothing here answers a phone call.],
   "location_check": one of ["confirmed","mismatch","unclear"] — does the page show this
                     business operating in or near {city}, {province} (street address,
                     service-area list, city names)? "mismatch" ONLY when the page clearly
@@ -323,10 +327,94 @@ def _insert_lead(db, payload: dict[str, Any], dry_run: bool) -> bool:
         return False
 
 
+def _audit_fields(audit: dict[str, Any]) -> dict[str, Any]:
+    """The audit's contribution to a lead row. One definition, used by both the
+    insert path and the re-audit path so a new audit field can never land on
+    freshly scraped leads while silently skipping re-audited ones."""
+    conv = audit["conversion_score"]
+    return {
+        "website_condition": audit["website_condition"],
+        "audit_findings": audit["audit_findings"],
+        "pitch_angle": audit["pitch_angle"],
+        "recommended_tier": audit["recommended_tier"],
+        "automation_openings": audit["automation_openings"],
+        "conversion_score": conv,
+        "location_check": audit["location_check"],
+        "location_evidence": audit["location_evidence"],
+        "audit_source": audit["audit_source"],
+        "value_estimate": TIER_VALUE[audit["recommended_tier"]],
+        # Opportunity score: the worse the site converts, the hotter the lead.
+        # A fallback audit saw nothing, so it earns no confidence-weighted score.
+        "score": max(10, min(95, (10 - conv) * 10)) if audit["audit_source"] == "claude_haiku" else 85,
+    }
+
+
+def cmd_reaudit(db, limit: int, delay: float, dry_run: bool) -> int:
+    """Re-run the site audit on leads whose audit fell back.
+
+    The first bulk run burned through the Claude CLI's session limit partway,
+    so 46 of 53 leads landed with audit_source='fallback' — a generic pitch
+    angle and no real findings, which is precisely the ammunition a rep opens
+    the call with. This re-audits exactly those rows once the limit resets.
+    Idempotent: a row that upgrades to a real audit no longer matches.
+    """
+    rows = (db.table("tenant_records").select("id,data")
+            .eq("tenant_id", WEBDEV_TENANT_ID).eq("entity_type", "lead")
+            .limit(2000).execute()).data or []
+    targets = []
+    for row in rows:
+        d = row.get("data") or {}
+        if isinstance(d, str):
+            try:
+                d = json.loads(d)
+            except json.JSONDecodeError:
+                continue
+        if d.get("sales_program") != "website_sales_v1":
+            continue
+        if d.get("audit_source") == "fallback" and d.get("website"):
+            targets.append((row["id"], d))
+    if limit:
+        targets = targets[:limit]
+    print(f"re-auditing {len(targets)} lead(s) with fallback audits"
+          f"{' (DRY RUN)' if dry_run else ''}")
+    fixed = still_failing = 0
+    for i, (rid, d) in enumerate(targets, 1):
+        url = str(d.get("website") or "")
+        site_md = _fetch_site(url)
+        audit = _audit_site(str(d.get("company") or ""), str(d.get("niche") or ""),
+                            str(d.get("city") or ""), str(d.get("region") or "Ontario"),
+                            url, site_md)
+        if audit["audit_source"] == "fallback":
+            still_failing += 1
+            print(f"[{i}/{len(targets)}] {rid[:8]} still unreachable: {url}")
+        else:
+            if audit.get("location_check") == "mismatch":
+                print(f"[{i}/{len(targets)}] {rid[:8]} GEO MISMATCH on re-audit "
+                      f"({audit.get('location_evidence') or 'no evidence'}) — flagging")
+            new = dict(d)
+            new.update(_audit_fields(audit))
+            new["reaudited_at"] = _now_iso()
+            if not dry_run:
+                db.table("tenant_records").update(
+                    {"data": new, "updated_at": _now_iso()}
+                ).eq("id", rid).eq("tenant_id", WEBDEV_TENANT_ID).execute()
+            fixed += 1
+            print(f"[{i}/{len(targets)}] {rid[:8]} {audit['website_condition']:14} "
+                  f"score={audit['conversion_score']} | {(d.get('company') or '')[:32]}")
+        if i < len(targets):
+            time.sleep(delay)
+    print(json.dumps({"reaudited": fixed, "still_unreachable": still_failing,
+                      "dry_run": dry_run}, indent=2))
+    return 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--target", type=int, default=100,
-                   help="Stop after this many promoted leads (default 100)")
+    p.add_argument("--reaudit", action="store_true",
+                   help="Re-audit existing leads whose audit fell back, then exit")
+    p.add_argument("--target", type=int, default=None,
+                   help="Scrape mode: stop after this many promoted leads (default 100). "
+                        "With --reaudit: cap how many leads to re-audit (default: all)")
     p.add_argument("--cities", default=None,
                    help='Comma list of "City:Province" (default: Ontario 13 + Montreal metro)')
     p.add_argument("--niches", default=",".join(NICHE_TRACKS.keys()))
@@ -354,6 +442,14 @@ def main() -> int:
               file=sys.stderr)
 
     db = get_client(load_env())
+
+    if args.reaudit:
+        # No --target in re-audit mode means "every fallback lead", not "100".
+        return cmd_reaudit(db, limit=args.target or 0,
+                           delay=args.delay, dry_run=args.dry_run)
+
+    target = args.target if args.target is not None else 100
+
     seen_emails, seen_domains = _existing_dedupe_sets(db)
     print(f"Dedupe baseline: {len(seen_emails)} emails, {len(seen_domains)} domains already in CRM")
 
@@ -364,7 +460,7 @@ def main() -> int:
              "dropped_dup": 0, "dropped_machine_email": 0, "dropped_geo": 0,
              "insert_failures": 0}
 
-    print(f"Target: {args.target} promoted leads | tenant oasis-webdev | "
+    print(f"Target: {target} promoted leads | tenant oasis-webdev | "
           f"{'DRY RUN' if args.dry_run else 'LIVE'}\n")
 
     # Round-robin cities x niches so no single city/niche dominates the fill.
@@ -373,7 +469,7 @@ def main() -> int:
     pairs.sort(key=lambda x: (niches.index(x[2]), cities.index((x[0], x[1]))))
 
     for city, province, niche in pairs:
-        if len(promoted) >= args.target:
+        if len(promoted) >= target:
             break
         track = NICHE_TRACKS.get(niche, "trades")
         query = f"{niche} {city} {province} small business"
@@ -392,7 +488,7 @@ def main() -> int:
                 break
 
         for url in urls:
-            if len(promoted) >= args.target:
+            if len(promoted) >= target:
                 break
             dom = _domain(url)
             if url in seen_urls or dom in seen_domains:
@@ -482,7 +578,7 @@ def main() -> int:
                 if email:
                     seen_emails.add(email)
                 seen_domains.add(dom)
-                print(f"    [PROMOTED {len(promoted)}/{args.target}] "
+                print(f"    [PROMOTED {len(promoted)}/{target}] "
                       f"{(name or '(no name)')[:18]:18} | {(business or '(unknown)')[:28]:28} | "
                       f"{audit['website_condition']:16} | {email or phone}")
             else:

@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Self-review caught a false claim: previous commit said git_auth.py was 'extracted from git_push_tool.py' but git_push_tool still had its own inline copy — I had shipped THREE implementations while describing one. Now genuinely extracted (ecebdff2); both callers verified on the shared helper: prune_merged_branches 111 deletes 0 failed, git_push_tool real push exit 0.
+- **Result:** Sales engine v2: comp 20/30 flat (opener/opener-closer), Turso migration 147 APPLIED to prod (website_deals/commissions/onboarding created - 146 was Postgres-only and never ran), fixed /pipeline hiding CC's 8 oasis-ai-cc leads + 31k cap-then-filter bug, wired stage hooks into rep qualify path (booking automation could never fire), backfilled 5 stranded stages, automation menu trimmed to 7 (no voice agents), 53 audited leads in oasis-webdev + re-audit running. Coordinated promotion boundary with APEX (sales_program is the gate).
 
 *Last updated: 2026-08-20*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-19T21:42:15.887676+00:00_
 
 - **Date:** 2026-08-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Self-review caught a false claim: previous commit said git_auth.py was 'extracted from git_push_tool.py' but git_push_tool still had its own inline copy — I had shipped THREE implementations while describing one. Now genuinely extracted (ecebdff2); both callers verified on the shared helper: prune_merged_branches 111 deletes 0 failed, git_push_tool real push exit 0.
+- **Result:** Sales engine v2: comp 20/30 flat (opener/opener-closer), Turso migration 147 APPLIED to prod (website_deals/commissions/onboarding created - 146 was Postgres-only and never ran), fixed /pipeline hiding CC's 8 oasis-ai-cc leads + 31k cap-then-filter bug, wired stage hooks into rep qualify path (booking automation could never fire), backfilled 5 stranded stages, automation menu trimmed to 7 (no voice agents), 53 audited leads in oasis-webdev + re-audit running. Coordinated promotion boundary with APEX (sales_program is the gate).
 
 *Last updated: 2026-08-20*
