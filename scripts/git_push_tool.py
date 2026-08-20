@@ -31,31 +31,11 @@ import argparse
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.secret_loader import load_env  # noqa: E402
-
-# GitHub accepts the PAT as the PASSWORD with any non-empty username over HTTPS.
-# "x-access-token" is the conventional placeholder and keeps the real account
-# name out of the flow.
-ASKPASS_USERNAME = "x-access-token"
-
-
-def _askpass_script(token: str) -> str:
-    """A helper git runs to answer its Username/Password prompts.
-
-    git calls it once per prompt with the prompt text as argv[1], so the script
-    has to distinguish the two. Written to a 0600 temp file and deleted in a
-    finally block — the token is on disk only for the length of the push.
-    """
-    return (
-        "#!/usr/bin/env python3\n"
-        "import sys\n"
-        "prompt = sys.argv[1].lower() if len(sys.argv) > 1 else ''\n"
-        f"print({ASKPASS_USERNAME!r} if 'username' in prompt else {token!r})\n"
-    )
+from lib.git_auth import git_credential_env  # noqa: E402
 
 
 def main() -> int:
@@ -120,23 +100,12 @@ def main() -> int:
             print(proc.stderr.strip(), file=sys.stderr)
         return proc.returncode
 
-    fd, path = tempfile.mkstemp(suffix=".py", prefix="askpass_")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(_askpass_script(token))
-        os.chmod(path, 0o600)
-
-        child = os.environ.copy()
-        # GIT_ASKPASS must be an executable; on Windows a .py is not, so invoke
-        # the interpreter explicitly via a one-line launcher.
-        launcher_fd, launcher = tempfile.mkstemp(suffix=".bat", prefix="askpass_")
-        with os.fdopen(launcher_fd, "w", encoding="utf-8") as fh:
-            fh.write(f'@echo off\r\n"{sys.executable}" "{path}" %*\r\n')
-        child["GIT_ASKPASS"] = launcher
-        # Stop git falling back to any interactive prompt if the helper fails —
-        # a hang is worse than a clean error in an automated context.
-        child["GIT_TERMINAL_PROMPT"] = "0"
-
+    # The GIT_ASKPASS dance lives in scripts/lib/git_auth.py. It used to be
+    # inline here, and when prune_merged_branches needed the same thing on
+    # 2026-08-19 the honest move was to share it rather than keep a second copy —
+    # credential handling is the last place to let two implementations drift,
+    # because a fix to one is a fix nobody applies to the other.
+    with git_credential_env(token) as child:
         cmd = ["git", "push"]
         if args.set_upstream:
             cmd.append("--set-upstream")
@@ -150,13 +119,6 @@ def main() -> int:
         if proc.stderr.strip():
             print(proc.stderr.strip(), file=sys.stderr)
         return proc.returncode
-    finally:
-        for p in (path, locals().get("launcher")):
-            if p:
-                try:
-                    os.unlink(p)
-                except OSError:
-                    pass
 
 
 if __name__ == "__main__":
