@@ -63,7 +63,7 @@ When the message is OPERATIONAL:
 1. `brain/AGENT_ROUTER.md` — routing-by-intent table (~200 lines).
 2. `brain/EXECUTION_RULES.md` — the iron law (self-execute, never tell CC to run commands).
 3. `brain/INTENTS.md` — verb-by-verb playbooks per request type.
- 4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 157 active skills.
+ 4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the active skills (live count: `brain/INVENTORY.md`).
 5. `CONTEXT.md` — canonical empire vocabulary. Read when a domain term needs disambiguation (tenant, drip sequence, Pulse, OASIS Outbound, etc). See `docs/adr/0002-context-md-canonical-vocabulary.md`.
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are now per-intent reads — the router decides when. Don't auto-load on boot.
@@ -85,7 +85,7 @@ OpenCode is the move when speed beats breadth:
 - Remote terminal runs from a thin Mac/Linux box
 
 **Lean into OpenCode for:**
-- `n8n_tool.py`, `supabase_tool.py`, `stripe_tool.py`, `late_tool.py` — the 128 top-level CLI tools (317 scripts total) that read `.env.agents` and never break
+- `n8n_tool.py`, `supabase_tool.py`, `stripe_tool.py`, `late_tool.py` — the 159 top-level CLI tools (396 scripts total) that read `.env.agents` and never break
 - Pulse reads/writes
 - Quick capability graph rebuilds
 - Cross-CLI handoffs when CC may swing back into Claude Code mid-task
@@ -100,7 +100,7 @@ OpenCode is the move when speed beats breadth:
 ## Tool routing (CLI-first — same as the other five entry points)
 
 ```
-1. CLI tools in scripts/      ← PRIMARY (128 top-level, 317 total, read .env.agents, never break)
+1. CLI tools in scripts/      ← PRIMARY (159 top-level, 396 total, read .env.agents, never break)
 2. MCP servers (stateless)    ← SECONDARY (Playwright, Context7, Memory, SeqThink, KG)
 3. Direct API calls           ← LAST RESORT (only if no CLI exists)
 4. claude.ai MCP connectors   ← NEVER (Gmail/Calendar/Square/Cloudflare blocked — see ORCHESTRATION.md)
@@ -165,16 +165,16 @@ Full history + substrate detail (state DB · retrieval · guards · event bus ·
 - [[ANTIGRAVITY]]
 - [[ARCHITECTURE]]
 
-## Inventory (synced 2026-08-01)
+## Inventory (synced 2026-08-20)
 
 > Live counts: `brain/INVENTORY.md` (auto-generated monthly by `scripts/core/generate_inventory.py`) — treat the hard numbers below as a snapshot.
 
-- **Skills:** 157 active (2 archived in `skills/_archive/`) — graph-registered with frontmatter
-- **Python scripts:** 128 top-level production CLI tools under `scripts/` (317 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
+- **Skills:** 163 active (2 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 159 top-level production CLI tools under `scripts/` (396 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
 - **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
 - **Subagents:** 8 in `.claude/agents/` (7 agents + INDEX.md)
 - **Workflows:** 35 in `.agents/workflows/`
-- **Cron jobs:** 28 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain, plus the 2026-08-01 Monthly Inventory Sync. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
+- **Cron jobs:** 33 in `cron_engine.py SEED_JOBS` (incl. the 2026-06-06 self-maintenance pass — Weekly tmp/ Hygiene, Daily Log Rotation Audit, Event Bus Offline Drain — and the 2026-08-01 Monthly Inventory Sync). Pushing to the shared `cron_jobs` registry (Turso) is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
 - **North Star:** Multiply CC's time and ship the systems that scale OASIS. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 <!-- LOCKSTEP:seed_core -->
 **Identity seed:** `PERSONAL.md` (wiring) + `brain/SOUL.md` (immutable identity — read silently on first operator turn). You are **Bravo** — CC's right hand: CEO, COO & CTO in one, on every runtime. Maven owns CMO (content/brand → `~/CMO-Agent`); Atlas owns CFO (**Bravo never reports MRR/revenue** — defer to Atlas).

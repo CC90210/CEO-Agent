@@ -42,6 +42,17 @@
         ]
       }
     ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{PY}} $CLAUDE_PROJECT_DIR/scripts/state/state_sync.py --note \"Session end automatic state sync\""
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "matcher": "",

@@ -71,7 +71,7 @@ When the message is OPERATIONAL:
 1. `brain/AGENT_ROUTER.md` — routing-by-intent table (~200 lines).
 2. `brain/EXECUTION_RULES.md` — the iron law (self-execute, never tell CC to run commands).
 3. `brain/INTENTS.md` — verb-by-verb playbooks per request type.
- 4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 157 active skills.
+ 4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the active skills (live count: `brain/INVENTORY.md`).
 5. `CONTEXT.md` — canonical empire vocabulary. Read when a domain term needs disambiguation (tenant, drip sequence, Pulse, OASIS Outbound, etc). See `docs/adr/0002-context-md-canonical-vocabulary.md`.
 
 State files are per-intent reads — the router picks them up when the request demands them. Don't auto-load `STATE.md` / `ACTIVE_TASKS.md` / `SESSION_LOG.md`.
@@ -196,7 +196,7 @@ See `brain/AGENTS.md` for the complete subagent registry (16 agents with decisio
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
 - **13 workflows** available in `.agents/workflows/`. Key commands: `/status`, `/health`, `/post`, `/commit`, `/sync`, `/cli-anything <target>`, `/opencli`, `/review`, `/ship`, `/retro`, `/evolve`
-- **157 active skills** in `skills/` directory (2 archived under `skills/_archive/`). Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development, **cli-anything** (generate CLI wrappers for any software/API — templates in `scripts/cli_templates/`), **opencli** (explore websites, run prebuilt adapters, create website CLI adapters), **code-review** (`skills/code-review/SKILL.md`), **ship** (`skills/ship/SKILL.md`), **retro** (`skills/retro/SKILL.md`)
+- **163 active skills** in `skills/` directory (2 archived under `skills/_archive/`). Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development, **cli-anything** (generate CLI wrappers for any software/API — templates in `scripts/cli_templates/`), **opencli** (explore websites, run prebuilt adapters, create website CLI adapters), **code-review** (`skills/code-review/SKILL.md`), **ship** (`skills/ship/SKILL.md`), **retro** (`skills/retro/SKILL.md`)
 - **Progressive skill loading**: Skills load in 3 tiers (frontmatter → instructions → references) to conserve context. See `skills/SKILL_LOADING.md`
 - **Meta-agent**: Can generate new subagent definitions from natural language descriptions. See `agents/meta-agent.md`
 - **Video pipeline**: `scripts/edit_content.py` — FFmpeg 8.0.1, Whisper captions, ElevenLabs voiceover, Remotion animations
@@ -316,16 +316,16 @@ When running on OpenCode with big-pickle, identify as: "I'm Bravo, CC's right ha
 
 Full history + substrate detail (state DB · retrieval · guards · event bus · capability graph · agentic-OS hooks · vocabulary layer): **brain/V6_ARCHITECTURE.md** (the running version is `architecture_version` in **brain/STATE.md** — single source of truth, never hardcoded here; the V6.9→V7.x deltas — audit remediation, reliability/observability, free-tier radar, persona bench, typed memory — are in **CHANGELOG.md**) — read on architecture/redesign turns. Operationally: resolve a skill with `python scripts/capability_query.py resolve "<intent>"` (router over `brain/CAPABILITY_GRAPH.json`); guard modes in **Safety & Hooks** above; state via `python scripts/state/state_sync.py`.
 
-## Inventory (synced 2026-08-01)
+## Inventory (synced 2026-08-20)
 
 > Live counts: `brain/INVENTORY.md` (auto-generated monthly by `scripts/core/generate_inventory.py`) — treat the hard numbers below as a snapshot.
 
-- **Skills:** 157 active (2 archived in `skills/_archive/`) — graph-registered with frontmatter
-- **Python scripts:** 128 top-level production CLI tools under `scripts/` (317 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
+- **Skills:** 163 active (2 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 159 top-level production CLI tools under `scripts/` (396 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
 - **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
 - **Subagents:** 8 in `.claude/agents/` (7 agents + INDEX.md)
 - **Workflows:** 35 in `.agents/workflows/`
-- **Cron jobs:** 28 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain, plus the 2026-08-01 Monthly Inventory Sync. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
+- **Cron jobs:** 33 in `cron_engine.py SEED_JOBS` (incl. the 2026-06-06 self-maintenance pass — Weekly tmp/ Hygiene, Daily Log Rotation Audit, Event Bus Offline Drain — and the 2026-08-01 Monthly Inventory Sync). Pushing to the shared `cron_jobs` registry (Turso) is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
 - **North Star:** Multiply CC's time and ship the systems that scale OASIS. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 
 ## OASIS Coordination Channel (Bravo ↔ APEX) — added 2026-06-19

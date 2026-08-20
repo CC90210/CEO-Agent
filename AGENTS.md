@@ -61,7 +61,7 @@ When the message is OPERATIONAL:
 1. `brain/AGENT_ROUTER.md` — the routing-by-intent table. Tells you which deeper file to read for each kind of request. ~200 lines.
 2. `brain/EXECUTION_RULES.md` — the iron law (self-execute, never tell CC to run commands you can run yourself, confirm after every mutation).
 3. `brain/INTENTS.md` — verb-by-verb playbooks (send-email, apply-migration, push-to-prod, etc). Read when an intent matches.
-4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 157 active skills.
+4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the active skills (live count: `brain/INVENTORY.md`).
 5. `CONTEXT.md` — canonical empire vocabulary. Read when a domain term needs disambiguation (tenant, drip sequence, Pulse, OASIS Outbound, etc). See `docs/adr/0002-context-md-canonical-vocabulary.md`.
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are now per-intent reads — the router decides when. Don't auto-load.
@@ -87,7 +87,7 @@ Do **not** dump any file content to the user. Read silently, then answer the act
 **Self-check:** `python scripts/harness_eval.py` scores the live harness (10 checks); `python scripts/agent_genome.py` verifies the genome is fully expressed. Run either when the substrate feels mis-wired — the failing check names the gap.
 **Credentials before "I can't":** never claim you lack access to a tool/API/service from memory — keys live in `.env.agents`, which you cannot read by design (RULE 3 / `secret_guard`). Probe first: `python scripts/capability_probe.py check <service>` (or `list`) reports key **presence + the exact command to run**, never values. **AVAILABLE means you are authorized — run the tool.** "I don't have access to X" is true only after the probe exits non-zero for X and you quote that result; the false negative costs CC an hour of manual work you were already wired to do. **Never** tell CC to install a redundant local plugin, paste an env variable into chat, or "set up" a service the probe already reports AVAILABLE — that is the same hallucination wearing a helpful face, and it costs CC time he did not need to spend. This binds every runtime equally (Claude Code, Codex CLI, OpenCode, Gemini CLI, Antigravity): probe, then act.
 <!-- /LOCKSTEP:seed_core -->
-- **Stack:** Python 3.12, TypeScript, Next.js 14, Supabase (Postgres), Vercel, Stripe, n8n, Telegram bot bridge
+- **Stack:** Python 3.12, TypeScript, Next.js 14, Turso (libSQL — primary DB since 2026-08-09; Supabase legacy for event bus + select apps), Vercel, Stripe, n8n, Telegram bot bridge
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) — full design rationale, V5.6 outbound chokepoint explained
 
 ---
@@ -124,7 +124,7 @@ Your only job is to answer CC's question. 1-5 sentences for simple queries. Do N
 
 ### RULE 2: TOOL ROUTING — CLI TOOLS FIRST
 
-The `scripts/` directory contains 128 top-level production CLI tools (317 scripts total inc. subpackages) that read `.env.agents` and never break. These are the primary execution layer. Some canonical ones:
+The `scripts/` directory contains 159 top-level production CLI tools (396 scripts total inc. subpackages) that read `.env.agents` and never break. These are the primary execution layer. Some canonical ones:
 
 | Need | Tool |
 |---|---|
@@ -265,16 +265,16 @@ C-Suite coordination via `data/pulse/*.json` (poll-based) and `agent_events` tab
 
 Full history + substrate detail (state DB · retrieval · guards · event bus · capability graph · agentic-OS hooks · vocabulary layer): **brain/V6_ARCHITECTURE.md** (the running version is `architecture_version` in **brain/STATE.md** — single source of truth, never hardcoded here; the V6.9→V7.x deltas — audit remediation, reliability/observability, free-tier radar, persona bench, typed memory — are in **CHANGELOG.md**) — read on architecture/redesign turns. Operationally: resolve a skill with `python scripts/capability_query.py resolve "<intent>"` (router over `brain/CAPABILITY_GRAPH.json`); guard modes in **Safety & Hooks** above; state via `python scripts/state/state_sync.py`.
 
-## Inventory (synced 2026-08-01)
+## Inventory (synced 2026-08-20)
 
 > Live counts: `brain/INVENTORY.md` (auto-generated monthly by `scripts/core/generate_inventory.py`) — treat the hard numbers below as a snapshot.
 
-- **Skills:** 157 active (2 archived in `skills/_archive/`) — graph-registered with frontmatter
-- **Python scripts:** 128 top-level production CLI tools under `scripts/` (317 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
+- **Skills:** 163 active (2 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 159 top-level production CLI tools under `scripts/` (396 total inc. subpackages, excluding `_archive/` and `__pycache__/`).
 - **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
 - **Subagents:** 8 in `.claude/agents/` (7 agents + INDEX.md)
 - **Workflows:** 35 in `.agents/workflows/`
-- **Cron jobs:** 28 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain, plus the 2026-08-01 Monthly Inventory Sync. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
+- **Cron jobs:** 33 in `cron_engine.py SEED_JOBS` (incl. the 2026-06-06 self-maintenance pass — Weekly tmp/ Hygiene, Daily Log Rotation Audit, Event Bus Offline Drain — and the 2026-08-01 Monthly Inventory Sync). Pushing to the shared `cron_jobs` registry (Turso) is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
 - **North Star:** Multiply CC's time and ship the systems that scale OASIS. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 
 ## OASIS Coordination Channel (Bravo ↔ APEX) — added 2026-06-19

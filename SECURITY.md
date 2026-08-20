@@ -96,9 +96,11 @@ days, pull `main` before reporting — the issue may already be fixed.
 
 ### Database access
 
-- Supabase Row Level Security (RLS) is enabled on every table. The
-  agent connects with a service-role key only when server-side; the
-  dashboard uses anonymous-key + RLS for reads.
+- On Supabase (legacy) installs, Row Level Security (RLS) is enabled on
+  every table; the agent connects with a service-role key only when
+  server-side, and the dashboard uses anonymous-key + RLS for reads. On
+  the primary Turso/libSQL backend there is no RLS — tenant scope is
+  enforced in the data-bridge layer instead (CONTEXT.md §"Data bridge").
 - Migrations are additive where possible (`database/*.sql`). Any
   destructive migration requires explicit human approval.
 
@@ -107,8 +109,9 @@ days, pull `main` before reporting — the issue may already be fixed.
 - `scripts/pii_scrubber.py` removes emails, phone numbers, SIN/SSN, and
   credit-card-shaped numbers from content before it is embedded into
   long-term memory or sent to third-party LLMs.
-- User messages and lead content are stored in a customer-owned Supabase
-  project. Nothing is sent to Anthropic or OpenAI beyond the specific
+- User messages and lead content are stored in a customer-owned Turso/libSQL
+  database (or Supabase project on legacy installs, per `EMPIRE_DATA_BACKEND`).
+  Nothing is sent to Anthropic or OpenAI beyond the specific
   prompt for a given action, and only under the `ANTHROPIC_API_KEY` /
   `OPENAI_API_KEY` the user supplies.
 
