@@ -290,14 +290,15 @@ class TestCapabilityProbe:
         assert r["available"] is False
         assert r["keys_missing"]
 
-    def test_available_when_every_group_satisfied(self):
-        r = probe.probe("supabase", {"SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"})
+    def test_available_when_management_token_is_present(self):
+        r = probe.probe("supabase", {"SUPABASE_ACCESS_TOKEN"})
         assert r["available"] is True
         assert r["keys_missing"] == []
 
-    def test_alias_satisfies_group(self):
+    def test_retired_data_plane_aliases_do_not_claim_supabase_access(self):
         r = probe.probe("supabase", {"BRAVO_SUPABASE_URL", "BRAVO_SUPABASE_SERVICE_ROLE_KEY"})
-        assert r["available"] is True
+        assert r["available"] is False
+        assert r["keys_missing"] == ["SUPABASE_ACCESS_TOKEN"]
 
     def test_account_id_alone_is_not_stripe_access(self):
         assert probe.probe("stripe", {"STRIPE_OASIS_ACCT_ID"})["available"] is False

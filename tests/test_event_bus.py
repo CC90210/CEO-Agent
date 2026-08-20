@@ -1,19 +1,13 @@
-"""V6 BUILD 3 — event_bus.py regression suite.
+"""Turso-backed event_bus.py regression suite.
 
-Mocked tests (no live Supabase / Postgres dep). Covers:
+Mocked tests (no live cloud dependency). Covers:
   - publish() success path
   - publish() PGRST204 schema-cache fallback (strip migration-015 columns + retry)
   - publish() idempotency-conflict classification
   - publish() offline-queue fallback on hard error
-  - subscribe() routes to LISTEN when DSN constructable + psycopg2 available
-  - subscribe() falls back to polling when DSN unavailable
-  - subscribe() honors `force_polling=True`
+  - subscribe() always uses the Turso polling transport
   - claim/ack handler dispatch + retry-on-False
-  - _get_pg_dsn() construction
   - the strip-set covers every migration-015 column
-
-The live LISTEN/NOTIFY round-trip is verified manually with the CLI smoke
-once `PGBOUNCER_DB_PASSWORD` lands in `.env.agents`.
 """
 
 from __future__ import annotations
@@ -37,8 +31,8 @@ import event_bus  # type: ignore[import-not-found]  # noqa: E402  sys.path.inser
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 
-def _make_supabase_mock(insert_behavior=None, rpc_data=None):
-    """Build a Supabase client double matching what event_bus calls."""
+def _make_database_mock(insert_behavior=None, rpc_data=None):
+    """Build an SDK-shaped Turso compatibility client double."""
     client = MagicMock()
     table_mock = MagicMock()
     insert_chain = MagicMock()
@@ -61,7 +55,7 @@ def _make_supabase_mock(insert_behavior=None, rpc_data=None):
 
 
 def test_publish_success() -> None:
-    client = _make_supabase_mock()
+    client = _make_database_mock()
     res = event_bus.publish("BRAVO_TEST", {"x": 1}, db=client)
     assert res["status"] == "published"
     assert res["id"] == "00000000-0000-0000-0000-000000000001"
@@ -69,7 +63,7 @@ def test_publish_success() -> None:
 
 def test_publish_idempotency_conflict_returns_duplicate() -> None:
     err = Exception("duplicate key value violates unique constraint")
-    client = _make_supabase_mock(insert_behavior=err)
+    client = _make_database_mock(insert_behavior=err)
     res = event_bus.publish("BRAVO_TEST", {"x": 1}, db=client,
                             idempotency_key="dup-key")
     assert res["status"] == "duplicate"
@@ -77,8 +71,8 @@ def test_publish_idempotency_conflict_returns_duplicate() -> None:
 
 def test_publish_offline_queue_on_hard_error(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(event_bus, "OFFLINE_QUEUE_PATH", tmp_path / "events_offline.jsonl")
-    err = Exception("connection refused — supabase unreachable")
-    client = _make_supabase_mock(insert_behavior=err)
+    err = Exception("connection refused — Turso unreachable")
+    client = _make_database_mock(insert_behavior=err)
     res = event_bus.publish("BRAVO_TEST", {"x": 1}, db=client)
     assert res["status"] == "offline"
     assert (tmp_path / "events_offline.jsonl").exists()
@@ -176,103 +170,40 @@ def test_publish_strip_set_covers_every_migration_015_column() -> None:
 
 
 def test_publish_severity_clamps_to_known_values() -> None:
-    client = _make_supabase_mock()
+    client = _make_database_mock()
     event_bus.publish("BRAVO_TEST", {}, db=client, severity="exotic-level")
     row = client.table.return_value.insert.call_args[0][0]
     assert row["severity"] == "info"  # clamped to default
 
 
-# ── _get_pg_dsn() ────────────────────────────────────────────────────────
-
-
-def test_get_pg_dsn_returns_none_when_password_absent() -> None:
-    with patch.object(event_bus, "_load_env",
-                      return_value={"PGBOUNCER_DB_HOST": "db.example.supabase.co"}):
-        assert event_bus._get_pg_dsn() is None
-
-
-def test_get_pg_dsn_builds_correct_url_with_quoted_password() -> None:
-    env = {
-        "PGBOUNCER_DB_HOST": "db.example.supabase.co",
-        "PGBOUNCER_DB_USER": "postgres",
-        "PGBOUNCER_DB_PASSWORD": "p@ss:word",  # special chars must be URL-encoded
-        "PGBOUNCER_DB_NAME": "postgres",
-    }
-    with patch.object(event_bus, "_load_env", return_value=env):
-        dsn = event_bus._get_pg_dsn()
-    assert dsn is not None
-    assert dsn.startswith("postgresql://postgres:")
-    assert "p%40ss%3Aword" in dsn   # @ and : URL-encoded
-    assert ":5432/postgres" in dsn   # session-pool port, not 6543
-    assert "sslmode=require" in dsn
-
-
 # ── subscribe() routing ──────────────────────────────────────────────────
 
 
-def test_subscribe_falls_back_to_polling_when_dsn_absent() -> None:
-    client = _make_supabase_mock()
+def test_subscribe_uses_turso_polling_transport() -> None:
+    client = _make_database_mock()
     polling_called = {"n": 0}
 
     async def fake_poll(*args, **kwargs):
         polling_called["n"] += 1
         return  # return immediately so the test doesn't hang
 
-    with patch.object(event_bus, "_get_pg_dsn", return_value=None), \
-         patch.object(event_bus, "_subscribe_via_polling", new=fake_poll):
+    with patch.object(event_bus, "_subscribe_via_polling", new=fake_poll):
         asyncio.run(event_bus.subscribe("bravo", handlers={}, db=client))
     assert polling_called["n"] == 1
 
 
-def test_subscribe_force_polling_skips_listen() -> None:
-    client = _make_supabase_mock()
-    polling_called = {"n": 0}
-    listen_called = {"n": 0}
+def test_retired_postgres_transport_is_absent_from_active_event_bus() -> None:
+    source = (SCRIPTS / "core" / "event_bus.py").read_text(encoding="utf-8")
 
-    async def fake_poll(*args, **kwargs):
-        polling_called["n"] += 1
-        return
-
-    async def fake_listen(*args, **kwargs):
-        listen_called["n"] += 1
-        return
-
-    with patch.object(event_bus, "_get_pg_dsn",
-                      return_value="postgresql://x:y@host:5432/postgres"), \
-         patch.object(event_bus, "_subscribe_via_polling", new=fake_poll), \
-         patch.object(event_bus, "_subscribe_via_listen", new=fake_listen):
-        asyncio.run(event_bus.subscribe("bravo", handlers={}, db=client,
-                                        force_polling=True))
-    assert polling_called["n"] == 1
-    assert listen_called["n"] == 0
-
-
-def test_subscribe_listen_failure_falls_back_to_polling() -> None:
-    """If LISTEN setup fails (psycopg2 missing, network error), subscribe
-    must degrade to polling instead of crashing."""
-    client = _make_supabase_mock()
-    polling_called = {"n": 0}
-
-    async def listen_explodes(*args, **kwargs):
-        raise ConnectionError("no route to db.example.supabase.co")
-
-    async def fake_poll(*args, **kwargs):
-        polling_called["n"] += 1
-        return
-
-    with patch.object(event_bus, "_get_pg_dsn",
-                      return_value="postgresql://x:y@host:5432/postgres"), \
-         patch.object(event_bus, "_subscribe_via_listen", new=listen_explodes), \
-         patch.object(event_bus, "_subscribe_via_polling", new=fake_poll):
-        asyncio.run(event_bus.subscribe("bravo", handlers={}, db=client))
-    assert polling_called["n"] == 1
+    for retired_token in ("PGBOUNCER_DB_", "psycopg2", "LISTEN/NOTIFY"):
+        assert retired_token not in source
 
 
 # ── handler dispatch (via _consume_claimed_rows) ─────────────────────────
 
 
 def test_consume_acks_on_handler_true() -> None:
-    client = _make_supabase_mock()
+    client = _make_database_mock()
     seen: list[dict] = []
 
     async def on_test(event):
@@ -289,7 +220,7 @@ def test_consume_acks_on_handler_true() -> None:
 
 
 def test_consume_fails_on_handler_false() -> None:
-    client = _make_supabase_mock()
+    client = _make_database_mock()
 
     async def on_test(event):
         return False  # request retry
@@ -302,7 +233,7 @@ def test_consume_fails_on_handler_false() -> None:
 
 
 def test_consume_fails_on_handler_exception() -> None:
-    client = _make_supabase_mock()
+    client = _make_database_mock()
 
     async def on_test(event):
         raise RuntimeError("handler blew up")
@@ -317,7 +248,7 @@ def test_consume_fails_on_handler_exception() -> None:
 def test_consume_unhandled_event_type_silent_acks() -> None:
     """Events whose type has no registered handler get ack'd quietly —
     they were targeted at this agent but it doesn't care about them."""
-    client = _make_supabase_mock()
+    client = _make_database_mock()
     rows = [{"id": "evt-4", "event_type": "BRAVO_UNHANDLED", "payload": {}}]
     asyncio.run(event_bus._consume_claimed_rows(client, "bravo", rows, {}))
     call_names = [c[0][0] for c in client.rpc.call_args_list]

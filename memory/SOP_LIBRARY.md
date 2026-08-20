@@ -8,7 +8,7 @@ freshness_threshold_days: 180
 
 > SOPs are born from repeated patterns. When Bravo does the same thing 3+ times, it becomes an SOP.
 > Each SOP has a success rate tracked over executions.
-> **V5.5:** Probationary validation system, activation scoring, prerequisite tracking, Supabase sync.
+> **V5.5:** Probationary validation system, activation scoring, prerequisite tracking, state sync (Turso via compat).
 
 > [[brain/BRAIN_LOOP]] | [[memory/PATTERNS]] | [[brain/DASHBOARD]]
 
@@ -105,12 +105,12 @@ freshness_threshold_days: 180
 6. Extract new mistakes → memory/MISTAKES.md
 7. Generate Reflexion entries for any failed tasks → memory/SELF_REFLECTIONS.md
 8. Update brain/STATE.md with final state
-9. Supabase sync: update agent_state, insert session_logs, flush agent_traces, insert new memories
+9. State sync (Turso via `turso_supabase_compat`): update agent_state, insert session_logs, flush agent_traces, insert new memories
 10. Git commit: stage brain/ + memory/ → `bravo: sync — session YYYY-MM-DD`
 11. Ask CC if ready to push to remote
 12. Compress SESSION_LOG if > 200 lines
 13. State to CC: "Memory synced. [X] files updated, [Y] traces logged, [Z] new learnings captured."
-**Success Criteria:** Workspace clean, memory updated, state current, Supabase synced, git committed
+**Success Criteria:** Workspace clean, memory updated, state current, DB synced (Turso), git committed
 **Executions:** 2 | **Success Rate:** 100%
 **Last Executed:** 2026-02-28
 
@@ -124,7 +124,7 @@ freshness_threshold_days: 180
 2. Map topic to MCP server using this table:
    - n8n/workflows/automations → `n8n-mcp` → `search_workflows`, `get_workflow_details`, `execute_workflow`
    - Social media/posts/scheduling → `Late` → `posts_list`, `posts_create`, `accounts_list`, `posts_cross_post`
-   - Database/SQL/tables → `Supabase` → `execute_sql`, `list_tables`, `apply_migration`
+   - Database/SQL/tables → `python scripts/integrations/turso_tool.py` (Supabase MCP only for event bus / legacy apps)
    - Web browsing/scraping → `Playwright` → `browser_navigate`, `browser_snapshot`
    - Library docs/code examples → `Context7` → `resolve-library-id`, `query-docs`
    - Knowledge/memory → `Memory` → `search_nodes`, `create_entities`
@@ -172,7 +172,7 @@ freshness_threshold_days: 180
 **Category:** client
 **Status:** `[PROBATIONARY]` — New SOP, 2026-03-26
 **Trigger:** Weekly (part of /briefing), or when CC asks about a client
-**Prerequisites:** Supabase leads table, lead_interactions, revenue_events
+**Prerequisites:** Turso `leads` table (via `scripts/integrations/turso_tool.py`), lead_interactions, revenue_events
 **Steps:**
 1. List all clients with status=client in CRM
 2. For each client, check:
@@ -208,7 +208,7 @@ freshness_threshold_days: 180
 **Category:** finance
 **Status:** `[PROBATIONARY]` — New SOP, 2026-03-28
 **Trigger:** Every Monday morning (part of /briefing)
-**Prerequisites:** Stripe access, Supabase access
+**Prerequisites:** Stripe access, Turso DB access
 **Steps:**
 1. Run `python scripts/integrations/stripe_tool.py balance` — check current balance
 2. Run `python scripts/revenue_engine.py dashboard` — pull MRR breakdown
@@ -230,7 +230,7 @@ freshness_threshold_days: 180
 **Trigger:** New client signs contract or pays first invoice
 **Prerequisites:** Signed contract, payment received, client contact info
 **Steps:**
-1. Create client record in Supabase `leads` table with status='client'
+1. Create client record in the `leads` table (Turso, via `scripts/integrations/turso_tool.py`) with status='client'
 2. Send welcome email using `data/templates/emails/client-checkin.md` (adapted for onboarding)
 3. Schedule kickoff call (within 5 business days)
 4. Generate project brief using `data/templates/documents/project-brief.md`
@@ -250,7 +250,7 @@ freshness_threshold_days: 180
 **Category:** admin
 **Status:** `[PROBATIONARY]` — New SOP, 2026-03-28
 **Trigger:** Last week of each quarter (March, June, September, December)
-**Prerequisites:** 90 days of data in Stripe, Supabase, memory files
+**Prerequisites:** 90 days of data in Stripe, Turso, memory files
 **Steps:**
 1. Run `python scripts/financial_model.py unit-economics` — calculate CAC, LTV, payback
 2. Run `python scripts/financial_model.py concentration` — check Herfindahl index

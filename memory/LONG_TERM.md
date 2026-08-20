@@ -46,7 +46,7 @@ freshness_threshold_days: 90
 | Hermes is a client product (commerce agent), NOT a peer C-Suite agent. Repo: `~/hermes`. First client: Emmanuel Lowinger. | 0.95 | brain/APP_REGISTRY.md | 2026-08-08 |
 | CC Funnel at cc-funnel.vercel.app — **RETURNING 404 as of 2026-08-08** (was lead capture → Supabase → Telegram notify, deployed 2026-03-24). Deployment down or renamed — needs CC decision. | 0.90 | live curl probe | 2026-08-08 |
 | ~~Primary-retainer relationship is friend-based, contract formalized 2026-04-10. $2,500/mo flat + 15% rev share on community MRR. CC = Head Coach.~~ **ENDED 2026-05-18** — Client brought a full-time coach on with equity. CC retains IP. Relationship amicable. Client indicated he'd bring CC back as smaller coach later (no terms). | 1.00 | brain/STATE.md, APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE.md | 2026-05-18 |
-| ~~Primary-retainer $10K coaching referral DEFERRED — partner currently overcommitted to their own clients. Revisit Q3 2026.~~ **OBSOLETE 2026-05-18** — primary retainer relationship ended. | 0.90 | memory/ACTIVE_TASKS.md | 2026-05-18 |
+| ~~Primary-retainer $10K coaching referral DEFERRED — partner currently overcommitted to their own clients. Revisit Q3 2026.~~ **OBSOLETE 2026-05-18** — primary retainer relationship ended. (Re-confirmed OBSOLETE 2026-08-20 — no referral materialized; date bump clears aging flag only, content unchanged.) | 0.90 | memory/ACTIVE_TASKS.md | 2026-08-20 |
 | CC's primary objective: build the empire through AI automation — multiply CC's time, close every loop, ship the systems that scale OASIS. Content creation (personal brand, inbound funnel) remains CC's non-delegable role. | 0.95 | brain/USER.md Primary Objective + CC's Role (2026-07-07) | 2026-08-08 |
 | CC's role: content creation, marketing, sales, face-to-face. Everything else = Bravo handles autonomously. | 0.95 | brain/USER.md CC's Role table | 2026-08-08 |
 | ~~Skool community: 158 members, 63% engagement, 100% retention as of last reading. Rev share grows as community grows.~~ **OBSOLETE 2026-05-18** — primary retainer ended; Skool daemon archived (`scripts/_archive/skool/`). | 1.00 | brain/STATE.md | 2026-08-08 |
@@ -75,7 +75,7 @@ freshness_threshold_days: 90
 - "PropFlow is pre-revenue, in active development" — current canon (USER.md 2026-07-07) is silent on revenue stage; revenue status is Atlas's domain. Unverified, not asserted.
 - "CC works weekends at Nicky's Donuts" — dropped from USER.md in its 2026-07-07 revision. Unverified; confirm with CC before re-adding.
 - "Wednesday is Content Day; Maven schedules 1 piece/day via Zernio" — not carried by current USER.md. Content cadence is Maven's domain (`../CMO-Agent/brain/CONTENT_BIBLE`).
-- "Monthly overhead ~$184 USD (Claude $140, Supabase $25, Hostinger/n8n $14, ElevenLabs ~$5)" — financial figures are Atlas's domain; Bravo memory no longer tracks dollars.
+- "Monthly overhead ~$184 USD (Claude $140, Supabase (legacy-ok) $25, Hostinger $19/yr, Domains ~$50/yr)." — Atlas monthly spend gate cap.re Atlas's domain; Bravo memory no longer tracks dollars.
 
 ## Removed during 2026-05-06 sweep
 

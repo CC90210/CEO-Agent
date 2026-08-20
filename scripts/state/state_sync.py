@@ -2,8 +2,8 @@
 State Sync — Single-Write Protocol for Fragmented Memory.
 
 Behavior is gated by `EMPIRE_V6_MODE` (env var, falls back to .env.agents):
-  - off    (default) → V5.5 path only: flat-file writes to STATE.md + SESSION_LOG.md.
-  - shadow           → V5.5 path runs first, then state_manager.py mirrors the same
+  - off              → V5.5 path only: flat-file writes to STATE.md + SESSION_LOG.md.
+  - shadow (default) → V5.5 path runs first, then state_manager.py mirrors the same
                        write into state/empire_state.db (best-effort, never fails the sync).
                        Use for the V6.0 soak period to prove DB parity with no risk.
   - on               → DB is source of truth: state_manager.py writes the row,
@@ -47,10 +47,21 @@ from lib.timeutil import age_days  # noqa: E402
 PROJECT_ROOT = _SCRIPTS.parent
 STATE_FILE = PROJECT_ROOT / "brain" / "STATE.md"
 SESSION_LOG = PROJECT_ROOT / "memory" / "SESSION_LOG.md"
+DEFAULT_V6_MODE = "shadow"
+
+_FRONTMATTER_BLOCK = re.compile(
+    r"---[ \t]*\r?\n(?P<body>.*?)^---[ \t]*(?:\r?\n|\Z)",
+    flags=re.DOTALL | re.MULTILINE,
+)
 
 
 def _resolve_v6_mode(cli_override: str | None) -> str:
-    """Pick the V6 mode from --mode > env > .env.agents > 'off'."""
+    """Pick the V6 mode from --mode > env > .env.agents > tracked default.
+
+    `shadow` is intentionally runtime-neutral. Claude injects the setting from
+    `.claude/settings.json`, but Codex/OpenCode do not; falling back to `off`
+    made identical end-of-session commands update different state layers.
+    """
     if cli_override:
         return cli_override.lower()
     env = os.environ.get("EMPIRE_V6_MODE")
@@ -62,10 +73,11 @@ def _resolve_v6_mode(cli_override: str | None) -> str:
             for line in env_file.read_text(encoding="utf-8").splitlines():
                 line = line.strip()
                 if line.startswith("EMPIRE_V6_MODE="):
-                    return line.split("=", 1)[1].strip().strip('"').strip("'").lower() or "off"
+                    return (line.split("=", 1)[1].strip().strip('"').strip("'").lower()
+                            or DEFAULT_V6_MODE)
         except OSError:
             pass
-    return "off"
+    return DEFAULT_V6_MODE
 
 # Force UTF-8 stdout/stderr on Windows so emoji status glyphs (✅ ❌ ⚠️)
 # don't crash the "MANDATORY end-of-session sync" with UnicodeEncodeError
@@ -85,6 +97,81 @@ def now_str():
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
+
+
+def normalize_session_log_frontmatter(content: str, updated_date: str) -> tuple[str, int]:
+    """Return SESSION_LOG content with exactly one leading frontmatter block.
+
+    Only consecutive YAML blocks at the start of the file are collapsed. The
+    first block remains authoritative, its metadata is preserved, and only its
+    ``last_updated`` value is refreshed. Every session entry remains present.
+
+    Returns ``(normalized_content, duplicate_blocks_removed)``.
+    """
+    newline = "\r\n" if "\r\n" in content else "\n"
+    bom = "\ufeff" if content.startswith("\ufeff") else ""
+    cursor = len(bom)
+    bodies: list[str] = []
+
+    while True:
+        match = _FRONTMATTER_BLOCK.match(content, cursor)
+        if not match:
+            break
+        bodies.append(match.group("body"))
+        cursor = match.end()
+
+        # Tolerate blank lines between accidentally repeated blocks, but keep
+        # that whitespace when the next thing is a real session entry.
+        gap = re.match(r"(?:[ \t]*\r?\n)*", content[cursor:])
+        candidate = cursor + (gap.end() if gap else 0)
+        if _FRONTMATTER_BLOCK.match(content, candidate):
+            cursor = candidate
+
+    if bodies:
+        metadata = bodies[0].splitlines()
+    else:
+        metadata = ["tags: [daily]", "freshness_threshold_days: 14"]
+        cursor = len(bom)
+
+    refreshed = False
+    for index, line in enumerate(metadata):
+        if re.match(r"^\s*last_updated\s*:", line):
+            prefix = line[:len(line) - len(line.lstrip())]
+            metadata[index] = f"{prefix}last_updated: {updated_date}"
+            refreshed = True
+            break
+    if not refreshed:
+        metadata.append(f"last_updated: {updated_date}")
+
+    frontmatter = (
+        f"{bom}---{newline}"
+        + newline.join(metadata)
+        + f"{newline}---{newline}"
+    )
+    return frontmatter + content[cursor:], max(0, len(bodies) - 1)
+
+
+def repair_session_log_frontmatter(path: Path | None = None) -> tuple[int, int]:
+    """Atomically repair repeated SESSION_LOG frontmatter without adding state.
+
+    Returns ``(duplicate_blocks_removed, session_entries_preserved)``. This is
+    intentionally separate from a normal state sync so an operator can repair
+    structure first, verify entry counts, and only then resume dual writes.
+    """
+    target = path or SESSION_LOG
+    original = target.read_text(encoding="utf-8")
+    entry_count = len(re.findall(r"(?m)^###\s+", original))
+    normalized, removed = normalize_session_log_frontmatter(original, now_str())
+    if normalized != original:
+        temporary = target.with_suffix(target.suffix + ".repair.tmp")
+        temporary.write_text(normalized, encoding="utf-8")
+        temporary.replace(target)
+    preserved = len(re.findall(r"(?m)^###\s+", normalized))
+    if preserved != entry_count:
+        raise RuntimeError(
+            f"SESSION_LOG repair changed entry count ({entry_count} -> {preserved})"
+        )
+    return removed, preserved
 
 
 def get_agent_label(agent_name: str = "bravo") -> str:
@@ -164,7 +251,8 @@ def append_session_log(note: str, agent_name: str = "bravo") -> str:
         f"**Agent:** {agent_label} state_sync\n"
         f"**Note:** {note}\n"
     )
-    content = SESSION_LOG.read_text(encoding="utf-8")
+    original = SESSION_LOG.read_text(encoding="utf-8")
+    content, _removed_frontmatter = normalize_session_log_frontmatter(original, today)
 
     # Dedupe: scan the first ~3 existing entries; if one matches date+note exactly, skip.
     # This is cheap and handles the "scheduler calls me every cron tick with same note" case.
@@ -173,6 +261,8 @@ def append_session_log(note: str, agent_name: str = "bravo") -> str:
     recent_block_end = content.find("\n### ", content.find("\n### ") + 1)  # end of first entry
     recent_block = content[: recent_block_end if recent_block_end > 0 else len(content)]
     if dedupe_marker in recent_block and note_marker in recent_block:
+        if content != original:
+            SESSION_LOG.write_text(content, encoding="utf-8")
         return "deduped"
 
     # Insert after the header block (before first ### entry)
@@ -299,6 +389,11 @@ def main():
     parser.add_argument("--heartbeat", action="store_true", help="Just refresh the STATE.md heartbeat timestamp")
     parser.add_argument("--mem0", action="store_true", help="Also write to semantic memory (mem0)")
     parser.add_argument(
+        "--repair-session-log-only",
+        action="store_true",
+        help="atomically collapse duplicate SESSION_LOG frontmatter and exit",
+    )
+    parser.add_argument(
         "--agent",
         default=os.environ.get("STATE_SYNC_AGENT", "bravo"),
         choices=["bravo", "atlas", "maven", "hermes", "codex", "aura", "lex"],
@@ -330,6 +425,14 @@ def main():
                         help="Session note → ceo_pulse (defaults to --note when "
                              "another --pulse-* flag is given)")
     args = parser.parse_args()
+
+    if args.repair_session_log_only:
+        removed, preserved = repair_session_log_frontmatter()
+        print(
+            f"[state_sync] SESSION_LOG repaired: removed {removed} duplicate "
+            f"frontmatter block(s); preserved {preserved} session entries"
+        )
+        return
 
     note = args.note.strip() if args.note else "Session sync."
     agent_name = args.agent.lower().strip()
