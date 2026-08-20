@@ -164,11 +164,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-19
+- **Date:** 2026-08-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Turnkey audit after CC's Claude subscription lapse. VERIFIED HEALTHY: 23 crons no failures (high-freq firing: publish drain 3147 runs, inbound sweep 6392), 5/5 Vercel prod deploys Ready, 4/4 public sites 200, 11 PM2 online, machine_parity GREEN, self_audit clean, command-center typecheck clean + 6/6 test suites pass. FIXED 3 real defects left by other tools: (1) doc_sweep gate unpassable — added the missing annotation half, (2) CAPABILITIES vs APP_REGISTRY contradicted on 4 apps' backend, (3) architecture-migration-gate skill unroutable (trigger: singular vs triggers: list) AND --emit-docs does not write CAPABILITY_GRAPH.json — harness_eval now 100% (routing 2/2). AWAITING CC: prune 111 merged remote branches (258 total), and 3.0GB state/backups/supabase_storage migration artifact.
+- **Result:** Branch prune complete: 111 merged branches deleted from oasis-command-center, 0 failed. Remote 258 -> 142. main intact (24c667b8), production 200. 140 unmerged branches remain (real work in flight, incl. squash-merged which git cannot distinguish from unmerged). 1 merged branch held back as too recent. Kept the 3GB supabase_storage backup per CC.
 
-*Last updated: 2026-08-19*
+*Last updated: 2026-08-20*
 
 ## Manifest
 
@@ -200,8 +200,8 @@ _Last synced: 2026-08-19T21:42:15.887676+00:00_
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-19
+- **Date:** 2026-08-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Turnkey audit after CC's Claude subscription lapse. VERIFIED HEALTHY: 23 crons no failures (high-freq firing: publish drain 3147 runs, inbound sweep 6392), 5/5 Vercel prod deploys Ready, 4/4 public sites 200, 11 PM2 online, machine_parity GREEN, self_audit clean, command-center typecheck clean + 6/6 test suites pass. FIXED 3 real defects left by other tools: (1) doc_sweep gate unpassable — added the missing annotation half, (2) CAPABILITIES vs APP_REGISTRY contradicted on 4 apps' backend, (3) architecture-migration-gate skill unroutable (trigger: singular vs triggers: list) AND --emit-docs does not write CAPABILITY_GRAPH.json — harness_eval now 100% (routing 2/2). AWAITING CC: prune 111 merged remote branches (258 total), and 3.0GB state/backups/supabase_storage migration artifact.
+- **Result:** Branch prune complete: 111 merged branches deleted from oasis-command-center, 0 failed. Remote 258 -> 142. main intact (24c667b8), production 200. 140 unmerged branches remain (real work in flight, incl. squash-merged which git cannot distinguish from unmerged). 1 merged branch held back as too recent. Kept the 3GB supabase_storage backup per CC.
 
-*Last updated: 2026-08-19*
+*Last updated: 2026-08-20*
