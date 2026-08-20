@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Branch prune complete: 111 merged branches deleted from oasis-command-center, 0 failed. Remote 258 -> 142. main intact (24c667b8), production 200. 140 unmerged branches remain (real work in flight, incl. squash-merged which git cannot distinguish from unmerged). 1 merged branch held back as too recent. Kept the 3GB supabase_storage backup per CC.
+- **Result:** Self-review caught a false claim: previous commit said git_auth.py was 'extracted from git_push_tool.py' but git_push_tool still had its own inline copy — I had shipped THREE implementations while describing one. Now genuinely extracted (ecebdff2); both callers verified on the shared helper: prune_merged_branches 111 deletes 0 failed, git_push_tool real push exit 0.
 
 *Last updated: 2026-08-20*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-19T21:42:15.887676+00:00_
 
 - **Date:** 2026-08-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Branch prune complete: 111 merged branches deleted from oasis-command-center, 0 failed. Remote 258 -> 142. main intact (24c667b8), production 200. 140 unmerged branches remain (real work in flight, incl. squash-merged which git cannot distinguish from unmerged). 1 merged branch held back as too recent. Kept the 3GB supabase_storage backup per CC.
+- **Result:** Self-review caught a false claim: previous commit said git_auth.py was 'extracted from git_push_tool.py' but git_push_tool still had its own inline copy — I had shipped THREE implementations while describing one. Now genuinely extracted (ecebdff2); both callers verified on the shared helper: prune_merged_branches 111 deletes 0 failed, git_push_tool real push exit 0.
 
 *Last updated: 2026-08-20*
