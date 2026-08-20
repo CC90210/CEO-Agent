@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Updated pulse judgment for Turso cutover completion
+- **Result:** Turso migration harness closure: all 93 changes committed in 7 logical groups. Harness 14/14, self-audit 99/100, targeted tests 116 passed. Adon/APEX handover doc created at docs/handovers/.
 
 *Last updated: 2026-08-20*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-20T08:01:25.927297+00:00_
 
 - **Date:** 2026-08-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Updated pulse judgment for Turso cutover completion
+- **Result:** Turso migration harness closure: all 93 changes committed in 7 logical groups. Harness 14/14, self-audit 99/100, targeted tests 116 passed. Adon/APEX handover doc created at docs/handovers/.
 
 *Last updated: 2026-08-20*
