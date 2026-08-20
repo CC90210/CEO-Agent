@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-19T23:32:05.350920+00:00",
-  "script_count": 149,
-  "entry_count": 322,
+  "generated_at_iso": "2026-08-20T00:15:32.566698+00:00",
+  "script_count": 151,
+  "entry_count": 324,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1631,6 +1631,14 @@
       "help": "provision_secrets.py \u2014 materialize a tenant's integration secrets onto this host."
     },
     {
+      "key": "prune_merged_branches",
+      "path": "scripts/prune_merged_branches.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "prune_merged_branches \u2014 delete remote branches whose commits are already in main."
+    },
+    {
       "key": "pulse_publish_refresh",
       "path": "scripts/pulse_publish.py",
       "root": "bravo",
@@ -1901,6 +1909,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Lead scraper using Firecrawl API (replaces slow Playwright + Google Maps flow)."
+    },
+    {
+      "key": "scrape_website_sales_leads",
+      "path": "scripts/scrape_website_sales_leads.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Website-sales lead scraper \u2014 fills the oasis-webdev pipeline at stage 'researched'."
     },
     {
       "key": "security_audit",

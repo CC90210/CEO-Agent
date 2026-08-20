@@ -1,0 +1,45 @@
+feat(scripts): prune_merged_branches, and one shared git-credential helper
+
+oasis-command-center's remote had 258 branches, 113 already merged into main --
+the accumulation of several agents working in parallel and none of them cleaning
+up. This is the unambiguous part of "optimise the file structure": a merged
+branch's commits are in main by definition.
+
+WHY A SCRIPT RATHER THAN A SHELL LOOP. Deleting on a shared remote is
+outward-facing and Codex, APEX and Maven all push here. A `git push --delete`
+loop has no dry run, no re-verification and no record. Four rules, each earned:
+
+  1. MERGED ONLY, and deliberately NOT squash-merged. A squashed branch is not an
+     ancestor of main even though its content landed, so from git's side it is
+     indistinguishable from real unmerged work. Left alone rather than guessed at
+     -- which is why 111 go and 145 stay.
+  2. AGE FLOOR (default 2 days), so a branch merged minutes ago that someone may
+     still have checked out is held back.
+  3. RE-VERIFIED AT DELETE TIME. The merged set is recomputed immediately before
+     each delete, because another agent can push between planning and acting.
+  4. DRY RUN IS THE DEFAULT.
+
+TWO BUGS FOUND BY RUNNING IT, both before anything was deleted.
+
+  Parsing: `git branch -r --merged` includes the symref line `origin/HEAD ->
+  origin/main`, and splitting the blob on whitespace yields a phantom branch
+  literally named `->`. It happened to be held back by the age filter, which is
+  luck rather than safety -- this set feeds `git push --delete`. Now parsed line
+  by line with symref lines skipped.
+
+  Auth: the first --execute failed all 111 with "could not read Username for
+  github.com". It failed CLOSED, which is the right direction, but the fix
+  belongs somewhere shared: scripts/lib/git_auth.py now owns the GIT_ASKPASS
+  dance, extracted from git_push_tool.py rather than copied into a second file.
+  Credential handling is the last place to keep two implementations -- a fix to
+  one is a fix nobody applies to the other.
+
+  Still not `remote set-url` with an inline token, which writes the PAT into
+  .git/config in plaintext forever and is how a token leaked from this fleet
+  before; still not `-c http.extraHeader`, which puts it on a command line any
+  process listing can read.
+
+Proof: dry run reports 111 to delete / 1 held; mid-run the remote is down from
+258 to 150 heads.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>

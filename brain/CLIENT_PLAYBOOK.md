@@ -8,7 +8,11 @@ freshness_threshold_days: 30
 
 ## The Rep's Job
 
-Find one visible website problem, connect it to lost trust/calls/bookings, qualify the owner, and book a Google Meet with CC or Adon. You are an appointment setter, not the closer. Do not quote custom work, negotiate, promise feasibility, or turn the call into an AI lecture.
+Find one visible website problem, connect it to lost trust/calls/bookings, qualify the owner, and book a Google Meet with CC or Adon. You are an appointment setter first; reps who earn the closer track run the demo, proposal, and close themselves. Until granted that track, do not quote custom work, negotiate, promise feasibility, or turn the call into an AI lecture.
+
+## Your Compensation (V5 — flat, no tiers)
+
+Book it and a founder closes it: **20% of collected setup**. Close it yourself on the closer track: **30%**. One $3,500 Growth deal pays $700 as an opener and $1,050 as a closer; a $5,000 Authority pays $1,000 / $1,500. Every lead in your queue arrives pre-researched with a written audit and pitch angle — the hard part is done. The reps who get paid are the ones who treat "no answer" as a scheduled follow-up, not a rejection. It is genuinely up to you.
 
 ## Core Cold Call
 
@@ -42,7 +46,7 @@ Follow-up references the same observed issue and asks for a 15-minute audit walk
 1. Assigned: read the URL, audit finding, ICP track, contact details, and assigned-rep name. Make the first call.
 2. Attempting Contact: choose No answer or Voicemail left and set the next follow-up time. Every open lead must have a next action.
 3. Connected: ask the discovery questions and either mark Lost or complete all four qualification checks.
-4. Qualified: open the OASIS Google Meet calendar, choose CC or Adon, confirm the meeting time, and write the promised demo angle in plain language.
+4. Qualified: open the OASIS Google Meet calendar, choose CC or Adon, confirm the meeting time, and write the promised demo angle in plain language. Marking Qualified also auto-emails the lead the founder booking link (when `OASIS_QUALIFIED_BOOKING_EMAIL_LIVE=1`) — still confirm the time verbally on the call.
 5. Founder Meeting: verify the handoff is saved. Do not change price, scope, delivery timing, or automation feasibility. The founder now owns the deal.
 
 The rep's work is complete when the founder handoff is accurate, not when the client pays. Attribution remains with the Agent assigned when the founder meeting was booked.
@@ -69,7 +73,7 @@ Close: “Based on what you showed me, [package] is the right fit: [setup] and [
 
 ## Operations SOP
 
-1. Adon/APEX researches and enriches domain, owner, contact data, territory, ICP, website condition, and audit evidence in the upstream `leadgen_*` system, then promotes deduplicated rows into `tenant_records`. The sales engine begins at that promotion boundary and does not run a competing scraper.
+1. Adon/APEX researches and enriches domain, owner, contact data, territory, ICP, website condition, and audit evidence in the upstream `leadgen_*` system, then promotes deduplicated rows into `tenant_records`. The sales engine begins at that promotion boundary. Interim (2026-08-19, CC-directed): Bravo's `scripts/scrape_website_sales_leads.py` fills the research layer until the APEX leadgen system ships — same promoted contract, same boundary.
 2. Assign controlled rep batches and a next action. Assignment sends nothing.
 3. Booking freezes rep attribution and stores founder, time, qualification, audit findings, and promised demo.
 4. Founder verifies the issue, selects a package hypothesis, and prepares one relevant automation demo.

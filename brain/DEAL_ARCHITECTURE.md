@@ -4,7 +4,7 @@ description: Canonical OASIS website-first offer, compensation, and sales rules.
 last_updated: 2026-08-19
 freshness_threshold_days: 30
 ---
-# DEAL ARCHITECTURE — OASIS Website Sales Engine V4
+# DEAL ARCHITECTURE — OASIS Website Sales Engine V5
 
 ## Positioning
 
@@ -20,7 +20,7 @@ OASIS sells conversion-focused websites to local-service SMBs in Canada and the 
 
 Prices use the client's selling currency: CAD in Canada and USD in the United States. No automatic conversion. The default payment schedule is 50% of setup at signature, 50% before launch, with monthly service beginning at launch.
 
-Only CC or Adon may discount, customize scope, promise a delivery date, or approve a below-floor quote. Reps qualify and book; they do not negotiate or close.
+Only CC or Adon may discount, customize scope, promise a delivery date, or approve a below-floor quote. Reps qualify and book by default; a rep on the closer track (see Rep Compensation) may run the demo, proposal, and close at listed floors — discounts, scope changes, and below-floor approvals remain founder-only.
 
 ## Approved Automation Menu
 
@@ -45,24 +45,24 @@ A lead is qualified only when the rep confirms decision authority, a specific we
 ## Roles and Attribution
 
 - Adon/APEX owns the upstream lead-scraping fleet, `leadgen_*` territory model, and Command Center lead-sheets surface. Its promoted output is a normal `tenant_records` lead with `data.assigned_to`, `website`, `website_condition`, `audit_findings`, `icp_track`, and initial stage `researched`.
-- CC and Adon choose territories, approve batches, and assign the promoted leads; this sales engine does not duplicate scraping or territory storage.
+- **Interim (CC-directed, 2026-08-19): until the APEX `leadgen_*` system ships, Bravo runs the research layer via `scripts/scrape_website_sales_leads.py`** — Firecrawl discovery + contact extraction + AI website audit (`website_condition`, `audit_findings`, `pitch_angle`, `icp_track`, `automation_openings`), promoted straight into `tenant_records` on `oasis-webdev` at stage `researched` under the same contract. APEX takes over at the promotion boundary with no schema change.
+- CC and Adon choose territories, approve batches, and assign the promoted leads; this sales engine does not duplicate territory storage.
 - Sales reps call assigned leads, diagnose, qualify, and book a founder Google Meet.
-- CC or Adon owns the audit/demo, package, automation discovery, price, proposal, and close.
+- CC or Adon owns the audit/demo, package, automation discovery, price, proposal, and close — unless the deal's attributed rep is on the closer track and runs the close themselves; founder approval of the commission remains mandatory before payout.
 - The fulfillment owner collects assets, builds, runs QA, launches, and maintains.
 
 The rep assigned when the founder meeting is booked owns attribution. Later reassignment does not rewrite earned attribution.
 
 ## Rep Compensation
 
-Commission applies only to collected website setup revenue. There is no recurring commission in V1.
+Commission applies only to collected website setup revenue. There is no recurring commission in V1. The $2,000 setup floor is unchanged.
 
-| Collected setup | Rate |
-|---:|---:|
-| $2,000–$3,499.99 | 10% |
-| $3,500–$4,999.99 | 12.5% |
-| $5,000+ | 15% |
+| Path | Rate |
+|---|---:|
+| **Opener** — rep sources the conversation and books the founder meeting; a founder closes | **20%** |
+| **Opener-closer** — the same rep also runs the demo, proposal, and close | **30%** |
 
-Commission accrues only after payment clears. It moves through accrued → approved → paid. A refund creates an offset instead of deleting history. Each payment/deal can create one accrual only.
+The rate is flat across deal sizes (V5, 2026-08-19 — replaces the V4 tiers of 10/12.5/15%). Worked examples: a $2,000 Essential pays $400 open / $600 open-and-close; a $5,000 Authority pays $1,000 / $1,500. Commission accrues only after payment clears. It moves through accrued → approved → paid; founder approval is required before payout on every deal and is non-delegable on rep-closed deals. A refund creates an offset instead of deleting history. Each payment/deal can create one accrual only.
 
 ## Lifecycle
 
@@ -70,14 +70,15 @@ Researched → Assigned → Attempting Contact → Connected → Qualified → F
 
 ### Role-specific pipeline contract
 
-- `Agent` is the launch-V1 appointment-setter role. An Agent sees only leads whose `assigned_to` value is that Agent's authenticated user UUID. Their job ends with a qualified Google Meet for CC or Adon; they do not negotiate or close.
+- `Agent` is the launch-V1 appointment-setter role. An Agent sees only leads whose `assigned_to` value is that Agent's authenticated user UUID. By default their job ends with a qualified Google Meet for CC or Adon; an Agent granted the closer track may run the close on their own attributed leads (the 30% path).
 - The Agent interface has exactly five tabs: Assigned, Attempting Contact, Connected, Qualified, and Founder Meeting.
 - Member, Admin, and Owner users operate the internal pipeline. Admin/Owner assign leads and control founder-close, payment, commission, and fulfilment mutations.
 - Research is an internal intake queue. APEX owns scraping and enrichment; promoted records enter the `oasis-webdev` tenant with `sales_program=website_sales_v1`. This separates the fresh website campaign from historical OASIS records without deleting history.
 - No Answer and Voicemail are dispositions, not stages. Both keep the lead in Attempting Contact and require a next-action timestamp.
 - Connected advances only after a real conversation. Qualified requires authority, a confirmed website/conversion need, timing, and willingness to consider at least $2,000.
 - Booking freezes attribution, requires one selected founder, a meeting time, and the exact promised audit/demo. From that point the founder owns scope, price, and close; delivery stages are never exposed to Agents.
-- A proven Agent may later enter a separately trained closer track with new permissions and compensation. Closing authority is never implied by the base Agent role.
+- The closer track is live in V5: a proven Agent granted closer permissions runs demo → proposal → close on their own attributed leads at the 30% rate, with founder approval gating every payout. Closing authority is never implied by the base Agent role — it is granted per rep.
+- On entry to Qualified, the system auto-sends the lead the founder booking link by email (gated by `OASIS_QUALIFIED_BOOKING_EMAIL_LIVE=1`, fail-closed) and notifies the founders.
 
 All calls, notes, emails, and dispositions stay in the existing lead-interaction ledger. Outbound email always goes through `scripts/integrations/send_gateway.py`; import or assignment never triggers a live send.
 

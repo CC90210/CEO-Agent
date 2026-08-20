@@ -1,3 +1,9 @@
+-- SUPERSEDED (2026-08-19): never applied anywhere. The canonical website-sales
+-- schema lives in oasis-command-center: database/146_website_sales_engine.sql
+-- (Postgres) + database/147_website_sales_comp_v2.sql + database/turso/
+-- 147_website_sales_engine.turso.sql (the applied one — prod is Turso).
+-- Commission model changed to flat 20% opener / 30% opener-closer (V5);
+-- the tiered rates below are historical. Do not apply this file.
 begin;
 
 create table if not exists public.website_deals (
