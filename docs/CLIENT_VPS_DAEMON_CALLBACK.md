@@ -52,7 +52,8 @@ would. Closed loop intact.
 | `bank_statement_parser` (Phase 7) | PATCH `application/<id>` with `underwriting_jsonb` populated |
 | `funnel_fast_poll` (CC's existing job) | POST `lead` for fresh funnel submissions |
 
-Today these all go directly to Supabase. As we deploy to client VPSes one by one, each
+Today these all write through the Turso switch (`sitecustomize` patch / `turso_supabase_compat`
+— direct Supabase pre-2026-08). As we deploy to client VPSes one by one, each
 daemon's writes get re-routed through this endpoint instead.
 
 # Daemon-side Python pattern
@@ -107,7 +108,7 @@ When provisioning a new client tenant on a VPS:
    daemon request returns 403 within one bridge_pairings cache TTL.
 
 The pair-code flow already works for CC's machine. The VPS extension is: the daemons
-swap their direct Supabase calls for HTTP callbacks.
+swap their direct DB calls (Turso via the compat switch; Supabase pre-2026-08) for HTTP callbacks.
 
 # What's NOT in scope for this pattern
 
@@ -122,7 +123,8 @@ swap their direct Supabase calls for HTTP callbacks.
 
 # Migration path
 
-We don't need to migrate today's daemons. They keep their direct Supabase access on
+We don't need to migrate today's daemons. They keep their direct DB access (Turso via
+the compat switch) on
 CC's host. The callback endpoint is **infrastructure for future deployments**.
 
 When SunBiz goes on a VPS:

@@ -44,7 +44,7 @@ For client deployments (deploying Hermes / a sibling agent for someone else), co
 | `BRAVO_SUPABASE_SERVICE_ROLE_KEY` | Bravo project service_role |
 | `SUPABASE_SERVICE_ROLE_KEY_BRAVO` | Same (legacy alias) |
 
-## Turso / libSQL (migration target — 5 databases, one per Supabase project)
+## Turso / libSQL (PRIMARY since 2026-08-09 — 5 databases, one per former Supabase project)
 
 **Two different credentials, and confusing them is the #1 setup failure.** A
 *database* token connects to exactly one database; a *Platform API* token
@@ -82,9 +82,9 @@ someone logs in.
 | `EMPIRE_AUTH_BACKEND=turso` | Auth **and** the `/api/data/bridge` + `/api/data/rpc` routes |
 | `AUTH_SESSION_SECRET` | HMAC key for the session cookie. Required *alongside* the above — both routes **404** without it, which reads as "not deployed" rather than "misconfigured" |
 
-Any of them unset → the app falls back to Supabase. That fallback IS the rollback
-path, so it must keep working until the Supabase subscription is actually
-cancelled.
+Any of them unset → the app falls back to Supabase. During the migration that fallback
+was the rollback path; now it is a **silent misconfiguration** (CONTEXT.md §"Turso mode
+flags") — the legacy project is retained only for the event bus / coordination tables.
 
 **For the Bravo PYTHON harness, `EMPIRE_DATA_BACKEND` must go in the PM2 `env:`
 block — NOT in this file.** `.venv/Lib/site-packages/sitecustomize.py` tests

@@ -52,7 +52,7 @@ Hard constraints (non-negotiable, see brain/CROSS_MACHINE_SYNC.md):
 - This machine must NOT start scheduler.py, skool_engine.py daemon,
   telegram_agent.js, or local_bridge.py _loop. Those are PRIMARY-only
   — running them on a secondary machine corrupts shared state
-  (Supabase cron_jobs, Skool browser session, Telegram long-poll).
+  (Turso cron_jobs, Skool browser session, Telegram long-poll).
   If `pm2 list` shows ANY actively-running `bravo-*` process, stop
   and report — don't kill anything without operator approval.
 - This machine IS allowed to run `bravo bridge serve` (the chat-server

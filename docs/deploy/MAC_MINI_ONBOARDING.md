@@ -153,7 +153,7 @@ before (CROSS_MACHINE_SYNC verify rule).
 
 - **Phase T (training, Windows still on):** Windows keeps `bravo-scheduler`, `bravo-telegram`,
   `bravo-coord`. The Mac Mini runs only §5's per-machine bridges. Running a second scheduler
-  against the shared Supabase `cron_jobs` table fires every job **twice**.
+  against the shared Turso `cron_jobs` table fires every job **twice**.
 - **Phase C (cutover to always-on Mac Mini / Florida):**
   ```sh
   # On Windows, BEFORE handoff:

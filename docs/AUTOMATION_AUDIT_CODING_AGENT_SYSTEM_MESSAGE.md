@@ -137,7 +137,7 @@ The label stays "Errors today" — but now it only counts actual errors. Warning
 **[VERIFIED: CC Clarification]** "I just want to make sure they're actually contributing to my AIOS accordingly."
 
 After all code changes, run a verification sweep:
-1. Query `cron_jobs` table for all active jobs: `python scripts/integrations/supabase_tool.py select cron_jobs --project bravo --limit 50`
+1. Query `cron_jobs` table for all active jobs: `python scripts/integrations/turso_tool.py select cron_jobs --limit 50`
 2. For each active cron: check `last_result` and `last_run_at`. Flag any with `last_result` starting with "ERROR" or "FAILED" or `last_run_at` older than 2x their schedule interval.
 3. Specifically check "Monthly inventory sync" — CC noted it hasn't run yet. If its `last_run_at` is NULL, that's expected for a monthly job added recently; flag it for CC but don't treat it as broken.
 4. Report: for each automation, one line: name, schedule, last run, last result, status (contributing / stale / failed).

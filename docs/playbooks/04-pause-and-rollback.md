@@ -88,7 +88,7 @@ The agent took a destructive action you didn't approve. Steps:
 
 4. **Restore** from the last known-good state. For files: `git checkout HEAD -- <file>`. For database rows: V6.0 keeps an audit trail in `state_transaction`, so you can see exactly which writes happened, but reversing them is per-table — drop into `sqlite3 state/empire_state.db` and use the audit log as a guide.
 
-   For Supabase data: every `lead_interactions` write is timestamped. The send_gateway also keeps a `confirmed_at IS NULL` reservation step, so unsent drafts can be cancelled by deleting their row before send time.
+   For Turso (empire DB) data: every `lead_interactions` write is timestamped. The send_gateway also keeps a `confirmed_at IS NULL` reservation step, so unsent drafts can be cancelled by deleting their row before send time.
 
 5. **Resume** when you've verified the surgical fix.
 
@@ -125,7 +125,7 @@ Three things are physically impossible to wipe by accident:
 
 1. **`.env.agents`** — gitignored, immune to `git checkout`, write-blocked by `secret_guard`.
 2. **`state/migrations/`** — checked into git; even a full `state/` directory wipe restores them on next clone.
-3. **Supabase data** — lives in the cloud, not in this repo. Burning the local working tree doesn't touch your CRM or pipeline rows.
+3. **Turso (empire DB) data** — lives in the cloud, not in this repo. Burning the local working tree doesn't touch your CRM or pipeline rows.
 
 Everything else is reproducible. That's the design.
 

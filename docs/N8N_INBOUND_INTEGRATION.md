@@ -5,6 +5,8 @@ last_updated: 2026-05-21
 
 # N8N Inbound → Bravo Ledger Integration
 
+> ⚠️ **PENDING CUTOVER (2026-08):** the Supabase-node setup below is the *current* configuration, but the Supabase→Turso migration handover (`docs/SUPABASE_TO_TURSO_MIGRATION_HANDOVER.md` Item 2) lists the n8n Supabase terminal nodes for repointing to `POST https://oasisai.work/api/ingest/automation-log` — **awaiting CC's decision**. Until that happens this doc stays accurate; after the repoint, rewrite Steps 2–3 to the HTTP endpoint. Also note `record_inbound_from_n8n` is a Postgres RPC — if the workflow stays on the DB path it needs a ported shim in `RPC_REGISTRY` (CONTEXT.md §"Unported RPC").
+
 > **One-time setup. ~3 minutes. Zero code changes to your existing workflow.**
 > After this, every email your N8N "OASIS Inbound Qualifier (Bravo Aware)"
 > workflow classifies will also land in Bravo's unified `lead_interactions`
