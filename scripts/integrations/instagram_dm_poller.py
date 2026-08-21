@@ -1,49 +1,96 @@
-"""instagram_dm_poller.py — answer OASIS Instagram DMs and turn them into leads.
+"""instagram_dm_poller.py — run OASIS Instagram DMs like a human closer.
 
-Someone DMs @oasisaisolutions with buying intent; they get the AI-audit form
-back within a minute and land in the CRM as a lead with their handle attached.
+Someone DMs @oasisaisolutions; the whole thread is read, a reply is written in
+the operator's voice by the conversational brain, contact details are extracted
+from what the prospect actually typed, and when they are warm the close loop
+books the call. State lives in Turso, one row per conversation.
 
 WHY POLLING AND NOT A WEBHOOK. Zernio supports both. Polling was chosen because
 every endpoint it needs is verified working today, it needs no public URL or
 dashboard step, and — the operator's actual requirement — a cron job SHOWS UP in
 the Automations tab and can be switched off there. A passive webhook endpoint
-would be invisible on that screen. The classify/reply/upsert core is identical
-either way, so moving to webhooks later costs nothing.
+would be invisible on that screen.
 
-VERIFIED ZERNIO API (probed live 2026-08-20, see docs/INSTAGRAM_DM_AUTOMATION_SPEC.md):
+WHAT REPLACED THE KEYWORD CLASSIFIER (2026-08-20). The old build matched a word
+list against the newest message and pasted one of two templates. It shipped three
+defects that this rewrite removes at the root:
+
+  * It read its OWN replies as prospect messages. `_incoming_text` compared
+    `senderId` to `conversation.accountId`, but the outgoing senderId is an IGSID
+    (17841478511636355) and accountId is a Zernio ObjectId — different
+    namespaces, so the comparison could never be true. The template it had just
+    sent contained the word "audit", which scored as buying intent, and the bot
+    answered itself. Attribution is now `direction` only, and `needs_reply()`
+    refuses to act unless the LAST turn is theirs.
+  * It could only ever say two things, so a real conversation went nowhere.
+  * Its 24h cooldown was the only send throttle, which is right for a one-shot
+    autoresponder and fatal for a closer. A per-conversation and per-day reply
+    budget replaces it.
+
+The classifier, both templates, the JSON state file and the cooldown are DELETED,
+not disabled. Dead fallbacks get resurrected by accident.
+
+MODULE BOUNDARIES (one-way, acyclic — see docs/IG_DM_CLOSER_CONTRACT.md):
+    poller -> ig_conversation_brain   (pure: no DB, no network beyond the model)
+    poller -> ig_dm_state             (the only module that writes SQL)
+    poller -> ig_closer               (booking; only when --book is passed)
+Nothing imports the poller.
+
+VERIFIED ZERNIO API (probed live 2026-08-20):
     GET  /v1/inbox/conversations
-    GET  /v1/inbox/conversations/{id}/messages?accountId=...
-    POST /v1/inbox/conversations/{id}/messages  {"accountId":..., "message":...}
+         -> {"data":[{id, accountId, accountUsername, platform, participantId,
+                      participantUsername, participantName, lastMessage,
+                      updatedTime, status, unreadCount, url, ...}]}
+    GET  /v1/inbox/conversations/{id}/messages?accountId=..&limit=N&sortOrder=desc
+         -> {"messages":[...], "pagination":{"hasMore":bool,"nextCursor":...},
+             "sortOrderApplied":"asc"|"desc"}
+    POST /v1/inbox/conversations/{id}/messages  {"accountId":.., "message":..}
+`limit` and `sortOrder` are REAL parameters, not ignored: probed at limit=3 the
+response carried 3 messages and hasMore=true, and sortOrder=desc flipped
+sortOrderApplied. This matters — the default order is ASCENDING, so a server-side
+page cap on a long thread would hand back the OLDEST messages and `needs_reply()`
+would judge a stale tail. The thread is therefore fetched newest-first and
+reversed locally.
 Zernio answers 200 with its web-app HTML for ANY unknown path, so never treat a
 200 as proof a route exists — compare the body against a known-fake control.
 
 SAFETY, in the order it is enforced:
   1. Dry run unless --live. Nothing leaves the machine by default.
-  2. Only @oasisaisolutions on instagram. Every other connected profile is out
-     of scope, exactly as the New Haven build pinned to its own profile.
-  3. --only-handle restricts sending to one handle, so the first live test goes
-     to CC's own account and never a real prospect.
-  4. One auto-reply per sender per 24h, keyed on participantId.
-  5. Non-matching DMs are logged, never answered. A wrong auto-reply to a real
-     human costs more than a missed one.
+  2. Only @oasisaisolutions on instagram. Every other connected profile is out of
+     scope.
+  3. --only-handle scopes the whole run to one handle, so the first live test
+     goes to CC's own account and never a real prospect.
+  4. --book (default OFF) is the only thing that lets the closer create a real
+     calendar event and mail a stranger a Google invite. Without it a booking
+     request becomes a handoff to CC.
+  5. Reply budget: 3 per conversation per UTC day, 40 across the tenant, 120s
+     minimum gap. Enforced in SQL before a model call is spent.
+  6. A failed model call NEVER produces a fallback message. It is counted, and
+     three in a row hand the conversation to a human.
 
 Usage:
-    python scripts/integrations/instagram_dm_poller.py                  # dry run
+    python scripts/integrations/instagram_dm_poller.py --limit 3         # dry run
     python scripts/integrations/instagram_dm_poller.py --live --only-handle ccmckennaa
-    python scripts/integrations/instagram_dm_poller.py --live           # armed
+    python scripts/integrations/instagram_dm_poller.py --live --json     # armed, no booking
+    python scripts/integrations/instagram_dm_poller.py --live --book     # armed + booking
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import os
+import re
 import sys
+import time
+import traceback
 import urllib.error
 import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
@@ -64,47 +111,51 @@ TARGET_PLATFORM = "instagram"
 TARGET_ACCOUNT = "oasisaisolutions"
 
 OASIS_TENANT_ID = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
-STATE_PATH = PROJECT_ROOT / "state" / "instagram_dm_state.json"
 LOCK_PATH = PROJECT_ROOT / "state" / "instagram_dm_poller.lock"
-COOLDOWN_HOURS = 24
 
 AUDIT_FORM_URL = "https://oasisai.work/f/oasis-ai-cc/ai-audit"
 
-# Buying intent for an AI-automation agency. Deliberately narrower than a
-# catch-all: a false positive auto-replies to a human who did not ask.
-INTENT_KEYWORDS = (
-    "audit", "automation", "automate", "automating", "website", "web site",
-    "site", "pricing", "price", "cost", "quote", "how much", "interested",
-    "info", "information", "help", "book", "call", "demo", "consult", "ai",
-    "agent", "chatbot", "lead", "crm", "work with", "hire",
-)
+# ── run budgets ──────────────────────────────────────────────────────────────
+# MEASURED on this machine 2026-08-20, not assumed: run_claude_cli with a
+# one-word prompt took 29.2s / 26.7s / 28.1s / 25.8s — median 27.4s. The cost is
+# `claude -p` process startup, not generation, so a real conversation turn is no
+# cheaper. An earlier draft of this file claimed ~11s and sized the run at 12
+# calls; that would be ~330s, which overruns both the deadline below and the
+# cron tick — and a run that outlives its tick is exactly what double-texted CC
+# on 2026-08-20.
+#
+# decide() may spend TWO subprocesses per conversation (one retry), so the true
+# worst case is 2x. Sizing: 5 turns x 2 attempts x ~30s = ~300s worst case, and
+# the deadline stops the loop before starting a turn it cannot finish, bounding
+# a run at RUN_DEADLINE_SECONDS + one turn (~270s) — inside the */5 tick the
+# live cron row already uses.
+#
+# This cap rarely binds in practice: the inbox holds 50 conversations but
+# typically only ~2 carry genuinely new inbound, and every cheap gate runs
+# before a model call is spent.
+MAX_MODEL_CALLS_PER_RUN = 5
+RUN_DEADLINE_SECONDS = 210
 
-# A greeting to a BUSINESS account is an inbound lead, not noise. The first
-# build only answered explicit buying intent, so a real "Hello" from a real
-# prospect sat unanswered — safe, but it loses the lead. Greetings now get a
-# warm opener that asks the qualifying question instead of the form link;
-# pushing a form at someone who only said hi reads like a bot.
-GREETING_KEYWORDS = (
-    "hello", "hey", "hi ", "hi!", "hi.", "yo", "sup", "howdy", "good morning",
-    "good afternoon", "good evening", "what's up", "whats up", "wsp",
-)
+# API cost of reading the FULL thread: one extra GET per conversation that has
+# moved since our last reply. The list call already carries `updatedTime`, so a
+# quiet inbox costs exactly one HTTP request per poll. 60 raw messages is a
+# deliberate overshoot of the brain's 40-turn window — deleted, empty and
+# attachment-only messages are dropped during attribution, so the window has to
+# be filled from a larger pool.
+THREAD_FETCH_LIMIT = 60
 
-REPLY_TEMPLATE = (
-    "Hey {name} — thanks for reaching out.\n\n"
-    "Quickest way to get you a real answer: this short form asks what you're "
-    "running and where the time goes. It takes about a minute and I read every "
-    "one personally.\n\n"
-    "{url}\n\n"
-    "Once it's in I'll come back with the specific bottleneck I'd automate first."
-)
+# `money` is deliberately NOT here. "how much?" is the most common inbound DM on
+# this account; handing every one of them to a human defeats the automation. The
+# brain deflects the number and moves to the call.
+HANDOFF_RED_FLAGS = ("opt_out", "frustrated", "outage", "strategic")
 
-GREETING_TEMPLATE = (
-    "Hey {name} — thanks for the message.\n\n"
-    "I'm the AI side of OASIS. What are you working on, and what's the part of "
-    "it that eats the most of your week? If it's a website or something "
-    "repetitive in your day-to-day, that's exactly what we build away.\n\n"
-    "If you'd rather skip straight to it, this takes about a minute: {url}"
-)
+NOTIFY_CATEGORY = "lead"  # never "instagram": blocked, and routed to Maven's bot
+
+_SIBLING_ROLES = {
+    "ig_conversation_brain": "the conversational brain (Builder A)",
+    "ig_dm_state": "the conversation-state DAO (Builder C)",
+    "ig_closer": "the booking close loop (Builder B)",
+}
 
 
 def _now() -> datetime:
@@ -148,30 +199,14 @@ def _request(key: str, path: str, method: str = "GET", body: dict | None = None)
     return json.loads(raw) if raw.strip() else {}
 
 
-def _load_state() -> dict:
-    if STATE_PATH.exists():
-        try:
-            return json.loads(STATE_PATH.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            print("  [warn] state file unreadable; starting fresh", file=sys.stderr)
-    return {"replied": {}, "seen_messages": []}
-
-
-def _save_state(state: dict) -> None:
-    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    # Keep the seen list bounded so the file cannot grow without limit.
-    state["seen_messages"] = state.get("seen_messages", [])[-2000:]
-    STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
-
-
 class _RunLock:
     """Refuse to start when another poll is already in flight.
 
-    Persisting the cooldown per-reply narrows the double-send window but does
-    not close it: two runs can still pass the same cooldown check microseconds
-    apart. One run at a time is the actual guarantee. O_EXCL creation is atomic
-    on Windows and POSIX alike, so the loser of the race gets the error rather
-    than a second copy of the conversation.
+    Persisting reply state per-reply narrows the double-send window but does not
+    close it: two runs can still pass the same budget check microseconds apart.
+    One run at a time is the actual guarantee. O_EXCL creation is atomic on
+    Windows and POSIX alike, so the loser of the race gets the error rather than
+    a second copy of the conversation.
     """
 
     def __init__(self, path: Path, stale_after_minutes: int = 15):
@@ -204,63 +239,6 @@ class _RunLock:
             self.path.unlink(missing_ok=True)
 
 
-def _in_cooldown(state: dict, participant_id: str) -> bool:
-    last = state.get("replied", {}).get(participant_id)
-    if not last:
-        return False
-    try:
-        return datetime.fromisoformat(last) > _now() - timedelta(hours=COOLDOWN_HOURS)
-    except ValueError:
-        return False
-
-
-def matches_intent(text: str) -> str | None:
-    """Return the buying-intent keyword that matched, or None."""
-    low = (text or "").lower()
-    for kw in INTENT_KEYWORDS:
-        if kw in low:
-            return kw
-    return None
-
-
-def classify(text: str) -> tuple[str, str | None]:
-    """('intent'|'greeting'|'none', matched_keyword).
-
-    Two tiers because they deserve different answers. Explicit buying intent
-    gets the form. A bare greeting to a business account gets a human question —
-    it is still a lead, but answering "hi" with a form link reads like a bot and
-    burns the first impression.
-    """
-    kw = matches_intent(text)
-    if kw:
-        return "intent", kw
-    low = (text or "").strip().lower()
-    for g in GREETING_KEYWORDS:
-        if low.startswith(g.strip()) or low == g.strip():
-            return "greeting", g.strip()
-    # Short openers with no other signal read as greetings too ("yooo", "hiya").
-    if len(low) <= 12 and low.replace("!", "").replace(".", "").isalpha():
-        return "greeting", low[:12]
-    return "none", None
-
-
-def _incoming_text(messages: list[dict], account_id: str) -> tuple[str, str]:
-    """Newest message that came FROM the contact, as (message_id, text).
-
-    Skips our own outbound messages — replying to ourselves would loop.
-    """
-    for m in reversed(messages):
-        sender = str(m.get("senderId") or m.get("from") or "")
-        if sender and sender == account_id:
-            continue
-        if str(m.get("direction") or "").lower() in {"out", "outbound", "sent"}:
-            continue
-        text = m.get("text") or m.get("message") or m.get("body") or ""
-        if text:
-            return str(m.get("id") or m.get("_id") or ""), str(text)
-    return "", ""
-
-
 def _lead_exists(handle: str) -> bool:
     """Is there already a lead for this Instagram handle?
 
@@ -283,15 +261,47 @@ def _lead_exists(handle: str) -> bool:
     return bool(rows)
 
 
-def _upsert_lead(conv: dict, text: str, matched: str) -> str:
-    """Create the CRM lead if this handle is new. Returns a status word."""
+def _lead_id_for_handle(handle: str) -> Optional[str]:
+    """The tenant_records id of this handle's lead, or None.
+
+    Separate from _lead_exists on purpose: that function is the pinned existence
+    predicate (tests/test_ig_dm_closer.py asserts its SQL shape and that it
+    issues exactly one query), and the conversation row needs the actual id so
+    the DM thread and the CRM record can be reconciled later. Same scoped,
+    SQL-side, LIMIT 1 shape — no page read, no Python-side comparison.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from lib.db_turso import get_db  # type: ignore
+
+    rows = get_db().query(
+        "select id from tenant_records "
+        "where tenant_id = ? and entity_type = 'lead' "
+        "and lower(json_extract(data, '$.instagram_handle')) = lower(?) limit 1",
+        (OASIS_TENANT_ID, str(handle)),
+    )
+    return str(rows[0]["id"]) if rows else None
+
+
+def _upsert_lead(conv: dict, text: str, reason: str) -> tuple[str, Optional[str]]:
+    """Create the CRM lead if this handle is new.
+
+    Returns (status, lead_id) where status is "created" or "existing". The id is
+    the change from the 2026-08-20 build, which generated the uuid inline and
+    threw it away — leaving no way to link the conversation row to the lead it
+    had just created.
+
+    `reason` is a short agent-authored label for the notes field (the stage the
+    brain moved to). It replaces the old `matched` keyword, which no longer
+    exists now that the classifier is gone.
+    """
     from supabase_tool import get_client, load_env  # type: ignore
 
     db = get_client(load_env())
     handle = conv.get("participantUsername") or conv.get("participantId") or "unknown"
     if _lead_exists(handle):
-        return "existing"
+        return "existing", _lead_id_for_handle(handle)
 
+    lead_id = str(uuid.uuid4())
     now = _iso(_now())
     data = {
         "name": conv.get("participantName") or handle,
@@ -302,7 +312,7 @@ def _upsert_lead(conv: dict, text: str, matched: str) -> str:
         "stage": "researched",
         "score": 55,
         "value_estimate": None,
-        "notes": f"Instagram DM (@{handle}) matched '{matched}': {text[:180]}",
+        "notes": f"Instagram DM (@{handle}), {reason}: {text[:180]}",
         "instagram_handle": handle,
         "instagram_profile_url": conv.get("url"),
         "first_dm_at": now,
@@ -312,7 +322,7 @@ def _upsert_lead(conv: dict, text: str, matched: str) -> str:
     }
     db.table("tenant_records").insert(
         {
-            "id": str(uuid.uuid4()),
+            "id": lead_id,
             "tenant_id": OASIS_TENANT_ID,
             "entity_type": "lead",
             "data": data,
@@ -320,16 +330,206 @@ def _upsert_lead(conv: dict, text: str, matched: str) -> str:
             "updated_at": now,
         }
     ).execute()
-    return "created"
+    return "created", lead_id
+
+
+# ── sibling modules ──────────────────────────────────────────────────────────
+
+def _sibling(name: str):
+    """Import one of the three sibling modules, or fail with a named diagnostic.
+
+    Deferred rather than done at module scope so that --help, the argument
+    parser and the pinned _lead_exists tests keep working while a sibling is
+    still in flight. A genuine error INSIDE a sibling still propagates — only
+    absence is reported specially, and it is reported loudly.
+    """
+    path = Path(__file__).with_name(name + ".py")
+    if not path.exists():
+        raise SystemExit(
+            f"ERROR: {name}.py is missing at {path}.\n"
+            f"       It is {_SIBLING_ROLES.get(name, 'a required module')}. The poller "
+            f"cannot read conversation state, decide a reply or book without it. "
+            f"Nothing was sent."
+        )
+    return importlib.import_module(name)
+
+
+def _notifier():
+    from notify import notify_result  # type: ignore
+
+    return notify_result
+
+
+MAX_NOTIFY_DETAIL_CHARS = 200
+_NOTIFY_URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+
+
+def _notify_safe(text: Any, limit: int = MAX_NOTIFY_DETAIL_CHARS) -> str:
+    """Make an untrusted fragment safe to interpolate into a Telegram body.
+
+    Three of the strings this poller puts in a notification are shaped by a
+    stranger: the model-authored `handoff_reason` (which crosses NONE of the 16
+    reply guardrails — validate_reply only runs for action reply/book), the
+    Zernio `participantUsername`, and a closer error that may echo either. notify()
+    routes on MESSAGE CONTENT, so an attacker who gets any of those to carry
+    "TextTorrent" or "phone lookup" trips _NOT_BRAVO_DOMAIN_RE and notify() drops
+    the alert ABOUT THEMSELVES before it ever reaches dedup — while
+    request_handoff has already set automation_paused, so no later poll retries
+    it and CC never learns the conversation exists.
+
+    Blocked terms are masked, URLs are stripped (a 200-char attacker-steered
+    string with a clickable link lands in CC's private Telegram over Bravo's
+    name), newlines collapse, and the fragment is truncated. Mirrors
+    ig_closer._notify_safe; kept local because ig_closer is imported only when
+    --book is set and this path must work on every run.
+    """
+    if not text:
+        return ""
+    flat = " ".join(str(text).split())
+    flat = _NOTIFY_URL_RE.sub("[link]", flat)
+    try:
+        import notify as notify_module  # type: ignore
+    except Exception:  # noqa: BLE001 — masking is best-effort; truncation is not
+        notify_module = None  # type: ignore[assignment]
+    if notify_module is not None:
+        for attr in ("_GROUP_BLOCKED_TERMS_RE", "_NOT_BRAVO_DOMAIN_RE"):
+            pattern = getattr(notify_module, attr, None)
+            if pattern is not None:
+                flat = pattern.sub("[term]", flat)
+    if len(flat) > limit:
+        flat = flat[: limit - 1].rstrip() + "…"
+    return flat
+
+
+def _mask_notify_terms(text: str) -> str:
+    """Neutralise terms that make notify() drop or reroute the whole message.
+
+    The patterns are read off the live notify module rather than copied, so this
+    cannot drift out of sync with the filter it is defending against. Matching
+    ig_closer._notify_safe, which solves the same problem on the booking side.
+    """
+    flat = " ".join(str(text or "").split())
+    try:
+        import notify as notify_module  # type: ignore
+    except ImportError:
+        return flat
+    for attr in ("_GROUP_BLOCKED_TERMS_RE", "_NOT_BRAVO_DOMAIN_RE"):
+        pattern = getattr(notify_module, attr, None)
+        if pattern is not None:
+            flat = pattern.sub("[term]", flat)
+    return flat
+
+
+def _notify(text: str, *, conv_id: str, event: str, live: bool) -> tuple[bool, str]:
+    """Telegram the operator. Agent-authored text ONLY.
+
+    Never quote raw DM text here: notify() DROPS a body matching its
+    _NOT_BRAVO_DOMAIN_RE (texttorrent / phone lookup / tps scrape) and REROUTES
+    one matching _GROUP_BLOCKED_TERMS_RE (traceback / cron failure). A stranger
+    typing "can you do phone lookup?" would otherwise silence the alert about
+    themselves. Reads (ok, reason) because a bare False conflates "suppressed by
+    dedup" with "delivery failed".
+
+    `live` is the dry-run gate. A preview run must not page CC: the documented
+    preview command is `--limit 25` with no --live, and a Telegram ping from a run
+    the operator believed was read-only is an effect leaving the machine.
+    """
+    if not live:
+        print(f"  [dry-run] WOULD NOTIFY ({event}): {text}")
+        return False, "dry_run"
+    # Mask at the chokepoint rather than trusting every call site to remember.
+    # Callers interpolate the handle and the model-authored handoff_reason, both
+    # attacker-influenced: an IG username like `phone_lookup`, or a prospect who
+    # asks about texttorrent, matches notify()'s _NOT_BRAVO_DOMAIN_RE and the
+    # alert is DROPPED — not rerouted. The conversation is already paused and
+    # handed off at that point, so the prospect gets silence and CC is never
+    # told. The docstring above has always named this hazard; this is the guard.
+    text = _mask_notify_terms(text)
+    try:
+        ok, reason = _notifier()(
+            text, category=NOTIFY_CATEGORY, dedup_key=f"igdm:{conv_id}:{event}"
+        )
+    except Exception as exc:  # noqa: BLE001 — a broken notifier must not kill the run
+        traceback.print_exc()
+        print(f"  [error] notify failed for {conv_id}: {exc}", file=sys.stderr)
+        return False, "failed"
+    if not ok and reason != "suppressed":
+        print(f"  [warn] notify {event} for {conv_id}: {reason}", file=sys.stderr)
+    return ok, reason
+
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+def _parse_iso(value: Any) -> Optional[datetime]:
+    """Zernio stamps are '...Z'; the DAO writes offset-aware ISO. Returns None
+    when unparseable — every caller treats None as "cannot prove it, do the
+    safe thing" rather than as a value."""
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _fetch_thread(key: str, conv_id: str, account_id: str) -> list[dict]:
+    """The newest THREAD_FETCH_LIMIT messages, oldest-first.
+
+    Fetched with sortOrder=desc and reversed. Asking for the default ascending
+    order and slicing the tail locally is wrong: if the server ever caps the
+    page, ascending hands back the OLDEST messages and the last element is not
+    the newest message at all — which would make needs_reply() judge a stale
+    tail and re-answer a conversation that is already ours.
+    """
+    payload = _request(
+        key,
+        f"/v1/inbox/conversations/{conv_id}/messages"
+        f"?accountId={account_id}&limit={THREAD_FETCH_LIMIT}&sortOrder=desc",
+    )
+    msgs = payload.get("messages") or []
+    if str(payload.get("sortOrderApplied") or "").lower() == "desc":
+        msgs = list(reversed(msgs))
+    return msgs
+
+
+def _display_name(conv: dict, handle: str) -> str:
+    return str(conv.get("participantName") or handle or "there")
+
+
+def _print_reply(reply: str) -> None:
+    """Indent the generated message so it reads as a quoted block in the log."""
+    for line in (reply or "").splitlines() or [""]:
+        print(f"      {line}")
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__)
+    p = argparse.ArgumentParser(
+        description="Answer OASIS Instagram DMs with the conversational brain.",
+    )
     p.add_argument("--live", action="store_true", help="actually send replies")
-    p.add_argument("--only-handle", help="send only to this handle (first live test)")
+    p.add_argument("--only-handle",
+                   help="scope the entire run to this handle (first live test)")
     p.add_argument("--limit", type=int, default=25, help="max conversations to examine")
     p.add_argument("--json", action="store_true")
+    p.add_argument(
+        "--book", "--allow-booking", dest="book", action="store_true",
+        help="permit the closer to create a REAL calendar event and mail the "
+             "prospect a Google invite. Default OFF: without it, a booking "
+             "request is handed to CC instead.",
+    )
+    p.add_argument("--max-model-calls", type=int, default=MAX_MODEL_CALLS_PER_RUN,
+                   help=f"model turns per run (default {MAX_MODEL_CALLS_PER_RUN})")
     args = p.parse_args()
+
+    if args.book and not args.live:
+        # An explicit error, never a silent downgrade: an operator who typed
+        # --book and got a dry run would reasonably believe booking is armed.
+        p.error("--book requires --live (booking creates a real calendar event "
+                "and emails a real person)")
+    if args.max_model_calls < 0:
+        p.error("--max-model-calls cannot be negative")
 
     # A dry run sends nothing, so it neither takes the lock nor waits on one.
     if not args.live:
@@ -339,18 +539,31 @@ def main() -> int:
 
 
 def _poll(args) -> int:
+    brain = _sibling("ig_conversation_brain")
+    state = _sibling("ig_dm_state")
+    closer = _sibling("ig_closer") if args.book else None
+
+    from email_playbook import detect_red_flags  # type: ignore
+
     key = _api_key()
-    state = _load_state()
+    db = state.get_db_handle()
+    deadline = time.monotonic() + RUN_DEADLINE_SECONDS
+
     summary = {
-        "scanned": 0, "in_scope": 0, "matched": 0,
-        "replied": 0, "skipped_cooldown": 0, "skipped_no_match": 0,
-        "skipped_seen": 0, "leads_created": 0, "errors": 0,
-        "live": args.live,
+        "scanned": 0, "in_scope": 0, "model_calls": 0, "replied": 0,
+        "leads_created": 0, "bookings_attempted": 0, "bookings_applied": 0,
+        "handoffs": 0, "skipped_paused": 0, "skipped_our_turn": 0,
+        "skipped_no_messages": 0, "skipped_seen": 0,
+        "skipped_budget": 0, "skipped_red_flag": 0,
+        "failures_model": 0, "failures_guardrail": 0, "budget_exhausted": 0,
+        "errors": 0, "live": bool(args.live), "book_armed": bool(args.book),
     }
 
     convos = _request(key, "/v1/inbox/conversations").get("data") or []
-    print(f"{len(convos)} conversation(s) in the Zernio inbox"
-          f"{' — DRY RUN' if not args.live else ' — LIVE'}")
+    mode = " — LIVE" if args.live else " — DRY RUN"
+    if args.book:
+        mode += " + BOOKING ARMED"
+    print(f"{len(convos)} conversation(s) in the Zernio inbox{mode}")
 
     for conv in convos[: args.limit]:
         summary["scanned"] += 1
@@ -358,100 +571,424 @@ def _poll(args) -> int:
             continue
         if (conv.get("accountUsername") or "").lower() != TARGET_ACCOUNT:
             continue
+
+        handle = str(conv.get("participantUsername") or conv.get("participantId") or "?")
+        # --only-handle scopes the SCAN, not just the send. The contract places
+        # the send-gate check after the model call so a held handle still shows
+        # what it would say; on a 50-conversation inbox that burns the entire
+        # 12-call budget on people the run is forbidden to answer, and CC's own
+        # first live test never gets reached. Skipping here is strictly safer
+        # (fewer effects, fewer model calls) and the post-decision gate below
+        # stays in place as defence in depth.
+        if args.only_handle and handle.lower() != args.only_handle.lower():
+            continue
         summary["in_scope"] += 1
 
-        handle = conv.get("participantUsername") or conv.get("participantId") or "?"
-        pid = str(conv.get("participantId") or handle)
-        account_id = conv.get("accountId") or ""
-        conv_id = conv.get("id") or ""
+        conv_id = str(conv.get("id") or "")
+        account_id = str(conv.get("accountId") or "")
 
         try:
-            # NOTE: this endpoint returns {"messages": [...]}, while
-            # /v1/inbox/conversations returns {"data": [...]}. Reading "data"
-            # here silently yields zero messages and every conversation looks
-            # empty — which is exactly how the first dry run reported 8 in-scope
-            # conversations and no text at all.
-            msgs = _request(
-                key, f"/v1/inbox/conversations/{conv_id}/messages?accountId={account_id}"
-            ).get("messages") or []
-        except RuntimeError as exc:
+            summary_delta = _handle_conversation(
+                conv=conv, conv_id=conv_id, account_id=account_id, handle=handle,
+                key=key, db=db, brain=brain, state=state, closer=closer,
+                detect_red_flags=detect_red_flags, args=args, deadline=deadline,
+                model_calls_spent=summary["model_calls"],
+            )
+        except SystemExit:
+            raise
+        except Exception as exc:  # noqa: BLE001 — one bad thread must not stop the poll
             summary["errors"] += 1
+            traceback.print_exc()
             print(f"  [error] @{handle}: {exc}", file=sys.stderr)
             continue
 
-        msg_id, text = _incoming_text(msgs, account_id)
-        if not text:
-            continue
-        if msg_id and msg_id in state.get("seen_messages", []):
-            summary["skipped_seen"] += 1
-            continue
+        for k, v in summary_delta.items():
+            if isinstance(summary.get(k), int) and isinstance(v, int):
+                summary[k] += v
 
-        kind, matched = classify(text)
-        if kind == "none":
-            summary["skipped_no_match"] += 1
-            print(f"  @{handle}: no intent or greeting — logged only: {text[:60]!r}")
-            # Only a LIVE pass may consume a message. A dry run that marks
-            # messages seen makes the subsequent live run skip the very DM it
-            # was meant to answer -- which is exactly what swallowed CC's first
-            # real test.
-            if msg_id and args.live:
-                state.setdefault("seen_messages", []).append(msg_id)
-            continue
+        if summary_delta.get("stop_run"):
+            break
 
-        summary["matched"] += 1
-        if _in_cooldown(state, pid):
-            summary["skipped_cooldown"] += 1
-            print(f"  @{handle}: matched '{matched}' but replied within {COOLDOWN_HOURS}h — skipping")
-            continue
-        if args.only_handle and str(handle).lower() != args.only_handle.lower():
-            print(f"  @{handle}: matched '{matched}' — held (--only-handle {args.only_handle})")
-            continue
-
-        template = REPLY_TEMPLATE if kind == "intent" else GREETING_TEMPLATE
-        reply = template.format(
-            name=(conv.get("participantName") or handle).split()[0],
-            url=AUDIT_FORM_URL,
-        )
-        if not args.live:
-            print(f"  @{handle}: WOULD REPLY [{kind}] (matched '{matched}')")
-            continue
-
-        try:
-            _request(
-                key,
-                f"/v1/inbox/conversations/{conv_id}/messages",
-                method="POST",
-                body={"accountId": account_id, "message": reply},
-            )
-        except RuntimeError as exc:
-            summary["errors"] += 1
-            print(f"  [error] send to @{handle}: {exc}", file=sys.stderr)
-            continue
-
-        summary["replied"] += 1
-        state.setdefault("replied", {})[pid] = _iso(_now())
-        if msg_id:
-            state.setdefault("seen_messages", []).append(msg_id)
-        # Persist the cooldown the moment it is earned, not at the end of the
-        # run. Holding it in memory until the final save meant a run that took
-        # longer than the cron interval let the next run read pre-reply state
-        # and message the same person twice.
-        _save_state(state)
-        print(f"  @{handle}: REPLIED (matched '{matched}')")
-
-        try:
-            if _upsert_lead(conv, text, matched) == "created":
-                summary["leads_created"] += 1
-                print(f"  @{handle}: lead created")
-        except Exception as exc:  # noqa: BLE001
-            summary["errors"] += 1
-            print(f"  [error] lead upsert for @{handle}: {exc}", file=sys.stderr)
-
-    _save_state(state)
     print()
     print(json.dumps(summary, indent=2) if args.json
           else "  " + "  ".join(f"{k}={v}" for k, v in summary.items()))
     return 0
+
+
+def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
+                         state, closer, detect_red_flags, args, deadline,
+                         model_calls_spent) -> dict:
+    """One conversation, one poll. Returns the summary delta for this thread.
+
+    The skip order matters: every cheap gate runs BEFORE a model call is spent,
+    because a model call is ~11 seconds of a subscription-quota subprocess and
+    the run only gets twelve of them.
+    """
+    delta: dict[str, Any] = {}
+    live = bool(args.live)
+
+    def bump(name: str, n: int = 1) -> None:
+        delta[name] = delta.get(name, 0) + n
+
+    def handoff(row_id_: str, *, reason: str, notify_reason: str, stage_: str,
+                event: str = "handoff") -> None:
+        """Flag a human. In a dry run this is a print and nothing else.
+
+        request_handoff sets stage=handed_off + handoff_pending + automation_paused,
+        which is TERMINAL and only reversible with `ig_dm_state.py resume`. A
+        preview run that permanently disables the automation on a real prospect —
+        and pages CC while doing it — is not a preview. Every fragment that
+        reaches the Telegram body goes through _notify_safe first.
+        """
+        if live:
+            state.request_handoff(db, row_id_, reason=reason)
+        else:
+            print(f"  [dry-run] WOULD HAND OFF (stage -> handed_off, automation "
+                  f"paused): {reason}")
+        bump("handoffs")
+        _notify(
+            f"Handoff: @{_notify_safe(handle, 64)} needs you. "
+            f"Reason: {_notify_safe(notify_reason)}. "
+            f"Stage: {_notify_safe(stage_, 32)}. Conversation {conv_id}.",
+            conv_id=conv_id, event=event, live=live,
+        )
+
+    # ── 1. state row (created on turn 1, long before a CRM lead exists) ──────
+    row = state.get_or_create(db, conv=conv)
+    row_id = str(row["id"])
+    stage = str(row["stage"])
+
+    # ── 2. paused? terminal stages set automation_paused, so this is the one
+    #      check that covers booked / handed_off / disqualified as well. ──────
+    if int(row.get("automation_paused") or 0):
+        bump("skipped_paused")
+        print(f"  @{handle}: paused (stage={stage}) — skipping")
+        return delta
+
+    # ── 2b. cheap pre-filter: has the thread moved since our last reply? ─────
+    # Saves the per-conversation messages GET on a quiet inbox. If updatedTime
+    # is not newer than our last outbound, the newest event in the thread is our
+    # own reply and needs_reply() would refuse anyway. Unparseable stamps fall
+    # through to the real check rather than skipping.
+    updated = _parse_iso(conv.get("updatedTime"))
+    last_out = _parse_iso(row.get("last_outbound_at"))
+    if updated and last_out and updated <= last_out:
+        bump("skipped_our_turn")
+        return delta
+
+    # ── 3. fetch the FULL thread (newest window, oldest-first) ──────────────
+    msgs = _fetch_thread(key, conv_id, account_id)
+    if not msgs:
+        # Zernio answers `status: success, hasMore: false, messages: []` for a
+        # number of live threads whose conversation record still advertises a
+        # lastMessage — 10 of the freshest 12 on this account. There is nothing
+        # to read and nothing to answer, but it is NOT the same fact as "the last
+        # word was ours", and folding the two into one counter would report that
+        # the bot had already replied to ten people it has never spoken to.
+        bump("skipped_no_messages")
+        return delta
+
+    # ── 4. attribute turns by `direction`, never by senderId vs accountId ────
+    turns = brain.build_transcript(msgs, participant_id=str(row["participant_id"]))
+
+    # ── 5. is it even our turn? THE self-reply-loop fix. ─────────────────────
+    if not brain.needs_reply(turns):
+        bump("skipped_our_turn")
+        return delta
+
+    newest_inbound = brain.latest_inbound(turns)
+    if newest_inbound is None:  # needs_reply() already proved otherwise
+        bump("skipped_our_turn")
+        return delta
+
+    # ── 6. already answered this exact message? ──────────────────────────────
+    if (newest_inbound.message_id
+            and newest_inbound.message_id == str(row.get("last_processed_message_id") or "")):
+        bump("skipped_seen")
+        return delta
+
+    # ── 7. red flags: a human takes these, always ────────────────────────────
+    flags = detect_red_flags("", newest_inbound.text)
+    blocking = [f for f in flags if f in HANDOFF_RED_FLAGS]
+    if blocking:
+        reason = f"red flag: {', '.join(blocking)}"
+        handoff(row_id, reason=reason, notify_reason=reason, stage_=stage,
+                event="opt_out" if "opt_out" in blocking else "handoff")
+        bump("skipped_red_flag")
+        print(f"  @{handle}: {reason} — handed to CC, nothing sent")
+        return delta
+
+    # ── 8. reply budget (SQL-side; fails CLOSED on an unreadable timestamp) ──
+    allowed, why = state.reply_budget(db, row)
+    if not allowed:
+        bump("skipped_budget")
+        print(f"  @{handle}: reply budget says no ({why}) — skipping")
+        return delta
+
+    # ── 9. run budgets, checked BEFORE the call, not after ──────────────────
+    if model_calls_spent >= args.max_model_calls:
+        delta["budget_exhausted"] = 1
+        delta["stop_run"] = True
+        print(f"  @{handle}: model-call budget spent "
+              f"({model_calls_spent}/{args.max_model_calls}) — stopping this run")
+        return delta
+    if time.monotonic() > deadline:
+        delta["budget_exhausted"] = 1
+        delta["stop_run"] = True
+        print(f"  @{handle}: run deadline reached ({RUN_DEADLINE_SECONDS}s) — stopping")
+        return delta
+
+    # ── 10. the model turn ───────────────────────────────────────────────────
+    replies_today = int(row.get("replies_today") or 0)
+    if str(row.get("replies_today_date") or "") != _now().strftime("%Y-%m-%d"):
+        replies_today = 0
+    carried = brain.Extracted(
+        name=row.get("extracted_name"), email=row.get("extracted_email"),
+        phone=row.get("extracted_phone"), business=row.get("extracted_business"),
+        need=row.get("extracted_need"), timeline=row.get("extracted_timeline"),
+    )
+    decision = brain.decide(
+        turns,
+        current_stage=stage,
+        participant_display_name=_display_name(conv, handle),
+        extracted_so_far=carried,
+        replies_left_today=max(
+            0, state.DAILY_REPLY_CAP_PER_CONVERSATION - replies_today),
+    )
+    bump("model_calls")
+
+    # ── 11. a failure is counted and logged, NEVER papered over with a
+    #        template. Nothing is sent and the message stays unconsumed so the
+    #        next run retries it. ─────────────────────────────────────────────
+    if not decision.ok:
+        after = state.record_failure(
+            db, row_id, kind=str(decision.failure),
+            detail=str(decision.failure_detail or ""),
+        )
+        if decision.failure == "model_unavailable":
+            bump("failures_model")
+        elif decision.failure != "empty_transcript":
+            bump("failures_guardrail")
+        print(f"  @{handle}: model turn FAILED ({decision.failure}) — nothing sent",
+              file=sys.stderr)
+        if decision.violations:
+            print(f"      violations: {list(decision.violations)}", file=sys.stderr)
+        if int(after.get("handoff_pending") or 0) and not int(row.get("handoff_pending") or 0):
+            bump("handoffs")
+            _notify(
+                f"Handoff: @{handle} needs you. Reason: "
+                f"{after.get('handoff_reason') or 'repeated automation failures'}. "
+                f"Stage: {after.get('stage')}. Conversation {conv_id}.",
+                conv_id=conv_id, event="handoff",
+                            live=args.live,
+            )
+        if decision.failure == "empty_transcript":
+            state.record_inbound(
+                db, row_id, message_id=newest_inbound.message_id,
+                at_iso=newest_inbound.created_at or _iso(_now()),
+            )
+        return delta
+
+    # ── 12. extraction: COALESCE in SQL, email first-write-wins ─────────────
+    after = state.apply_extraction(
+        db, row_id, extracted=decision.extracted,
+        email_source_message_id=newest_inbound.message_id or None,
+    )
+    if int(after.get("handoff_pending") or 0) and not int(row.get("handoff_pending") or 0):
+        # The DAO raises the flag when a SECOND, different address arrives.
+        bump("handoffs")
+        _notify(
+            f"Handoff: @{handle} needs you. Reason: "
+            f"{after.get('handoff_reason') or 'email_changed'}. "
+            f"Stage: {after.get('stage')}. Conversation {conv_id}.",
+            conv_id=conv_id, event="handoff",
+                    live=args.live,
+        )
+        print(f"  @{handle}: {after.get('handoff_reason')} — handed to CC, nothing sent")
+        return delta
+    row = after
+
+    # ── 13. the model asked for a human ─────────────────────────────────────
+    if decision.action == "handoff":
+        reason = str(decision.handoff_reason or "model requested a handoff")
+        state.request_handoff(db, row_id, reason=reason)
+        bump("handoffs")
+        _notify(
+            f"Handoff: @{handle} needs you. Reason: {reason}. "
+            f"Stage: handed_off. Conversation {conv_id}.",
+            conv_id=conv_id, event="handoff",
+                    live=args.live,
+        )
+        print(f"  @{handle}: HANDOFF ({reason}) — nothing sent")
+        return delta
+
+    # ── 14. hold: the right answer is silence ───────────────────────────────
+    if decision.action == "hold":
+        try:
+            state.set_stage(db, row_id, stage=decision.stage, reason="model hold")
+        except state.IllegalTransition as exc:
+            print(f"  [warn] @{handle}: {exc}", file=sys.stderr)
+        # Consume the message even though nothing was sent. Without this the
+        # hold decision is never recorded against the inbound id, so the same
+        # DM is re-decided on EVERY poll — a fresh ~27s model call each tick,
+        # forever, on a shared subscription quota. Silence is a decision about
+        # that message; it has to be remembered like any other.
+        # Still gated on --live: a dry run that consumes ids makes the next live
+        # run skip the very DM it was meant to answer, which is what swallowed
+        # CC's first real test.
+        if args.live:
+            state.record_inbound(
+                db, row_id, message_id=newest_inbound.message_id,
+                at_iso=newest_inbound.created_at or _iso(_now()),
+            )
+        print(f"  @{handle}: HOLD (stage={decision.stage}) — nothing sent")
+        return delta
+
+    reply = decision.reply or ""
+    if not reply:
+        # Unreachable per the brain's invariant 2; asserted rather than assumed
+        # because sending an empty DM is worse than a loud stop.
+        raise RuntimeError(
+            f"brain returned action={decision.action!r} with an empty reply — "
+            "invariant 2 violated"
+        )
+
+    # ── 15. send gate (defence in depth; the scan is already scoped) ─────────
+    if args.only_handle and handle.lower() != args.only_handle.lower():
+        print(f"  @{handle}: held (--only-handle {args.only_handle})")
+        return delta
+
+    # ── 16. a dry run must never consume a message id ───────────────────────
+    if not args.live:
+        print(f"  @{handle}: WOULD REPLY  stage {stage} -> {decision.stage}  "
+              f"action={decision.action}  confidence={decision.confidence}")
+        _print_reply(reply)
+        if decision.extracted.as_dict() != carried.as_dict():
+            fresh = {k: v for k, v in decision.extracted.as_dict().items() if v}
+            if fresh:
+                print(f"      extracted: {fresh}")
+        if decision.violations:
+            print(f"      violations: {list(decision.violations)}")
+        return delta
+
+    # ── 17. send ─────────────────────────────────────────────────────────────
+    # _request only raises on an HTTPError or an HTML body. Zernio's JSON is a
+    # status envelope, so a 200 carrying {"status":"error"} — rate limit, expired
+    # IG token, 24-hour messaging window closed, conversation archived — sails
+    # through as success. Discarding this response meant recording the DM as
+    # delivered, consuming the inbound id so it could never be retried, and
+    # printing "REPLIED" while the prospect received nothing.
+    send_resp = _request(
+        key,
+        f"/v1/inbox/conversations/{conv_id}/messages",
+        method="POST",
+        body={"accountId": account_id, "message": reply},
+    )
+    send_status = str((send_resp or {}).get("status", "")).strip().lower()
+    if send_status in ("error", "failed", "failure"):
+        bump("errors")
+        detail = str(
+            (send_resp or {}).get("error")
+            or (send_resp or {}).get("message")
+            or send_resp
+        )[:300]
+        print(f"  [error] @{handle}: Zernio accepted the request but reported "
+              f"{send_status}: {detail}", file=sys.stderr)
+        # Do NOT record_outbound and do NOT consume the inbound id: the reply did
+        # not land, so the next poll must be free to try again. record_failure
+        # counts it and escalates to a human once failures stack, so a persistent
+        # send outage surfaces instead of retrying into silence forever.
+        state.record_failure(
+            db, row_id, kind="send_failed", detail=f"zernio:{send_status}: {detail}"
+        )
+        return delta
+
+    # ── 18. persist the moment the reply is earned, not at the end of the run.
+    #        Holding it in memory until a final save meant a run that outlasted
+    #        the cron interval let the next run read pre-reply state and message
+    #        the same person twice. record_outbound FIRST: it is what closes the
+    #        double-send window. ──────────────────────────────────────────────
+    row = state.record_outbound(db, row_id, decision=decision, message_sent=reply)
+    state.record_inbound(
+        db, row_id, message_id=newest_inbound.message_id,
+        at_iso=newest_inbound.created_at or _iso(_now()),
+    )
+    bump("replied")
+    print(f"  @{handle}: REPLIED (stage {stage} -> {decision.stage})")
+    _print_reply(reply)
+
+    # ── 19. CRM projection. A failure here must never look like a send
+    #        failure — the DM already went out. ─────────────────────────────
+    try:
+        status, lead_id = _upsert_lead(conv, newest_inbound.text, f"stage {decision.stage}")
+        if status == "created":
+            bump("leads_created")
+            print(f"  @{handle}: lead created")
+        if lead_id and not row.get("lead_id"):
+            row = state.link_crm_lead(db, row_id, lead_id=lead_id)
+    except Exception as exc:  # noqa: BLE001 — counted and traced, never swallowed
+        bump("errors")
+        traceback.print_exc()
+        print(f"  [error] CRM lead for @{handle}: {exc}", file=sys.stderr)
+
+    # ── 20. the close loop ───────────────────────────────────────────────────
+    if decision.action == "book":
+        _run_close(
+            db=db, row=row, decision=decision, state=state, closer=closer,
+            handle=handle, conv_id=conv_id, args=args, bump=bump,
+        )
+    return delta
+
+
+def _run_close(*, db, row, decision, state, closer, handle, conv_id, args, bump) -> None:
+    """Booking is armed only by --book. Without it the request becomes a handoff.
+
+    The operator has not authorised autonomous booking of real meetings, and
+    book(apply=True) mails a stranger a Google invite — the first irreversible
+    outward effect in the whole pipeline.
+    """
+    if not args.book or closer is None:
+        state.request_handoff(db, str(row["id"]), reason="book_requested_unarmed")
+        bump("handoffs")
+        _notify(
+            f"Handoff: @{handle} needs you. Reason: ready to book, but the poller "
+            f"is not armed for booking (--book off). Stage: {row.get('stage')}. "
+            f"Conversation {conv_id}.",
+            conv_id=conv_id, event="handoff",
+                    live=args.live,
+        )
+        print(f"  @{handle}: ready to book — poller unarmed, handed to CC")
+        return
+
+    if not decision.extracted.email:
+        state.request_handoff(db, str(row["id"]), reason="book_without_email")
+        bump("handoffs")
+        _notify(
+            f"Handoff: @{handle} needs you. Reason: booking requested with no "
+            f"verified email address. Stage: {row.get('stage')}. "
+            f"Conversation {conv_id}.",
+            conv_id=conv_id, event="handoff",
+                    live=args.live,
+        )
+        print(f"  @{handle}: booking requested without an email — handed to CC")
+        return
+
+    bump("bookings_attempted")
+    result = closer.close(db, row, extracted=decision.extracted, apply=True)
+    if result.applied:
+        bump("bookings_applied")
+        print(f"  @{handle}: BOOKED {result.slot_label} "
+              f"(email {result.email_status})")
+    if not result.ok:
+        bump("handoffs")
+        print(f"  [error] @{handle}: booking failed at {result.stage_of_failure}: "
+              f"{result.error}", file=sys.stderr)
+        _notify(
+            f"Booking failed: @{handle} at step {result.stage_of_failure}. "
+            f"{result.error}. Conversation {conv_id}.",
+            conv_id=conv_id, event="booking_failed",
+                    live=args.live,
+        )
 
 
 if __name__ == "__main__":

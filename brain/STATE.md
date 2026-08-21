@@ -164,11 +164,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-20
+- **Date:** 2026-08-21
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Turso migration harness closure: all 93 changes committed in 7 logical groups. Harness 14/14, self-audit 99/100, targeted tests 116 passed. Adon/APEX handover doc created at docs/handovers/.
+- **Result:** Merged PR #258 to main (710921ac): lead-detail access fix + OASIS sales role model + manager persona + migration 153. Also unbroke main's CI - PR #257 had shipped 2 paged-read violations in lib/sms/destination-health.ts failing every branch. Renumbered my migration 151->153 after main took 151 and 152 same-day. Production deployed; live authenticated verification still needs CC.
 
-*Last updated: 2026-08-20*
+*Last updated: 2026-08-21*
 
 ## Manifest
 
@@ -200,8 +200,8 @@ _Last synced: 2026-08-20T08:01:25.927297+00:00_
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-20
+- **Date:** 2026-08-21
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Turso migration harness closure: all 93 changes committed in 7 logical groups. Harness 14/14, self-audit 99/100, targeted tests 116 passed. Adon/APEX handover doc created at docs/handovers/.
+- **Result:** Merged PR #258 to main (710921ac): lead-detail access fix + OASIS sales role model + manager persona + migration 153. Also unbroke main's CI - PR #257 had shipped 2 paged-read violations in lib/sms/destination-health.ts failing every branch. Renumbered my migration 151->153 after main took 151 and 152 same-day. Production deployed; live authenticated verification still needs CC.
 
-*Last updated: 2026-08-20*
+*Last updated: 2026-08-21*

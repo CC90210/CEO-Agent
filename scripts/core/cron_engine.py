@@ -144,6 +144,50 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # 2026-08-20 — the Instagram DM closer. Replaces the keyword
+        # autoresponder that read its own replies as prospect messages (it
+        # compared an outgoing IGSID against a Zernio ObjectId, a comparison
+        # that could never be true) and answered itself with the same template.
+        #
+        # */5, NOT */2. The "~11s per model turn" figure this entry was first
+        # written against is wrong: measured on this machine 2026-08-20,
+        # run_claude_cli takes 29.2 / 26.7 / 28.1 / 25.8s — median 27.4s, because
+        # the cost is `claude -p` process startup, not generation. decide() may
+        # spend two subprocesses per conversation (one retry), so 12 turns is
+        # ~330s worst case and would overrun a 120s tick on every run. The
+        # poller's O_EXCL _RunLock refuses an overlapping tick rather than
+        # doubling it, so the failure mode is a permanently-skipped automation
+        # rather than a double-send — but it is still an automation that never
+        # completes. 5 turns at */5 fits. timeout 600 overrides
+        # SCRIPT_RUN_DEFAULT_TIMEOUT = 300.
+        #
+        # The duplicate is RESOLVED (2026-08-21). The legacy row "Instagram DM
+        # Auto-Reply" was renamed in place to this entry's name and given these
+        # args, so exactly ONE row now points at this script and `seed` skips it
+        # by normalized name instead of creating a second. Two live crons on one
+        # script is what answered CC twice; do not add a second row here.
+        #
+        # --book IS DELIBERATELY ABSENT. Without it the closer never runs and a
+        # prospect who is ready to book becomes a Telegram handoff to CC instead
+        # of a real calendar event and a Google invite to a stranger. Arming it
+        # is CC's decision, not a seed default.
+        #
+        # NOT seeded until CC reviews: `cron_engine.py seed` is a
+        # production-scheduling mutation.
+        "name": "Instagram DM Closer",
+        "description": "instagram_dm_poller.py — read each @oasisaisolutions DM thread in full, reply in CC's voice via the local Claude CLI, extract contact details, hand warm/blocked threads to CC. Booking stays disarmed.",
+        "schedule": "*/5 * * * *",
+        "action_type": "script_run",
+        "action_config": {
+            "script": "scripts/integrations/instagram_dm_poller.py",
+            "args": ["--live", "--json", "--limit", "25", "--max-model-calls", "5"],
+            "timeout": 600,
+            "notify_channel": "telegram",
+            "notify_on": "nonzero_exit",
+        },
+        "is_active": True,
+    },
+    {
         # Phase 6a — OASIS auto-score sweep. Scans tenant_records for
         # OASIS leads with no ai_score and scores them in batches of 25
         # so the operator's morning view already has scores on

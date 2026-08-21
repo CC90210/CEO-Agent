@@ -562,6 +562,13 @@ class TursoDB:
         sql = f"INSERT INTO {quote_ident(table)} ({col_sql}) VALUES ({placeholders})"
         self.execute(sql, [row[c] for c in cols], allow_unscoped=True,
                      reason="insert stamps tenant_id via values")
+        # execute() deliberately leaves the transaction open so a caller can batch.
+        # A one-shot helper must not inherit that: without this commit the row is
+        # visible to the connection that wrote it and to nothing else, so a
+        # same-connection read-back confirms a write that was never durable.
+        # claim() has always committed; insert() silently did not, which is the
+        # kind of disagreement between neighbours that costs a night of debugging.
+        self.commit()
 
     def claim(self, table: str, *, key: dict[str, Any], set_values: dict[str, Any],
               unclaimed_col: str, tenant_id: str | None = None) -> bool:
