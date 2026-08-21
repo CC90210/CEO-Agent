@@ -13,10 +13,16 @@ exactly one copy of it. It imports nothing from ig_closer or the poller.
 THREE DEFECTS IN THE SUBSTRATE THIS MODULE IS BUILT AROUND. Each was proved on
 this machine, not inherited from a doc:
 
-1. `TursoDB.execute()` DOES NOT COMMIT — and neither does `TursoDB.insert()`.
-   Proved 2026-08-20 against a local libSQL file: after db.insert() and
-   db.execute(), the writing process saw both rows and a SEPARATE process saw
-   ZERO. No error, no warning. Only `TursoDB.claim()` commits (db_turso.py:608).
+1. `TursoDB.execute()` DOES NOT COMMIT. Proved 2026-08-20 against a local libSQL
+   file: after db.execute(), the writing process saw the row and a SEPARATE
+   process saw ZERO. No error, no warning, and the returned cursor is truthy
+   either way.
+   `TursoDB.insert()` had the same hole and was FIXED on 2026-08-21 (db_turso.py
+   :563 now commits, matching claim() at :608, pinned by
+   test_insert_is_durable_from_a_second_connection). An earlier version of this
+   docstring still said insert() does not commit — corrected here rather than
+   left to mislead. _write() below is unaffected either way: it commits
+   explicitly, which is the property this module depends on.
    A daemon that writes state and reports success would be lying, and the state
    would evaporate on process exit.
    => EVERY write in this module goes through _write(), which commits. There is
@@ -78,12 +84,36 @@ TABLE = "instagram_dm_conversations"
 PROVIDER = "instagram"
 OASIS_TENANT_ID = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
 
+# The legacy CRM table book_discovery_call.load_lead() reads. This module writes
+# exactly one shape of row into it (see ensure_booking_lead) and never touches a
+# row it did not create — BOOKING_LEAD_SOURCE is the predicate that guarantees it.
+LEADS_TABLE = "leads"
+BOOKING_LEAD_SOURCE = "instagram_dm"
+
 TERMINAL_STAGES = frozenset({"booked", "handed_off", "disqualified"})
 BOOKING_STATUSES = ("none", "claimed", "booked", "failed")
 
-DAILY_REPLY_CAP_PER_CONVERSATION = 3
-DAILY_REPLY_CAP_GLOBAL = 40
-MIN_REPLY_GAP_SECONDS = 120
+# Budgets for a SETTER, not an autoresponder (raised 2026-08-21).
+#
+# These were 3 / 40 / 120s, sized for "answer a DM once and stop". That is the
+# wrong shape for the job: this agent opens, qualifies, nurtures and books, which
+# is a 10-20 turn conversation. Two live prospects sat at 2 of 3 replies within
+# hours of going live — the next message each of them sent would have been met
+# with silence, mid-negotiation, with no handoff and no alert, because a budget
+# refusal is a skip and not a failure.
+#
+# 30 per conversation per day still bounds a runaway loop (a self-talk bug caps
+# out at 30 messages, not infinity) while being far above any real sales
+# conversation. The global cap bounds fleet-wide model spend on the shared
+# subscription; at ~27s per call, 200 replies is ~90 minutes of CLI time spread
+# across a day.
+#
+# The gap is what stops a burst reading as a bot. 45s is long enough that two
+# messages never land on top of each other and short enough that a person typing
+# a follow-up thought is not left waiting minutes for an answer.
+DAILY_REPLY_CAP_PER_CONVERSATION = 30
+DAILY_REPLY_CAP_GLOBAL = 200
+MIN_REPLY_GAP_SECONDS = 45
 MAX_CONSECUTIVE_MODEL_FAILURES = 3
 MAX_CONSECUTIVE_GUARDRAIL_REJECTS = 2
 
@@ -543,6 +573,65 @@ def request_handoff(db, row_id: str, *, reason: str,
     })
 
 
+def flag_for_review(db, row_id: str, *, reason: str,
+                    tenant_id: str = OASIS_TENANT_ID) -> dict:
+    """Put the row in the human queue WITHOUT rewriting the stage. Idempotent.
+
+    request_handoff() forces stage='handed_off', which is the right answer when
+    a human must take the conversation over and the wrong one when the
+    conversation is already finished: a model that returns action='reply' with
+    stage='disqualified' has ENDED it, and overwriting that with 'handed_off'
+    would destroy the only record of why.
+
+    But an ending nobody is told about is the same as no ending at all.
+    `list --handoffs` filters on handoff_pending = 1 and nothing outside these
+    four modules reads that column, so a terminal stage reached by any path
+    other than action='handoff' was invisible: automation_paused=1,
+    handoff_pending=0, and CC's only way to find it was to run
+    `list --stage disqualified` by hand. This is the narrow write that makes the
+    ending visible while leaving the ending itself intact.
+    """
+    return _touch(db, row_id, tenant_id, {
+        "handoff_pending": 1,
+        "handoff_reason": str(reason)[:_MAX_ERROR_CHARS],
+    })
+
+
+def note(db, row_id: str, *, note: str, tenant_id: str = OASIS_TENANT_ID) -> dict:
+    """Record why the automation declined to act this turn. Touches nothing else.
+
+    A refusal that only ever reached stdout is a refusal nobody can audit: the
+    poller runs headless under the scheduler and its stdout is truncated to the
+    last 200 characters of one line. last_error is the field an operator reading
+    `ig_dm_state.py show` actually sees.
+    """
+    return _touch(db, row_id, tenant_id, {
+        "last_error": str(note)[:_MAX_ERROR_CHARS],
+    })
+
+
+def list_stale_claims(db, *, older_than_minutes: int = 30,
+                      tenant_id: str = OASIS_TENANT_ID, limit: int = 50) -> list[dict]:
+    """Rows stranded at booking_status='claimed'. The queue nobody could read.
+
+    claim_booking() sets booking_status='claimed' but leaves automation_paused=0,
+    handoff_pending=0 and the stage untouched, so a process that dies between the
+    claim and finalize (Ctrl-C, a PM2 restart, a cron timeout kill — none of
+    which run an `except Exception` handler) leaves a row that is invisible to
+    `list --handoffs` AND permanently un-bookable: every later close() dies at the
+    precondition check. booking_claimed_at was written and read by nothing. This
+    is what reads it.
+    """
+    cutoff = _iso(_now() - timedelta(minutes=int(older_than_minutes)))
+    rows = db.query(
+        f"select * from {TABLE} where tenant_id = ? and booking_status = 'claimed' "
+        "and coalesce(booking_claimed_at, '') < ? order by booking_claimed_at asc "
+        "limit ?",
+        (tenant_id, cutoff, int(limit)),
+    )
+    return [dict(r) for r in rows]
+
+
 def resume(db, row_id: str, *, stage: str = "engaged",
            tenant_id: str = OASIS_TENANT_ID) -> dict:
     """Operator only: hand a conversation back to the automation."""
@@ -656,50 +745,156 @@ def reset_booking(db, row_id: str, *, tenant_id: str = OASIS_TENANT_ID) -> dict:
 
 # ── the `leads` bridge ───────────────────────────────────────────────────────
 
+def booking_lead_id_for(row: Mapping[str, Any], *,
+                        tenant_id: str = OASIS_TENANT_ID) -> str:
+    """The `leads.id` this conversation's bridge row will always have.
+
+    uuid5, not uuid4, and that is the whole point. The bridge is a two-step
+    write — INSERT the lead, then stamp booking_lead_id back onto the
+    conversation — and the steps are not atomic. With a random id, a crash
+    between them leaves a committed `leads` row nothing points at and the next
+    attempt creates a SECOND one; against a table CC reads by hand that is
+    quiet, permanent duplication. Derived from (tenant, conversation) the id is
+    the same on every attempt forever, so a retry finds its own orphan and
+    adopts it instead of adding to the pile.
+    """
+    conversation_id = str(row.get("provider_conversation_id") or "").strip()
+    if not conversation_id:
+        raise IgStateError(
+            "booking_lead_id_for needs provider_conversation_id — without it the "
+            "bridge id is not stable and a retry would create a second lead row"
+        )
+    return str(uuid.uuid5(uuid.NAMESPACE_URL,
+                          f"igdm-booking-lead/{tenant_id}/{conversation_id}"))
+
+
+def _find_booking_lead(db, lead_id: str, tenant_id: str) -> Optional[dict]:
+    """The bridge lead by primary key, or None. ONE row, matched in SQL.
+
+    `leads` is small today and `tenant_records` was small once too. The lookup
+    is a keyed SELECT with LIMIT 1 rather than a page read plus a Python
+    comparison, because the page read is the bug that shipped a duplicate lead
+    on every poll against 31k rows (2026-08-20).
+    """
+    rows = db.query(
+        f"select id, email from {LEADS_TABLE} "
+        "where tenant_id = ? and id = ? limit 1",
+        (tenant_id, str(lead_id)),
+    )
+    return dict(rows[0]) if rows else None
+
+
+def _sync_booking_lead_email(db, lead_id: str, *, email: Optional[str],
+                             tenant_id: str) -> None:
+    """Keep the bridge lead's address equal to the one the closer just verified.
+
+    Two different addresses reach the prospect: book_discovery_call.book() puts
+    `leads.email` on the Google invite, while ig_closer mails the confirmation
+    to the freshly extracted address. On a reset-and-retry after a prospect
+    corrected their email those two diverge, and the invite — the irreversible
+    half — goes to the dead inbox.
+
+    Narrow on purpose: it can only ever touch a row this bridge created
+    (source = 'instagram_dm'), only when we hold a non-empty address, and only
+    when that address actually differs.
+    """
+    if not email:
+        return
+    rows = db.query(
+        f"select email from {LEADS_TABLE} "
+        "where tenant_id = ? and id = ? and source = ? limit 1",
+        (tenant_id, str(lead_id), BOOKING_LEAD_SOURCE),
+    )
+    if not rows:
+        return
+    if str(rows[0].get("email") or "").strip().lower() == email:
+        return
+    _write(
+        db,
+        f"update {LEADS_TABLE} set email = ?, updated_at = ? "
+        "where tenant_id = ? and id = ? and source = ?",
+        (email, _iso(), tenant_id, str(lead_id), BOOKING_LEAD_SOURCE),
+    )
+    print(f"[ig_dm_state] bridge lead {lead_id} email re-pointed to the address the "
+          f"closer verified", file=sys.stderr)
+
+
 def ensure_booking_lead(db, row: Mapping[str, Any], *, extracted: Any, apply: bool,
                         tenant_id: str = OASIS_TENANT_ID) -> Optional[str]:
     """The legacy `leads` row a booking needs. THE ONLY place this system writes one.
 
-    book_discovery_call.load_lead() reads db.table("leads") (84 rows); the DM
-    lead lives in tenant_records (32k rows). Bridging is unavoidable, so it is
-    made VISIBLE and operator-gated instead of silent: apply=False creates
-    nothing, and the notes field carries the lineage of both ids so the two
-    tables can be reconciled later.
+    book_discovery_call.load_lead() reads db.table("leads") (84 rows) and there
+    is no instagram_dm row in it; the DM lead lives in tenant_records (32k
+    rows). load_lead is shared substrate — ig_closer drives it and so does the
+    ai-audit funnel, and lead_interactions.lead_id holds a `leads` id in every
+    existing row — so the bridge lives HERE rather than in that primitive.
+
+    Made visible and operator-gated instead of silent: apply=False creates
+    nothing, the id is deterministic so a retry can never duplicate, and `notes`
+    carries the lineage of every id involved so a human reading the CRM can see
+    exactly which Instagram thread produced this row.
     """
+    def _f(name: str) -> Optional[str]:
+        return _extracted_field(extracted, name)
+
+    email = (_f("email") or "").strip().lower() or None
+
     existing = str(row.get("booking_lead_id") or "").strip()
     if existing:
+        if apply:
+            _sync_booking_lead_email(db, existing, email=email, tenant_id=tenant_id)
         return existing
     if not apply:
         return None
 
-    def _f(name: str) -> Optional[str]:
-        return _extracted_field(extracted, name)
+    lead_id = booking_lead_id_for(row, tenant_id=tenant_id)
+    found = _find_booking_lead(db, lead_id, tenant_id)
 
-    handle = row.get("participant_handle") or row.get("participant_id") or "unknown"
-    # `name` is NOT NULL in the live DDL, so it needs three fallbacks, not one.
-    name = _f("name") or row.get("participant_name") or f"@{handle}"
-    lead_id = str(uuid.uuid4())
-    now = _iso()
-
-    db.insert("leads", {
-        "id": lead_id,
-        "name": name,
-        "email": _f("email"),
-        "phone": _f("phone"),
-        "company": _f("business"),
-        "source": "instagram_dm",
-        "status": "qualified",          # `leads` has `status`, NOT `stage`
-        "score": 70,
-        "assigned_to": "bravo",
-        "notes": ("Bridged from Instagram DM. "
-                  f"conversation={row.get('provider_conversation_id')} "
-                  f"tenant_records_lead={row.get('lead_id')}"),
-        "created_at": now,
-        "updated_at": now,
-    }, tenant_id=tenant_id)
-    # insert() does NOT commit — proved cross-process. Without this the booking
-    # would reference a lead row that no other process can see.
-    db.commit()
+    if found is None:
+        handle = row.get("participant_handle") or row.get("participant_id") or "unknown"
+        # `name` is NOT NULL in the live DDL, so it needs three fallbacks, not one.
+        name = _f("name") or row.get("participant_name") or f"@{handle}"
+        now = _iso()
+        values = {
+            "id": lead_id,
+            "name": name,
+            "email": email,
+            "phone": _f("phone"),
+            "company": _f("business"),
+            "source": BOOKING_LEAD_SOURCE,
+            "status": "qualified",      # `leads` has `status`, NOT `stage`
+            "score": 70,
+            "assigned_to": "bravo",
+            "notes": ("Bridged from Instagram DM by ig_dm_state.ensure_booking_lead. "
+                      f"handle=@{handle} "
+                      f"conversation={row.get('provider_conversation_id')} "
+                      f"ig_dm_conversation_row={row.get('id')} "
+                      f"tenant_records_lead={row.get('lead_id')}"),
+            "created_at": now,
+            "updated_at": now,
+        }
+        try:
+            db.insert(LEADS_TABLE, values, tenant_id=tenant_id)
+            # insert() does NOT commit on this driver — proved cross-process.
+            # Without this the booking would reference a lead row that no other
+            # process can see.
+            db.commit()
+        except Exception as exc:  # noqa: BLE001 — re-raised unless the row is THERE
+            # Two processes can reach this line with the same deterministic id.
+            # The loser's INSERT trips the primary key. That is a won race, not a
+            # failure, but only if the row genuinely exists now: anything else
+            # propagates untouched.
+            if _find_booking_lead(db, lead_id, tenant_id) is None:
+                raise
+            print(f"[ig_dm_state] bridge lead insert for {lead_id} lost a race "
+                  f"({type(exc).__name__}: {exc}); adopting the row that won",
+                  file=sys.stderr)
+    else:
+        # An orphan from an attempt that died between the INSERT and the stamp
+        # below, or a concurrent winner. Adopt it; do not add a second row.
+        print(f"[ig_dm_state] adopting existing bridge lead {lead_id} for "
+              f"conversation {row.get('provider_conversation_id')}", file=sys.stderr)
+        _sync_booking_lead_email(db, lead_id, email=email, tenant_id=tenant_id)
 
     _touch(db, str(row["id"]), tenant_id, {"booking_lead_id": lead_id})
     return lead_id
@@ -798,6 +993,11 @@ def main() -> int:
     lst = sub.add_parser("list", help="read-only")
     lst.add_argument("--stage")
     lst.add_argument("--handoffs", action="store_true")
+    lst.add_argument("--stale-claims", action="store_true",
+                     help="rows stranded at booking_status='claimed' by a process "
+                          "that died before finalize — un-bookable until "
+                          "reset-booking, and invisible to --handoffs")
+    lst.add_argument("--claim-age-minutes", type=int, default=30)
     lst.add_argument("--limit", type=int, default=50)
     lst.add_argument("--json", action="store_true")
 
@@ -821,7 +1021,11 @@ def main() -> int:
     tenant = args.tenant_id
 
     if args.cmd == "list":
-        rows = (list_handoffs(db, tenant_id=tenant, limit=args.limit) if args.handoffs
+        rows = (list_stale_claims(db, older_than_minutes=args.claim_age_minutes,
+                                  tenant_id=tenant, limit=args.limit)
+                if args.stale_claims
+                else list_handoffs(db, tenant_id=tenant, limit=args.limit)
+                if args.handoffs
                 else list_by_stage(db, args.stage, tenant_id=tenant, limit=args.limit)
                 if args.stage
                 else list_all(db, tenant_id=tenant, limit=args.limit))

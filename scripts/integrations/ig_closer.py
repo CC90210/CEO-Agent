@@ -42,10 +42,25 @@ PARTIAL FAILURE IS REPORTED, NEVER HIDDEN
     The calendar event and the confirmation email are two separate outward acts and
     the first one can succeed while the second fails. When that happens the booking
     is still finalized as `booked` (the Google invite already went out; pretending
-    otherwise would be a lie to the operator) and the Telegram notification names
-    the email status explicitly so a human can repair it. Anything unexpected after
-    the claim is caught, the traceback goes to stderr, fail_booking parks the row,
-    and the operator is notified. Nothing is ever swallowed.
+    otherwise would be a lie to the operator) and it gets its OWN alert — "BOOKED
+    BUT NOT CONFIRMED", on its own dedup key — because a meeting whose room link
+    never reached the prospect is a distinct state that a human has to finish by
+    hand, not a footnote on a success.
+
+    Every failure after the claim is caught, traced to stderr, PARKED with
+    fail_booking and notified with the name of the step that broke. Two invariants
+    make that recoverable rather than decorative:
+
+      * the park is keyed on `finalized`, not on `applied`. A row whose meeting
+        exists but whose state write never landed MUST be parked — 'claimed' sets
+        no handoff, no pause and no stage, so the automation would keep talking to
+        someone who already has a meeting. A row that DID finalize must never be
+        parked: finalize_booking leaves the claim token in place, so fail_booking
+        would cheerfully rewrite a real booking into 'failed' + handed_off.
+      * when the calendar event already exists, the persisted booking_error is
+        prefixed CALENDAR EVENT EXISTS. reset_booking() is the only way back to
+        'none' and its contract is "check the calendar BEFORE running this";
+        booking_error is the only channel that warning has.
 
 Usage:
     python scripts/integrations/ig_closer.py close --conversation-id <id> --dry-run
@@ -146,6 +161,10 @@ _EM_DASHES = ("—", "–")
 
 _MAX_SUBJECT_CHARS = 70
 _MAX_NOTIFY_DETAIL_CHARS = 180
+# Cap for a whole assembled alert body (see _notify_call). Generous enough that
+# the longest agent-authored alert — "BOOKED BUT NOT CONFIRMED" — survives intact,
+# tight enough that nothing pasted into it can grow into a wall of text.
+_MAX_NOTIFY_BODY_CHARS = 600
 
 
 class CloserContractError(RuntimeError):
@@ -187,8 +206,30 @@ class CloseResult:
 STAGES_OF_FAILURE: tuple[str, ...] = (
     "precondition", "denied_domain", "calendar_unverified", "no_slots",
     "meet_link_missing", "lead_bridge", "claim_lost", "calendar_create",
-    "email", "unexpected",
+    "email", "finalize", "notify", "unexpected",
 )
+
+# Prefixed onto the error a failed booking is PARKED with, whenever the calendar
+# event already exists. reset_booking() is documented "check the calendar BEFORE
+# running this" (ig_dm_state.py) and booking_error is the only field that can
+# carry that warning to the human who reads it. "unexpected" told them nothing.
+CALENDAR_EXISTS_PREFIX = "CALENDAR EVENT EXISTS, do not retry blind — "
+
+# The ambiguous half of the same problem. book_discovery_call shells out to
+# google_tool with timeout=180 and does not catch subprocess.TimeoutExpired, so a
+# raise from the calendar step means the event MIGHT exist: Google may have
+# inserted it (and mailed the attendee, sendUpdates:"all") before the call died.
+# `applied` records what WE know, not what the world did, so the warning has to
+# fire on the step rather than on the flag.
+CALENDAR_UNKNOWN_PREFIX = ("CALENDAR STATE UNKNOWN, the create call never "
+                           "returned — check the calendar before retrying — ")
+
+# Placeholder used ONLY to prove the confirmation template renders, before the
+# claim and before any event exists. The real room is minted by Google during
+# the calendar create and the body is rendered again with it. This string is
+# never sent to anyone; if it ever appears in an outbound email, the re-render
+# below was skipped.
+TEMPLATE_PROBE_LINK = "https://meet.google.com/pending-per-event-room"
 
 
 # ── dependency guards ────────────────────────────────────────────────────────
@@ -383,15 +424,18 @@ def _fail(
 # ── public: environment probes ───────────────────────────────────────────────
 
 def resolve_meet_link() -> Optional[str]:
-    """The static Google Meet room google_tool pastes onto every event.
+    """The LEGACY static Google Meet room. NOT the room a booking uses any more.
 
+    close() no longer reads this. It is one shared URL for every event this repo
+    has ever created, so prospect A's invite and prospect B's invite pointed at
+    the same room and either could walk into the other's call — or a paying
+    client's — from an email they never deleted. Bookings now ask Google to mint
+    a room per event (book_discovery_call.book(meet_scope="per_event")) and the
+    confirmation email carries the room that was actually created.
+
+    Kept for the `meet_scope="static"` escape hatch and for operator diagnostics.
     Loaded through lib.secret_loader — never by reading a .env file, which
-    secret_guard blocks by design. It is one shared room, not a per-call link.
-
-    Why this is a hard precondition rather than a warning: when GOOGLE_MEET_LINK
-    is absent, google_tool silently omits conferenceData and creates an event with
-    no Meet at all. The prospect would get a calendar invite to a call with no
-    room, and the confirmation email would have nothing to point at.
+    secret_guard blocks by design.
     """
     from lib.secret_loader import load_env  # noqa: E402
 
@@ -402,17 +446,24 @@ def resolve_meet_link() -> Optional[str]:
 def verify_calendar_readable(*, days: int = BOOKING_DAYS_HORIZON) -> bool:
     """True when CC's calendar was actually read. Fails CLOSED on doubt.
 
-    book_discovery_call.busy_windows() returns [] for two opposite reasons: the
-    calendar is genuinely empty, and the calendar read FAILED (it prints to stderr
-    and returns [] at book_discovery_call.py:117-118). free_slots() cannot tell
-    those apart, so on a failed read it fails OPEN and confidently offers a slot on
-    top of an existing meeting.
+    This used to infer the read from `bool(busy_windows(days))`, and that
+    inference was unsound in BOTH directions:
 
-    CC's calendar is never empty across five weekdays. An empty busy list is
-    therefore evidence of an unreadable calendar, not of a free week, and the
-    caller must refuse to book rather than double-book him.
+      * busy_windows returned [] whenever the horizon held no ALL-DAY events —
+        which was the normal state of a working calendar, because the old
+        text parser could not see timed events at all
+        (book_discovery_call._event_window now handles both). A fully booked
+        week therefore read as "unreadable" and booking never worked: the
+        prospect had already been told by DM that an invite was coming.
+      * one all-day entry read as proof the TIMED calendar had been read, which
+        it was not.
+
+    read_calendar() returns the read STATUS, so nothing has to be inferred from
+    a row count. A failed read still fails closed — free_slots() would otherwise
+    fail OPEN and confidently offer a slot on top of an existing meeting.
     """
-    return bool(book_discovery_call.busy_windows(days))
+    ok, _busy = book_discovery_call.read_calendar(days)
+    return bool(ok)
 
 
 def choose_slot(*, days: int = BOOKING_DAYS_HORIZON,
@@ -543,6 +594,21 @@ def close(
     tenant = tenant_id or ""
     claim_token: Optional[str] = None
     applied = False
+    # `applied` says a meeting EXISTS. `finalized` says the row has been written
+    # to match it. They are not the same fact and the gap between them is where a
+    # row used to get stranded: the old handler skipped fail_booking whenever
+    # `applied` was set, so any raise from the email, the finalize or the notify
+    # left booking_status='claimed' — a state claim_booking() reaches without
+    # setting automation_paused, handoff_pending or stage, so nobody was told and
+    # the automation kept talking to a prospect who already had a meeting.
+    # Keying the park on `not finalized` is what makes it recoverable; keying it
+    # on `claim_token` alone would be WORSE, because finalize_booking leaves the
+    # token in place and fail_booking would then flip a genuinely booked row to
+    # 'failed' + handed_off.
+    finalized = False
+    # The last step entered, so the alert can name the step that actually failed
+    # instead of shrugging "unexpected" at the operator.
+    step = "precondition"
     booking_lead_id: Optional[str] = None
     meet_link: Optional[str] = None
     chosen: Optional[Mapping[str, str]] = None
@@ -580,12 +646,14 @@ def close(
         email = email.lower()
 
         # ── 2. domain deny (money-boundary defence in depth) ─────────────────
+        step = "denied_domain"
         denied = _require_brain().DENIED_EMAIL_DOMAINS
         if _email_domain(email) in denied:
             return _fail(row, "denied_domain",
                          f"domain {_email_domain(email)} is on the deny list")
 
         # ── 3. calendar must be provably readable ────────────────────────────
+        step = "calendar_unverified"
         if not verify_calendar_readable():
             return _fail(row, "calendar_unverified",
                          "busy_windows() returned nothing, which means the calendar "
@@ -593,21 +661,18 @@ def close(
                          "book on an unverified calendar")
 
         # ── 4. slot ──────────────────────────────────────────────────────────
+        step = "no_slots"
         chosen = slot or choose_slot()
         if not chosen or not chosen.get("start"):
             return _fail(row, "no_slots", "no bookable slot in the horizon")
 
-        # ── 5. meet link ─────────────────────────────────────────────────────
-        meet_link = resolve_meet_link()
-        if not meet_link:
-            return _fail(row, "meet_link_missing",
-                         "GOOGLE_MEET_LINK is absent from the agents env, so the "
-                         "invite would carry no meeting room", slot=chosen)
-
-        # ── 6. leads bridge ──────────────────────────────────────────────────
+        # ── 5. leads bridge ──────────────────────────────────────────────────
         # book_discovery_call.load_lead() reads the legacy `leads` table; the DM
         # lead lives in tenant_records. The bridge row is created only in apply
-        # mode, and only by the DAO.
+        # mode, and only by the DAO. Its id is derived from the conversation, so
+        # a retry after a half-finished attempt adopts the same row rather than
+        # leaving a second one behind.
+        step = "lead_bridge"
         booking_lead_id = state.ensure_booking_lead(
             db, row, extracted=extracted, apply=apply, tenant_id=tenant
         )
@@ -617,18 +682,22 @@ def close(
                          slot=chosen, meet_link=meet_link)
 
         # Render the email BEFORE the claim: a template failure must never leave a
-        # claimed row or a booked calendar event behind it.
+        # claimed row or a booked calendar event behind it. The real room does
+        # not exist yet — Google mints it during the calendar create — so the
+        # probe renders against a placeholder purely to prove the TEMPLATE is
+        # sound, and the body that actually gets sent is rendered again below
+        # with the room that was really created.
+        step = "email"
         try:
             subject, body_text = build_confirmation_email(
                 first_name=_field(extracted, "name") or row.get("participant_name") or "",
                 slot_label=str(chosen.get("label") or ""),
                 slot_start_iso=str(chosen.get("start") or ""),
-                meet_link=meet_link,
+                meet_link=TEMPLATE_PROBE_LINK,
             )
         except ValueError as exc:
             return _fail(row, "email", f"confirmation template rejected: {exc}",
-                         booking_lead_id=booking_lead_id, slot=chosen,
-                         meet_link=meet_link)
+                         booking_lead_id=booking_lead_id, slot=chosen)
 
         if not apply:
             return CloseResult(
@@ -638,8 +707,14 @@ def close(
                 slot_start=str(chosen.get("start") or ""),
                 slot_end=str(chosen.get("end") or ""),
                 slot_label=str(chosen.get("label") or ""),
-                meet_link=meet_link, calendar_output=None,
-                email_status="dry_run", email_reason=f"dry_run: {subject}",
+                # No room is reported, because none exists yet and none is
+                # reserved: it is minted by the calendar create that a dry run
+                # does not perform. Reporting the old static room here said
+                # "this is the room" about a URL the booking would not use.
+                meet_link=None, calendar_output=None,
+                email_status="dry_run",
+                email_reason=f"dry_run: {subject} (the Meet room is minted when "
+                             f"the event is created)",
                 notify_ok=False, notify_reason="dry_run: no notification sent",
                 error=None,
             )
@@ -647,6 +722,7 @@ def close(
         compat = _compat_db(db)
 
         # ── 7. claim — THE IDEMPOTENCY BOUNDARY ──────────────────────────────
+        step = "claim_lost"
         claim_token = secrets.token_hex(8)
         if not state.claim_booking(db, row_id, claim_token=claim_token,
                                    tenant_id=tenant):
@@ -662,14 +738,19 @@ def close(
         # (sendUpdates:"all"). Note the opposite defaults of the two primitives
         # below: book() is dry until apply=True, send_gateway.send() is live until
         # dry_run=True. Both are normalized onto this function's single `apply`.
+        step = "calendar_create"
         booking = book_discovery_call.book(
             compat, booking_lead_id, str(chosen["start"]), apply=True
         )
         calendar_output = str(booking.get("calendar_output") or "")[:300] or None
         if not booking.get("ok") or not booking.get("applied"):
             err = str(booking.get("error") or "calendar create failed")
-            state.fail_booking(db, row_id, claim_token=claim_token,
-                               error=err, tenant_id=tenant)
+            # Parked through the helper, not bare: fail_booking raises
+            # BookingClaimLost when the claim moved, and letting that escape here
+            # would degrade an accurate "calendar_create" report into "unexpected"
+            # AND re-enter the same failing call from the outer handler.
+            err = _park(state, db, row_id, claim_token=claim_token, error=err,
+                        tenant_id=tenant)
             n_ok, n_reason = _notify_booking_failed(
                 notifier, handle, "calendar_create", err, conversation_id)
             return _fail(row, "calendar_create", err,
@@ -680,10 +761,54 @@ def close(
         start_iso = str(booking.get("start") or chosen.get("start") or "")
         end_iso = str(booking.get("end") or chosen.get("end") or "")
 
+        # ── 8b. the room, read back off what was actually created ────────────
+        # There is NO fallback to the static GOOGLE_MEET_LINK. A silent fallback
+        # is exactly how two prospects end up in one room, and google_tool
+        # refuses the same substitution one layer down. If the event exists
+        # without a room, that is a real meeting a human has to cancel or repair,
+        # so it is parked with the CALENDAR EXISTS warning and reported.
+        step = "meet_link_missing"
+        meet_link = str(booking.get("meet_link") or "").strip() or None
+        if not meet_link:
+            err = (f"{CALENDAR_EXISTS_PREFIX}the calendar event was created but "
+                   f"no Meet room came back with it, so there is no room to send. "
+                   f"Cancel or repair the event before retrying.")
+            err = _park(state, db, row_id, claim_token=claim_token, error=err,
+                        tenant_id=tenant)
+            n_ok, n_reason = _notify_booking_failed(
+                notifier, handle, "meet_link_missing", err, conversation_id)
+            return _fail(row, "meet_link_missing", err, applied=True,
+                         booking_lead_id=booking_lead_id, slot=chosen,
+                         calendar_output=calendar_output,
+                         notify_ok=n_ok, notify_reason=n_reason)
+
+        # Re-render with the real room. The probe above proved the template is
+        # sound, so this can only fail on the link itself.
+        try:
+            subject, body_text = build_confirmation_email(
+                first_name=_field(extracted, "name") or row.get("participant_name") or "",
+                slot_label=str(chosen.get("label") or ""),
+                slot_start_iso=str(chosen.get("start") or ""),
+                meet_link=meet_link,
+            )
+        except ValueError as exc:
+            step = "email"
+            err = (f"{CALENDAR_EXISTS_PREFIX}confirmation template rejected the "
+                   f"minted room: {exc}")
+            err = _park(state, db, row_id, claim_token=claim_token, error=err,
+                        tenant_id=tenant)
+            n_ok, n_reason = _notify_booking_failed(
+                notifier, handle, "email", err, conversation_id)
+            return _fail(row, "email", err, applied=True,
+                         booking_lead_id=booking_lead_id, slot=chosen,
+                         meet_link=meet_link, calendar_output=calendar_output,
+                         notify_ok=n_ok, notify_reason=n_reason)
+
         # ── 9. confirmation email — non-fatal ────────────────────────────────
         # The invite already went out. A failed confirmation email downgrades the
         # quality of the booking; it does not un-book it. The status travels to the
         # operator verbatim so a human can repair it.
+        step = "email"
         send_result = send_gateway.send(
             channel="email",
             agent_source=CLOSER_AGENT_SOURCE,
@@ -713,12 +838,14 @@ def close(
                   file=sys.stderr)
 
         # ── 10. finalize + notify ────────────────────────────────────────────
+        step = "finalize"
         try:
             state.finalize_booking(
                 db, row_id, claim_token=claim_token, start_iso=start_iso,
                 end_iso=end_iso, meet_link=meet_link, email_status=email_status,
                 tenant_id=tenant,
             )
+            finalized = True
         except state.BookingClaimLost as exc:
             # The meeting EXISTS. Another process took the row out from under us.
             # This is the one partial-failure the operator absolutely must hear
@@ -735,13 +862,36 @@ def close(
                          email_status=email_status, email_reason=email_reason,
                          notify_ok=n_ok, notify_reason=n_reason)
 
-        notify_ok, notify_reason = notifier(
-            f"Booked: @{handle}, {_notify_safe(chosen.get('label'), limit=64)}. "
-            f"Meet link emailed to {email} ({email_status}). "
-            f"Conversation {conversation_id}.",
-            category=NOTIFY_CATEGORY,
-            dedup_key=f"igdm:{conversation_id}:booked",
-        )
+        # The notification is the LAST thing, and it can no longer decide the
+        # outcome: the meeting exists and the row says so, both irreversibly. A
+        # notifier that raises here used to make close() report ok=False /
+        # stage_of_failure="unexpected", so the poller alerted "booking failed"
+        # about a meeting that was on the calendar and in a stranger's inbox.
+        step = "notify"
+        label = _notify_safe(chosen.get("label"), limit=64)
+        if email_status == "sent":
+            notify_ok, notify_reason = _notify_call(
+                notifier,
+                f"Booked: @{handle}, {label}. Meet link emailed to {email}. "
+                f"Conversation {conversation_id}.",
+                dedup_key=f"igdm:{conversation_id}:booked",
+            )
+        else:
+            # A meeting that exists with no confirmation email is its own state,
+            # not a footnote on a success. The prospect has a Google invite whose
+            # only room link is the one this email was carrying, so a human has to
+            # finish the job by hand — and gets told exactly that, on its own
+            # dedup key so it cannot be collapsed into the plain "Booked" alert.
+            notify_ok, notify_reason = _notify_call(
+                notifier,
+                f"BOOKED BUT NOT CONFIRMED: @{handle}, {label}. The meeting exists "
+                f"on the calendar and the Google invite went out, but the "
+                f"confirmation email to {email} did NOT send "
+                f"(status {_notify_safe(email_status, limit=40)}: "
+                f"{_notify_safe(email_reason, limit=100) or 'no reason given'}). "
+                f"Send the room link by hand. Conversation {conversation_id}.",
+                dedup_key=f"igdm:{conversation_id}:booked_email_failed",
+            )
         if not notify_ok:
             print(f"[ig_closer] notification not delivered ({notify_reason}) for "
                   f"conversation={conversation_id}", file=sys.stderr)
@@ -756,26 +906,108 @@ def close(
             notify_reason=notify_reason, error=None,
         )
 
-    except Exception as exc:  # noqa: BLE001 — the boundary; nothing is swallowed
+    except BaseException as exc:  # noqa: BLE001 — the boundary; nothing is swallowed
+        # BaseException, not Exception. KeyboardInterrupt and SystemExit are not
+        # Exceptions, so the old handler let them fly straight past the claim:
+        # Ctrl-C during the first supervised `--apply` (the documented arming
+        # plan, blocked for up to 180s inside the google_tool subprocess) left the
+        # row at booking_status='claimed' with automation_paused=0,
+        # handoff_pending=0 and stage untouched. Google may already have inserted
+        # the event and mailed the invite. That row is invisible to
+        # `list --handoffs`, permanently un-bookable (every later close() dies at
+        # the precondition), and the every-minute cron keeps replying to a
+        # prospect who may already hold an invite.
+        #
+        # The row is parked and the operator is told, and THEN the interrupt is
+        # re-raised: an operator who pressed Ctrl-C means it, and swallowing a
+        # SystemExit would break every caller's shutdown path. The "NEVER RAISES"
+        # contract covers Exception, which is what a caller can meaningfully
+        # handle. A kill -9, a PM2 restart or a cron timeout still bypasses this
+        # entirely — `ig_dm_state.py list --stale-claims` is what finds those.
         traceback.print_exc()
         detail = f"{type(exc).__name__}: {exc}"
-        # An unexpected failure AFTER the claim must not leave the row claimed
-        # forever, and one after the calendar write must reach a human.
-        if claim_token and not applied:
-            try:
-                _require_state().fail_booking(db, row_id, claim_token=claim_token,
-                                              error=detail, tenant_id=tenant)
-            except Exception:  # noqa: BLE001
-                traceback.print_exc()
+        # Name the step that actually failed. "unexpected" is reserved for a raise
+        # from somewhere the step marker never reached, and it is the one word an
+        # operator can do nothing with.
+        failed_at = step if step in STAGES_OF_FAILURE else "unexpected"
+        if applied:
+            # The calendar event is out there. Whoever reads booking_error next is
+            # deciding whether to reset and retry; retrying blind double-books.
+            detail = f"{CALENDAR_EXISTS_PREFIX}{detail}"
+        elif failed_at == "calendar_create":
+            # A raise from inside book() — a subprocess timeout is the realistic
+            # one — leaves the event's existence genuinely unknown. Saying nothing
+            # here reads as "no event", which is the assumption that double-books.
+            detail = f"{CALENDAR_UNKNOWN_PREFIX}{detail}"
+
+        # Park the row unless it was already finalized. `finalized`, never
+        # `applied`: a booking that reached finalize_booking is 'booked' and its
+        # claim token still matches, so fail_booking would happily rewrite a real
+        # meeting into 'failed' + handed_off.
+        if claim_token and not finalized:
+            detail = _park(_require_state(), db, row_id, claim_token=claim_token,
+                           error=detail, tenant_id=tenant)
+
         n_ok, n_reason = (False, "not attempted")
         if claim_token:
             n_ok, n_reason = _notify_booking_failed(
-                notifier, handle, "unexpected", detail, conversation_id)
-        return _fail(row, "unexpected", detail, applied=applied,
+                notifier, handle, failed_at, detail, conversation_id)
+        if not isinstance(exc, Exception):
+            # Parked and reported; now let the interrupt do its job.
+            raise
+        return _fail(row, failed_at, detail, applied=applied,
                      booking_lead_id=booking_lead_id, slot=chosen,
                      meet_link=meet_link, calendar_output=calendar_output,
                      email_status=email_status, email_reason=email_reason,
                      notify_ok=n_ok, notify_reason=n_reason)
+
+
+def _park(state: Any, db: Any, row_id: str, *, claim_token: str, error: str,
+          tenant_id: str) -> str:
+    """fail_booking() the row and return the error string to REPORT.
+
+    Parking is what makes a dead booking recoverable: fail_booking sets
+    handoff_pending, automation_paused and stage='handed_off', none of which
+    claim_booking touches. A row left at 'claimed' is therefore invisible to
+    `ig_dm_state.py list --handoffs` while the automation keeps replying.
+
+    When the park itself fails — the claim moved, the database is unreachable —
+    that fact is APPENDED to the error rather than swallowed, so the operator
+    alert says the row is still claimed instead of implying it was parked.
+    """
+    try:
+        state.fail_booking(db, row_id, claim_token=claim_token, error=error,
+                           tenant_id=tenant_id)
+        return error
+    except Exception as exc:  # noqa: BLE001 — reported, never hidden
+        traceback.print_exc()
+        note = (f" [ROW NOT PARKED: booking_status is still 'claimed' and the "
+                f"automation is NOT paused — {type(exc).__name__}: {exc}]")
+        print(f"[ig_closer] fail_booking could not park {row_id}: {exc}",
+              file=sys.stderr)
+        return f"{error}{note}"
+
+
+def _notify_call(notifier: Callable[..., tuple[bool, str]], message: str, *,
+                 dedup_key: str) -> tuple[bool, str]:
+    """Send an operator notification. A dead notifier is never a booking failure.
+
+    The whole assembled body is passed through _notify_safe here — the single
+    chokepoint — rather than each interpolated fragment being sanitised at its
+    own call site. notify() routes on MESSAGE CONTENT: a body matching
+    _NOT_BRAVO_DOMAIN_RE is DROPPED outright, so a prospect whose email address
+    is phone_lookup@gmail.com silences the alert about their own booking. Every
+    site that sanitised its own fragments still left the recipient address raw,
+    which is what guarding the fragment instead of the class always costs. A
+    later edit that interpolates one more stranger-shaped field is covered by
+    construction.
+    """
+    try:
+        return notifier(_notify_safe(message, limit=_MAX_NOTIFY_BODY_CHARS),
+                        category=NOTIFY_CATEGORY, dedup_key=dedup_key)
+    except Exception as exc:  # noqa: BLE001 — traced; the booking result stands
+        traceback.print_exc()
+        return False, f"notifier raised: {type(exc).__name__}: {exc}"
 
 
 def _notify_booking_failed(
@@ -790,17 +1022,17 @@ def _notify_booking_failed(
     Agent-authored text only — no DM content, no raw traceback. Both are content
     that notify() itself filters on, so quoting them is how an alert about a
     prospect gets silenced by that same prospect.
+
+    The dedup key carries the STEP. Two different failures on one conversation
+    inside NOTIFY_DEDUP_WINDOW_SEC (an hour by default) used to collapse into one
+    alert, so the second condition — the one that changed — was never surfaced.
     """
-    try:
-        ok, reason = notifier(
-            f"Booking failed: @{handle} at step {stage_of_failure}. "
-            f"{_notify_safe(error)}. Conversation {conversation_id}.",
-            category=NOTIFY_CATEGORY,
-            dedup_key=f"igdm:{conversation_id}:booking_failed",
-        )
-    except Exception:  # noqa: BLE001 — a dead notifier must not mask the booking result
-        traceback.print_exc()
-        return False, "notifier raised"
+    ok, reason = _notify_call(
+        notifier,
+        f"Booking failed: @{handle} at step {stage_of_failure}. "
+        f"{_notify_safe(error)}. Conversation {conversation_id}.",
+        dedup_key=f"igdm:{conversation_id}:booking_failed:{stage_of_failure}",
+    )
     if not ok:
         print(f"[ig_closer] booking-failed alert not delivered ({reason}) for "
               f"conversation={conversation_id}", file=sys.stderr)
@@ -896,7 +1128,7 @@ def main() -> int:
         head = ("BOOKED" if result.applied else "DRY RUN" if result.ok else "FAILED")
         print(f"{head}: @{_handle_of(row)} conversation={result.conversation_id}")
         print(f"  slot        : {result.slot_label or '-'} ({result.slot_start or '-'})")
-        print(f"  meet link   : {'present' if result.meet_link else 'MISSING'}")
+        print(f"  meet room   : {result.meet_link or 'minted when the event is created'}")
         print(f"  lead bridge : {result.booking_lead_id or '- (dry mode creates none)'}")
         print(f"  email       : {result.email_status or '-'}"
               f"{' / ' + result.email_reason if result.email_reason else ''}")

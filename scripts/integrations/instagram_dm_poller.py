@@ -133,8 +133,46 @@ AUDIT_FORM_URL = "https://oasisai.work/f/oasis-ai-cc/ai-audit"
 # This cap rarely binds in practice: the inbox holds 50 conversations but
 # typically only ~2 carry genuinely new inbound, and every cheap gate runs
 # before a model call is spent.
-MAX_MODEL_CALLS_PER_RUN = 5
-RUN_DEADLINE_SECONDS = 210
+# RETUNED 2026-08-21 for a */1 schedule. At */5 a prospect waited 9 minutes for
+# an answer (inbound 07:37, reply 07:46) — the system working exactly as
+# configured, and reading as broken to the human sitting there. A setter cannot
+# feel like a batch job.
+#
+# Going to */1 aims a run at finishing inside a minute, so the per-run budget
+# comes down as the cadence goes up: 2 turns x ~27s is ~55s plus HTTP.
+#
+# WHAT THE CADENCE ACTUALLY IS, corrected 2026-08-21. An earlier version of this
+# comment claimed "a long run simply causes the next tick to skip" via the O_EXCL
+# lock. That mechanism does not engage in this deployment: scheduler.py is a
+# SINGLE-THREADED loop that runs every due job sequentially and only then sleeps,
+# so it cannot start a second poll while this one is running — the lock never
+# races the scheduler, and the real interval is (this run) + (every other due
+# job) + the loop's sleep. Measured live over 12 minutes the job fired at 291s,
+# 255s and 166s intervals against a schedule of '* * * * *'. The lock still earns
+# its place against a MANUAL run overlapping the cron; it is not a cadence
+# guarantee, and nothing here should be sized as though it were.
+#
+# This trades throughput per run for responsiveness, which is the right trade
+# here: the inbox holds 50 conversations but typically only ~2 carry genuinely
+# new inbound, so 2 turns per minute clears far more volume per hour than 5 turns
+# per five minutes.
+MAX_MODEL_CALLS_PER_RUN = 2
+RUN_DEADLINE_SECONDS = 55
+
+# The deadline has to bound the RUN, not just the model calls inside it. It is
+# checked at the TOP of every conversation — before the per-thread GET, which
+# uses urllib with timeout=30 and runs up to --limit 25 times — and it is what
+# sizes the model timeout below. Before 2026-08-21 it was consulted once, at
+# step 9, AFTER the fetch, so a degraded Zernio cost 25 x 30s = 750s and the
+# scheduler's own subprocess.run(timeout=600) killed the run mid-scan: no
+# summary printed, and the lock file left behind for the stale-lock sweeper.
+#
+# MODEL_TIMEOUT_FLOOR_SECONDS is the point below which a call is not worth
+# starting: run_claude_cli is startup-dominated at ~27s median on this machine,
+# so a 10s budget buys nothing but a guaranteed timeout. decide() may spend TWO
+# subprocesses, so the worst-case model time is 2x whatever is passed.
+MODEL_TIMEOUT_FLOOR_SECONDS = 30
+MODEL_TIMEOUT_CEILING_SECONDS = 90
 
 # API cost of reading the FULL thread: one extra GET per conversation that has
 # moved since our last reply. The list call already carries `updatedTime`, so a
@@ -148,6 +186,13 @@ THREAD_FETCH_LIMIT = 60
 # this account; handing every one of them to a human defeats the automation. The
 # brain deflects the number and moves to the call.
 HANDOFF_RED_FLAGS = ("opt_out", "frustrated", "outage", "strategic")
+
+# Stages that END the conversation: ig_dm_state sets automation_paused=1 for
+# every one of them, so the poller will never speak to that person again. Kept
+# here (rather than imported from the DAO) because the poller must be able to
+# recognise the ending BEFORE the write that causes it, on the dry-run path where
+# the DAO is never called. test_terminal_stages_match_the_dao pins the two lists.
+TERMINAL_STAGES = frozenset({"booked", "handed_off", "disqualified"})
 
 NOTIFY_CATEGORY = "lead"  # never "instagram": blocked, and routed to Maven's bot
 
@@ -450,6 +495,76 @@ def _notify(text: str, *, conv_id: str, event: str, live: bool) -> tuple[bool, s
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
+# ── the operator-visible health surface ──────────────────────────────────────
+#
+# scheduler.py stores `out[-1][:200]` as cron_jobs.last_result — the last line of
+# stdout, hard-capped at 200 characters. The full-key summary was 358 characters,
+# so EVERY counter that says something went wrong was cut off: skipped_budget
+# started at char 214, skipped_red_flag 233, failures_model 254,
+# failures_guardrail 273, budget_exhausted 296, errors 317. A run where every
+# conversation hit the tenant-wide cap rendered identically to a healthy quiet
+# inbox on the Automations tab.
+#
+# Two changes make the field honest:
+#   1. short keys, failures FIRST, and zero-valued counters dropped, so the whole
+#      picture fits inside the 200 characters that are actually stored;
+#   2. an ERROR: prefix when the run genuinely failed. cron_health_check
+#      .find_bad_crons only flags a job whose last_result starts with ERROR or
+#      FAILED, and this job always exits 0 with a result starting '{', so the
+#      hourly fleet watchdog rated it healthy no matter what it reported.
+MAX_LAST_RESULT_CHARS = 200
+
+# Full name -> stored key. Ordered: the things that mean "a human should look"
+# first, so that even a future truncation loses the least important half.
+_SUMMARY_KEYS: tuple[tuple[str, str], ...] = (
+    ("errors", "errors"),                     # kept full: scheduler._FAILURE_KEYS
+    ("failures_model", "f_model"),
+    ("failures_guardrail", "f_guard"),
+    ("handoffs", "handoff"),
+    ("skipped_no_messages", "unreadable"),
+    ("skipped_budget", "budget"),
+    ("budget_exhausted", "exhausted"),
+    ("skipped_red_flag", "red_flag"),
+    ("replied", "replied"),
+    ("model_calls", "calls"),
+    ("scanned", "scanned"),
+    ("in_scope", "in_scope"),
+    ("leads_created", "leads"),
+    ("bookings_attempted", "book_try"),
+    ("bookings_applied", "booked"),
+    ("skipped_paused", "paused"),
+    ("skipped_our_turn", "our_turn"),
+    ("skipped_seen", "seen"),
+)
+# Always emitted, even at zero: their absence is itself information.
+_SUMMARY_ALWAYS = frozenset({"errors", "replied", "model_calls", "scanned", "in_scope"})
+# A run is FAILING — not merely quiet — when one of these is non-zero. Each one
+# means at least one real prospect got silence they should not have got.
+_SUMMARY_FAILURE_KEYS = ("errors", "failures_model", "failures_guardrail")
+
+
+def _summary_line(summary: dict, *, as_json: bool = False) -> str:
+    """The single line the scheduler will keep. Must fit MAX_LAST_RESULT_CHARS."""
+    failing = any(int(summary.get(k) or 0) > 0 for k in _SUMMARY_FAILURE_KEYS)
+    pairs = [
+        (short, int(summary.get(full) or 0))
+        for full, short in _SUMMARY_KEYS
+        if full in _SUMMARY_ALWAYS or int(summary.get(full) or 0)
+    ]
+    if as_json:
+        body = {k: v for k, v in pairs}
+        body["live"] = bool(summary.get("live"))
+        if summary.get("book_armed"):
+            body["book_armed"] = True
+        line = json.dumps(body, separators=(",", ":"))
+    else:
+        line = "  " + "  ".join(f"{k}={v}" for k, v in pairs)
+        line += f"  live={bool(summary.get('live'))}"
+    if failing:
+        line = "ERROR: " + line
+    return line[:MAX_LAST_RESULT_CHARS]
+
+
 def _parse_iso(value: Any) -> Optional[datetime]:
     """Zernio stamps are '...Z'; the DAO writes offset-aware ISO. Returns None
     when unparseable — every caller treats None as "cannot prove it, do the
@@ -599,10 +714,65 @@ def _poll(args) -> int:
         if summary_delta.get("stop_run"):
             break
 
+    # Threads Zernio will not hand over are REAL prospects going unanswered, not
+    # a quiet inbox: the conversation record still carries their inbound text and
+    # the messages endpoint returns []. One alert per RUN and not one per thread —
+    # 22 Telegrams is how an operator learns to mute the channel — and notify()'s
+    # own dedup collapses the repeat to one an hour after that.
+    if summary["skipped_no_messages"]:
+        _notify(
+            f"Instagram DMs unreadable: {summary['skipped_no_messages']} of "
+            f"{summary['in_scope']} threads returned no messages from Zernio while "
+            f"their conversation record still shows inbound text. Those people are "
+            f"not being answered. Check the inbox by hand.",
+            conv_id="run", event="no_messages", live=bool(args.live),
+        )
+
     print()
-    print(json.dumps(summary, indent=2) if args.json
-          else "  " + "  ".join(f"{k}={v}" for k, v in summary.items()))
+    # ONE LINE, deliberately — do not "improve" this with indent=2.
+    # scheduler.py records `out[-1][:200]` as cron_jobs.last_result, i.e. the LAST
+    # LINE of stdout. See _summary_line: the line is abbreviated and
+    # failure-ordered so the counters that matter survive that 200-char cap, and
+    # prefixed ERROR: when the run genuinely failed so the fleet watchdog can see
+    # it. The full picture stays in the human-readable lines above.
+    print(_summary_line(summary, as_json=bool(args.json)))
     return 0
+
+
+def _flag_terminal_ending(*, state, db, row_id, handle, conv_id, new_stage,
+                          previous_stage, live, action, bump) -> None:
+    """A conversation that just ENDED without asking for a human still needs one.
+
+    Nothing pairs a terminal stage with the handoff action. parse_decision only
+    coerces action=handoff -> stage=handed_off, never the reverse, and
+    validate_reply has no stage/action consistency check — so the model can
+    legally return action='reply' with stage='disqualified', send a polite
+    sign-off, and end the relationship. record_outbound (and set_stage on the
+    hold branch) then writes automation_paused=1 for any terminal stage, but the
+    poller only notified when action == 'handoff': handoff_pending stayed 0, the
+    row never appeared in `ig_dm_state.py list --handoffs`, and nothing outside
+    these four modules reads that column. A real prospect was written off in
+    silence, discoverable only by running `list --stage disqualified` by hand.
+
+    The stage is NOT rewritten. 'disqualified' is the model's finding and the
+    only record of why; request_handoff would overwrite it with 'handed_off'.
+    flag_for_review raises the queue flag and leaves the finding alone.
+    """
+    if new_stage not in TERMINAL_STAGES or previous_stage == new_stage:
+        return
+    reason = f"conversation ended at stage {new_stage} by a model {action}"
+    if live:
+        state.flag_for_review(db, row_id, reason=reason)
+    else:
+        print(f"  [dry-run] WOULD FLAG FOR REVIEW: {reason}")
+    bump("handoffs")
+    _notify(
+        f"Instagram conversation closed: @{_notify_safe(handle, 64)} moved "
+        f"{_notify_safe(previous_stage, 32)} -> {_notify_safe(new_stage, 32)} on a "
+        f"model {action}, so the automation is now paused on it. Nobody asked for "
+        f"a handoff; if that call was wrong it needs you. Conversation {conv_id}.",
+        conv_id=conv_id, event=f"closed:{new_stage}", live=live,
+    )
 
 
 def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
@@ -619,6 +789,9 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
 
     def bump(name: str, n: int = 1) -> None:
         delta[name] = delta.get(name, 0) + n
+
+    def dry(what: str) -> None:
+        print(f"  [dry-run] WOULD {what}")
 
     def handoff(row_id_: str, *, reason: str, notify_reason: str, stage_: str,
                 event: str = "handoff") -> None:
@@ -642,6 +815,16 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
             f"Stage: {_notify_safe(stage_, 32)}. Conversation {conv_id}.",
             conv_id=conv_id, event=event, live=live,
         )
+
+    # ── 0. the run deadline, BEFORE any network or database work ────────────
+    # Checked here rather than at step 9 because step 3's thread GET is the
+    # expensive part of a degraded run: urllib timeout=30, up to --limit times,
+    # which overruns the scheduler's own 600s kill long before step 9 is reached.
+    if time.monotonic() > deadline:
+        delta["budget_exhausted"] = 1
+        delta["stop_run"] = True
+        print(f"  @{handle}: run deadline reached ({RUN_DEADLINE_SECONDS}s) — stopping")
+        return delta
 
     # ── 1. state row (created on turn 1, long before a CRM lead exists) ──────
     row = state.get_or_create(db, conv=conv)
@@ -713,6 +896,34 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
     if not allowed:
         bump("skipped_budget")
         print(f"  @{handle}: reply budget says no ({why}) — skipping")
+        # The per-conversation refusals self-clear: `gap` is 45 seconds and
+        # `conv_cap` is 30 replies to ONE person in a day. Paging on those trains
+        # the operator to ignore the channel.
+        #
+        # `global_cap` is a different animal. It is ONE tenant-wide number summed
+        # across every conversation, checked before the model call with no
+        # per-conversation reservation, so exhausting it silences EVERY live
+        # conversation at once until UTC midnight — mid-deal, with nothing sent
+        # and no state change. That refusal reached nobody: one stdout line the
+        # scheduler truncates away. It is an incident, so it is alerted and it is
+        # written to the row an operator actually reads.
+        if why == "global_cap":
+            if live:
+                state.note(
+                    db, row_id,
+                    note=(f"reply refused: tenant-wide daily cap "
+                          f"({state.DAILY_REPLY_CAP_GLOBAL}) reached; every "
+                          f"conversation is silenced until UTC midnight"),
+                )
+            else:
+                dry("RECORD a tenant-wide cap refusal")
+            _notify(
+                f"Instagram DMs stopped: the tenant-wide daily reply cap "
+                f"({state.DAILY_REPLY_CAP_GLOBAL}) is exhausted, so every live "
+                f"conversation is getting silence until UTC midnight. "
+                f"@{_notify_safe(handle, 64)} was refused mid-thread.",
+                conv_id="tenant", event="global_cap", live=live,
+            )
         return delta
 
     # ── 9. run budgets, checked BEFORE the call, not after ──────────────────
@@ -737,6 +948,13 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
         phone=row.get("extracted_phone"), business=row.get("extracted_business"),
         need=row.get("extracted_need"), timeline=row.get("extracted_timeline"),
     )
+    # The timeout is derived from what is LEFT of the run, not left on the
+    # brain's 90s default: decide() may spend two subprocesses, so an unbounded
+    # default made the true worst case 55 + 2x90 = 235s against a 60-second tick.
+    model_timeout = int(max(
+        MODEL_TIMEOUT_FLOOR_SECONDS,
+        min(MODEL_TIMEOUT_CEILING_SECONDS, deadline - time.monotonic()),
+    ))
     decision = brain.decide(
         turns,
         current_stage=stage,
@@ -744,6 +962,7 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
         extracted_so_far=carried,
         replies_left_today=max(
             0, state.DAILY_REPLY_CAP_PER_CONVERSATION - replies_today),
+        timeout=model_timeout,
     )
     bump("model_calls")
 
@@ -751,10 +970,19 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
     #        template. Nothing is sent and the message stays unconsumed so the
     #        next run retries it. ─────────────────────────────────────────────
     if not decision.ok:
-        after = state.record_failure(
-            db, row_id, kind=str(decision.failure),
-            detail=str(decision.failure_detail or ""),
-        )
+        # Gated on --live like every other write. record_failure ESCALATES: the
+        # second consecutive guardrail reject sets stage='handed_off',
+        # handoff_pending=1 and automation_paused=1, which is terminal and only
+        # reversible by hand. Two preview runs must not be able to retire a live
+        # lead — least of all while _notify() is deliberately suppressed.
+        if live:
+            after = state.record_failure(
+                db, row_id, kind=str(decision.failure),
+                detail=str(decision.failure_detail or ""),
+            )
+        else:
+            dry(f"COUNT A FAILURE ({decision.failure}) against this conversation")
+            after = dict(row)
         if decision.failure == "model_unavailable":
             bump("failures_model")
         elif decision.failure != "empty_transcript":
@@ -772,7 +1000,7 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
                 conv_id=conv_id, event="handoff",
                             live=args.live,
             )
-        if decision.failure == "empty_transcript":
+        if decision.failure == "empty_transcript" and live:
             state.record_inbound(
                 db, row_id, message_id=newest_inbound.message_id,
                 at_iso=newest_inbound.created_at or _iso(_now()),
@@ -780,10 +1008,16 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
         return delta
 
     # ── 12. extraction: COALESCE in SQL, email first-write-wins ─────────────
-    after = state.apply_extraction(
-        db, row_id, extracted=decision.extracted,
-        email_source_message_id=newest_inbound.message_id or None,
-    )
+    # Also gated: apply_extraction writes with coalesce (permanently, for the
+    # life of the conversation) and raises its own terminal handoff when a
+    # second, different address arrives.
+    if live:
+        after = state.apply_extraction(
+            db, row_id, extracted=decision.extracted,
+            email_source_message_id=newest_inbound.message_id or None,
+        )
+    else:
+        after = dict(row)
     if int(after.get("handoff_pending") or 0) and not int(row.get("handoff_pending") or 0):
         # The DAO raises the flag when a SECOND, different address arrives.
         bump("handoffs")
@@ -799,25 +1033,31 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
     row = after
 
     # ── 13. the model asked for a human ─────────────────────────────────────
+    # Routed through the handoff() helper above, which is the copy that was
+    # already correctly gated on --live. Two spellings of the same act is how one
+    # of them ended up mutating a real conversation from a preview run.
     if decision.action == "handoff":
         reason = str(decision.handoff_reason or "model requested a handoff")
-        state.request_handoff(db, row_id, reason=reason)
-        bump("handoffs")
-        _notify(
-            f"Handoff: @{handle} needs you. Reason: {reason}. "
-            f"Stage: handed_off. Conversation {conv_id}.",
-            conv_id=conv_id, event="handoff",
-                    live=args.live,
-        )
+        handoff(row_id, reason=reason, notify_reason=reason, stage_="handed_off")
         print(f"  @{handle}: HANDOFF ({reason}) — nothing sent")
         return delta
 
     # ── 14. hold: the right answer is silence ───────────────────────────────
     if decision.action == "hold":
-        try:
-            state.set_stage(db, row_id, stage=decision.stage, reason="model hold")
-        except state.IllegalTransition as exc:
-            print(f"  [warn] @{handle}: {exc}", file=sys.stderr)
+        if live:
+            try:
+                state.set_stage(db, row_id, stage=decision.stage, reason="model hold")
+            except state.IllegalTransition as exc:
+                print(f"  [warn] @{handle}: {exc}", file=sys.stderr)
+        else:
+            dry(f"MOVE THE STAGE {stage} -> {decision.stage}")
+        # A hold onto a terminal stage ENDS the conversation: set_stage pauses
+        # the automation for any terminal value. Silently, until this call.
+        _flag_terminal_ending(
+            state=state, db=db, row_id=row_id, handle=handle, conv_id=conv_id,
+            new_stage=decision.stage, previous_stage=stage, live=live,
+            action="hold", bump=bump,
+        )
         # Consume the message even though nothing was sent. Without this the
         # hold decision is never recorded against the inbound id, so the same
         # DM is re-decided on EVERY poll — a fresh ~27s model call each tick,
@@ -907,6 +1147,14 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
     print(f"  @{handle}: REPLIED (stage {stage} -> {decision.stage})")
     _print_reply(reply)
 
+    # The DM went out and the conversation is over: record_outbound paused the
+    # row for any terminal stage. Nobody has been told yet.
+    _flag_terminal_ending(
+        state=state, db=db, row_id=row_id, handle=handle, conv_id=conv_id,
+        new_stage=str(decision.stage), previous_stage=stage, live=live,
+        action="reply", bump=bump,
+    )
+
     # ── 19. CRM projection. A failure here must never look like a send
     #        failure — the DM already went out. ─────────────────────────────
     try:
@@ -971,6 +1219,24 @@ def _run_close(*, db, row, decision, state, closer, handle, conv_id, args, bump)
               f"(email {result.email_status})")
     if not result.ok:
         bump("handoffs")
+        # The DM promising the invite was sent at step 17, BEFORE this ran. A
+        # failure here means the prospect has been told an invite is coming and
+        # will not get one, so the row has to reach the queue a human reads.
+        # close()'s own _fail() writes nothing to the database for any failure
+        # before the claim — calendar_unverified and no_slots both land there —
+        # so booking_status stayed 'none', automation_paused 0, handoff_pending 0
+        # and the only signal was a Telegram that dedups into silence on repeat.
+        # request_handoff is idempotent, so a row the closer already parked with
+        # fail_booking is unharmed.
+        try:
+            state.request_handoff(
+                db, str(row["id"]),
+                reason=f"booking failed at {result.stage_of_failure}",
+            )
+        except Exception as exc:  # noqa: BLE001 — reported, never swallowed
+            traceback.print_exc()
+            print(f"  [error] @{handle}: could not queue the failed booking for a "
+                  f"human: {exc}", file=sys.stderr)
         print(f"  [error] @{handle}: booking failed at {result.stage_of_failure}: "
               f"{result.error}", file=sys.stderr)
         _notify(

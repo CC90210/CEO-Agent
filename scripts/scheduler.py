@@ -185,6 +185,27 @@ def escalation_threshold(period) -> int:
     return ESCALATE_AFTER_FAST if is_fast else ESCALATE_AFTER_SLOW
 
 
+# Floor on the post-cycle sleep. A cycle that overran its interval goes straight
+# round again, but never with zero delay: the loop opens with a cron_jobs query,
+# and a pathological cycle that keeps overrunning would otherwise busy-spin on
+# the database.
+MIN_SLEEP_SECONDS = 1.0
+
+
+def remaining_sleep_seconds(elapsed: float,
+                            interval: float = CHECK_INTERVAL_SECONDS) -> float:
+    """How long to sleep so the loop POLLS every `interval`, not interval-plus.
+
+    The loop used to sleep a flat CHECK_INTERVAL_SECONDS after running every due
+    job, which makes the period ADDITIVE: the real interval for any job is
+    (sum of every due job's runtime) + 60s. Measured live over 12 minutes, the
+    Instagram DM Closer — schedule '* * * * *' — actually ran at 291s, 255s and
+    166s intervals. The scheduler is single-threaded, so a slow job still delays
+    everything behind it; this at least stops the wait from being charged twice.
+    """
+    return max(MIN_SLEEP_SECONDS, float(interval) - max(0.0, float(elapsed)))
+
+
 def parse_cron_schedule(schedule: str) -> Optional[timedelta]:
     """
     Convert a cron schedule string to a timedelta for the next run interval.
@@ -195,6 +216,17 @@ def parse_cron_schedule(schedule: str) -> Optional[timedelta]:
         return None
 
     minute, hour, dom, month, dow = parts
+
+    # Every minute: * * * * *
+    # The BARE star had no branch of its own, so it fell through to the daily
+    # fallback at the bottom and every-minute jobs were treated as DAILY. Two
+    # error-path consequences, both live on the Instagram DM Closer row: the
+    # retry-delay cap `min(timedelta(minutes=5), job_period)` evaluated to five
+    # minutes — the exact punishment that cap exists to prevent — and
+    # `job_is_fast` was False, so one transient failure paged CC on attempt 1
+    # instead of being treated as the self-healing blip it is.
+    if minute == "*" and hour == "*" and dom == "*" and month == "*" and dow == "*":
+        return timedelta(minutes=1)
 
     # Every N minutes: */N * * * *
     if minute.startswith("*/") and hour == "*" and dom == "*" and month == "*" and dow == "*":
@@ -1883,6 +1915,7 @@ def main():
     consecutive_errors = 0
     cycles = 0
     while True:
+        cycle_started = time.monotonic()
         try:
             jobs_run = check_and_run_due_jobs(client, env_vars)
             if jobs_run > 0:
@@ -1914,7 +1947,12 @@ def main():
             # Sleep here so the loop actually polls "every 60 seconds" as the
             # banner claims, and so the cycles%5 heartbeat lands ~every 5 min.
             # (Montreal turnkey reset, 2026-07-07.)
-            time.sleep(CHECK_INTERVAL_SECONDS)
+            #
+            # The sleep is the REMAINDER of the interval, not a flat minute
+            # (2026-08-21). A flat sleep made the period additive — the poll
+            # interval was (everything this cycle ran) + 60s — so a job
+            # scheduled '* * * * *' measured 291s, 255s and 166s between runs.
+            time.sleep(remaining_sleep_seconds(time.monotonic() - cycle_started))
         except KeyboardInterrupt:
             log("Shutdown requested. Goodbye.")
             break

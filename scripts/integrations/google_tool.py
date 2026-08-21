@@ -5,7 +5,11 @@ All credentials loaded from .env.agents (never hardcoded).
 
 Usage (from any agent via terminal):
   python scripts/integrations/google_tool.py calendar list [--max 10]
-  python scripts/integrations/google_tool.py calendar create --title "Meeting" --start "2026-04-01T16:00:00" --end "2026-04-01T16:45:00" [--attendees "a@b.com,c@d.com"] [--meet] [--description "..."] [--timezone "America/Toronto"]
+  python scripts/integrations/google_tool.py calendar create --title "Meeting" --start "2026-04-01T16:00:00" --end "2026-04-01T16:45:00" [--attendees "a@b.com,c@d.com"] [--meet | --meet-per-event [--meet-request-id KEY]] [--description "..."] [--timezone "America/Toronto"] [--dry-run]
+    --meet           = legacy: pastes the ONE static GOOGLE_MEET_LINK shared by every event
+    --meet-per-event = asks Google to mint a room for THIS event and reads the link back off
+                       the response; exits 3 (event exists, no room) rather than falling back
+    --dry-run        = print the request body, create nothing, mail nobody
   python scripts/integrations/google_tool.py calendar delete <event_id>
   python scripts/integrations/google_tool.py gmail send --to "a@b.com" --subject "Hi" --body "Hello"
   python scripts/integrations/google_tool.py gmail list [--max 10]
@@ -324,9 +328,115 @@ def calendar_list(args):
                 print(f"    Meet: {e['hangoutLink']}")
 
 
+# ── Per-event Google Meet rooms (opt-in, additive) ─────────────────
+#
+# The legacy `--meet` path pastes the single static GOOGLE_MEET_LINK from
+# .env.agents into a hand-authored conferenceData block. That is ONE room for
+# every event ever created, so two prospects booked at overlapping times get
+# the same URL and can walk into each other's call.
+#
+# `--meet-per-event` asks Google to MINT a room for this event
+# (conferenceData.createRequest) and then reads the room back off the API
+# response. It is opt-in precisely because it is not verifiable without
+# creating a real calendar event: every existing caller of `--meet`
+# (book_discovery_call.py, booking_engine.py, outreach_engine.py) keeps the
+# old behaviour byte-for-byte until it is migrated deliberately.
+#
+# There is NO fallback from --meet-per-event to the static link. A silent
+# fallback is exactly how two prospects end up in one room with nobody
+# noticing; this path fails loudly instead (exit 3) and always reports the
+# created event id so the event can be cancelled.
+
+MEET_REQUEST_ID_MAX = 64
+
+# Exit code for "the calendar event EXISTS but it has no per-event Meet room".
+# Distinct from 1 (nothing was created) because the caller's recovery is
+# different: it must cancel or repair a real event, not simply retry.
+EXIT_EVENT_WITHOUT_MEET = 3
+
+
+def build_meet_request_id(supplied=None):
+    """Return the idempotency key for conferenceData.createRequest.
+
+    Google treats requestId as the idempotency key: replaying the SAME
+    requestId against the SAME event returns the already-created conference
+    instead of minting a second room. Callers that can derive a stable key
+    (e.g. f"igdm-{conversation_id}-{slot_start}") should pass one via
+    --meet-request-id so a retried booking cannot create two rooms. Callers
+    that pass nothing get a fresh uuid4 — safe for a first attempt, but NOT
+    idempotent if the same booking is retried.
+    """
+    if supplied is not None:
+        rid = str(supplied).strip()
+        if not rid:
+            raise ValueError("--meet-request-id was supplied but empty")
+        if len(rid) > MEET_REQUEST_ID_MAX:
+            raise ValueError(
+                f"--meet-request-id is {len(rid)} chars; Google's limit is "
+                f"{MEET_REQUEST_ID_MAX}"
+            )
+        return rid
+    import uuid
+    return uuid.uuid4().hex  # 32 chars, well under the limit
+
+
+def build_conference_data(*, per_event, request_id=None, static_link=None):
+    """Build the conferenceData block for an events.insert body.
+
+    per_event=True  -> ask Google to create a NEW room for this event.
+    per_event=False -> legacy behaviour: paste the static room from env.
+                       Returns None when no static link is configured (the
+                       historical behaviour: event created with no room).
+    """
+    if per_event:
+        return {
+            "createRequest": {
+                "requestId": build_meet_request_id(request_id),
+                "conferenceSolutionKey": {"type": "hangoutsMeet"},
+            }
+        }
+    if not static_link:
+        return None
+    return {
+        "entryPoints": [{
+            "entryPointType": "video",
+            "uri": static_link,
+            "label": static_link.replace("https://", "")
+        }],
+        "conferenceSolution": {
+            "key": {"type": "hangoutsMeet"},
+            "name": "Google Meet"
+        },
+        "conferenceId": static_link.split("/")[-1]
+    }
+
+
+def extract_conference(data):
+    """Read the conference back OFF the API response — never assume it.
+
+    Returns (link, status_code). status_code is Google's
+    conferenceData.createRequest.status.statusCode: 'success', 'pending'
+    (room not minted yet — a follow-up events.get is required) or 'failure'
+    (e.g. Meet conference creation disabled for this Workspace). Both
+    non-success cases still leave a REAL event on the calendar.
+    """
+    if not isinstance(data, dict):
+        return "", ""
+    conf = data.get("conferenceData") or {}
+    status = ((conf.get("createRequest") or {}).get("status") or {}).get("statusCode") or ""
+    link = data.get("hangoutLink") or ""
+    if not link:
+        for entry in conf.get("entryPoints") or []:
+            if entry.get("entryPointType") == "video" and entry.get("uri"):
+                link = entry["uri"]
+                break
+    return link, status
+
+
 def calendar_create(args):
     """Create a calendar event with optional attendees and Meet link."""
     tz = args.timezone or "America/Toronto"
+    per_event_meet = bool(getattr(args, "meet_per_event", False))
     event = {
         "summary": args.title,
         "start": {"dateTime": args.start, "timeZone": tz},
@@ -336,21 +446,22 @@ def calendar_create(args):
         event["description"] = args.description
     if args.attendees:
         event["attendees"] = [{"email": e.strip()} for e in args.attendees.split(",")]
-    if args.meet:
-        meet_link = os.environ.get("GOOGLE_MEET_LINK", "")
-        if meet_link:
-            event["conferenceData"] = {
-                "entryPoints": [{
-                    "entryPointType": "video",
-                    "uri": meet_link,
-                    "label": meet_link.replace("https://", "")
-                }],
-                "conferenceSolution": {
-                    "key": {"type": "hangoutsMeet"},
-                    "name": "Google Meet"
-                },
-                "conferenceId": meet_link.split("/")[-1]
-            }
+    if args.meet or per_event_meet:
+        try:
+            conference = build_conference_data(
+                per_event=per_event_meet,
+                request_id=getattr(args, "meet_request_id", None),
+                # The static room is not even read in per-event mode: the
+                # value must not be reachable from a code path that could
+                # fall back to it.
+                static_link=None if per_event_meet
+                            else os.environ.get("GOOGLE_MEET_LINK", ""),
+            )
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            sys.exit(1)
+        if conference:
+            event["conferenceData"] = conference
 
     params = {
         "calendarId": "primary",
@@ -358,11 +469,27 @@ def calendar_create(args):
         "sendUpdates": "all"
     }
 
-    data, err = run_gws([
+    gws_argv = [
         "calendar", "events", "insert",
         "--params", json.dumps(params),
         "--json", json.dumps(event)
-    ])
+    ]
+
+    # --dry-run exists so the exact outbound request body can be inspected
+    # WITHOUT creating a real event and mailing an invite to a real person
+    # (events.insert runs with sendUpdates:"all"). Nothing is called here.
+    if getattr(args, "dry_run", False):
+        print(json.dumps({
+            "dry_run": True,
+            "meet_mode": "per_event" if per_event_meet
+                         else ("static" if args.meet else "none"),
+            "gws_argv": gws_argv,
+            "params": params,
+            "event": event,
+        }, indent=2))
+        return
+
+    data, err = run_gws(gws_argv)
 
     if err == "AUTH_EXPIRED":
         print("ERROR: gws auth expired. Run: gws auth login", file=sys.stderr)
@@ -371,14 +498,58 @@ def calendar_create(args):
         print(f"ERROR: {err}", file=sys.stderr)
         sys.exit(1)
 
+    meet_link, meet_status = extract_conference(data)
+
+    if per_event_meet and not (meet_link and meet_status == "success"):
+        # The event EXISTS. Google has already mailed the invite. Do not
+        # pretend this was a clean failure, and do NOT quietly substitute the
+        # shared static room — say exactly what happened and hand back the
+        # event id so a human (or the caller) can cancel it.
+        event_id = data.get("id") if isinstance(data, dict) else None
+        reason = {
+            "pending": "Google accepted the request but has not minted the room yet "
+                       "(statusCode=pending); a follow-up calendar events.get is required.",
+            "failure": "Google refused to create the conference (statusCode=failure) — "
+                       "Meet conference creation may be disabled for this Workspace.",
+            "": "The response carried no conferenceData.createRequest status at all.",
+        }.get(meet_status, f"Unexpected conference statusCode={meet_status!r}.")
+        print(
+            "ERROR: EVENT CREATED BUT IT HAS NO PER-EVENT MEET ROOM.\n"
+            f"  {reason}\n"
+            f"  event_id: {event_id}\n"
+            f"  html_link: {data.get('htmlLink') if isinstance(data, dict) else None}\n"
+            "  NOT falling back to the static GOOGLE_MEET_LINK — a shared room is "
+            "how two prospects end up in one call.\n"
+            f"  Cancel with: google_tool.py calendar delete {event_id}",
+            file=sys.stderr,
+        )
+        # Machine-readable regardless of --json: the caller needs the event id
+        # to clean up, and it must never have to scrape it out of stderr.
+        print(json.dumps({
+            "ok": False,
+            "error": "meet_room_not_created",
+            "event_created": True,
+            "event_id": event_id,
+            "html_link": data.get("htmlLink") if isinstance(data, dict) else None,
+            "meet_status": meet_status,
+            "meet_link": meet_link or None,
+        }, indent=2))
+        sys.exit(EXIT_EVENT_WITHOUT_MEET)
+
     if args.json_output:
         print(json.dumps(data, indent=2))
     else:
         print(f"Event created: {data.get('summary')}")
         print(f"  When: {data.get('start', {}).get('dateTime')}")
         print(f"  Link: {data.get('htmlLink')}")
-        if data.get("hangoutLink"):
-            print(f"  Meet: {data['hangoutLink']}")
+        if meet_link:
+            print(f"  Meet: {meet_link}")
+        # Only the new path prints these. The legacy --meet stdout shape is
+        # left untouched on purpose: book_discovery_call.book() keeps
+        # out[:300] of it, so an extra line there could truncate the Meet URL.
+        if per_event_meet:
+            print("  Meet-Scope: per-event (minted by Google for this event)")
+            print(f"  Event-Id: {data.get('id')}")
         attendees = data.get("attendees", [])
         if attendees:
             print(f"  Attendees: {', '.join(a['email'] for a in attendees)}")
@@ -1337,9 +1508,24 @@ def main():
     cal_create.add_argument("--start", required=True, help="ISO datetime")
     cal_create.add_argument("--end", required=True, help="ISO datetime")
     cal_create.add_argument("--attendees", help="Comma-separated emails")
-    cal_create.add_argument("--meet", action="store_true", help="Attach Google Meet link")
+    cal_create.add_argument("--meet", action="store_true",
+                            help="Attach the STATIC shared GOOGLE_MEET_LINK (legacy; "
+                                 "one room for every event)")
+    cal_create.add_argument("--meet-per-event", dest="meet_per_event", action="store_true",
+                            help="Ask Google to mint a NEW Meet room for this event "
+                                 "(conferenceData.createRequest) and read the link back "
+                                 "off the response. Never falls back to the static link: "
+                                 f"exits {EXIT_EVENT_WITHOUT_MEET} with the event id if no "
+                                 "room was created.")
+    cal_create.add_argument("--meet-request-id", dest="meet_request_id",
+                            help="Idempotency key for --meet-per-event (<=%d chars). Pass a "
+                                 "stable per-booking value so a retry reuses the same room "
+                                 "instead of minting a second one." % MEET_REQUEST_ID_MAX)
     cal_create.add_argument("--description", help="Event description")
     cal_create.add_argument("--timezone", default="America/Toronto")
+    cal_create.add_argument("--dry-run", dest="dry_run", action="store_true",
+                            help="Print the exact events.insert request body and exit "
+                                 "without calling Google (no event, no invite email)")
     cal_create.add_argument("--json", dest="json_output", action="store_true")
 
     cal_delete = cal_sub.add_parser("delete", help="Delete event")

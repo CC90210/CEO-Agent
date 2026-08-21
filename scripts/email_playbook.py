@@ -461,13 +461,41 @@ def voice_rules() -> str:
     )
 
 
+def _banned_phrase_re(phrase: str) -> "re.Pattern[str]":
+    """Word-boundaried matcher for one banned phrase.
+
+    A bare substring scan matched INSIDE other words, and the fleet is
+    bilingual: "as per" fires inside the Spanish "Las personas" and the French
+    "pas personnel" / "pas perdre". On the Instagram channel that is not a
+    cosmetic false positive — two consecutive guardrail rejects is
+    MAX_CONSECUTIVE_GUARDRAIL_REJECTS, which retires a live conversation to
+    handed_off + automation_paused until a human runs `resume`, and the retry
+    cannot save it because the rejection names an English phrase the model
+    cannot find in its French text.
+
+    A single word keeps a trailing \\w* so inflections still trip it
+    ("unlock" -> "unlocking", "leverage" -> "leveraging"); a multi-word phrase
+    is bounded on both ends, because that is where the cross-language collisions
+    live. Neither end of the match may start mid-word.
+    """
+    if " " in phrase.strip():
+        return re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE)
+    return re.compile(r"\b" + re.escape(phrase) + r"\w*", re.IGNORECASE)
+
+
+_BANNED_PHRASE_RES: tuple[tuple[str, "re.Pattern[str]"], ...] = tuple(
+    (phrase, _banned_phrase_re(phrase))
+    for phrase in BANNED_OPENERS + BANNED_CLOSERS + BANNED_FILLER
+)
+
+
 def lint_draft(body: str) -> list[str]:
     """Cheap deterministic check that a generated reply obeys the copy rules.
     Returns a list of violations (empty == clean)."""
     b = _lc(body)
     out: list[str] = []
-    for phrase in BANNED_OPENERS + BANNED_CLOSERS + BANNED_FILLER:
-        if phrase in b:
+    for phrase, pattern in _BANNED_PHRASE_RES:
+        if pattern.search(b):
             out.append(f"banned phrase: {phrase}")
     if b.count(BOOKING_LINK.lower()) > 1:
         out.append("booking link appears more than once")

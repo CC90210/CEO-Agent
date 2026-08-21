@@ -149,7 +149,12 @@ SEED_JOBS: list[dict] = [
         # compared an outgoing IGSID against a Zernio ObjectId, a comparison
         # that could never be true) and answered itself with the same template.
         #
-        # */5, NOT */2. The "~11s per model turn" figure this entry was first
+        # */1 as of 2026-08-21 (was */5). A prospect waited 9 minutes for an answer
+        # at */5 — correct per the config and unacceptable for a setter. The
+        # per-run model budget drops to 2 so a run FINISHES inside its minute;
+        # the O_EXCL lock makes an overrun skip the next tick rather than
+        # double-send. Original sizing note follows.
+        # The "~11s per model turn" figure this entry was first
         # written against is wrong: measured on this machine 2026-08-20,
         # run_claude_cli takes 29.2 / 26.7 / 28.1 / 25.8s — median 27.4s, because
         # the cost is `claude -p` process startup, not generation. decide() may
@@ -176,11 +181,11 @@ SEED_JOBS: list[dict] = [
         # production-scheduling mutation.
         "name": "Instagram DM Closer",
         "description": "instagram_dm_poller.py — read each @oasisaisolutions DM thread in full, reply in CC's voice via the local Claude CLI, extract contact details, hand warm/blocked threads to CC. Booking stays disarmed.",
-        "schedule": "*/5 * * * *",
+        "schedule": "* * * * *",
         "action_type": "script_run",
         "action_config": {
             "script": "scripts/integrations/instagram_dm_poller.py",
-            "args": ["--live", "--json", "--limit", "25", "--max-model-calls", "5"],
+            "args": ["--live", "--json", "--limit", "25", "--max-model-calls", "2"],
             "timeout": 600,
             "notify_channel": "telegram",
             "notify_on": "nonzero_exit",

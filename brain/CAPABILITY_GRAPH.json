@@ -1,18 +1,18 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-20T19:08:43.621778+00:00",
+  "generated_at": "2026-08-21T08:03:31.353987+00:00",
   "totals": {
     "skills": 162,
-    "scripts": 167,
+    "scripts": 173,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 420,
-    "edges_total": 183,
-    "drift_count": 0
+    "nodes_total": 426,
+    "edges_total": 199,
+    "drift_count": 2
   },
   "nodes": [
     {
@@ -6190,6 +6190,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:generate_contractor_agreement",
+      "kind": "script",
+      "name": "generate_contractor_agreement",
+      "path": "scripts/generate_contractor_agreement.py",
+      "description": "generate_contractor_agreement \u2014 render an OASIS contractor agreement.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:generate_covers",
       "kind": "script",
       "name": "generate_covers",
@@ -6850,6 +6860,28 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:run_dashboard_script",
+      "kind": "script",
+      "name": "run_dashboard_script",
+      "path": "scripts/run_dashboard_script.py",
+      "description": "run_dashboard_script.py \u2014 run any oasis-command-center TS script with creds.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.oasis",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "run a dashboard script",
+        "execute oasis-command-center tsx script",
+        "probe the dashboard database path"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
       "id": "script:run_reseed_sunbiz_forms",
       "kind": "script",
       "name": "run_reseed_sunbiz_forms",
@@ -7479,6 +7511,95 @@
       "project": "oasis",
       "bridge": {
         "visible": false
+      }
+    },
+    {
+      "id": "script:ig_closer",
+      "kind": "script",
+      "name": "ig_closer",
+      "path": "scripts/integrations/ig_closer.py",
+      "description": "ig_closer.py \u2014 the Instagram DM close loop: slot -> Google Meet -> email -> Telegram.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "sales.booking",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "close an instagram dm lead",
+        "book the instagram prospect",
+        "ig dm close loop",
+        "instagram dm booking"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:ig_conversation_brain",
+      "kind": "script",
+      "name": "ig_conversation_brain",
+      "path": "scripts/integrations/ig_conversation_brain.py",
+      "description": "ig_conversation_brain.py \u2014 the conversational brain behind the OASIS Instagram DMs.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "instagram dm brain",
+        "ig conversation brain",
+        "dm reply decision"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:ig_dm_state",
+      "kind": "script",
+      "name": "ig_dm_state",
+      "path": "scripts/integrations/ig_dm_state.py",
+      "description": "ig_dm_state.py \u2014 the Instagram DM closer's memory. The ONLY module here that writes SQL.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "state_write",
+      "triggers": [
+        "instagram dm state",
+        "dm conversation state",
+        "ig handoffs"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:instagram_dm_poller",
+      "kind": "script",
+      "name": "instagram_dm_poller",
+      "path": "scripts/integrations/instagram_dm_poller.py",
+      "description": "instagram_dm_poller.py \u2014 run OASIS Instagram DMs like a human closer.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "external_send",
+      "triggers": [
+        "instagram dm automation",
+        "poll instagram dms",
+        "answer instagram dms"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": true
       }
     },
     {
@@ -9050,6 +9171,11 @@
     },
     {
       "from": "runtime:cron_engine",
+      "to": "script:instagram_dm_poller",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
       "to": "script:link_library_to_posts",
       "kind": "schedules"
     },
@@ -9334,6 +9460,56 @@
       "kind": "calls"
     },
     {
+      "from": "script:ig_closer",
+      "to": "script:book_discovery_call",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_closer",
+      "to": "script:email_playbook",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_closer",
+      "to": "script:ig_conversation_brain",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_closer",
+      "to": "script:ig_dm_state",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_closer",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_closer",
+      "to": "script:send_gateway",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_conversation_brain",
+      "to": "script:draft_critic",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_conversation_brain",
+      "to": "script:email_playbook",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_conversation_brain",
+      "to": "script:inbound_classifier",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_dm_state",
+      "to": "script:ig_conversation_brain",
+      "kind": "calls"
+    },
+    {
       "from": "script:inbound_classifier",
       "to": "script:notify",
       "kind": "calls"
@@ -9345,6 +9521,26 @@
     },
     {
       "from": "script:ingest_training_link",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:instagram_dm_poller",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:instagram_dm_poller",
+      "to": "script:email_playbook",
+      "kind": "calls"
+    },
+    {
+      "from": "script:instagram_dm_poller",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:instagram_dm_poller",
       "to": "script:supabase_tool",
       "kind": "calls"
     },
@@ -9456,6 +9652,11 @@
     {
       "from": "script:review_loop",
       "to": "script:review_harvest",
+      "kind": "calls"
+    },
+    {
+      "from": "script:run_seed_oasis_forms",
+      "to": "script:run_dashboard_script",
       "kind": "calls"
     },
     {
@@ -9939,5 +10140,14 @@
       "kind": "requires"
     }
   ],
-  "drift": []
+  "drift": [
+    {
+      "node": "script:ig_dm_state",
+      "issue": "invalid CAPABILITY_META: risk must be one of ['destructive', 'external_write', 'local_write', 'read_only']"
+    },
+    {
+      "node": "script:instagram_dm_poller",
+      "issue": "invalid CAPABILITY_META: risk must be one of ['destructive', 'external_write', 'local_write', 'read_only']"
+    }
+  ]
 }

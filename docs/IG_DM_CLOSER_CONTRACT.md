@@ -1,6 +1,6 @@
 ---
 tags: [instagram, automation, oasis, contract, architecture, sales, agent-safety]
-last_updated: 2026-08-20
+last_updated: 2026-08-21
 status: locked
 owner: bravo
 related: ["[[docs/INSTAGRAM_DM_AUTOMATION_SPEC]]", "[[brain/DEAL_ARCHITECTURE]]", "[[CLAUDE]]", "[[brain/EXECUTION_RULES]]"]
@@ -1531,3 +1531,61 @@ completion report — "tests pass" without it is not proof.
    per call versus `""`. At 12 calls a run that is ~70s. Changing it shifts
    behaviour for the daily brief, sleep agent and email classifier simultaneously —
    CC's call, not a drive-by fix.
+
+---
+
+## 11. Amendments — 2026-08-21 (adversarial-review remediation)
+
+The clauses below **supersede** anything above them that disagrees. Each one
+exists because the reviewed build shipped the opposite behaviour.
+
+**A dry run writes NOTHING.** `--live` now gates `record_failure`,
+`apply_extraction`, `request_handoff` and `set_stage` as well as the send.
+Before this, a preview run whose model turn returned `action=handoff` wrote
+`stage='handed_off'` + `automation_paused=1` on the real row while `_notify()`
+deliberately suppressed the alert, so the prospect got permanent silence and
+nobody was told. `state.get_or_create` still creates the conversation row on
+first sight — that is the row the poller reads, and it carries no decision.
+
+**No ending is silent.** A terminal stage (`booked` / `handed_off` /
+`disqualified`) reached by `action='reply'` or `action='hold'` now raises
+`handoff_pending` through the new `ig_dm_state.flag_for_review()` — which does
+NOT rewrite the stage — and notifies. A tenant-wide reply-budget refusal
+(`global_cap`) notifies and writes `last_error` through `ig_dm_state.note()`.
+Threads Zernio returns empty raise ONE aggregate alert per run.
+
+**The run deadline bounds the RUN.** It is checked at the top of every
+conversation, before the thread GET, and it sizes the model timeout
+(`MODEL_TIMEOUT_FLOOR_SECONDS` .. `MODEL_TIMEOUT_CEILING_SECONDS`) rather than
+leaving `decide()` on its 90s default.
+
+**`cron_jobs.last_result` holds 200 characters.** `_summary_line()` emits short,
+failure-first keys and prefixes `ERROR: ` when `errors` / `failures_model` /
+`failures_guardrail` are non-zero, so the counters survive the cap and
+`cron_health_check.find_bad_crons` can see a failing run.
+
+**The Meet room is minted per event.** `book_discovery_call.book()` defaults to
+`meet_scope="per_event"` with a derived `--meet-request-id`, returns the room it
+read back off the tool output, and `ig_closer` emails THAT room. There is no
+fallback to the shared static `GOOGLE_MEET_LINK`: an event created without a
+room is a failure, parked with the CALENDAR EXISTS warning. A dry run reports
+`meet_link=None`, because no room exists or is reserved until the event is
+created.
+
+**The calendar read is a status, not a row count.**
+`book_discovery_call.read_calendar()` returns `(read_ok, busy)` and parses
+`calendar list --json`, so TIMED events are visible to the clash check for the
+first time (the old text parser required whitespace after the date and got `T`).
+`ig_closer.verify_calendar_readable()` reads the status.
+
+**`close()` catches `BaseException`.** A `KeyboardInterrupt` or `SystemExit`
+between the claim and finalize parks the row and alerts before re-raising. An
+out-of-process kill still cannot be caught — `ig_dm_state.py list --stale-claims`
+is the queue that finds those.
+
+**Guards are multilingual.** The channel overrides tell the model to mirror the
+prospect's language, so every English-literal guard was one French DM away from
+being switched off by an untrusted party. `false_offer`, `human_claim`, the
+price check and the leak markers now carry French and Spanish members, and
+`email_playbook.lint_draft` matches on word boundaries so "as per" stops firing
+inside "Las personas" and "pas personnel".

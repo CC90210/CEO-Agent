@@ -52,6 +52,7 @@ CAPABILITY_META = {
 }
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -86,6 +87,11 @@ BRIEF_DIR = PROJECT_ROOT / "memory" / "lead_briefs"
 
 GOOGLE_TOOL = PROJECT_ROOT / "scripts" / "integrations" / "google_tool.py"
 
+# google_tool.EXIT_EVENT_WITHOUT_MEET: the event EXISTS but has no Meet room.
+# Distinct from 1 (nothing was created) because the recovery is different — a
+# real event has to be cancelled, not simply retried.
+EXIT_EVENT_WITHOUT_MEET = 3
+
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -103,19 +109,74 @@ def _parse_iso_local(s: str) -> datetime:
     return dt.replace(tzinfo=TZ) if dt.tzinfo is None else dt.astimezone(TZ)
 
 
-def busy_windows(days: int) -> list[tuple[datetime, datetime]]:
-    """Existing events as (start, end) local. Falls back to 'no known events'
-    rather than inventing availability if the calendar cannot be read.
+def _event_window(event: Any) -> Optional[tuple[datetime, datetime]]:
+    """One Google event -> the (start, end) it occupies, local. None if unusable.
 
-    NOTE: google_tool's `calendar list` prints `YYYY-MM-DD  Title` — date only,
-    no times. All-day and untimed entries therefore block the WHOLE day. That is
-    the conservative reading: offering a slot inside an unknown-duration event
-    would double-book CC, and a missed slot costs nothing.
+    A TIMED event blocks exactly its own window. An all-day entry (start.date,
+    no dateTime) blocks the WHOLE day — the conservative reading, because
+    offering a slot inside an unknown-duration event would double-book CC and a
+    missed slot costs nothing.
     """
-    rc, out, err = _run(["calendar", "list", "--max", "80"])
+    if not isinstance(event, dict):
+        return None
+    start_raw = (event.get("start") or {}).get("dateTime")
+    end_raw = (event.get("end") or {}).get("dateTime")
+    if start_raw:
+        try:
+            start = _parse_iso_local(str(start_raw))
+            end = (_parse_iso_local(str(end_raw)) if end_raw
+                   else start + timedelta(minutes=CALL_MINUTES))
+        except ValueError:
+            return None
+        return (start, end) if end > start else (start, start + timedelta(minutes=1))
+
+    day_raw = (event.get("start") or {}).get("date")
+    if not day_raw:
+        return None
+    try:
+        day = datetime.fromisoformat(str(day_raw)).replace(tzinfo=TZ)
+    except ValueError:
+        return None
+    return day.replace(hour=0, minute=0), day.replace(hour=23, minute=59)
+
+
+def read_calendar(days: int) -> tuple[bool, list[tuple[datetime, datetime]]]:
+    """(read_ok, busy windows). The read STATUS is the half that was missing.
+
+    Two changes, both of which shipped as defects:
+
+    1. TIMED EVENTS WERE INVISIBLE. This used to parse google_tool's human
+       output with `\\s*(\\d{4}-\\d{2}-\\d{2})\\s+(.*)`, which requires
+       whitespace after the date. google_tool prints
+       `e['start']['dateTime']` first, i.e. `2026-08-25T14:00:00-04:00  Client
+       call`, so the regex saw a `T` and hit `continue` for every real meeting.
+       Only all-day entries ever matched. The clash check that free_slots() and
+       ig_closer both depend on was therefore blind to exactly the events it
+       exists to avoid. Reading `--json` removes the parser from the equation:
+       the tool already hands back the raw events with real start AND end times.
+
+    2. AN EMPTY LIST MEANT TWO OPPOSITE THINGS. `[]` was returned both for "the
+       calendar was read and holds nothing" and for "the read FAILED", and
+       ig_closer.verify_calendar_readable() then inferred readability from
+       `bool(busy_windows(...))`. With timed events invisible, a fully booked
+       week produced [] and the closer refused to book at all; with one all-day
+       entry it "verified" a calendar it had not really read. The caller needs
+       the status, so it is returned rather than inferred.
+    """
+    rc, out, err = _run(["calendar", "list", "--max", "80", "--json"])
     if rc != 0:
         print(f"[book] calendar read failed: {err[:200]}", file=sys.stderr)
-        return []
+        return False, []
+    try:
+        events = json.loads(out or "[]")
+    except (ValueError, TypeError) as exc:
+        print(f"[book] calendar output was not JSON ({exc}); treating the "
+              f"calendar as UNREAD rather than empty", file=sys.stderr)
+        return False, []
+    if not isinstance(events, list):
+        print("[book] calendar output was not a list of events; treating the "
+              "calendar as UNREAD", file=sys.stderr)
+        return False, []
 
     # `days` is a real filter, not decoration: `calendar list` returns whatever
     # is next on the calendar, which on a sparse calendar reaches months ahead.
@@ -124,16 +185,25 @@ def busy_windows(days: int) -> list[tuple[datetime, datetime]]:
     horizon = (now + timedelta(days=days + 1)).replace(hour=23, minute=59)
 
     busy: list[tuple[datetime, datetime]] = []
-    for line in out.splitlines():
-        m = re.match(r"\s*(\d{4}-\d{2}-\d{2})\s+(.*)", line)
-        if not m:
+    for event in events:
+        window = _event_window(event)
+        if window is None:
             continue
-        day = datetime.fromisoformat(m.group(1)).replace(tzinfo=TZ)
-        if day > horizon or day < now - timedelta(days=1):
+        start, end = window
+        if start > horizon or end < now - timedelta(days=1):
             continue
-        busy.append((day.replace(hour=0, minute=0),
-                     day.replace(hour=23, minute=59)))
-    return busy
+        busy.append((start, end))
+    return True, busy
+
+
+def busy_windows(days: int) -> list[tuple[datetime, datetime]]:
+    """Existing events as (start, end) local. Falls back to 'no known events'
+    rather than inventing availability if the calendar cannot be read.
+
+    Callers that need to tell "no events" from "no read" must use
+    read_calendar() — this shape cannot express the difference and never could.
+    """
+    return read_calendar(days)[1]
 
 
 def free_slots(days: int = 5, limit: int = 12) -> list[dict[str, str]]:
@@ -277,7 +347,23 @@ def write_brief(lead_id: str, body: str) -> Path:
 
 # ── book ─────────────────────────────────────────────────────────────────────
 
-def book(db, lead_id: str, start_iso: str, apply: bool) -> dict:
+_MEET_LINE_RE = re.compile(r"^\s*Meet:\s*(\S+)\s*$", re.MULTILINE)
+
+# Google's requestId cap (google_tool.MEET_REQUEST_ID_MAX). Kept short and
+# DERIVED, never random: Google treats requestId as the idempotency key, so a
+# retried booking that reuses the key gets the room it already created instead of
+# a second one.
+_MEET_REQUEST_ID_MAX = 64
+
+
+def meet_request_id(lead_id: str, start_iso: str) -> str:
+    """Stable idempotency key for this lead's room at this start time."""
+    digest = hashlib.sha256(f"{lead_id}|{start_iso}".encode()).hexdigest()
+    return f"bdc-{digest[:40]}"
+
+
+def book(db, lead_id: str, start_iso: str, apply: bool,
+         meet_scope: str = "per_event") -> dict:
     lead, meta = load_lead(db, lead_id)
     if not lead:
         return {"ok": False, "error": f"lead {lead_id} not found"}
@@ -303,10 +389,26 @@ def book(db, lead_id: str, start_iso: str, apply: bool) -> dict:
     brief_path = write_brief(lead_id, brief_body)
     result["brief"] = str(brief_path.relative_to(PROJECT_ROOT))
 
+    # THE ROOM. `--meet` fills conferenceData from the single static
+    # GOOGLE_MEET_LINK in the agents env — ONE url pasted onto every event this
+    # repo has ever created. Two prospects booked an hour apart get the same
+    # room, and either can walk into the other's call (or a paying client's)
+    # from an invite email they never deleted. `--meet-per-event` asks Google to
+    # mint a room for THIS event and reads it back off the API response; there
+    # is no fallback between the two, deliberately, because a silent fallback is
+    # how a shared room comes back unnoticed.
+    #
+    # `meet_scope="static"` is kept as an explicit escape hatch for an operator
+    # whose Workspace refuses conference creation (google_tool exits 3 in that
+    # case and the event still exists). It is never the default and no caller in
+    # this repo passes it.
+    meet_args = (["--meet"] if meet_scope == "static"
+                 else ["--meet-per-event", "--meet-request-id",
+                       meet_request_id(lead_id, start.isoformat(timespec="minutes"))])
     args = ["calendar", "create", "--title", title,
             "--start", start.isoformat(timespec="minutes"),
             "--end", end.isoformat(timespec="minutes"),
-            "--meet", "--timezone", "America/Toronto",
+            *meet_args, "--timezone", "America/Toronto",
             "--description",
             f"Discovery call booked from the OASIS AI audit funnel.\n\n"
             f"Lead: {lead.get('name')} <{lead.get('email')}>\n"
@@ -316,10 +418,27 @@ def book(db, lead_id: str, start_iso: str, apply: bool) -> dict:
 
     rc, out, err = _run(args, timeout=180)
     if rc != 0:
-        result.update(ok=False, error=f"calendar create failed: {err[:250]}")
+        detail = f"calendar create failed: {err[:250]}"
+        if rc == EXIT_EVENT_WITHOUT_MEET:
+            # The EVENT EXISTS and Google has already mailed the invite; only the
+            # room is missing. google_tool prints a machine-readable body on
+            # stdout carrying the event id precisely so it can be cancelled, and
+            # losing that here would leave a real meeting nobody can find.
+            detail = (f"EVENT CREATED BUT IT HAS NO MEET ROOM — cancel it before "
+                      f"retrying: {(out or err)[:250]}")
+        result.update(ok=False, error=detail, calendar_output=(out or "")[:300])
         return result
     result["applied"] = True
     result["calendar_output"] = out[:300]
+    # The room that was actually created, read back off the tool's output rather
+    # than assumed. The caller emails this to the prospect.
+    minted = _MEET_LINE_RE.search(out or "")
+    result["meet_link"] = minted.group(1) if minted else None
+    if meet_scope != "static" and not result["meet_link"]:
+        result.update(ok=False,
+                      error="calendar create reported success but no Meet room "
+                            "came back; the event may exist without a room")
+        return result
 
     # Timeline entry so the booking is visible on the lead, not only in Google.
     try:
