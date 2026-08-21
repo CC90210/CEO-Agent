@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-20T19:33:01.364438+00:00",
-  "script_count": 152,
-  "entry_count": 324,
+  "generated_at_iso": "2026-08-21T08:01:33.169035+00:00",
+  "script_count": 153,
+  "entry_count": 325,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -898,6 +898,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Generate a conventional-commits \u2192 CHANGELOG.md draft from `git log`."
+    },
+    {
+      "key": "generate_contractor_agreement",
+      "path": "scripts/generate_contractor_agreement.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "generate_contractor_agreement \u2014 render an OASIS contractor agreement."
     },
     {
       "key": "genome_sync",
