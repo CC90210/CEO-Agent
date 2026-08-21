@@ -103,6 +103,30 @@ def _load_publisher():
 # split CMO-Agent/scripts/schedule_posts.py makes (SHORT_FORM vs its own post).
 SHORT_FORM = {"instagram", "tiktok", "youtube", "twitter", "threads"}
 
+# How many images each channel accepts in ONE post. 0 means the surface is
+# video-only and cannot take an image deck at all.
+#
+# THIS IS THE THIRD COPY OF ONE RULE, and that is deliberate rather than lazy:
+#   - CMO-Agent/scripts/schedule_posts.py PLATFORM_IMAGE_CAP  (Maven's scheduled path)
+#   - oasis-command-center lib/founders/publish-targets.ts    (picker + publish route)
+#   - here                                                    (the drain, last gate)
+# They live in two languages and three repos, so there is no import that would
+# make them one. Importing schedule_posts across repos at drain runtime would
+# couple this daemon to CMO-Agent being present and healthy, which is a worse
+# failure than a duplicated dict.
+#
+# What keeps them honest instead is a test: tests/test_publish_caps_agree.py
+# reads CMO-Agent's copy and asserts it matches this one, so a change to either
+# fails CI rather than silently posting to a surface that will reject it.
+PLATFORM_IMAGE_CAP = {
+    "twitter": 4,
+    "instagram": 10,
+    "threads": 10,
+    "linkedin": 20,
+    "tiktok": 0,      # video-only
+    "youtube": 0,     # video-only
+}
+
 
 def caption_for(asset: dict, professional: bool) -> str:
     """Build the caption from the copy Maven already wrote for the asset.
@@ -363,6 +387,36 @@ def drain_one(db, intent: dict, PublishRequest, publish, dry_run: bool) -> bool:
         media, _kind, slides = got
         if slides:
             print(f"    carousel: {len(slides) + 1} slides in recorded order")
+
+        # Per-channel image caps — the LAST gate before the network.
+        #
+        # Added 2026-08-21. The founders picker disables a channel this asset
+        # cannot satisfy, and the publish route now refuses such a request
+        # outright, but this drain is what actually posts and it enforced
+        # nothing: it handed every slide to every platform on the intent. Any
+        # row created outside that route — one queued before the route was
+        # fixed, a replay, a direct insert, a future code path — would be sent
+        # to X with 5 images (cap 4) and fail at the API, or to TikTok/YouTube
+        # which cannot take an image deck at all.
+        #
+        # Drop the platform rather than fail the whole post, which is what
+        # schedule_posts.py does on Maven's scheduled path: the other surfaces
+        # are still worth publishing to. Truncating instead would eat the CTA
+        # slide, which is why neither path does it.
+        deck_size = len(slides) + 1 if slides else 0
+        if deck_size:
+            over = [p for p in platforms
+                    if deck_size > PLATFORM_IMAGE_CAP.get(p, deck_size)]
+            if over:
+                platforms = [p for p in platforms if p not in over]
+                note = (f"{deck_size}-slide deck exceeds the image cap on "
+                        f"{', '.join(over)} — dropped "
+                        f"({', '.join(f'{p}={PLATFORM_IMAGE_CAP[p]}' for p in over)})")
+                print(f"    {note}")
+                if not platforms:
+                    finish(db, iid, state="failed", result={}, error=note)
+                    print("    FAILED: no platform can take this deck")
+                    return False
 
         short = [p for p in platforms if p in SHORT_FORM]
         longform = [p for p in platforms if p not in SHORT_FORM]
