@@ -66,8 +66,11 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "integrations"))
 # drifts, and the two halves of the system then disagree about what a legal
 # move is — with the DB half winning silently.
 from ig_conversation_brain import (  # noqa: E402
+    MAX_MEMORY_FIELD_CHARS,
+    MAX_MEMORY_SUMMARY_CHARS,
     STAGES,
     is_legal_transition,
+    sanitize_untrusted,
 )
 
 CAPABILITY_META = {
@@ -487,6 +490,71 @@ def apply_extraction(db, row_id: str, *, extracted: Any,
     return _require_row(db, row_id, tenant_id)
 
 
+# The four lead-memory columns (migration bravo__012) and the cap each one is
+# written under. The caps are enforced HERE as well as at the prompt boundary:
+# these fields are rewritten on every successful turn, so a model that appends
+# instead of rewriting would otherwise grow a row without limit and quietly
+# inflate every future prompt for that conversation.
+_MEMORY_LIMITS: dict[str, int] = {
+    "budget": MAX_MEMORY_FIELD_CHARS,
+    "objections": MAX_MEMORY_FIELD_CHARS,
+    "pitched": MAX_MEMORY_FIELD_CHARS,
+    "summary": MAX_MEMORY_SUMMARY_CHARS,
+}
+
+
+def _memory_field(memory: Any, name: str) -> Optional[str]:
+    """One lead-memory field, sanitised and capped, or None.
+
+    SANITISED ON THE WAY IN, not only on the way out. The render path already
+    neutralises the <<< >>> fence shape and collapses newlines, and that is what
+    stops a stored note forging a prompt line. Doing it here too means the
+    hostile shape never reaches the database at all, so an operator reading
+    `show`, a future exporter, or any second consumer of this column inherits the
+    guarantee instead of having to remember it.
+    """
+    value = getattr(memory, name, None)
+    if value is None and isinstance(memory, Mapping):
+        value = memory.get(name)
+    if value is None:
+        return None
+    flat = " ".join(sanitize_untrusted(str(value),
+                                       max_chars=_MEMORY_LIMITS[name]).split())
+    return flat or None
+
+
+def apply_memory(db, row_id: str, *, memory: Any,
+                 tenant_id: str = OASIS_TENANT_ID) -> dict:
+    """Merge the rolling lead memory into the row. COALESCE semantics IN SQL.
+
+    LAST-non-empty-wins (`coalesce(?, col)`), the mirror image of the email's
+    first-write-wins (`coalesce(col, ?)`), and the asymmetry is deliberate. An
+    email is a fact that must never change under us; these four are a running
+    account of a live negotiation and are MEANT to be rewritten as it moves.
+
+    A blank still never erases. The model is asked about the current turn, so a
+    null means "nothing changed", and treating that as a retraction would delete
+    the recap of the opening messages — which, once the transcript window has
+    scrolled past them, is the only record of how the deal started.
+    """
+    def _f(name: str) -> Optional[str]:
+        return _memory_field(memory, name)
+
+    _write(
+        db,
+        f"update {TABLE} set "
+        "memory_budget = coalesce(?, memory_budget), "
+        "memory_objections = coalesce(?, memory_objections), "
+        "memory_pitched = coalesce(?, memory_pitched), "
+        "memory_summary = coalesce(?, memory_summary), "
+        "updated_at = ? "
+        "where tenant_id = ? and id = ?",
+        (_f("budget"), _f("objections"), _f("pitched"), _f("summary"),
+         _iso(), tenant_id, str(row_id)),
+    )
+    return _require_row(db, row_id, tenant_id)
+
+
 def reset_email(db, row_id: str, *, tenant_id: str = OASIS_TENANT_ID) -> dict:
     """Operator CLI only. The one way past first-write-wins."""
     return _touch(db, row_id, tenant_id, {
@@ -646,6 +714,34 @@ def resume(db, row_id: str, *, stage: str = "engaged",
 
 def pause(db, row_id: str, *, tenant_id: str = OASIS_TENANT_ID) -> dict:
     return _touch(db, row_id, tenant_id, {"automation_paused": 1})
+
+
+def mark_examined(db, row_id: str, *, provider_updated_time: Optional[str],
+                  tenant_id: str = OASIS_TENANT_ID) -> Optional[dict]:
+    """Remember the thread's `updatedTime` as of a COMPLETED examination.
+
+    This is the watermark the poller's cheap pre-filter reads (see migration
+    bravo__011). The old pre-filter compared `updatedTime` against
+    `last_outbound_at`, which only exists once we have replied — so every thread
+    we had never answered was re-fetched on every tick forever. Measured live on
+    2026-08-21: 47 of 50 threads, ~1.2s each, exhausting the run deadline at
+    conversation 25 and leaving the rest of the inbox unread.
+
+    CALL THIS ONLY ON A CONCLUSION, never on a deferral. "Answered", "not our
+    turn", "unreadable", "already seen" and "handed off" are conclusions: nothing
+    more can be learned about that thread until it moves again. "Out of model
+    budget" and "deadline reached" are deferrals — stamping there would mark a
+    waiting prospect as examined and silently abandon them until their NEXT
+    message, which is precisely the mid-conversation death this system is
+    supposed to have stopped having.
+
+    A missing/blank stamp is a no-op rather than a NULL write: clearing a good
+    watermark would quietly restore the every-tick refetch this exists to end.
+    """
+    stamp = (provider_updated_time or "").strip()
+    if not stamp:
+        return None
+    return _touch(db, row_id, tenant_id, {"provider_updated_time": stamp})
 
 
 def link_crm_lead(db, row_id: str, *, lead_id: str,
@@ -976,6 +1072,7 @@ _SHOW_FIELDS = (
     "reply_count_total", "last_inbound_at", "last_outbound_at",
     "last_processed_message_id", "extracted_name", "extracted_email",
     "extracted_business", "extracted_need", "extracted_timeline",
+    "memory_budget", "memory_objections", "memory_pitched", "memory_summary",
     "lead_id", "booking_lead_id", "last_error", "updated_at",
 )
 

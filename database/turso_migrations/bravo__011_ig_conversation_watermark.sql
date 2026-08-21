@@ -1,0 +1,37 @@
+-- bravo__011 — stop re-reading 47 dead threads on every 20-second tick.
+--
+-- The poller already had a cheap pre-filter (step 2b): skip the per-thread
+-- messages GET when the conversation's `updatedTime` is not newer than our own
+-- `last_outbound_at`. The constant comment above THREAD_FETCH_LIMIT even claims
+-- that "a quiet inbox costs exactly one HTTP request per poll".
+--
+-- It does not, and the reason is the AND. The guard reads
+--
+--     if updated and last_out and updated <= last_out:
+--
+-- so it only engages for a thread WE HAVE ALREADY ANSWERED. Every thread we have
+-- never replied to has last_outbound_at = NULL, falls straight through, and is
+-- re-fetched on every single tick — forever.
+--
+-- Measured live 2026-08-21: 50 conversations on the account, 3 with any real
+-- history, 47 returning `{"status":"success","messages":[]}` because Zernio holds
+-- no message bodies for dormant threads. Those 47 GETs cost ~1.2s each, so a run
+-- hit its 55s deadline at conversation 25 of 50 and stopped — printing
+-- "run deadline reached" and never reaching the rest of the inbox. On a quiet
+-- day that is invisible; under the mass influx this account is being pointed at,
+-- it is the whole failure — new prospects sort in ahead of the dead threads only
+-- by luck of `updatedTime`, and anything below the cut is simply never read.
+--
+-- The fix is a watermark that does not depend on having replied: remember the
+-- `updatedTime` we last EXAMINED a thread at. Nothing changed since → nothing to
+-- answer → skip without an HTTP call. It is stamped only after a thread reaches
+-- a real conclusion for that tick (answered, not our turn, unreadable, already
+-- seen, handed off) and deliberately NOT when the run ran out of model budget or
+-- clock, because those mean "come back to this one", and a watermark written
+-- there would silently abandon a prospect mid-conversation.
+--
+-- Nullable on purpose: NULL means "never examined", which is exactly right for
+-- every row that exists today and makes the first pass after this migration a
+-- full read of the inbox.
+
+ALTER TABLE instagram_dm_conversations ADD COLUMN provider_updated_time TEXT;

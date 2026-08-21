@@ -104,8 +104,51 @@ def cron_row_is_armed() -> bool | None:
     return bool(int(rows[0].get("is_active") or 0))
 
 
+SIBLINGS = ("instagram_dm_poller.py", "ig_conversation_brain.py",
+            "ig_dm_state.py", "ig_closer.py")
+
+
+def working_tree_is_sane() -> tuple[bool, str]:
+    """Refuse to run a half-written poller against real people.
+
+    Running the poller as a subprocess means each tick picks up the working tree
+    with no restart. That is the feature — and on 2026-08-21 it was the bug: an
+    editor saved a partial refactor (a name defined in one function and used in
+    another after a split) and the very next tick shipped it to live prospects.
+    Every conversation raised for ~2 minutes, logged as errors=25.
+
+    pyflakes is the right gate because the failure was an UNDEFINED NAME, which
+    is exactly what it catches and what a syntax check does not. It costs ~200ms
+    against a ~70s tick, so the check is free in practice.
+
+    A failed check SKIPS the tick. Prospects simply wait a few seconds longer,
+    which is strictly better than being answered by broken code — and the loop
+    self-heals the moment the file is saved correctly.
+    """
+    paths = [str(POLLER.parent / name) for name in SIBLINGS]
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-m", "pyflakes", *paths],
+            cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=60,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        # The GATE itself failing must not silently disable the gate. Treat an
+        # unusable check as unsafe: skip and say why.
+        return False, f"sanity check could not run: {exc}"
+    if proc.returncode != 0:
+        return False, (proc.stdout or proc.stderr or "pyflakes reported problems").strip()
+    return True, ""
+
+
 def run_tick(extra_args: list[str]) -> int:
     """One poll, as a subprocess. Returns its exit code."""
+    sane, why = working_tree_is_sane()
+    if not sane:
+        _log("SKIPPING TICK — the working tree does not pass a static check. "
+             "Refusing to answer real prospects with half-written code.")
+        for line in str(why).splitlines()[:5]:
+            _log(f"    {line}")
+        return 0
     argv = [sys.executable, str(POLLER), "--live", "--json", *extra_args]
     try:
         proc = subprocess.run(
@@ -136,7 +179,13 @@ def run_tick(extra_args: list[str]) -> int:
 
     # Quiet ticks are the common case; say something only when work happened or
     # something went wrong. A log line per 20s would bury the events that matter.
-    if data.get("replied") or data.get("errors") or data.get("handoffs"):
+    #
+    # `starved` is here because it is the ONLY signal that someone needed a reply
+    # and did not get one. Before 2026-08-21 that produced no counter at all — the
+    # model-budget gate broke the scan before the waiting prospect was reached, so
+    # a tick that abandoned four people logged exactly like a quiet inbox.
+    if (data.get("replied") or data.get("errors") or data.get("handoffs")
+            or data.get("starved")):
         _log(f"tick: {summary[:200]}")
     return 0
 

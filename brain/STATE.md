@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-21
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Booking inverse shipped (90828749): booked_event_id persisted via bravo__010 so a mailed invite can be cancelled; test fixtures now glob migrations instead of pinning bravo__009. 283 tests.
+- **Result:** Marketing symbiosis: PR #264 merged to main (carousel publish gate + server-side per-channel caps), DEFAULT_SLIDES 5->4 so X receives decks, MavenSchedulePosts retired leaving the cron row as sole driver
 
 *Last updated: 2026-08-21*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-21T08:02:56.108062+00:00_
 
 - **Date:** 2026-08-21
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Booking inverse shipped (90828749): booked_event_id persisted via bravo__010 so a mailed invite can be cancelled; test fixtures now glob migrations instead of pinning bravo__009. 283 tests.
+- **Result:** Marketing symbiosis: PR #264 merged to main (carousel publish gate + server-side per-channel caps), DEFAULT_SLIDES 5->4 so X receives decks, MavenSchedulePosts retired leaving the cron row as sole driver
 
 *Last updated: 2026-08-21*

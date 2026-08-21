@@ -624,6 +624,7 @@ CREATE TABLE IF NOT EXISTS instagram_dm_conversations (
   last_inbound_at                 TEXT,
   last_outbound_at                TEXT,
   last_processed_message_id       TEXT,
+  provider_updated_time           TEXT,          -- watermark; see below
   inbound_message_count           INTEGER NOT NULL DEFAULT 0,
   reply_count_total               INTEGER NOT NULL DEFAULT 0,
   replies_today                   INTEGER NOT NULL DEFAULT 0,
@@ -1283,8 +1284,23 @@ For each in-scope conversation (`platform == "instagram"` and
 8. `allowed, reason = ig_dm_state.reply_budget(db, row)`. Not allowed →
    `summary['skipped_budget'] += 1`, log the reason, continue. **No model call.**
 9. Budget checks: model calls used `>= --max-model-calls`, or elapsed
-   `>= RUN_DEADLINE_SECONDS` → break out of the loop and report
-   `summary['budget_exhausted'] = True`. Checked **before** the call.
+   `>= RUN_DEADLINE_SECONDS` → **do NOT break the scan.** Steps 1-8 are the
+   zero-model gates and they run for EVERY in-scope conversation, unconditionally;
+   only steps 10+ are rationed. Checked **before** the call.
+
+   **FAIR ORDER (added 2026-08-21).** Steps 1-8 run as pass 1 and yield a list of
+   *candidates*. Pass 2 sorts them by the timestamp of the prospect's own newest
+   unanswered message, **ascending — longest wait first** — with the conversation
+   id as the tie-break, then spends the model budget from the front. The order is
+   ours, not Zernio's: `updatedTime` DESC is LIFO by last activity (our own reply
+   re-floats a thread to rank 0, measured at +95-148ms), so under it a waiting
+   prospect's rank only decayed and their wait was unbounded. A conversation that
+   step 2 or step 8 refused never becomes a candidate, so it cannot hold a slot.
+   A candidate that does not get a call is `summary['starved'] += 1` — a
+   **deferral**, so `mark_examined` must not stamp it and the next tick finds
+   them at the front of the queue. Step 8 is re-run immediately before each model
+   call, because `DAILY_REPLY_CAP_GLOBAL` is a tenant-wide sum that an earlier
+   reply in the SAME tick can exhaust.
 10. `decision = brain.decide(turns, current_stage=row['stage'],
     participant_display_name=..., extracted_so_far=Extracted(...from the row...))`.
 11. `decision.ok is False` → `ig_dm_state.record_failure(kind=decision.failure,
@@ -1370,8 +1386,18 @@ Booking failed: @{handle} at step {stage_of_failure}. {error}. Conversation {con
 scanned, in_scope, model_calls, replied, leads_created, bookings_attempted,
 bookings_applied, handoffs, skipped_paused, skipped_our_turn, skipped_seen,
 skipped_budget, skipped_red_flag, failures_model, failures_guardrail,
-budget_exhausted, errors, live, book_armed
+budget_exhausted, errors, live, book_armed,
+needed_reply, starved, oldest_wait_s          # fair scheduling, 2026-08-21
 ```
+
+`needed_reply` is how many prospects needed a reply this tick; `starved` is how
+many of them did not get one; `oldest_wait_s` is the wait of the oldest starved
+one. They exist because starvation used to be **invisible**: the budget gate
+broke the scan before a waiting prospect was reached, so they were not even
+counted as a skip and a tick that abandoned four people printed the same line as
+a quiet inbox. `needed_reply` is emitted even at zero (it is the denominator that
+makes `replied` mean anything); `starved` is in `_DEFERRAL_KEYS`, and
+`ig_dm_daemon.run_tick` logs any tick where it is non-zero.
 
 ### 7.7 Automations tab registration
 
@@ -1486,6 +1512,40 @@ gap, pause, terminal stage and on an unparseable `last_outbound_at`;
 
 Run: `python -m pytest scripts/tests/test_ig_*.py -q`. Put the actual output in the
 completion report — "tests pass" without it is not proof.
+
+### `provider_updated_time` — the examined-watermark (migration bravo__011)
+
+The conversation's `updatedTime` as of the last COMPLETED examination. The poller's
+step-2b pre-filter skips the per-thread messages GET entirely when `updatedTime` has
+not advanced past it.
+
+It exists because the previous pre-filter compared `updatedTime` against
+`last_outbound_at`, so it only engaged for threads we had ALREADY answered. Every
+thread we had never replied to had `last_outbound_at = NULL` and was re-fetched on
+every tick, forever. Measured live 2026-08-21: 47 of 50 threads on the account, at
+~1.2s per GET, so a run hit its deadline at conversation 21 of 50 and stopped —
+half the inbox unread on every pass.
+
+**The invariant, and it is the whole point of the column:** stamp only on a
+CONCLUSION, never on a DEFERRAL.
+
+| conclusion (may stamp) | deferral (must NOT stamp) |
+|---|---|
+| `replied`, `skipped_our_turn`, `skipped_no_messages`, `skipped_seen`, `skipped_red_flag`, `skipped_paused`, `handoffs` | `skipped_budget`, `budget_exhausted`, `starved`, `failures_model`, `failures_guardrail`, `errors` |
+
+A conclusion means nothing more can be learned until the thread moves again. A
+deferral means *come back to this one* — and stamping a deferral marks a WAITING
+prospect as examined, skipping them until they send another message. That is the
+silent mid-conversation death this pipeline exists to prevent, so a deferral in the
+delta vetoes the stamp even when a conclusion is present alongside it.
+`starved` matters specifically: the fair queue sets it ALONE when it runs out of
+turns before reaching someone it knows is waiting.
+
+Enforced by `_is_conclusive()` in the poller and `state.mark_examined()`, which
+no-ops on a blank stamp rather than writing NULL — clearing a good watermark would
+quietly restore the every-tick refetch. Stamping is additionally gated on `--live`:
+a dry run that wrote watermarks would make the live daemon skip real prospects, and
+a preview with persistent effects is not a preview.
 
 ---
 

@@ -88,6 +88,7 @@ import traceback
 import urllib.error
 import urllib.request
 import uuid
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -156,8 +157,65 @@ AUDIT_FORM_URL = "https://oasisai.work/f/oasis-ai-cc/ai-audit"
 # here: the inbox holds 50 conversations but typically only ~2 carry genuinely
 # new inbound, so 2 turns per minute clears far more volume per hour than 5 turns
 # per five minutes.
-MAX_MODEL_CALLS_PER_RUN = 2
-RUN_DEADLINE_SECONDS = 55
+# RESIZED 2026-08-21, after the watermark (migration bravo__011) made a sweep
+# cost roughly one HTTP call instead of one per thread.
+#
+# The old numbers were sized around a sweep that re-read every thread every tick:
+# 2 turns and a 55s deadline, where ~25 wasted GETs at ~1.2s each already ate 30s
+# of that 55s. A run reached conversation 25 of 50 and stopped. With skips now
+# free, the deadline can be spent on CONVERSATION instead of on bookkeeping.
+#
+# Sizing, from the measured 27.4s median per `claude -p` turn (decide() may spend
+# two subprocesses on a retry, so the worst case is 2x):
+#     4 turns x 27s          = ~110s of model time
+#   + a swept inbox           = ~5-15s
+#   = 150s deadline, with the last turn allowed to overrun to ~204s.
+# ig_dm_daemon.TICK_TIMEOUT is 300s, so even the worst case lands inside it.
+#
+# THROUGHPUT, stated plainly because "scalable" has to mean a number: 4 replies
+# per run, a run every ~150s under load, is ~96 replies/hour. Ticks that find
+# nothing still cost one HTTP call and finish in about a second, so an idle inbox
+# stays responsive at the daemon's 20s interval. If real volume ever exceeds
+# that, the next lever is concurrency across model calls — NOT a bigger number
+# here, because these are serial `claude -p` subprocesses on one subscription.
+MAX_MODEL_CALLS_PER_RUN = 4
+RUN_DEADLINE_SECONDS = 150
+
+# How deep into the inbox one run looks. This was 25 against a 50-thread inbox,
+# which meant threads 26..50 were NEVER examined — not answered late, never read
+# at all. Ordering is `updatedTime` DESC so a fresh DM sorts to the top and was
+# usually caught, but "usually, by luck of sort order" is not a guarantee, and it
+# fails exactly when it matters: a burst of 25+ threads pushes real prospects
+# below the cut and they are silently abandoned. Now that an unchanged thread
+# costs no HTTP at all, there is no reason not to sweep the whole inbox.
+DEFAULT_SCAN_LIMIT = 200
+
+# ── which outcomes mean "done with this thread for now" ──────────────────────
+# A CONCLUSION is a state where nothing further can be learned about the thread
+# until it moves again: we answered, it was not our turn, Zernio has no message
+# bodies for it, we had already answered that exact message, or a human now owns
+# it. Those may stamp the examined-watermark.
+#
+# A DEFERRAL is "come back to this one": the run ran out of model calls or clock,
+# the model failed, the guardrail rejected the draft, or the per-conversation
+# reply gap has not elapsed. Stamping a watermark on any of those would mark a
+# WAITING prospect as examined and skip them until their next message — the exact
+# silent mid-conversation death this pipeline exists to prevent. So a deferral in
+# the delta vetoes the stamp even if a conclusion is also present.
+_CONCLUSIVE_KEYS = (
+    "replied", "skipped_our_turn", "skipped_no_messages",
+    "skipped_seen", "skipped_red_flag", "skipped_paused", "handoffs",
+)
+_DEFERRAL_KEYS = (
+    "skipped_budget", "budget_exhausted", "starved",
+    "failures_model", "failures_guardrail", "errors",
+)
+
+
+def _is_conclusive(delta: dict) -> bool:
+    if any(delta.get(k) for k in _DEFERRAL_KEYS):
+        return False
+    return any(delta.get(k) for k in _CONCLUSIVE_KEYS)
 
 # The deadline has to bound the RUN, not just the model calls inside it. It is
 # checked at the TOP of every conversation — before the per-thread GET, which
@@ -173,6 +231,42 @@ RUN_DEADLINE_SECONDS = 55
 # subprocesses, so the worst-case model time is 2x whatever is passed.
 MODEL_TIMEOUT_FLOOR_SECONDS = 30
 MODEL_TIMEOUT_CEILING_SECONDS = 90
+
+# ── fair scheduling: the run is TWO passes, not one interleaved walk ─────────
+#
+# THE STARVATION THIS FIXES (measured 2026-08-21). Zernio returns the inbox
+# ordered by `updatedTime` DESC, and `updatedTime` tracks the newest message in
+# EITHER direction — our own reply bumps a thread straight back to rank 0
+# (Zernio's stamp landed 95-148ms after our locally-written last_outbound_at on
+# all three live rows). So the shipped order was LIFO by last activity: a
+# prospect who messaged once and is waiting has a FROZEN stamp, and every new
+# event in the inbox — including our replies to someone chattier — sorts above
+# them. Their rank decays monotonically. Priority was inversely proportional to
+# how long someone had waited, which is the exact inverse of what a setter needs.
+# Under sustained arrivals the oldest waiter's wait was unbounded, and nothing
+# counted it: the model-budget gate `break`-ed the scan, so a starved prospect
+# was not even a skip.
+#
+# Worse, that `break` also skipped the FREE work. An opt-out sitting below two
+# chatty threads was never read: no red-flag handoff, no counter, no trace.
+#
+# So:
+#   pass 1  every in-scope conversation, every zero-model gate, no exceptions
+#   pass 2  the surviving candidates sorted OLDEST-UNANSWERED-INBOUND FIRST,
+#           model calls spent from the front of that queue
+#
+# The order is computed here from the prospect's own message timestamp. It does
+# not depend on the order Zernio handed the page back in, and it is stable:
+# ties break on conversation id, so the same inbox always produces the same queue.
+#
+# SCAN_RESERVE_SECONDS is what pass 1 must leave on the clock for pass 2. Pass 1
+# costs one messages GET per moved thread (measured mean 0.80s, max 1.23s over
+# 25 live threads = ~20s of a 55s deadline), and a run that spends the whole
+# deadline discovering who is waiting and then answers nobody is worse than the
+# LIFO order it replaced. One model call is startup-dominated at ~27s, so the
+# reserve is the floor timeout: pass 1 stops scanning with at least one full
+# model turn still affordable.
+SCAN_RESERVE_SECONDS = MODEL_TIMEOUT_FLOOR_SECONDS
 
 # API cost of reading the FULL thread: one extra GET per conversation that has
 # moved since our last reply. The list call already carries `updatedTime`, so a
@@ -521,11 +615,20 @@ _SUMMARY_KEYS: tuple[tuple[str, str], ...] = (
     ("failures_model", "f_model"),
     ("failures_guardrail", "f_guard"),
     ("handoffs", "handoff"),
+    # starved = prospects who needed a reply this tick and did not get one. It
+    # sits with the failures deliberately: before 2026-08-21 nothing counted it
+    # at all, so an abandoned conversation was indistinguishable from a quiet
+    # inbox on the Automations tab and in the daemon log.
+    ("starved", "starved"),
+    ("oldest_wait_s", "oldest_s"),
     ("skipped_no_messages", "unreadable"),
     ("skipped_budget", "budget"),
     ("budget_exhausted", "exhausted"),
     ("skipped_red_flag", "red_flag"),
     ("replied", "replied"),
+    # The denominator that makes `replied` mean anything: replied=2 is healthy
+    # against needed=2 and an incident against needed=9.
+    ("needed_reply", "needed"),
     ("model_calls", "calls"),
     ("scanned", "scanned"),
     ("in_scope", "in_scope"),
@@ -535,9 +638,11 @@ _SUMMARY_KEYS: tuple[tuple[str, str], ...] = (
     ("skipped_paused", "paused"),
     ("skipped_our_turn", "our_turn"),
     ("skipped_seen", "seen"),
+    ("skipped_unchanged", "unchanged"),
 )
 # Always emitted, even at zero: their absence is itself information.
-_SUMMARY_ALWAYS = frozenset({"errors", "replied", "model_calls", "scanned", "in_scope"})
+_SUMMARY_ALWAYS = frozenset({"errors", "replied", "needed_reply", "model_calls",
+                             "scanned", "in_scope"})
 # A run is FAILING — not merely quiet — when one of these is non-zero. Each one
 # means at least one real prospect got silence they should not have got.
 _SUMMARY_FAILURE_KEYS = ("errors", "failures_model", "failures_guardrail")
@@ -616,7 +721,8 @@ def main() -> int:
     p.add_argument("--live", action="store_true", help="actually send replies")
     p.add_argument("--only-handle",
                    help="scope the entire run to this handle (first live test)")
-    p.add_argument("--limit", type=int, default=25, help="max conversations to examine")
+    p.add_argument("--limit", type=int, default=DEFAULT_SCAN_LIMIT,
+                   help=f"max conversations to examine (default {DEFAULT_SCAN_LIMIT})")
     p.add_argument("--json", action="store_true")
     p.add_argument(
         "--book", "--allow-booking", dest="book", action="store_true",
@@ -643,6 +749,61 @@ def main() -> int:
         return _poll(args)
 
 
+def _stamp_watermark(*, state, db, conv, delta, handle, live, summary) -> None:
+    """Stamp the examined-watermark ONLY on a conclusion.
+
+    See ig_dm_state.mark_examined: a deferral ("out of model budget", "deadline",
+    "model failed", "starved by the fair queue") must leave the watermark alone
+    so the next tick comes back to this person. Stamping a deferral is how a
+    prospect gets abandoned mid-conversation and nobody finds out until they give
+    up.
+
+    `live` gates the stamp for the same reason it gates handoffs: a dry run that
+    writes a watermark would make the LIVE daemon skip that thread, so previewing
+    the inbox would silence real prospects. A preview with persistent effects is
+    not a preview.
+    """
+    if not (live and _is_conclusive(delta) and delta.get("_row_id")):
+        return
+    try:
+        state.mark_examined(
+            db, str(delta["_row_id"]),
+            provider_updated_time=str(conv.get("updatedTime") or ""),
+        )
+    except Exception as exc:  # noqa: BLE001 — never lose a poll to bookkeeping
+        summary["errors"] += 1
+        print(f"  [error] @{handle}: watermark not stamped: {exc}", file=sys.stderr)
+
+
+def _merge_delta(summary: dict, delta: dict) -> None:
+    """Fold a per-conversation delta into the run summary.
+
+    Only counters the summary already declares are added, so `_row_id` (a str)
+    and `stop_run` (a bool the summary has no slot for) cannot leak into the
+    operator-visible line.
+    """
+    for k, v in delta.items():
+        if isinstance(v, bool):
+            continue
+        if isinstance(summary.get(k), int) and isinstance(v, int):
+            summary[k] += v
+
+
+def _accumulate(target: dict, delta: dict) -> None:
+    """Fold one delta into another: integers add, everything else is set.
+
+    Distinct from _merge_delta because a delta starts nearly EMPTY — a key the
+    target has never seen must be carried across, not dropped. Getting that
+    wrong would silently lose `replied` on its way to the watermark decision.
+    """
+    for k, v in delta.items():
+        if (isinstance(v, int) and not isinstance(v, bool)
+                and isinstance(target.get(k), int)):
+            target[k] += v
+        else:
+            target[k] = v
+
+
 def _poll(args) -> int:
     brain = _sibling("ig_conversation_brain")
     state = _sibling("ig_dm_state")
@@ -653,12 +814,15 @@ def _poll(args) -> int:
     key = _api_key()
     db = state.get_db_handle()
     deadline = time.monotonic() + RUN_DEADLINE_SECONDS
+    # Pass 1 must not eat the clock pass 2 needs. See SCAN_RESERVE_SECONDS.
+    scan_deadline = deadline - SCAN_RESERVE_SECONDS
 
     summary = {
         "scanned": 0, "in_scope": 0, "model_calls": 0, "replied": 0,
+        "needed_reply": 0, "starved": 0, "oldest_wait_s": 0,
         "leads_created": 0, "bookings_attempted": 0, "bookings_applied": 0,
         "handoffs": 0, "skipped_paused": 0, "skipped_our_turn": 0,
-        "skipped_no_messages": 0, "skipped_seen": 0,
+        "skipped_no_messages": 0, "skipped_seen": 0, "skipped_unchanged": 0,
         "skipped_budget": 0, "skipped_red_flag": 0,
         "failures_model": 0, "failures_guardrail": 0, "budget_exhausted": 0,
         "errors": 0, "live": bool(args.live), "book_armed": bool(args.book),
@@ -670,6 +834,12 @@ def _poll(args) -> int:
         mode += " + BOOKING ARMED"
     print(f"{len(convos)} conversation(s) in the Zernio inbox{mode}")
 
+    # ══ PASS 1 ══ every in-scope conversation, every zero-model gate ═════════
+    # No budget can cut this short — only the scan deadline, and that is a
+    # degraded-Zernio backstop, not a normal exit. The red-flag handoff and the
+    # already-seen bookkeeping cost nothing but a thread GET, so rationing them
+    # behind the model budget bought nothing and lost opt-outs.
+    candidates: list[_Candidate] = []
     for conv in convos[: args.limit]:
         summary["scanned"] += 1
         if conv.get("platform") != TARGET_PLATFORM:
@@ -693,11 +863,11 @@ def _poll(args) -> int:
         account_id = str(conv.get("accountId") or "")
 
         try:
-            summary_delta = _handle_conversation(
+            delta, candidate = _screen_conversation(
                 conv=conv, conv_id=conv_id, account_id=account_id, handle=handle,
-                key=key, db=db, brain=brain, state=state, closer=closer,
-                detect_red_flags=detect_red_flags, args=args, deadline=deadline,
-                model_calls_spent=summary["model_calls"],
+                key=key, db=db, brain=brain, state=state,
+                detect_red_flags=detect_red_flags, args=args,
+                deadline=scan_deadline,
             )
         except SystemExit:
             raise
@@ -707,12 +877,83 @@ def _poll(args) -> int:
             print(f"  [error] @{handle}: {exc}", file=sys.stderr)
             continue
 
-        for k, v in summary_delta.items():
-            if isinstance(summary.get(k), int) and isinstance(v, int):
-                summary[k] += v
+        if candidate is not None:
+            # The delta object is SHARED with the candidate so pass 2 can add its
+            # outcome to the same record the watermark decision reads.
+            candidates.append(candidate)
+            continue
 
-        if summary_delta.get("stop_run"):
+        _stamp_watermark(state=state, db=db, conv=conv, delta=delta, handle=handle,
+                         live=bool(args.live), summary=summary)
+        _merge_delta(summary, delta)
+        if delta.get("stop_run"):
+            # Only the scan deadline reaches here now. Everyone below is unread
+            # this tick; the watermark was not stamped for any of them, so the
+            # next tick starts from the same place rather than skipping them.
             break
+
+    # ══ PASS 2 ══ the fair queue: oldest unanswered inbound first ════════════
+    # Sorted HERE, from the prospect's own message timestamp, so the order does
+    # not depend on what Zernio happened to return first. Ties break on
+    # conversation id to keep the queue deterministic.
+    candidates.sort(key=lambda c: (c.waiting_since, c.conv_id))
+    summary["needed_reply"] = len(candidates)
+    if candidates:
+        print(f"  fair queue ({len(candidates)} waiting, oldest first): "
+              + ", ".join(f"@{c.handle}({int(c.waited_seconds)}s)"
+                          for c in candidates[:10]))
+
+    starved: list[_Candidate] = []
+    for cand in candidates:
+        out_of_calls = summary["model_calls"] >= args.max_model_calls
+        out_of_time = time.monotonic() > deadline
+        if out_of_calls or out_of_time:
+            # NOT an error and NOT a conclusion: this person is still waiting and
+            # must be picked up next tick, at the FRONT of the queue, because
+            # their wait only grows. `starved` is in _DEFERRAL_KEYS so the
+            # watermark stays unstamped.
+            cand.delta["starved"] = cand.delta.get("starved", 0) + 1
+            starved.append(cand)
+            _merge_delta(summary, cand.delta)
+            continue
+
+        try:
+            answer = _answer_conversation(
+                candidate=cand, key=key, db=db, brain=brain, state=state,
+                closer=closer, args=args, deadline=deadline,
+            )
+        except SystemExit:
+            raise
+        except Exception as exc:  # noqa: BLE001 — one bad thread must not stop the poll
+            summary["errors"] += 1
+            traceback.print_exc()
+            print(f"  [error] @{cand.handle}: {exc}", file=sys.stderr)
+            continue
+
+        _accumulate(cand.delta, answer)
+        _stamp_watermark(state=state, db=db, conv=cand.conv, delta=cand.delta,
+                         handle=cand.handle, live=bool(args.live), summary=summary)
+        _merge_delta(summary, cand.delta)
+
+    # The starvation surface. Before this line a prospect who needed a reply and
+    # did not get one produced NO counter anywhere: the budget gate broke the
+    # scan before they were reached, so they were not even a skip. `needed` is
+    # the denominator that makes `replied` mean something.
+    #
+    # "got a model turn" is counted from model_calls, NOT from
+    # len(candidates) - len(starved). A candidate can reach pass 2 and still be
+    # refused at the re-checked reply budget, and reporting that as "answered"
+    # would put the most misleading possible number on the one line an operator
+    # reads — the same class of defect as the counters this whole surface exists
+    # to expose.
+    if candidates:
+        oldest = max((c.waited_seconds for c in starved), default=0.0)
+        summary["oldest_wait_s"] = int(oldest)
+        print(f"  needed a reply: {len(candidates)}  "
+              f"got a model turn: {summary['model_calls']}  "
+              f"replied: {summary['replied']}  "
+              f"no turn spent: {len(candidates) - summary['model_calls']}"
+              + (f"  (oldest starved wait {int(oldest)}s)" if starved else ""))
 
     # Threads Zernio will not hand over are REAL prospects going unanswered, not
     # a quiet inbox: the conversation record still carries their inbound text and
@@ -775,14 +1016,186 @@ def _flag_terminal_ending(*, state, db, row_id, handle, conv_id, new_stage,
     )
 
 
+@dataclass
+class _Candidate:
+    """A conversation that has passed every zero-cost gate and wants a model call.
+
+    Carries the work pass 1 already paid for — the state row, the attributed
+    transcript, the newest inbound turn — so pass 2 spends nothing but the model
+    call itself. `delta` is the SAME dict object pass 1 built, so whatever pass 2
+    records lands on the record the watermark decision reads.
+    """
+
+    conv: dict
+    conv_id: str
+    account_id: str
+    handle: str
+    row: dict
+    row_id: str
+    stage: str
+    turns: Any
+    # How many turns fell off the front of the window. Computed in pass 1 with
+    # the transcript and carried here rather than recomputed, because it is what
+    # tells the model that LEAD MEMORY is its only view of the opening.
+    dropped_turns: int
+    newest_inbound: Any
+    # When the prospect's unanswered message landed. THE sort key.
+    waiting_since: datetime
+    waited_seconds: float
+    delta: dict = field(default_factory=dict)
+
+
+def _waiting_since(*, newest_inbound, conv, now: datetime) -> datetime:
+    """When did THIS prospect's still-unanswered message arrive?
+
+    Their own message stamp, NOT the conversation's `updatedTime`. updatedTime
+    tracks the newest message in either direction, so our reply to someone else's
+    thread moves that thread and ordering by it is LIFO. The inbound turn's
+    createdAt is frozen at the moment they typed, which is exactly the clock a
+    fair queue has to run on.
+
+    Unknown or unparseable falls back to the conversation stamp and then to
+    `now`, which sorts LAST: a wait we cannot prove must never jump ahead of one
+    we can. A stamp in the FUTURE (clock skew on either side) also sorts late for
+    the same reason — it is not clamped forward, because clamping it to `now`
+    would hand a skewed thread the front of the queue.
+    """
+    stamp = _parse_iso(getattr(newest_inbound, "created_at", None))
+    if stamp is None:
+        stamp = _parse_iso(conv.get("updatedTime"))
+    return stamp if stamp is not None else now
+
+
+def _handoff(*, state, db, row_id, handle, conv_id, reason, notify_reason,
+             stage_, live, bump, event: str = "handoff") -> None:
+    """Flag a human. In a dry run this is a print and nothing else.
+
+    request_handoff sets stage=handed_off + handoff_pending + automation_paused,
+    which is TERMINAL and only reversible with `ig_dm_state.py resume`. A
+    preview run that permanently disables the automation on a real prospect —
+    and pages CC while doing it — is not a preview. Every fragment that
+    reaches the Telegram body goes through _notify_safe first.
+
+    Module-level rather than a closure because BOTH halves of the split run it:
+    the red-flag gate in pass 1 and the model's own handoff request in pass 2.
+    Two spellings of the same act is how one of them ended up mutating a real
+    conversation from a preview run.
+    """
+    if live:
+        state.request_handoff(db, row_id, reason=reason)
+    else:
+        print(f"  [dry-run] WOULD HAND OFF (stage -> handed_off, automation "
+              f"paused): {reason}")
+    bump("handoffs")
+    _notify(
+        f"Handoff: @{_notify_safe(handle, 64)} needs you. "
+        f"Reason: {_notify_safe(notify_reason)}. "
+        f"Stage: {_notify_safe(stage_, 32)}. Conversation {conv_id}.",
+        conv_id=conv_id, event=event, live=live,
+    )
+
+
+def _budget_gate(*, state, db, row, row_id, handle, live, bump, dry) -> Optional[str]:
+    """The reply budget. None when a reply is allowed, else the refusal reason.
+
+    Extracted so it can run TWICE: once in pass 1, where a refusal keeps the
+    conversation out of the fair queue entirely (requirement: a conversation that
+    cannot be answered must not consume a slot in the ordering), and once in
+    pass 2 immediately before the model call. The second check is not
+    ceremonial — the fair queue can hold a candidate for a whole model turn, and
+    DAILY_REPLY_CAP_GLOBAL is a tenant-wide sum with no per-conversation
+    reservation, so a reply we sent to someone else in this very tick can be what
+    exhausts it.
+    """
+    allowed, why = state.reply_budget(db, row)
+    if allowed:
+        return None
+    bump("skipped_budget")
+    print(f"  @{handle}: reply budget says no ({why}) — skipping")
+    # The per-conversation refusals self-clear: `gap` is 45 seconds and
+    # `conv_cap` is 30 replies to ONE person in a day. Paging on those trains
+    # the operator to ignore the channel.
+    #
+    # `global_cap` is a different animal. It is ONE tenant-wide number summed
+    # across every conversation, checked before the model call with no
+    # per-conversation reservation, so exhausting it silences EVERY live
+    # conversation at once until UTC midnight — mid-deal, with nothing sent
+    # and no state change. That refusal reached nobody: one stdout line the
+    # scheduler truncates away. It is an incident, so it is alerted and it is
+    # written to the row an operator actually reads.
+    if why == "global_cap":
+        if live:
+            state.note(
+                db, row_id,
+                note=(f"reply refused: tenant-wide daily cap "
+                      f"({state.DAILY_REPLY_CAP_GLOBAL}) reached; every "
+                      f"conversation is silenced until UTC midnight"),
+            )
+        else:
+            dry("RECORD a tenant-wide cap refusal")
+        _notify(
+            f"Instagram DMs stopped: the tenant-wide daily reply cap "
+            f"({state.DAILY_REPLY_CAP_GLOBAL}) is exhausted, so every live "
+            f"conversation is getting silence until UTC midnight. "
+            f"@{_notify_safe(handle, 64)} was refused mid-thread.",
+            conv_id="tenant", event="global_cap", live=live,
+        )
+    return why
+
+
 def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
                          state, closer, detect_red_flags, args, deadline,
                          model_calls_spent) -> dict:
-    """One conversation, one poll. Returns the summary delta for this thread.
+    """One conversation, screened and — if the budget allows — answered.
 
-    The skip order matters: every cheap gate runs BEFORE a model call is spent,
-    because a model call is ~11 seconds of a subscription-quota subprocess and
-    the run only gets twelve of them.
+    The two halves run separately in `_poll` (screen EVERYONE, then answer the
+    fair-ordered head). This is the single-conversation composition of them, kept
+    because the gate ORDER is the contract: every cheap gate before a model call
+    is spent, and the budget checked before the call rather than after.
+    """
+    delta, candidate = _screen_conversation(
+        conv=conv, conv_id=conv_id, account_id=account_id, handle=handle,
+        key=key, db=db, brain=brain, state=state,
+        detect_red_flags=detect_red_flags, args=args, deadline=deadline,
+    )
+    if candidate is None:
+        return delta
+
+    # ── 9. run budgets, checked BEFORE the call, not after ──────────────────
+    if model_calls_spent >= args.max_model_calls:
+        delta["budget_exhausted"] = 1
+        delta["starved"] = 1
+        delta["stop_run"] = True
+        print(f"  @{handle}: model-call budget spent "
+              f"({model_calls_spent}/{args.max_model_calls}) — stopping this run")
+        return delta
+    if time.monotonic() > deadline:
+        delta["budget_exhausted"] = 1
+        delta["starved"] = 1
+        delta["stop_run"] = True
+        print(f"  @{handle}: run deadline reached ({RUN_DEADLINE_SECONDS}s) — stopping")
+        return delta
+
+    _accumulate(delta, _answer_conversation(
+        candidate=candidate, key=key, db=db, brain=brain, state=state,
+        closer=closer, args=args, deadline=deadline,
+    ))
+    return delta
+
+
+def _screen_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
+                         state, detect_red_flags, args, deadline
+                         ) -> tuple[dict, Optional[_Candidate]]:
+    """The ZERO-MODEL half. Returns (summary delta, candidate or None).
+
+    A candidate is a conversation with a fresh inbound message that is allowed a
+    reply right now and is waiting on nothing but a model call.
+
+    THIS RUNS FOR EVERY IN-SCOPE CONVERSATION. Before 2026-08-21 the model-call
+    budget `break`-ed the whole scan, so an opt-out sitting below two chatty
+    threads was never read: no red-flag handoff, no seen bookkeeping, no counter,
+    no trace. Rationing free work bought nothing and lost the one message class
+    that must never be missed.
     """
     delta: dict[str, Any] = {}
     live = bool(args.live)
@@ -793,61 +1206,61 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
     def dry(what: str) -> None:
         print(f"  [dry-run] WOULD {what}")
 
-    def handoff(row_id_: str, *, reason: str, notify_reason: str, stage_: str,
-                event: str = "handoff") -> None:
-        """Flag a human. In a dry run this is a print and nothing else.
-
-        request_handoff sets stage=handed_off + handoff_pending + automation_paused,
-        which is TERMINAL and only reversible with `ig_dm_state.py resume`. A
-        preview run that permanently disables the automation on a real prospect —
-        and pages CC while doing it — is not a preview. Every fragment that
-        reaches the Telegram body goes through _notify_safe first.
-        """
-        if live:
-            state.request_handoff(db, row_id_, reason=reason)
-        else:
-            print(f"  [dry-run] WOULD HAND OFF (stage -> handed_off, automation "
-                  f"paused): {reason}")
-        bump("handoffs")
-        _notify(
-            f"Handoff: @{_notify_safe(handle, 64)} needs you. "
-            f"Reason: {_notify_safe(notify_reason)}. "
-            f"Stage: {_notify_safe(stage_, 32)}. Conversation {conv_id}.",
-            conv_id=conv_id, event=event, live=live,
-        )
-
-    # ── 0. the run deadline, BEFORE any network or database work ────────────
+    # ── 0. the SCAN deadline, BEFORE any network or database work ───────────
     # Checked here rather than at step 9 because step 3's thread GET is the
     # expensive part of a degraded run: urllib timeout=30, up to --limit times,
     # which overruns the scheduler's own 600s kill long before step 9 is reached.
+    # `deadline` here is the SCAN deadline, held back from the run deadline by
+    # SCAN_RESERVE_SECONDS so pass 2 can still afford a model turn.
     if time.monotonic() > deadline:
         delta["budget_exhausted"] = 1
         delta["stop_run"] = True
-        print(f"  @{handle}: run deadline reached ({RUN_DEADLINE_SECONDS}s) — stopping")
-        return delta
+        print(f"  @{handle}: scan deadline reached — stopping the scan")
+        return delta, None
 
     # ── 1. state row (created on turn 1, long before a CRM lead exists) ──────
     row = state.get_or_create(db, conv=conv)
     row_id = str(row["id"])
     stage = str(row["stage"])
+    # Handed back so the caller can stamp the examined-watermark in ONE place
+    # keyed off the outcome, rather than at each of this function's many exits —
+    # where the next `return delta` added would silently forget to.
+    delta["_row_id"] = row_id
 
     # ── 2. paused? terminal stages set automation_paused, so this is the one
     #      check that covers booked / handed_off / disqualified as well. ──────
     if int(row.get("automation_paused") or 0):
         bump("skipped_paused")
         print(f"  @{handle}: paused (stage={stage}) — skipping")
-        return delta
+        return delta, None
 
-    # ── 2b. cheap pre-filter: has the thread moved since our last reply? ─────
-    # Saves the per-conversation messages GET on a quiet inbox. If updatedTime
-    # is not newer than our last outbound, the newest event in the thread is our
-    # own reply and needs_reply() would refuse anyway. Unparseable stamps fall
-    # through to the real check rather than skipping.
+    # ── 2b. cheap pre-filter: has the thread moved since we last LOOKED? ─────
+    # Saves the per-conversation messages GET on a quiet inbox.
+    #
+    # This used to compare `updatedTime` against `last_outbound_at` only, which
+    # meant it engaged solely for threads we had already answered. Every thread
+    # we had never replied to had last_outbound_at = NULL and was therefore
+    # re-fetched on EVERY tick, forever. Live on 2026-08-21: 47 of 50 threads,
+    # ~1.2s per GET, deadline hit at conversation 25 — half the inbox unread on
+    # every run, which is the whole problem under a mass influx.
+    #
+    # The watermark (migration bravo__011) is stamped after a thread reaches a
+    # conclusion, whether or not we spoke. Unchanged since then → nothing new to
+    # answer → skip without any HTTP. Unparseable stamps fall through to the real
+    # check rather than skipping, so a bad timestamp costs a fetch, not a
+    # prospect.
     updated = _parse_iso(conv.get("updatedTime"))
+    seen_at = _parse_iso(row.get("provider_updated_time"))
+    if updated and seen_at and updated <= seen_at:
+        bump("skipped_unchanged")
+        return delta, None
+
+    # Kept as defence in depth: even on the first pass after this migration,
+    # a thread whose newest event is our own reply is not ours to answer.
     last_out = _parse_iso(row.get("last_outbound_at"))
     if updated and last_out and updated <= last_out:
         bump("skipped_our_turn")
-        return delta
+        return delta, None
 
     # ── 3. fetch the FULL thread (newest window, oldest-first) ──────────────
     msgs = _fetch_thread(key, conv_id, account_id)
@@ -859,84 +1272,108 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
         # word was ours", and folding the two into one counter would report that
         # the bot had already replied to ten people it has never spoken to.
         bump("skipped_no_messages")
-        return delta
+        return delta, None
 
     # ── 4. attribute turns by `direction`, never by senderId vs accountId ────
-    turns = brain.build_transcript(msgs, participant_id=str(row["participant_id"]))
+    # The dropped count is kept, not discarded: it is what tells the model that
+    # the recap in LEAD MEMORY is its only view of the opening of this thread.
+    turns, dropped_turns = brain.transcript_window(
+        msgs, participant_id=str(row["participant_id"]))
 
     # ── 5. is it even our turn? THE self-reply-loop fix. ─────────────────────
     if not brain.needs_reply(turns):
         bump("skipped_our_turn")
-        return delta
+        return delta, None
 
     newest_inbound = brain.latest_inbound(turns)
     if newest_inbound is None:  # needs_reply() already proved otherwise
         bump("skipped_our_turn")
-        return delta
+        return delta, None
 
     # ── 6. already answered this exact message? ──────────────────────────────
     if (newest_inbound.message_id
             and newest_inbound.message_id == str(row.get("last_processed_message_id") or "")):
         bump("skipped_seen")
-        return delta
+        return delta, None
 
     # ── 7. red flags: a human takes these, always ────────────────────────────
+    # THIS IS WHY THE SCAN IS NO LONGER RATIONED. An opt-out costs zero model
+    # calls to honour, and under the old interleaved walk it was simply never
+    # reached once two chattier threads above it had spent the budget.
     flags = detect_red_flags("", newest_inbound.text)
     blocking = [f for f in flags if f in HANDOFF_RED_FLAGS]
     if blocking:
         reason = f"red flag: {', '.join(blocking)}"
-        handoff(row_id, reason=reason, notify_reason=reason, stage_=stage,
-                event="opt_out" if "opt_out" in blocking else "handoff")
+        _handoff(state=state, db=db, row_id=row_id, handle=handle, conv_id=conv_id,
+                 reason=reason, notify_reason=reason, stage_=stage, live=live,
+                 bump=bump,
+                 event="opt_out" if "opt_out" in blocking else "handoff")
         bump("skipped_red_flag")
         print(f"  @{handle}: {reason} — handed to CC, nothing sent")
-        return delta
+        return delta, None
 
     # ── 8. reply budget (SQL-side; fails CLOSED on an unreadable timestamp) ──
-    allowed, why = state.reply_budget(db, row)
-    if not allowed:
-        bump("skipped_budget")
-        print(f"  @{handle}: reply budget says no ({why}) — skipping")
-        # The per-conversation refusals self-clear: `gap` is 45 seconds and
-        # `conv_cap` is 30 replies to ONE person in a day. Paging on those trains
-        # the operator to ignore the channel.
-        #
-        # `global_cap` is a different animal. It is ONE tenant-wide number summed
-        # across every conversation, checked before the model call with no
-        # per-conversation reservation, so exhausting it silences EVERY live
-        # conversation at once until UTC midnight — mid-deal, with nothing sent
-        # and no state change. That refusal reached nobody: one stdout line the
-        # scheduler truncates away. It is an incident, so it is alerted and it is
-        # written to the row an operator actually reads.
-        if why == "global_cap":
-            if live:
-                state.note(
-                    db, row_id,
-                    note=(f"reply refused: tenant-wide daily cap "
-                          f"({state.DAILY_REPLY_CAP_GLOBAL}) reached; every "
-                          f"conversation is silenced until UTC midnight"),
-                )
-            else:
-                dry("RECORD a tenant-wide cap refusal")
-            _notify(
-                f"Instagram DMs stopped: the tenant-wide daily reply cap "
-                f"({state.DAILY_REPLY_CAP_GLOBAL}) is exhausted, so every live "
-                f"conversation is getting silence until UTC midnight. "
-                f"@{_notify_safe(handle, 64)} was refused mid-thread.",
-                conv_id="tenant", event="global_cap", live=live,
-            )
-        return delta
+    # Checked HERE, before the fair queue is built, so that a conversation which
+    # cannot be answered — paused, terminal, inside MIN_REPLY_GAP_SECONDS, over
+    # either daily cap — never takes a slot in the ordering from someone who can.
+    if _budget_gate(state=state, db=db, row=row, row_id=row_id, handle=handle,
+                    live=live, bump=bump, dry=dry) is not None:
+        return delta, None
 
-    # ── 9. run budgets, checked BEFORE the call, not after ──────────────────
-    if model_calls_spent >= args.max_model_calls:
-        delta["budget_exhausted"] = 1
-        delta["stop_run"] = True
-        print(f"  @{handle}: model-call budget spent "
-              f"({model_calls_spent}/{args.max_model_calls}) — stopping this run")
-        return delta
-    if time.monotonic() > deadline:
-        delta["budget_exhausted"] = 1
-        delta["stop_run"] = True
-        print(f"  @{handle}: run deadline reached ({RUN_DEADLINE_SECONDS}s) — stopping")
+    # ── 8b. the queue position: how long has THIS prospect been waiting? ─────
+    now = _now()
+    waiting_since = _waiting_since(newest_inbound=newest_inbound, conv=conv, now=now)
+    return delta, _Candidate(
+        conv=conv, conv_id=conv_id, account_id=account_id, handle=handle,
+        row=row, row_id=row_id, stage=stage, turns=turns,
+        dropped_turns=dropped_turns, newest_inbound=newest_inbound,
+        waiting_since=waiting_since,
+        # Clamped at zero for REPORTING only; the sort runs on the raw stamp, so
+        # a future-dated message still sorts late instead of jumping the queue.
+        waited_seconds=max(0.0, (now - waiting_since).total_seconds()),
+        delta=delta,
+    )
+
+
+def _answer_conversation(*, candidate: _Candidate, key, db, brain, state, closer,
+                         args, deadline) -> dict:
+    """Spend ONE model turn on a candidate the fair queue chose, and act on it.
+
+    Everything this needs was already paid for in pass 1 — the state row, the
+    transcript, the newest inbound turn — so nothing here re-reads Zernio before
+    the model call.
+    """
+    delta: dict[str, Any] = {"_row_id": candidate.row_id}
+    live = bool(args.live)
+    conv = candidate.conv
+    conv_id = candidate.conv_id
+    handle = candidate.handle
+    account_id = candidate.account_id
+    row = candidate.row
+    row_id = candidate.row_id
+    stage = candidate.stage
+    turns = candidate.turns
+    dropped_turns = candidate.dropped_turns
+    newest_inbound = candidate.newest_inbound
+
+    def bump(name: str, n: int = 1) -> None:
+        delta[name] = delta.get(name, 0) + n
+
+    def dry(what: str) -> None:
+        print(f"  [dry-run] WOULD {what}")
+
+    def handoff(row_id_: str, *, reason: str, notify_reason: str, stage_: str,
+                event: str = "handoff") -> None:
+        _handoff(state=state, db=db, row_id=row_id_, handle=handle, conv_id=conv_id,
+                 reason=reason, notify_reason=notify_reason, stage_=stage_,
+                 live=live, bump=bump, event=event)
+
+    # ── 8 (again). The fair queue can hold a candidate for a whole model turn,
+    #     and DAILY_REPLY_CAP_GLOBAL is a tenant-wide sum: the reply we just sent
+    #     to someone else in THIS tick can be the one that exhausts it. Re-check
+    #     immediately before spending, not only at screening time. ────────────
+    if _budget_gate(state=state, db=db, row=row, row_id=row_id, handle=handle,
+                    live=live, bump=bump, dry=dry) is not None:
         return delta
 
     # ── 10. the model turn ───────────────────────────────────────────────────
@@ -948,6 +1385,11 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
         phone=row.get("extracted_phone"), business=row.get("extracted_business"),
         need=row.get("extracted_need"), timeline=row.get("extracted_timeline"),
     )
+    # What we know about how to sell THIS person: budget signals, what they have
+    # objected to, what we already pitched, and the recap of the turns that have
+    # scrolled out of the window above. Without it a prospect who comes back
+    # after a week is re-qualified from zero.
+    carried_memory = brain.LeadMemory.from_row(row)
     # The timeout is derived from what is LEFT of the run, not left on the
     # brain's 90s default: decide() may spend two subprocesses, so an unbounded
     # default made the true worst case 55 + 2x90 = 235s against a 60-second tick.
@@ -960,6 +1402,8 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
         current_stage=stage,
         participant_display_name=_display_name(conv, handle),
         extracted_so_far=carried,
+        memory_so_far=carried_memory,
+        dropped_turns=dropped_turns,
         replies_left_today=max(
             0, state.DAILY_REPLY_CAP_PER_CONVERSATION - replies_today),
         timeout=model_timeout,
@@ -1012,6 +1456,13 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
     # life of the conversation) and raises its own terminal handoff when a
     # second, different address arrives.
     if live:
+        # The rolling lead memory rides the same --live gate, and runs FIRST so
+        # that apply_extraction stays the call whose returned row decides the
+        # email_changed handoff below. Written before the send, like the
+        # extraction: it is what the NEXT turn reads, and a send that fails must
+        # still leave us knowing what this turn learned. Coalescing, so a turn
+        # that learned nothing new erases nothing.
+        state.apply_memory(db, row_id, memory=decision.memory)
         after = state.apply_extraction(
             db, row_id, extracted=decision.extracted,
             email_source_message_id=newest_inbound.message_id or None,
@@ -1097,6 +1548,10 @@ def _handle_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
             fresh = {k: v for k, v in decision.extracted.as_dict().items() if v}
             if fresh:
                 print(f"      extracted: {fresh}")
+        if decision.memory.as_dict() != carried_memory.as_dict():
+            learned = {k: v for k, v in decision.memory.as_dict().items() if v}
+            if learned:
+                print(f"      memory: {learned}")
         if decision.violations:
             print(f"      violations: {list(decision.violations)}")
         return delta
