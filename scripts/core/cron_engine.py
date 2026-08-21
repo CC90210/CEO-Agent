@@ -30,6 +30,11 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.tls_trust import ensure_os_trust  # noqa: E402
+# Canonical sibling-repo resolver (honors the MAVEN_REPO override) — used by the
+# one SEED_JOBS entry that runs a script outside this repo. Dependency-light
+# (os/platform/pathlib only), which matters because the always-on scheduler
+# imports this module.
+from sibling_repos import SIBLING_REPOS  # noqa: E402
 
 
 # -- Credential loading --------------------------------------------------------
@@ -668,6 +673,50 @@ SEED_JOBS: list[dict] = [
         "schedule": "17 * * * *",
         "action_type": "script_run",
         "action_config": {"script": "scripts/sync_post_analytics.py", "args": [], "timeout": 600},
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-21 — the V8.6 carousel pivot. Until now, the job that
+        # decides WHAT posts and HOW OFTEN was a Windows Task Scheduler task on
+        # CC's box (MavenSchedulePosts) and appeared in NO cron table. That is
+        # why the Automations tab could not tell CC the feed had been posting
+        # 3x/day since 08-02 while he believed it was 1x. Registering it here is
+        # what makes the tab honest about the feed.
+        #
+        # DAILY ON PURPOSE — do NOT "correct" this to "0 8 */2 * *". The run
+        # happens every day; the every-2-days CADENCE is derived from the posted
+        # ledger by _is_posting_day() in CMO-Agent/scripts/schedule_posts.py.
+        # Encoding the cadence in the trigger as well would give one rule two
+        # definitions, and they drift the first time a run is missed.
+        #
+        # FIRST CROSS-REPO SEED_JOB. scheduler.py's run_script_action() does
+        # PROJECT_ROOT / script, which pathlib resolves to an absolute path
+        # unchanged, then forces cwd to Bravo's root and IGNORES any "cwd" key.
+        # That is safe *for this script specifically*: run_posting_cron.py
+        # absolutizes every step path against its own ROOT and passes cwd=ROOT
+        # to each subprocess, so it never reads the inherited cwd. Do not copy
+        # this pattern for a cwd-dependent script — add a Bravo-side wrapper
+        # instead, like the four Maven jobs above.
+        #
+        # 3600s is the scheduler's ceiling (SCRIPT_RUN_MAX_TIMEOUT) and it is
+        # needed: a --dry-run measured 197s while SKIPPING the authoring and
+        # render steps, so a real run has no chance under the 300s default —
+        # it would be killed mid-render, which is exactly the state that
+        # strands a half-written deck.
+        "name": "Maven — Carousel Post",
+        "description": (
+            "Daily 08:00 — authors carousel specs, renders and queues them, then books ONE "
+            "post every SECOND day at 17:00 UTC to Instagram, LinkedIn and Threads. The "
+            "cadence decides whether a given day books, not this schedule. Also delivers "
+            "finished renders to CC's Telegram and mirrors pieces into the founders Library."
+        ),
+        "schedule": "0 8 * * *",
+        "action_type": "script_run",
+        "action_config": {
+            "script": str(SIBLING_REPOS["maven"] / "scripts" / "run_posting_cron.py"),
+            "args": [],
+            "timeout": 3600,
+        },
         "is_active": True,
     },
 ]

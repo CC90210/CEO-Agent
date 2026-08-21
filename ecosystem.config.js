@@ -210,6 +210,47 @@ if (IS_WIN) {
 }
 
 // ============================================================================
+// bravo-ig-dm — WINDOWS ONLY. The Instagram DM setter's own loop.
+// ============================================================================
+//
+// WHY IT IS NOT A CRON ROW. It was one, and that was the bug. scheduler.py runs
+// every due job SEQUENTIALLY and only then sleeps, so a DM reply waited behind
+// whatever else was due — measured 2026-08-21, the Inbound Email Sweep alone took
+// 84s and the observed gap between DM polls was ~291s with the row set to
+// `* * * * *`. A prospect who typed "Yo Wsp" waited 3m46s. Batch jobs tolerate a
+// queue; a person watching for a reply does not.
+//
+// EXACTLY ONE RUNNER. The `Instagram DM Closer` cron row MUST stay is_active=0
+// while this is online — two live runners on one script answer every prospect
+// twice, which happened on 2026-08-20. The daemon reads that row at startup and
+// REFUSES to boot if it is armed; the poller's O_EXCL lock is the second guard.
+// Check with: python scripts/integrations/ig_dm_daemon.py --check-conflict
+//
+// KILL SWITCH: pm2 stop bravo-ig-dm   (the setter goes silent; nothing else does)
+if (IS_WIN) {
+    apps.push({
+        name: "bravo-ig-dm",
+        script: "scripts/integrations/ig_dm_daemon.py",
+        interpreter: PYTHONW,
+        cwd: PROJECT_ROOT,
+        watch: false,
+        autorestart: true,
+        max_restarts: 10,
+        restart_delay: 30000,
+        windowsHide: true,
+        env: {
+            PYTHONIOENCODING: "utf-8",
+            PYTHONUNBUFFERED: "1",
+        },
+        log_date_format: "YYYY-MM-DD HH:mm:ss",
+        error_file: "tmp/pm2-ig-dm-error.log",
+        out_file: "tmp/pm2-ig-dm-out.log",
+        merge_logs: true,
+        max_size: "10M",
+    });
+}
+
+// ============================================================================
 // bravo-telegram — BOTH PLATFORMS, but Mac runs cold-standby
 // ============================================================================
 //

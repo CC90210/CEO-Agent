@@ -19,6 +19,11 @@ from sibling_repos import SIBLING_REPOS  # noqa: E402
 BRAVO_ENV = SIBLING_REPOS["bravo"] / ".env.agents"
 MAVEN_ENV = SIBLING_REPOS["maven"] / ".env.agents"
 
+# Default to rehearsing. This script's write is destructive-by-construction (it
+# rewrites the file whole from the key list below), so the safe mode is the one
+# you get by accident. Pass --apply to actually write.
+DRY_RUN = "--apply" not in sys.argv
+
 
 def parse_env(path: Path) -> dict:
     if not path.exists():
@@ -99,6 +104,28 @@ def main():
         "LINKEDIN_EMAIL", "LINKEDIN_PASSWORD",
     ], bravo)
 
+    # 2026-08-21: these were absent from this list, and this script REWRITES the
+    # file whole -- so the recipient Bravo provisions would be erased on the next
+    # regeneration and every Maven alert would go silently back to zero
+    # recipients. Maven's own value wins if already set; otherwise Bravo's
+    # unprefixed keys seed it, which is what makes a single-bot rig work.
+    # Key names are a cross-repo contract -- see scripts/notify.py AGENT_TOKEN_KEYS
+    # and scripts/provision_maven_telegram.py.
+    section("Telegram bridge (alerts + finished-render delivery)", [
+        "MAVEN_TELEGRAM_BOT_TOKEN", "MAVEN_TELEGRAM_ALLOWED_USERS",
+    ], {
+        "MAVEN_TELEGRAM_BOT_TOKEN": (
+            maven_old.get("MAVEN_TELEGRAM_BOT_TOKEN")
+            or bravo.get("MAVEN_TELEGRAM_BOT_TOKEN")
+            or bravo.get("TELEGRAM_BOT_TOKEN", "")
+        ),
+        "MAVEN_TELEGRAM_ALLOWED_USERS": (
+            maven_old.get("MAVEN_TELEGRAM_ALLOWED_USERS")
+            or bravo.get("MAVEN_TELEGRAM_ALLOWED_USERS")
+            or bravo.get("TELEGRAM_ALLOWED_USERS", "")
+        ),
+    })
+
     sections.append("""
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -140,13 +167,36 @@ NOSTALGIC_SHOPIFY_ACCESS_TOKEN=
 # TIKTOK_ACCESS_TOKEN=
 """)
 
+    new_env = "\n".join(sections)
+
+    # 2026-08-21: this script writes the file WHOLE from the hardcoded key list
+    # above, so any key not listed is dropped. That is a one-way action, and it
+    # ran blind for a year. --dry-run makes the blast radius readable BEFORE the
+    # write, and is the only safe way to verify a change to the key list.
+    dropped = sorted(k for k in maven_old if k not in {
+        l.split("=", 1)[0]
+        for l in new_env.split("\n")
+        if l and not l.startswith("#") and "=" in l
+    })
+    if DRY_RUN:
+        print(f"\n[dry-run] would rewrite: {MAVEN_ENV}")
+        print(f"[dry-run] keys after write : {len([l for l in new_env.split(chr(10)) if l and not l.startswith('#') and '=' in l])}")
+        if dropped:
+            print(f"[dry-run] WOULD DROP {len(dropped)} existing key(s): {dropped}")
+        else:
+            print("[dry-run] would drop nothing")
+        print("[dry-run] no file was written.")
+        return
+
+    if dropped:
+        print(f"WARNING: dropping {len(dropped)} key(s) present today: {dropped}")
+
     # Backup old env if it exists
     if MAVEN_ENV.exists():
         backup = MAVEN_ENV.parent / ".env.agents.sunbiz_inherited_backup"
         backup.write_text(MAVEN_ENV.read_text(encoding="utf-8"), encoding="utf-8")
         print(f"Backup saved: {backup}")
 
-    new_env = "\n".join(sections)
     MAVEN_ENV.write_text(new_env, encoding="utf-8")
 
     new_keys = [

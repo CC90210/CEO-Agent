@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-21T08:01:33.169035+00:00",
-  "script_count": 153,
-  "entry_count": 325,
+  "generated_at_iso": "2026-08-21T18:12:15.718445+00:00",
+  "script_count": 154,
+  "entry_count": 326,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1617,6 +1617,14 @@
       "subcmd": "templates",
       "mutating": true,
       "help": "Proposal Generator \u2014 OASIS AI Solutions \u2014 subcommand: templates"
+    },
+    {
+      "key": "provision_maven_telegram",
+      "path": "scripts/provision_maven_telegram.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "provision_maven_telegram.py -- give Maven the Telegram recipient it has never had."
     },
     {
       "key": "provision_secrets",
