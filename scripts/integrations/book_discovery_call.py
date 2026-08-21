@@ -348,6 +348,11 @@ def write_brief(lead_id: str, body: str) -> Path:
 # ── book ─────────────────────────────────────────────────────────────────────
 
 _MEET_LINE_RE = re.compile(r"^\s*Meet:\s*(\S+)\s*$", re.MULTILINE)
+# google_tool prints "  Event-Id: <id>" on the per-event path (google_tool.py:552).
+# Parsed rather than ignored so a booked meeting can be cancelled — see the note
+# at the capture site. Only the per-event path prints it; the legacy static-room
+# path does not, so a None here is expected under meet_scope="static".
+_EVENT_ID_LINE_RE = re.compile(r"^\s*Event-Id:\s*(\S+)\s*$", re.MULTILINE)
 
 # Google's requestId cap (google_tool.MEET_REQUEST_ID_MAX). Kept short and
 # DERIVED, never random: Google treats requestId as the idempotency key, so a
@@ -430,6 +435,15 @@ def book(db, lead_id: str, start_iso: str, apply: bool,
         return result
     result["applied"] = True
     result["calendar_output"] = out[:300]
+    # THE EVENT ID IS THE INVERSE. events.insert runs with sendUpdates:"all", so
+    # by the time this line executes Google has already mailed a stranger an
+    # invite — the single irreversible act in this pipeline. google_tool can undo
+    # it (`calendar delete <id>`, which also mails the cancellation), but only if
+    # somebody still has the id. Keeping just out[:300] of human-readable text
+    # threw it away, leaving a real meeting on CC's calendar that no code could
+    # find. An action with no inverse is a trapdoor; this is what gives it one.
+    ident = _EVENT_ID_LINE_RE.search(out or "")
+    result["event_id"] = ident.group(1).strip() if ident else None
     # The room that was actually created, read back off the tool's output rather
     # than assumed. The caller emails this to the prospect.
     minted = _MEET_LINE_RE.search(out or "")

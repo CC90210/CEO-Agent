@@ -61,7 +61,23 @@ for _p in (str(REPO_ROOT), str(SCRIPTS), str(SCRIPTS / "integrations")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-MIGRATION_PATH = REPO_ROOT / "database" / "turso_migrations" / "bravo__009_instagram_dm_conversations.sql"
+MIGRATIONS_DIR = REPO_ROOT / "database" / "turso_migrations"
+MIGRATION_PATH = MIGRATIONS_DIR / "bravo__009_instagram_dm_conversations.sql"
+
+
+def _ig_migration_sql() -> str:
+    """The FULL current shape of instagram_dm_conversations, every migration applied.
+
+    Reading bravo__009 alone rebuilt the table as it looked at creation. When
+    bravo__010 added booked_event_id, this fixture kept building the old table and
+    20 tests failed with "no such column" against a change that was correct. The
+    glob means the next ALTER TABLE is picked up without anyone remembering.
+    """
+    parts = sorted(
+        p for p in MIGRATIONS_DIR.glob("bravo__0*.sql")
+        if "instagram_dm" in p.name or "ig_" in p.name
+    )
+    return ";".join(x.read_text(encoding="utf-8") for x in parts)
 IMPL_DIR = Path(os.environ.get("IG_TEST_IMPL_DIR") or (SCRIPTS / "integrations"))
 
 
@@ -160,6 +176,7 @@ CREATE TABLE IF NOT EXISTS instagram_dm_conversations (
   booked_start TEXT,
   booked_end TEXT,
   booked_meet_link TEXT,
+  booked_event_id TEXT,
   booking_email_status TEXT,
   booking_error TEXT,
   consecutive_model_failures INTEGER NOT NULL DEFAULT 0,
@@ -264,7 +281,7 @@ class Runner:
 
 
 def _ddl_statements() -> list[str]:
-    raw = MIGRATION_PATH.read_text(encoding="utf-8") if MIGRATION_PATH.is_file() else EMBEDDED_DDL
+    raw = _ig_migration_sql() if MIGRATION_PATH.is_file() else EMBEDDED_DDL
     raw = re.sub(r"--[^\n]*", "", raw + LEADS_DDL)
     return [s.strip() for s in raw.split(";") if s.strip()]
 

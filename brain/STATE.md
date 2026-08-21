@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-21
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** SESSION COMPLETE. PR #259 green (build+Vercel+CodeRabbit) but NOT merged - left for CC because the branch changes how people get paid and a double-pay slipped past me earlier. CodeRabbit was rate-limited on the final push so the 10 review fixes had no independent re-review. Live in prod already: lead-detail fix + migrations 153/154/155. Open decisions for CC: price book ladder (decides contract terms), tenant allowlist for contact-field mapping, and confirming a lead opens live.
+- **Result:** IG DM setter complete (bfc68f56): bilingual guards FR/ES, setter budgets 30/200/45s, true 1-min cadence (scheduler sleep was additive), booking finished (leads bridge uuid5, timed-event clash fix, parked failures), first ig_closer tests. 18 adversarial findings, 15 fixed. --book still OFF.
 
 *Last updated: 2026-08-21*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-21T08:02:56.108062+00:00_
 
 - **Date:** 2026-08-21
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** SESSION COMPLETE. PR #259 green (build+Vercel+CodeRabbit) but NOT merged - left for CC because the branch changes how people get paid and a double-pay slipped past me earlier. CodeRabbit was rate-limited on the final push so the 10 review fixes had no independent re-review. Live in prod already: lead-detail fix + migrations 153/154/155. Open decisions for CC: price book ladder (decides contract terms), tenant allowlist for contact-field mapping, and confirming a lead opens live.
+- **Result:** IG DM setter complete (bfc68f56): bilingual guards FR/ES, setter budgets 30/200/45s, true 1-min cadence (scheduler sleep was additive), booking finished (leads bridge uuid5, timed-event clash fix, parked failures), first ig_closer tests. 18 adversarial findings, 15 fixed. --book still OFF.
 
 *Last updated: 2026-08-21*

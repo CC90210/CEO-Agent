@@ -685,15 +685,26 @@ def claim_booking(db, row_id: str, *, claim_token: str,
 
 def finalize_booking(db, row_id: str, *, claim_token: str, start_iso: str,
                      end_iso: str, meet_link: str, email_status: str,
+                     event_id: Optional[str] = None,
                      tenant_id: str = OASIS_TENANT_ID) -> dict:
-    """The meeting exists. Guarded by the claim token; a zero-effect update raises."""
+    """The meeting exists. Guarded by the claim token; a zero-effect update raises.
+
+    `event_id` is the Google event id, and it is the meeting's ONLY inverse:
+    `google_tool.py calendar delete <event_id>` cancels it and mails the
+    cancellation. Creating the event already mailed the invite (sendUpdates:"all"),
+    so without this stored a real meeting sits on CC's calendar that no code can
+    find. Optional because the legacy static-room path never printed one — a NULL
+    is an honest "no id", never an invented one.
+    """
     _write(
         db,
         f"update {TABLE} set booking_status = 'booked', booked_start = ?, "
-        "booked_end = ?, booked_meet_link = ?, booking_email_status = ?, "
+        "booked_end = ?, booked_meet_link = ?, booked_event_id = ?, "
+        "booking_email_status = ?, "
         "stage = 'booked', stage_entered_at = ?, automation_paused = 1, updated_at = ? "
         "where tenant_id = ? and id = ? and booking_claim_token = ?",
-        (str(start_iso), str(end_iso), str(meet_link), str(email_status),
+        (str(start_iso), str(end_iso), str(meet_link),
+         str(event_id) if event_id else None, str(email_status),
          _iso(), _iso(), tenant_id, str(row_id), str(claim_token)),
     )
     row = _require_row(db, row_id, tenant_id)

@@ -92,8 +92,22 @@ import send_gateway  # noqa: E402
 REAL_SEND_SIG = inspect.signature(send_gateway.send)
 REAL_BOOK_SIG = inspect.signature(book_discovery_call.book)
 
-MIGRATION_PATH = (REPO_ROOT / "database" / "turso_migrations"
-                  / "bravo__009_instagram_dm_conversations.sql")
+MIGRATIONS_DIR = REPO_ROOT / "database" / "turso_migrations"
+
+
+def _ig_migrations() -> list[Path]:
+    """Every migration that shapes instagram_dm_conversations, in order.
+
+    Globbed rather than naming bravo__009 alone. Pinning one file meant the next
+    ALTER TABLE — bravo__010 added booked_event_id — left this fixture building a
+    table production no longer had, and 20 tests failed with "no such column" on
+    a change that was actually correct. A fixture that has to be hand-updated per
+    migration will be out of date the moment someone forgets.
+    """
+    return sorted(
+        p for p in MIGRATIONS_DIR.glob("bravo__0*.sql")
+        if "instagram_dm" in p.name or "ig_" in p.name
+    )
 
 TENANT = state.OASIS_TENANT_ID
 CONV_ID = "conv_closer_0001"
@@ -101,6 +115,7 @@ PARTICIPANT = "17841400000000009"
 ACCOUNT_ID = "699c92828ab8ae478b3ee83a"
 
 MEET_LINK = "https://meet.google.com/tst-abcd-efg"
+EVENT_ID = "7k2m9qb4c1d8e5f6g7h8i9j0"
 SLOT = {
     "start": "2026-09-01T09:00-04:00",
     "end": "2026-09-01T09:30-04:00",
@@ -143,8 +158,10 @@ CREATE TABLE IF NOT EXISTS "leads" (
 # ── fixtures ────────────────────────────────────────────────────────────────
 
 def _ddl_statements() -> list[str]:
-    raw = MIGRATION_PATH.read_text(encoding="utf-8")
-    raw = re.sub(r"--[^\n]*", "", raw) + ";" + LEADS_DDL
+    migrations = _ig_migrations()
+    assert migrations, f"no instagram_dm migrations found under {MIGRATIONS_DIR}"
+    raw = ";".join(re.sub(r"--[^\n]*", "", p.read_text(encoding="utf-8"))
+                   for p in migrations) + ";" + LEADS_DDL
     return [s.strip() for s in raw.split(";") if s.strip()]
 
 
@@ -299,6 +316,10 @@ def calendar_ok(**over) -> dict:
            "title": "OASIS AI - discovery call",
            "start": SLOT["start"], "end": SLOT["end"],
            "meet_link": MEET_LINK,
+           # book() parses this off google_tool's "Event-Id:" line. It is the
+           # meeting's only inverse (`calendar delete <id>`), so the double must
+           # carry it or the tests model a primitive that cannot be undone.
+           "event_id": EVENT_ID,
            "calendar_output": "Event created: OASIS AI discovery call"}
     out.update(over)
     return out
@@ -1650,3 +1671,42 @@ def test_an_event_created_without_a_room_is_a_failure_not_a_fallback(booking_env
     assert "evt_9" in str(result.get("error")), (
         "the operator needs the event id to cancel the event that DOES exist"
     )
+
+
+def test_a_booked_meeting_stores_the_id_that_can_cancel_it(db, db_path, monkeypatch):
+    """Creating the event already mailed the invite (sendUpdates:"all").
+
+    The only way back is `google_tool.py calendar delete <event_id>`, and that is
+    reachable only while the id is persisted. book() used to keep out[:300] of
+    human-readable stdout and throw the id away, leaving a real meeting on CC's
+    calendar that no code could find. An action with no inverse is a trapdoor.
+    """
+    monkeypatch.setattr(book_discovery_call, "book", Calls(calendar_ok()))
+    monkeypatch.setattr(send_gateway, "send", Calls(sent_ok()))
+
+    result = close(db, make_row(db), apply=True)
+
+    assert result.ok is True
+    row = committed_row(db_path, result.row_id)
+    assert row["booking_status"] == "booked"
+    assert row["booked_event_id"] == EVENT_ID, (
+        "the booked meeting has no cancellable id — the invite is in a stranger's "
+        "inbox and nothing can withdraw it"
+    )
+
+
+def test_a_booking_without_an_event_id_stores_null_not_a_fake_one(db, db_path,
+                                                                  monkeypatch):
+    """The legacy static-room path prints no Event-Id line.
+
+    A NULL is honest; an invented id would make `calendar delete` fail against a
+    real event while reporting that a cancel was attempted.
+    """
+    monkeypatch.setattr(book_discovery_call, "book",
+                        Calls(calendar_ok(event_id=None)))
+    monkeypatch.setattr(send_gateway, "send", Calls(sent_ok()))
+
+    result = close(db, make_row(db), apply=True)
+
+    assert result.ok is True
+    assert committed_row(db_path, result.row_id)["booked_event_id"] is None

@@ -843,6 +843,11 @@ def close(
             state.finalize_booking(
                 db, row_id, claim_token=claim_token, start_iso=start_iso,
                 end_iso=end_iso, meet_link=meet_link, email_status=email_status,
+                # The meeting's inverse. book() parses it off google_tool's
+                # "Event-Id:" line; persisting it is what makes
+                # `google_tool.py calendar delete <id>` reachable later. The
+                # invite is already in the prospect's inbox by now.
+                event_id=(booking or {}).get("event_id"),
                 tenant_id=tenant,
             )
             finalized = True
