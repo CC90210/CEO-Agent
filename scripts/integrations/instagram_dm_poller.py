@@ -401,23 +401,10 @@ def _notify_safe(text: Any, limit: int = MAX_NOTIFY_DETAIL_CHARS) -> str:
     return flat
 
 
-def _mask_notify_terms(text: str) -> str:
-    """Neutralise terms that make notify() drop or reroute the whole message.
-
-    The patterns are read off the live notify module rather than copied, so this
-    cannot drift out of sync with the filter it is defending against. Matching
-    ig_closer._notify_safe, which solves the same problem on the booking side.
-    """
-    flat = " ".join(str(text or "").split())
-    try:
-        import notify as notify_module  # type: ignore
-    except ImportError:
-        return flat
-    for attr in ("_GROUP_BLOCKED_TERMS_RE", "_NOT_BRAVO_DOMAIN_RE"):
-        pattern = getattr(notify_module, attr, None)
-        if pattern is not None:
-            flat = pattern.sub("[term]", flat)
-    return flat
+# Telegram's own body cap is 4096; leave headroom for notify()'s own framing.
+# This is the WHOLE-BODY limit, not the per-fragment one — a body is only
+# truncated here if every call site already failed to bound its fragments.
+MAX_NOTIFY_BODY_CHARS = 3500
 
 
 def _notify(text: str, *, conv_id: str, event: str, live: bool) -> tuple[bool, str]:
@@ -437,14 +424,17 @@ def _notify(text: str, *, conv_id: str, event: str, live: bool) -> tuple[bool, s
     if not live:
         print(f"  [dry-run] WOULD NOTIFY ({event}): {text}")
         return False, "dry_run"
-    # Mask at the chokepoint rather than trusting every call site to remember.
-    # Callers interpolate the handle and the model-authored handoff_reason, both
-    # attacker-influenced: an IG username like `phone_lookup`, or a prospect who
-    # asks about texttorrent, matches notify()'s _NOT_BRAVO_DOMAIN_RE and the
-    # alert is DROPPED — not rerouted. The conversation is already paused and
-    # handed off at that point, so the prospect gets silence and CC is never
-    # told. The docstring above has always named this hazard; this is the guard.
-    text = _mask_notify_terms(text)
+    # Belt AND braces on the same helper. _notify_safe already existed for
+    # fragments, but several call sites interpolated the handle and the
+    # model-authored handoff_reason raw — and those are exactly the strings an
+    # attacker shapes. An IG username like `phone_lookup`, or a prospect asking
+    # about texttorrent, matches notify()'s _NOT_BRAVO_DOMAIN_RE and the alert is
+    # DROPPED, not rerouted, while request_handoff has already paused the
+    # conversation: the prospect gets silence and CC never learns they exist.
+    # Running it once more over the assembled body makes the guard structural
+    # instead of a rule each caller has to remember. Masking is idempotent —
+    # "[term]" does not re-match — so a fragment already cleaned is unharmed.
+    text = _notify_safe(text, limit=MAX_NOTIFY_BODY_CHARS)
     try:
         ok, reason = _notifier()(
             text, category=NOTIFY_CATEGORY, dedup_key=f"igdm:{conv_id}:{event}"

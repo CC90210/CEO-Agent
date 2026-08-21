@@ -73,34 +73,70 @@ is identical either way, so nothing is wasted.
 
 ## Build
 
-Poller (`scripts/integrations/instagram_dm_poller.py`, run from `cron_engine.py SEED_JOBS`):
+> **SUPERSEDED 2026-08-21.** The keyword design below shipped and was replaced by
+> a conversational closer. The classifier, both reply templates, the JSON state
+> file and the 24h cooldown are **deleted from the code**, not disabled — dead
+> fallbacks get resurrected by accident. The authoritative design is now
+> [[IG_DM_CLOSER_CONTRACT]] (`docs/IG_DM_CLOSER_CONTRACT.md`). This section is
+> kept only because the failures it caused explain the shape of the replacement.
+
+**What runs today** (`scripts/integrations/instagram_dm_poller.py`, seeded as
+"Instagram DM Closer" in `cron_engine.py SEED_JOBS`, `*/5`, booking disarmed):
 
 1. `GET /v1/inbox/conversations`, keep `platform == "instagram"` **and**
    `accountUsername == "oasisaisolutions"`. Every other connected profile is out
-   of scope — New Haven pinned to its own profile for the same reason.
-2. For each conversation with `unreadCount > 0`, fetch messages with the required
-   `accountId`.
-3. Keyword classifier, case-insensitive, OASIS intent:
-   `audit, automation, automate, website, site, pricing, price, cost, help,
-   interested, book, call, demo, ai`. **Non-matching DMs are logged only, never
-   auto-replied.**
-4. On match, reply with the AI-audit form:
-   `https://oasisai.work/f/oasis-ai-cc/ai-audit`
-   (that form now requires a phone number on step 1, so DM leads arrive reachable).
-5. Upsert the sender as a lead in `tenant_records`: `source = "instagram_dm"`,
-   handle from `participantUsername`, `stage = "researched"`, unassigned.
-   Reuse `scripts/lib/lead_contract.py` for the field contract.
-6. **24-hour per-sender cooldown**, keyed on `participantId`, so a second DM does
-   not re-trigger. The stamp lives in `state/instagram_dm_state.json`, **not** on
-   the lead — an earlier draft of this document claimed otherwise and was wrong.
-   It must be written to disk the moment a reply is sent (see "Double-reply" below).
+   of scope.
+2. For each conversation that has moved since our last reply, fetch the thread
+   **newest-first** and reverse locally — the default order is ascending, so a
+   server-side page cap would hand back the oldest messages and the agent would
+   judge a stale tail.
+3. Attribute every message by Zernio's `direction` field, and refuse to act
+   unless the **last turn is the prospect's**. This is what stops the agent
+   answering itself.
+4. `ig_conversation_brain` builds a delimited transcript, calls the model
+   through `scripts/lib/claude_cli.py` (subscription OAuth — **never an API
+   key**), and demands JSON back. A failed or malformed call produces
+   **nothing**; there is no template fallback.
+5. The reply crosses 18 deterministic guardrails before it can reach a human —
+   URL allowlist, length, invented product, price claims, promises, canary and
+   prompt leakage, and a human-claim check. A violation is a rejection, never a
+   silent repair.
+6. `ig_dm_state` persists one row per conversation in
+   `instagram_dm_conversations` (migration `bravo__009`) — stage, extracted
+   fields, reply budget, handoff and booking status. It is the only module that
+   writes SQL.
+7. Reply budget replaces the cooldown: per-conversation per-day, per-tenant
+   per-day, and a minimum gap, all enforced in SQL **before** a model call is
+   spent.
+
+### The keyword design this replaced, and why it failed
+
+Three defects, all rooted in the same mistake — treating one message as the unit
+of meaning instead of the conversation:
+
+- It **answered itself.** Attribution compared an outgoing IGSID against a Zernio
+  ObjectId — different id namespaces, so the check could never be true. The
+  template it had just sent contained the word "audit", which scored as buying
+  intent.
+- It could only ever say **two things**, so a real conversation went nowhere.
+- Its 24h cooldown was the only send throttle — correct for a one-shot
+  autoresponder, fatal for a closer.
 
 ### Safety rules (carried from the New Haven brief — non-negotiable)
 
-- **Test to CC's own handle first, never a real lead.** With marketing about to
-  drive real DMs this matters more here than it did there.
-- Dry-run mode by default; live sending behind an explicit env flag.
-- Outbound goes through the existing gateway discipline — killswitch, caps, audit.
+- **Test to CC's own handle first, never a real lead.** `--only-handle <handle>`
+  scopes an entire run to one account.
+- **Dry run is the default.** Sending requires `--live`; a run without it takes no
+  lock, consumes no message ids, mutates no state and sends no Telegram. Nothing
+  leaves the machine.
+- **Booking is armed separately by `--book`, default OFF.** It is the only thing
+  that lets the closer create a real calendar event and mail a stranger a Google
+  invite — the first irreversible outward effect in the pipeline. Without it a
+  ready-to-book prospect becomes a Telegram handoff to CC.
+- Outbound email goes through the existing gateway discipline — killswitch, caps,
+  audit.
+- A failed model call never produces a fallback message. It is counted, and
+  repeated failures hand the conversation to a human.
 
 ## Verified operating facts (measured 2026-08-20, not estimated)
 
@@ -142,8 +178,16 @@ that walks all 50 would take ~25 minutes and overrun any sane schedule.
 2026-08-20: the operator received two different templated replies back to back.
 Cause: the 24h cooldown was held in memory and only flushed to disk after the
 whole run, while the cron fired every minute. Two runs overlapped, both read
-pre-reply state, both sent. Fixed by persisting on each reply **and** an
-`O_EXCL` run lock (`state/instagram_dm_poller.lock`, stale after 15 min).
+pre-reply state, both sent. Fixed at the time by persisting on each reply **and**
+an `O_EXCL` run lock (`state/instagram_dm_poller.lock`, stale after 15 min).
+
+The lock survives into the current design; the flushed-file half does not. Send
+accounting now lives in `instagram_dm_conversations` and is written before the
+next poll can read it, so there is no in-memory window to lose. Two defences
+remain against a repeat: **one** cron row may point at this script (two live rows
+on one script answers every prospect twice — a second row was caught and removed
+on 2026-08-21), and the run deadline plus the model-call cap are sized so a run
+finishes inside its tick. A run that outlives its tick is what caused this.
 
 Related and separately fixed: the existing-lead check paged 500 of 31,032 leads
 and compared handles in Python, so it never matched and created a duplicate lead
