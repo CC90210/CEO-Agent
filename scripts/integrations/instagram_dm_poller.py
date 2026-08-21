@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -64,6 +65,7 @@ TARGET_ACCOUNT = "oasisaisolutions"
 
 OASIS_TENANT_ID = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
 STATE_PATH = PROJECT_ROOT / "state" / "instagram_dm_state.json"
+LOCK_PATH = PROJECT_ROOT / "state" / "instagram_dm_poller.lock"
 COOLDOWN_HOURS = 24
 
 AUDIT_FORM_URL = "https://oasisai.work/f/oasis-ai-cc/ai-audit"
@@ -77,6 +79,16 @@ INTENT_KEYWORDS = (
     "agent", "chatbot", "lead", "crm", "work with", "hire",
 )
 
+# A greeting to a BUSINESS account is an inbound lead, not noise. The first
+# build only answered explicit buying intent, so a real "Hello" from a real
+# prospect sat unanswered — safe, but it loses the lead. Greetings now get a
+# warm opener that asks the qualifying question instead of the form link;
+# pushing a form at someone who only said hi reads like a bot.
+GREETING_KEYWORDS = (
+    "hello", "hey", "hi ", "hi!", "hi.", "yo", "sup", "howdy", "good morning",
+    "good afternoon", "good evening", "what's up", "whats up", "wsp",
+)
+
 REPLY_TEMPLATE = (
     "Hey {name} — thanks for reaching out.\n\n"
     "Quickest way to get you a real answer: this short form asks what you're "
@@ -84,6 +96,14 @@ REPLY_TEMPLATE = (
     "one personally.\n\n"
     "{url}\n\n"
     "Once it's in I'll come back with the specific bottleneck I'd automate first."
+)
+
+GREETING_TEMPLATE = (
+    "Hey {name} — thanks for the message.\n\n"
+    "I'm the AI side of OASIS. What are you working on, and what's the part of "
+    "it that eats the most of your week? If it's a website or something "
+    "repetitive in your day-to-day, that's exactly what we build away.\n\n"
+    "If you'd rather skip straight to it, this takes about a minute: {url}"
 )
 
 
@@ -144,6 +164,46 @@ def _save_state(state: dict) -> None:
     STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
+class _RunLock:
+    """Refuse to start when another poll is already in flight.
+
+    Persisting the cooldown per-reply narrows the double-send window but does
+    not close it: two runs can still pass the same cooldown check microseconds
+    apart. One run at a time is the actual guarantee. O_EXCL creation is atomic
+    on Windows and POSIX alike, so the loser of the race gets the error rather
+    than a second copy of the conversation.
+    """
+
+    def __init__(self, path: Path, stale_after_minutes: int = 15):
+        self.path = path
+        self.stale_after = timedelta(minutes=stale_after_minutes)
+        self.acquired = False
+
+    def __enter__(self) -> "_RunLock":
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if self.path.exists():
+            # A killed run must not wedge the automation permanently.
+            age = _now() - datetime.fromtimestamp(
+                self.path.stat().st_mtime, tz=timezone.utc
+            )
+            if age > self.stale_after:
+                print(f"  [warn] clearing stale lock ({int(age.total_seconds())}s old)",
+                      file=sys.stderr)
+                self.path.unlink(missing_ok=True)
+        try:
+            fd = os.open(str(self.path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            raise SystemExit("another poll is already running — exiting without sending")
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        self.acquired = True
+        return self
+
+    def __exit__(self, *_exc) -> None:
+        if self.acquired:
+            self.path.unlink(missing_ok=True)
+
+
 def _in_cooldown(state: dict, participant_id: str) -> bool:
     last = state.get("replied", {}).get(participant_id)
     if not last:
@@ -155,12 +215,33 @@ def _in_cooldown(state: dict, participant_id: str) -> bool:
 
 
 def matches_intent(text: str) -> str | None:
-    """Return the keyword that matched, or None. Exposed for testing."""
+    """Return the buying-intent keyword that matched, or None."""
     low = (text or "").lower()
     for kw in INTENT_KEYWORDS:
         if kw in low:
             return kw
     return None
+
+
+def classify(text: str) -> tuple[str, str | None]:
+    """('intent'|'greeting'|'none', matched_keyword).
+
+    Two tiers because they deserve different answers. Explicit buying intent
+    gets the form. A bare greeting to a business account gets a human question —
+    it is still a lead, but answering "hi" with a form link reads like a bot and
+    burns the first impression.
+    """
+    kw = matches_intent(text)
+    if kw:
+        return "intent", kw
+    low = (text or "").strip().lower()
+    for g in GREETING_KEYWORDS:
+        if low.startswith(g.strip()) or low == g.strip():
+            return "greeting", g.strip()
+    # Short openers with no other signal read as greetings too ("yooo", "hiya").
+    if len(low) <= 12 and low.replace("!", "").replace(".", "").isalpha():
+        return "greeting", low[:12]
+    return "none", None
 
 
 def _incoming_text(messages: list[dict], account_id: str) -> tuple[str, str]:
@@ -180,29 +261,36 @@ def _incoming_text(messages: list[dict], account_id: str) -> tuple[str, str]:
     return "", ""
 
 
+def _lead_exists(handle: str) -> bool:
+    """Is there already a lead for this Instagram handle?
+
+    Asks SQL to do the matching. The previous version read a 500-row page of
+    tenant_records and compared handles in Python — against 31k leads that page
+    never contained the handle, so every run believed the sender was new and
+    inserted another lead. Filtering has to happen where the rows are.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from lib.db_turso import get_db  # type: ignore
+
+    # query() returns rows; execute() returns a cursor that is truthy even when
+    # it selected nothing, which would report every handle as already existing.
+    rows = get_db().query(
+        "select 1 as hit from tenant_records "
+        "where tenant_id = ? and entity_type = 'lead' "
+        "and lower(json_extract(data, '$.instagram_handle')) = lower(?) limit 1",
+        (OASIS_TENANT_ID, str(handle)),
+    )
+    return bool(rows)
+
+
 def _upsert_lead(conv: dict, text: str, matched: str) -> str:
     """Create the CRM lead if this handle is new. Returns a status word."""
     from supabase_tool import get_client, load_env  # type: ignore
 
     db = get_client(load_env())
     handle = conv.get("participantUsername") or conv.get("participantId") or "unknown"
-    rows = (
-        db.table("tenant_records")
-        .select("id,data")
-        .eq("tenant_id", OASIS_TENANT_ID)
-        .eq("entity_type", "lead")
-        .limit(500)
-        .execute()
-    ).data or []
-    for r in rows:
-        d = r.get("data") or {}
-        if isinstance(d, str):
-            try:
-                d = json.loads(d)
-            except json.JSONDecodeError:
-                continue
-        if (d.get("instagram_handle") or "").lower() == str(handle).lower():
-            return "existing"
+    if _lead_exists(handle):
+        return "existing"
 
     now = _iso(_now())
     data = {
@@ -243,6 +331,14 @@ def main() -> int:
     p.add_argument("--json", action="store_true")
     args = p.parse_args()
 
+    # A dry run sends nothing, so it neither takes the lock nor waits on one.
+    if not args.live:
+        return _poll(args)
+    with _RunLock(LOCK_PATH):
+        return _poll(args)
+
+
+def _poll(args) -> int:
     key = _api_key()
     state = _load_state()
     summary = {
@@ -290,11 +386,15 @@ def main() -> int:
             summary["skipped_seen"] += 1
             continue
 
-        matched = matches_intent(text)
-        if not matched:
+        kind, matched = classify(text)
+        if kind == "none":
             summary["skipped_no_match"] += 1
-            print(f"  @{handle}: no intent match — logged only: {text[:60]!r}")
-            if msg_id:
+            print(f"  @{handle}: no intent or greeting — logged only: {text[:60]!r}")
+            # Only a LIVE pass may consume a message. A dry run that marks
+            # messages seen makes the subsequent live run skip the very DM it
+            # was meant to answer -- which is exactly what swallowed CC's first
+            # real test.
+            if msg_id and args.live:
                 state.setdefault("seen_messages", []).append(msg_id)
             continue
 
@@ -307,12 +407,13 @@ def main() -> int:
             print(f"  @{handle}: matched '{matched}' — held (--only-handle {args.only_handle})")
             continue
 
-        reply = REPLY_TEMPLATE.format(
+        template = REPLY_TEMPLATE if kind == "intent" else GREETING_TEMPLATE
+        reply = template.format(
             name=(conv.get("participantName") or handle).split()[0],
             url=AUDIT_FORM_URL,
         )
         if not args.live:
-            print(f"  @{handle}: WOULD REPLY (matched '{matched}')")
+            print(f"  @{handle}: WOULD REPLY [{kind}] (matched '{matched}')")
             continue
 
         try:
@@ -331,6 +432,11 @@ def main() -> int:
         state.setdefault("replied", {})[pid] = _iso(_now())
         if msg_id:
             state.setdefault("seen_messages", []).append(msg_id)
+        # Persist the cooldown the moment it is earned, not at the end of the
+        # run. Holding it in memory until the final save meant a run that took
+        # longer than the cron interval let the next run read pre-reply state
+        # and message the same person twice.
+        _save_state(state)
         print(f"  @{handle}: REPLIED (matched '{matched}')")
 
         try:
