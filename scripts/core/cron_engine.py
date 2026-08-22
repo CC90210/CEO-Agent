@@ -650,7 +650,7 @@ SEED_JOBS: list[dict] = [
         "description": "Hourly — link founders Library assets to the posts that actually went out (hook-to-caption match), stamping published_at and the real platform list. Precision-first: an ambiguous or multi-day match is reported, never guessed.",
         "schedule": "17 * * * *",
         "action_type": "script_run",
-        "action_config": {"script": "scripts/link_library_to_posts.py", "args": ["--execute"], "timeout": 300},
+        "action_config": {"script": "scripts/link_library_to_posts.py", "args": ["--execute"], "timeout": 600},
         "is_active": True,
     },
     {

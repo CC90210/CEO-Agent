@@ -281,7 +281,10 @@ def main() -> int:
         result["executed"] = True
 
     if args.json:
-        print(json.dumps(result, indent=2))
+        # ONE compact line — scheduler.py keeps out[-1][:200] as last_result;
+        # pretty JSON ends in a lone bracket and the watchdog reads the run
+        # as OPAQUE.
+        print(json.dumps(result, separators=(",", ":")))
     else:
         _print(result, result["executed"])
     return 0

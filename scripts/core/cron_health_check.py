@@ -683,8 +683,17 @@ def compose_alert(buckets: dict[str, list[dict]]) -> str:
         if lines:
             lines.append("")
         if stale_unchanged:
+            # Even collapsed, say WHOSE they are — "8 stale" with no owner reads
+            # as eight new emergencies; "[solara]×4 [helios]×2" reads as the one
+            # known outage it actually is. Tags come from the names themselves.
+            by_tag: dict[str, int] = {}
+            for b in stale:
+                m = re.match(r"\[([^\]]+)\]", str(b["name"]))
+                by_tag[m.group(1) if m else "empire"] = \
+                    by_tag.get(m.group(1) if m else "empire", 0) + 1
+            tag_summary = " ".join(f"[{t}]×{n}" for t, n in sorted(by_tag.items()))
             lines.append(f"🕳 {len(stale)} stale cron(s) — unchanged since the last "
-                         f"report, details suppressed. Full list: "
+                         f"report ({tag_summary}). Full list: "
                          f"python scripts/core/cron_health_check.py --json --dry-run")
         else:
             lines.append(f"🕳 {len(stale)} cron(s) stopped running:")
