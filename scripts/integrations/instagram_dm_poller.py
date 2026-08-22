@@ -178,8 +178,18 @@ AUDIT_FORM_URL = "https://oasisai.work/f/oasis-ai-cc/ai-audit"
 # stays responsive at the daemon's 20s interval. If real volume ever exceeds
 # that, the next lever is concurrency across model calls — NOT a bigger number
 # here, because these are serial `claude -p` subprocesses on one subscription.
-MAX_MODEL_CALLS_PER_RUN = 4
-RUN_DEADLINE_SECONDS = 150
+# RETUNED 2026-08-22 from MEASURED latency with the REAL prompt (11K-char
+# system + JSON contract): p50 73-88s, p95 ~106s per call — NOT the 27s a
+# one-word probe suggested. The old deadline (150s) gave the model
+# min(90, deadline-elapsed), often UNDER a median call, so the deadline was
+# manufacturing the model_unavailable failures it exists to prevent —
+# @adonyess carries one. Three of those in a row hand a live prospect to a
+# human for nothing. Sizing: 3 calls x ~110s p95 = ~330s; deadline 360 with
+# the ceiling at 150 keeps one slow retry inside the budget. The tick is no
+# longer racing a shared scheduler — bravo-ig-dm owns the loop — so a longer
+# run costs nothing but its own latency.
+MAX_MODEL_CALLS_PER_RUN = 3
+RUN_DEADLINE_SECONDS = 360
 
 # How deep into the inbox one run looks. This was 25 against a 50-thread inbox,
 # which meant threads 26..50 were NEVER examined — not answered late, never read
@@ -229,8 +239,8 @@ def _is_conclusive(delta: dict) -> bool:
 # starting: run_claude_cli is startup-dominated at ~27s median on this machine,
 # so a 10s budget buys nothing but a guaranteed timeout. decide() may spend TWO
 # subprocesses, so the worst-case model time is 2x whatever is passed.
-MODEL_TIMEOUT_FLOOR_SECONDS = 30
-MODEL_TIMEOUT_CEILING_SECONDS = 90
+MODEL_TIMEOUT_FLOOR_SECONDS = 105   # below p50 is not worth starting
+MODEL_TIMEOUT_CEILING_SECONDS = 150  # above p95 + margin is a hang, kill it
 
 # ── fair scheduling: the run is TWO passes, not one interleaved walk ─────────
 #

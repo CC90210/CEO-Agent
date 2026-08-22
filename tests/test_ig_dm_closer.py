@@ -2650,19 +2650,44 @@ def test_the_deadline_is_checked_before_the_thread_fetch(dm):
     assert st.writes == [], "no work may start after the deadline"
 
 
-def test_the_model_call_is_given_a_timeout_bounded_by_the_deadline(dm):
-    """decide() may spend TWO subprocesses at timeout=90 each, so the worst case
-    was 55 + 180 = 235s against a 60-second tick — the comment claiming
-    '2 turns x ~27s is ~55s' describes a bound that does not exist."""
+def test_the_model_call_timeout_follows_the_floor_ceiling_clamp(dm):
+    """timeout = max(FLOOR, min(CEILING, remaining)) — pinned in all 3 regimes.
+
+    The contract CHANGED on 2026-08-22 and this pin changed with it, on purpose.
+    The old rule ("timeout never exceeds the remaining deadline") sized calls
+    off a 27s figure measured with a one-word prompt; the real prompt takes
+    p50 73-88s, so near the deadline the old rule handed the model less time
+    than a median call and MANUFACTURED model_unavailable failures — @adonyess
+    carries one. The floor now deliberately lets the LAST turn overrun the
+    deadline (bounded: the daemon's TICK_TIMEOUT=660 absorbs it), because
+    overrunning and succeeding beats truncating and recording a false failure
+    against a live prospect."""
     import time as _t  # noqa: PLC0415
+    from integrations import instagram_dm_poller as p  # noqa: PLC0415
 
+    FLOOR = p.MODEL_TIMEOUT_FLOOR_SECONDS
+    CEILING = p.MODEL_TIMEOUT_CEILING_SECONDS
+    assert FLOOR < CEILING
+
+    # Regime 1: nearly no budget left -> the floor wins (bounded overrun).
     run = dm(live=True, deadline=_t.monotonic() + 40)
-
     assert run.brain.decide_kwargs, "decide() was never called"
-    kw = run.brain.decide_kwargs[0]
-    assert "timeout" in kw, "the poller left decide() on its 90s default"
-    assert 0 < kw["timeout"] <= 45, (
-        f"the model timeout is not bounded by the remaining run budget: {kw['timeout']}"
+    assert run.brain.decide_kwargs[0]["timeout"] == FLOOR, (
+        "with 40s left the clamp must give the floor, not a doomed sliver"
+    )
+
+    # Regime 2: mid-range budget -> remaining passes through (within jitter).
+    mid = FLOOR + (CEILING - FLOOR) // 2
+    run = dm(live=True, deadline=_t.monotonic() + mid)
+    got = run.brain.decide_kwargs[0]["timeout"]
+    assert FLOOR <= got <= mid, (
+        f"mid-range budget should pass through the clamp: got {got}, expected ~{mid}"
+    )
+
+    # Regime 3: huge budget -> the ceiling caps it (a hang must still die).
+    run = dm(live=True, deadline=_t.monotonic() + 100000)
+    assert run.brain.decide_kwargs[0]["timeout"] == CEILING, (
+        "an effectively-unlimited budget must still be capped at the ceiling"
     )
 
 

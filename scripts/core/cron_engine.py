@@ -195,7 +195,16 @@ SEED_JOBS: list[dict] = [
             "notify_channel": "telegram",
             "notify_on": "nonzero_exit",
         },
-        "is_active": True,
+        # DAEMON-BACKED — must stay False FOREVER. Execution moved to the PM2
+        # process `bravo-ig-dm` (2026-08-21) because the shared scheduler queued
+        # DM replies behind an 84s email sweep. The daemon reads this row at boot
+        # and REFUSES TO START while it is armed (two runners answered every
+        # prospect twice on 2026-08-20). Arming this row therefore takes the
+        # setter OFFLINE — the exact inverse of what flipping a toggle ON should
+        # do. The row exists as the config anchor the daemon checks, nothing
+        # more. Control the setter with: pm2 start|stop bravo-ig-dm.
+        "is_active": False,
+        "daemon_backed": "bravo-ig-dm",
     },
     {
         # Phase 6a — OASIS auto-score sweep. Scans tenant_records for

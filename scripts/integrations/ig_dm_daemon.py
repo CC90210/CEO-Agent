@@ -71,7 +71,10 @@ DEFAULT_INTERVAL = 20
 
 # A tick that outlives this is treated as hung and killed, so a stalled Zernio
 # read cannot freeze the setter. The poller's own deadline is well inside it.
-TICK_TIMEOUT = 300
+# 660 = RUN_DEADLINE (360) + one overrunning turn (2 subprocesses x 150s
+# ceiling) with margin. Killing a HEALTHY tick mid-send is how a reply gets
+# delivered on Instagram with no state row recording it.
+TICK_TIMEOUT = 660
 
 
 def _now() -> str:
@@ -197,8 +200,8 @@ def main() -> int:
     p.add_argument("--once", action="store_true", help="one tick, then exit")
     p.add_argument("--check-conflict", action="store_true",
                    help="report whether the cron row is armed, then exit")
-    p.add_argument("--limit", type=int, default=25)
-    p.add_argument("--max-model-calls", type=int, default=2)
+    p.add_argument("--limit", type=int, default=100)
+    p.add_argument("--max-model-calls", type=int, default=3)
     p.add_argument("--allow-cron-conflict", action="store_true",
                    help=argparse.SUPPRESS)  # escape hatch; never use in production
     args = p.parse_args()
