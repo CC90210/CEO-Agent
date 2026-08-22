@@ -370,7 +370,11 @@ def main():
         alert_failed = bool(rep["reds"]) and not notify_reds(rep)
 
     if a.json:
-        print(json.dumps(rep, indent=2))
+        # ONE compact line, deliberately — scheduler.py stores out[-1][:200] as
+        # last_result, so pretty JSON ends in a lone bracket and the watchdog
+        # classifies the run as OPAQUE ("verdict unknowable"). Same fix as the
+        # Instagram poller; do not "improve" this back to indent=2.
+        print(json.dumps(rep, separators=(",", ":")))
     if alert_failed:
         print("ERROR: red checks found but the Telegram alert did not send — "
               "the probe's only reporting path is down.", file=sys.stderr)

@@ -236,7 +236,9 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 9 1 */3 *",
         "action_type": "break_glass_drill",
         "action_config": {"script": "scripts/break_glass_drill.py", "notify_channel": "telegram"},
-        "is_active": True,
+        # NEVER RUN. A restore drill's first execution should be supervised, not a
+        # 3am surprise — arm after one supervised run with CC.
+        "is_active": False,
     },
     {
         # V7 EPIC 7F — Loud Failures Weekly Probe. system_health.py detects silent failures
@@ -301,7 +303,10 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 6 * * *",
         "action_type": "stripe_sync",
         "action_config": {"lookback_hours": 25},
-        "is_active": True,
+        # moved_to_atlas 2026-08-01 — Atlas (CFO-Agent) owns revenue sync; the live
+        # row is a tombstone. Seed corrected 2026-08-22 so the watchdog stops
+        # paging about a deliberate migration.
+        "is_active": False,
     },
     {
         # Added 2026-05-18 — closes the manual-edit gap on user_profiles.mrr_current_usd
@@ -370,7 +375,8 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 9 1 * *",
         "action_type": "monthly_snapshot",
         "action_config": {"tables": ["revenue_events", "leads", "content_calendar"]},
-        "is_active": True,
+        # moved_to_atlas 2026-08-01 — same migration as Stripe Revenue Sync.
+        "is_active": False,
     },
     {
         # Genome fitness loop (2026-07-09) — the verifiable-reward wire. Runs
@@ -463,7 +469,9 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 22 * * SAT",
         "action_type": "snapshot_run",
         "action_config": {"script": "scripts/snapshots/leads_snapshot.py", "args": ["--min-score", "60"]},
-        "is_active": True,
+        # dormant since 2026-05-16 (last: qualified 0/0) — superseded by the OASIS
+        # auto-score sweep + Pipeline board. Reversible: flip the live row.
+        "is_active": False,
     },
     {
         "name": "Daily Client Alerts Snapshot",

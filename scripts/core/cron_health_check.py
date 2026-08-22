@@ -623,10 +623,53 @@ def alert_dedup_key(buckets: dict[str, list[dict]]) -> str:
     return key + (";" + ";".join(extra) if extra else "")
 
 
+_SECTIONS_STATE = PROJECT_ROOT / "state" / "cron_watch_sections.json"
+
+
+def _bucket_fingerprint(items: list[dict]) -> str:
+    return ",".join(sorted(str(b["name"]) for b in items))
+
+
+def _load_section_state() -> dict:
+    try:
+        return json.loads(_SECTIONS_STATE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def save_section_state(buckets: dict[str, list[dict]]) -> None:
+    """Record what was DELIVERED, so the next digest can collapse what CC has
+    already seen. Called only after notify reports ok — a suppressed or failed
+    send must not mark a section as seen, or the full detail would never reach
+    him at all."""
+    try:
+        _SECTIONS_STATE.parent.mkdir(parents=True, exist_ok=True)
+        _SECTIONS_STATE.write_text(json.dumps({
+            "stale": _bucket_fingerprint(buckets.get("stale") or []),
+            "disarmed": _bucket_fingerprint(buckets.get("disarmed") or []),
+        }, indent=2), encoding="utf-8")
+    except OSError as exc:
+        print(f"[cron_health_check] WARNING: could not persist section state: {exc}",
+              file=sys.stderr)
+
+
 def compose_alert(buckets: dict[str, list[dict]]) -> str:
-    """The text CC reads on his phone. Three sections, worst first."""
+    """The text CC reads on his phone. Three sections, worst first.
+
+    FAILING always renders in full — it is the actionable bucket. STALE and
+    DISARMED are STANDING CONDITIONS: when their membership has not changed
+    since the last DELIVERED digest, they collapse to a one-line count instead
+    of re-listing eight jobs CC has already read. During the 2026-08-22 repair
+    session the failing set changed hourly (each fix minted a new dedup key,
+    correctly), and every page re-rendered the same 8 dead SunBiz crons and 4
+    disarmed rows in full — the news was buried in the reprint. Alert on
+    change; summarize the unchanged."""
     lines: list[str] = []
     fail, stale, disarmed = buckets["failing"], buckets["stale"], buckets["disarmed"]
+    seen = _load_section_state()
+    stale_unchanged = _bucket_fingerprint(stale) == seen.get("stale") and bool(stale)
+    disarmed_unchanged = (_bucket_fingerprint(disarmed) == seen.get("disarmed")
+                          and bool(disarmed))
 
     if fail:
         lines.append(f"🚨 {len(fail)} cron(s) failing:")
@@ -639,20 +682,29 @@ def compose_alert(buckets: dict[str, list[dict]]) -> str:
     if stale:
         if lines:
             lines.append("")
-        lines.append(f"🕳 {len(stale)} cron(s) stopped running:")
-        for b in stale[:8]:
-            lines.append(f"• {b['name']}")
-            lines.append(f"  {str(b.get('detail') or '')[:120]}".replace("\n", " "))
-        if len(stale) > 8:
-            lines.append(f"... and {len(stale) - 8} more stale.")
+        if stale_unchanged:
+            lines.append(f"🕳 {len(stale)} stale cron(s) — unchanged since the last "
+                         f"report, details suppressed. Full list: "
+                         f"python scripts/core/cron_health_check.py --json --dry-run")
+        else:
+            lines.append(f"🕳 {len(stale)} cron(s) stopped running:")
+            for b in stale[:8]:
+                lines.append(f"• {b['name']}")
+                lines.append(f"  {str(b.get('detail') or '')[:120]}".replace("\n", " "))
+            if len(stale) > 8:
+                lines.append(f"... and {len(stale) - 8} more stale.")
     if disarmed:
         if lines:
             lines.append("")
-        lines.append(f"⏸ {len(disarmed)} cron(s) disarmed but expected active:")
-        for b in disarmed[:8]:
-            lines.append(f"• {b['name']}")
-        if len(disarmed) > 8:
-            lines.append(f"... and {len(disarmed) - 8} more disarmed.")
+        if disarmed_unchanged:
+            lines.append(f"⏸ {len(disarmed)} disarmed-but-expected cron(s) — unchanged, "
+                         f"details suppressed.")
+        else:
+            lines.append(f"⏸ {len(disarmed)} cron(s) disarmed but expected active:")
+            for b in disarmed[:8]:
+                lines.append(f"• {b['name']}")
+            if len(disarmed) > 8:
+                lines.append(f"... and {len(disarmed) - 8} more disarmed.")
     return "\n".join(lines)
 
 
@@ -720,6 +772,11 @@ def telegram_alert(bad) -> tuple[bool, str]:
         _, reason = _nf.notify_result(text, category="system", silent=False,
                                       force=True, dedup_key=dedup_key)
         aware = reason in _nf.DELIVERED_REASONS
+        if aware:
+            # Only a DELIVERED digest marks its stale/disarmed sections as seen.
+            # A suppressed or failed send must not — or the collapsed one-liner
+            # would replace detail CC never actually received.
+            save_section_state(buckets)
         return aware, reason if reason != "failed" else "notify_failed"
     except Exception as exc:  # noqa: BLE001
         return False, f"telegram_error:{type(exc).__name__}:{str(exc)[:80]}"

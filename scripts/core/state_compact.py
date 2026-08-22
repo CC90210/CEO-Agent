@@ -75,7 +75,11 @@ def main() -> int:
     a = ap.parse_args()
     r = compact(a.retain_days, a.dry_run)
     if a.json:
-        print(json.dumps(r, indent=2))
+        # ONE compact line, deliberately — scheduler.py stores out[-1][:200] as
+        # last_result, so pretty JSON ends in a lone bracket and the watchdog
+        # classifies the run as OPAQUE ("verdict unknowable"). Same fix as the
+        # Instagram poller; do not "improve" this back to indent=2.
+        print(json.dumps(r, separators=(",", ":")))
     else:
         print(f"=== LanceDB compaction: {r['status']} ===")
         b = r.get("before", {})

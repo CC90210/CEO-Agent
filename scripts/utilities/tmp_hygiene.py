@@ -146,7 +146,11 @@ def main() -> int:
     }
 
     if args.json:
-        print(json.dumps(result, indent=2))
+        # ONE compact line, deliberately — scheduler.py stores out[-1][:200] as
+        # last_result, so pretty JSON ends in a lone bracket and the watchdog
+        # classifies the run as OPAQUE ("verdict unknowable"). Same fix as the
+        # Instagram poller; do not "improve" this back to indent=2.
+        print(json.dumps(result, separators=(",", ":")))
         return 0
 
     verb = "Deleted" if args.apply else "Would delete"
