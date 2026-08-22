@@ -467,6 +467,52 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
     if include_tenant:
         findings = _scan_tenant_crons(db, findings, now)
     findings = _scan_daemon_backed(findings)
+    findings = _scan_bridge_pairings(db, findings)
+    return findings
+
+
+# Which machines are SUPPOSED to hold an unrevoked pairing, per tenant prefix.
+# Any other live pairing is an executor that can claim jobs — and a machine
+# running stale bridge code poisons rows with errors for repos it does not
+# have. That exact failure took three forms in one week: the Mac (revoked
+# 08-22 07:13, RE-PAIRED ITSELF at 11:15 the same day), and the VPS paired to
+# the wrong tenant for 11 days. Revocation alone is a lock a machine with
+# re-pair credentials can pick, so the watchdog PAGES on any unexpected live
+# pairing with the response in the message.
+EXPECTED_PAIRINGS: dict[str, tuple[str, ...]] = {
+    "ef8d389e": ("CCPC (Windows)",),          # OASIS: CC's PC only
+    "aa04fa1f": ("srv1723601 (Linux)",),      # SunBiz: the VPS only
+}
+
+
+def _scan_bridge_pairings(db, findings: dict[str, list[dict]]) -> dict[str, list[dict]]:
+    """Flag any live pairing that is not on the expected-machines list."""
+    try:
+        rows = (db.table("bridge_pairings")
+                .select("id,label,tenant_id,last_seen_at,revoked_at").execute()).data or []
+    except Exception as exc:  # noqa: BLE001
+        print(f"[cron_health_check] WARNING: bridge_pairings unreadable "
+              f"({type(exc).__name__}); pairing detection DISABLED.", file=sys.stderr)
+        return findings
+    for r in rows:
+        if r.get("revoked_at"):
+            continue
+        prefix = str(r.get("tenant_id") or "")[:8]
+        expected = EXPECTED_PAIRINGS.get(prefix)
+        if expected is None:
+            continue  # tenants we don't govern (other products)
+        if str(r.get("label") or "") not in expected:
+            findings["failing"].append({
+                "name": f"bridge pairing: {r.get('label')}",
+                "source": "bridge_pairings",
+                "last_result": f"unexpected LIVE pairing on tenant {prefix}*, "
+                               f"last_seen {str(r.get('last_seen_at'))[:16]}",
+                "last_run_at": r.get("last_seen_at"),
+                "detail": ("an unexpected machine can claim this tenant's cron jobs "
+                           "and poison rows. Revoke it in bridge_pairings (set "
+                           "revoked_at) or via the dashboard; the durable fix is "
+                           "updating that machine's bridge code"),
+            })
     return findings
 
 
