@@ -87,6 +87,11 @@ def configure_ca_bundle() -> None:
 
 # -- Seed definitions ----------------------------------------------------------
 
+# Keys in a SEED_JOBS definition that are metadata for OTHER readers, not
+# cron_jobs columns. cmd_seed strips these before INSERT. Add here when a seed
+# needs to carry information for the watchdog / dashboards / docs.
+SEED_METADATA_KEYS: frozenset[str] = frozenset({"daemon_backed"})
+
 SEED_JOBS: list[dict] = [
     # Marketing/social cron jobs (content_post × 3, content_planning,
     # ig_research) were removed from this seed on 2026-04-26 when
@@ -1053,6 +1058,16 @@ def cmd_seed(client, args, output_json: bool) -> None:
             "run_count": 0,
             "created_at": now,
         }
+        # Seed definitions may carry METADATA keys that are not cron_jobs
+        # columns — `daemon_backed` (read by cron_health_check to watch the
+        # PM2 process behind a deliberately-disarmed row) was the first. The
+        # `**definition` spread would hand them to INSERT as columns and a
+        # FRESH seed would die with "no such column" — latent today only
+        # because every current row already exists and is skipped by name.
+        # Strip metadata here, at the single point where seeds become rows,
+        # so the next metadata key someone adds cannot re-create the trap.
+        for meta_key in SEED_METADATA_KEYS:
+            payload.pop(meta_key, None)
         if next_run:
             payload["next_run_at"] = next_run
 
