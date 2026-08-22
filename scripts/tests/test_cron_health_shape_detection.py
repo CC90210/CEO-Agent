@@ -200,3 +200,43 @@ def test_an_alert_that_would_be_dropped_falls_back_to_names_only():
     assert nf._NOT_BRAVO_DOMAIN_RE.search(body), "fixture no longer trips the filter"
     assert not nf._NOT_BRAVO_DOMAIN_RE.search(out), "fallback must be deliverable"
     assert "TPS worker" in out, "CC still needs to know WHICH job"
+
+
+def test_client_tenant_rows_never_reach_ccs_digest():
+    """CC's scope ruling (2026-08-22): Bravo's digest covers OASIS + personal
+    automations only. A dead SunBiz job paged the founder about a client
+    automation he neither owns nor operates; client tenants have their own
+    watchdog (the dashboard health-check -> sunbiz-ops lane). The scan must
+    keep OASIS-tenant rows (Atlas is CC's personal CFO) and drop the rest."""
+    import cron_health_check as chc
+    from types import SimpleNamespace
+    from datetime import datetime, timezone
+
+    class FakeQ:
+        def __init__(self, rows): self._r = rows
+        def select(self, *a): return self
+        def execute(self): return SimpleNamespace(data=self._r)
+
+    class FakeDb:
+        def table(self, name):
+            assert name == "tenant_cron_jobs"
+            return FakeQ([
+                {"id": "1", "tenant_id": "aa04fa1f-sun", "agent_key": "helios",
+                 "name": "SunBiz Follow-up Generator", "enabled": 1,
+                 "schedule": "0 6 * * *", "last_run_at": "2026-08-01T06:00:00Z",
+                 "last_run_status": "error", "last_run_error": "boom",
+                 "last_run_output": None, "created_at": "2026-05-01T00:00:00Z"},
+                {"id": "2", "tenant_id": "ef8d389e-oasis", "agent_key": "atlas",
+                 "name": "Atlas — Pulse Refresh", "enabled": 1,
+                 "schedule": "0 */4 * * *", "last_run_at": "2026-08-01T06:00:00Z",
+                 "last_run_status": "error", "last_run_error": "boom",
+                 "last_run_output": None, "created_at": "2026-05-01T00:00:00Z"},
+            ])
+
+    findings = {"failing": [], "stale": [], "disarmed": [], "opaque": []}
+    out = chc._scan_tenant_crons(FakeDb(), findings, datetime.now(timezone.utc))
+    all_names = [x["name"] for k in out for x in out[k]]
+    assert any("Atlas" in n for n in all_names), "CC's own (OASIS-tenant) rows must stay covered"
+    assert not any("SunBiz" in n for n in all_names), (
+        "a client-tenant row reached the founder's digest — the scope ruling regressed"
+    )

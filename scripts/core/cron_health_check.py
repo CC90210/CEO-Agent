@@ -471,6 +471,12 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
     return findings
 
 
+# Tenants whose cron rows belong in CC'S OWN Telegram digest. OASIS only:
+# Atlas's four rows live under the OASIS tenant (Atlas is CC's personal CFO),
+# so they stay covered; SunBiz and any future client tenant are excluded — the
+# founder's phone is not the client's monitoring channel.
+BRAVO_GOVERNED_TENANTS: frozenset[str] = frozenset({"ef8d389e"})
+
 # Which machines are SUPPOSED to hold an unrevoked pairing, per tenant prefix.
 # Any other live pairing is an executor that can claim jobs — and a machine
 # running stale bridge code poisons rows with errors for repos it does not
@@ -596,6 +602,17 @@ def _scan_tenant_crons(db, findings: dict[str, list[dict]],
         return findings
 
     for row in rows.data or []:
+        # CC'S SCOPE RULING (2026-08-22): Bravo's Telegram digest covers OASIS
+        # and CC's personal automations ONLY. Client-tenant rows (SunBiz et al.)
+        # paged CC about helios/solara jobs he neither owns nor operates —
+        # "I have my personal automations; I don't want to be reminded of
+        # client automations." Client tenants have their own watchdog: the
+        # dashboard's /api/cron/health-check (every 15 min) pages the
+        # sunbiz-ops lane, and the client's own dashboard shows its rows.
+        # Bravo covering them here was double-coverage that leaked client
+        # noise to the founder's phone.
+        if str(row.get("tenant_id") or "")[:8] not in BRAVO_GOVERNED_TENANTS:
+            continue
         if not bool(row.get("enabled")):
             continue  # no SEED_JOBS equivalent for tenant rows — nothing to expect
         agent = str(row.get("agent_key") or "?")
