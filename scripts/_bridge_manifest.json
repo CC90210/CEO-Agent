@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-21T18:12:15.718445+00:00",
-  "script_count": 154,
-  "entry_count": 326,
+  "generated_at_iso": "2026-08-22T07:04:30.406006+00:00",
+  "script_count": 156,
+  "entry_count": 328,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -994,6 +994,30 @@
       "subcmd": null,
       "mutating": true,
       "help": "Install the Turso data-backend switch into the active venv."
+    },
+    {
+      "key": "ig_dm_daemon",
+      "path": "scripts/integrations/ig_dm_daemon.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "oasis",
+      "help": "ig_dm_daemon.py \u2014 a dedicated loop for the Instagram DM setter."
+    },
+    {
+      "key": "instagram_dm_poller",
+      "path": "scripts/integrations/instagram_dm_poller.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "oasis",
+      "help": "instagram_dm_poller.py \u2014 run OASIS Instagram DMs like a human closer."
     },
     {
       "key": "send_gateway_send",

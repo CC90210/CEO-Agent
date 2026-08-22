@@ -53,7 +53,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "integrations"))
 CAPABILITY_META = {
     "category": "growth.inbound",
     "lifecycle": "active",
-    "risk": "external_send",
+    "risk": "external_write",
     "triggers": ["instagram dm daemon", "run the dm setter", "ig setter loop"],
     "owner": "bravo",
     "project": "oasis",

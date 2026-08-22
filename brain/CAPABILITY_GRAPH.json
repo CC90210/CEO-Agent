@@ -1,18 +1,18 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-21T08:03:31.353987+00:00",
+  "generated_at": "2026-08-22T06:57:38.487865+00:00",
   "totals": {
     "skills": 162,
-    "scripts": 173,
+    "scripts": 175,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 426,
-    "edges_total": 199,
-    "drift_count": 2
+    "nodes_total": 428,
+    "edges_total": 202,
+    "drift_count": 0
   },
   "nodes": [
     {
@@ -6648,6 +6648,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:provision_maven_telegram",
+      "kind": "script",
+      "name": "provision_maven_telegram",
+      "path": "scripts/provision_maven_telegram.py",
+      "description": "provision_maven_telegram.py -- give Maven the Telegram recipient it has never had.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:provision_secrets",
       "kind": "script",
       "name": "provision_secrets",
@@ -7559,6 +7569,28 @@
       }
     },
     {
+      "id": "script:ig_dm_daemon",
+      "kind": "script",
+      "name": "ig_dm_daemon",
+      "path": "scripts/integrations/ig_dm_daemon.py",
+      "description": "ig_dm_daemon.py \u2014 a dedicated loop for the Instagram DM setter.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "instagram dm daemon",
+        "run the dm setter",
+        "ig setter loop"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": true
+      }
+    },
+    {
       "id": "script:ig_dm_state",
       "kind": "script",
       "name": "ig_dm_state",
@@ -7569,7 +7601,7 @@
       "discovery": "auto-capability-meta",
       "category": "growth.inbound",
       "lifecycle": "active",
-      "risk": "state_write",
+      "risk": "local_write",
       "triggers": [
         "instagram dm state",
         "dm conversation state",
@@ -7591,7 +7623,7 @@
       "discovery": "auto-capability-meta",
       "category": "growth.inbound",
       "lifecycle": "active",
-      "risk": "external_send",
+      "risk": "external_write",
       "triggers": [
         "instagram dm automation",
         "poll instagram dms",
@@ -9201,6 +9233,11 @@
     },
     {
       "from": "runtime:cron_engine",
+      "to": "script:sibling_repos",
+      "kind": "calls"
+    },
+    {
+      "from": "runtime:cron_engine",
       "to": "script:sync_post_analytics",
       "kind": "schedules"
     },
@@ -9505,6 +9542,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:ig_dm_daemon",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
       "from": "script:ig_dm_state",
       "to": "script:ig_conversation_brain",
       "kind": "calls"
@@ -9603,6 +9645,11 @@
       "from": "script:pii_sweep",
       "to": "runtime:bridge_chat_server",
       "kind": "exposed_via"
+    },
+    {
+      "from": "script:provision_maven_telegram",
+      "to": "script:sibling_repos",
+      "kind": "calls"
     },
     {
       "from": "script:purge_junk_leads",
@@ -10140,14 +10187,5 @@
       "kind": "requires"
     }
   ],
-  "drift": [
-    {
-      "node": "script:ig_dm_state",
-      "issue": "invalid CAPABILITY_META: risk must be one of ['destructive', 'external_write', 'local_write', 'read_only']"
-    },
-    {
-      "node": "script:instagram_dm_poller",
-      "issue": "invalid CAPABILITY_META: risk must be one of ['destructive', 'external_write', 'local_write', 'read_only']"
-    }
-  ]
+  "drift": []
 }

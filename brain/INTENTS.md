@@ -3,9 +3,9 @@ name: INTENTS
 description: Verb-by-verb playbook. For each kind of operator request, the exact sequence the agent should run.
 mutability: SEMI-MUTABLE
 tags: [brain, agent-only, playbook]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
-verified: 2026-07-22
+verified: 2026-08-22
 ---
 # INTENTS — Verb-by-Verb Playbook
 
@@ -271,6 +271,27 @@ CC drops a URL, a paste, a file path, a research request, or any vague pointer l
 **Anti-slop guardrails:** no stub functions, no "Proposed future tooling" claims in ADRs, no duplicate scripts, no substrate touches without need. See the full guardrails block in the prompt body.
 
 ---
+
+## "Instagram DMs / the setter" (check it, tune it, never re-arm its cron)
+
+The setter is AUTONOMOUS: PM2 process `bravo-ig-dm` runs
+`scripts/integrations/ig_dm_daemon.py`, which polls Zernio, replies in CC's
+voice via the local Claude CLI, extracts lead facts, and hands warm/blocked
+threads to CC. There is no operator step in the reply loop.
+
+1. "Is it working?" → `pm2 logs bravo-ig-dm --lines 20 --nostream` (ticks log
+   only when work happened; silence between = healthy quiet inbox) and
+   `python scripts/integrations/ig_dm_daemon.py --check-conflict`.
+2. "Pause it / resume it" → `pm2 stop bravo-ig-dm` / `pm2 start bravo-ig-dm`.
+   NEVER arm the `Instagram DM Closer` cron row — the daemon reads that row at
+   boot and REFUSES TO START while it is armed (two live runners double-message
+   prospects; shipped 2026-08-20). The row is a config anchor, nothing more.
+3. "Why did a prospect get no reply?" → read the conversation row in
+   `instagram_dm_conversations` (stage, budgets, handoff_pending, last_error)
+   before touching anything; a budget refusal or terminal stage is a decision,
+   not a fault.
+4. Booking stays `--book` OFF until CC supervises one real `--apply` against
+   his own conversation and email.
 
 ## How to extend this file
 

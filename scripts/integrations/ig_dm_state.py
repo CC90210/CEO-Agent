@@ -76,7 +76,7 @@ from ig_conversation_brain import (  # noqa: E402
 CAPABILITY_META = {
     "category": "growth.inbound",
     "lifecycle": "active",
-    "risk": "state_write",
+    "risk": "local_write",
     "triggers": ["instagram dm state", "dm conversation state", "ig handoffs"],
     "owner": "bravo",
     "project": "oasis",
