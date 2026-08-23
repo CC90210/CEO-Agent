@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import date
@@ -95,6 +96,54 @@ def render(app_dir: Path, role: str, name: str, email: str, effective: str) -> s
         entry.unlink(missing_ok=True)
 
 
+def markdown_to_html(md: str) -> str:
+    """Minimal markdown -> HTML so Docs renders headings and tables.
+
+    Deliberately small: these agreements use headings, bold, bullets, tables and
+    horizontal rules and nothing else. A full markdown library would be a
+    dependency carried for six constructs.
+    """
+    import html as _html
+
+    def inline(text: str) -> str:
+        text = _html.escape(text)
+        return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+
+    out: list[str] = []
+    in_table = False
+    for raw in md.splitlines():
+        line = raw.rstrip()
+        if re.match(r"^\|[\s:\-]+\|$", line):      # table separator
+            continue
+        if line.startswith("|"):
+            if not in_table:
+                out.append('<table border="1" cellpadding="6" cellspacing="0">')
+                in_table = True
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            out.append("<tr>" + "".join(f"<td>{inline(c)}</td>" for c in cells) + "</tr>")
+            continue
+        if in_table:
+            out.append("</table>")
+            in_table = False
+        if line.startswith("### "):
+            out.append(f"<h3>{inline(line[4:])}</h3>")
+        elif line.startswith("## "):
+            out.append(f"<h2>{inline(line[3:])}</h2>")
+        elif line.startswith("# "):
+            out.append(f"<h1>{inline(line[2:])}</h1>")
+        elif line.startswith("- "):
+            out.append(f"<li>{inline(line[2:])}</li>")
+        elif line.strip() == "---":
+            out.append("<hr/>")
+        elif not line.strip():
+            out.append("<br/>")
+        else:
+            out.append(f"<p>{inline(line)}</p>")
+    if in_table:
+        out.append("</table>")
+    return "<html><body>" + "\n".join(out) + "</body></html>"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--role", required=True, choices=ROLES)
@@ -119,17 +168,43 @@ def main() -> int:
 
     if args.gdoc:
         title = f"OASIS {args.role.title()} Agreement — {args.name} ({args.effective})"
+        # HTML, written INSIDE the working directory, and both details are
+        # load-bearing:
+        #
+        #   --content stages its own html in the system temp dir, and
+        #   google_tool's uploader refuses any path outside the cwd
+        #   ("resolves to ... which is outside the current directory"). --html
+        #   takes a path we choose, so the file goes under tmp/.
+        #
+        #   Markdown pasted as plain text arrives in Docs as literal '##' and
+        #   '|---|' — unreadable in a document someone signs. Converting to
+        #   HTML first is what makes the tables and headings render.
+        html_path = out.with_suffix(".html")
+        html_path.write_text(markdown_to_html(body), encoding="utf-8")
         proc = subprocess.run(
-            [sys.executable, "scripts/integrations/google_tool.py", "docs-create",
-             "--title", title, "--body-file", str(out), "--json"],
-            capture_output=True, text=True,
+            [sys.executable, "scripts/integrations/google_tool.py", "docs", "create",
+             "--title", title, "--html", str(html_path), "--json"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
-        if proc.returncode == 0:
-            result["gdoc"] = proc.stdout.strip()[-500:]
+        blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
+        doc_id = None
+        # The tool pretty-prints its JSON, so a line-by-line parse misses it —
+        # that exact mistake made a SUCCESSFUL run report failure and produced a
+        # duplicate set of documents in Drive.
+        try:
+            for chunk in re.findall(r"\{[\s\S]*?\}", blob):
+                obj = json.loads(chunk)
+                doc_id = obj.get("id") or obj.get("documentId")
+                if doc_id:
+                    break
+        except Exception:
+            doc_id = None
+        if proc.returncode == 0 and doc_id:
+            result["gdoc"] = f"https://docs.google.com/document/d/{doc_id}/edit"
         else:
             # The .md is already written, so the work is not lost — say what
             # failed rather than pretending the Doc exists.
-            result["gdoc_error"] = proc.stderr.strip()[:500] or "google_tool docs-create failed"
+            result["gdoc_error"] = blob[-400:] or "docs create failed"
             result["ok"] = False
 
     if args.json:
