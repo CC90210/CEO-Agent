@@ -40,14 +40,6 @@ Two reasons this is the *meta* cron, not just another business cron:
      cron_jobs surfaces in the dashboard's red-border treatment — so the
      watchdog watches itself.
 
-Two reasons this is the *meta* cron, not just another business cron:
-  1. It guards the OTHER crons. A silent break in any of the 14+ active
-     business automations would be invisible without this; CC only catches
-     them by happening to look at the dashboard.
-  2. It self-monitors: if this script itself fails, the FAILED row in
-     cron_jobs surfaces in the dashboard's red-border treatment — so the
-     watchdog watches itself.
-
 Flags:
   --alert       actually send the Telegram alert (default in production cron)
   --json        machine-readable output (default for dry-run)
@@ -486,7 +478,14 @@ BRAVO_GOVERNED_TENANTS: frozenset[str] = frozenset({"ef8d389e"})
 # re-pair credentials can pick, so the watchdog PAGES on any unexpected live
 # pairing with the response in the message.
 EXPECTED_PAIRINGS: dict[str, tuple[str, ...]] = {
-    "ef8d389e": ("CCPC (Windows)",),          # OASIS: CC's PC only
+    # PAIRING legitimacy, not execution rights. The Mac became a sanctioned
+    # device on 2026-08-23 (CC ran the handover and moved credentials to it),
+    # so its pairing stops paging him — but the dashboard's poll gate
+    # (EXPECTED_EXECUTOR_BY_TENANT_PREFIX) still serves OASIS cron jobs to
+    # CCPC alone. A device may be trusted to exist without being trusted to
+    # execute; conflating those two lists is how the Mac poisoned rows for a
+    # week.
+    "ef8d389e": ("CCPC (Windows)", "192.168.11.27 (Mac)"),
     "aa04fa1f": ("srv1723601 (Linux)",),      # SunBiz: the VPS only
 }
 
