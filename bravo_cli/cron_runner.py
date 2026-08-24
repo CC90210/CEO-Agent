@@ -42,7 +42,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -441,6 +441,45 @@ def _http_post_json(url: str, token: str, body: dict) -> bool:
         return False
 
 
+#: Last minute poll_once evaluated, so a pass can tell which minutes went by
+#: since the previous one. None until the first pass of this process.
+_LAST_EVAL_MINUTE: datetime | None = None
+
+#: Ceiling on how far back one pass will catch up. A restart or a suspended
+#: laptop must not replay hours of schedule; anything older than this is
+#: genuinely missed and stays missed.
+_MAX_CATCHUP_MINUTES = 10
+
+
+def _minutes_to_evaluate(now_local: datetime) -> list[datetime]:
+    """The minutes this pass is responsible for: everything after the previous
+    pass, up to and including now.
+
+    The ping loop sleeps a flat 60s AFTER running due jobs, so its period is
+    60s + however long the work took. Any job that runs for more than a moment
+    therefore pushes the next poll past the next minute boundary, and a
+    schedule that matches only one minute — `30 6 * * *`, or `*/15` — is
+    stepped over entirely. That is not hypothetical: with the shop-out sender
+    resumed the cycle reached ~108s and ~half of all scheduled slots were
+    being skipped.
+
+    Returning the skipped minutes lets a job that was due during the gap still
+    fire. Callers must fire a matching job ONCE per pass regardless of how many
+    of these minutes it matches, so `* * * * *` still means "once a cycle" and
+    never multiplies.
+    """
+    global _LAST_EVAL_MINUTE
+    this_minute = now_local.replace(second=0, microsecond=0)
+    previous, _LAST_EVAL_MINUTE = _LAST_EVAL_MINUTE, this_minute
+    # First pass of the process, or a clock that moved backwards: evaluate the
+    # current minute only. Never replay history at startup.
+    if previous is None or previous >= this_minute:
+        return [this_minute]
+    gap = int((this_minute - previous).total_seconds() // 60)
+    span = min(gap, _MAX_CATCHUP_MINUTES)
+    return [this_minute - timedelta(minutes=offset) for offset in range(span - 1, -1, -1)]
+
+
 def poll_once(token: str, dashboard_url: str) -> int:
     """One pass: fetch jobs → check due → execute → report. Returns the
     number of jobs that actually fired. Called from local_bridge.run_loop()
@@ -456,10 +495,14 @@ def poll_once(token: str, dashboard_url: str) -> int:
     now_local = datetime.now()
     # Use UTC for last_run_at comparisons since the dashboard stores UTC.
     now_utc = datetime.now(timezone.utc)
+    # Every minute this pass owns — the current one plus any the previous pass
+    # ran long enough to step over. `any()` below keeps it to one fire per job
+    # per pass no matter how many of those minutes it matches.
+    due_minutes = _minutes_to_evaluate(now_local)
     ran = 0
     for job in jobs:
         schedule = str(job.get("schedule") or "").strip()
-        if not _cron_matches(schedule, now_local):
+        if not any(_cron_matches(schedule, minute) for minute in due_minutes):
             continue
         # Debounce: if we already fired in the same minute, skip. The bridge
         # ping cadence (60s) means we could fire twice for a job whose

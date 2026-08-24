@@ -343,7 +343,45 @@ class TursoDB:
 
     # -- schema awareness ---------------------------------------------------
     def _discover_tenant_tables(self) -> frozenset[str]:
-        """Every table with a tenant_id column, read from the live schema."""
+        """Every table with a tenant_id column, read from the live schema.
+
+        Runs on EVERY client construction, so its cost is paid by every script,
+        daemon tick and cron run. The obvious loop — one `PRAGMA table_info`
+        per table — is one network round-trip per table: 201 tables x ~208ms
+        = ~41s against a remote Turso, which is most of the wall clock of a
+        short cron job and was pushing the bridge's cron poller to a ~108s
+        cycle (it sleeps 60s AFTER the work), so it stepped over ~half of all
+        scheduled minutes.
+
+        `pragma_table_info` as a table-valued function answers the same
+        question in one round-trip (~0.4s). Verified against the loop on the
+        live bravo database 2026-08-24: both return the identical 142 tables.
+
+        This set decides which queries get the cross-tenant guard, so a wrong
+        answer here silently un-guards tables. Any failure — and any
+        implausible empty result while tables exist — falls back to the loop
+        rather than proceeding with a set we do not trust.
+        """
+        try:
+            rows = self._conn.execute(
+                "select m.name from sqlite_master as m "
+                "join pragma_table_info(m.name) as c "
+                "where m.type='table' and m.name not like 'sqlite_%' "
+                f"and c.name = '{TENANT_COLUMN}'"
+            ).fetchall()
+            scoped = {n.lower() for (n,) in rows if n not in GLOBAL_TABLES}
+            if scoped:
+                return frozenset(scoped)
+            log.warning("tenant-table discovery returned nothing via pragma_table_info "
+                        "— falling back to per-table introspection")
+        except Exception as exc:  # noqa: BLE001 - never trade correctness for speed
+            log.warning("pragma_table_info discovery failed — falling back to "
+                        "per-table introspection", error=str(exc))
+        return self._discover_tenant_tables_per_table()
+
+    def _discover_tenant_tables_per_table(self) -> frozenset[str]:
+        """Original one-round-trip-per-table discovery. Correct but slow; kept
+        as the fallback for any libSQL build without pragma functions."""
         scoped: set[str] = set()
         rows = self._conn.execute(
             "select name from sqlite_master where type='table' and name not like 'sqlite_%'"
