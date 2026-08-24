@@ -393,6 +393,32 @@ def _cluster_key(gap: dict) -> str:
     return f"{domain}|{_month_of(gap.get('date', ''))}|subj:{norm[:60]}"
 
 
+def _cluster_newest(gaps: list[dict]) -> list[dict]:
+    """One representative (newest by date) per transaction cluster."""
+    clusters: dict[str, dict] = {}
+    for g in gaps:
+        key = _cluster_key(g)
+        held = clusters.get(key)
+        if held is None or (g.get("date") or "") > (held.get("date") or ""):
+            clusters[key] = g
+    return list(clusters.values())
+
+
+def _gap_handoff(g: dict, tag: str) -> bool:
+    """Publish one gap to Atlas via the production handoff (idempotency-keyed
+    there). Shared by apply and reconcile so the payload shape can't drift."""
+    from email_brain import handoff_to_atlas
+    return handoff_to_atlas({
+        "from": g["from"],
+        "from_identity": _addr_of(g["from"]),
+        "subject": g["subject"],
+        "body": f"[{tag} {datetime.now(timezone.utc).date()}] "
+                f"net={g.get('net_reason')}",
+        "rfc_message_id": g["message_id"],
+        "attachments": [],
+    })
+
+
 def cmd_apply(args) -> int:
     audit_path = Path(args.audit_file)
     if not audit_path.exists():
@@ -405,15 +431,10 @@ def cmd_apply(args) -> int:
         print("[apply] no gaps in audit file — nothing to do")
         return 0
 
-    clusters: dict[str, dict] = {}
-    for g in gaps:
-        key = _cluster_key(g)
-        held = clusters.get(key)
-        if held is None or (g.get("date") or "") > (held.get("date") or ""):
-            clusters[key] = g
-    picked = list(clusters.values())[:args.limit]
-    skipped_dupes = len(gaps) - len(clusters)
-    print(f"[apply] {len(gaps)} gap messages → {len(clusters)} transaction "
+    clustered = _cluster_newest(gaps)
+    picked = clustered[:args.limit]
+    skipped_dupes = len(gaps) - len(clustered)
+    print(f"[apply] {len(gaps)} gap messages → {len(clustered)} transaction "
           f"clusters ({skipped_dupes} sibling emails of the same transaction — "
           f"same reference, or same vendor+subject within one month — held "
           f"back); handing off {len(picked)} this run")
@@ -424,20 +445,9 @@ def cmd_apply(args) -> int:
                   f"{g['subject'][:60]}")
         return 0
 
-    from email_brain import handoff_to_atlas
     handed = failed = 0
     for g in picked:
-        ok = handoff_to_atlas({
-            "from": g["from"],
-            "from_identity": _addr_of(g["from"]),
-            "subject": g["subject"],
-            "body": (f"[receipts_audit backfill {datetime.now(timezone.utc).date()}] "
-                     f"historical financial email found unlabeled by the audit; "
-                     f"net={g.get('net_reason')}"),
-            "rfc_message_id": g["message_id"],
-            "attachments": [],
-        })
-        if ok:
+        if _gap_handoff(g, "receipts_audit backfill"):
             handed += 1
         else:
             failed += 1
@@ -492,25 +502,10 @@ def cmd_reconcile(args) -> int:
 
     handed = failed = deferred = 0
     if auto and not args.dry_run:
-        from email_brain import handoff_to_atlas
-        clusters: dict[str, dict] = {}
-        for g in auto:
-            key = _cluster_key(g)
-            held = clusters.get(key)
-            if held is None or (g.get("date") or "") > (held.get("date") or ""):
-                clusters[key] = g
-        picked = list(clusters.values())
+        picked = _cluster_newest(auto)
         deferred = max(0, len(picked) - _RECONCILE_MAX_HANDOFFS)
         for g in picked[:_RECONCILE_MAX_HANDOFFS]:
-            if handoff_to_atlas({
-                "from": g["from"],
-                "from_identity": _addr_of(g["from"]),
-                "subject": g["subject"],
-                "body": f"[receipts_reconcile {datetime.now(timezone.utc).date()}] "
-                        f"net={g.get('net_reason')}",
-                "rfc_message_id": g["message_id"],
-                "attachments": [],
-            }):
+            if _gap_handoff(g, "receipts_reconcile"):
                 handed += 1
             else:
                 failed += 1
