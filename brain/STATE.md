@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-24
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Full suite 1712 passed 0 failed after Turso-vocab test repin + path-drift marker; digest proven live (OVERALL RED, EXIT 0, delivered); email pipeline turnkey
+- **Result:** Full mailbox receipts audit complete: 3042 msgs scanned, 8-agent verification, 62 gaps backfilled through Atlas (34->97 filed, 12 residual all noise); consumer txn-fingerprint gate; Monthly Receipts Reconciliation cron live (04:23 ET on the 2nd)
 
 *Last updated: 2026-08-24*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-24T08:01:51.563183+00:00_
 
 - **Date:** 2026-08-24
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Full suite 1712 passed 0 failed after Turso-vocab test repin + path-drift marker; digest proven live (OVERALL RED, EXIT 0, delivered); email pipeline turnkey
+- **Result:** Full mailbox receipts audit complete: 3042 msgs scanned, 8-agent verification, 62 gaps backfilled through Atlas (34->97 filed, 12 residual all noise); consumer txn-fingerprint gate; Monthly Receipts Reconciliation cron live (04:23 ET on the 2nd)
 
 *Last updated: 2026-08-24*
