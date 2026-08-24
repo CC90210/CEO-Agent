@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-22T15:46:15.687962+00:00",
-  "script_count": 156,
-  "entry_count": 328,
+  "generated_at_iso": "2026-08-24T03:57:43.300719+00:00",
+  "script_count": 157,
+  "entry_count": 331,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1737,6 +1737,42 @@
       "subcmd": null,
       "mutating": true,
       "help": "Reap duplicate MCP server processes from leaked editor sessions."
+    },
+    {
+      "key": "receipts_audit_scan",
+      "path": "scripts/receipts_audit.py",
+      "root": "bravo",
+      "subcmd": "scan",
+      "mutating": true,
+      "category": "governance.finance",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Receipts audit \u2014 reconcile the mailbox against the financial pipeline. \u2014 subcommand: scan"
+    },
+    {
+      "key": "receipts_audit_apply",
+      "path": "scripts/receipts_audit.py",
+      "root": "bravo",
+      "subcmd": "apply",
+      "mutating": true,
+      "category": "governance.finance",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Receipts audit \u2014 reconcile the mailbox against the financial pipeline. \u2014 subcommand: apply"
+    },
+    {
+      "key": "receipts_audit_reconcile",
+      "path": "scripts/receipts_audit.py",
+      "root": "bravo",
+      "subcmd": "reconcile",
+      "mutating": true,
+      "category": "governance.finance",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Receipts audit \u2014 reconcile the mailbox against the financial pipeline. \u2014 subcommand: reconcile"
     },
     {
       "key": "repair_turso_fk_actions",

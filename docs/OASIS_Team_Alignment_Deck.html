@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OASIS AI — Team Alignment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --oasis-teal: #00D4AA;
+    --oasis-dark: #0A0F1C;
+    --oasis-navy: #111827;
+    --oasis-accent: #06B6D4;
+    --oasis-gold: #F59E0B;
+    --oasis-white: #F8FAFC;
+    --oasis-muted: #94A3B8;
+    --oasis-gradient-1: linear-gradient(135deg, #00D4AA 0%, #06B6D4 50%, #3B82F6 100%);
+    --oasis-gradient-2: linear-gradient(135deg, #0A0F1C 0%, #1E293B 100%);
+    --oasis-gradient-3: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);
+    --glass: rgba(255, 255, 255, 0.04);
+    --glass-border: rgba(255, 255, 255, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--oasis-dark);
+    color: var(--oasis-white);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── SLIDE CONTAINER ─── */
+  .deck {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 6vh 8vw;
+    opacity: 0;
+    transform: scale(0.96);
+    transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+    z-index: 10;
+  }
+
+  /* ─── BACKGROUND EFFECTS ─── */
+  .bg-mesh {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+  }
+
+  .bg-mesh::before,
+  .bg-mesh::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.25;
+    animation: float 12s ease-in-out infinite alternate;
+  }
+
+  .bg-mesh::before {
+    width: 60vw; height: 60vw;
+    background: radial-gradient(circle, var(--oasis-teal), transparent 70%);
+    top: -20%; left: -10%;
+  }
+
+  .bg-mesh::after {
+    width: 50vw; height: 50vw;
+    background: radial-gradient(circle, var(--oasis-accent), transparent 70%);
+    bottom: -20%; right: -10%;
+    animation-delay: -6s;
+  }
+
+  @keyframes float {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(40px, -30px) scale(1.1); }
+  }
+
+  /* ─── TYPOGRAPHY ─── */
+  .slide-tag {
+    font-family: 'Space Grotesk', monospace;
+    font-size: clamp(0.7rem, 1.2vw, 0.9rem);
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: var(--oasis-teal);
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+  }
+
+  .slide-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(2.4rem, 5.5vw, 4.5rem);
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .slide-title .accent {
+    background: var(--oasis-gradient-1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide-subtitle {
+    font-size: clamp(1rem, 2vw, 1.4rem);
+    font-weight: 300;
+    color: var(--oasis-muted);
+    text-align: center;
+    max-width: 56ch;
+    line-height: 1.6;
+  }
+
+  /* ─── CARDS & PANELS ─── */
+  .card-grid {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 2rem;
+    width: 100%;
+    max-width: 1200px;
+  }
+
+  .card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .card-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 2rem;
+    backdrop-filter: blur(20px);
+    transition: transform 0.3s ease, border-color 0.3s ease;
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: var(--oasis-teal);
+  }
+
+  .card-icon {
+    font-size: 2.2rem;
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  .card h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(1rem, 1.6vw, 1.3rem);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--oasis-white);
+  }
+
+  .card p {
+    font-size: clamp(0.8rem, 1.1vw, 0.95rem);
+    color: var(--oasis-muted);
+    line-height: 1.5;
+  }
+
+  /* ─── PIPELINE ─── */
+  .pipeline {
+    display: flex;
+    gap: 0;
+    margin-top: 2rem;
+    width: 100%;
+    max-width: 1200px;
+    position: relative;
+  }
+
+  .pipeline-stage {
+    flex: 1;
+    text-align: center;
+    padding: 1.2rem 0.5rem;
+    position: relative;
+    border-bottom: 3px solid rgba(255,255,255,0.06);
+    transition: border-color 0.3s;
+  }
+
+  .pipeline-stage.active-stage {
+    border-bottom-color: var(--oasis-teal);
+  }
+
+  .pipeline-stage .stage-num {
+    font-family: 'Space Grotesk', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--oasis-teal);
+    margin-bottom: 0.3rem;
+    opacity: 0.7;
+  }
+
+  .pipeline-stage .stage-name {
+    font-size: clamp(0.65rem, 1vw, 0.85rem);
+    font-weight: 600;
+    color: var(--oasis-white);
+  }
+
+  .pipeline-stage .stage-owner {
+    font-size: 0.65rem;
+    color: var(--oasis-muted);
+    margin-top: 0.2rem;
+  }
+
+  /* ─── COMP TABLE ─── */
+  .comp-table {
+    width: 100%;
+    max-width: 900px;
+    margin-top: 2rem;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid var(--glass-border);
+  }
+
+  .comp-table th,
+  .comp-table td {
+    padding: 1.2rem 1.5rem;
+    text-align: left;
+  }
+
+  .comp-table thead {
+    background: rgba(0, 212, 170, 0.08);
+  }
+
+  .comp-table th {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--oasis-teal);
+    font-weight: 600;
+  }
+
+  .comp-table td {
+    font-size: clamp(0.85rem, 1.1vw, 1rem);
+    color: var(--oasis-white);
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .comp-table tr:nth-child(even) td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .comp-rate {
+    font-family: 'Space Grotesk', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: var(--oasis-gradient-1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* ─── BIG STAT ─── */
+  .big-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .big-stat .number {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(3rem, 8vw, 7rem);
+    font-weight: 800;
+    background: var(--oasis-gradient-1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .big-stat .label {
+    font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+    color: var(--oasis-muted);
+    font-weight: 400;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 4rem;
+    margin-top: 2.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ─── LOGO ─── */
+  .oasis-logo {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 800;
+    font-size: clamp(1rem, 1.8vw, 1.3rem);
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 2rem;
+  }
+
+  .oasis-logo .logo-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--oasis-gradient-1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: var(--oasis-dark);
+    font-weight: 900;
+  }
+
+  /* ─── SLIDE COUNTER + NAV ─── */
+  .slide-nav {
+    position: fixed;
+    bottom: 2.5vh;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.5rem;
+    z-index: 100;
+    align-items: center;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .dot.active {
+    background: var(--oasis-teal);
+    width: 28px;
+    border-radius: 4px;
+  }
+
+  .slide-counter {
+    position: fixed;
+    bottom: 2.5vh;
+    right: 4vw;
+    font-family: 'Space Grotesk', monospace;
+    font-size: 0.8rem;
+    color: var(--oasis-muted);
+    z-index: 100;
+  }
+
+  .logo-watermark {
+    position: fixed;
+    bottom: 2.5vh;
+    left: 4vw;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.12);
+    text-transform: uppercase;
+    z-index: 100;
+  }
+
+  /* ─── BULLET LIST ─── */
+  .bullet-list {
+    list-style: none;
+    margin-top: 1.5rem;
+    max-width: 800px;
+    width: 100%;
+  }
+
+  .bullet-list li {
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    font-size: clamp(0.9rem, 1.3vw, 1.1rem);
+    color: var(--oasis-white);
+    line-height: 1.5;
+  }
+
+  .bullet-list li::before {
+    content: '→';
+    color: var(--oasis-teal);
+    font-weight: 700;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .bullet-list li:last-child { border-bottom: none; }
+
+  /* ─── DIVIDER ─── */
+  .divider {
+    width: 60px;
+    height: 3px;
+    background: var(--oasis-gradient-1);
+    border-radius: 2px;
+    margin: 1.5rem 0;
+  }
+
+  /* ─── QUOTE ─── */
+  .slide-quote {
+    font-size: clamp(1.4rem, 3vw, 2.4rem);
+    font-weight: 300;
+    font-style: italic;
+    text-align: center;
+    max-width: 50ch;
+    line-height: 1.4;
+    color: var(--oasis-white);
+    position: relative;
+  }
+
+  .slide-quote::before {
+    content: '"';
+    position: absolute;
+    top: -0.6em;
+    left: -0.4em;
+    font-size: 5rem;
+    font-style: normal;
+    background: var(--oasis-gradient-1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    opacity: 0.3;
+    font-family: Georgia, serif;
+    line-height: 1;
+  }
+
+  .quote-attr {
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+    color: var(--oasis-teal);
+    font-style: normal;
+    font-weight: 500;
+  }
+
+  /* ─── SPLIT ─── */
+  .split-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    width: 100%;
+    max-width: 1200px;
+    align-items: center;
+  }
+
+  .split-layout .left { text-align: left; }
+  .split-layout .right { text-align: left; }
+
+  /* ─── FLOW CHART ─── */
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    width: 100%;
+    max-width: 1100px;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .flow-step {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 0.8rem 1.2rem;
+    font-size: clamp(0.7rem, 0.95vw, 0.85rem);
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .flow-step.highlight {
+    border-color: var(--oasis-teal);
+    background: rgba(0, 212, 170, 0.06);
+    color: var(--oasis-teal);
+    font-weight: 600;
+  }
+
+  .flow-arrow {
+    color: var(--oasis-muted);
+    font-size: 1rem;
+    opacity: 0.4;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .card-grid.cols-3, .card-grid.cols-4 { grid-template-columns: 1fr 1fr; }
+    .split-layout { grid-template-columns: 1fr; gap: 2rem; }
+    .pipeline { flex-wrap: wrap; }
+    .stats-row { gap: 2rem; }
+  }
+
+  /* ─── KEY SHORTCUTS HINT ─── */
+  .key-hint {
+    position: fixed;
+    top: 2vh;
+    right: 3vw;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.15);
+    z-index: 100;
+    font-family: 'Space Grotesk', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- ═══════════ SLIDE 1 — TITLE ═══════════ -->
+  <div class="slide active" data-slide="0">
+    <div class="bg-mesh"></div>
+    <div class="oasis-logo">
+      <div class="logo-icon">O</div>
+      OASIS AI SOLUTIONS
+    </div>
+    <div class="slide-title">
+      Team <span class="accent">Alignment</span><br>& Vision
+    </div>
+    <div class="divider"></div>
+    <div class="slide-subtitle">
+      Why we exist. What we do. How we win together.
+    </div>
+    <p style="margin-top:2rem; font-size:0.85rem; color:var(--oasis-muted); font-family:'Space Grotesk',monospace; letter-spacing:0.1em;">
+      AUGUST 2026 &nbsp;·&nbsp; INTERNAL
+    </p>
+  </div>
+
+  <!-- ═══════════ SLIDE 2 — THE WHY ═══════════ -->
+  <div class="slide" data-slide="1">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">The Why</div>
+    <div class="slide-title" style="font-size:clamp(2rem,4.5vw,3.6rem);">
+      Every local business <span class="accent">deserves a website<br>that actually works.</span>
+    </div>
+    <div class="divider"></div>
+    <div class="slide-subtitle">
+      Most SMBs have an outdated site that leaks trust, misses calls, and loses bookings. 
+      We build the fix — and attach the automations that close the gap.
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 3 — THE WHAT ═══════════ -->
+  <div class="slide" data-slide="2">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">The What</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,4vw,3.2rem);">
+      A <span class="accent">Sales Engine</span> Built<br>for Conversion
+    </div>
+    <div class="slide-subtitle" style="margin-bottom:0.5rem;">
+      We sell conversion-focused websites to local-service SMBs — then prescribe automations only after discovery.
+    </div>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <span class="card-icon">🌐</span>
+        <h3>Essential &nbsp;·&nbsp; $2K</h3>
+        <p>Conversion website, lead form, hosting, maintenance, analytics, basic SEO</p>
+      </div>
+      <div class="card" style="border-color: var(--oasis-teal);">
+        <span class="card-icon">🚀</span>
+        <h3>Growth &nbsp;·&nbsp; $3.5K</h3>
+        <p>+ More pages, copy support, booking/review integration, one automation</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">👑</span>
+        <h3>Authority &nbsp;·&nbsp; $5K+</h3>
+        <p>+ Advanced SEO, custom integrations, two standard automations</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 4 — THE TEAM ═══════════ -->
+  <div class="slide" data-slide="3">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">The Team</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,4vw,3.2rem);">
+      How We're <span class="accent">Structured</span>
+    </div>
+    <div class="card-grid cols-4" style="max-width:1100px;">
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">🏝️</span>
+        <h3>Founders</h3>
+        <p>CC & Adon — strategy, demos, proposals, closes, pricing decisions</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">📋</span>
+        <h3>Manager</h3>
+        <p>Sees team pipeline & commission — coaches reps, assigns leads</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">📞</span>
+        <h3>Sales Reps</h3>
+        <p>Opener & Opener-Closer tracks — qualify & book founder meetings</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">🤖</span>
+        <h3>AI Command Centre</h3>
+        <p>Bravo + APEX — lead research, automation, CRM, pipeline ops</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 5 — PIPELINE ═══════════ -->
+  <div class="slide" data-slide="4">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">The Pipeline</div>
+    <div class="slide-title" style="font-size:clamp(1.6rem,3.5vw,2.8rem);">
+      From <span class="accent">Research</span> to <span class="accent">Launch</span>
+    </div>
+    <div class="pipeline">
+      <div class="pipeline-stage active-stage">
+        <div class="stage-num">01</div>
+        <div class="stage-name">Researched</div>
+        <div class="stage-owner">AI / APEX</div>
+      </div>
+      <div class="pipeline-stage active-stage">
+        <div class="stage-num">02</div>
+        <div class="stage-name">Assigned</div>
+        <div class="stage-owner">Manager</div>
+      </div>
+      <div class="pipeline-stage active-stage">
+        <div class="stage-num">03</div>
+        <div class="stage-name">Attempting</div>
+        <div class="stage-owner">Rep</div>
+      </div>
+      <div class="pipeline-stage active-stage">
+        <div class="stage-num">04</div>
+        <div class="stage-name">Connected</div>
+        <div class="stage-owner">Rep</div>
+      </div>
+      <div class="pipeline-stage active-stage">
+        <div class="stage-num">05</div>
+        <div class="stage-name">Qualified</div>
+        <div class="stage-owner">Rep</div>
+      </div>
+      <div class="pipeline-stage" style="border-bottom-color: var(--oasis-gold);">
+        <div class="stage-num" style="color:var(--oasis-gold);">06</div>
+        <div class="stage-name">Meeting Booked</div>
+        <div class="stage-owner">Handoff ↗</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="stage-num">07</div>
+        <div class="stage-name">Demo</div>
+        <div class="stage-owner">Founder</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="stage-num">08</div>
+        <div class="stage-name">Proposal</div>
+        <div class="stage-owner">Founder</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="stage-num">09</div>
+        <div class="stage-name">Won</div>
+        <div class="stage-owner">→ Build</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="stage-num">10</div>
+        <div class="stage-name">Launched</div>
+        <div class="stage-owner">🎉</div>
+      </div>
+    </div>
+    <p style="margin-top:1.5rem; font-size:0.85rem; color:var(--oasis-muted); max-width:700px; text-align:center; line-height:1.6;">
+      Stage 06 is the <strong style="color:var(--oasis-gold);">attribution lock</strong> — the rep who books the founder meeting owns credit for the deal.
+    </p>
+  </div>
+
+  <!-- ═══════════ SLIDE 6 — COMPENSATION ═══════════ -->
+  <div class="slide" data-slide="5">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Compensation</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,4vw,3rem);">
+      How You <span class="accent">Get Paid</span>
+    </div>
+    <table class="comp-table">
+      <thead>
+        <tr>
+          <th>Track</th>
+          <th>What You Do</th>
+          <th>Commission</th>
+          <th>Example (Growth $3.5K)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Opener</strong></td>
+          <td>Source conversation → book founder meeting</td>
+          <td><span class="comp-rate">20%</span></td>
+          <td style="color:var(--oasis-teal); font-weight:600;">$700</td>
+        </tr>
+        <tr>
+          <td><strong>Opener-Closer</strong></td>
+          <td>+ run demo, proposal & close</td>
+          <td><span class="comp-rate">30%</span></td>
+          <td style="color:var(--oasis-teal); font-weight:600;">$1,050</td>
+        </tr>
+      </tbody>
+    </table>
+    <ul class="bullet-list" style="max-width:900px; margin-top:1.5rem;">
+      <li>Commission on collected setup revenue only</li>
+      <li>Flat rate across all deal sizes — no tiers, no ceiling</li>
+      <li>Every deal payout requires founder approval</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ SLIDE 7 — THE REP'S JOB ═══════════ -->
+  <div class="slide" data-slide="6">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">The Rep's Job</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,4vw,3rem);">
+      One Job. <span class="accent">Do It Well.</span>
+    </div>
+    <div class="split-layout">
+      <div class="left">
+        <ul class="bullet-list">
+          <li>Every lead arrives <strong>pre-researched</strong> with a website audit & pitch angle</li>
+          <li>Find one visible website problem</li>
+          <li>Connect it to lost trust, calls, or bookings</li>
+          <li>Qualify the owner on authority, need, timing, and budget</li>
+          <li>Book a Google Meet with CC or Adon</li>
+        </ul>
+      </div>
+      <div class="right">
+        <div class="card" style="border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.04);">
+          <h3 style="color:var(--oasis-gold);">⚡ What You Don't Do</h3>
+          <p style="line-height:1.8; font-size:0.95rem;">
+            Quote custom work<br>
+            Negotiate pricing<br>
+            Promise feasibility<br>
+            Turn the call into an AI lecture<br>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 8 — COMMAND CENTRE ═══════════ -->
+  <div class="slide" data-slide="7">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">The System</div>
+    <div class="slide-title" style="font-size:clamp(1.6rem,3.5vw,2.8rem);">
+      OASIS AI <span class="accent">Command Centre</span>
+    </div>
+    <div class="slide-subtitle" style="margin-bottom:1rem;">
+      Everything runs through one platform — your pipeline, leads, commissions, and automations.
+    </div>
+    <div class="card-grid cols-3" style="max-width:1000px;">
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">📊</span>
+        <h3>Pipeline View</h3>
+        <p>See your assigned leads, stages, and next actions at a glance</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">🔍</span>
+        <h3>Pre-Built Research</h3>
+        <p>AI-generated website audits, pitch angles, and ICP tracks per lead</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">💰</span>
+        <h3>Commission Tracker</h3>
+        <p>Accrued → Approved → Paid — transparent and real-time</p>
+      </div>
+    </div>
+    <div class="flow-row">
+      <div class="flow-step">AI Researches Lead</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">Manager Assigns</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step highlight">Rep Works Pipeline</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">Founder Closes</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">Build & Launch</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step highlight">Rep Gets Paid</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 9 — WHAT WINNING LOOKS LIKE ═══════════ -->
+  <div class="slide" data-slide="8">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">What Winning Looks Like</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,4vw,3rem);">
+      KPIs That <span class="accent">Matter</span>
+    </div>
+    <div class="card-grid cols-3" style="max-width:1000px;">
+      <div class="card" style="text-align:center;">
+        <div class="big-stat">
+          <div class="number" style="font-size:2.8rem;">Calls</div>
+          <div class="label">Attempts & conversations per rep per day</div>
+        </div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div class="big-stat">
+          <div class="number" style="font-size:2.8rem;">Qualified</div>
+          <div class="label">Authority · Need · Timing · Budget confirmed</div>
+        </div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div class="big-stat">
+          <div class="number" style="font-size:2.8rem;">Booked</div>
+          <div class="label">Founder meetings set → attribution locked</div>
+        </div>
+      </div>
+    </div>
+    <ul class="bullet-list" style="max-width:800px; margin-top:1.5rem;">
+      <li>The reps who get paid treat "no answer" as a follow-up, not a rejection</li>
+      <li>Every open lead must have a next action — no dead ends</li>
+      <li>Connected advances only after a real conversation</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ SLIDE 10 — AUTOMATION MENU ═══════════ -->
+  <div class="slide" data-slide="9">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Approved Automations</div>
+    <div class="slide-title" style="font-size:clamp(1.6rem,3.5vw,2.6rem);">
+      What We <span class="accent">Prescribe</span> After Discovery
+    </div>
+    <div class="slide-subtitle" style="margin-bottom:0.5rem; font-size:0.95rem;">
+      Reps never improvise feasibility or price — these are the 9 approved automations.
+    </div>
+    <div class="card-grid cols-3" style="max-width:1100px;">
+      <div class="card"><h3>1. Google Reviews</h3><p>Request + follow-up automation</p></div>
+      <div class="card"><h3>2. Lead Capture</h3><p>Notification & CRM routing</p></div>
+      <div class="card"><h3>3. Email Routing</h3><p>Inbound classification & triage</p></div>
+      <div class="card"><h3>4. Missed Calls</h3><p>After-hours lead recovery</p></div>
+      <div class="card"><h3>5. Quote Follow-Up</h3><p>Estimate reminders & nudges</p></div>
+      <div class="card"><h3>6. Appointment</h3><p>Reminders & no-show recovery</p></div>
+      <div class="card"><h3>7. Reactivation</h3><p>Dormant-lead revival</p></div>
+      <div class="card"><h3>8. Document Gen</h3><p>Invoice & estimate creation</p></div>
+      <div class="card"><h3>9. Local SEO</h3><p>Content & reporting</p></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 11 — ICP ═══════════ -->
+  <div class="slide" data-slide="10">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Who We Target</div>
+    <div class="slide-title" style="font-size:clamp(1.6rem,3.5vw,2.6rem);">
+      Our <span class="accent">Ideal Client</span>
+    </div>
+    <div class="card-grid cols-2" style="max-width:1000px;">
+      <div class="card">
+        <span class="card-icon">🔧</span>
+        <h3>Trades</h3>
+        <p>Plumbers, electricians, HVAC, contractors — mobile click-to-call, emergency routing, quote follow-up</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">📑</span>
+        <h3>Professional Services</h3>
+        <p>Lawyers, accountants, consultants — authority, clear service paths, intake friction</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">💆</span>
+        <h3>Wellness & Beauty</h3>
+        <p>Spas, salons, clinics — mobile booking, service presentation, no-show recovery</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🏠</span>
+        <h3>Home Services</h3>
+        <p>Landscaping, cleaning, pest control — before/after proof, local SEO, missed-call recovery</p>
+      </div>
+    </div>
+    <p style="margin-top:1.5rem; font-size:0.9rem; color:var(--oasis-muted); text-align:center; max-width:700px; line-height:1.6;">
+      Owner-operated SMBs in <strong style="color:var(--oasis-white);">Canada & the United States</strong> with no website, weak mobile, outdated design, or poor lead conversion.
+    </p>
+  </div>
+
+  <!-- ═══════════ SLIDE 12 — OBJECTION HANDLING ═══════════ -->
+  <div class="slide" data-slide="11">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Objection Playbook</div>
+    <div class="slide-title" style="font-size:clamp(1.6rem,3.5vw,2.6rem);">
+      Handling <span class="accent">Pushback</span>
+    </div>
+    <div class="card-grid cols-2" style="max-width:1000px;">
+      <div class="card">
+        <h3>"Send me information"</h3>
+        <p style="color:var(--oasis-teal);">"I will. Should I focus on the mobile issue, lead capture, or both?" → Then book.</p>
+      </div>
+      <div class="card">
+        <h3>"Too expensive"</h3>
+        <p style="color:var(--oasis-teal);">"I haven't priced your scope. Starting at $2K — the founder recommends it only if the business case supports it."</p>
+      </div>
+      <div class="card">
+        <h3>"Bad timing"</h3>
+        <p style="color:var(--oasis-teal);">"What needs to change for this to be timely, and when should we revisit?"</p>
+      </div>
+      <div class="card">
+        <h3>"Already have a provider"</h3>
+        <p style="color:var(--oasis-teal);">"Is their priority maintenance or measurable calls and bookings? We complement them if a conversion gap remains."</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 13 — THE CALL SCRIPT ═══════════ -->
+  <div class="slide" data-slide="12">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">The Cold Call</div>
+    <div class="slide-title" style="font-size:clamp(1.6rem,3.5vw,2.6rem);">
+      The <span class="accent">Opening</span>
+    </div>
+    <div class="card" style="max-width:900px; background:rgba(0,212,170,0.03); border-color:rgba(0,212,170,0.15); padding:2.5rem;">
+      <p style="font-size:clamp(1rem, 1.6vw, 1.25rem); line-height:1.7; color:var(--oasis-white);">
+        <span style="color:var(--oasis-teal); font-weight:600;">"Hey [Name],</span> it's [Rep] with OASIS. We haven't spoken before — this is a cold call.
+        I was looking at [Company] and noticed <span style="color:var(--oasis-gold);">[specific website issue]</span>.
+        Can I take 30 seconds to explain why I called, then you can tell me if it's irrelevant?"
+      </p>
+    </div>
+    <ul class="bullet-list" style="margin-top:1.5rem; max-width:800px;">
+      <li>Pattern interrupt — own the cold call upfront</li>
+      <li>Lead with <strong>their</strong> specific problem, not our product</li>
+      <li>Ask for permission, not attention</li>
+      <li>Diagnose before pitching — always</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ SLIDE 14 — ALIGNMENT ═══════════ -->
+  <div class="slide" data-slide="13">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Alignment</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,4vw,3.2rem);">
+      Open <span class="accent">Questions</span>
+    </div>
+    <div class="slide-subtitle" style="margin-bottom:1rem;">
+      Let's talk through these together.
+    </div>
+    <div class="card-grid cols-2" style="max-width:1000px;">
+      <div class="card">
+        <h3>🗣️ What excites you about this model?</h3>
+        <p>What part of the system makes you feel like you can win here?</p>
+      </div>
+      <div class="card">
+        <h3>🎯 What's unclear?</h3>
+        <p>Where do you need more clarity on how things work?</p>
+      </div>
+      <div class="card">
+        <h3>💡 What would make your day better?</h3>
+        <p>Tools, resources, training, support — what would help you perform?</p>
+      </div>
+      <div class="card">
+        <h3>🤝 How do we hold each other accountable?</h3>
+        <p>What does a productive week look like for you?</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 15 — CLOSING ═══════════ -->
+  <div class="slide" data-slide="14">
+    <div class="bg-mesh"></div>
+    <div class="oasis-logo" style="margin-bottom:3rem;">
+      <div class="logo-icon">O</div>
+      OASIS AI SOLUTIONS
+    </div>
+    <div class="slide-quote">
+      Every local business deserves a website that works. We're the team that makes it happen.
+    </div>
+    <div class="quote-attr">— CC & Adon</div>
+    <div class="divider" style="margin-top:3rem;"></div>
+    <p style="margin-top:1rem; font-size:0.85rem; color:var(--oasis-muted); font-family:'Space Grotesk',monospace; letter-spacing:0.1em;">
+      LET'S BUILD &nbsp;·&nbsp; LET'S WIN &nbsp;·&nbsp; LET'S GO
+    </p>
+  </div>
+
+</div>
+
+<!-- NAV -->
+<div class="slide-nav" id="slideNav"></div>
+<div class="slide-counter" id="counter">1 / 15</div>
+<div class="logo-watermark">OASIS AI</div>
+<div class="key-hint">← → / Space / Click to navigate</div>
+
+<script>
+(function () {
+  const slides = document.querySelectorAll('.slide');
+  const nav = document.getElementById('slideNav');
+  const counter = document.getElementById('counter');
+  let current = 0;
+  const total = slides.length;
+
+  // Build dots
+  for (let i = 0; i < total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.addEventListener('click', () => goTo(i));
+    nav.appendChild(dot);
+  }
+
+  function goTo(n) {
+    if (n < 0 || n >= total) return;
+    slides[current].classList.remove('active');
+    nav.children[current].classList.remove('active');
+    current = n;
+    slides[current].classList.add('active');
+    nav.children[current].classList.add('active');
+    counter.textContent = (current + 1) + ' / ' + total;
+  }
+
+  // Keyboard
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      goTo(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      goTo(current - 1);
+    } else if (e.key === 'Home') {
+      goTo(0);
+    } else if (e.key === 'End') {
+      goTo(total - 1);
+    } else if (e.key === 'f' || e.key === 'F') {
+      // Toggle fullscreen
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+  });
+
+  // Click to advance (not on interactive elements)
+  document.querySelector('.deck').addEventListener('click', (e) => {
+    if (e.target.closest('.slide-nav, .card, .comp-table, a, button')) return;
+    const x = e.clientX / window.innerWidth;
+    if (x > 0.5) goTo(current + 1);
+    else goTo(current - 1);
+  });
+
+  // Touch swipe
+  let touchStartX = 0;
+  document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) {
+      if (dx < 0) goTo(current + 1);
+      else goTo(current - 1);
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
