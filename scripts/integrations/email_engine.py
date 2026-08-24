@@ -27,7 +27,7 @@ import re
 import socket
 import time
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -1054,6 +1054,169 @@ def _save_processed_msgids(seen: dict) -> None:
         print(f"[email_inbox] could not persist processed-msgid ledger: {exc}", file=sys.stderr)
 
 
+# READ-BEFORE-SWEEP BACKFILL (2026-08-23) — closes the gap that lost the Kimi
+# receipt. The sweep searches UNSEEN only, so any message CC reads within the
+# 5-minute window between ticks becomes SEEN before the sweep ever fetches it
+# and escapes classification FOREVER: no ledger row, no financial hand-off, no
+# Gmail label, no booking. That is exactly what happened to the NOVASCENT/Kimi
+# Stripe receipt on 2026-08-23 — it sat read-and-unlabeled until backfilled by
+# hand.
+#
+# The fix sweeps SEEN mail too, but FINANCIAL-ONLY: a message CC already read
+# is a message a human is already handling, so replies/drafts/archives/Telegram
+# pings would be noise — the ONE thing that must still happen automatically is
+# the Atlas hand-off (label + booking), because reading a receipt is not the
+# same as booking it. Everything non-financial is just recorded in the msgid
+# ledger and left alone.
+#
+# Cost control: a persisted IMAP UID high-water mark means each tick examines
+# only messages that BECAME candidates since the last tick (usually zero), not
+# the whole mailbox. First run seeds from the last SEEN_BACKFILL_INIT_DAYS
+# days. All fetches are BODY.PEEK so read-state is never altered.
+SEEN_BACKFILL_STATE_PATH = (Path(__file__).resolve().parent.parent.parent
+                            / "tmp" / "seen_backfill_state.json")
+SEEN_BACKFILL_INIT_DAYS = 2
+SEEN_BACKFILL_MAX_PER_TICK = 40  # bound tick duration; leftovers roll to next tick
+
+
+def _backfill_read_before_sweep(imap, db, processed_msgids: dict) -> int:
+    """Classify recently-SEEN mail the UNSEEN sweep never saw; hand financial
+    mail to Atlas. Returns the number of messages newly examined. Never raises
+    — a backfill failure must not take down the main sweep."""
+    handed = examined = 0
+    try:
+        state = {}
+        try:
+            if SEEN_BACKFILL_STATE_PATH.exists():
+                state = json.loads(SEEN_BACKFILL_STATE_PATH.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            state = {}
+        last_uid = int(state.get("last_uid") or 0)
+
+        if last_uid:
+            status, data = imap.uid("SEARCH", None, f"(SEEN UID {last_uid + 1}:*)")
+        else:
+            since = (datetime.now(timezone.utc)
+                     - timedelta(days=SEEN_BACKFILL_INIT_DAYS)).strftime("%d-%b-%Y")
+            status, data = imap.uid("SEARCH", None, f"(SEEN SINCE {since})")
+        if status != "OK":
+            return 0
+        # Gmail quirk: "N:*" always matches the highest-UID message even when
+        # its UID < N, so filter client-side rather than trusting the range.
+        uids = sorted(
+            u for u in (int(x) for x in (data[0].split() if data and data[0] else []))
+            if u > last_uid
+        )[:SEEN_BACKFILL_MAX_PER_TICK]
+
+        for uid_int in uids:
+            uid = str(uid_int)
+            # Cheap header peek first: most candidates are mail the UNSEEN sweep
+            # already processed (held mail CC later read), and the ledger skips
+            # them for the price of one header round-trip instead of a full body.
+            h_status, h_data = imap.uid(
+                "FETCH", uid, "(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])")
+            if h_status != "OK" or not h_data or h_data[0] is None:
+                # Do NOT advance the mark past a failed fetch — retry next tick.
+                break
+            raw_hdr = h_data[0][1] if isinstance(h_data[0], tuple) else b""
+            hdr_msg = email.message_from_bytes(raw_hdr if isinstance(raw_hdr, bytes) else b"")
+            rfc_message_id = (hdr_msg.get("Message-ID") or "").strip() or f"uid:{uid}"
+            examined += 1
+
+            if rfc_message_id in processed_msgids:
+                last_uid = uid_int
+                continue
+
+            f_status, f_data = imap.uid("FETCH", uid, "(BODY.PEEK[])")
+            if f_status != "OK" or not f_data or f_data[0] is None \
+                    or not isinstance(f_data[0], tuple):
+                break
+            msg = email.message_from_bytes(f_data[0][1])
+            from_addr = _decode_header_value(msg.get("From", ""))
+            subject = _decode_header_value(msg.get("Subject", "(no subject)"))
+            body_full = extract_body_full(msg)
+
+            try:
+                from inbound_classifier import classify_category
+                cls = classify_category(
+                    content=(body_full or "")[:6000],
+                    subject=subject,
+                    from_identity=_extract_email_address(from_addr),
+                    is_bulk=bool(msg.get("List-Unsubscribe")),
+                )
+            except Exception as cls_err:  # noqa: BLE001
+                print(f"[seen_backfill] classifier failed on {rfc_message_id}: "
+                      f"{cls_err} — will retry next tick", file=sys.stderr)
+                break  # don't advance the mark; don't ledger it
+
+            category = cls.get("category")
+            confidence = float(cls.get("confidence", 0.0) or 0.0)
+            # Same confidence gate as the UNSEEN path (decide_action): a
+            # low-confidence financial read must NOT reach Atlas — the consumer
+            # would file a non-financial legal notice under Receipts/, which is
+            # the mislabeling this whole pipeline exists to prevent. Proven
+            # live 2026-08-23: a building quiet-hours notice at conf 0.45 was
+            # handed off before this gate existed (event cancelled same day).
+            try:
+                from email_brain import _resolve_config
+                fin_threshold = float(_resolve_config(None)["financial_threshold"])
+            except Exception:  # noqa: BLE001
+                fin_threshold = 0.65  # DEFAULT_FINANCIAL_THRESHOLD
+            if (category == "financial_legal" and not cls.get("fallback")
+                    and confidence > fin_threshold):
+                from email_brain import handoff_to_atlas
+                ok = handoff_to_atlas({
+                    "from": from_addr,
+                    "from_identity": _extract_email_address(from_addr),
+                    "subject": subject,
+                    "body": body_full,
+                    "rfc_message_id": rfc_message_id,
+                    "attachments": _extract_attachment_meta(msg),
+                }, db=db)
+                if ok:
+                    handed += 1
+                    print(f"[seen_backfill] read-before-sweep financial mail handed "
+                          f"to Atlas: {subject[:70]} (conf {confidence:.2f})",
+                          file=sys.stderr)
+                else:
+                    # Refused hand-offs (no stable Message-ID / no sender) can
+                    # never be booked automatically — say so once, quietly.
+                    print(f"[seen_backfill] financial mail REFUSED hand-off "
+                          f"(unresolvable payload): {subject[:70]}", file=sys.stderr)
+            elif category == "financial_legal" and cls.get("fallback"):
+                # Degraded (keyword-fallback) financial read on already-seen
+                # mail: never auto-book from a guess, but never be silent about
+                # money either. Low-confidence NON-degraded reads are left
+                # alone entirely — CC already read the mail, and the model
+                # itself judged it probably-not-financial.
+                try:
+                    notify(
+                        f"Possible financial email you read before the sweep — "
+                        f"NOT auto-booked (degraded classifier).\n"
+                        f"From: {from_addr}\nSubject: {subject}",
+                        category="email",
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+
+            processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
+            last_uid = uid_int
+
+        state["last_uid"] = last_uid
+        SEEN_BACKFILL_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = SEEN_BACKFILL_STATE_PATH.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(state), encoding="utf-8")
+        os.replace(tmp, SEEN_BACKFILL_STATE_PATH)
+
+        if examined:
+            print(f"[seen_backfill] examined {examined} read message(s), "
+                  f"{handed} handed to Atlas", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[seen_backfill] backfill error (main sweep unaffected): {exc}",
+              file=sys.stderr)
+    return examined
+
+
 REVIEW_QUEUE_PATH = (Path(__file__).resolve().parent.parent.parent
                      / "tmp" / "review_harvest_queue.json")
 
@@ -1902,6 +2065,11 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             # skips it (the guard at the top of the loop). Runs for every
             # terminal path — brain, legacy, and the brain-failure fallback.
             processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
+
+        # READ-BEFORE-SWEEP BACKFILL — catch mail CC read before this tick
+        # (financial-only routing; see _backfill_read_before_sweep). Shares
+        # this run's ledger dict so its entries persist in the save below.
+        _backfill_read_before_sweep(imap, db, processed_msgids)
 
         # V2.1: Persist poison UID tracker so failure counts survive across runs
         try:
