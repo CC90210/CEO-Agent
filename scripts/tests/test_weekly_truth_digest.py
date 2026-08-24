@@ -101,6 +101,27 @@ def test_red_findings_exit_zero_when_report_delivered(monkeypatch):
     assert digest.main([]) == 0
 
 
+def test_suppressed_but_already_delivered_counts_as_delivered(monkeypatch):
+    """notify() returns False for a deduped same-week repeat; LAST_SUPPRESSED
+    is True only when the original send landed. A rerun after a fix must not
+    exit 1 and page CC about a digest he already received."""
+    import notify as notify_mod
+
+    def _deduped(message, **_kw):
+        notify_mod.LAST_SUPPRESSED = True
+        return False
+
+    monkeypatch.setattr(notify_mod, "notify", _deduped)
+    assert digest.send_notification("digest text") is True
+
+    def _failed(message, **_kw):
+        notify_mod.LAST_SUPPRESSED = False
+        return False
+
+    monkeypatch.setattr(notify_mod, "notify", _failed)
+    assert digest.send_notification("digest text") is False
+
+
 def test_delivery_failure_exits_nonzero_even_when_all_green(monkeypatch):
     green = [
         digest.GateResult("Self-audit", 0, "pass", "", False),

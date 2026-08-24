@@ -222,10 +222,10 @@ def compose_digest(results: list[GateResult]) -> str:
 
 
 def send_notification(message: str) -> bool:
-    from notify import notify
+    import notify as notify_mod
 
     week = datetime.now(timezone.utc).strftime("%G-W%V")
-    return notify(
+    sent = notify_mod.notify(
         message,
         category="system",
         silent=True,
@@ -233,9 +233,26 @@ def send_notification(message: str) -> bool:
         dedup_key=f"weekly-full-truth-{week}",
         agent="bravo",
     )
+    if sent:
+        return True
+    # A deduped same-week repeat returns False from notify(), but
+    # LAST_SUPPRESSED is True only when the send that opened the window
+    # actually LANDED — i.e. CC already has this week's digest. Under the
+    # delivery-based exit contract that counts as delivered; otherwise every
+    # rerun after a fix would exit 1 and page CC about a report he received.
+    return bool(getattr(notify_mod, "LAST_SUPPRESSED", False))
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows consoles default to cp1252, which cannot encode the verdict
+    # marks — the 2026-08-23 rerun died at print(message) BEFORE delivering
+    # the Telegram. Same idiom as register_skill.py / client_health.py.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
+
     parser = argparse.ArgumentParser(description="Run and deliver the weekly full-truth health digest")
     parser.add_argument("--dry-run", action="store_true", help="print only; do not send Telegram")
     parser.add_argument("--json", action="store_true", help="emit structured results")
