@@ -616,6 +616,23 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # Added 2026-08-24 — the standing safety net the Kimi-receipt gap
+        # proved was missing. receipts_audit.py reconcile re-scans the mailbox
+        # on a rolling 45-day window and reconciles it against the Receipts/*
+        # label tree. Only sender-identity-confident tiers auto-hand-off to
+        # Atlas (billing-local: / vendor+subject: / forward:); subject-money
+        # matches land in one Telegram review list instead, so a newsletter
+        # quoting "$2,000" can never auto-book. Exit contract mirrors
+        # weekly_truth_digest: nonzero only when the reconciliation itself
+        # could not run or deliver its summary — findings are content.
+        "name": "Monthly Receipts Reconciliation",
+        "description": "Monthly 04:23 on the 2nd — reconcile the mailbox against Receipts/* labels (rolling 45d), auto-hand confident financial gaps to Atlas, one Telegram summary for anything held for review.",
+        "schedule": "23 4 2 * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/receipts_audit.py", "args": ["reconcile"], "timeout": 900},
+        "is_active": True,
+    },
+    {
         # Added 2026-08-14. CC: "I should be able to click on one of these videos
         # and then manually post it to all the social media channels via our API
         # key that we have connected."
