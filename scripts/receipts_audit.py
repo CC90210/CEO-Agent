@@ -138,6 +138,17 @@ _SUBJECT_HINT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Document NOUNS — subject words that name a financial document rather than a
+# lifestyle ("subscription"/"renewal" can headline pure marketing; "statement"
+# / "facture" essentially cannot). Gates the unattended auto-apply tier.
+_DOC_NOUN_RE = re.compile(
+    r"\b(?:"
+    r"statement|invoice|rec(?:ei|ie|i)pt|payout|e-?transfer|refund"
+    r"|\bbill\b|facture|reçu|relevé|virement|remboursement"
+    r")\b",
+    re.IGNORECASE,
+)
+
 # Marketing noise that matches the wide net but is never a transaction record.
 _NOISE_SUBJECT_RE = re.compile(
     r"\b(?:"
@@ -204,15 +215,26 @@ def is_financial_candidate(from_addr: str, subject: str) -> tuple[bool, str]:
     vendorish = (_base_domain(domain) in _VENDOR_DOMAINS
                  or domain in _VENDOR_DOMAINS)
     billing_local = local.split("+", 1)[0] in _BILLING_LOCALS
-    txn_subject = bool(_TXN_PHRASE_RE.search(subj) or _MONEY_AMOUNT_RE.search(subj)
-                       or _SUBJECT_HINT_RE.search(subj))
+    # Two strengths of subject evidence (adversarial review 2026-08-24, P2):
+    # STRONG = the production transaction regexes, a money amount, or a
+    # document noun (statement/invoice/facture/…) — words that name a
+    # financial DOCUMENT. WEAK = lifestyle words ("subscription", "renewal",
+    # "purchase") that vendor marketing uses freely: "Your Canva subscription
+    # is about to get even better" is not a document. Weak evidence still
+    # makes a scan candidate, but cmd_reconcile only auto-hands STRONG ones.
+    strong_subject = bool(_TXN_PHRASE_RE.search(subj)
+                          or _MONEY_AMOUNT_RE.search(subj)
+                          or _DOC_NOUN_RE.search(subj))
+    txn_subject = strong_subject or bool(_SUBJECT_HINT_RE.search(subj))
 
     if _NOISE_SUBJECT_RE.search(subj) and not _MONEY_AMOUNT_RE.search(subj):
         return False, "marketing-noise"
     if billing_local:
         return True, f"billing-local:{local}"
+    if vendorish and strong_subject:
+        return True, f"vendor+txn:{_base_domain(domain)}"
     if vendorish and txn_subject:
-        return True, f"vendor+subject:{_base_domain(domain)}"
+        return True, f"vendor+hint:{_base_domain(domain)}"
     if txn_subject and (_TXN_PHRASE_RE.search(subj) or _MONEY_AMOUNT_RE.search(subj)):
         return True, "txn-subject"
     return False, "no-signal"
@@ -226,7 +248,12 @@ def _parse_fetch_response(data) -> list[dict]:
             continue
         meta = item[0].decode("utf-8", errors="replace") if isinstance(item[0], bytes) else str(item[0])
         hdr = email.message_from_bytes(item[1] if isinstance(item[1], bytes) else b"")
-        labels_m = re.search(r"X-GM-LABELS \(([^)]*)\)", meta)
+        # Quoted label names may themselves contain parens — "Clients/Acme
+        # (Old)" — so the capture must treat quoted strings as opaque instead
+        # of stopping at the first ')' (adversarial review 2026-08-24, P2:
+        # truncating there could hide a later Receipts/* label and report a
+        # covered message as a false gap).
+        labels_m = re.search(r'X-GM-LABELS \(((?:[^()"]|"[^"]*")*)\)', meta)
         labels_raw = labels_m.group(1) if labels_m else ""
         labels = re.findall(r'"((?:[^"\\]|\\.)*)"|(\S+)', labels_raw)
         label_list = [a or b for a, b in labels]
@@ -335,21 +362,35 @@ def cmd_scan(args) -> int:
     return 0
 
 
+def _month_of(date_header: str) -> str:
+    """'YYYY-MM' from an RFC-2822 Date header, '' if unparseable."""
+    try:
+        from email.utils import parsedate_to_datetime
+        dt = parsedate_to_datetime(date_header or "")
+        return f"{dt.year:04d}-{dt.month:02d}" if dt else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _cluster_key(gap: dict) -> str:
     """One handoff per transaction: cluster by (domain, reference-or-subject).
 
     Atlas's consumer dedupes by Message-ID only, so a vendor's separate
     invoice + receipt emails for the SAME purchase would book twice. A shared
     reference number (#2671-3082) or identical normalized subject on the same
-    domain marks them as one transaction — hand off the newest only.
-    """
+    domain IN THE SAME MONTH marks them as one transaction — hand off the
+    newest only. The month component is load-bearing (adversarial review
+    2026-08-24, P1): without it, a monthly SaaS receipt with no reference
+    number ("Your receipt from Notion") collapsed across every month in the
+    scan window, and distinct real transactions were silently dropped as
+    "duplicates"."""
     domain = _base_domain(_domain_of(_addr_of(gap["from"])))
     ref = _REF_RE.search(gap["subject"] or "")
     if ref:
         return f"{domain}|ref:{ref.group(1).lower()}"
     norm = re.sub(r"\s+", " ", (gap["subject"] or "").lower())
     norm = re.sub(r"\b(?:your|receipt|invoice|from|for)\b", "", norm).strip()
-    return f"{domain}|subj:{norm[:60]}"
+    return f"{domain}|{_month_of(gap.get('date', ''))}|subj:{norm[:60]}"
 
 
 def cmd_apply(args) -> int:
@@ -373,8 +414,9 @@ def cmd_apply(args) -> int:
     picked = list(clusters.values())[:args.limit]
     skipped_dupes = len(gaps) - len(clusters)
     print(f"[apply] {len(gaps)} gap messages → {len(clusters)} transaction "
-          f"clusters ({skipped_dupes} same-transaction duplicates held back); "
-          f"handing off {len(picked)} this run")
+          f"clusters ({skipped_dupes} sibling emails of the same transaction — "
+          f"same reference, or same vendor+subject within one month — held "
+          f"back); handing off {len(picked)} this run")
 
     if args.dry_run:
         for g in picked:
@@ -405,12 +447,19 @@ def cmd_apply(args) -> int:
     return 0
 
 
-# Precision tiers for unattended (cron) auto-apply. These reasons come from
-# sender identity, not subject-money regexes, so a new newsletter quoting
-# "$2,000" in a headline can never auto-hand-off — it lands in the review
-# list instead. (Atlas's consumer is the second gate either way: it books
-# only from the fetched document.)
-_AUTO_APPLY_PREFIXES = ("billing-local:", "vendor+subject:", "forward:")
+# Precision tiers for unattended (cron) auto-apply. billing-local and forward
+# are sender-identity proofs; vendor+txn additionally requires STRONG subject
+# evidence (transaction regex, money amount, or a document noun) — vendor mail
+# with only lifestyle words ("your subscription is about to get even better")
+# is vendor+hint and lands in the review list instead (adversarial review
+# 2026-08-24: a Canva marketing subject reached the auto tier under the old
+# vendor+subject rule). A newsletter quoting "$2,000" still can't auto-apply:
+# txn-subject is not an auto tier at all.
+_AUTO_APPLY_PREFIXES = ("billing-local:", "vendor+txn:", "forward:")
+
+# Bound the unattended fan-out per run; leftovers roll to the next monthly
+# tick (or a manual `apply`). Never silent: the summary reports the deferral.
+_RECONCILE_MAX_HANDOFFS = 40
 
 
 def cmd_reconcile(args) -> int:
@@ -431,9 +480,17 @@ def cmd_reconcile(args) -> int:
     gaps = report.get("gap_list", [])
     auto = [g for g in gaps
             if str(g.get("net_reason", "")).startswith(_AUTO_APPLY_PREFIXES)]
-    review = [g for g in gaps if g not in auto]
+    auto_ids = {g["message_id"] for g in auto}
+    # Cluster the review tier too, so an invoice+receipt pair with only weak
+    # evidence shows once in CC's Telegram list, not twice.
+    review_clusters: dict[str, dict] = {}
+    for g in gaps:
+        if g["message_id"] in auto_ids:
+            continue
+        review_clusters.setdefault(_cluster_key(g), g)
+    review = list(review_clusters.values())
 
-    handed = 0
+    handed = failed = deferred = 0
     if auto and not args.dry_run:
         from email_brain import handoff_to_atlas
         clusters: dict[str, dict] = {}
@@ -442,7 +499,9 @@ def cmd_reconcile(args) -> int:
             held = clusters.get(key)
             if held is None or (g.get("date") or "") > (held.get("date") or ""):
                 clusters[key] = g
-        for g in clusters.values():
+        picked = list(clusters.values())
+        deferred = max(0, len(picked) - _RECONCILE_MAX_HANDOFFS)
+        for g in picked[:_RECONCILE_MAX_HANDOFFS]:
             if handoff_to_atlas({
                 "from": g["from"],
                 "from_identity": _addr_of(g["from"]),
@@ -453,14 +512,26 @@ def cmd_reconcile(args) -> int:
                 "attachments": [],
             }):
                 handed += 1
+            else:
+                failed += 1
+                print(f"[reconcile] hand-off REFUSED/FAILED: "
+                      f"{g['subject'][:70]}", file=sys.stderr)
 
     lines = [f"Receipts reconciliation — last {args.window_days}d: "
              f"{report['candidates']} financial candidates, "
              f"{report['covered']} already filed, {len(gaps)} gaps."]
     if handed:
         lines.append(f"Auto-handed {handed} to Atlas (books/labels within 15 min).")
+    if failed:
+        # A hand-off outage must never read like "no gaps this run"
+        # (adversarial review 2026-08-24, P1 — the zero-vs-failed-query class).
+        lines.append(f"⚠️ {failed} hand-off(s) FAILED — the agent_events insert "
+                     f"is broken; gaps remain unfiled.")
+    if deferred:
+        lines.append(f"{deferred} deferred to the next run (per-run cap "
+                     f"{_RECONCILE_MAX_HANDOFFS}).")
     if review:
-        lines.append(f"{len(review)} held for review (subject-only signal):")
+        lines.append(f"{len(review)} held for review (weak signal):")
         lines.extend(f"  • {g['from'][:40]}: {g['subject'][:60]}"
                      for g in review[:8])
     message = "\n".join(lines)
@@ -476,6 +547,10 @@ def cmd_reconcile(args) -> int:
     delivered = sent or bool(getattr(notify_mod, "LAST_SUPPRESSED", False))
     if not delivered:
         print("reconcile: summary notification failed", file=sys.stderr)
+    # Total hand-off outage = the reconciler is broken (its one job is moving
+    # gaps to Atlas); partial failure is reported in the message but exits 0.
+    if auto and not args.dry_run and handed == 0 and failed > 0:
+        return 1
     return 0 if delivered else 1
 
 

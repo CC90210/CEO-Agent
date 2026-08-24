@@ -117,3 +117,59 @@ def test_different_references_do_not_cluster():
     a = {"from": "Stripe <invoice@stripe.com>", "subject": "Invoice #1111-1111"}
     b = {"from": "Stripe <invoice@stripe.com>", "subject": "Invoice #2222-2222"}
     assert _cluster_key(a) != _cluster_key(b)
+
+
+def test_monthly_subscription_without_reference_does_not_collapse_across_months():
+    """Adversarial review P1: 'Your receipt from Notion' in Jan/Feb/Mar are
+    THREE transactions; clustering them as one silently dropped real bookings."""
+    jan = {"from": "Notion <team@notion.so>", "subject": "Your receipt from Notion",
+           "date": "Mon, 05 Jan 2026 09:00:00 -0500"}
+    feb = {"from": "Notion <team@notion.so>", "subject": "Your receipt from Notion",
+           "date": "Thu, 05 Feb 2026 09:00:00 -0500"}
+    assert _cluster_key(jan) != _cluster_key(feb)
+
+
+def test_same_month_invoice_receipt_pair_without_ref_still_clusters():
+    a = {"from": "Notion <team@notion.so>", "subject": "Your receipt from Notion",
+         "date": "Mon, 05 Jan 2026 09:00:00 -0500"}
+    b = {"from": "Notion <billing@notion.so>", "subject": "Your invoice from Notion",
+         "date": "Mon, 05 Jan 2026 09:02:00 -0500"}
+    assert _cluster_key(a) == _cluster_key(b)
+
+
+# ── auto-apply tier strength (adversarial review P2) ─────────────────────────
+
+def test_vendor_marketing_hint_is_candidate_but_not_auto_tier():
+    from receipts_audit import _AUTO_APPLY_PREFIXES
+    ok, reason = _hit("Canva <hello@canva.com>",
+                      "Your Canva subscription is about to get even better")
+    assert ok  # still a scan candidate for the review list
+    assert not reason.startswith(_AUTO_APPLY_PREFIXES)
+
+
+def test_vendor_document_noun_is_auto_tier():
+    from receipts_audit import _AUTO_APPLY_PREFIXES
+    ok, reason = _hit('"Kraken" <noreply@kraken.com>',
+                      "Here's your March statement from Kraken")
+    assert ok and reason.startswith(_AUTO_APPLY_PREFIXES)
+
+
+def test_newsletter_money_amount_is_never_auto_tier():
+    from receipts_audit import _AUTO_APPLY_PREFIXES
+    ok, reason = _hit("Some New Letter <hi@brandnewsletter.io>",
+                      "This company saved $2,000 with one trick")
+    if ok:  # txn-subject candidates may exist, but never auto-apply
+        assert not reason.startswith(_AUTO_APPLY_PREFIXES)
+
+
+# ── IMAP response parsing (adversarial review P2) ────────────────────────────
+
+def test_label_parse_survives_parens_inside_quoted_label_names():
+    from receipts_audit import _parse_fetch_response
+    meta = (b'1 (X-GM-MSGID 123 X-GM-LABELS ("Clients/Acme (Old)" '
+            b'"Receipts/2026/Business Expenses") UID 9 BODY[HEADER.FIELDS '
+            b'(FROM SUBJECT MESSAGE-ID DATE LIST-UNSUBSCRIBE)] {30}')
+    hdr = b"From: x@y.com\r\nSubject: hi\r\n\r\n"
+    rows = _parse_fetch_response([(meta, hdr), b")"])
+    assert len(rows) == 1
+    assert "Receipts/2026/Business Expenses" in rows[0]["labels"]
