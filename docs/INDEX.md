@@ -29,6 +29,7 @@ last_updated: 2026-08-19
 
 Committed paste-ready `*_PROMPT.md` runbooks (VPS deploy/verify, Mac sync, etc.) live in `docs/deploy/` — check the superseded banners before reusing any of them.
 - [[docs/LISTING_STUDIO_VPS_AGENT_SYSTEM_MESSAGE]] — paste-in system message for the Listing Studio VPS agent (colour-grading, leads UI, DM + SMS automations, CRM profiles)
+- [[docs/LISTING_STUDIO_OUTREACH_CRM_SYSTEM_MESSAGE]] — sequel paste-in system message: manual outbound quick-add, conversation-hold tracking, reminder-mode + auto-SMS follow-up engine (client request 2026-08-24)
 - [[docs/SUNBIZ_VPS_TURNKEY_SYSTEM_MESSAGE]] — paste-in system message for the SunBiz VPS bring-up
 
 ## Workstation

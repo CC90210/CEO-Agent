@@ -1,7 +1,7 @@
 ---
 description: "Lookup table routing app names to local paths and GitHub repos; enforces that code changes happen in external app repos, not Business-Empire-Agent"
 tags: [apps, routing]
-last_updated: 2026-08-19
+last_updated: 2026-08-24
 freshness_threshold_days: 30
 verified: 2026-07-13
 ---
@@ -46,7 +46,7 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **Blue Rise Website** | blue rise, blue-rise, bluerisebusinesscapital, former sunbiz front, sunbiz-front legacy | `C:\Users\User\APPS\sunbiz-front-website` | [CC90210/blue-rise-website](https://github.com/CC90210/blue-rise-website) (private) | none - no backend DB; use Turso/libSQL if this later needs storage | Next.js 16, React 19, TypeScript, Tailwind v4, IBM Plex Sans + Fraunces | **Vercel - LIVE at https://bluerisebusinesscapital.com** (project `blue-rise-website`, GitHub-linked, auto-deploys on push to `main`; legacy alias `https://sunbiz-front-website.vercel.app` currently points here). Rebranded lending-company front end; legal pages are starter copy pending counsel review. |
 | **Arthrisil** | arthrisil, arthrisil.com | `C:\Users\User\APPS\arthrisil-website` | CC90210/arthrisil-website | — | Next.js, React, Tailwind | **Vercel — LIVE at https://arthrisil.com** (auto-deploys on push to `main`). PayPal + YouTube + $29.95 offer; lead capture → Resend/Supabase. |
 | **Opt-in Vault** | opt-in-vault, optinvault, consent vault, drip engine | `C:\Users\User\APPS\opt-in-vault` | CC90210/opt-in-vault | — (Turso/libSQL + Drizzle, zero Supabase) | Next.js 15, React 19, TypeScript, Drizzle ORM, Nodemailer, ImapFlow | Vercel (required — `CONSENT_TRUSTED_EDGE_PROVIDER=vercel`). Compliance-grade outbound drip engine + tamper-evident consent evidence (TCPA/CASL/CAN-SPAM/GDPR, RFC 8058). Self-contained SMTP gateway — does NOT route through empire `send_gateway.py`. Full context: [[APPS_CONTEXT/OPT_IN_VAULT_CLAUDE]]. |
-| **Listing Studio (Mandy Management)** | listing studio, mandy, mandy management, real-estate-marketing-suite, rems, new haven apartments | VPS only: `/srv/listing-studio` (no local clone) | CC90210/real-estate-marketing-suite (private) | — (dedicated Turso DB `real-estate-marketing-suite`) | Next.js, Turso/libSQL, PM2 workers (`rems-render`, `rems-publish`), Zernio/Late API, Twilio, Telegram bot @Sexyrapeezra_bot | **Vercel — LIVE at https://real-estate-marketing-suite.vercel.app** (auto-deploys on push to `main`). Listing-video rendering + rental leads CRM. VPS system message: `docs/LISTING_STUDIO_VPS_AGENT_SYSTEM_MESSAGE.md`. |
+| **Listing Studio (Mandy Management)** | listing studio, mandy, mandy management, real-estate-marketing-suite, rems, new haven apartments | VPS only: `/srv/listing-studio` (no local clone) | CC90210/real-estate-marketing-suite (private) | — (dedicated Turso DB `real-estate-marketing-suite`) | Next.js, Turso/libSQL, PM2 workers (`rems-render`, `rems-publish`), Zernio/Late API, Twilio, Telegram bot @Sexyrapeezra_bot | **Vercel — LIVE at https://real-estate-marketing-suite.vercel.app** (auto-deploys on push to `main`). Listing-video rendering + rental leads CRM. VPS system messages: `docs/LISTING_STUDIO_VPS_AGENT_SYSTEM_MESSAGE.md` (2026-08-19 missions) + `docs/LISTING_STUDIO_OUTREACH_CRM_SYSTEM_MESSAGE.md` (2026-08-24 outreach CRM). |
 
 
 ## App Context Files

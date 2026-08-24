@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-24
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** CANON CORRECTION from CC: OASIS AI Solutions owned EQUALLY by CC and Adon (verbal, contracts pending) — CONTEXT.md, brain/USER.md, memory updated; Atlas notified (tax/T2125 surface), Maven notified (attribution P0 factually resolved, 19-surface rollout still needs CC go)
+- **Result:** Listing Studio (Mandy Mgmt) outreach-CRM VPS brief shipped: docs/LISTING_STUDIO_OUTREACH_CRM_SYSTEM_MESSAGE.md — Phase 0 deploy-SHA verification + 08-19 close-out, Mission 6 quick-add/bulk-import with whose-turn + two-basis consent, Mission 7 one-tap hold tracking, Mission 8 one-brain follow-up engine (reminder mode now, caged auto-SMS with arming procedure + circuit breaker), Mission 9 hardening + client enablement. Hardened by 4-lens adversarial workflow (46 findings integrated). Indexed in docs/INDEX.md + APP_REGISTRY.md; memory project file created.
 
 *Last updated: 2026-08-24*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-24T08:01:51.563183+00:00_
 
 - **Date:** 2026-08-24
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** CANON CORRECTION from CC: OASIS AI Solutions owned EQUALLY by CC and Adon (verbal, contracts pending) — CONTEXT.md, brain/USER.md, memory updated; Atlas notified (tax/T2125 surface), Maven notified (attribution P0 factually resolved, 19-surface rollout still needs CC go)
+- **Result:** Listing Studio (Mandy Mgmt) outreach-CRM VPS brief shipped: docs/LISTING_STUDIO_OUTREACH_CRM_SYSTEM_MESSAGE.md — Phase 0 deploy-SHA verification + 08-19 close-out, Mission 6 quick-add/bulk-import with whose-turn + two-basis consent, Mission 7 one-tap hold tracking, Mission 8 one-brain follow-up engine (reminder mode now, caged auto-SMS with arming procedure + circuit breaker), Mission 9 hardening + client enablement. Hardened by 4-lens adversarial workflow (46 findings integrated). Indexed in docs/INDEX.md + APP_REGISTRY.md; memory project file created.
 
 *Last updated: 2026-08-24*
