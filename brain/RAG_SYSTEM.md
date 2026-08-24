@@ -1,7 +1,7 @@
 ---
 description: "Documents the 4-layer memory stack (markdown, Obsidian, Turso, Claude-mem) that agents reference to query and persist cross-session knowledge"
 tags: [rag, memory, infrastructure, obsidian]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

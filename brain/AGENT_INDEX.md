@@ -1,7 +1,7 @@
 ---
 description: "Central index for the 4-agent ecosystem (Bravo/Atlas/Maven/Aura): maps governance, cross-agent workflows, shared DB, and app registry"
 tags: [index, agents, hub, graph]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

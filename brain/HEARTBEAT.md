@@ -1,7 +1,7 @@
 ---
 description: "Session-start heartbeat system: checklist of proactive checks (memory, infrastructure, Turso sync, pending tasks) that run before engaging with CC's requests"
 tags: [heartbeat, monitoring]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

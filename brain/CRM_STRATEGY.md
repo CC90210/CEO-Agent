@@ -1,7 +1,7 @@
 ---
 description: "Specifies lead routing: Tier 1 (inbound nurture via email_engine.py + draft_critic), Tier 2 (customer management); cold outreach operator-initiated"
 tags: [strategy, crm, outreach, leads]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

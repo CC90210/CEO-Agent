@@ -1,7 +1,7 @@
 ---
 description: "Protocol for 4-agent OS (Bravo/Atlas/Maven/Aura) to sync via pulse files and session notes; agents read siblings on startup to avoid contradictions"
 tags: [c-suite, protocol, awareness]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-24T00:38:42.404202+00:00",
+  "generated_at": "2026-08-24T08:02:33.040857+00:00",
   "totals": {
     "skills": 162,
-    "scripts": 175,
+    "scripts": 176,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 428,
-    "edges_total": 202,
+    "nodes_total": 429,
+    "edges_total": 207,
     "drift_count": 0
   },
   "nodes": [
@@ -6740,6 +6740,29 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:receipts_audit",
+      "kind": "script",
+      "name": "receipts_audit",
+      "path": "scripts/receipts_audit.py",
+      "description": "Receipts audit \u2014 reconcile the mailbox against the financial pipeline.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "governance.finance",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "audit the mailbox for missed receipts",
+        "reconcile financial emails against the receipts ledger",
+        "backfill missed expense emails to atlas"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": true
+      }
+    },
+    {
       "id": "script:region_inference",
       "kind": "script",
       "name": "region_inference",
@@ -9223,6 +9246,11 @@
     },
     {
       "from": "runtime:cron_engine",
+      "to": "script:receipts_audit",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
       "to": "script:review_loop",
       "kind": "schedules"
     },
@@ -9654,6 +9682,26 @@
     {
       "from": "script:purge_junk_leads",
       "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:receipts_audit",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:receipts_audit",
+      "to": "script:email_brain",
+      "kind": "calls"
+    },
+    {
+      "from": "script:receipts_audit",
+      "to": "script:inbound_classifier",
+      "kind": "calls"
+    },
+    {
+      "from": "script:receipts_audit",
+      "to": "script:notify",
       "kind": "calls"
     },
     {

@@ -4,7 +4,7 @@ tags: [sync, multi-machine, protocol, non-negotiable]
 purpose: Single canonical protocol for how Claude Code on Windows and Claude Code on Mac stay in perfect sync without stepping on each other's work.
 owner: CC (Conaugh McKenna)
 created: 2026-04-11
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
