@@ -172,13 +172,52 @@ def _summary(result: GateResult) -> str:
     return (lines[-1] if lines else "no output")[:500]
 
 
+# Three-state verdicts (2026-08-23). The first live run rendered
+# "Self-audit: 99/100; mandatory PASS" with a ❌ because GateResult.ok is
+# process-level (self_audit exits 1 for ANYTHING under 100/100) — a warn
+# state drawn as a failure in the one report whose job is precision about
+# health. warn = degraded-but-operating; red = broken or mandatory-failed.
+_MARKS = {"green": "✅", "warn": "⚠️", "red": "❌"}
+
+
+def gate_verdict(result: GateResult) -> str:
+    if result.ok:
+        return "green"
+    if result.timed_out:
+        return "red"
+    if result.name == "Self-audit":
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return "red"
+        mandatory = bool(data.get("mandatory_gate_passed"))
+        score = int(data.get("health_score") or 0)
+        # Mirrors self_audit's own verdict ladder: exit 1 with mandatory PASS
+        # and score >= 70 is its WARNING band, not a failure.
+        return "warn" if (mandatory and score >= 70) else "red"
+    if result.name == "Fleet health":
+        # rc==1 with parseable JSON is _assess_fleet's own finding list
+        # (aging pulse, urgent inbox, …) — operational warnings. Anything
+        # else (crash, bad JSON) means the fleet check itself broke.
+        if result.returncode == 1:
+            try:
+                json.loads(result.stdout)
+                return "warn"
+            except json.JSONDecodeError:
+                return "red"
+        return "red"
+    return "red"
+
+
 def compose_digest(results: list[GateResult]) -> str:
-    overall = all(result.ok for result in results)
+    verdicts = [gate_verdict(result) for result in results]
+    overall = ("RED" if "red" in verdicts
+               else "WARN" if "warn" in verdicts else "GREEN")
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     lines = [f"Weekly full-truth health digest — {stamp}", ""]
-    for result in results:
-        lines.append(f"{'✅' if result.ok else '❌'} {result.name}: {_summary(result)}")
-    lines.extend(["", f"OVERALL: {'GREEN' if overall else 'RED'}"])
+    for result, verdict in zip(results, verdicts):
+        lines.append(f"{_MARKS[verdict]} {result.name}: {_summary(result)}")
+    lines.extend(["", f"OVERALL: {overall}"])
     return "\n".join(lines)
 
 
@@ -204,11 +243,14 @@ def main(argv: list[str] | None = None) -> int:
 
     results = collect_results()
     message = compose_digest(results)
+    verdicts = [gate_verdict(r) for r in results]
     if args.json:
         print(json.dumps({
-            "overall": "green" if all(r.ok for r in results) else "red",
+            "overall": ("red" if "red" in verdicts
+                        else "warn" if "warn" in verdicts else "green"),
             "message": message,
-            "results": [asdict(r) for r in results],
+            "results": [dict(asdict(r), verdict=v)
+                        for r, v in zip(results, verdicts)],
         }, indent=2))
     else:
         print(message)
@@ -216,7 +258,14 @@ def main(argv: list[str] | None = None) -> int:
     delivered = True if args.dry_run else send_notification(message)
     if not delivered:
         print("weekly digest notification failed", file=sys.stderr)
-    return 0 if all(r.ok for r in results) and delivered else 1
+    # EXIT CONTRACT (2026-08-23): 0 iff the truth report was DELIVERED.
+    # Red findings are the report's CONTENT, not the reporter's failure —
+    # the first live run exited 1 on warn-grade findings, so the cron
+    # watchdog paged CC "1 cron failing" about a digest that had already
+    # told him the same facts. Same class harness_eval solved with
+    # is_self_scored_failure, solved here at the source: the scheduler's
+    # failure channel now fires only when the digest could not report.
+    return 0 if delivered else 1
 
 
 if __name__ == "__main__":

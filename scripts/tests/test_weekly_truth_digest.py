@@ -55,6 +55,64 @@ def test_main_notifies_even_when_all_gates_pass(monkeypatch):
     assert "OVERALL: GREEN" in calls[0]
 
 
+def test_self_audit_warning_band_renders_warn_not_red():
+    """The first live run (2026-08-23) drew ❌ on '99/100; mandatory PASS'
+    because self_audit exits 1 for anything under 100. That is self_audit's
+    WARNING band and must render ⚠️ with OVERALL: WARN, not a failure."""
+    audit_json = '{"health_score": 99, "mandatory_gate_passed": true}'
+    results = [
+        digest.GateResult("Self-audit", 1, audit_json, "", False),
+        digest.GateResult("Fleet health", 0, "{}", "", False),
+        digest.GateResult("Pytest", 0, "1640 passed", "", False),
+    ]
+
+    assert digest.gate_verdict(results[0]) == "warn"
+    text = digest.compose_digest(results)
+    assert "⚠️ Self-audit" in text
+    assert "OVERALL: WARN" in text
+
+
+def test_mandatory_failure_is_still_red():
+    audit_json = '{"health_score": 99, "mandatory_gate_passed": false}'
+    result = digest.GateResult("Self-audit", 1, audit_json, "", False)
+    assert digest.gate_verdict(result) == "red"
+
+
+def test_fleet_findings_are_warn_but_fleet_crash_is_red():
+    findings = digest.GateResult("Fleet health", 1, '{"pulses": []}',
+                                 "bravo pulse aging", False)
+    crash = digest.GateResult("Fleet health", 1, "Traceback ...", "boom", False)
+    assert digest.gate_verdict(findings) == "warn"
+    assert digest.gate_verdict(crash) == "red"
+
+
+def test_red_findings_exit_zero_when_report_delivered(monkeypatch):
+    """Exit contract: findings are the report's CONTENT. The cron fails only
+    when the digest could not report — otherwise the watchdog double-pages CC
+    about facts the digest already delivered (the 2026-08-23 page)."""
+    red = [
+        digest.GateResult("Self-audit", 2, "{}", "", False),
+        digest.GateResult("Fleet health", 0, "{}", "", False),
+        digest.GateResult("Pytest", 1, "1 failed", "", False),
+    ]
+    monkeypatch.setattr(digest, "collect_results", lambda: red)
+    monkeypatch.setattr(digest, "send_notification", lambda text: True)
+
+    assert digest.main([]) == 0
+
+
+def test_delivery_failure_exits_nonzero_even_when_all_green(monkeypatch):
+    green = [
+        digest.GateResult("Self-audit", 0, "pass", "", False),
+        digest.GateResult("Fleet health", 0, "{}", "", False),
+        digest.GateResult("Pytest", 0, "1640 passed", "", False),
+    ]
+    monkeypatch.setattr(digest, "collect_results", lambda: green)
+    monkeypatch.setattr(digest, "send_notification", lambda text: False)
+
+    assert digest.main([]) == 1
+
+
 def test_weekly_digest_seed_is_active_and_has_scheduler_headroom():
     job = next(
         job for job in cron_engine.SEED_JOBS
