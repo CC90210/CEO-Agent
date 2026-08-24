@@ -735,7 +735,7 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 8 * * *",
         "action_type": "script_run",
         "action_config": {
-            "script": str(SIBLING_REPOS["maven"] / "scripts" / "run_posting_cron.py"),
+            "script": str(SIBLING_REPOS["maven"] / "scripts" / "run_posting_cron.py"),  # path-drift-ok: CMO-Agent sibling path
             "args": [],
             "timeout": 3600,
         },
