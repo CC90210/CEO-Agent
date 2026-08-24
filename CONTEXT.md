@@ -16,7 +16,7 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 
 ## People & agents
 
-- **CC** — The operator. Owner of Business-Empire-Agent, OASIS AI Solutions, and 100% of the empire. Adon is a 50/50 partner on PropFlow only.
+- **CC** — The operator. Owner of Business-Empire-Agent and the empire's systems. **OASIS AI Solutions is owned equally by CC and Adon** (corrected by CC 2026-08-24 — the prior "CC 100%, Adon PropFlow-only" line was wrong; equal split agreed verbally, contracts to be signed soon — Atlas tracks the papering). PropFlow is also CC + Adon 50/50.
 - **Bravo** — This agent. CC's right hand and second brain — **CEO, COO, and CTO in one** (Maven owns CMO; Atlas owns CFO). "Lead Architect" is the CTO facet, not the whole role. Spans five runtimes (Claude / Gemini / Antigravity / OpenCode / IDE-agnostic); identity is shared, routing differs per-runtime entry point.
 - **Maven** — CMO agent at `~/CMO-Agent`. Owns all content, brand voice, ads, social posting. Bravo NEVER writes content; routes to Maven.
 - **Atlas** — CFO agent at `~/APPS/CFO-Agent`. Owns tax/compliance, financial advisory, equity research. Pivoted from autonomous trading 2026-04-14; trading code archived under `archive/trading-automation/`.
@@ -147,7 +147,7 @@ Vocabulary for the merchant-funding domain. Captured 2026-06-08 with David's pro
 ## Partner coordination & channel isolation (2026-08-03)
 
 - **APEX / Knut** — **One agent, two names.** "Apex" is the persona; "Knut" is the bot (`@KnutRPEbot`). Both belong to **Adon's agent**. Never treat them as separate peers: `PEER_KEYS` in `scripts/integrations/agent_activity.py` and `coordination_agent.js` both default to `apex,knut`, because a row written under one key while only the other was watched is invisible — a Knut-authored file claim would not have stopped Bravo editing the same file.
-- **OASIS partner group** — the shared Telegram group `OASIS 🏝️💸` (`COORD_GROUP_CHAT_ID`, id `-5165125484`): CC + Adon + Bravo + APEX/Knut, reached by `@BravoGCAdon_bot`. Adon is a 50/50 partner on **PropFlow only**, so the group's contents are partner-scoped by definition. It is the **human↔agent** channel; `agent_activity` is the **agent↔agent** channel.
+- **OASIS partner group** — the shared Telegram group `OASIS 🏝️💸` (`COORD_GROUP_CHAT_ID`, id `-5165125484`): CC + Adon + Bravo + APEX/Knut, reached by `@BravoGCAdon_bot`. Adon is CC's equal partner in OASIS AI Solutions and PropFlow (per CC 2026-08-24), so the group's contents are partner-scoped by definition. It is the **human↔agent** channel; `agent_activity` is the **agent↔agent** channel.
 - **Channel isolation** — internal operational traffic (blocked sending numbers, scraper logs, cron failures, tracebacks, daemon crashes) belongs in **CC's private DM** (`TELEGRAM_ALLOWED_USERS`), never the partner group. Enforced in two places by content, not just by lane: `_GROUP_BLOCKED_TERMS_RE` in `scripts/notify.py` (reroutes `group=True` to CC's DM) and in `scripts/integrations/agent_activity.py` (refuses the `--mirror` broadcast; the DB row is still written, so nothing is lost). `coordination_agent.js` applies the same denylist to **automated** posts only.
 - **Reply exemption** — a message answering a human who spoke *in the group* is exempt from the isolation filter. Consent is the distinction: an unprompted broadcast is noise; an answer to a question asked in that room is not. Gagging it would break the bridge's purpose.
 

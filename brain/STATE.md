@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-24
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven handoff verified live (tweet published, ledger all-green, carousel queued, offer ladder canon); 2 P0 CC decisions registered in ACTIVE_TASKS (Adon attribution, brand palette); CMO suite 283/16 — 14 pre-existing notify-env + 2 stale pillar pins routed to Maven inbox
+- **Result:** CANON CORRECTION from CC: OASIS AI Solutions owned EQUALLY by CC and Adon (verbal, contracts pending) — CONTEXT.md, brain/USER.md, memory updated; Atlas notified (tax/T2125 surface), Maven notified (attribution P0 factually resolved, 19-surface rollout still needs CC go)
 
 *Last updated: 2026-08-24*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-24T08:01:51.563183+00:00_
 
 - **Date:** 2026-08-24
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven handoff verified live (tweet published, ledger all-green, carousel queued, offer ladder canon); 2 P0 CC decisions registered in ACTIVE_TASKS (Adon attribution, brand palette); CMO suite 283/16 — 14 pre-existing notify-env + 2 stale pillar pins routed to Maven inbox
+- **Result:** CANON CORRECTION from CC: OASIS AI Solutions owned EQUALLY by CC and Adon (verbal, contracts pending) — CONTEXT.md, brain/USER.md, memory updated; Atlas notified (tax/T2125 surface), Maven notified (attribution P0 factually resolved, 19-surface rollout still needs CC go)
 
 *Last updated: 2026-08-24*
