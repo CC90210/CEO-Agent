@@ -397,6 +397,26 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # 2026-08-24 — the structural answer to the Kimi gap ("ensure this
+        # never happens again"): coverage by MEASUREMENT. Rolling 45-day
+        # mailbox scan against the Receipts/* labels; high-precision candidates
+        # (billing senders / known vendors / CC's forwards) auto-hand-off to
+        # Atlas, subject-only signals are held for review in the Telegram
+        # summary. Catches every future silent-loss mode at once: sweep down,
+        # Atlas disabled, classifier miss, new vendor. Exit contract is
+        # delivery-based (digest lesson, same day): nonzero = the reconciler
+        # itself broke, never "findings exist".
+        "name": "Monthly Receipts Reconciliation",
+        "description": "2nd of month 09:00 ET — reconcile All Mail (45-day window) against Receipts/* labels; auto-hand high-precision gaps to Atlas, Telegram the summary. The measurement net under the whole financial email pipeline.",
+        "schedule": "0 13 2 * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/receipts_audit.py",
+                          "args": ["reconcile"], "timeout": 600,
+                          "notify_channel": "telegram",
+                          "notify_on": "nonzero_exit"},
+        "is_active": True,
+    },
+    {
         # Broad weekly truth surface. Unlike the narrow nightly harness, this
         # also consumes fleet/pulse/inbox state and the complete Python suite.
         "name": "Weekly Full-Truth Health Digest",
@@ -915,7 +935,7 @@ def cmd_add(client, args, output_json: bool) -> None:
     print(f"  Schedule:    {job.get('schedule')}")
     print(f"  Type:        {job.get('action_type')}")
     print(f"  Next run:    {fmt_date(job.get('next_run_at'))}")
-    print(f"  Active:      yes")
+    print("  Active:      yes")
 
 
 def cmd_toggle(client, args, output_json: bool) -> None:
