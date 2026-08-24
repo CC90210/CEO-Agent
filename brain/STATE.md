@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-24
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Listing Studio (Mandy Mgmt) outreach-CRM VPS brief shipped: docs/LISTING_STUDIO_OUTREACH_CRM_SYSTEM_MESSAGE.md — Phase 0 deploy-SHA verification + 08-19 close-out, Mission 6 quick-add/bulk-import with whose-turn + two-basis consent, Mission 7 one-tap hold tracking, Mission 8 one-brain follow-up engine (reminder mode now, caged auto-SMS with arming procedure + circuit breaker), Mission 9 hardening + client enablement. Hardened by 4-lens adversarial workflow (46 findings integrated). Indexed in docs/INDEX.md + APP_REGISTRY.md; memory project file created.
+- **Result:** OASIS Command Center lead pipeline: fixed slug_not_owned save gate (hardcoded tenantSlug='oasis' vs real oasis-ai-cc/oasis-webdev), added website/audit band to lead profile for reps, unified 6 divergent lead-import mappings behind lib/leads/canonical-lead-fields.ts with tenant-gated sales_program stamping, fixed dead bulk stage-move + quick-add stage validation, cold-lead promote assigned_to key, rep self-edit with role floor + ownership gate. Codex audit found 6 over-permissive issues, all closed. PR #295, 150 tests pass.
 
 *Last updated: 2026-08-24*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-24T08:01:51.563183+00:00_
 
 - **Date:** 2026-08-24
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Listing Studio (Mandy Mgmt) outreach-CRM VPS brief shipped: docs/LISTING_STUDIO_OUTREACH_CRM_SYSTEM_MESSAGE.md — Phase 0 deploy-SHA verification + 08-19 close-out, Mission 6 quick-add/bulk-import with whose-turn + two-basis consent, Mission 7 one-tap hold tracking, Mission 8 one-brain follow-up engine (reminder mode now, caged auto-SMS with arming procedure + circuit breaker), Mission 9 hardening + client enablement. Hardened by 4-lens adversarial workflow (46 findings integrated). Indexed in docs/INDEX.md + APP_REGISTRY.md; memory project file created.
+- **Result:** OASIS Command Center lead pipeline: fixed slug_not_owned save gate (hardcoded tenantSlug='oasis' vs real oasis-ai-cc/oasis-webdev), added website/audit band to lead profile for reps, unified 6 divergent lead-import mappings behind lib/leads/canonical-lead-fields.ts with tenant-gated sales_program stamping, fixed dead bulk stage-move + quick-add stage validation, cold-lead promote assigned_to key, rep self-edit with role floor + ownership gate. Codex audit found 6 over-permissive issues, all closed. PR #295, 150 tests pass.
 
 *Last updated: 2026-08-24*
