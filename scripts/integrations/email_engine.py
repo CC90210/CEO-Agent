@@ -1079,6 +1079,25 @@ SEEN_BACKFILL_INIT_DAYS = 2
 SEEN_BACKFILL_MAX_PER_TICK = 40  # bound tick duration; leftovers roll to next tick
 
 
+def read_mail_financial_decision(cls: dict, fin_threshold: float = 0.65) -> str:
+    """Pure decision for a message CC already read: 'handoff' | 'notify' | 'skip'.
+
+    Same confidence gate as the UNSEEN path (decide_action): a low-confidence
+    financial read must NOT reach Atlas — the consumer would file a
+    non-financial legal notice under Receipts/, which is the mislabeling this
+    pipeline exists to prevent. Proven live 2026-08-23: a building quiet-hours
+    notice at conf 0.45 was handed off before this gate existed (event
+    cancelled same day). Degraded (keyword-fallback) financial reads notify
+    quietly — never auto-book from a guess, never be silent about money.
+    Unit-tested like stop_signal_decision; keep it pure."""
+    if cls.get("category") != "financial_legal":
+        return "skip"
+    if cls.get("fallback"):
+        return "notify"
+    confidence = float(cls.get("confidence", 0.0) or 0.0)
+    return "handoff" if confidence > fin_threshold else "skip"
+
+
 def _backfill_read_before_sweep(imap, db, processed_msgids: dict) -> int:
     """Classify recently-SEEN mail the UNSEEN sweep never saw; hand financial
     mail to Atlas. Returns the number of messages newly examined. Never raises
@@ -1149,21 +1168,14 @@ def _backfill_read_before_sweep(imap, db, processed_msgids: dict) -> int:
                       f"{cls_err} — will retry next tick", file=sys.stderr)
                 break  # don't advance the mark; don't ledger it
 
-            category = cls.get("category")
             confidence = float(cls.get("confidence", 0.0) or 0.0)
-            # Same confidence gate as the UNSEEN path (decide_action): a
-            # low-confidence financial read must NOT reach Atlas — the consumer
-            # would file a non-financial legal notice under Receipts/, which is
-            # the mislabeling this whole pipeline exists to prevent. Proven
-            # live 2026-08-23: a building quiet-hours notice at conf 0.45 was
-            # handed off before this gate existed (event cancelled same day).
             try:
                 from email_brain import _resolve_config
                 fin_threshold = float(_resolve_config(None)["financial_threshold"])
             except Exception:  # noqa: BLE001
                 fin_threshold = 0.65  # DEFAULT_FINANCIAL_THRESHOLD
-            if (category == "financial_legal" and not cls.get("fallback")
-                    and confidence > fin_threshold):
+            decision = read_mail_financial_decision(cls, fin_threshold)
+            if decision == "handoff":
                 from email_brain import handoff_to_atlas
                 ok = handoff_to_atlas({
                     "from": from_addr,
@@ -1183,12 +1195,12 @@ def _backfill_read_before_sweep(imap, db, processed_msgids: dict) -> int:
                     # never be booked automatically — say so once, quietly.
                     print(f"[seen_backfill] financial mail REFUSED hand-off "
                           f"(unresolvable payload): {subject[:70]}", file=sys.stderr)
-            elif category == "financial_legal" and cls.get("fallback"):
+            elif decision == "notify":
                 # Degraded (keyword-fallback) financial read on already-seen
                 # mail: never auto-book from a guess, but never be silent about
-                # money either. Low-confidence NON-degraded reads are left
-                # alone entirely — CC already read the mail, and the model
-                # itself judged it probably-not-financial.
+                # money either. Low-confidence NON-degraded reads are skipped
+                # entirely — CC already read the mail, and the model itself
+                # judged it probably-not-financial.
                 try:
                     notify(
                         f"Possible financial email you read before the sweep — "

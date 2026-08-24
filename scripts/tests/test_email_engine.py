@@ -351,5 +351,53 @@ class TestReviewMailIsTerminal(unittest.TestCase):
                     "unread-forever bug this test exists to prevent")
 
 
+class TestReadMailFinancialDecision(unittest.TestCase):
+    """Pin the SEEN-backfill gate (read_mail_financial_decision) both ways.
+
+    The gate exists because the first live backfill (2026-08-23) handed a
+    conf-0.45 building quiet-hours notice to Atlas — the consumer would have
+    filed a non-financial legal notice under Receipts/, the exact mislabeling
+    the pipeline exists to prevent."""
+
+    def _import(self):
+        from integrations.email_engine import read_mail_financial_decision
+        return read_mail_financial_decision
+
+    def test_confident_financial_hands_off(self):
+        decide = self._import()
+        self.assertEqual(
+            decide({"category": "financial_legal", "confidence": 0.9}), "handoff")
+
+    def test_low_confidence_financial_is_skipped_not_handed_off(self):
+        decide = self._import()
+        # The live tranquility-notice case: financial_legal at 0.45.
+        self.assertEqual(
+            decide({"category": "financial_legal", "confidence": 0.45}), "skip")
+
+    def test_threshold_is_exclusive_like_decide_action(self):
+        decide = self._import()
+        # decide_action uses `confidence > financial_threshold` — exactly at
+        # the threshold must NOT hand off.
+        self.assertEqual(
+            decide({"category": "financial_legal", "confidence": 0.65}), "skip")
+
+    def test_degraded_financial_notifies_never_books(self):
+        decide = self._import()
+        self.assertEqual(
+            decide({"category": "financial_legal", "confidence": 0.9,
+                    "fallback": True}), "notify")
+
+    def test_non_financial_is_left_alone(self):
+        decide = self._import()
+        self.assertEqual(
+            decide({"category": "business_opportunity", "confidence": 0.99}), "skip")
+
+    def test_custom_threshold_is_respected(self):
+        decide = self._import()
+        self.assertEqual(
+            decide({"category": "financial_legal", "confidence": 0.7},
+                   fin_threshold=0.8), "skip")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
