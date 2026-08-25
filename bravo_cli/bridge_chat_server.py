@@ -1450,6 +1450,16 @@ class _ChatHandler(BaseHTTPRequestHandler):
             except ImportError:
                 from bridge_tools import execute_tool as _exec_tool  # type: ignore
             result = _exec_tool(tool_name, tool_input)
+            if (
+                tool_name in {"install_cli", "cli_auth_start"}
+                and isinstance(result, dict)
+                and not result.get("is_error")
+            ):
+                # The next outbound heartbeat must observe the result of this
+                # local mutation. Keep probes uncached while the interactive
+                # OAuth window is open so a completed sign-in becomes visible
+                # before the dashboard's two-minute poll finishes.
+                _invalidate_cli_inventory_cache(refresh_window_s=180.0)
         except Exception as e:
             self._json(500, {"ok": False, "error": f"exec_tool_failed: {e}"})
             return
@@ -4262,6 +4272,105 @@ def _services_from_local_installs() -> dict[str, dict]:
     return out
 
 
+_CLI_INVENTORY_TTL_S = 300.0
+_CLI_INVENTORY_CACHE: dict[str, object] = {
+    "services": None,
+    "probed_at": 0.0,
+}
+_CLI_INVENTORY_FORCE_FRESH_UNTIL = 0.0
+
+
+def _invalidate_cli_inventory_cache(*, refresh_window_s: float = 180.0) -> None:
+    """Drop cached CLI state and temporarily force fresh heartbeat probes.
+
+    Install completes synchronously, while OAuth can finish after the bridge
+    returns from ``cli_auth_start``. A one-shot invalidation would let the
+    first still-unauthenticated heartbeat refill a five-minute cache, so the
+    force-fresh window deliberately spans the dashboard's polling period.
+    """
+    global _CLI_INVENTORY_FORCE_FRESH_UNTIL
+    _CLI_INVENTORY_CACHE["services"] = None
+    _CLI_INVENTORY_CACHE["probed_at"] = 0.0
+    _CLI_INVENTORY_FORCE_FRESH_UNTIL = max(
+        _CLI_INVENTORY_FORCE_FRESH_UNTIL,
+        time.monotonic() + max(0.0, refresh_window_s),
+    )
+
+
+def _services_from_cli_inventory(
+    *,
+    probe=None,
+    now_iso: str | None = None,
+    use_cache: bool = True,
+) -> dict[str, dict]:
+    """Publish a safe Claude/Codex/Gemini snapshot via the outbound heartbeat.
+
+    Hosted Chrome now blocks public HTTPS pages from reaching loopback unless
+    the user grants Local Network Access. The dashboard therefore cannot treat
+    a browser-to-localhost POST as its reliable CLI inventory path. Heartbeats
+    already authenticate with the per-machine pairing token and are tenant-
+    scoped by `/api/bridge/ping`, so they are the correct transport.
+
+    The real probe can take about ten seconds on Windows (Codex's health script
+    is the slow leg). Cache it for five minutes so a 60-second heartbeat does
+    not continuously spawn three CLIs. Only booleans and short version strings
+    leave the machine; auth files, tokens, paths and install URLs do not.
+    """
+    now_monotonic = time.monotonic()
+    cached = _CLI_INVENTORY_CACHE.get("services")
+    probed_at = float(_CLI_INVENTORY_CACHE.get("probed_at") or 0.0)
+    if (
+        use_cache
+        and now_monotonic >= _CLI_INVENTORY_FORCE_FRESH_UNTIL
+        and isinstance(cached, dict)
+        and cached
+        and now_monotonic - probed_at < _CLI_INVENTORY_TTL_S
+    ):
+        return cached
+
+    if probe is None:
+        try:
+            from .bridge_tools import execute_tool as probe
+        except ImportError:
+            from bridge_tools import execute_tool as probe  # type: ignore
+
+    try:
+        envelope = probe("cli_status", {})
+        if not isinstance(envelope, dict) or envelope.get("is_error"):
+            return {}
+        decoded = json.loads(str(envelope.get("output") or "{}"))
+    except Exception:
+        return {}
+
+    providers: dict[str, dict[str, object]] = {}
+    for provider in ("claude", "codex", "gemini"):
+        raw = decoded.get(provider) if isinstance(decoded, dict) else None
+        if not isinstance(raw, dict):
+            return {}
+        version_raw = raw.get("version")
+        version = str(version_raw).strip()[:160] if version_raw else None
+        providers[provider] = {
+            "installed": raw.get("installed") is True,
+            "authenticated": raw.get("authenticated") is True,
+            "version": version,
+        }
+
+    checked_at = now_iso or datetime.now(timezone.utc).isoformat()
+    services = {
+        "local_ai_clis": {
+            "status": "healthy",
+            "metadata": {
+                "via": "paired_bridge_heartbeat",
+                "checked_at": checked_at,
+                "providers": providers,
+            },
+        }
+    }
+    _CLI_INVENTORY_CACHE["services"] = services
+    _CLI_INVENTORY_CACHE["probed_at"] = now_monotonic
+    return services
+
+
 def _heartbeat_once(token: str) -> bool:
     dashboard_url = (
         _read_env_value("OASIS_DASHBOARD_URL")
@@ -4272,6 +4381,7 @@ def _heartbeat_once(token: str) -> bool:
     # full set of integrations the bridge can vouch for.
     services = _services_from_env_keys()
     services.update(_services_from_local_installs())
+    services.update(_services_from_cli_inventory())
     body = json.dumps({"services": services}).encode("utf-8")
     req = urllib.request.Request(
         f"{dashboard_url}/api/bridge/ping",
