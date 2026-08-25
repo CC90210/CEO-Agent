@@ -267,3 +267,6 @@ output/
 
 # Retired Supabase CLI local session state (Turso is primary DB since 2026-08-09)
 supabase/.temp/
+
+# Scratch work stays local (moved load-bearing test to tests/ 2026-08-25)
+scratch/
