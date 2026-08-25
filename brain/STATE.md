@@ -164,11 +164,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-24
+- **Date:** 2026-08-25
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** OASIS Command Center lead pipeline: fixed slug_not_owned save gate (hardcoded tenantSlug='oasis' vs real oasis-ai-cc/oasis-webdev), added website/audit band to lead profile for reps, unified 6 divergent lead-import mappings behind lib/leads/canonical-lead-fields.ts with tenant-gated sales_program stamping, fixed dead bulk stage-move + quick-add stage validation, cold-lead promote assigned_to key, rep self-edit with role floor + ownership gate. Codex audit found 6 over-permissive issues, all closed. PR #295, 150 tests pass.
+- **Result:** OASIS Command Centre pipeline/settings release is live on oasisai.work at main SHA 5b61515d (PRs #295/#296/#298). Correct Command Centre Turso migrations 156-166 applied 42/42; seven legacy cold-lead claims including Lakeside backfilled to canonical Last Touch, zero pending. Full 170-file suite, lint, typecheck, build, secret scan, GitHub CI, Vercel production, and independent review passed. OASIS Telegram coordination row cb51e82c mirrored successfully.
 
-*Last updated: 2026-08-24*
+*Last updated: 2026-08-25*
 
 ## Manifest
 
@@ -200,8 +200,8 @@ _Last synced: 2026-08-24T08:01:51.563183+00:00_
 
 ## Last Heartbeat
 
-- **Date:** 2026-08-24
+- **Date:** 2026-08-25
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** OASIS Command Center lead pipeline: fixed slug_not_owned save gate (hardcoded tenantSlug='oasis' vs real oasis-ai-cc/oasis-webdev), added website/audit band to lead profile for reps, unified 6 divergent lead-import mappings behind lib/leads/canonical-lead-fields.ts with tenant-gated sales_program stamping, fixed dead bulk stage-move + quick-add stage validation, cold-lead promote assigned_to key, rep self-edit with role floor + ownership gate. Codex audit found 6 over-permissive issues, all closed. PR #295, 150 tests pass.
+- **Result:** OASIS Command Centre pipeline/settings release is live on oasisai.work at main SHA 5b61515d (PRs #295/#296/#298). Correct Command Centre Turso migrations 156-166 applied 42/42; seven legacy cold-lead claims including Lakeside backfilled to canonical Last Touch, zero pending. Full 170-file suite, lint, typecheck, build, secret scan, GitHub CI, Vercel production, and independent review passed. OASIS Telegram coordination row cb51e82c mirrored successfully.
 
-*Last updated: 2026-08-24*
+*Last updated: 2026-08-25*
