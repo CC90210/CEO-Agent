@@ -264,3 +264,6 @@ data/email_suppressions.csv
 evals/reports/
 
 output/
+
+# Retired Supabase CLI local session state (Turso is primary DB since 2026-08-09)
+supabase/.temp/
