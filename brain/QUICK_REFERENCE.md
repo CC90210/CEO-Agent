@@ -109,7 +109,7 @@ verified: 2026-06-09
 | Stale memory detection | `memory_aging.py` | `scan`, `stale`, `health`, `archive` |
 | Cross-agent self-improvement sweep | `agent_self_improvement.py` | `run [--json] [--agents bravo,atlas,maven]` — runs **weekly Sunday 4 AM** via cron `7d3d2a77`. Now wired to call drift_autofix + memory archive before reporting. Zero LLM cost. |
 | Auto-fix capability-graph drift | `drift_autofix.py` | `scan` (preview) / `apply` — deterministically adds missing `triggers:` to skills (from description) + module docstrings to scripts. No LLM. Bravo went 115→28 drift (remaining are detector false positives). |
-| Real-time anti-pattern hook | `anti_pattern_hook.py` | Wired as PreToolUse Bash hook. Reads `memory/ANTI_PATTERNS.json` regex list, warns when about-to-execute commands match logged anti-patterns (e.g. ad-hoc `python -c` lead filters). Pure regex, ~50ms, no LLM. Add patterns to JSON, no settings.json edits. |
+| Real-time anti-pattern hook | `hooks/anti_pattern_hook.py` | Wired as PreToolUse Bash hook. Reads `memory/ANTI_PATTERNS.json` regex list, warns when about-to-execute commands match logged anti-patterns (e.g. ad-hoc `python -c` lead filters). Pure regex, ~50ms, no LLM. Add patterns to JSON, no settings.json edits. |
 | Cron cost audit | `cost_audit.py` | `[--json] [--include-disabled]` — for each active cron, traces handler chain (scheduler → scripts → cross-agent repos), reports per-cron LLM use. Distinguishes transactional vs commercial sends. Zero LLM cost, static analysis only. |
 | Memory consolidation | `auto_dream.py` | `run [--dry-run]`, `status` |
 | Memory index rebuild | `memory_index.py` | `build`, `search "<query>"`, `stats` |
@@ -218,7 +218,7 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | `memory_aging.py` | Memory health, stale detection | CLI tool |
 | `agent_self_improvement.py` | Cross-agent self_audit + autofix + archive + mistake-repeat detection | CLI tool + cron `7d3d2a77` weekly Sun 4 AM |
 | `drift_autofix.py` | Deterministic capability-graph drift autofix (zero LLM cost) | CLI tool, called by self_improvement |
-| `anti_pattern_hook.py` | Real-time PreToolUse hook scanning Bash commands against ANTI_PATTERNS.json | Hook (settings.local.json) |
+| `hooks/anti_pattern_hook.py` | Real-time PreToolUse hook scanning Bash commands against ANTI_PATTERNS.json | Hook (settings.local.json) |
 | `cost_audit.py` | Static-analysis cost audit — traces every active cron's handler chain to identify which jobs burn Anthropic tokens | CLI tool |
 | `auto_dream.py` | Memory consolidation | CLI tool |
 | `memory_index.py` | 3-layer memory indexing | CLI tool |
@@ -229,7 +229,7 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | `macos_control.py` | macOS system automation | CLI tool |
 | `music_control.py` | Audio/music control | CLI tool |
 | `browse_and_capture.py` | Browser screenshot + capture | Script |
-| `late_publisher.py` | Late API direct publisher | Script |
+| `../CMO-Agent/scripts/late_publisher.py` (owned by Maven) | Late API direct publisher | Script |
 
 ## Workflow Commands (33 — `.agents/workflows/`)
 
