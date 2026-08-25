@@ -61,7 +61,7 @@ record: `docs/plans/archive/fable-fleet-migration-2026-06-09/MISSION_2026-06-09_
 ## Replication note (for Fable → Maven/Atlas/SunBiz)
 The *patterns* are universal (single-source version + parity test, graph-generated routing,
 wiki-link/freshness checkers, guard enforce-modes, LOCKSTEP block, importlib pytest). The
-*content* is per-agent. See `plans/HANDOFF_FABLE_2026-06-09.md`.
+*content* is per-agent. See `docs/plans/archive/fable-fleet-migration-2026-06-09/HANDOFF_FABLE_2026-06-09.md`.
 
 ## Related
 - [[docs/plans/archive/fable-fleet-migration-2026-06-09/MISSION_2026-06-09_PROGRESS]]

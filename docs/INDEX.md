@@ -35,6 +35,3 @@ Committed paste-ready `*_PROMPT.md` runbooks (VPS deploy/verify, Mac sync, etc.)
 
 ## Workstation
 - [[docs/AI_WORKSTATION_ROADMAP]] — Full AI workstation upgrade plan
-
-## Development Rules
-- [[docs/rules/no-find-dom-node]] — Rule: avoid findDOMNode (deprecated React API)

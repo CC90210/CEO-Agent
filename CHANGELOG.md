@@ -267,7 +267,7 @@ lower value, and unsafe under a live concurrent session. See `docs/V7_OPTIMIZATI
 
 V6.9.2 — **Evals, adversarial defense & dispositions.** The fleet was proven *disciplined*
 (V6.9.0/.1); this proves it *good* and *defended*, and tidies the repo estate. See
-`plans/MISSION_2026-06-09_V3.md` + `_V3_PROGRESS.md`.
+`docs/plans/archive/fable-fleet-migration-2026-06-09/MISSION_2026-06-09_V3.md` + `docs/plans/archive/fable-fleet-migration-2026-06-09/MISSION_2026-06-09_V3_PROGRESS.md`.
 
 - **Behavioral evals (the capability gate):** `empire-harness` ships `eval_runner.py`
   (deterministic scorers + baselines, regression = red) + `eval_mine_mistakes.py` +
@@ -296,7 +296,7 @@ V6.9.2 — **Evals, adversarial defense & dispositions.** The fleet was proven *
 
 V6.9.1 — **Fleet harmonization.** The harness that made V6.9.0 work is now a shipped
 substrate (`CC90210/empire-harness` v1.0.0) that the agent fleet consumes instead of
-copies. See `plans/HANDOFF_FABLE_FLEET_V2_2026-06-09.md`.
+copies. See `docs/plans/archive/fable-fleet-migration-2026-06-09/HANDOFF_FABLE_FLEET_V2_2026-06-09.md`.
 
 - **Residual PII (content-keyed):** purged 25 adjudicated lead strings the V1 path-keyed
   purge missed (history `execution_log.json` + the adjudicated lead-name cluster (see local adjudication file)). Branches+tags
@@ -313,7 +313,7 @@ V6.9.0 — **Audit Remediation.** A 10-phase pass against an external architectu
 security audit (commit fa47807-era, full 853-commit history scanned). The through-line
 is **harness reliability** — structural fixes that make *any* model (including
 lower-tier OpenCode/Gemini) more accurate, and that the sibling agents (Maven/Atlas/
-SunBiz) can replicate. See `plans/MISSION_2026-06-09_PROGRESS.md` and
+SunBiz) can replicate. See `docs/plans/archive/fable-fleet-migration-2026-06-09/MISSION_2026-06-09_PROGRESS.md` and
 `memory/RETROSPECTIVE_2026-06-09_audit_remediation.md`.
 
 - **Security — PII purge:** rewrote all GitHub history to remove 11 real third-party
