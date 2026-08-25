@@ -9,7 +9,7 @@ freshness_threshold_days: 365
 A 10-phase remediation against an external architecture + security audit. Theme:
 **harness reliability** — structural fixes that make any model (incl. lower-tier
 OpenCode/Gemini) more accurate, replicable to Maven/Atlas/SunBiz. Full per-phase
-record: `plans/MISSION_2026-06-09_PROGRESS.md`.
+record: `docs/plans/archive/fable-fleet-migration-2026-06-09/MISSION_2026-06-09_PROGRESS.md`.
 
 ## What changed (shipped, on `main`)
 
@@ -64,6 +64,6 @@ wiki-link/freshness checkers, guard enforce-modes, LOCKSTEP block, importlib pyt
 *content* is per-agent. See `plans/HANDOFF_FABLE_2026-06-09.md`.
 
 ## Related
-- [[plans/MISSION_2026-06-09_PROGRESS]]
+- [[docs/plans/archive/fable-fleet-migration-2026-06-09/MISSION_2026-06-09_PROGRESS]]
 - [[brain/SECURITY_MODEL]]
 - [[CHANGELOG]]
