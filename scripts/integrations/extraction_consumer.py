@@ -85,6 +85,21 @@ RESPONSE_CAP = 8192
 # What a FAILURE detail is trimmed to before it goes in a log or a job row.
 ERROR_DETAIL_CAP = 300
 CLI_TIMEOUT_SEC = 200          # vision via CLI can take 30-90s; generous ceiling
+# Agentic turns allowed to read one application and emit the JSON.
+#
+# This was 6, and 6 was under the real cost. Measured 2026-08-26 on four real
+# merchant applications recovered from the queue: EVERY job hit "Reached max
+# turns (6)" on attempts 1 and 2, and exactly one of them completed on attempt 3
+# — one success in twelve tries. The budget was not slightly tight, it was
+# sitting on the failure boundary, so the feature looked flaky rather than
+# broken and the two 2026-07-30 `cli_failed` rows read as one-offs.
+#
+# The cost is real work, not looping: the agent gets ONE tool, Read scoped to
+# the document's directory, and a merchant application is several pages, so each
+# page costs a turn before the final turn that emits the object. 20 leaves
+# headroom for a long application while CLI_TIMEOUT_SEC still bounds wall time,
+# which is the limit that actually protects the queue.
+CLI_MAX_TURNS = 20
 STALE_PROCESSING_MIN = 10      # re-pick a row stuck in processing/extracted this long
 EXT_BY_MIME = {
     "application/pdf": "pdf",
@@ -237,7 +252,7 @@ def _extract_via_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, dict | 
         "--allowedTools",
         f"Read({doc_path.parent.as_posix()}/**)",
         "--max-turns",
-        "6",
+        str(CLI_MAX_TURNS),
     ]
     spawn_env = build_claude_spawn_env(
         force_api_key=False,
