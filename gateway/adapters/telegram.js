@@ -18,7 +18,7 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '..', '..', 
 
 const TelegramBot = require('node-telegram-bot-api');
 const { spawn, exec } = require('child_process');
-const { execFile } = require('child_process');
+const { execFile, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
@@ -164,6 +164,26 @@ class TelegramAdapter extends EventEmitter {
 
         this._MCP_CONFIG_PATH = path.join(REPO_ROOT, '.claude', 'mcp.json');
         this._HAS_MCP_CONFIG = fs.existsSync(this._MCP_CONFIG_PATH);
+
+        // OpenCode CLI — fallback when Claude subscription quota/auth fails
+        // (2026-08-26, mirrors telegram_agent.js + coordination_agent.js).
+        // Native binary only (never .cmd/.ps1 shims), prompt via stdin,
+        // restricted bravo-oneshot agent (all tools denied). Fallback replies
+        // are always TEXT-ONLY regardless of tier.
+        this._OPENCODE_EXE = IS_MAC || !IS_WIN
+            ? 'opencode'
+            : path.join(process.env.APPDATA || '', 'npm', 'node_modules', 'opencode-ai', 'bin', 'opencode.exe');
+        this._HAS_OPENCODE = (() => {
+            try {
+                if (IS_WIN) return fs.existsSync(this._OPENCODE_EXE);
+                execFileSync('which', ['opencode'], { stdio: 'ignore' });
+                return true;
+            } catch (_) { return false; }
+        })();
+        this._OPENCODE_FALLBACK_MODEL = 'opencode/big-pickle';
+        this._OPENCODE_TIMEOUT = 180000;
+        if (this._HAS_OPENCODE) log(`[OPENCODE] Fallback available: ${this._OPENCODE_EXE}`);
+        else log('[OPENCODE] Fallback NOT available — opencode not found (npm i -g opencode-ai)');
 
         // Timeouts
         this._GEMINI_TIMEOUT = 300000;
@@ -480,6 +500,53 @@ CC's message:`;
 
     // ---- PRIVATE: CLI EXECUTION (preserved from telegram_agent.js) ----
 
+    /**
+     * _executeOpenCodeFallback — text-only OpenCode reply when the Claude
+     * spawn fails (quota/auth/missing CLI). Returns the model's text or null.
+     * Always the tool-denied bravo-oneshot agent: a degraded answer beats no
+     * answer, and it can never mutate anything.
+     */
+    _executeOpenCodeFallback(userPrompt) {
+        return new Promise((resolve) => {
+            if (!this._HAS_OPENCODE) { resolve(null); return; }
+            log(`[OPENCODE FALLBACK] spawning ${this._OPENCODE_FALLBACK_MODEL}`);
+            const args = [
+                'run', '--model', this._OPENCODE_FALLBACK_MODEL, '--agent', 'bravo-oneshot',
+                '--format', 'default', '--dir', REPO_ROOT,
+            ];
+            const child = spawn(this._OPENCODE_EXE, args, {
+                env: { ...process.env, CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' },
+                stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true, cwd: REPO_ROOT,
+            });
+            child.stdin.write(userPrompt);
+            child.stdin.end();
+            this._activeChildren.add(child);
+            let stdout = '', stderr = '';
+            child.stdout.on('data', (d) => { stdout += d.toString(); });
+            child.stderr.on('data', (d) => { stderr += d.toString(); });
+            const timer = setTimeout(() => {
+                log('[OPENCODE FALLBACK] timed out');
+                if (child.pid) killTree(child.pid);
+                this._activeChildren.delete(child);
+                resolve(null);
+            }, this._OPENCODE_TIMEOUT);
+            child.on('close', (code) => {
+                clearTimeout(timer);
+                this._activeChildren.delete(child);
+                log(`[OPENCODE FALLBACK] code=${code} stdout=${stdout.length}b`);
+                if (code !== 0) { resolve(null); return; }
+                const cleaned = cleanOutput(stdout.trim());
+                resolve(cleaned || null);
+            });
+            child.on('error', (e) => {
+                clearTimeout(timer);
+                this._activeChildren.delete(child);
+                log(`[OPENCODE FALLBACK ERR] ${e.message}`);
+                resolve(null);
+            });
+        });
+    }
+
     _executeCli(tool, userPrompt, chatId, modelOverride = null) {
         return new Promise((resolve) => {
             const fullPrompt = tool === 'claude'
@@ -553,7 +620,7 @@ CC's message:`;
                     : `Timed out after ${timeout / 1000}s.`);
             }, timeout);
 
-            child.on('close', (code) => {
+            child.on('close', async (code) => {
                 clearTimeout(timer);
                 clearInterval(progressTimer);
                 this._activeChildren.delete(child);
@@ -580,21 +647,28 @@ CC's message:`;
                     return;
                 }
 
-                // Fail LOUD — no metered-key retry (key dead + banned).
+                // Fail LOUD — no metered-key retry (key dead + banned). But a
+                // quota/auth outage no longer dead-ends the chat: degrade to
+                // the OpenCode free tier (text-only) before giving up.
                 const looksLikeAuth = isClaudeAuthOrQuotaFailure(raw, code);
                 if (looksLikeAuth && tool === 'claude') {
                     log(`[AUTH FAIL] subscription quota/auth failure: ${raw.substring(0, 200)}`);
-                    resolve('Claude subscription quota or auth failure. If quota: wait for the window to reset. If auth: run `claude setup-token`, then restart the bridge.');
+                    const fb = await this._executeOpenCodeFallback(userPrompt);
+                    resolve(fb || 'Claude subscription quota or auth failure. If quota: wait for the window to reset. If auth: run `claude setup-token`, then restart the bridge.');
                     return;
                 }
                 resolve(cleanOutput(raw));
             });
 
-            child.on('error', (err) => {
+            child.on('error', async (err) => {
                 clearTimeout(timer);
                 clearInterval(progressTimer);
                 this._activeChildren.delete(child);
                 log(`[ERROR] ${tool}: ${err.message}`);
+                if (tool === 'claude') {
+                    const fb = await this._executeOpenCodeFallback(userPrompt);
+                    if (fb) { resolve(fb); return; }
+                }
                 resolve(`Error: ${err.message}`);
             });
         });

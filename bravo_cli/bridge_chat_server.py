@@ -505,6 +505,21 @@ def _script_runtime_args(spec: dict, extra_args: list) -> list[str]:
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from lib.agent_roots import resolve_sunbiz_root as _resolve_sunbiz_root  # noqa: E402
 
+
+def _opencode_fallback_text(prompt_text: str, timeout: int = 180) -> str | None:
+    """One-shot OpenCode fallback for chat turns when the Claude subscription
+    is quota/auth-dead (2026-08-26). Text-only via the tool-denied
+    bravo-oneshot agent — a degraded answer beats a dead-ended chat, and it
+    can never mutate anything. Returns the model's text, or None."""
+    try:
+        from lib.opencode_cli import run_opencode_cli
+        return run_opencode_cli(
+            prompt_text, model="opencode/big-pickle", timeout=timeout, task_type="reasoning",
+        )
+    except Exception as e:  # noqa: BLE001 — fallback must never crash the SSE turn
+        print(f"[bridge] opencode fallback failed: {e}", file=sys.stderr)
+        return None
+
 _SCRIPT_ROOTS: dict[str, Path | None] = {
     "sunbiz": _resolve_sunbiz_root(),
 }
@@ -2328,7 +2343,16 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # sticky-marked the pool "paid" for the rest of the session. The key
         # is out of credits + banned (CLI-only rule), so that retry was doomed
         # AND poisoned every subsequent turn in the session onto the dead key.
-        # Surface the real failure + fix instead; the dashboard shows Retry.
+        # 2026-08-26: before surfacing the error, degrade to the OpenCode free
+        # tier (text-only, bravo-oneshot agent) so the chat still answers
+        # during a quota window instead of dead-ending on Retry.
+        fallback_text = _opencode_fallback_text(prompt_text)
+        if fallback_text:
+            if not state["emitted_session"]:
+                emit("session", {"session_id": "opencode-fallback"})
+            emit("delta", {"text": fallback_text})
+            emit("done", {"warm_aborted": True, "auth_failure": True, "fallback": "opencode"})
+            return True
         emit("error", {
             "code": "subscription_auth_failure",
             "message": (

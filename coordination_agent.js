@@ -52,6 +52,31 @@ const CLAUDE_EXE = process.env.BRAVO_CLAUDE_EXE
     || (IS_WIN ? path.join(process.env.USERPROFILE || '', '.local', 'bin', 'claude.exe')
         : 'claude');   // Mac + Linux resolve `claude` on PATH
 
+// OpenCode CLI — fallback when Claude subscription quota/auth fails (2026-08-26).
+// Same posture as telegram_agent.js + scripts/lib/opencode_cli.py: native
+// binary only (never .cmd/.ps1 shims — those need cmd.exe), prompt via stdin,
+// restricted bravo-oneshot agent (all tools denied). The fallback is always
+// TEXT-ONLY: even trusted-tier questions get reasoning, never tool access.
+const OPENCODE_EXE = IS_MAC
+    ? 'opencode'
+    : path.join(process.env.APPDATA || '', 'npm', 'node_modules', 'opencode-ai', 'bin', 'opencode.exe');
+const HAS_OPENCODE = (() => {
+    try {
+        if (IS_MAC) {
+            const { execSync } = require('child_process');
+            execSync('which opencode', { stdio: 'ignore' });
+            return true;
+        }
+        if (IS_WIN) return fs.existsSync(OPENCODE_EXE);
+        const { execSync } = require('child_process');
+        execSync('which opencode', { stdio: 'ignore' });
+        return true;
+    } catch (_) { return false; }
+})();
+const OPENCODE_FALLBACK_MODEL = 'opencode/big-pickle';
+const OPENCODE_TIMEOUT = 180000; // 3 min — free model fallback
+// (availability logged after `log` is defined below — see OPENCODE boot line)
+
 const LOG_FILE = path.join(__dirname, 'memory', 'coordination_bridge.log');
 const LOCK_FILE = path.join(__dirname, 'tmp', 'bravo_coord.lock.json');
 const SEEN_FILE = path.join(__dirname, 'tmp', 'coord_seen.json');
@@ -144,6 +169,9 @@ if (CC_IDS.length === 0) {
     log('[WARN] CC_TELEGRAM_USER_ID is not set. The mutation gate has NO operator — ALL triggers are untrusted (read-only) and NOTHING can be approved. Set CC_TELEGRAM_USER_ID to your Telegram user id.'
         + (CC_IDS_FALLBACK.length ? ' (TELEGRAM_ALLOWED_USERS is intentionally NOT used for operator authority.)' : ''));
 }
+log(HAS_OPENCODE
+    ? `[OPENCODE] Fallback available: ${OPENCODE_EXE}`
+    : '[OPENCODE] Fallback NOT available — opencode not found (npm i -g opencode-ai)');
 
 // ---- SINGLE-INSTANCE LOCK ----
 const isPidAlive = (pid) => {
@@ -397,6 +425,41 @@ function safeBaseEnv() {
     return out; // intentionally NO ANTHROPIC_API_KEY and NO .env.agents secrets
 }
 
+/**
+ * spawnOpenCodeFallback — text-only OpenCode reply when the Claude spawn
+ * fails (quota / auth / missing CLI). Returns the model's text, or null.
+ * Always runs the tool-denied bravo-oneshot agent regardless of trust tier:
+ * a degraded answer beats no answer, and it can never mutate anything.
+ */
+const spawnOpenCodeFallback = (prompt) => new Promise((resolve) => {
+    if (!HAS_OPENCODE) { resolve(null); return; }
+    log(`[OPENCODE FALLBACK] spawning ${OPENCODE_FALLBACK_MODEL}`);
+    const args = ['run', '--model', OPENCODE_FALLBACK_MODEL, '--agent', 'bravo-oneshot', '--format', 'default', '--dir', __dirname];
+    const child = spawn(OPENCODE_EXE, args, {
+        env: { ...process.env, CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' },
+        stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true, cwd: __dirname,
+    });
+    child.stdin.write(prompt);
+    child.stdin.end();
+    let out = '', err = '';
+    child.stdout.on('data', (d) => { out += d.toString(); });
+    child.stderr.on('data', (d) => { err += d.toString(); });
+    const timer = setTimeout(() => {
+        try { if (child.pid) { IS_WIN ? spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, shell: false }) : process.kill(child.pid, 'SIGKILL'); } } catch (_) {}
+        log('[OPENCODE FALLBACK] timed out');
+        resolve(null);
+    }, OPENCODE_TIMEOUT);
+    child.on('close', (code) => {
+        clearTimeout(timer);
+        log(`[OPENCODE FALLBACK] code=${code} out=${out.length}b`);
+        if (code !== 0) { resolve(null); return; }
+        // Strip the `> agent · model` status header `opencode run` prepends.
+        const cleaned = out.split('\n').filter((ln) => !/^>\s*\w[\w.-]*\s*·\s*\S/.test(ln.trim())).join('\n').trim();
+        resolve(cleaned || null);
+    });
+    child.on('error', (e) => { clearTimeout(timer); log(`[OPENCODE FALLBACK ERR] ${e.message}`); resolve(null); });
+});
+
 const spawnClaude = (prompt, { trusted }) => new Promise((resolve) => {
     const args = ['-p', prompt, '--output-format', 'text', '--setting-sources', 'project,local'];
     let env;
@@ -438,21 +501,28 @@ const spawnClaude = (prompt, { trusted }) => new Promise((resolve) => {
         try { if (child.pid) { IS_WIN ? spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, shell: false }) : process.kill(child.pid, 'SIGKILL'); } } catch (_) {}
         resolve('(timed out)');
     }, CLAUDE_TIMEOUT);
-    child.on('close', (code) => {
+    child.on('close', async (code) => {
         clearTimeout(timer);
         const raw = out.trim() || err.trim();
         log(`[SPAWN DONE] code=${code} out=${out.length}b`);
         if (code !== 0) {
             // Never relay a raw CLI error blob to the group (2026-08-03: a failed
             // spawn's 61-byte error string was posted as Bravo's reply). Log the
-            // full output; send the group one clean line.
+            // full output; fall back to OpenCode (quota/auth outage) before
+            // sending the group one clean line.
             log(`[SPAWN FAIL] code=${code} full output: ${TRUNC(raw, 2000)}`);
-            resolve("Bravo's brain hiccupped answering that — logged, will retry on the next ping.");
+            const fb = await spawnOpenCodeFallback(prompt);
+            resolve(fb || "Bravo's brain hiccupped answering that — logged, will retry on the next ping.");
             return;
         }
         resolve(cleanOutput(raw) || 'Done.');
     });
-    child.on('error', (e) => { clearTimeout(timer); log(`[SPAWN ERR] ${e.message}`); resolve(`Error: ${e.message}`); });
+    child.on('error', async (e) => {
+        clearTimeout(timer);
+        log(`[SPAWN ERR] ${e.message}`);
+        const fb = await spawnOpenCodeFallback(prompt);
+        resolve(fb || `Error: ${e.message}`);
+    });
 });
 
 // ---- APPROVAL GATE (nonce-bound; no action substitution) ----
