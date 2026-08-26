@@ -3621,7 +3621,17 @@ def send(
                     error=f"gmail_api: {err or 'unknown'}",
                 )
         else:
-            ok, err = _send_email_smtp(env, mime, to_email, cc_emails)  # type: ignore[arg-type]
+            try:
+                from shared_gmail_creds import resolve_app_password
+                _pw, _src = resolve_app_password(
+                    db, tenant_id, env.get("GMAIL_APP_PASSWORD", ""),
+                    env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS", ""),
+                )
+                _send_env = env if _src == "env_fallback" else {**env, "GMAIL_APP_PASSWORD": _pw}
+            except Exception as _cred_exc:  # noqa: BLE001 - fail-safe to env
+                print(f"[send_gateway] shared cred wiring failed, env fallback: {type(_cred_exc).__name__}", file=sys.stderr)
+                _send_env = env
+            ok, err = _send_email_smtp(_send_env, mime, to_email, cc_emails)  # type: ignore[arg-type]
         if not ok:
             finalize_reserved_action(
                 db=db,

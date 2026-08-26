@@ -30,7 +30,28 @@ if ! git -C "$BACKUP_ROOT" remote get-url origin >/dev/null 2>&1; then
 fi
 
 # Only ever track encrypted blobs (defense in depth alongside .gitignore).
-git -C "$BACKUP_ROOT" add -A -- '*.gpg' 2>/dev/null || true
+# GitHub hard-rejects a single file over 100MB. Artifacts from before
+# 2026-08-11 are ~1.8GB each because they still contained merchant documents;
+# staging one makes EVERY push fail from then on. Stage only what can actually
+# travel, and report what could not.
+MAX_PUSH_BYTES=94371840   # 90MB, under GitHub's 100MB wall
+SKIPPED=0
+find "$BACKUP_ROOT" -name '*.gpg' -type f -print | while IFS= read -r f; do
+  sz="$(stat -c %s "$f" 2>/dev/null || echo 0)"
+  rel="${f#"$BACKUP_ROOT"/}"
+  if [ "$sz" -gt "$MAX_PUSH_BYTES" ]; then
+    log "SKIP too-large-for-github ($((sz/1048576))MB): $rel — stays on this host ONLY"
+    continue
+  fi
+  git -C "$BACKUP_ROOT" add -f -- "$rel" 2>/dev/null || true
+done
+
+# Repo growth watch: ~4.6MB/night is ~1.7GB/year and git keeps history forever.
+# GitHub starts warning past 1GB, so surface it long before it becomes a wall.
+REPO_MB="$(du -sm "$BACKUP_ROOT/.git" 2>/dev/null | cut -f1)"
+if [ "${REPO_MB:-0}" -gt 800 ]; then
+  log "WARN off-box repo is ${REPO_MB}MB — squash history before it hits GitHub's limit"
+fi
 if git -C "$BACKUP_ROOT" diff --cached --quiet; then
   log "nothing new to replicate"
   exit 0
