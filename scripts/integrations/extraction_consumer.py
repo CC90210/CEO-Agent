@@ -76,6 +76,14 @@ MAX_ATTEMPTS = 3
 # delays the terminal state a rep is waiting on, so these go terminal on the
 # first hit and the dashboard health check reads the prefix to say so.
 BLOCKED_PREFIX = "blocked:"
+# How much of a dashboard response body to keep. Must comfortably exceed a
+# signed R2 URL (~600 chars: account host + key path + SigV4 query with a
+# 64-char signature), because the presign response is JSON that has to survive
+# json.loads intact. Bounded so a stray HTML error page cannot land whole in a
+# log line.
+RESPONSE_CAP = 8192
+# What a FAILURE detail is trimmed to before it goes in a log or a job row.
+ERROR_DETAIL_CAP = 300
 CLI_TIMEOUT_SEC = 200          # vision via CLI can take 30-90s; generous ceiling
 STALE_PROCESSING_MIN = 10      # re-pick a row stuck in processing/extracted this long
 EXT_BY_MIME = {
@@ -328,6 +336,15 @@ def _signed_request(
     the dashboard side: hex(HMAC_SHA256(secret, EXACT request body bytes)).
     Returns (ok, status, text). A missing secret fails closed rather than
     sending an unsigned request that would 401 anyway with a vaguer reason.
+
+    The body cap is RESPONSE_CAP, not 300. This function was factored out of
+    _post_apply_callback, which only ever received a short ack and truncated at
+    300 characters. The presign response carries a signed R2 URL — account host,
+    key path, and an AWS SigV4 query string with a 64-char signature, ~600
+    characters in total — so inheriting that cap sliced the JSON mid-string,
+    json.loads failed, and the daemon reported "doc_url_missing_in_response"
+    against a route that had answered correctly. Caught by a live canary against
+    a real object; unit tests would not have, because a stubbed URL is short.
     """
     secret = (env.get("OASIS_OUTBOUND_HMAC_SECRET") or "").strip()
     if not secret:
@@ -342,9 +359,9 @@ def _signed_request(
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return (200 <= resp.status < 300), resp.status, resp.read().decode("utf-8")[:300]
+            return (200 <= resp.status < 300), resp.status, resp.read().decode("utf-8")[:RESPONSE_CAP]
     except urllib.error.HTTPError as e:  # noqa: PERF203
-        return False, e.code, (e.read().decode("utf-8")[:300] if hasattr(e, "read") else str(e))
+        return False, e.code, (e.read().decode("utf-8")[:RESPONSE_CAP] if hasattr(e, "read") else str(e))
     except Exception as e:  # noqa: BLE001
         return False, 0, f"request_error:{e}"
 
@@ -356,12 +373,15 @@ def _post_apply_callback(
     # Strip the model's _signature hint before sending — the dashboard whitelists
     # fields anyway, and the box travels separately.
     clean_fields = {k: v for k, v in fields.items() if k != "_signature"}
-    return _signed_request(
+    ok, status, text = _signed_request(
         env,
         "/api/internal/apply-extraction",
         {"job_id": job_id, "fields": clean_fields, "signature_box": signature_box, "used_fallback": used_fallback},
         timeout=90,
     )
+    # This caller only ever logs the body, so keep the original short trim here
+    # rather than pushing an 8 KB ceiling into the log line.
+    return ok, status, text[:ERROR_DETAIL_CAP]
 
 
 # --------------------------------------------------------------------------- job processing
