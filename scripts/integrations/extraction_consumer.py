@@ -387,16 +387,54 @@ def process_job(sb, env: dict[str, str], job: dict) -> str:
         doc_path.write_bytes(raw_bytes)
 
         used_fallback = False
+        oc_truncated = False  # OpenCode tier saw a doc cut at 8k chars
         ok, fields, raw_out, code = _extract_via_cli(env, doc_path)
         if not ok:
-            # Only fall back to the metered API on an auth/quota signal — a parse
-            # miss or a transient spawn error retries on the subscription instead.
+            # Only fall back on an auth/quota signal — a parse miss or a
+            # transient spawn error retries on the subscription instead.
             if is_claude_auth_or_quota_failure(raw_out, code):
-                print(f"[extraction_consumer] CLI quota/auth fail on {job_id} — API fallback", file=sys.stderr)
-                ok, fields, err = _extract_via_api(env, raw_bytes, mime)
-                used_fallback = True
+                # Tier 2: OpenCode CLI (free model) — try before the dead API.
+                print(f"[extraction_consumer] CLI quota/auth fail on {job_id} — trying OpenCode fallback", file=sys.stderr)
+                try:
+                    from lib.opencode_cli import run_opencode_cli
+                    # OpenCode can't use file tools, so we read the doc content
+                    # and pass it inline (works for text extractions; PDFs need
+                    # the API path — surfaced in the failure detail so the gap
+                    # is diagnosable from the job record, not just PM2 logs).
+                    if mime != "application/pdf":
+                        full_doc_text = doc_path.read_text(encoding="utf-8", errors="replace")
+                        truncated = len(full_doc_text) > 8000
+                        doc_text = full_doc_text[:8000]
+                        oc_prompt = (
+                            EXTRACT_SYSTEM
+                            + f"\n\nDocument content:\n{doc_text}\n\n"
+                            "Extract the fields per the schema and rules above "
+                            "and output ONLY the JSON object."
+                        )
+                        oc_raw = run_opencode_cli(oc_prompt, task_type="fast", timeout=90)
+                        if oc_raw:
+                            oc_fields = _parse_json_object(oc_raw)
+                            if oc_fields:
+                                print(f"[extraction_consumer] OpenCode fallback SUCCESS for {job_id}", file=sys.stderr)
+                                ok, fields, used_fallback, oc_truncated = True, oc_fields, True, truncated
+                    else:
+                        print(f"[extraction_consumer] OpenCode tier skipped for {job_id}: PDF not passable inline", file=sys.stderr)
+                except Exception as oc_err:  # noqa: BLE001
+                    print(f"[extraction_consumer] OpenCode fallback error: {oc_err}", file=sys.stderr)
+
+                # Tier 3: Metered API (dead — but re-armable via env flag)
                 if not ok:
-                    return _fail_or_retry(sb, job_id, attempts + 1, f"api_fallback_failed:{err}")
+                    print(f"[extraction_consumer] OpenCode fallback failed — trying dead API fallback for {job_id}", file=sys.stderr)
+                    ok, fields, err = _extract_via_api(env, raw_bytes, mime)
+                    used_fallback = True
+                    if not ok:
+                        notes = []
+                        if mime == "application/pdf":
+                            notes.append("opencode-tier-skipped:pdf")
+                        else:
+                            notes.append("opencode-tier-failed")
+                        return _fail_or_retry(sb, job_id, attempts + 1,
+                                              f"all_fallbacks_failed:{err} ({';'.join(notes)})")
             else:
                 return _fail_or_retry(sb, job_id, attempts + 1, f"cli_failed:{raw_out[:160]}")
 
@@ -414,6 +452,7 @@ def process_job(sb, env: dict[str, str], job: dict) -> str:
             "fields": {k: v for k, v in fields.items() if k != "_signature"},
             "signature_box": signature_box,
             "used_fallback": used_fallback,
+            **({"opencode_doc_truncated": True} if (used_fallback and oc_truncated) else {}),
         },
         error=None,
     )

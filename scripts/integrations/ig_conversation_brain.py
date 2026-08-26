@@ -60,6 +60,7 @@ from draft_critic import find_slop  # noqa: E402
 from email_playbook import HARD_RULES, lint_draft, voice_rules  # noqa: E402
 from inbound_classifier import strip_code_fence  # noqa: E402
 from lib.claude_cli import run_claude_cli  # noqa: E402
+from lib.model_fallback import run_smart_cli  # noqa: E402
 
 CAPABILITY_META = {
     "category": "growth.inbound",
@@ -1542,7 +1543,7 @@ def decide(
     dropped_turns: int = 0,
     model: str = "sonnet",
     timeout: int = 90,
-    runner: Callable[..., Optional[str]] = run_claude_cli,
+    runner: Callable[..., Optional[str]] = run_smart_cli,
     replies_left_today: int = DEFAULT_REPLIES_LEFT_TODAY,
 ) -> BrainDecision:
     """One model turn over one conversation.
@@ -1607,7 +1608,7 @@ def decide(
 
         raw = runner(user_prompt, system=system_prompt, model=model, timeout=timeout)
         if raw is None:
-            failure_code, failure_detail = "model_unavailable", "run_claude_cli returned None"
+            failure_code, failure_detail = "model_unavailable", "run_smart_cli returned None (Claude + OpenCode both failed)"
             reasons = ["the model produced no output"]
             _log_failure(attempt, failure_code, failure_detail)
             continue

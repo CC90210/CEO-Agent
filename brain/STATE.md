@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-25
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** OASIS Command Centre pipeline/settings release is live on oasisai.work at main SHA 5b61515d (PRs #295/#296/#298). Correct Command Centre Turso migrations 156-166 applied 42/42; seven legacy cold-lead claims including Lakeside backfilled to canonical Last Touch, zero pending. Full 170-file suite, lint, typecheck, build, secret scan, GitHub CI, Vercel production, and independent review passed. OASIS Telegram coordination row cb51e82c mirrored successfully.
+- **Result:** Unblocked 15-min audit handoff booking button with auto-confirmations, explicit missing field alerts, opener/closer split attribution, and central CC routing. Deployed commit 46d033e1 to origin/main.
 
 *Last updated: 2026-08-25*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-24T08:01:51.563183+00:00_
 
 - **Date:** 2026-08-25
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** OASIS Command Centre pipeline/settings release is live on oasisai.work at main SHA 5b61515d (PRs #295/#296/#298). Correct Command Centre Turso migrations 156-166 applied 42/42; seven legacy cold-lead claims including Lakeside backfilled to canonical Last Touch, zero pending. Full 170-file suite, lint, typecheck, build, secret scan, GitHub CI, Vercel production, and independent review passed. OASIS Telegram coordination row cb51e82c mirrored successfully.
+- **Result:** Unblocked 15-min audit handoff booking button with auto-confirmations, explicit missing field alerts, opener/closer split attribution, and central CC routing. Deployed commit 46d033e1 to origin/main.
 
 *Last updated: 2026-08-25*

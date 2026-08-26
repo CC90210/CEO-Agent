@@ -275,9 +275,101 @@ if (!IS_MAC && !fs.existsSync(CLAUDE_EXE)) {
     log(`[WARN] Claude exe not found: ${CLAUDE_EXE}`);
 }
 
+// OpenCode CLI — fallback for when Claude subscription quota/auth fails.
+// SECURITY: resolve a DIRECTLY EXECUTABLE binary only (.exe / native), never
+// the .cmd/.ps1 npm shims — spawning those requires cmd.exe (shell:true),
+// which re-opens the arg-injection door. Prompt travels via stdin, never argv.
+const OPENCODE_EXE = IS_MAC
+    ? 'opencode'
+    : path.join(process.env.APPDATA || '', 'npm', 'node_modules', 'opencode-ai', 'bin', 'opencode.exe');
+const HAS_OPENCODE = (() => {
+    try {
+        if (IS_MAC) {
+            const { execSync } = require('child_process');
+            execSync('which opencode', { stdio: 'ignore' });
+            return true;
+        }
+        return fs.existsSync(OPENCODE_EXE);
+    } catch (_) { return false; }
+})();
+if (HAS_OPENCODE) {
+    log(`[OPENCODE] Fallback available: ${OPENCODE_EXE}`);
+} else {
+    log(`[OPENCODE] Fallback NOT available — opencode not found`);
+}
+
 // ---- CONFIG ----
 const GEMINI_TIMEOUT = 300000; // 5 min — MCP tools need time to load
 const CLAUDE_TIMEOUT = 600000; // 10 min — Claude handles complex tasks
+const OPENCODE_TIMEOUT = 180000; // 3 min — free model fallback
+
+// Default fallback model (free/unlimited through OpenCode)
+const OPENCODE_FALLBACK_MODEL = 'opencode/big-pickle';
+
+/**
+ * executeOpenCodeFallback — spawn OpenCode CLI with a free model when
+ * Claude subscription quota/auth fails. Returns the model's text or a
+ * human-readable error string. This ensures CC's Telegram messages always
+ * get a response, even when Claude is down.
+ */
+const executeOpenCodeFallback = (userPrompt, chatId, model = OPENCODE_FALLBACK_MODEL) => {
+    return new Promise((resolve) => {
+        if (!HAS_OPENCODE) {
+            resolve('Claude quota/auth failed and OpenCode fallback is not installed. Run: npm i -g opencode');
+            return;
+        }
+        log(`[OPENCODE FALLBACK] Spawning ${model} for chat ${chatId}`);
+        // SECURITY: prompt goes via STDIN (never argv) and the restricted
+        // bravo-oneshot agent (.opencode/agents/bravo-oneshot.md, all tools
+        // denied) — same posture as scripts/lib/opencode_cli.py.
+        const args = [
+            'run',
+            '--model', model,
+            '--agent', 'bravo-oneshot',
+            '--format', 'default',
+            '--dir', __dirname,
+        ];
+        const child = spawn(OPENCODE_EXE, args, {
+            env: {
+                ...process.env,
+                CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat',
+                NO_COLOR: '1', FORCE_COLOR: '0',
+            },
+            stdio: ['pipe', 'pipe', 'pipe'],
+            windowsHide: true,
+            cwd: __dirname,
+        });
+        child.stdin.write(userPrompt);
+        child.stdin.end();
+        activeChildren.add(child);
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (d) => { stdout += d.toString(); });
+        child.stderr.on('data', (d) => { stderr += d.toString(); });
+        const timer = setTimeout(() => {
+            log(`[OPENCODE FALLBACK] Timed out after ${OPENCODE_TIMEOUT / 1000}s`);
+            if (child.pid) killTree(child.pid);
+            resolve(stdout.trim() ? cleanOutput(stdout.trim()) : 'OpenCode fallback timed out.');
+        }, OPENCODE_TIMEOUT);
+        child.on('close', (code) => {
+            clearTimeout(timer);
+            activeChildren.delete(child);
+            log(`[OPENCODE FALLBACK] code=${code} stdout=${stdout.length}b model=${model}`);
+            const raw = (stdout.trim() || stderr.trim());
+            if (!raw) {
+                resolve(code === 0 ? 'Done (OpenCode).' : `OpenCode fallback error (code ${code}).`);
+                return;
+            }
+            resolve(cleanOutput(raw));
+        });
+        child.on('error', (err) => {
+            clearTimeout(timer);
+            activeChildren.delete(child);
+            log(`[OPENCODE FALLBACK ERROR] ${err.message}`);
+            resolve(`OpenCode fallback error: ${err.message}`);
+        });
+    });
+};
 
 // SECURITY: Only CC's Telegram user ID can interact with this bot.
 // Auto-registers first user if TELEGRAM_ALLOWED_USERS is empty in .env.agents.
@@ -764,7 +856,7 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
             }
         }, timeout);
 
-        child.on('close', (code) => {
+        child.on('close', async (code) => {
             clearTimeout(timer);
             clearInterval(progressTimer);
             activeChildren.delete(child);
@@ -801,13 +893,27 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
                 return;
             }
 
-            // Auth + quota detection: pattern lives in c_suite_context. Fail
-            // LOUD — there is no metered-key retry (key dead + banned), so a
-            // subscription failure surfaces immediately with the real fix.
+            // Auth + quota detection: pattern lives in c_suite_context. Instead
+            // of a dead-end error, automatically fall back to OpenCode CLI with
+            // a free model. The user sees a seamless response.
             const looksLikeQuotaOrAuth = isClaudeAuthOrQuotaFailure(raw, code);
             if (looksLikeQuotaOrAuth && tool === 'claude') {
-                log(`[AUTH FAIL] subscription quota/auth failure: ${raw.substring(0, 200)}`);
-                resolve('Claude subscription quota or auth failure. If quota: wait for the window to reset. If auth: run `claude setup-token`, then: pm2 restart bravo-telegram');
+                log(`[AUTH FAIL] subscription quota/auth — falling back to OpenCode: ${raw.substring(0, 200)}`);
+                if (HAS_OPENCODE) {
+                    bot.sendMessage(chatId, '⚡ Claude quota hit — routing through OpenCode fallback...').catch(() => {});
+                    const fallbackResult = await executeOpenCodeFallback(userPrompt, chatId);
+                    // Run state_sync after successful OpenCode fallback too
+                    if (fallbackResult && tier > 0) {
+                        const { execFile: execFileTrack } = require('child_process');
+                        execFileTrack(PYTHON, [
+                            'scripts/state/state_sync.py',
+                            '--note', `telegram T${tier} (opencode-fallback): ${userPrompt.substring(0, 140)}`
+                        ], { cwd: __dirname, windowsHide: true, timeout: 8000 }, () => {});
+                    }
+                    resolve(fallbackResult);
+                } else {
+                    resolve('Claude subscription quota or auth failure, and OpenCode fallback is not installed. If quota: wait for the window to reset. If auth: run `claude setup-token`, then: pm2 restart bravo-telegram');
+                }
                 return;
             }
 
@@ -832,6 +938,7 @@ const cleanOutput = (raw) => {
 
     const noise = [
         /^[█▓░▀▄▐▌]+/,
+        /^>\s*\w[\w.-]*\s*·\s*\S/, // opencode run status header: "> agent · model"
         /logged in with/i,
         /waiting for mcp/i,
         /^Gemini CLI/i,
@@ -1289,7 +1396,9 @@ bot.on('message', async (msg) => {
 
         // V9.0: Default to Claude (CC has Max plan), !gemini for fallback
         // V15.7: !opus / !sonnet / !haiku select the model for this turn
+        // V16.0: !opencode directly triggers OpenCode CLI fallback for testing / on-demand free tier
         const isGemini = text.startsWith('!gemini');
+        const isOpenCode = text.startsWith('!opencode');
         let modelOverride = null;
         let workingText = text;
         const modelMatch = workingText.match(/^!(opus|sonnet|haiku)\s+/i);
@@ -1297,17 +1406,24 @@ bot.on('message', async (msg) => {
             modelOverride = modelMatch[1].toLowerCase();
             workingText = workingText.replace(/^!(opus|sonnet|haiku)\s+/i, '');
         }
-        const prompt = workingText.replace(/^!(claude|gemini|bravo)\s+/, '');
-        const tool = isGemini ? 'gemini' : 'claude';
+        const prompt = workingText.replace(/^!(claude|gemini|bravo|opencode)\s+/, '');
 
         // Store user message in history
         addToHistory(chatId, 'user', prompt);
 
         await bot.sendChatAction(chatId, 'typing');
-        // Always brand as the agent the user is talking to — never "Claude" or
-        // "Gemini". The user is talking to Bravo; the underlying model is an
-        // implementation detail. Model override stays visible in parens because
-        // CC explicitly asks for !opus / !sonnet / !haiku and wants confirmation.
+
+        if (isOpenCode) {
+            await bot.sendMessage(chatId, 'Bravo thinking... (OpenCode fallback)');
+            const result = await executeOpenCodeFallback(prompt, chatId);
+            log(`[RESULT] opencode returned ${(result || '').length} chars`);
+            addToHistory(chatId, 'assistant', result || 'Done (OpenCode).');
+            const chunks = (result || 'Done.').match(/[\s\S]{1,4000}/g) || ['Done.'];
+            for (const c of chunks) await bot.sendMessage(chatId, c);
+            return;
+        }
+
+        const tool = isGemini ? 'gemini' : 'claude';
         const thinkingMsg = isGemini
           ? 'Bravo thinking... (Gemini fallback)'
           : (modelOverride ? `Bravo (${modelOverride}) thinking...` : 'Bravo thinking...');

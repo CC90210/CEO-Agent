@@ -92,6 +92,20 @@ PROVIDER_SPECS: dict[str, dict[str, Any]] = {
         "models": ["glm-5.2", "glm-5.2-turbo"],
         "pricing": {"glm-5.2": (2.0, 8.0), "glm-5.2-turbo": (0.5, 2.0)},
     },
+    "opencode": {
+        "env_var": "OPENCODE_AVAILABLE",  # presence check — free models need no key
+        "models": [
+            "opencode/big-pickle",
+            "opencode/deepseek-v4-flash",
+            "opencode/deepseek-v4-pro",
+            "opencode/nemotron-3.5-lightning-free",
+            "opencode/nemotron-3-ultra-free",
+            "opencode/hy3-free",
+            "opencode/mimo-v2.5-free",
+            "opencode/muse-spark-1.2-contributor-free",
+        ],
+        "pricing": {},  # free tier — $0
+    },
 }
 
 TASK_TYPE_PREFERENCES: dict[str, list[tuple[str, str]]] = {
@@ -100,20 +114,25 @@ TASK_TYPE_PREFERENCES: dict[str, list[tuple[str, str]]] = {
         ("claude", "claude-opus-4-8"),
         ("deepseek", "deepseek-reasoner"),
         ("groq", "llama-3.3-70b"),
+        ("opencode", "opencode/big-pickle"),
     ],
     "analysis": [
         ("claude", "claude-fable-5"),
         ("openai", "gpt-5.5"),
         ("glm", "glm-5.2"),
         ("deepseek", "deepseek-reasoner"),
+        ("opencode", "opencode/big-pickle"),
     ],
     "fast": [
         ("claude", "claude-haiku-4-5"),
         ("openai", "gpt-5.4-mini"),
         ("groq", "mixtral-8x7b"),
+        ("opencode", "opencode/nemotron-3.5-lightning-free"),
         ("local", "ollama/*"),
     ],
     "cheap": [
+        ("opencode", "opencode/nemotron-3.5-lightning-free"),
+        ("opencode", "opencode/hy3-free"),
         ("local", "ollama/*"),
         ("groq", "mixtral-8x7b"),
         ("openrouter", "nous/hermes-3"),
