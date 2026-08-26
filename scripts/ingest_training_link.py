@@ -136,13 +136,16 @@ def analyse(text: str) -> dict:
     # ANY failure (missing binary, timeout, non-zero exit) rather than raising —
     # so a None must become a loud error here, not an empty analysis that would
     # be written to an exemplar as if we had read the page.
-    from lib.claude_cli import run_claude_cli
+    from lib.model_fallback import run_smart_cli
 
-    reply = run_claude_cli(
+    reply = run_smart_cli(
         ANALYSIS_PROMPT + text[:12000],
         system="You return strict JSON and nothing else. Never invent a field you cannot support from the text.",
         model="sonnet",
         timeout=180,
+        fallback_timeout=180,
+        task_type="reasoning",
+        agent_name="ingest_training_link",
     )
     if not reply:
         raise RuntimeError(

@@ -458,8 +458,11 @@ _REPLY_GOALS = {
 
 
 def _draft_runner(prompt, system=None, model="sonnet", timeout=90):
-    from lib.claude_cli import run_claude_cli
-    return run_claude_cli(prompt, system=system, model=model, timeout=timeout)
+    from lib.model_fallback import run_smart_cli
+    return run_smart_cli(
+        prompt, system=system, model=model, timeout=timeout,
+        task_type="reasoning", agent_name="email_brain",
+    )
 
 
 def _default_critic(subject, body):

@@ -172,13 +172,14 @@ def _scrape(fetch_fn, url: str) -> Optional[str]:
 
 
 def _ask_claude(markdown: str) -> Optional[dict]:
-    from lib.claude_cli import run_claude_cli
+    from lib.model_fallback import run_smart_cli
     if len(markdown) > 12000:
         markdown = markdown[:12000]
     prompt = EXTRACTION_PROMPT.replace("{markdown}", markdown)
-    text = run_claude_cli(prompt, model="haiku", timeout=90)
+    text = run_smart_cli(prompt, model="haiku", timeout=90,
+                         task_type="fast", agent_name="enrich_oasis_leads")
     if text is None:
-        print("  [claude] call failed (subscription CLI unavailable)", file=sys.stderr)
+        print("  [model] call failed (claude CLI + opencode fallback unavailable)", file=sys.stderr)
         return None
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if not m:

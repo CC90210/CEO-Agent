@@ -21,7 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 try:
-    from lib.claude_cli import run_claude_cli
+    from lib.model_fallback import run_smart_cli
 except ImportError:
     run_claude_cli = None
 
@@ -134,9 +134,10 @@ def generate_synthetic_samples(target_count: int = 100) -> list[dict]:
     while len(samples) < target_count:
         user_msg = random.choice(variations_user)
         
-        if run_claude_cli and os.environ.get("USE_CLAUDE_SYNTHESIS", "0") == "1":
+        if run_smart_cli and os.environ.get("USE_CLAUDE_SYNTHESIS", "0") == "1":
             prompt = f"Given this context:\n{context_text[:1000]}\n\nWrite a short, realistic user prompt and a Bravo AI assistant response following the exact Bravo voice (direct, plain English, tool usage, zero moralizing disclaimers). Return ONLY valid JSON in format: {{\\\"user\\\": \\\"...\\\", \\\"assistant\\\": \\\"...\\\"}}"
-            res = run_claude_cli(prompt, model="sonnet", timeout=30)
+            res = run_smart_cli(prompt, model="sonnet", timeout=30, fallback_timeout=60,
+                                task_type="reasoning", agent_name="generate_dataset")
             if res:
                 try:
                     data = json.loads(res)

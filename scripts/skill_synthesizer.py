@@ -318,10 +318,11 @@ def extract_procedure(
         f"Reasoning: {row.get('reasoning') or '(none)'}\n"
     )
 
-    from lib.claude_cli import run_claude_cli
-    raw = run_claude_cli(
+    from lib.model_fallback import run_smart_cli
+    raw = run_smart_cli(
         "Extract a reusable skill procedure from this agent decision trace:\n\n" + trace_text,
         system=_EXTRACT_SYSTEM, model="haiku", timeout=90,
+        task_type="reasoning", agent_name="skill_synthesizer",
     )
     if raw is None:
         raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")

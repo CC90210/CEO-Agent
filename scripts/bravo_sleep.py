@@ -165,22 +165,24 @@ def _recent_git_log(hours: int) -> str:
 
 
 def _call_model(prompt: str) -> str:
-    # Local claude CLI on CC's subscription OAuth (lib.claude_cli), NOT the
-    # metered ANTHROPIC_API_KEY. The old path used model_router.call() + the
-    # API key, which now 400s ("credit balance too low") and violates the
-    # CLI-only rule — the exact failure that left this nightly job dead. Haiku
-    # alias: cheapest tier is correct for a nightly daemon.
+    # Unified smart executor (lib.model_fallback): Claude CLI on CC's
+    # subscription first, automatic OpenCode fallback on quota/auth/timeout —
+    # the exact failure that left this nightly job dead in Aug 2026. Never the
+    # metered ANTHROPIC_API_KEY. Haiku alias stays tier-1 (cheapest); the
+    # OpenCode tiers resolve via task_type="reasoning".
     sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-    from lib.claude_cli import run_claude_cli  # type: ignore
+    from lib.model_fallback import run_smart_cli  # type: ignore
     # Timeout is 180s, not the CLI default: this runs at 04:00 behind PYTHONW
     # with the whole nightly cron block, and a cold `claude -p` spawn measured
     # 11s idle. No prompt truncation here — the assembled prompt measured ~1KB
     # (50 session-log rows + git log), so a character cap would be a no-op that
-    # falsely implies length was ever the failure mode. If this call starts
-    # failing again, the reason now comes back in the claude_cli error text.
-    text = run_claude_cli(prompt, model="haiku", timeout=180)
+    # falsely implies length was ever the failure mode.
+    text = run_smart_cli(
+        prompt, model="haiku", timeout=180, fallback_timeout=180,
+        task_type="reasoning", agent_name="bravo_sleep",
+    )
     if not text:
-        raise RuntimeError("claude CLI returned no text (missing CLI / expired token / timeout)")
+        raise RuntimeError("model call returned no text (claude CLI + opencode fallback both unavailable)")
     return text
 
 
@@ -230,6 +232,19 @@ def _append_entry(target: Path, title: str, body: str, dry_run: bool) -> None:
 
 def _git_commit(target: Path, kind: str, title: str, dry_run: bool) -> None:
     if dry_run:
+        return
+    # memory/MISTAKES|PATTERNS|DECISIONS.md are deliberately .gitignored
+    # (2026-08-26 find: the per-entry commit has been a silent no-op since the
+    # ignore rule landed — the file write IS the persistence). Skip cleanly
+    # when ignored; still commit for any tracked target.
+    try:
+        ignored = subprocess.run(
+            ["git", "check-ignore", "-q", str(target.relative_to(PROJECT_ROOT))],
+            cwd=PROJECT_ROOT, timeout=10, creationflags=_WINDOWLESS,
+        ).returncode == 0
+    except (subprocess.SubprocessError, OSError):
+        ignored = False
+    if ignored:
         return
     try:
         subprocess.run(["git", "add", str(target.relative_to(PROJECT_ROOT))],

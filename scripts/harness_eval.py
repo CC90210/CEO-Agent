@@ -492,11 +492,18 @@ def check_fleet_compiles():
 
 
 def check_model_call_path():
+    # Deliberately probes claude_cli DIRECTLY (not run_smart_cli): this check's
+    # job is substrate TRUTH — is the subscription CLI alive right now? Routing
+    # the probe through the fallback would mask a quota/auth outage with a
+    # fake green. The failure text reports fallback availability so the
+    # Telegram alert is actionable instead of alarming.
     from lib.claude_cli import run_claude_cli  # noqa: E402
+    from lib.model_fallback import is_fallback_available  # noqa: E402
     text = run_claude_cli("Reply with exactly one word: ready", model="haiku", timeout=90)
     if text and "ready" in text.lower():
         return True, "local claude CLI answered on subscription OAuth"
-    return False, f"claude CLI probe failed (got {text!r})"
+    fb = "available" if is_fallback_available() else "NOT installed"
+    return False, f"claude CLI probe failed (got {text!r}) — opencode fallback {fb}, automations degrade to it"
 
 
 # V7.1: each check belongs to a named SLICE (pattern: Made-With-ML slice-based

@@ -416,16 +416,20 @@ def call(messages: list[dict], agent: str | None = None, model: str | None = Non
         use_metered = bool(api_key) and os.environ.get(
             "MODEL_ROUTER_ALLOW_METERED_API", "").strip().lower() in ("1", "true", "yes")
         if not use_metered:
-            from lib.claude_cli import run_claude_cli  # lazy — no import cost on the metered path
+            from lib.model_fallback import run_smart_cli  # lazy — no import cost on the metered path
             cli_prompt = (
                 "\n\n".join(f"{m['role']}: {m['content']}" for m in chat)
                 if len(chat) > 1 else (chat[0]["content"] if chat else "")
             )
-            text = run_claude_cli(cli_prompt, system=system_prompt or None, model=_cli_alias(chosen_model))
+            text = run_smart_cli(
+                cli_prompt, system=system_prompt or None,
+                model=_cli_alias(chosen_model), timeout=120, fallback_timeout=120,
+                task_type="reasoning", agent_name="model_router",
+            )
             if text is None:
                 raise RuntimeError(
-                    f"claude subscription CLI failed for '{chosen_model}' "
-                    "(claude CLI missing/timed out/unauthenticated — run `claude setup-token`)"
+                    f"claude subscription CLI + opencode fallback both failed for '{chosen_model}' "
+                    "(claude CLI missing/timed out/unauthenticated AND opencode unavailable)"
                 )
             tokens_in = tokens_out = 0
         else:

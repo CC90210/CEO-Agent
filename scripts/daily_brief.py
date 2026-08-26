@@ -39,7 +39,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
-from lib.claude_cli import run_claude_cli  # noqa: E402
+from lib.model_fallback import run_smart_cli  # noqa: E402
 
 # Windows console defaults to cp1252; the brief includes 🌅 + bullet
 # glyphs. Reconfigure to UTF-8 so --dry-run prints don't UnicodeEncodeError.
@@ -173,9 +173,10 @@ def _narrate_via_cli(snapshot: dict) -> str | None:
         f"{json.dumps(cleaned, indent=2, default=str)[:6000]}\n\n"
         f"Write CC's 5-bullet operational brief."
     )
-    text = run_claude_cli(
+    text = run_smart_cli(
         user_prompt, system=SYSTEM_PROMPT,
         model=NARRATION_MODEL_CLI, timeout=CLI_NARRATION_TIMEOUT_SEC,
+        task_type="reasoning", agent_name="daily_brief",
     )
     if not text:
         return None

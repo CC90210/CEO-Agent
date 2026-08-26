@@ -1,3 +1,7 @@
+---
+last_updated: 2026-08-11
+---
+
 # Vercel to Cloudflare Migration: Master Handover Plan
 
 > **STATUS**: Pending Execution (Rainy Day Project)

@@ -547,9 +547,13 @@ Output ONLY a JSON object, no prose, no markdown:
 
 def _default_category_runner(prompt: str, system: Optional[str] = None,
                              model: str = "haiku", timeout: int = 60) -> Optional[str]:
-    """Subscription Claude CLI — never the metered ANTHROPIC_API_KEY."""
-    from lib.claude_cli import run_claude_cli
-    return run_claude_cli(prompt, system=system, model=model, timeout=timeout)
+    """Subscription Claude CLI first, OpenCode fallback — never the metered ANTHROPIC_API_KEY."""
+    from lib.model_fallback import run_smart_cli
+    return run_smart_cli(
+        prompt, system=system, model=model, timeout=timeout,
+        task_type="classify" if model == "haiku" else "reasoning",
+        agent_name="inbound_classifier",
+    )
 
 
 def _build_category_user_msg(content: str, subject: Optional[str],
@@ -1009,7 +1013,8 @@ def _classify_via_haiku(content: str, channel: str,
     user_parts.append((content or "")[:4000])
     user_msg = "\n".join(user_parts)
 
-    text = run_claude_cli(user_msg, system=CLASSIFY_SYSTEM_PROMPT, model="haiku", timeout=90)
+    text = run_smart_cli(user_msg, system=CLASSIFY_SYSTEM_PROMPT, model="haiku", timeout=90,
+                         task_type="classify", agent_name="inbound_classifier")
     if text is None:
         raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")
     parsed = json.loads(strip_code_fence(text))

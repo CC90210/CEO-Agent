@@ -235,12 +235,13 @@ def _audit_site(business: str, niche: str, city: str, province: str, url: str,
     if not markdown:
         return fallback
     try:
-        from lib.claude_cli import run_claude_cli
+        from lib.model_fallback import run_smart_cli
         prompt = AUDIT_PROMPT.format(
             business=business or "(unknown)", niche=niche, city=city,
             province=province, url=url, markdown=markdown[:10000],
         )
-        text = run_claude_cli(prompt, model="haiku", timeout=120)
+        text = run_smart_cli(prompt, model="haiku", timeout=120, fallback_timeout=120,
+                             task_type="fast", agent_name="scrape_website_sales_leads")
         if not text:
             return fallback
         m = re.search(r"\{.*\}", text, re.DOTALL)

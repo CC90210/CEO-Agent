@@ -1,3 +1,11 @@
+"""Push the OASIS workspace Google Calendar credentials to Vercel Production.
+
+Reads GOOGLE_REFRESH_TOKEN (or BREEZE_GOOGLE_REFRESH_TOKEN) and GMAIL_USER from
+.env.agents — never hardcoded — and pipes them via stdin to `vercel env add`
+for the three variables the Command Center's workspace-calendar fallback needs:
+GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN, GOOGLE_SYSTEM_CALENDAR_ADDRESS,
+GOOGLE_CALENDAR_ID. Token values are only ever printed as lengths.
+"""
 import os, sys, subprocess, dotenv
 
 def main():
