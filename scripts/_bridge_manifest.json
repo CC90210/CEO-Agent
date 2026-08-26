@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-24T04:07:34.716098+00:00",
-  "script_count": 157,
-  "entry_count": 331,
+  "generated_at_iso": "2026-08-26T16:12:11.666990+00:00",
+  "script_count": 158,
+  "entry_count": 332,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1965,6 +1965,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "Secret scanner \u2014 hunt for leaked credentials before they hit GitHub."
+    },
+    {
+      "key": "scrape_cc_trade_leads",
+      "path": "scripts/scrape_cc_trade_leads.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Scrape, enrich, and import 100 local trade business leads for CC."
     },
     {
       "key": "scrape_firecrawl_leads",
