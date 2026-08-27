@@ -557,6 +557,37 @@ SEED_JOBS: list[dict] = [
         # minutes to do nothing. It also depends on a `gh` login that had
         # expired, which meant it was failing silently rather than idling.
         # Re-enable with `cron_engine.py toggle` if PR review becomes a habit.
+        #
+        # 2026-08-27 — BOTH RETIREMENT REASONS HAVE NOW REVERSED. Recorded here
+        # rather than acted on, because re-enabling is CC's call:
+        #   * "there were no open PRs" — there are now 21 open peer PRs in
+        #     oasis-command-center touching Bravo-owned or contested surfaces.
+        #   * "a `gh` login that had expired" — verified working 2026-08-27:
+        #     review_harvest.py against PR #340 returned live thread state and
+        #     correctly reported the one unresolved finding.
+        # PR review has become a habit. Recommend toggling this back on.
+        "is_active": False,
+    },
+    {
+        # Added 2026-08-27. The peer-review half of the coordination contract:
+        # APEX opens PRs against surfaces the ownership map assigns to Bravo,
+        # and until now nothing looked at them on a schedule.
+        #
+        # SCANS ONLY — it never publishes a verdict unattended. A verdict posted
+        # under Bravo's name is an outward effect the peer acts on, and a wrong
+        # one spends the credibility of the whole channel. The scan says what is
+        # waiting; the review itself is run deliberately.
+        "name": "Bravo — Cross-Agent Review Scan",
+        "description": "Twice daily: list APEX PRs touching Bravo-owned or contested "
+                       "surfaces (scripts/cross_agent_review.py scan). Read-only. "
+                       "Verdicts are published deliberately with `review --pr`, never on a timer.",
+        "schedule": "0 9,17 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/cross_agent_review.py",
+                          "args": ["scan", "--json"], "timeout": 600},
+        # Inactive on arrival. Seeding the shared cron_jobs registry is a
+        # production-scheduling mutation and CC reviews new entries first
+        # (CLAUDE.md). Toggle on with `cron_engine.py toggle` after review.
         "is_active": False,
     },
     # 'Bravo — Override Queue Cleanup' removed 2026-05-22 along with the

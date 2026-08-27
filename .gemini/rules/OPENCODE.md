@@ -238,6 +238,20 @@ by `scripts/state/coord_guard.py`, not by your good intentions.
    and numbers collide silently. Before writing one:
    `python scripts/check_migration_collision.py reserve <n> --task "<what>"` —
    it checks disk, the git index, AND live peer leases, then announces it.
+8. **Review the peer's work on your surfaces. This is not optional courtesy.**
+   `python scripts/cross_agent_review.py scan` lists APEX PRs touching Bravo-owned
+   or contested paths; `review --pr OWNER/REPO#N` publishes an `ack` or `blocked`
+   verdict to the channel APEX polls. CodeRabbit reads the diff and CI proves it
+   builds — **you supply the context neither can see**: the constraint that is not
+   in the code, the caller three repos away, the incident that is why it is
+   written that way. On its first live run this caught APEX proposing to build an
+   approval surface that already exists and that APEX had already been onboarded
+   to. Duplicate infrastructure is the expensive failure across two harnesses.
+9. **Bot findings are not advisory.** `python scripts/review_harvest.py --pr
+   OWNER/REPO#N` pulls UNRESOLVED CodeRabbit/Vercel/CI signal live; `review_fix.py`
+   applies it, tests it, and pushes to the PR branch. Inline review threads do NOT
+   appear in `gh pr view --comments` — a finding you never fetched is one you
+   silently shipped past.
 
 Full procedure: `skills/cross-agent-coordination/SKILL.md` · ownership:
 `brain/OWNERSHIP_MAP.yaml` · APEX's side: `docs/APEX_SYSTEM_MESSAGE.md`.

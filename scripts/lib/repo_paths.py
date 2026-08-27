@@ -219,6 +219,83 @@ def covers(path_glob: str, candidate: str) -> bool:
     return f.startswith(g + "/")           # directory prefix, NOT bare startswith
 
 
+def _seg_may_match(a: str, b: str) -> bool:
+    """Could these two SEGMENT patterns match a common string?
+
+    Conservative on purpose: any wildcard on either side is treated as "yes".
+    Deciding exact regular-language intersection is possible but the asymmetry
+    does not justify it — over-detecting costs one "go find other work",
+    under-detecting costs clobbering a peer's live edit.
+    """
+    if a == b:
+        return True
+    if a == "*" or b == "*":
+        return True
+    if any(ch in a for ch in "*?[") or any(ch in b for ch in "*?["):
+        return True
+    return False
+
+
+def intersects(a: str, b: str) -> bool:
+    """Do two path GLOBS have any path in common?
+
+    Found by Codex on APEX's implementation 2026-08-27 and confirmed identical
+    here: `covers()` answers "does this pattern match that literal path", so two
+    patterns that overlap without either matching the other AS A STRING slip
+    through completely. `lib/*/x.ts` and `lib/a/**` both cover `lib/a/x.ts`, yet
+    covers() is False in both directions — so two agents could hold overlapping
+    glob claims and neither conflict check would fire.
+
+    This matters because glob claims are the ones we actively encourage
+    (`services/leadgen/**`), so the blind spot sits exactly where the biggest
+    claims are.
+    """
+    pa = [s for s in (a or "").strip().rstrip("/").split("/") if s]
+    pb = [s for s in (b or "").strip().rstrip("/").split("/") if s]
+
+    def walk(i: int, j: int) -> bool:
+        while i < len(pa) and j < len(pb):
+            sa, sb = pa[i], pb[j]
+            if sa == "**" or sb == "**":
+                # `**` consumes any number of segments on its side; try every split.
+                if sa == "**":
+                    if i + 1 == len(pa):
+                        return True
+                    for skip in range(j, len(pb) + 1):
+                        if walk(i + 1, skip):
+                            return True
+                    return False
+                if j + 1 == len(pb):
+                    return True
+                for skip in range(i, len(pa) + 1):
+                    if walk(skip, j + 1):
+                        return True
+                return False
+            if not _seg_may_match(sa, sb):
+                return False
+            i += 1
+            j += 1
+        # One side ran out. A trailing `**` on the other still intersects
+        # (it can match zero segments); anything else means different depths.
+        if i == len(pa) and j == len(pb):
+            return True
+        rest = pa[i:] if j == len(pb) else pb[j:]
+        return rest == ["**"]
+
+    return walk(0, 0)
+
+
+def overlaps(claim: str, candidate: str) -> bool:
+    """The conflict predicate: does a held claim collide with a candidate path
+    OR candidate glob? Literal candidates go through covers(); glob candidates
+    need the two-way intersection test above."""
+    if covers(claim, candidate):
+        return True
+    if any(ch in (candidate or "") for ch in "*?["):
+        return covers(candidate, claim) or intersects(claim, candidate)
+    return False
+
+
 def _strict_glob(pattern: str, path: str) -> bool:
     """Segment-wise match where `*` does not cross `/` but `**` does."""
     pat_parts = pattern.split("/")

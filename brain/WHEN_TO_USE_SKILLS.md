@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **162 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **163 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## [[skills/agent-forge/SKILL|agent-forge]]
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -133,6 +133,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **162 active skills**. Eac
 - **Use when:** Structured crisis response protocols for business emergencies — P0 through P3 classification, pre-built response plans, and communication templates
 - **Triggers:** crisis response, use crisis response, run crisis response
 - **Path:** `skills/crisis-response/SKILL.md` · tier `standard` · risk `low`
+
+## [[skills/cross-agent-coordination/SKILL|cross-agent-coordination]]
+- **Use when:** Use when editing any file in a repo Adon/APEX also touches (oasis-command-center above all), when starting work on a shared surface, when a coord_guard block appears, when handing work to or from APEX, or when a peer reports being blocked. Covers file leases, the ownership map, i
+- **Triggers:** claim a file, file lease, shared file, coord guard, coord_guard blocked, APEX, Adon agent, cross-agent collision, peer claim, editing shared repo, oasis-command-center edit, agent overlap, release claim, who owns this file, coordinate with APEX, peer blocked, agent handoff, migration number, new migration, database migration collision
+- **Path:** `skills/cross-agent-coordination/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/currency-audit/SKILL|currency-audit]]
 - **Use when:** System currency sweep — find prose that contradicts live reality (retired products, stale counts, old versions/locations/domains) that freshness gates cannot see; 3-lens audit + fix + verify

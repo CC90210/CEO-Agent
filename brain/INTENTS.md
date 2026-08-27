@@ -27,6 +27,34 @@ In chat (bridge mode), this runs through the `run_script` tool with `confirm:tru
 
 ---
 
+## "Edit / build / fix something in a repo APEX also works in"
+
+**Canonical: `oasis-command-center`. 226 of its 1,596 files have been edited by
+both agents; 117 same-file cross-side edits landed inside 48h of each other.**
+
+1. `python scripts/lib/ownership.py <repo-slug> <path>` — whose surface is this?
+   `shared` (and anything unmapped) means a lease is MANDATORY.
+2. `python scripts/integrations/coord_claim.py acquire --repo <slug> --paths "<p>" --task "<t>"`
+   Exit 3 means a peer holds it — pick other work or agree a handoff. Do not --force.
+3. Work. `heartbeat --task "<t>"` on anything long-running.
+4. `release --task "<t>"` when you stop. SessionEnd releases too, but explicitly is better.
+
+The repo slug is REMOTE-DERIVED (last segment of origin url, lowercased), never
+the directory name — APEX runs 85 worktrees of one repo and the directory rule
+gave 85 namespaces, 84 of which protected nothing.
+
+## "Review APEX's work / they changed something I own"
+
+1. `python scripts/cross_agent_review.py scan` — open peer PRs on Bravo surfaces.
+2. `python scripts/cross_agent_review.py review --pr OWNER/REPO#N` — publishes
+   `ack` or `blocked` to the channel APEX polls, and records the verdict.
+
+This is CONTEXT review, not code review. CodeRabbit already read the diff and CI
+already proved it builds. Your job is the part they structurally cannot do: the
+constraint not visible in the code, the caller three repos away, the duplicate
+of something that already exists. Its first live run caught APEX proposing to
+build an approval surface that already existed.
+
 ## "Apply this database migration"
 
 1. Confirm migration file is in `database/<NNN>_<name>.sql`. If not, write it with the next number.

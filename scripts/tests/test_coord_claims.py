@@ -468,3 +468,98 @@ def test_guard_shouts_when_it_is_blind():
             mirror.write_text(backup, encoding="utf-8")
         elif mirror.exists():
             mirror.unlink()
+
+
+# ============ APEX + Codex findings, 2026-08-27 (round 2) =====================
+
+def test_tiebreak_compares_instants_not_strings():
+    """APEX implemented contract v3's tie-break and found the rule unsound.
+
+    Python emits `...T23:32:12.667878+00:00`, JS emits `...T23:32:12.667Z`. At an
+    equal millisecond prefix the STRINGS order on a digit vs 'Z', which has
+    nothing to do with real time. If one side compares strings (as v3 literally
+    said) and the other compares instants, each can conclude the peer is later
+    and BOTH KEEP — two holders from two correct-looking implementations.
+    """
+    from integrations.coord_claim import parse_ts
+    py = "2026-08-27T23:32:12.667000+00:00"
+    js = "2026-08-27T23:32:12.667Z"
+    assert py < js, "precondition: the naive string order this fix exists for"
+    assert parse_ts(py) == parse_ts(js), "same instant must compare equal"
+    # and a genuinely earlier JS stamp must sort earlier despite the Z suffix
+    earlier_js = "2026-08-27T23:32:12.100Z"
+    assert parse_ts(earlier_js) < parse_ts(py)
+
+
+@pytest.mark.parametrize("a,b", [
+    ("lib/*/x.ts", "lib/a/**"),
+    ("app/api/**", "app/*/leads/route.ts"),
+    ("components/*/Pane.tsx", "components/conversations/**"),
+    ("lib/drips/**", "lib/*/executor.ts"),
+])
+def test_intersecting_globs_are_detected(a, b):
+    """Codex P1 on APEX's side, identical here: two globs can overlap without
+    either matching the other AS A STRING, so covers() alone is blind to exactly
+    the broad claims the contract encourages."""
+    assert repo_paths.overlaps(a, b), f"{a} and {b} intersect but were not detected"
+    assert not repo_paths.covers(a, b) or not repo_paths.covers(b, a), (
+        "precondition: covers() alone should NOT catch this pair")
+
+
+@pytest.mark.parametrize("a,b", [
+    ("lib/drips/**", "components/**"),
+    ("components/conversations/**", "components/campaigns/**"),
+    ("lib/a/*.ts", "lib/b/*.ts"),
+    ("app/api/**", "lib/x.ts"),
+])
+def test_disjoint_globs_do_not_false_conflict(a, b):
+    """The companion test. A conflict predicate that fires on everything is as
+    useless as one that never fires — it just fails in the friendlier direction."""
+    assert not repo_paths.overlaps(a, b)
+
+
+def test_glob_intersection_witness_is_real():
+    """Prove the pair actually shares a path, so the test is not asserting a
+    property we invented."""
+    assert repo_paths.covers("lib/*/x.ts", "lib/a/x.ts")
+    assert repo_paths.covers("lib/a/**", "lib/a/x.ts")
+    assert repo_paths.overlaps("lib/*/x.ts", "lib/a/**")
+
+
+def test_canonical_timestamp_is_fixed_width_even_at_zero_microseconds():
+    """APEX pinned the wire format and kept a LEXICAL comparison, so Bravo must
+    emit fixed-width stamps or its peer's ordering breaks — and breaks exactly
+    on a tie-break, since a tie-break only runs on same-instant inserts.
+
+    datetime.isoformat() does NOT do this: it drops the fractional part entirely
+    when microseconds are zero, so the same instant gets two shapes that are not
+    string-equal, and the tie becomes invisible to the rule meant to resolve it.
+    """
+    from datetime import datetime, timezone
+    from integrations import coord_claim
+    zero = datetime(2026, 8, 27, 17, 15, 47, 0, tzinfo=timezone.utc)
+    some = datetime(2026, 8, 27, 17, 15, 47, 116239, tzinfo=timezone.utc)
+    a, b = coord_claim._iso(zero), coord_claim._iso(some)
+    assert a == "2026-08-27T17:15:47.000000+00:00", a
+    assert b == "2026-08-27T17:15:47.116239+00:00", b
+    assert len(a) == len(b), "fixed width is the whole point"
+    assert not a.endswith("Z") and not b.endswith("Z")
+    # lexical order now matches chronological order, which is what APEX relies on
+    assert (a < b) == (zero < some)
+    # and the naive implementation would have failed this
+    assert zero.isoformat() != a, "isoformat() is not canonical — that is the bug"
+
+
+def test_canonical_and_parsed_comparisons_agree():
+    """The interop property: APEX compares lexically, Bravo compares instants.
+    With the format pinned, both reach the same verdict for every ordering."""
+    from datetime import datetime, timedelta, timezone
+    from integrations.coord_claim import _iso, parse_ts
+    base = datetime(2026, 8, 27, 17, 15, 47, 0, tzinfo=timezone.utc)
+    for delta in (0, 1, 999, 116239, 999999):
+        other = base + timedelta(microseconds=delta)
+        sa, sb = _iso(base), _iso(other)
+        lexical = (sa < sb, sa == sb, sa > sb)
+        instant = (parse_ts(sa) < parse_ts(sb), parse_ts(sa) == parse_ts(sb),
+                   parse_ts(sa) > parse_ts(sb))
+        assert lexical == instant, f"diverged at delta={delta}: {lexical} vs {instant}"

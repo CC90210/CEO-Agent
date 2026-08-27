@@ -59,6 +59,11 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | If the operator asks about... | Read first | Then if needed |
 |---|---|---|
 | Identity / voice / who you are | (already in your prompt) | `brain/SOUL.md` |
+| **Editing a file APEX may also touch** | `skills/cross-agent-coordination/SKILL.md` | `brain/OWNERSHIP_MAP.yaml` |
+| **A coord_guard block appeared** | the refusal names the peer, task, branch, machine | `coord_claim.py status --all-agents` |
+| **Reviewing APEX's PR / it touches my surface** | `cross_agent_review.py scan` | `cross_agent_review.py review --pr <O/R#N>` |
+| **CodeRabbit / Vercel / CI flagged something** | `review_harvest.py --pr <O/R#N>` | `review_fix.py` (applies, tests, pushes) |
+| **Taking a migration number** | `check_migration_collision.py reserve <n>` | `database/turso_migrations/` |
 | Operator's profile | `brain/USER.md` | — |
 | What CLI tools you have | `brain/CAPABILITIES.md` | `brain/QUICK_REFERENCE.md` |
 | Which sub-agent owns a task | `brain/WHEN_TO_USE_AGENTS.md` | run `python scripts/capability_query.py resolve "<intent>" --kind agent` |

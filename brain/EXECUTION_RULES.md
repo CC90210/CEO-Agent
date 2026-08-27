@@ -421,3 +421,80 @@ the *attack the boundary before you claim it* pattern ([[memory/PATTERNS]]) wear
 - [[brain/SOUL]] | [[memory/MISTAKES]]
 - [[brain/EXTERNAL_REVIEW_INTEGRATION]] | [[brain/SUBCONSCIOUS_LAYER]]
 - [[skills/security-protocol/SKILL]] (the 20-point matrix) | [[docs/adr/0016-20-point-vibe-code-security-standard]] | [[prompts/20_POINT_SECURITY_AUDITOR_SYSTEM_PROMPT]]
+
+---
+
+## 22. TWO AGENTS, THREE REVIEW LAYERS — AND ONLY ONE OF THEM IS YOURS (added 2026-08-27)
+
+CC and Adon run separate AIOSs against shared repos. They execute independently
+and must never depend on each other to get work done. What they owe each other is
+not permission — it is **awareness, and a review the machines cannot perform.**
+
+### 22.1 The three layers are not interchangeable
+
+| Layer | Sees | Cannot see |
+|---|---|---|
+| **CodeRabbit** | the diff: null derefs, N+1s, missing guards, security smells | why the code is shaped that way |
+| **Vercel / CI** | that it builds, deploys, and passes tests | whether it should exist |
+| **The peer agent** | the constraint that is not in the diff | nothing — this is the only layer with history |
+
+A bot finds the null deref. **Only the surface owner knows the field is nullable
+because a client's import in July depended on it.** That knowledge is not in the
+code and cannot be inferred from it. It lives in whichever agent owns the
+surface, which is why the peer review is not optional politeness.
+
+Its first live run caught APEX proposing to build an approval surface that
+already existed in `coordination_agent.js` and that APEX had already been
+onboarded to. Duplicate infrastructure across two harnesses means two suppression
+lists, two approval gates, two sources of truth — and it is invisible to every
+bot, because each half is individually correct.
+
+### 22.2 The loop, in commands
+
+```bash
+# before you edit anything in a repo the peer also works in
+python scripts/lib/ownership.py <repo-slug> <path>          # bravo | apex | shared
+python scripts/integrations/coord_claim.py acquire --repo <slug> --paths "<p>" --task "<t>"
+
+# review what the peer changed on your surfaces
+python scripts/cross_agent_review.py scan                    # open peer PRs on my ground
+python scripts/cross_agent_review.py review --pr OWNER/REPO#N  # publishes ack | blocked
+
+# bot findings are not advisory — fetch and act on them
+python scripts/review_harvest.py --pr OWNER/REPO#N           # UNRESOLVED threads, live
+python scripts/review_fix.py ...                             # applies, tests, pushes to the PR branch
+```
+
+**Inline review threads do NOT appear in `gh pr view --comments`.** A finding you
+never fetched is one you silently shipped past. A CodeRabbit CRITICAL sat unfixed
+on `main` for weeks for exactly this reason.
+
+### 22.3 The rules that carry the weight
+
+1. **Claim before you touch a contested surface; release when you stop.** The
+   lease is the only thing that makes an overlap detectable *before* it happens.
+2. **Status IS the escalation mechanism.** `blocked` means a human must act;
+   `working` is awareness-only on both sides. Posting a credential or quota
+   failure as `working` is silence that looks like a report — it cost two days on
+   2026-08-25 and is now refused in code by `agent_activity.post()`.
+3. **Never review your own work as the peer's.** Peer identity comes from COMMIT
+   AUTHORSHIP via `OWNERSHIP_MAP.yaml`, never from the GitHub account — both
+   agents push under `CC90210`, so the account field cannot tell them apart.
+4. **Cross-team artifacts live in the shared repo.** A contract in one party's
+   private repo is not a contract. Bravo broke this first and APEX called it.
+5. **Formats that two languages both emit must be pinned AND parsed.** The lease
+   tie-break compared ISO timestamps as strings; Python emits six fractional
+   digits and JS emits three with a `Z`, so at the same millisecond the order
+   inverted and BOTH agents kept the lease — from the fix for both agents keeping
+   the lease. Pin the wire format, and parse rather than trusting it.
+
+### 22.4 What this is NOT
+
+It is not a dependency. Either agent can work with the peer offline, mid-outage,
+or asleep. The lease guard **fails degraded, never closed** — a collision gate
+that halts all work when a database blinks gets switched off, and a switched-off
+guard is the problem it was built to solve.
+
+Ownership is a **default, not a fence.** Either agent may work anywhere. Owning a
+surface means you are the one who does not have to ask, and the one who gets
+asked.

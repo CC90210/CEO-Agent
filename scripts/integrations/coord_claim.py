@@ -88,8 +88,29 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+CANONICAL_TS = "%Y-%m-%dT%H:%M:%S.%f+00:00"
+
+
 def _iso(dt: datetime) -> str:
-    return dt.isoformat()
+    """The CANONICAL cross-agent timestamp. Fixed width, always six fractional
+    digits, always an explicit +00:00 offset, never a `Z` suffix.
+
+    `dt.isoformat()` is NOT this. It omits the fractional part entirely when
+    microseconds happen to be zero:
+
+        datetime(...,  0).isoformat()  ->  2026-08-27T17:15:47+00:00
+        datetime(..., 116239).isoformat() -> 2026-08-27T17:15:47.116239+00:00
+
+    APEX pinned the format on its side and kept a LEXICAL comparison, so a
+    variable-width stamp from here would break its ordering — and it would break
+    it precisely on a tie-break, because a tie-break only runs when two inserts
+    land in the same instant. Two shapes of the same instant do not compare
+    equal, so the tie the rule exists to resolve becomes invisible to it.
+
+    Bravo compares parsed instants and is immune either way. This exists to hold
+    up Bravo's end of a format the PEER depends on lexically.
+    """
+    return dt.astimezone(timezone.utc).strftime(CANONICAL_TS)
 
 
 def _machine() -> str:
@@ -105,6 +126,8 @@ def _machine() -> str:
 # must not import this module (it pulls in db_turso, which connects at import
 # time and cost 4-5s per edit before the split).
 repo_root = _rp.repo_root
+overlaps = _rp.overlaps
+intersects = _rp.intersects
 repo_slug = _rp.repo_slug
 resolve = _rp.resolve
 covers = _rp.covers
@@ -259,7 +282,11 @@ def conflicts(repo: str, paths: list[str], *, agent: str | None = None) -> list[
     out = []
     for c in held:
         for p in paths:
-            if covers(c["path_glob"], p):
+            # overlaps(), not covers(): a candidate may itself be a GLOB, and two
+            # globs can intersect without either matching the other as a string
+            # (Codex P1, 2026-08-27). covers() alone is blind to exactly the
+            # broad claims we encourage.
+            if overlaps(c["path_glob"], p):
                 out.append({**c, "conflicting_path": p})
                 break
     return out
@@ -350,8 +377,31 @@ def acquire(repo: str, paths: list[str], task: str, *, branch: str | None = None
                                   or r["path_glob"] == c["path_glob"]), None)
             if mine_for_path is None:
                 continue
-            theirs = (str(c.get("acquired_at") or ""), str(c.get("id") or ""))
-            ours = (mine_for_path["acquired_at"], mine_for_path["id"])
+            # Compare PARSED INSTANTS, never the raw strings.
+            #
+            # v3 of the contract said "compare acquired_at as a string first".
+            # APEX implemented against it, hit the bug, and was right: Python
+            # emits 2026-08-27T23:32:12.667878+00:00 and JS emits
+            # ...T23:32:12.667Z, so at an equal millisecond prefix the strings
+            # order on '8' vs 'Z' — which has nothing to do with real time.
+            #
+            # The mutual-exclusion break is subtler than "wrong winner". If one
+            # side follows the contract literally (string compare) and the other
+            # does the sane thing (instant compare), each can conclude the peer
+            # is LATER and BOTH KEEP. Two holders on one path, from two correct-
+            # looking implementations of the same sentence.
+            #
+            # Instants are format-agnostic. `id` breaks a genuine exact tie and
+            # is a uuid, so it collates identically in both languages.
+            theirs_ts, ours_ts = parse_ts(c.get("acquired_at")), parse_ts(mine_for_path["acquired_at"])
+            if theirs_ts is None or ours_ts is None:
+                # An unparseable acquired_at cannot be ordered. Yield rather than
+                # guess: a spurious release costs one retry, a wrong keep costs a
+                # silent double-hold.
+                losers.append(c)
+                continue
+            theirs = (theirs_ts, str(c.get("id") or ""))
+            ours = (ours_ts, str(mine_for_path["id"] or ""))
             if theirs < ours:          # they got there first
                 losers.append(c)
         if losers:

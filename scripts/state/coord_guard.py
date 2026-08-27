@@ -223,7 +223,11 @@ def main() -> int:
         # EVERY edit, cache hit or not. A guard that slow gets switched off.
         from lib import repo_paths  # noqa: PLC0415
         resolved = repo_paths.resolve(target)
-        covers = repo_paths.covers
+        # overlaps(), not covers(): the edited file is a literal path here, so
+        # covers() would suffice for it — but the HELD claim may be a glob and
+        # both sides must use one predicate or the guard and the CLI disagree
+        # about what conflicts (Codex P1, 2026-08-27).
+        covers = repo_paths.overlaps
         me = os.environ.get("COORD_AGENT_KEY", "bravo").strip().lower()
     except Exception as e:  # noqa: BLE001
         # Import/resolve failure must not block editing. Log loudly and allow —

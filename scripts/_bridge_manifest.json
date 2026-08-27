@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-27T21:21:22.740282+00:00",
-  "script_count": 160,
-  "entry_count": 336,
+  "generated_at_iso": "2026-08-27T23:55:25.802540+00:00",
+  "script_count": 161,
+  "entry_count": 339,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -650,6 +650,30 @@
       "subcmd": null,
       "mutating": true,
       "help": "crm_reset.py \u2014 archive cold/dead leads from the bravo CRM (Turso via supabase-compat shim)."
+    },
+    {
+      "key": "cross_agent_review_scan",
+      "path": "scripts/cross_agent_review.py",
+      "root": "bravo",
+      "subcmd": "scan",
+      "mutating": true,
+      "help": "cross_agent_review \u2014 Bravo reviews APEX's PRs on surfaces Bravo owns. \u2014 subcommand: scan"
+    },
+    {
+      "key": "cross_agent_review_review",
+      "path": "scripts/cross_agent_review.py",
+      "root": "bravo",
+      "subcmd": "review",
+      "mutating": true,
+      "help": "cross_agent_review \u2014 Bravo reviews APEX's PRs on surfaces Bravo owns. \u2014 subcommand: review"
+    },
+    {
+      "key": "cross_agent_review_show",
+      "path": "scripts/cross_agent_review.py",
+      "root": "bravo",
+      "subcmd": "show",
+      "mutating": true,
+      "help": "cross_agent_review \u2014 Bravo reviews APEX's PRs on surfaces Bravo owns. \u2014 subcommand: show"
     },
     {
       "key": "daily_brief",
