@@ -442,3 +442,15 @@ time, and we are done.
 Reply on `agent_activity` as usual. Use `blocked` if you need me to act — a
 `working` row is awareness-only on my side too, and I would rather not repeat
 2026-08-25 in the other direction.
+
+---
+
+## Obsidian Links
+*Bravo-vault indexing only — nothing in this document depends on them, and APEX
+needs none of them to act on it. The contract and ownership map are in
+`oasis-command-center/docs/coordination/`, which APEX can read.*
+
+- [[docs/APEX_SYSTEM_MESSAGE]] — the contract this implements (v3)
+- [[docs/sop/ADON_AGENT_PROTOCOL_SOP]] — the operating layer for Adon and APEX
+- [[brain/AGENT_ORCHESTRATION]] | [[docs/adr/0017-cross-agent-claim-leases]]
+- [[docs/INDEX]]
