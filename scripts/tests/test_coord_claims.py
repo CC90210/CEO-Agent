@@ -229,3 +229,86 @@ def test_guard_is_silent_on_an_owned_surface():
                     "tool_input": {"file_path": f"{OCC}/lib/cold-outreach/send.ts"}}, [])
     assert r.returncode == 0
     assert "CONTESTED" not in r.stderr
+
+
+# ---------------------------------------- Codex adversarial review 2026-08-27 ----
+# Four findings, all confirmed against the code and fixed. These pin the fixes.
+
+def test_expiry_is_parsed_not_lexically_compared():
+    """The old SQL did `expires_at > <now-iso>` — a LEXICAL comparison, sound
+    only if every writer emits the identical UTC spelling. APEX is a second
+    writer on this table.
+
+    The bite is a non-UTC offset: a lease expiring at 16:34 UTC written as
+    `18:34+02:00` sorts ABOVE a UTC "now" of 16:39, so an expired lease reads as
+    live — here for a full two hours. Parsing makes the spelling irrelevant.
+    """
+    from datetime import datetime, timedelta, timezone
+    from integrations.coord_claim import is_live, parse_ts
+    now = datetime.now(timezone.utc)
+
+    # expired 5 minutes ago, but written in +02:00 local time
+    expired_utc = now - timedelta(minutes=5)
+    expired_cet = expired_utc.astimezone(timezone(timedelta(hours=2))).isoformat()
+
+    # the lexical trap this fix exists for: the EXPIRED string sorts as "future"
+    assert expired_cet > now.isoformat(), "precondition: lexical order is wrong here"
+    # ...and parsing gets it right anyway
+    assert is_live({"expires_at": expired_cet}) is False
+
+    assert is_live({"expires_at": (now + timedelta(minutes=5)).isoformat()
+                    .replace("+00:00", "Z")}) is True
+    assert is_live({"expires_at": (now - timedelta(minutes=5)).isoformat()
+                    .replace("+00:00", "Z")}) is False
+    assert parse_ts("not-a-date") is None
+
+
+def test_unparseable_expiry_frees_the_path_rather_than_wedging_it():
+    from integrations.coord_claim import is_live
+    assert is_live({"expires_at": "garbage"}) is False
+    assert is_live({"expires_at": None}) is False
+    assert is_live({}) is False
+
+
+def test_guard_mirror_ignores_expired_leases_during_an_outage():
+    """A stale mirror must not keep enforcing a lease that has since expired —
+    that would contradict the TTL guarantee for the whole outage."""
+    from datetime import datetime, timedelta, timezone
+    expired = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    r = _run_guard({"tool_name": "Edit",
+                    "tool_input": {"file_path": f"{OCC}/lib/drips/executor.ts"}},
+                   [_lease() | {"expires_at": expired}])
+    assert r.returncode == 0, "an EXPIRED cached lease must not block"
+
+
+def test_guard_mirror_still_blocks_on_an_unexpired_lease():
+    """The companion to the test above — proving the fix did not just disable
+    the gate. Break the test before trusting it."""
+    r = _run_guard({"tool_name": "Edit",
+                    "tool_input": {"file_path": f"{OCC}/lib/drips/executor.ts"}},
+                   [_lease()])
+    assert r.returncode == 2
+
+
+def test_cron_skipped_jobs_are_visible_to_json_consumers():
+    """The JSON path is what automation reads. Hiding pinned-elsewhere jobs
+    there is how a job pinned to an offline machine vanishes fleet-wide."""
+    import inspect
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "core"))
+    import cron_engine
+    src = inspect.getsource(cron_engine.cmd_due)
+    assert "skipped_other_machine" in src
+    # the early-return must sit INSIDE the json branch, not after it
+    assert src.index("skipped_other_machine") < src.index("[cron] skipping")
+
+
+def test_cron_filter_never_hides_an_unpinned_job():
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "core"))
+    import cron_engine
+    mine, theirs = cron_engine.filter_by_machine([
+        {"name": "unpinned", "owner_machine": None},
+        {"name": "blank", "owner_machine": "   "},
+        {"name": "elsewhere", "owner_machine": "SOME-OTHER-BOX"},
+    ])
+    assert [j["name"] for j in mine] == ["unpinned", "blank"]
+    assert [j["name"] for j in theirs] == ["elsewhere"]

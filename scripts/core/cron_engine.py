@@ -1024,13 +1024,26 @@ def cmd_due(client, args, output_json: bool) -> None:
         .execute()
     )
     jobs, other_machine = filter_by_machine(result.data or [])
-    if other_machine and not output_json:
-        # Say it out loud. A silently-skipped job looks identical to a job that
-        # was never due, and that ambiguity is how a pinned job goes unnoticed
-        # for a week when the machine that owns it is off.
+    if other_machine:
+        # Say it out loud on BOTH output paths. A silently-skipped job looks
+        # identical to a job that was never due. The JSON path is the one
+        # automation reads, so hiding it there is where a job pinned to a stale
+        # or offline hostname disappears from the fleet entirely — nobody is
+        # running it and nothing reports that (Codex adversarial review,
+        # 2026-08-27). JSON consumers get the skipped set explicitly.
+        if output_json:
+            print(json.dumps({
+                "machine": _machine_name(),
+                "due": jobs,
+                "skipped_other_machine": [
+                    {"name": j.get("name"), "owner_machine": j.get("owner_machine"),
+                     "next_run_at": j.get("next_run_at")} for j in other_machine],
+            }, indent=2, default=str))
+            return
         print(f"[cron] skipping {len(other_machine)} job(s) pinned to another machine "
               f"(this machine is {_machine_name()}): "
-              + ", ".join(j.get("name", "?") for j in other_machine[:5]))
+              + ", ".join(f"{j.get('name','?')}->{j.get('owner_machine')}"
+                          for j in other_machine[:5]))
 
     if output_json:
         print(json.dumps(jobs, indent=2, default=str))

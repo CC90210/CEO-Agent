@@ -110,6 +110,43 @@ def _save_mirror(claims: list[dict]) -> None:
         pass
 
 
+def _from_mirror(mirror: dict, repo: str, me: str) -> list[dict]:
+    """Peer claims from the mirror that are STILL LIVE.
+
+    Expiry must be re-evaluated against the clock NOW, not against the moment
+    the mirror was written. Without this, a Turso outage pins the last-known
+    lease set in place and an expired lease keeps blocking edits for the whole
+    duration of the outage — which contradicts the TTL guarantee that a crashed
+    agent cannot wedge a repo. (Codex adversarial review, 2026-08-27.)
+
+    An unparseable or missing expiry is treated as NOT live: a corrupt row
+    should free a path, never hold one hostage.
+    """
+    from datetime import datetime, timezone  # noqa: PLC0415
+    now = datetime.now(timezone.utc)
+    out = []
+    for c in mirror.get("claims") or []:
+        if c.get("repo") != repo or c.get("agent") == me:
+            continue
+        if (c.get("status") or "held") != "held":
+            continue
+        raw = c.get("expires_at")
+        if not raw:
+            continue
+        try:
+            txt = str(raw).strip()
+            if txt.endswith(("Z", "z")):
+                txt = txt[:-1] + "+00:00"
+            exp = datetime.fromisoformat(txt)
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+        except Exception:  # noqa: BLE001
+            continue
+        if exp > now:
+            out.append(c)
+    return out
+
+
 def _peer_claims(repo: str, me: str) -> tuple[list[dict], str]:
     """(claims, source) where source is 'live' | 'cache' | 'stale-cache:<age>s'.
 
@@ -118,8 +155,7 @@ def _peer_claims(repo: str, me: str) -> tuple[list[dict], str]:
     mirror = _load_mirror()
     age = time.time() - float(mirror.get("fetched_at") or 0)
     if mirror.get("claims") is not None and age < CACHE_TTL_SEC:
-        return [c for c in mirror["claims"]
-                if c.get("repo") == repo and c.get("agent") != me], "cache"
+        return _from_mirror(mirror, repo, me), "cache"
     try:
         from integrations import coord_claim  # noqa: PLC0415 - lazy: keeps the
         # no-op path (most edits) off the Turso import entirely.
@@ -132,8 +168,7 @@ def _peer_claims(repo: str, me: str) -> tuple[list[dict], str]:
     except Exception as e:  # noqa: BLE001
         if mirror.get("claims") is None:
             return [], f"unavailable-no-cache ({type(e).__name__})"
-        return ([c for c in mirror["claims"]
-                 if c.get("repo") == repo and c.get("agent") != me],
+        return (_from_mirror(mirror, repo, me),
                 f"stale-cache:{int(age)}s ({type(e).__name__})")
 
 

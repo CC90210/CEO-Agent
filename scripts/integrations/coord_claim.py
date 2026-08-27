@@ -170,6 +170,36 @@ def _validate_paths(repo: str, paths: list[str], *, strict: bool) -> list[str]:
 # Store
 # --------------------------------------------------------------------------
 
+def parse_ts(value) -> datetime | None:
+    """Parse any ISO-8601 spelling into an aware UTC datetime, or None.
+
+    Accepts the `Z` suffix (fromisoformat rejects it before 3.11) and treats a
+    naive timestamp as UTC. Returning None means "unparseable" — callers must
+    treat that as NOT live rather than as live, so a corrupt row frees a path
+    instead of wedging it.
+    """
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    try:
+        txt = str(value).strip()
+        if txt.endswith(("Z", "z")):
+            txt = txt[:-1] + "+00:00"
+        dt = datetime.fromisoformat(txt)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def is_live(claim: dict, now: datetime | None = None) -> bool:
+    """A lease is live only if it is held AND its expiry parses AND is future."""
+    if (claim.get("status") or "held") != "held":
+        return False
+    exp = parse_ts(claim.get("expires_at"))
+    return exp is not None and exp > (now or _now())
+
+
 _COLS = ["id", "agent", "machine", "repo", "path_glob", "task", "branch",
          "session_id", "acquired_at", "heartbeat_at", "expires_at"]
 
@@ -179,10 +209,17 @@ def live_claims(repo: str | None = None, *, exclude_agent: str | None = None,
     """Every unexpired, unreleased lease. Expiry is compared as an ISO-8601 UTC
     string — lexical order is chronological for that format, so SQLite can do it
     without a date function."""
+    # NOTE: no expiry predicate in SQL. An earlier version compared
+    # `expires_at > ?` lexically, which is only sound if every writer emits the
+    # identical UTC format. APEX is a SECOND writer on this table and may emit a
+    # `Z` suffix — and "…Z" sorts ABOVE "…+00:00" (0x5A > 0x2B), so an expired
+    # Z-suffixed lease would read as live. Expiry is now decided in Python by
+    # parsing, which handles every ISO-8601 spelling. (Codex adversarial review,
+    # 2026-08-27.)
     sql = ('SELECT id, agent, machine, repo, path_glob, task, branch, session_id, '
            'acquired_at, heartbeat_at, expires_at FROM "' + TABLE + '" '
-           "WHERE status = 'held' AND expires_at > ?")
-    params: list = [_iso(_now())]
+           "WHERE status = 'held'")
+    params: list = []
     if repo:
         sql += " AND repo = ?"
         params.append(repo)
@@ -194,7 +231,8 @@ def live_claims(repo: str | None = None, *, exclude_agent: str | None = None,
         params.append(only_agent)
     sql += " ORDER BY acquired_at DESC"
     rows = _db().query(sql, params, allow_unscoped=True, reason=UNSCOPED_REASON)
-    return [r if isinstance(r, dict) else dict(zip(_COLS, r)) for r in rows]
+    out = [r if isinstance(r, dict) else dict(zip(_COLS, r)) for r in rows]
+    return [r for r in out if is_live(r)]
 
 
 def _db():
@@ -246,6 +284,43 @@ def acquire(repo: str, paths: list[str], task: str, *, branch: str | None = None
         db.insert(TABLE, row, allow_unscoped=True, reason=UNSCOPED_REASON)
         rows.append(row)
     db.commit()
+
+    # POST-INSERT RECHECK — closes the check-then-insert race.
+    #
+    # conflicts() above and the inserts here are not one atomic operation, so two
+    # agents polling within the same ~200ms window can BOTH see a clear path and
+    # BOTH insert. That defeats the single invariant this module exists to
+    # provide, under exactly the concurrent cross-machine case it is built for
+    # (Codex adversarial review, 2026-08-27).
+    #
+    # libSQL gives us no cross-connection advisory lock, so we resolve rather
+    # than prevent: after committing, look again. If a peer holds a lease on any
+    # of our paths that was acquired BEFORE ours, they won the race — we release
+    # ours and report the conflict. The tiebreak is (acquired_at, id), both
+    # already stored and both total orders, so BOTH agents independently reach
+    # the SAME verdict without talking to each other. Ties on timestamp fall
+    # through to the uuid, which is stable and arbitrary but consistent.
+    if not force:
+        losers = []
+        for c in conflicts(repo, cleaned, agent=me):
+            mine_for_path = next((r for r in rows if covers(r["path_glob"], c["conflicting_path"])
+                                  or r["path_glob"] == c["path_glob"]), None)
+            if mine_for_path is None:
+                continue
+            theirs = (str(c.get("acquired_at") or ""), str(c.get("id") or ""))
+            ours = (mine_for_path["acquired_at"], mine_for_path["id"])
+            if theirs < ours:          # they got there first
+                losers.append(c)
+        if losers:
+            db.execute(
+                'UPDATE "' + TABLE + '" SET status = \'released\', released_at = ? '
+                "WHERE agent = ? AND task = ? AND status = 'held'",
+                [_iso(_now()), me, task],
+                allow_unscoped=True, reason=UNSCOPED_REASON)
+            db.commit()
+            return {"acquired": False, "conflicts": losers, "paths": cleaned,
+                    "lost_race": True}
+
     return {"acquired": True, "conflicts": clash if force else [],
             "claims": rows, "expires_at": _iso(expires)}
 
