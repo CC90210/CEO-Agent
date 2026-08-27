@@ -3,10 +3,18 @@ name: ORCHESTRATION DECISION TABLE
 description: One-screen scannable decision index — who handles a task, when to delegate, when the Validator must run. Condensation of the 5 deep orchestration docs; read this first, drill into them only when a row needs detail.
 mutability: SEMI-MUTABLE
 tags: [brain, orchestration, router, agent-only]
-last_updated: 2026-07-18
+last_updated: 2026-08-27
 freshness_threshold_days: 60
 verified: 2026-06-10
 ---
+
+> **Updated 2026-08-27 — claims are now enforced LEASES.** The free-text
+> `agent_activity.files` claim described below is advisory only; it was measured
+> to have detected zero collisions in 90 days while 226 of 1,596 files in
+> oasis-command-center were touched by both agents. The enforceable mechanism is
+> `coord_claims` + `scripts/state/coord_guard.py`, which refuses an edit to a
+> path a peer holds. Ownership: `brain/OWNERSHIP_MAP.yaml`. Procedure:
+> `skills/cross-agent-coordination/SKILL.md`. Decision: [[docs/adr/0017-cross-agent-claim-leases]].
 # ORCHESTRATION — Decision Table (read this first)
 
 > The scannable index over the deep docs: [[brain/AGENTS]] (sub-agent registry + risk matrix) ·

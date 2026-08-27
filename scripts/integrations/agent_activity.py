@@ -185,11 +185,53 @@ def peer_open(hours=6, peers=None):
 
 
 def claims(hours=6, peers=None):
-    """Files/areas the other agent currently has claimed (open start/working)."""
+    """Peer claims, with the ENFORCEABLE ones first.
+
+    This function used to return only `agent_activity.files` — free text, keyed
+    on whatever string the peer happened to write. It could never be matched
+    against a real edit ("pipeline" vs app/(dash)/pipeline/page.tsx), so for two
+    months it returned a plausible-looking answer that protected nothing. It is
+    kept because callers and docs reference it, but it must never again be the
+    only thing an agent consults.
+
+    Now it returns BOTH, explicitly labelled:
+      • source="lease"  — live coord_claims rows. Enforceable: coord_guard will
+                          actually refuse an edit to these paths.
+      • source="legacy" — free-text agent_activity.files. Advisory ONLY. Shown
+                          so a peer's prose note is not lost, never as coverage.
+
+    Keys are "<repo>/<path>" for leases and the raw string for legacy entries.
+    """
     out = {}
+
+    # Authoritative first.
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import coord_claim  # noqa: PLC0415
+        me = coord_claim.ME
+        for c in coord_claim.live_claims():
+            if c.get("agent") in (me, *SELF_KEYS):
+                continue
+            key = f"{c.get('repo')}/{c.get('path_glob')}"
+            out.setdefault(key, []).append({
+                "agent": c.get("agent"), "task": c.get("task"),
+                "branch": c.get("branch"), "machine": c.get("machine"),
+                "expires_at": c.get("expires_at"),
+                "source": "lease", "enforceable": True,
+            })
+    except Exception as e:  # noqa: BLE001
+        # Loud, not silent: if the lease store is unreachable, the caller is
+        # about to act on advisory data only and must know that.
+        print(f"WARN: could not read coord_claims leases ({type(e).__name__}: {e}) — "
+              f"showing ADVISORY legacy claims only. Do NOT treat this as coverage.",
+              file=sys.stderr)
+
     for r in peer_open(hours=hours, peers=peers):
         for f in (r.get("files") or []):
-            out.setdefault(f, []).append({"agent": r["agent"], "task": r["task"], "branch": r.get("branch")})
+            out.setdefault(f, []).append({
+                "agent": r["agent"], "task": r["task"], "branch": r.get("branch"),
+                "source": "legacy", "enforceable": False,
+            })
     return out
 
 

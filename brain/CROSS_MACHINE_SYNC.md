@@ -4,10 +4,20 @@ tags: [sync, multi-machine, protocol, non-negotiable]
 purpose: Single canonical protocol for how Claude Code on Windows and Claude Code on Mac stay in perfect sync without stepping on each other's work.
 owner: CC (Conaugh McKenna)
 created: 2026-04-11
-last_updated: 2026-08-22
+last_updated: 2026-08-27
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
+
+> **Scope (clarified 2026-08-27):** this file governs **CC's own two machines** —
+> one operator, one repo, one git remote. It is **NOT a cross-org protocol** and
+> must not be read as one. Coordination with APEX (Adon's agent, a different
+> operator, different machine, different credentials) is a separate contract:
+> `coord_claims` leases + `scripts/state/coord_guard.py`, specified in
+> [[docs/APEX_SYSTEM_MESSAGE]] and [[docs/adr/0017-cross-agent-claim-leases]].
+> The rule below that "only ONE machine runs state-mutating daemons" is about
+> CC's Windows box vs his Mac; the equivalent guard for Adon's machine is
+> `cron_jobs.owner_machine`.
 # CROSS-MACHINE SYNC PROTOCOL
 
 > CC uses two machines interchangeably: the Windows production box (where all daemons run) and a MacBook (read/edit/analyze). Claude Code runs on both. This file is the protocol for staying coherent.

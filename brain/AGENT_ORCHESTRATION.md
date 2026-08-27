@@ -1,10 +1,18 @@
 ---
 description: "Fleet coordination contract: defines agent roles, responsibilities, pulse-protocol state hand-offs, approval authority, and veto boundaries"
 tags: [orchestration, contract, multi-agent, autonomy]
-last_updated: 2026-08-22
+last_updated: 2026-08-27
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
+
+> **Updated 2026-08-27 — claims are now enforced LEASES.** The free-text
+> `agent_activity.files` claim described below is advisory only; it was measured
+> to have detected zero collisions in 90 days while 226 of 1,596 files in
+> oasis-command-center were touched by both agents. The enforceable mechanism is
+> `coord_claims` + `scripts/state/coord_guard.py`, which refuses an edit to a
+> path a peer holds. Ownership: `brain/OWNERSHIP_MAP.yaml`. Procedure:
+> `skills/cross-agent-coordination/SKILL.md`. Decision: [[docs/adr/0017-cross-agent-claim-leases]].
 # AGENT ORCHESTRATION — Master Multi-Agent Contract
 
 > Canonical contract for how Bravo, Atlas, Maven, AURA, Hermes, and Codex coordinate. **Read this before designing any cross-agent flow.** Atlas's `brain/AGENT_ORCHESTRATION.md` and Maven's `brain/RESPONSIBILITY_BOUNDARIES.md` are the per-agent views; this is the single source of truth.

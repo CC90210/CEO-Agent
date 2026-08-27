@@ -1,10 +1,18 @@
 ---
 description: "Protocol for 4-agent OS (Bravo/Atlas/Maven/Aura) to sync via pulse files and session notes; agents read siblings on startup to avoid contradictions"
 tags: [c-suite, protocol, awareness]
-last_updated: 2026-08-22
+last_updated: 2026-08-27
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
+
+> **Updated 2026-08-27 — claims are now enforced LEASES.** The free-text
+> `agent_activity.files` claim described below is advisory only; it was measured
+> to have detected zero collisions in 90 days while 226 of 1,596 files in
+> oasis-command-center were touched by both agents. The enforceable mechanism is
+> `coord_claims` + `scripts/state/coord_guard.py`, which refuses an edit to a
+> path a peer holds. Ownership: `brain/OWNERSHIP_MAP.yaml`. Procedure:
+> `skills/cross-agent-coordination/SKILL.md`. Decision: [[docs/adr/0017-cross-agent-claim-leases]].
 # CROSS-AGENT AWARENESS — How the 4 Agents Stay in Sync
 
 > The 4-agent operating system (Bravo + Atlas + Maven + Aura) only works if each agent knows what the others are doing. This document defines the awareness protocol.
