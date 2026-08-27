@@ -1,0 +1,140 @@
+# OWNERSHIP MAP — who owns which surface, machine-readable.
+#
+# tags: [brain, coordination, ownership, apex, bravo, routing]
+# last_updated: 2026-08-27
+# freshness_threshold_days: 60
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# "Who is working on what" lived in prose, in Telegram, and in two agents'
+# heads. Measured on 2026-08-27 that produced 226 of 1,596 files in
+# oasis-command-center touched by BOTH sides, and 117 cross-side edits of the
+# same file inside 48h across 65 files. Prose cannot be queried before an edit;
+# this file can.
+#
+# HOW IT WAS DERIVED — measured, not negotiated
+# ---------------------------------------------
+# Seeded from 90 days of commit attribution in each repo (to 2026-08-27).
+# An area whose commits are >75% one side is assigned to that side. Anything
+# between 25% and 75% is `shared` — genuinely contested, and therefore the set
+# of paths where a lease is MANDATORY before editing.
+#
+# Ownership is a DEFAULT, not a fence. Either agent may work anywhere; owning a
+# surface means you are the one who does not have to ask, and the one who gets
+# asked. Crossing into a peer-owned surface is allowed and requires a lease plus
+# a peer `ack` before merge (see docs/sop/ADON_AGENT_PROTOCOL_SOP.md).
+#
+# CONSUMED BY
+#   scripts/integrations/coord_claim.py   — warns when claiming outside your surface
+#   scripts/state/coord_guard.py          — via the lease it enforces
+#   docs/APEX_SYSTEM_MESSAGE.md           — the handover contract
+#
+# Related: [[brain/AGENT_ORCHESTRATION]] | [[brain/APP_REGISTRY]] | [[CONTEXT]]
+
+version: 1
+updated: 2026-08-27
+derived_from: 90d commit attribution, measured 2026-08-27
+
+agents:
+  bravo:
+    operator: CC
+    machine: CCPC
+    runtimes: [claude-code, gemini-cli, antigravity, opencode, zcode, codex]
+    git_identities: [CC90210, CC]
+    wire_key: cc-agent          # rename to `bravo` gated on APEX ack — see agent_activity.py
+    canonical_key: bravo
+  apex:
+    operator: Adon
+    machine: unknown            # APEX to set on its first lease — coord_claims.machine
+    telegram: "@KnutRPEbot"
+    git_identities: ["APEX (Adon)", APEX, "Adon Bousseau", Adon, "JARVIS AI Assistant"]
+    wire_key: apex
+    canonical_key: apex
+    aliases: [knut]             # same entity, both keys — never two peers
+
+# Anything not listed defaults to `shared: requires-claim`. Unknown is contested
+# by definition — the safe default is to claim, not to assume.
+default: shared
+
+repos:
+
+  oasis-command-center:
+    remote: CC90210/oasis-command-center
+    production: oasisai.work
+    note: >-
+      The shared revenue surface and the origin of every measured collision.
+      Both agents deploy here. Branch protection required.
+    owners:
+      apex:
+        - components/conversations/**   # 60 apex : 9 bravo
+        - components/campaigns/**       # 53 apex : 2 bravo
+      bravo:
+        - lib/cold-outreach/**          # 167 : 0
+        - components/landing/**         # 97 : 0
+        - components/marketing/**       # 64 : 0
+        - lib/marketing/**              # 31 : 0
+        - components/web-leads/**       # 52 : 0
+        - lib/web-leads/**              # 40 : 0
+        - app/(marketing)/**            # 52 : 0
+        - app/pipeline/**               # 34 : 0
+        - content/**                    # 38 : 0
+        - components/settings/**        # 61 : 6
+        - lib/forms/**                  # 121 : 28
+        - components/forms/**           # 44 : 8
+        - lib/manifest/**               # 58 : 16
+        - components/manifest/**        # 34 : 11
+        - lib/founders/**               # 28 : 3
+        - middleware.ts                 # 30 : 3
+        - tests/**                      # 379 : 90
+      shared:                           # 25-75% split — LEASE REQUIRED before editing
+        - app/api/**                    # 558 : 202  (largest contested surface)
+        - lib/drips/**                  # 98 : 74
+        - lib/integrations/**           # 44 : 48
+        - lib/sms/**                    # 21 : 20
+        - components/leads/**           # 74 : 26
+        - components/sequences/**       # 13 : 22
+        - lib/lenders/**                # 26 : 9
+        - app/founders/**               # 43 : 16
+        - app/t/**                      # 19 : 13
+        - database/**                   # 66 : 24  — schema: migration order matters
+        - scripts/**                    # 56 : 33
+        - package.json                  # 78 : 27  — lockfile conflicts are constant
+        - vercel.json
+        - next.config.js
+        - .github/workflows/**
+
+  Business-Empire-Agent:
+    remote: CC90210/Business-Empire-Agent
+    note: >-
+      Bravo's own substrate. APEX reads it for patterns and may propose changes,
+      but does not commit here without an explicit handoff.
+    owners:
+      bravo: ["**"]
+      shared:
+        - docs/APEX_SYSTEM_MESSAGE.md
+        - docs/OASIS_AGENT_COORDINATION_SPEC.md
+        - docs/sop/ADON_AGENT_PROTOCOL_SOP.md
+        - brain/OWNERSHIP_MAP.yaml
+
+# Surfaces that are NOT files. Listed so neither agent assumes the other is
+# handling them, which is how the TextTorrent ownership confusion started.
+domains:
+  apex:
+    - TextTorrent / TPS / phone-lookup     # handed over 2026-08-03
+    - SunBiz conversations + campaigns
+  bravo:
+    - OASIS web-dev sales engine
+    - founders marketing suite
+    - empire cron + state substrate
+  shared:
+    - Turso schema (migration numbering collides — announce before applying)
+    - Vercel production deploys on oasisai.work
+    - cron_jobs registry (see owner_machine — double-execution risk)
+
+escalation:
+  channel: agent_activity table (agent-to-agent) + OASIS Telegram -5165125484 (human)
+  rule: >-
+    A credential, quota, or auth failure MUST be posted as status `blocked`, not
+    `working`. On 2026-08-25 APEX posted "Anthropic API credits exhausted" as
+    `working`; Bravo's poller only wakes on `blocked`, so it never escalated and
+    the outage went unnoticed for two days. Status is the escalation mechanism.

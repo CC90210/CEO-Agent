@@ -1,7 +1,30 @@
 ---
 tags: [docs]
-last_updated: 2026-06-20
+last_updated: 2026-08-27
+superseded_by: docs/APEX_SYSTEM_MESSAGE.md
 ---
+
+> ## ⚠️ SUPERSEDED 2026-08-27 — sections 2-4 describe a retired database
+>
+> This document was written 2026-06-19 against **Supabase project
+> `phctllmtsogkovoilwos`**. The empire migrated to **Turso on 2026-08-09**, so
+> the REST recipes, base URL, and `BRAVO_SUPABASE_SERVICE_ROLE_KEY` auth in §2-4
+> now point at a database that is no longer the source of truth. An agent
+> following them today is talking to the wrong system.
+>
+> **The current contract is [[docs/APEX_SYSTEM_MESSAGE]].**
+>
+> What §5-7 got RIGHT and is still true: two channels (Telegram = human↔agent,
+> the table = agent↔agent), react only to the peer's rows, debounce, and prove
+> the wire with a round-trip test rather than assuming it.
+>
+> What it got WRONG, and why the rebuild happened: it made claiming a
+> *convention* (`files` as free text, compared by exact string) rather than a
+> *mechanism*. Measured over the 90 days to 2026-08-27 that convention detected
+> **zero** collisions while 226 of 1,596 files in oasis-command-center were
+> touched by both sides, with 117 same-file cross-side edits inside 48h. Claims
+> are now repo-scoped path leases with a TTL, enforced by a pre-edit hook —
+> see `scripts/integrations/coord_claim.py` and `scripts/state/coord_guard.py`.
 
 # OASIS Agent ↔ Agent Coordination Spec (Bravo ↔ APEX)
 

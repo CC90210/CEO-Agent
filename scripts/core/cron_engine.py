@@ -985,6 +985,31 @@ def cmd_run(client, args, output_json: bool) -> None:
     print(f"  Result:     {updates['last_result']}")
 
 
+def _machine_name() -> str:
+    import os
+    import socket
+    return os.environ.get("COORD_MACHINE") or socket.gethostname()
+
+
+def filter_by_machine(jobs: list) -> tuple[list, list]:
+    """Split jobs into (mine, someone-elses) by `owner_machine`.
+
+    `cron_jobs` is a SHARED Turso registry. Once APEX's machine polls it too,
+    an unfiltered `due` means BOTH engines fire the same job — two digests, or
+    worse, two sends. Double-sending is not recoverable by retry logic, so the
+    filter lives here, at the one place that decides what runs.
+
+    owner_machine IS NULL means unpinned: any engine may run it. That keeps
+    every pre-existing row behaving exactly as before.
+    """
+    me = _machine_name()
+    mine, theirs = [], []
+    for j in jobs:
+        owner = (j.get("owner_machine") or "").strip()
+        (mine if not owner or owner == me else theirs).append(j)
+    return mine, theirs
+
+
 def cmd_due(client, args, output_json: bool) -> None:
     """Show active jobs whose next_run_at is now or overdue."""
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -998,7 +1023,14 @@ def cmd_due(client, args, output_json: bool) -> None:
         .order("next_run_at", desc=False)
         .execute()
     )
-    jobs = result.data or []
+    jobs, other_machine = filter_by_machine(result.data or [])
+    if other_machine and not output_json:
+        # Say it out loud. A silently-skipped job looks identical to a job that
+        # was never due, and that ambiguity is how a pinned job goes unnoticed
+        # for a week when the machine that owns it is off.
+        print(f"[cron] skipping {len(other_machine)} job(s) pinned to another machine "
+              f"(this machine is {_machine_name()}): "
+              + ", ".join(j.get("name", "?") for j in other_machine[:5]))
 
     if output_json:
         print(json.dumps(jobs, indent=2, default=str))
