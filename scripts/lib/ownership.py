@@ -18,11 +18,13 @@ to "everything is shared", never to "everything is fine".
 """
 from __future__ import annotations
 
-import fnmatch
 import json
 import sys as _sys
 from pathlib import Path
 from typing import Any
+
+_sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from lib import repo_paths  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MAP_PATH = PROJECT_ROOT / "brain" / "OWNERSHIP_MAP.yaml"
@@ -81,12 +83,20 @@ def load(force: bool = False) -> dict:
 
 
 def _matches(pattern: str, path: str) -> bool:
-    if pattern == "**":
-        return True
-    if fnmatch.fnmatch(path, pattern):
-        return True
-    base = pattern[:-3] if pattern.endswith("/**") else pattern
-    return path == base or path.startswith(base.rstrip("/") + "/")
+    """Delegates to repo_paths.covers — ONE definition of "does this pattern
+    cover this path", not two.
+
+    This function used to carry its own copy. The two agreed on every vector
+    tested, which is exactly how this defect hides: coverage semantics are a
+    NEGOTIATED INTERFACE with APEX (contract §3.2), so the day someone updates
+    covers() to match a future agreement, a private copy here would silently
+    keep answering the old way and the ownership map would start disagreeing
+    with the guard that enforces it.
+
+    Same precedent as agent_activity.py importing its denylists from notify.py
+    rather than copying them — that copy drifted within the hour.
+    """
+    return repo_paths.covers(pattern, path)
 
 
 def owner(repo: str, path: str) -> str | None:

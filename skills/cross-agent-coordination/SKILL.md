@@ -1,7 +1,7 @@
 ---
 name: cross-agent-coordination
 description: Use when editing any file in a repo Adon/APEX also touches (oasis-command-center above all), when starting work on a shared surface, when a coord_guard block appears, when handing work to or from APEX, or when a peer reports being blocked. Covers file leases, the ownership map, identity, and the escalation rule.
-triggers: [claim a file, file lease, shared file, coord guard, coord_guard blocked, APEX, Adon agent, cross-agent collision, peer claim, editing shared repo, oasis-command-center edit, agent overlap, release claim, who owns this file, coordinate with APEX, peer blocked, agent handoff]
+triggers: [claim a file, file lease, shared file, coord guard, coord_guard blocked, APEX, Adon agent, cross-agent collision, peer claim, editing shared repo, oasis-command-center edit, agent overlap, release claim, who owns this file, coordinate with APEX, peer blocked, agent handoff, migration number, new migration, database migration collision]
 tier: standard
 dependencies: []
 tags: [skill, coordination, apex, bravo, multi-agent, leases]
@@ -81,6 +81,27 @@ Leases auto-expire (90 min) and SessionEnd releases everything this session
 holds, so a crash cannot wedge a repo. Do not rely on that — release explicitly
 when you finish. The old mechanism had 60 `working` rows against 25 `done`;
 claims only ever ended by ageing out.
+
+## Migration numbers collide silently
+
+`database/**` is contested and migration numbers are picked, not allocated. Two
+agents both take `015`, both commit, and the loser either never applies or
+applies out of order against a schema it did not expect. Nothing errors at write
+time; it surfaces later as a missing column in production.
+
+```bash
+python scripts/check_migration_collision.py next                  # next free number
+python scripts/check_migration_collision.py check 15              # exit 3 if taken
+python scripts/check_migration_collision.py reserve 15 --task "…" # lease + announce
+```
+
+It checks three sources, because any one alone is a false negative: files on
+disk, the **git index** (staged but uncommitted — invisible to the peer), and
+**live peer leases** (the peer reserved the number and has not pushed a file —
+the case a directory listing cannot see, and the one that actually bites).
+
+`reserve` takes a lease on the numbered path *and* posts an `agent_activity`
+row, so the peer sees it in both channels. This is APEX's ask 6.
 
 ## Identity
 

@@ -265,12 +265,42 @@ def conflicts(repo: str, paths: list[str], *, agent: str | None = None) -> list[
     return out
 
 
+def _warn_out_of_surface(repo: str, paths: list[str], me: str) -> None:
+    """Say so when you are claiming inside the PEER's surface.
+
+    `brain/OWNERSHIP_MAP.yaml` names this module as a consumer, and until now
+    that was untrue — the map was read by the guard but never by the thing that
+    takes the lease. A doc that advertises a behaviour nobody implemented is the
+    same defect as a claim that cannot be matched: it reads as coverage.
+
+    This never BLOCKS. Crossing into a peer's surface is explicitly allowed by
+    the contract; it just requires a lease (which you are taking) and a peer
+    `ack` before merge. The warning is the reminder about the ack.
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        from lib import ownership  # noqa: PLC0415
+    except Exception:  # noqa: BLE001
+        return
+    for rel in paths:
+        try:
+            owner = ownership.owner(repo, rel)
+        except Exception:  # noqa: BLE001
+            continue
+        if owner and owner not in (me, "shared"):
+            print(f"[coord_claim] NOTE {repo}/{rel} is {owner.upper()}'s surface. "
+                  f"Allowed — but it needs an `ack` row from {owner} before you merge "
+                  f"(two-step verification). Tell them what you are changing and why.",
+                  file=sys.stderr)
+
+
 def acquire(repo: str, paths: list[str], task: str, *, branch: str | None = None,
             ttl_min: int = DEFAULT_TTL_MIN, session_id: str | None = None,
             agent: str | None = None, strict: bool = True,
             force: bool = False) -> dict:
     me = (agent or ME).lower()
     cleaned = _validate_paths(repo, paths, strict=strict)
+    _warn_out_of_surface(repo, cleaned, me)
     clash = conflicts(repo, cleaned, agent=me)
     if clash and not force:
         return {"acquired": False, "conflicts": clash, "paths": cleaned}

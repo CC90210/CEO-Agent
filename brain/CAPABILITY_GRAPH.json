@@ -1,16 +1,16 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-27T16:03:36.788109+00:00",
+  "generated_at": "2026-08-27T20:55:33.729073+00:00",
   "totals": {
     "skills": 163,
-    "scripts": 183,
+    "scripts": 184,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 437,
+    "nodes_total": 438,
     "edges_total": 210,
     "drift_count": 0
   },
@@ -903,7 +903,10 @@
         "who owns this file",
         "coordinate with APEX",
         "peer blocked",
-        "agent handoff"
+        "agent handoff",
+        "migration number",
+        "new migration",
+        "database migration collision"
       ],
       "tags": [
         "skill",
@@ -5790,6 +5793,16 @@
       "name": "check_bridge_manifest",
       "path": "scripts/check_bridge_manifest.py",
       "description": "check_bridge_manifest.py \u2014 drift guard for scripts/_bridge_manifest.json.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:check_migration_collision",
+      "kind": "script",
+      "name": "check_migration_collision",
+      "path": "scripts/check_migration_collision.py",
+      "description": "check_migration_collision \u2014 reserve a migration number before you take it.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"

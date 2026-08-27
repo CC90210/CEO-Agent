@@ -239,6 +239,11 @@ by `scripts/state/coord_guard.py`, not by your good intentions.
 6. **Telegram is human↔agent; the Turso tables are agent↔agent.** Bots cannot
    see each other's messages — replying to a peer in the group reaches nobody.
 
+7. **Migration numbers are allocated, not picked.** `database/**` is contested
+   and numbers collide silently. Before writing one:
+   `python scripts/check_migration_collision.py reserve <n> --task "<what>"` —
+   it checks disk, the git index, AND live peer leases, then announces it.
+
 Full procedure: `skills/cross-agent-coordination/SKILL.md` · ownership:
 `brain/OWNERSHIP_MAP.yaml` · APEX's side: `docs/APEX_SYSTEM_MESSAGE.md`.
 <!-- /LOCKSTEP:coordination -->
