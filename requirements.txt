@@ -5,7 +5,7 @@ cryptography==48.0.1
 firecrawl-py==4.22.0
 mem0ai==2.0.0b2
 numpy==2.4.2
-pillow==12.2.0
+pillow==12.3.0
 playwright==1.58.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
