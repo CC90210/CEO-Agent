@@ -57,8 +57,22 @@ DEFAULT_GROUP_ID = -5165125484  # OASIS coordination group
 
 # This agent's identity in the table (the APEX contract value) and the
 # human-facing label in the group line. Both overridable via env.
+# Bravo's WIRE key stays "cc-agent" until APEX acknowledges the rename.
+#
+# Canonical identity is "bravo" (see brain/OWNERSHIP_MAP.yaml and coord_claim.ME),
+# and this SHOULD become "bravo". It has not been flipped yet on purpose: APEX's
+# poller filters Bravo's rows with agent=eq.cc-agent, so flipping unilaterally
+# would make Bravo invisible to APEX. That is not hypothetical — on 2026-08-16 a
+# single row was written under "bravo" instead of "cc-agent" and APEX never saw
+# it. Renaming a key both sides filter on is a COORDINATED change; it is gated on
+# APEX confirming it reads SELF_KEYS, per the handover doc's rename step.
 ME_KEY = os.environ.get("COORD_AGENT_KEY", "cc-agent")
 ME_LABEL = os.environ.get("COORD_AGENT_LABEL", "BRAVO")
+# Every key that has ever meant "this agent". Used for self-exclusion so Bravo
+# never reacts to its own rows regardless of which key wrote them — the 90 days
+# to 2026-08-27 contain rows under BOTH "cc-agent" (108) and "bravo" (1).
+SELF_KEYS = [k.strip() for k in os.environ.get(
+    "COORD_SELF_KEYS", "cc-agent,bravo").split(",") if k.strip()]
 # Adon's agent answers to BOTH names: "Apex" is the persona, "Knut" is the bot
 # (@KnutRPEbot). They are one system, not two peers. Defaulting to "apex" alone
 # meant a row written under agent="knut" was invisible to every peer read —
@@ -67,8 +81,14 @@ ME_LABEL = os.environ.get("COORD_AGENT_LABEL", "BRAVO")
 # editing the same file. Same entity, both keys.
 PEER_KEYS = [k.strip() for k in os.environ.get("COORD_PEER_KEYS", "apex,knut").split(",") if k.strip()]
 
-VALID_STATUS = ("start", "working", "done", "blocked")
-_STATUS_EMOJI = {"start": "🟧", "working": "🟧", "done": "🟩", "blocked": "🟥"}
+# `ack` added 2026-08-27: two-step verification. A change to a surface the
+# ownership map assigns to the OTHER agent needs that agent to acknowledge it
+# before merge. Without a distinct status there was no way to record "the peer
+# has seen and accepted this" — it lived in prose in the group chat, where
+# neither agent could query it.
+VALID_STATUS = ("start", "working", "done", "blocked", "ack")
+_STATUS_EMOJI = {"start": "🟧", "working": "🟧", "done": "🟩",
+                 "blocked": "🟥", "ack": "🟦"}
 
 # Channel-isolation denylists, IMPORTED from notify.py rather than copied.
 #
@@ -152,7 +172,10 @@ def peer_open(hours=6, peers=None):
     status is start/working (i.e. not yet done/blocked)."""
     peers = peers or PEER_KEYS
     rows = recent(hours=hours, limit=200)
-    rows = [r for r in rows if r.get("agent") in peers]
+    # Filter to peers AND explicitly drop every self key. Belt and braces: a
+    # misconfigured COORD_PEER_KEYS that included one of our own aliases would
+    # otherwise make Bravo treat its own claim as a peer's and block itself.
+    rows = [r for r in rows if r.get("agent") in peers and r.get("agent") not in SELF_KEYS]
     latest = {}
     for r in rows:  # rows are newest-first; first seen per key is the latest
         key = (r.get("agent"), r.get("task"))

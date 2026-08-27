@@ -49,6 +49,10 @@
           {
             "type": "command",
             "command": "{{PY}} $CLAUDE_PROJECT_DIR/scripts/state/state_sync.py --note \"Session end automatic state sync\""
+          },
+          {
+            "type": "command",
+            "command": "{{PY}} $CLAUDE_PROJECT_DIR/scripts/integrations/coord_claim.py release --session \"$CLAUDE_SESSION_ID\""
           }
         ]
       }
@@ -129,6 +133,10 @@
           {
             "type": "command",
             "command": "{{PY}} $CLAUDE_PROJECT_DIR/scripts/hooks/subprocess_guard.py"
+          },
+          {
+            "type": "command",
+            "command": "{{PY}} $CLAUDE_PROJECT_DIR/scripts/state/coord_guard.py"
           }
         ]
       }
