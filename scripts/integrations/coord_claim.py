@@ -153,6 +153,19 @@ def _validate_paths(repo: str, paths: list[str], *, strict: bool) -> list[str]:
                 f"{raw!r} uses a namespace prefix (e.g. 'oasis:', 'turso:'). "
                 "Claims are repo-relative POSIX paths; pass --repo for the namespace.")
         is_glob = any(ch in rel for ch in "*?[")
+        # APEX contract §3.3 edge case: a single extensionless segment is
+        # indistinguishable from a concept name ("pipeline", "settings", "auth")
+        # unless the file really exists. `Makefile` and `Dockerfile` are legal;
+        # `pipeline` is not. Checked even when strict is off, because this is the
+        # exact class that made the old mechanism unmatchable.
+        if not is_glob and "/" not in rel and "." not in rel:
+            root = _repo_root_for_slug(repo)
+            if root is None or not (root / rel).exists():
+                raise ValueError(
+                    f"{raw!r} is a single extensionless segment and no such file "
+                    f"exists in {repo!r}. That is indistinguishable from a concept "
+                    "name ('pipeline', 'settings', 'Turso'), which is what made "
+                    "the previous claim mechanism unmatchable. Use a real path.")
         if strict and not is_glob:
             root = _repo_root_for_slug(repo)
             if root is not None and not (root / rel).exists():

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-26T16:12:11.666990+00:00",
-  "script_count": 158,
-  "entry_count": 332,
+  "generated_at_iso": "2026-08-27T20:38:14.205425+00:00",
+  "script_count": 159,
+  "entry_count": 335,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -402,6 +402,30 @@
       "risk": "read_only",
       "project": "empire",
       "help": "Brain freshness checker (audit Phase 9)."
+    },
+    {
+      "key": "check_migration_collision_next",
+      "path": "scripts/check_migration_collision.py",
+      "root": "bravo",
+      "subcmd": "next",
+      "mutating": true,
+      "help": "check_migration_collision \u2014 reserve a migration number before you take it. \u2014 subcommand: next"
+    },
+    {
+      "key": "check_migration_collision_check",
+      "path": "scripts/check_migration_collision.py",
+      "root": "bravo",
+      "subcmd": "check",
+      "mutating": true,
+      "help": "check_migration_collision \u2014 reserve a migration number before you take it. \u2014 subcommand: check"
+    },
+    {
+      "key": "check_migration_collision_reserve",
+      "path": "scripts/check_migration_collision.py",
+      "root": "bravo",
+      "subcmd": "reserve",
+      "mutating": true,
+      "help": "check_migration_collision \u2014 reserve a migration number before you take it. \u2014 subcommand: reserve"
     },
     {
       "key": "client_health_report",

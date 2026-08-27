@@ -31,9 +31,15 @@
 #
 # Related: [[brain/AGENT_ORCHESTRATION]] | [[brain/APP_REGISTRY]] | [[CONTEXT]]
 
-version: 1
+version: 2
 updated: 2026-08-27
 derived_from: 90d commit attribution, measured 2026-08-27
+# v2 (2026-08-27): repo keys are REMOTE-DERIVED SLUGS, per the algorithm agreed
+# with APEX (contract §3.1). Directory names were the v1 key and could not work:
+# APEX runs 85 linked worktrees of oasis-command-center, which produced 85
+# distinct slugs under the old rule, so 84 of them matched nothing and were
+# silently unprotected. Reproduced locally before the change.
+slug_rule: last path segment of remote.origin.url, .git stripped, lowercased
 
 agents:
   bravo:
@@ -41,11 +47,12 @@ agents:
     machine: CCPC
     runtimes: [claude-code, gemini-cli, antigravity, opencode, zcode, codex]
     git_identities: [CC90210, CC]
-    wire_key: cc-agent          # rename to `bravo` gated on APEX ack — see agent_activity.py
+    wire_key: bravo             # flipped 2026-08-27 — APEX confirmed it reads both keys
+    legacy_wire_keys: [cc-agent]
     canonical_key: bravo
   apex:
     operator: Adon
-    machine: unknown            # APEX to set on its first lease — coord_claims.machine
+    machine: UPPAECHELON        # confirmed by APEX 2026-08-27
     telegram: "@KnutRPEbot"
     git_identities: ["APEX (Adon)", APEX, "Adon Bousseau", Adon, "JARVIS AI Assistant"]
     wire_key: apex
@@ -103,8 +110,12 @@ repos:
         - next.config.js
         - .github/workflows/**
 
-  Business-Empire-Agent:
-    remote: CC90210/Business-Empire-Agent
+  ceo-agent:
+    # Slug is remote-derived (CC90210/CEO-Agent), NOT the directory name, which
+    # is `Business-Empire-Agent` locally. Keys here MUST be the remote-derived
+    # slug or a lease keys on a name the peer never produces.
+    directory_name_local: Business-Empire-Agent
+    remote: CC90210/CEO-Agent
     note: >-
       Bravo's own substrate. APEX reads it for patterns and may propose changes,
       but does not commit here without an explicit handoff.

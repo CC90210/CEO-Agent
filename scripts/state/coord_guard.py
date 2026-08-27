@@ -243,6 +243,20 @@ def main() -> int:
         if source.startswith(("stale-cache", "unavailable")):
             log_jsonl(LOG_PATH, {"decision": "allowed-degraded", "repo": repo,
                                  "path": rel, "source": source})
+            # SAY IT ON STDERR, not just in the log. APEX raised this as its §4.2
+            # on 2026-08-27 and it reproduced here: with an unreachable DB AND a
+            # corrupt mirror, the guard returned zero peer claims — indistinguishable
+            # from "nobody holds anything" — and the only thing the operator saw
+            # was a routine contested-surface nudge. The log was honest; the
+            # channel a human reads was not. Absence of data must never present
+            # as absence of a problem.
+            blind = source.startswith("unavailable")
+            sys.stderr.write(
+                f"[coord_guard] {'BLIND' if blind else 'DEGRADED'} — "
+                f"{'could not read ANY lease data' if blind else 'using stale cached leases'} "
+                f"({source}). This edit to {repo}/{rel} was ALLOWED WITHOUT A CHECK. "
+                f"A peer may be in this file. Verify before you rely on it:\n"
+                f"  python scripts/integrations/coord_claim.py status --repo {repo} --all-agents\n")
         _nudge_if_contested(repo, rel, me)
         return 0
 

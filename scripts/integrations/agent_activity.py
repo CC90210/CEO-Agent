@@ -32,6 +32,7 @@ Never hardcode secrets. Telegram mirror uses CC_AGENT_BOT_TOKEN + COORD_GROUP_CH
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -57,16 +58,15 @@ DEFAULT_GROUP_ID = -5165125484  # OASIS coordination group
 
 # This agent's identity in the table (the APEX contract value) and the
 # human-facing label in the group line. Both overridable via env.
-# Bravo's WIRE key stays "cc-agent" until APEX acknowledges the rename.
+# FLIPPED to "bravo" on 2026-08-27, after APEX confirmed in writing that its
+# relay does not filter by agent at all (it reads every row past the cursor) and
+# that its peer test accepts both keys, pinned by a test on its side.
 #
-# Canonical identity is "bravo" (see brain/OWNERSHIP_MAP.yaml and coord_claim.ME),
-# and this SHOULD become "bravo". It has not been flipped yet on purpose: APEX's
-# poller filters Bravo's rows with agent=eq.cc-agent, so flipping unilaterally
-# would make Bravo invisible to APEX. That is not hypothetical — on 2026-08-16 a
-# single row was written under "bravo" instead of "cc-agent" and APEX never saw
-# it. Renaming a key both sides filter on is a COORDINATED change; it is gated on
-# APEX confirming it reads SELF_KEYS, per the handover doc's rename step.
-ME_KEY = os.environ.get("COORD_AGENT_KEY", "cc-agent")
+# The sequencing mattered and is the lesson worth keeping: change the READER
+# before the WRITER. Flipping first would have made Bravo invisible to APEX —
+# not hypothetical, a single row written as "bravo" on 2026-08-16 was never seen.
+# "cc-agent" remains in SELF_KEYS so 108 rows of history stay attributable.
+ME_KEY = os.environ.get("COORD_AGENT_KEY", "bravo")
 ME_LABEL = os.environ.get("COORD_AGENT_LABEL", "BRAVO")
 # Every key that has ever meant "this agent". Used for self-exclusion so Bravo
 # never reacts to its own rows regardless of which key wrote them — the 90 days
@@ -239,9 +239,55 @@ def claims(hours=6, peers=None):
 # Writes
 # --------------------------------------------------------------------------
 
-def post(status, task, files=None, branch=None, detail=None, mirror=False, agent=None):
+# Text that describes a credential / quota / auth / dependency failure. Such a
+# row MUST be posted as `blocked`: the peer's poller wakes on `blocked` and
+# treats `working` as awareness-only, so the wrong status is not a cosmetic slip
+# — it is silence that looks like a report.
+#
+# This exists because of 2026-08-25: APEX posted "Anthropic API credits
+# exhausted and Groq fallback failed" as `working`. Nothing escalated and the
+# outage went unnoticed for two days. APEX built the same check on its side and
+# it immediately caught APEX's own message; this is Bravo's half.
+#
+# Each alternative is written to be matchable ON ITS OWN. APEX found a dead
+# a dead word-boundary pattern in its version that could never match "exhausted" — the suite
+# stayed green because a DIFFERENT alternative caught the same test sentence.
+# test_escalation_patterns_each_fire_alone pins every one individually.
+_ESCALATION_RE = re.compile(
+    r"(credit|quota|rate[- ]?limit|billing)s?\s+(exhaust\w*|expired?|depleted|exceeded)"
+    r"|exhaust\w*\s+(credit|quota)"
+    r"|(out of|no)\s+(credit|quota|token)s?"
+    r"|(auth\w*|credential|token|api[- ]?key|password)\s+\w{0,12}?\s*(fail\w*|expired?|invalid|revoked|rejected)"
+    r"|(401|403)\s+(unauthor\w*|forbidden)"
+    r"|(fallback|failover)\s+fail\w*"
+    r"|(service|daemon|worker|cron)\s+\w{0,12}?\s*(is\s+)?(down|stopped|dead|crashed)"
+    r"|(down|stopped)\s+for\s+\d+\s*(h|hour|day)"
+    r"|cannot\s+(connect|authenticate|reach)"
+    r"|top\s*up\s+at\b",
+    re.I)
+
+
+def escalation_hits(text):
+    """Every distinct escalation phrase in `text` (empty when clean)."""
+    return [m.group(0) for m in _ESCALATION_RE.finditer(text or "")]
+
+
+def post(status, task, files=None, branch=None, detail=None, mirror=False, agent=None,
+         allow_unescalated=False):
     if status not in VALID_STATUS:
         raise ValueError(f"status must be one of {VALID_STATUS}, got {status!r}")
+
+    hits = escalation_hits(f"{task or ''} {detail or ''}")
+    if hits and status != "blocked" and not allow_unescalated:
+        raise ValueError(
+            "REFUSED: this row reads as a credential/quota/auth/dependency failure "
+            f"but its status is {status!r}. Matched: {hits[:3]}.\n"
+            "A peer's poller wakes on `blocked` and treats `working` as "
+            "awareness-only, so posting this as anything else is silence that "
+            "looks like a report (this is the 2026-08-25 failure).\n"
+            "Fix the status, or split the blockers into their own `blocked` row — "
+            "that is almost always the right move. Override with "
+            "--allow-unescalated only as a deliberate, visible decision.")
     row = {
         "agent": agent or ME_KEY,
         "status": status,
@@ -346,6 +392,9 @@ def main():
     po.add_argument("--detail")
     po.add_argument("--agent", help=f"override agent key (default {ME_KEY})")
     po.add_argument("--mirror", action="store_true", help="also post the line to the OASIS group")
+    po.add_argument("--allow-unescalated", action="store_true",
+                    help="post failure-shaped text under a non-blocked status. A deliberate, "
+                         "visible decision — it shows up in shell history as one.")
     po.add_argument("--json", action="store_true")
 
     pl = sub.add_parser("line", help="format a status line without inserting")
@@ -366,11 +415,17 @@ def main():
         # claims() returns a dict {file: [claimants]} — always structured.
         print(json.dumps(claims(a.hours), indent=2, default=str))
     elif a.cmd == "post":
-        res = post(a.status, a.task, files, a.branch, a.detail, mirror=a.mirror, agent=a.agent)
+        try:
+            res = post(a.status, a.task, files, a.branch, a.detail, mirror=a.mirror,
+                       agent=a.agent, allow_unescalated=a.allow_unescalated)
+        except ValueError as e:
+            print(str(e), file=sys.stderr)
+            return 2
         _print(res if a.json else res["line"], a.json)
     elif a.cmd == "line":
         print(format_line(a.status, a.task, files, a.branch, a.detail))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)

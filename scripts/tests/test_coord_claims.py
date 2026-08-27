@@ -61,7 +61,7 @@ def test_grammar_refuses_uncomparable_claims(claim_mod, bad):
 
 def test_grammar_refuses_a_path_that_does_not_exist_in_the_repo(claim_mod):
     with pytest.raises(ValueError) as e:
-        claim_mod._validate_paths("Business-Empire-Agent",
+        claim_mod._validate_paths("ceo-agent",
                                   ["definitely/not/here.ts"], strict=True)
     assert "protects nothing" in str(e.value)
 
@@ -103,10 +103,11 @@ def test_directory_claim_does_not_leak_to_sibling_prefix():
 # -------------------------------------------------------------- ownership ----
 
 def test_specific_pattern_beats_broad_pattern():
-    """bravo owns `**` in Business-Empire-Agent, but the shared handover docs
+    """bravo owns `**` in ceo-agent (this repo; slug is remote-derived, the
+    directory is named Business-Empire-Agent), but the shared handover docs
     must still resolve to `shared` — otherwise the broad rule swallows them."""
-    assert ownership.owner("Business-Empire-Agent", "scripts/foo.py") == "bravo"
-    assert ownership.owner("Business-Empire-Agent",
+    assert ownership.owner("ceo-agent", "scripts/foo.py") == "bravo"
+    assert ownership.owner("ceo-agent",
                            "docs/APEX_SYSTEM_MESSAGE.md") == "shared"
 
 
@@ -184,13 +185,13 @@ def test_guard_never_blocks_on_my_own_lease():
 def test_guard_does_not_block_a_same_named_file_in_another_repo():
     r = _run_guard({"tool_name": "Edit",
                     "tool_input": {"file_path": str(REPO_ROOT / "README.md")}},
-                   [_lease(repo="Business-Empire-Agent", path="README.md")
+                   [_lease(repo="ceo-agent", path="README.md")
                     | {"agent": "apex"}])
     # peer lease is on Business-Empire-Agent/README.md and so is the edit -> blocked
     assert r.returncode == 2
     r2 = _run_guard({"tool_name": "Edit",
                      "tool_input": {"file_path": f"{OCC}/README.md"}},
-                    [_lease(repo="Business-Empire-Agent", path="README.md")
+                    [_lease(repo="ceo-agent", path="README.md")
                      | {"agent": "apex"}])
     assert r2.returncode == 0, "a lease in one repo must not block another repo"
 
@@ -312,3 +313,158 @@ def test_cron_filter_never_hides_an_unpinned_job():
     ])
     assert [j["name"] for j in mine] == ["unpinned", "blank"]
     assert [j["name"] for j in theirs] == ["elsewhere"]
+
+
+# ================= APEX contract conformance (2026-08-27) =====================
+# APEX (Adon's agent, machine UPPAECHELON) and Bravo must answer these
+# IDENTICALLY or a lease means different things to each of us. Vectors are
+# copied verbatim from APEX's contract §3.1 / §3.2 / §3.3. Do not "fix" a
+# failure here by changing the expectation — it is a negotiated interface.
+
+@pytest.mark.parametrize("url", [
+    "https://github.com/CC90210/oasis-command-center.git",
+    "https://github.com/CC90210/oasis-command-center",
+    "git@github.com:CC90210/oasis-command-center.git",       # scp-like, colon
+    "ssh://git@github.com/CC90210/Oasis-Command-Center.git",  # case normalises
+])
+def test_apex_slug_vectors(url):
+    assert repo_paths.slug_from_url(url) == "oasis-command-center"
+
+
+def test_a_worktree_resolves_to_the_same_slug_as_its_main_checkout():
+    """THE blocking defect APEX reported: the slug was the top-level DIRECTORY
+    name, so its 85 linked worktrees of oasis-command-center produced 85
+    distinct slugs and 84 of them silently protected nothing.
+
+    Reproduced locally before the fix (a worktree resolved to 'wt-probe').
+    """
+    import subprocess
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        wt = Path(td) / "wt"
+        r = subprocess.run(["git", "worktree", "add", "--detach", str(wt), "HEAD"],
+                           cwd=REPO_ROOT, capture_output=True, text=True)
+        if r.returncode != 0:
+            pytest.skip(f"could not create worktree: {r.stderr[:120]}")
+        try:
+            main = repo_paths.resolve(REPO_ROOT / "README.md")
+            linked = repo_paths.resolve(wt / "README.md")
+            assert main and linked
+            assert main[0] == linked[0], (
+                f"worktree slug {linked[0]!r} != main slug {main[0]!r} — "
+                "the gate would protect nothing in this worktree")
+            assert linked[1] == "README.md", "repo-relative path must anchor at the worktree"
+        finally:
+            subprocess.run(["git", "worktree", "remove", "--force", str(wt)],
+                           cwd=REPO_ROOT, capture_output=True, text=True)
+
+
+def test_slug_is_remote_derived_not_directory_name():
+    """This repo's directory is Business-Empire-Agent; its remote is CEO-Agent.
+    The slug must follow the REMOTE, or Bravo and APEX key on different names."""
+    got = repo_paths.resolve(REPO_ROOT / "README.md")
+    assert got is not None and got[0] == "ceo-agent"
+
+
+@pytest.mark.parametrize("glob,path,expected", [
+    ("lib/drips/executor.ts", "lib/drips/executor.ts", True),
+    ("lib/drips", "lib/drips/x.ts", True),
+    ("lib/drips", "lib/dripsfoo.ts", False),          # prefix != directory
+    ("services/leadgen/**", "services/leadgen/index.mjs", True),
+    ("services/leadgen/**", "services/leadgen/a/b/c.mjs", True),
+    ("app/api/**", "app/api/leads/route.ts", True),
+    ("components/*", "components/leads/table.tsx", True),   # deliberate over-match
+    ("lib/drips/**", "lib/sms/x.ts", False),
+])
+def test_apex_coverage_vectors(glob, path, expected):
+    assert repo_paths.covers(glob, path) is expected
+
+
+@pytest.mark.parametrize("bad", ["pipeline", "settings", "auth", "Turso"])
+def test_single_extensionless_segment_is_refused_as_a_concept_name(claim_mod, bad):
+    """APEX §3.3: `Makefile` is legal only because it exists; `pipeline` is not."""
+    with pytest.raises(ValueError):
+        claim_mod._validate_paths("ceo-agent", [bad], strict=False)
+
+
+def test_real_extensionless_file_is_still_allowed(claim_mod):
+    assert claim_mod._validate_paths("ceo-agent", ["LICENSE"], strict=False) == ["LICENSE"]
+
+
+# --- APEX §4.4: every matcher must fire ALONE -------------------------------
+# APEX shipped an escalation lint containing \bexhaust\b, which cannot match
+# "exhausted" (no word boundary). The rule was DEAD, and the suite stayed green
+# because a DIFFERENT alternative caught the same test sentence. Verifying that
+# a result appears is not verifying that the component under test produced it.
+
+ESCALATION_SENTENCES = [
+    "Anthropic API credits exhausted and Groq fallback failed",  # the 2026-08-25 row
+    "billing quota exceeded on the provider",
+    "we are out of credits",
+    "auth token expired for the mailbox",
+    "returned 401 unauthorized from the API",
+    "the failover failed as well",
+    "operator-email service is down",
+    "tt-agent stopped for 29 hours",
+    "cannot connect to the database",
+    "top up at console.anthropic.com",
+]
+
+
+@pytest.mark.parametrize("sentence", ESCALATION_SENTENCES)
+def test_escalation_patterns_each_fire_alone(sentence):
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "integrations"))
+    import agent_activity
+    assert agent_activity.escalation_hits(sentence), (
+        f"no escalation pattern matched {sentence!r} — a dead alternative hides "
+        "behind a live one exactly like APEX's \bexhaust\b did")
+
+
+@pytest.mark.parametrize("benign", [
+    "Shipped the drip timezone fix",
+    "Reviewed PR 331 and merged to main",
+    "Pipeline tabs done, moved to Applications",
+    "Refactored the lead scoring helper",
+])
+def test_escalation_matcher_does_not_cry_wolf(benign):
+    """A probe that cries wolf gets ignored, and an ignored probe is worse than
+    none — APEX's own words about its capability probe."""
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "integrations"))
+    import agent_activity
+    assert agent_activity.escalation_hits(benign) == []
+
+
+def test_post_refuses_a_failure_row_under_a_non_blocked_status():
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "integrations"))
+    import agent_activity
+    with pytest.raises(ValueError) as e:
+        agent_activity.post("working", "Re: turnkey release",
+                            detail="Anthropic API credits exhausted and Groq fallback failed.")
+    assert "blocked" in str(e.value).lower()
+
+
+def test_guard_shouts_when_it_is_blind():
+    """APEX §4.2: absence of data must never present as absence of a problem.
+    With no readable lease data the edit is allowed, but the operator MUST see
+    that it was allowed without a check."""
+    import os
+    import subprocess
+    mirror = REPO_ROOT / "state" / "coord_claims_mirror.json"
+    backup = mirror.read_text(encoding="utf-8") if mirror.exists() else None
+    try:
+        mirror.write_text("not json{{{", encoding="utf-8")
+        env = {**os.environ, "EMPIRE_HOOK_COORD_GUARD": "enforce",
+               "TURSO_DATABASE_URL": "libsql://unreachable-xyz.turso.io",
+               "COORD_AGENT_KEY": "bravo"}
+        r = subprocess.run(
+            [sys.executable, str(GUARD)],
+            input=json.dumps({"tool_name": "Edit",
+                              "tool_input": {"file_path": f"{OCC}/lib/drips/executor.ts"}}),
+            capture_output=True, text=True, env=env, timeout=180)
+        assert r.returncode == 0, "a collision gate must not wedge work when blind"
+        assert "BLIND" in r.stderr and "WITHOUT A CHECK" in r.stderr
+    finally:
+        if backup is not None:
+            mirror.write_text(backup, encoding="utf-8")
+        elif mirror.exists():
+            mirror.unlink()
