@@ -150,7 +150,12 @@ def cmd_set(args) -> Any:
     payload = {
         "key": args.key,
         "value": args.value,
-        "type": args.type,  # "encrypted" (default) | "plain" | "secret"
+        # Vercel's accepted values are: system | encrypted | plain | sensitive.
+        # "sensitive" is required to UPDATE a var that is already sensitive --
+        # Vercel rejects any type change on one ("You cannot change the type of a
+        # Sensitive Environment Variable"), so omitting it here made every
+        # already-sensitive production var un-writable by this tool.
+        "type": args.type,
         "target": targets,
     }
     try:
@@ -233,14 +238,14 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--key", required=True, help="Env var name")
     s.add_argument("--value", required=True, help="Env var value")
     s.add_argument("--env", default="production", help="Comma-separated: production,preview,development")
-    s.add_argument("--type", default="encrypted", choices=["encrypted", "plain", "secret"])
+    s.add_argument("--type", default="encrypted", choices=["encrypted", "plain", "secret", "sensitive"])
     s.set_defaults(func=cmd_set)
 
     sr = sub.add_parser("set-random", help="Generate a strong random value + set it")
     sr.add_argument("--project", required=True)
     sr.add_argument("--key", required=True)
     sr.add_argument("--env", default="production,preview,development")
-    sr.add_argument("--type", default="encrypted", choices=["encrypted", "plain", "secret"])
+    sr.add_argument("--type", default="encrypted", choices=["encrypted", "plain", "secret", "sensitive"])
     sr.add_argument("--bytes", type=int, default=48, help="random byte length pre-encoding (default 48 -> ~64 char base64url)")
     sr.set_defaults(func=cmd_set_random)
 
