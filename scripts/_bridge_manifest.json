@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-27T20:38:14.205425+00:00",
-  "script_count": 159,
-  "entry_count": 335,
+  "generated_at_iso": "2026-08-27T21:21:22.740282+00:00",
+  "script_count": 160,
+  "entry_count": 336,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1689,6 +1689,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "prune_merged_branches \u2014 delete remote branches whose commits are already in main."
+    },
+    {
+      "key": "publish_ownership_map",
+      "path": "scripts/publish_ownership_map.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "publish_ownership_map \u2014 keep the shared copy of OWNERSHIP_MAP.yaml honest."
     },
     {
       "key": "pulse_publish_refresh",
