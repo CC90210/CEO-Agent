@@ -135,8 +135,8 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **163 active skills**. Eac
 - **Path:** `skills/crisis-response/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/cross-agent-coordination/SKILL|cross-agent-coordination]]
-- **Use when:** Use when editing any file in a repo Adon/APEX also touches (oasis-command-center above all), when starting work on a shared surface, when a coord_guard block appears, when handing work to or from APEX, or when a peer reports being blocked. Covers file leases, the ownership map, i
-- **Triggers:** claim a file, file lease, shared file, coord guard, coord_guard blocked, APEX, Adon agent, cross-agent collision, peer claim, editing shared repo, oasis-command-center edit, agent overlap, release claim, who owns this file, coordinate with APEX, peer blocked, agent handoff, migration number, new migration, database migration collision
+- **Use when:** Use when editing any file in a repo Adon/APEX also touches, or when reviewing APEX's pull requests on surfaces Bravo owns (oasis-command-center above all), when starting work on a shared surface, when a coord_guard block appears, when handing work to or from APEX, or when a peer
+- **Triggers:** claim a file, file lease, shared file, coord guard, coord_guard blocked, APEX, Adon agent, cross-agent collision, peer claim, editing shared repo, oasis-command-center edit, agent overlap, release claim, who owns this file, coordinate with APEX, peer blocked, agent handoff, migration number, new migration, database migration collision, review APEX PR, review peer PR, APEX changed my file, peer changed a file I own, cross agent review, context review, ack a PR, block a PR, peer review verdict, APEX pull request, review the peer's work
 - **Path:** `skills/cross-agent-coordination/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/currency-audit/SKILL|currency-audit]]
