@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-08-27
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Session end automatic state sync
+- **Result:** OASIS booking chain turnkey pass - PRs 331-334 shipped, health watchdog on workspace credential, preview env wired, stale assertion unblocked 14 test files
 
 *Last updated: 2026-08-27*
 
@@ -202,6 +202,6 @@ _Last synced: 2026-08-27T08:00:57.705220+00:00_
 
 - **Date:** 2026-08-27
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Session end automatic state sync
+- **Result:** OASIS booking chain turnkey pass - PRs 331-334 shipped, health watchdog on workspace credential, preview env wired, stale assertion unblocked 14 test files
 
 *Last updated: 2026-08-27*
