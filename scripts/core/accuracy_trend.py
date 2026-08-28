@@ -160,6 +160,44 @@ def evals_by_week(weeks: int) -> dict[str, dict]:
     return {w: buckets[w] for w in keep}
 
 
+def harness_scheduled(limit: int = 14) -> dict:
+    """The last N SCHEDULED runs — system health with mid-edit noise removed.
+
+    WHY THIS IS THE HONEST NUMBER (2026-08-28): the fleet-compiles check reads
+    the working tree, and during a multi-step refactor that tree is genuinely
+    broken between commits — `_SUFFIX_RULES` was referenced one edit before it
+    was defined, and the check correctly failed. But 44 ad-hoc runs fired while
+    editing that day against ONE nightly cron run, so "the harness score" was
+    mostly measuring whether an agent happened to be mid-edit.
+
+    The check is right and is deliberately not softened; a cron firing in that
+    window really would have crashed. This separates the QUESTION instead: cron
+    runs answer "is the system healthy", ad-hoc runs answer "is the tree clean
+    this second". Runs before --source existed have no label and are excluded
+    rather than assumed — guessing would defeat the point.
+    """
+    rows = []
+    if HARNESS_HISTORY.is_file():
+        for line in HARNESS_HISTORY.read_text(encoding="utf-8",
+                                              errors="replace").splitlines():
+            if not line.strip():
+                continue
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if r.get("source") == "cron" and _ratio(r.get("score")) is not None:
+                rows.append(r)
+    rows.sort(key=lambda r: r.get("timestamp") or "")
+    w = rows[-limit:]
+    if not w:
+        return {}
+    vals = [_ratio(r["score"]) for r in w]
+    return {"runs": len(w), "mean": sum(vals) / len(vals),
+            "perfect": sum(1 for r in w if r.get("pass")),
+            "latest": w[-1].get("timestamp", "")[:16]}
+
+
 def harness_trailing(windows=(5, 20, 50)) -> dict[int, dict]:
     """Trailing-window rates — what the harness scores NOW.
 
@@ -204,6 +242,7 @@ def build(weeks: int) -> dict:
             "weeks": weeks,
             "harness": harness_by_week(weeks),
             "harness_now": harness_trailing(),
+            "harness_scheduled": harness_scheduled(),
             "gate": gate_by_week(weeks),
             "evals": evals_by_week(weeks)}
 
@@ -223,6 +262,13 @@ def render(data: dict) -> str:
     L.append("=" * 72)
     L.append(" ACCURACY TREND — harness · eval suites · review gate")
     L.append("=" * 72)
+
+    sched = data.get("harness_scheduled") or {}
+    if sched:
+        L.append("")
+        L.append("SCHEDULED RUNS ONLY (system health, without mid-edit noise)")
+        L.append(f"  last {sched['runs']} cron runs  {sched['mean'] * 100:5.1f}%   "
+                 f"perfect {sched['perfect']}/{sched['runs']}   latest {sched['latest']}")
 
     now = data.get("harness_now") or {}
     if now:

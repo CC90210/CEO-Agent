@@ -688,6 +688,22 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--json", action="store_true", help="machine-readable output")
     p.add_argument("--with-model", action="store_true",
                    help="include the live claude-CLI probe (~5-20s, spends one subscription call)")
+    # WHY A SOURCE LABEL (2026-08-28): the score conflated two different
+    # questions — "is the system healthy" and "was an agent mid-edit". A
+    # multi-step refactor leaves the working tree genuinely broken BETWEEN
+    # commits (on this day, `_SUFFIX_RULES` was referenced one edit before it
+    # was defined), and the fleet-compiles check correctly reported that. But
+    # dozens of ad-hoc runs fired during editing then drowned out the one
+    # SCHEDULED run that actually measures system health: 44 ad-hoc runs against
+    # a single nightly cron.
+    #
+    # The check is not wrong and must not be softened — a cron firing in that
+    # window really would have crashed. The MEASUREMENT is what needed fixing,
+    # so the run records how it was triggered and the trend can report scheduled
+    # runs separately.
+    p.add_argument("--source", default="adhoc",
+                   help="who triggered this run (cron|adhoc|ci) — recorded in history "
+                        "so scheduled health can be read apart from mid-edit noise")
     args = p.parse_args(argv)
 
     results = []
@@ -711,6 +727,7 @@ def main(argv: list[str] | None = None) -> int:
     _append_history({"run_id": run_id, "timestamp": timestamp,
                      "score": f"{passed}/{total}", "pass": passed == total,
                      "with_model": bool(args.with_model),
+                     "source": str(args.source),
                      "slices": slices,
                      "failed": [r["check"] for r in results if not r["ok"]]})
 

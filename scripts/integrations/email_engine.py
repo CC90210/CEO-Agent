@@ -1690,9 +1690,24 @@ def cmd_check_inbox(env_vars, args, output_json=False):
         # up. This bounds the run WITHOUT capping how much mail we will ever
         # process, which a smaller IMAP_MAX_EMAILS would have done.
         sweep_started = time.monotonic()
-        sweep_deadline = sweep_started + SWEEP_BUDGET_SEC
+        # DEADLINE IS ANCHORED TO PROCESS START, NOT TO THIS POINT (2026-08-28).
+        # The first version anchored it here — after the Turso connect, the IMAP
+        # login and the UNSEEN search — so the budget silently excluded the
+        # startup it was meant to protect against. The breadcrumbs measured that
+        # startup at 38.5s on this machine (process spawn is AV-slowed to ~4s and
+        # the DB connect dominates the rest), so a 210s budget was really
+        # 39 + 210 + one in-flight message, and the job was still killed at the
+        # 300s wall — 21:18:57 start, FAILED (timeout) recorded at 21:22:58.
+        #
+        # Anchoring to _run_started makes SWEEP_BUDGET_SEC mean what it says:
+        # the whole run, startup included, leaving the remaining ~90s of the
+        # wall as headroom for the one message already in flight.
+        sweep_deadline = _run_started + SWEEP_BUDGET_SEC
+        _log_sweep_progress("budget_anchored", _run_started,
+                            budget_s=SWEEP_BUDGET_SEC,
+                            startup_cost_s=round(sweep_started - _run_started, 1))
         deferred = 0
-        _log_sweep_progress("loop_start", sweep_started,
+        _log_sweep_progress("loop_start", _run_started,
                             queued=len(message_ids), budget_s=SWEEP_BUDGET_SEC)
 
         for uid in message_ids:
@@ -1715,10 +1730,10 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                       f"budget left (need {MESSAGE_RESERVE_SEC}s to start a message) — "
                       f"stopping cleanly with {deferred} message(s) left UNSEEN for the "
                       f"next tick", file=sys.stderr)
-                _log_sweep_progress("budget_reached", sweep_started,
+                _log_sweep_progress("budget_reached", _run_started,
                                     deferred=deferred, remaining_s=round(remaining, 1))
                 break
-            _log_sweep_progress("message_start", sweep_started,
+            _log_sweep_progress("message_start", _run_started,
                                 idx=message_ids.index(uid) + 1, of=len(message_ids))
             uid_str = uid.decode() if isinstance(uid, bytes) else str(uid)
             fetch_status, fetch_data = imap.fetch(uid, "(RFC822)")
@@ -2215,7 +2230,7 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             # make the UNSEEN sweep skip it forever with no Command Center row —
             # the precise silent-loss shape this run was meant to remove.
             if not ledger_ok:
-                _log_sweep_progress("ledger_failed_message_deferred", sweep_started)
+                _log_sweep_progress("ledger_failed_message_deferred", _run_started)
                 print("[email_inbox] not marking processed — ledger row missing",
                       file=sys.stderr)
                 continue
@@ -2246,11 +2261,11 @@ def cmd_check_inbox(env_vars, args, output_json=False):
         # READ-BEFORE-SWEEP BACKFILL — catch mail CC read before this tick
         # (financial-only routing; see _backfill_read_before_sweep). Shares
         # this run's ledger dict so its entries persist in the save below.
-        _log_sweep_progress("loop_done", sweep_started,
+        _log_sweep_progress("loop_done", _run_started,
                             processed=len(message_ids) - deferred, deferred=deferred)
         _backfill_read_before_sweep(imap, db, processed_msgids,
                                     deadline=sweep_deadline)
-        _log_sweep_progress("backfill_done", sweep_started)
+        _log_sweep_progress("backfill_done", _run_started)
 
         # V2.1: Persist poison UID tracker so failure counts survive across runs
         try:
