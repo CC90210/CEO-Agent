@@ -595,6 +595,42 @@ SEED_JOBS: list[dict] = [
     # destructive commands; it just doesn't create DB rows asking for human
     # approval. The block itself IS the protection.
     {
+        # Added 2026-08-28. The eval suites had not run since 2026-06-10 —
+        # accuracy was unmeasured for eleven weeks, and the first run after
+        # building a runner found `routing` had drifted 100% -> 77.8%. Nothing
+        # surfaced that, because nothing was looking.
+        #
+        # Only BASELINED suites can fail this job. routing_nl is deliberately
+        # red (0.333) and `mistakes` is entirely rubric-scored, so gating on
+        # them would make the alert permanently red and therefore ignored.
+        #
+        # Paging contract: scheduler.py ignores notify_on. A job pages CC by
+        # exiting non-zero AND printing a line starting "ERROR:" — run_suites.py
+        # does both. --json keeps the LAST stdout line a single compact object,
+        # since scheduler stores out[-1][:200] as last_result.
+        "name": "Weekly Eval Suites",
+        "description": "Sunday 05:00 ET — score the eval suites against baselines.json and write evals/reports/. Pages only on a baselined suite regressing or a suite erroring; un-baselined suites are reported, not gated.",
+        "schedule": "0 5 * * SUN",
+        "action_type": "script_run",
+        "action_config": {"script": "evals/run_suites.py", "args": ["--json"],
+                          "timeout": 600},
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-28. RULE -1 makes FTS retrieval the preferred path over
+        # whole-file reads, so the whole retrieval-first design rests on this
+        # index — and nothing rebuilt it. memory_index.db appeared in this file
+        # only for BACKUP, so the index was only ever as fresh as the last
+        # manual run (2026-08-24 when found). build() is incremental by default.
+        "name": "Daily Memory Index Rebuild",
+        "description": "Daily 04:30 ET — incremental FTS/semantic reindex of the vault so memory_retriever queries reflect the current state of memory/ and brain/.",
+        "schedule": "30 4 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/core/memory_retriever.py", "args": ["build"],
+                          "timeout": 900},
+        "is_active": True,
+    },
+    {
         # Added 2026-06-06 (Phase 4 of system re-engineering). After the
         # one-shot tmp/ purge that recovered 6.0 GB, this keeps tmp/ bounded.
         # Allowlist preserves pm2-*.log, events_offline.jsonl, *.lock*, *.pid,

@@ -50,6 +50,15 @@ ALLOWLIST_PATTERNS = (
     # purged every baseline — a backup a cron deletes is worse than none, because
     # the gate still reports "verified" right up until the file is gone.
     "snapshots",
+    # Cron failure archive (2026-08-28). Same trap as `snapshots` above, one
+    # directory over: this scan is TOP-LEVEL ONLY (TMP_DIR.iterdir()), so
+    # cron_failures/ is judged by its own mtime, which only moves when a job
+    # FAILS. A quiet 90-day stretch — the outcome we are working toward — would
+    # therefore delete the entire failure archive in one pass, and the evidence
+    # of what used to break is exactly what you need the first time it breaks
+    # again. Individual files inside it are aged by _prune_cron_failures below,
+    # which is what the retention policy actually wanted.
+    "cron_failures",
     "*.lock",
     "*.lock.json",
     "*.pid",
@@ -114,14 +123,57 @@ def _delete(path: Path) -> bool:
         return False
 
 
+# Failure logs are evidence, so they outlive ordinary tmp/ scratch by a wide
+# margin — long enough to still be there when the same job breaks again.
+CRON_FAILURE_RETENTION_DAYS = 90
+
+
+def _prune_cron_failures(days: int, apply: bool) -> tuple[list[str], int]:
+    """Age individual files INSIDE tmp/cron_failures/.
+
+    _scan() above is top-level only, so it can see the directory but never its
+    contents — which meant the "keep ~90 days" retention policy was never
+    actually implemented for the one place it was written down. The directory
+    itself is allowlisted (deleting the whole archive during a quiet stretch is
+    the failure mode); this ages what is inside it.
+    """
+    d = TMP_DIR / "cron_failures"
+    if not d.is_dir():
+        return [], 0
+    cutoff = time.time() - (days * 86400)
+    removed: list[str] = []
+    freed = 0
+    for f in d.iterdir():
+        if not f.is_file():
+            continue
+        try:
+            st = f.stat()
+        except OSError:
+            continue
+        if st.st_mtime >= cutoff:
+            continue
+        freed += st.st_size
+        if apply:
+            try:
+                f.unlink()
+            except OSError:
+                continue
+        removed.append(f.name)
+    return removed, freed
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--days", type=int, default=30, help="Max age in days (default 30)")
     p.add_argument("--apply", action="store_true", help="Actually delete (default dry-run)")
     p.add_argument("--json", action="store_true", help="Machine-readable output")
+    p.add_argument("--failure-days", type=int, default=CRON_FAILURE_RETENTION_DAYS,
+                   help=f"Age for tmp/cron_failures/ contents "
+                        f"(default {CRON_FAILURE_RETENTION_DAYS})")
     args = p.parse_args()
 
     to_delete, kept = _scan(args.days)
+    stale_failures, failure_bytes = _prune_cron_failures(args.failure_days, args.apply)
     bytes_total = sum(_bytes_for(p) for p in to_delete)
 
     deleted: list[str] = []
@@ -143,6 +195,9 @@ def main() -> int:
         "kept_count": len(kept),
         "deleted": deleted,
         "failed": failed,
+        "cron_failures_pruned": len(stale_failures),
+        "cron_failures_bytes": failure_bytes,
+        "cron_failures_cutoff_days": args.failure_days,
     }
 
     if args.json:
