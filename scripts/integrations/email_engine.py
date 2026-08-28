@@ -1254,13 +1254,6 @@ def _backfill_read_before_sweep(imap, db, processed_msgids: dict,
                     _apply_gmail_label(imap, uid, _fin["label"], use_uid=True)
                     fin_label = _fin["label"]
                     labelled += 1
-                    # ASCII only: this stream is cp1252 on Windows and a stray
-                    # arrow/emoji here raises UnicodeEncodeError *inside* the
-                    # labelling try-block, which would report a successful
-                    # label as a failure. Emoji is fine in Telegram copy (sent
-                    # as UTF-8 over HTTP), never in a stderr print.
-                    print(f"[seen_backfill] filed -> {fin_label}: {subject[:60]}",
-                          file=sys.stderr)
             except Exception as label_err:  # noqa: BLE001
                 print(f"[seen_backfill] LABEL FAILED on {rfc_message_id}: "
                       f"{label_err}", file=sys.stderr)
@@ -1270,6 +1263,17 @@ def _backfill_read_before_sweep(imap, db, processed_msgids: dict,
                            f"Error: {label_err}", category="email")
                 except Exception:  # noqa: BLE001
                     pass
+
+            if fin_label:
+                # Logged OUTSIDE the labelling try on purpose. This stream is
+                # cp1252 on Windows and real subjects carry non-ASCII (the
+                # Kraken statement subjects use a smart apostrophe), so a print
+                # inside that block could raise AFTER a successful STORE and
+                # report a filed receipt as LABEL FAILED — an inverted signal,
+                # which is the class of bug this whole change exists to remove.
+                _safe_subj = (subject or "")[:60].encode("ascii", "replace").decode()
+                print(f"[seen_backfill] filed -> {fin_label}: {_safe_subj}",
+                      file=sys.stderr)
 
             decision = read_mail_financial_decision(cls, fin_threshold)
             if decision == "handoff":

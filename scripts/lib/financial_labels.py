@@ -137,9 +137,13 @@ _EXPENSE_DIRECTION_RE = re.compile(
     r"your\s+payment\s+to\b|\bpayment\s+to\s+[A-Z]|"
     r"your\s+(?:receipt|invoice)\s+from\b|"
     r"\binvoice\s*\S*\s+from\s+[A-Z]|"
-    # "Payment received for Supabase Pte. Ltd" - the VENDOR received it, so
-    # this is money out. Without this the dry run filed it as income.
-    r"payment\s+received\s+for\s+\w|"
+    # "Payment received for Supabase Pte. Ltd" - the VENDOR is named, so the
+    # vendor received it and the money went OUT. But "Payment received for
+    # invoice 123" is Stripe telling CC a CUSTOMER paid him, which is income:
+    # the object of "for" decides the direction, so a document reference is
+    # excluded explicitly rather than swept up by \w.
+    r"payment\s+received\s+for\s+"
+    r"(?!invoice|order|inv\b|ref\b|payment|#|\d)(?-i:[A-Z])|"
     r"\bpurchase\s+confirmed\b"
     r")",
     re.IGNORECASE,
@@ -194,6 +198,9 @@ _STRONG_DOC_RE = re.compile(
     r"\binvoice\s+(?-i:(?=[A-Z0-9-]*\d)[A-Z0-9][A-Z0-9-]{3,})\b|"
     r"\breceipt\s+(?:for|from|#)|"
     r"\bpayment\s+(?:received|confirmation|successful|failed)\b|"
+    # A transaction confirmation in plain words. Needed so a real receipt that
+    # also mentions the next renewal date survives the _NOT_YET_RE veto.
+    r"\bthanks?\s+(?:you\s+)?for\s+your\s+(?:payment|purchase|order)\b|"
     r"\bpayout\b|\bremittance\b|"
     r"\bnotice\s+of\s+assessment\b|\bt4a\b|\bt2125\b"
     r")",
@@ -320,16 +327,19 @@ def is_financial_document(
                           or _BOT_SENDER_RE.search(from_identity)):
         return False
 
-    # Nothing has been transacted yet - a renewal reminder or a "add your card"
-    # nudge is not a document to keep. Vetoed before the doc signals, since
-    # those messages are full of billing vocabulary by design.
-    if _NOT_YET_RE.search(text) and not _MONEY_RE.search(text):
-        return False
-
     strong = bool(_STRONG_DOC_RE.search(text))
     doc = bool(_DOC_RE.search(text))
     marketing = bool(_MARKETING_RE.search(text))
     attach = has_document_attachment(attachments)
+
+    # Nothing has been transacted yet - a renewal reminder or an "add your
+    # card" nudge is not a document to keep, even when it quotes the amount it
+    # WILL charge. Gating this veto on the absence of money was wrong: "Your
+    # subscription renews on Sep 1 for $20" sailed through it. Gate on document
+    # strength instead, so a genuine receipt that happens to mention the next
+    # renewal date still files.
+    if _NOT_YET_RE.search(text) and not (strong or attach):
+        return False
 
     # The platform prefilter already resolves known billing senders correctly -
     # it got the Google Cloud invoice right when everything downstream did not.

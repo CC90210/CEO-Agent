@@ -367,10 +367,17 @@ def process_email(
         # receipt gets its label even when the email is also held for review or
         # is an unresolvable forward — the label is what CC opens at tax time.
         fin = {"is_financial": False, "subtype": None, "label": None}
+        assess_failed = False
         try:
             from lib.financial_labels import assess
             fin = assess(email, prefilter_route=cls.get("route_target"))
         except Exception as fin_err:  # noqa: BLE001 — never break the sweep
+            # FAIL CLOSED. Leaving fin as non-financial here would send the
+            # email straight back down the "low_priority + automated sender ->
+            # archive silently" path — the precise loss this module exists to
+            # stop, re-created by an import or regex error. We do not know
+            # whether this was a receipt, so it must stay visible.
+            assess_failed = True
             print(f"[email_brain] financial assessment failed: {fin_err}",
                   file=sys.stderr)
         out["financial_document"] = bool(fin.get("is_financial"))
@@ -396,20 +403,32 @@ def process_email(
                 out["label_error"] = str(label_err)
                 print(f"[email_brain] LABEL FAILED for {fin['label']!r}: {label_err}",
                       file=sys.stderr)
-                get("notify")(
-                    f"⚠️ FINANCIAL LABEL FAILED - {fin['label']}\n"
-                    f"From: {sender}\nSubject: {subj}\n"
-                    f"Error: {label_err}\n"
-                    f"This email is NOT filed. It stays unread for you."
-                )
-                out["notified"] = True
+                # A failing notifier must not abort the review path: the whole
+                # point of this branch is that the email stays visible, and an
+                # exception escaping here would skip that.
+                try:
+                    get("notify")(
+                        f"⚠️ FINANCIAL LABEL FAILED - {fin['label']}\n"
+                        f"From: {sender}\nSubject: {subj}\n"
+                        f"Error: {label_err}\n"
+                        f"This email is NOT filed. It stays unread for you."
+                    )
+                    out["notified"] = True
+                except Exception as notify_err:  # noqa: BLE001
+                    print(f"[email_brain] label-failure alert also failed: "
+                          f"{notify_err}", file=sys.stderr)
 
-        # Hard override: an unresolvable forward (or any caller-forced review)
-        # bypasses all automated routing and goes straight to human review.
-        if email.get("force_review"):
+        # Hard override: an unresolvable forward, a caller-forced review, or a
+        # financial assessment that could not run at all. In the last case we
+        # do not know whether this is a receipt, and "don't know" must never
+        # resolve to "archive silently".
+        if email.get("force_review") or assess_failed:
             out["category"] = category
             out["action"] = "review"
-            out["reason"] = "forced review (e.g. unresolvable forward); no automated routing."
+            out["reason"] = (
+                "financial assessment failed — cannot rule out a receipt; held."
+                if assess_failed else
+                "forced review (e.g. unresolvable forward); no automated routing.")
             get("notify")(f"Needs your review - {category} from {sender}: {subj}")
             out["notified"] = True
             return out

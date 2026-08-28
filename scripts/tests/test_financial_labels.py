@@ -304,6 +304,50 @@ class TestDirection(unittest.TestCase):
             "income")
 
 
+class TestCodexAuditFindings(unittest.TestCase):
+    """Each of these was found by the independent Codex audit of this change,
+    reproduced, and fixed. They are pinned so the fixes cannot silently regress."""
+
+    def test_payment_received_for_an_invoice_is_income_not_expense(self):
+        # The expense-direction rule was written for "Payment received for
+        # Supabase Pte. Ltd" (a named vendor = money out). Stripe also sends
+        # "Payment received for invoice 123", which is a CUSTOMER paying CC.
+        # The object of "for" decides the direction.
+        self.assertEqual(
+            financial_subtype("Payment received for invoice 123",
+                              "Payment received for invoice 123."),
+            "income")
+
+    def test_payment_received_for_a_named_vendor_is_still_an_expense(self):
+        self.assertEqual(
+            financial_subtype("Fwd: Payment received for Supabase Pte. Ltd",
+                              "Payment received for Supabase Pte. Ltd."),
+            "expense")
+
+    def test_renewal_reminder_quoting_an_amount_is_still_not_a_document(self):
+        # The veto used to switch off whenever any amount appeared, so a
+        # future charge read as a completed one.
+        self.assertFalse(is_financial_document(
+            "Your subscription renews on Sep 1",
+            "Your subscription renews on Sep 1 for $20.00.",
+            "billing@vendor.com"))
+
+    def test_card_expiry_nudge_quoting_an_amount_is_not_a_document(self):
+        self.assertFalse(is_financial_document(
+            "Your card is expiring",
+            "Update payment method. Amount due $20.00.",
+            "billing@vendor.com"))
+
+    def test_receipt_mentioning_the_next_renewal_still_files(self):
+        # The other half of that fix: tightening the veto must not start
+        # dropping genuine receipts that mention a renewal date.
+        self.assertTrue(is_financial_document(
+            "Thanks for your payment",
+            "Thank you for your payment of $20.00. Your subscription will "
+            "renew on Sep 1.",
+            "billing@vendor.com"))
+
+
 class TestLabelYear(unittest.TestCase):
     def test_year_comes_from_the_email_not_today(self):
         self.assertEqual(label_for("expense", "Sat, 09 Jan 2027 09:00:00 -0500"),
@@ -404,6 +448,47 @@ class TestProcessEmailFiling(unittest.TestCase):
         self.assertEqual(calls["mark_read"], 0,
                          "unlabelled mail must stay unread and visible")
         self.assertTrue(any("LABEL FAILED" in t for t in calls["notify"]))
+
+    def test_assessment_failure_holds_instead_of_archiving(self):
+        # Codex audit, HIGH: if assess() raises, the old code left `fin` as
+        # non-financial and the email fell straight back into
+        # "low_priority + automated sender -> archive silently" — the exact
+        # loss this module exists to prevent, re-created by an import error.
+        import lib.financial_labels as fl
+        real = fl.assess
+        fl.assess = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+        try:
+            out, calls = self._run("low_priority", 0.95, lambda e, l: None)
+        finally:
+            fl.assess = real
+        self.assertEqual(out["action"], "review")
+        self.assertEqual(calls["archive"], 0)
+        self.assertEqual(calls["mark_read"], 0,
+                         "an email we could not assess must stay visible")
+
+    def test_notifier_failure_does_not_abort_the_review_path(self):
+        # Codex audit: the label-failure alert was unguarded, so a Telegram
+        # outage on top of a label failure could skip the very path that keeps
+        # the email visible.
+        def _boom_label(_e, _l):
+            raise LabelError("IMAP STORE returned 'NO'")
+
+        def _boom_notify(_t):
+            raise RuntimeError("telegram down")
+
+        def _cls(**kw):
+            return {"category": "low_priority", "confidence": 0.95,
+                    "fallback": False}
+
+        marked = []
+        out = process_email(dict(GCP_EMAIL), classifier=_cls, deps={
+            "apply_label": _boom_label,
+            "notify": _boom_notify,
+            "mark_read": lambda e: marked.append(1),
+        })
+        self.assertIsNone(out["label"])
+        self.assertEqual(marked, [], "must not mark an unfiled receipt read")
+        self.assertNotEqual(out.get("action"), "archive")
 
     def test_unwired_labeller_fails_loudly_rather_than_no_op(self):
         # build_default_deps() must not hand back a silent no-op: that would
