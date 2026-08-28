@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-28T04:04:15.039471+00:00",
-  "script_count": 162,
-  "entry_count": 340,
+  "generated_at_iso": "2026-08-28T23:02:01.291656+00:00",
+  "script_count": 163,
+  "entry_count": 341,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -107,6 +107,14 @@
       "subcmd": "decisions",
       "mutating": true,
       "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: decisions"
+    },
+    {
+      "key": "backfill_financial_labels",
+      "path": "scripts/backfill_financial_labels.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Backfill Gmail labels onto financial mail that was never filed."
     },
     {
       "key": "booking_engine_slots",

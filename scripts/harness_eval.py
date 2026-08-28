@@ -246,8 +246,14 @@ def check_brief_renders():
     operator trusts and one they learn to re-run.
     """
     def _attempt():
+        # 150s, NOT 90s. daily_brief regenerates the snapshot when it is >5min
+        # stale, and that regen budget is 110s (SNAPSHOT_REGEN_TIMEOUT_SEC). At
+        # 90s this check would kill daily_brief mid-regen and report the brief
+        # as broken when the only thing wrong was this timeout — the same
+        # outer-cap-below-inner-sum mistake found in the daily_brief chain
+        # itself. Narration is disabled here, so 110 + render is the real need.
         rc, out, err = _run([sys.executable, "scripts/daily_brief.py", "--dry-run"],
-                            timeout=90, env_extra={"BRAVO_BRIEF_NARRATE": "0"})
+                            timeout=150, env_extra={"BRAVO_BRIEF_NARRATE": "0"})
         if rc != 0:
             return f"daily_brief --dry-run exit {rc}: {err[:120]}"
         lowered = out.lower()

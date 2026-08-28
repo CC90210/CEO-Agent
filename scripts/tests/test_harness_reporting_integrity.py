@@ -97,3 +97,29 @@ def test_client_health_query_failure_never_returns_demo_clients():
 
     with pytest.raises(RuntimeError, match="Turso client data query failed"):
         ch.fetch_clients(BrokenClient())
+
+
+def test_scheduler_timeout_mirror_matches_reality():
+    """daily_brief.SCHEDULER_JOB_TIMEOUT_SEC is a COPY of the timeout
+    scheduler.run_daily_brief actually passes to run_script. Two definitions of
+    one number drift, and this one did: raising the scheduler to 200s on
+    2026-08-28 left the mirror at 150s.
+
+    The ordering test above could not have caught that alone — a stale mirror
+    that still satisfies `regen + narration <= mirror - 10` looks perfectly
+    healthy while the real outer cap is somewhere else entirely. It only
+    surfaced because the raised inner budgets happened to break the ordering
+    too. This asserts correspondence, not just internal consistency.
+    """
+    import re
+    from pathlib import Path
+
+    import daily_brief as db
+
+    src = (Path(db.__file__).resolve().parent / "scheduler.py").read_text(encoding="utf-8")
+    m = re.search(r'run_script\(\s*"daily_brief\.py"\s*,\s*\[\]\s*,\s*timeout\s*=\s*(\d+)', src)
+    assert m, "could not find run_daily_brief's run_script timeout in scheduler.py"
+    actual = int(m.group(1))
+    assert db.SCHEDULER_JOB_TIMEOUT_SEC == actual, (
+        f"daily_brief mirrors the scheduler timeout as {db.SCHEDULER_JOB_TIMEOUT_SEC}s "
+        f"but scheduler.run_daily_brief actually uses {actual}s")

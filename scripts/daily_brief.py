@@ -70,7 +70,17 @@ CLI_NARRATION_TIMEOUT_SEC = 60
 #        -> scheduler.run_daily_brief 200. Each layer must exceed the one inside
 #        it or the inner diagnostic is lost to the outer kill.
 SNAPSHOT_REGEN_TIMEOUT_SEC = 110
-SCHEDULER_JOB_TIMEOUT_SEC = 150
+# MIRROR of scheduler.run_daily_brief's run_script(timeout=...). Two definitions
+# of one number, which is the drift trap this codebase keeps hitting — and it
+# hit here: raising the scheduler to 200 on 2026-08-28 left this at 150, and the
+# only reason it surfaced is that test_brief_timeout_layers_have_ordered_headroom
+# then saw 110 + 60 > 150 - 10. That test checks the layers are ORDERED; it could
+# not have caught the mirror being stale on its own, because a stale mirror that
+# still satisfies the ordering looks fine.
+#
+# test_scheduler_timeout_mirror_matches_reality now asserts this equals the value
+# the scheduler actually passes, so the copy cannot drift silently again.
+SCHEDULER_JOB_TIMEOUT_SEC = 200
 SNAPSHOT_STALENESS_SEC = 5 * 60  # 5 min — was 24h, but CC's revenue events
 # (subscription_start / cancel logged manually) change throughout the day. A
 # 24h-old snapshot caused the 2026-05-18 15:15 brief to report MRR $3,322 / 12d
