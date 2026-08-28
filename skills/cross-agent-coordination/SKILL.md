@@ -1,7 +1,20 @@
 ---
 name: cross-agent-coordination
 description: Use when editing any file in a repo Adon/APEX also touches, or when reviewing APEX's pull requests on surfaces Bravo owns (oasis-command-center above all), when starting work on a shared surface, when a coord_guard block appears, when handing work to or from APEX, or when a peer reports being blocked. Covers file leases, the ownership map, identity, and the escalation rule.
-triggers: [claim a file, file lease, shared file, coord guard, coord_guard blocked, APEX, Adon agent, cross-agent collision, peer claim, editing shared repo, oasis-command-center edit, agent overlap, release claim, who owns this file, coordinate with APEX, peer blocked, agent handoff, migration number, new migration, database migration collision, review APEX PR, review peer PR, APEX changed my file, peer changed a file I own, cross agent review, context review, ack a PR, block a PR, peer review verdict, APEX pull request, review the peer's work]
+# Triggers must name THIS skill's situation, never a generic activity. The
+# first version included "context review", "ack a PR", "block a PR", "review
+# peer PR" and "review the peer's work" — and the golden-routing test caught
+# them hijacking "review the code before shipping" (code-review's) and even
+# "score a new lead" (score-b2b-lead-quality's). Promoting one skill by
+# widening its triggers degrades the router for every other skill, which costs
+# far more than the skill being one rank lower. Every trigger below contains a
+# coordination-specific token: APEX, peer, lease, claim, coord, ownership.
+# NO STOPWORDS. The resolver scores word overlap at 2.0 per trigger, and it does
+# not filter articles — so "claim a file" made the bare word "a" worth 2.0, and
+# "score a new lead" scored 10.5 here against 10.0 for the lead-scoring skill
+# that actually owns it. Every token below is coordination-specific; a query has
+# to mean this to match it.
+triggers: [claim file, file lease, coord guard, coord_guard blocked, APEX, Adon agent, cross-agent collision, peer claim, peer lease, shared repo edit, agent overlap, release claim, who owns this file, coordinate with APEX, peer blocked, agent handoff, migration collision, review APEX PR, APEX changed my file, cross agent review, APEX pull request, ownership map]
 tier: standard
 dependencies: []
 tags: [skill, coordination, apex, bravo, multi-agent, leases]

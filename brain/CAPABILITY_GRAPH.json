@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-27T20:55:33.729073+00:00",
+  "generated_at": "2026-08-28T04:52:34.960460+00:00",
   "totals": {
     "skills": 163,
-    "scripts": 184,
+    "scripts": 187,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 438,
-    "edges_total": 210,
+    "nodes_total": 441,
+    "edges_total": 212,
     "drift_count": 0
   },
   "nodes": [
@@ -882,31 +882,33 @@
       "kind": "skill",
       "name": "cross-agent-coordination",
       "path": "skills/cross-agent-coordination/SKILL.md",
-      "description": "Use when editing any file in a repo Adon/APEX also touches (oasis-command-center above all), when starting work on a shared surface, when a coord_guard block appears, when handing work to or from APEX, or when a peer reports being blocked. Covers file leases, the ownership map, i",
+      "description": "Use when editing any file in a repo Adon/APEX also touches, or when reviewing APEX's pull requests on surfaces Bravo owns (oasis-command-center above all), when starting work on a shared surface, when a coord_guard block appears, when handing work to or from APEX, or when a peer ",
       "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
-        "claim a file",
+        "claim file",
         "file lease",
-        "shared file",
         "coord guard",
         "coord_guard blocked",
         "APEX",
         "Adon agent",
         "cross-agent collision",
         "peer claim",
-        "editing shared repo",
-        "oasis-command-center edit",
+        "peer lease",
+        "shared repo edit",
         "agent overlap",
         "release claim",
         "who owns this file",
         "coordinate with APEX",
         "peer blocked",
         "agent handoff",
-        "migration number",
-        "new migration",
-        "database migration collision"
+        "migration collision",
+        "review APEX PR",
+        "APEX changed my file",
+        "cross agent review",
+        "APEX pull request",
+        "ownership map"
       ],
       "tags": [
         "skill",
@@ -5940,6 +5942,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:cross_agent_review",
+      "kind": "script",
+      "name": "cross_agent_review",
+      "path": "scripts/cross_agent_review.py",
+      "description": "cross_agent_review \u2014 Bravo reviews APEX's PRs on surfaces Bravo owns.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:daily_brief",
       "kind": "script",
       "name": "daily_brief",
@@ -6027,6 +6039,16 @@
         "visible": false,
         "confirm": true
       }
+    },
+    {
+      "id": "script:detect_shared_repos",
+      "kind": "script",
+      "name": "detect_shared_repos",
+      "path": "scripts/detect_shared_repos.py",
+      "description": "detect_shared_repos \u2014 find app repos that BOTH agents commit to, and are unmapped.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:dns_reputation",
@@ -6774,6 +6796,16 @@
       "name": "prune_merged_branches",
       "path": "scripts/prune_merged_branches.py",
       "description": "prune_merged_branches \u2014 delete remote branches whose commits are already in main.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:publish_ownership_map",
+      "kind": "script",
+      "name": "publish_ownership_map",
+      "path": "scripts/publish_ownership_map.py",
+      "description": "publish_ownership_map \u2014 keep the shared copy of OWNERSHIP_MAP.yaml honest.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -9347,6 +9379,11 @@
     },
     {
       "from": "runtime:cron_engine",
+      "to": "script:cross_agent_review",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
       "to": "script:harness_eval",
       "kind": "schedules"
     },
@@ -9543,6 +9580,11 @@
     {
       "from": "script:critic_template_check",
       "to": "script:draft_critic",
+      "kind": "calls"
+    },
+    {
+      "from": "script:cross_agent_review",
+      "to": "script:review_harvest",
       "kind": "calls"
     },
     {

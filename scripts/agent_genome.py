@@ -85,10 +85,13 @@ DEFAULTS: dict[str, list[str]] = {
     # foreign repo can point them at its own paths via genome.json — APEX's
     # client is JS, not scripts/integrations/coord_claim.py, and the gene must
     # verify the CAPABILITY rather than Bravo's filenames.
-    "coord_client": ["scripts/integrations/coord_claim.py", "scripts/coord_claim.py",
-                     "services/coordination/coord-claim.js", "src/coordination/claim.js"],
-    "coord_guard": ["scripts/state/coord_guard.py", "scripts/coord_guard.py",
-                    "services/coordination/coord-guard.js", "hooks/coord-guard.js"],
+    # Real paths only. An earlier version listed invented Python variants
+    # (scripts/coord_claim.py) as "candidates for other repos" — speculation that
+    # made the path-drift checker red by referencing files that do not exist.
+    # A foreign repo names its own paths in genome.json; that is the extension
+    # point, and it does not require guessing them here.
+    "coord_client": ["scripts/integrations/coord_claim.py"],
+    "coord_guard": ["scripts/state/coord_guard.py"],
     "ownership_map": ["brain/OWNERSHIP_MAP.yaml", "docs/coordination/OWNERSHIP_MAP.yaml",
                       "OWNERSHIP_MAP.yaml"],
     # Where the guard must be REGISTERED. A guard on disk that no hook invokes is
