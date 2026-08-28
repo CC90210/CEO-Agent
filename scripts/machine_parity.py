@@ -595,16 +595,34 @@ def check_tls_keylog() -> tuple[str, bool, str, str]:
                 "run pytest scripts/tests/test_tls_trust.py")
 
     poisoned: list[str] = []
+    unreachable = ""
     if platform.system() == "Windows" and _which("pm2"):
         try:
-            raw = subprocess.run(["pm2", "jlist"], capture_output=True, text=True,
-                                 timeout=30, shell=True).stdout
-            for app in json.loads(raw):
-                v = app.get("pm2_env", {}).get("SSLKEYLOGFILE")
-                if v and not str(v).strip() == "":
-                    poisoned.append(app.get("name", "?"))
-        except Exception:  # noqa: BLE001 — pm2 absent or not running is not a parity failure
-            pass
+            proc = subprocess.run(["pm2", "jlist"], capture_output=True, text=True,
+                                  timeout=30, shell=True)
+            raw = proc.stdout
+            blob = f"{proc.stdout}{proc.stderr}"
+            if "EPERM" in blob or "connect ENOENT" in blob:
+                # pm2 is INSTALLED but cannot reach its daemon. Every further
+                # invocation spawns another orphan daemon — 23 accumulated this
+                # way on 2026-08-28, several from parity runs. Say so and stop
+                # calling it; do not silently report OK on an unreadable fleet.
+                unreachable = "pm2 installed but its daemon is unreachable (EPERM on the named pipe)"
+            else:
+                for app in json.loads(raw):
+                    v = app.get("pm2_env", {}).get("SSLKEYLOGFILE")
+                    if v and not str(v).strip() == "":
+                        poisoned.append(app.get("name", "?"))
+        except Exception as e:  # noqa: BLE001
+            # An absent pm2 is genuinely not a parity failure; an unparseable
+            # response from a pm2 that IS installed is worth naming rather than
+            # swallowing into a green tick.
+            unreachable = f"pm2 present but its output was unreadable ({type(e).__name__})"
+
+    if unreachable:
+        return ("tls-keylog", False, unreachable,
+                "fix the pm2 daemon first (needs an elevated shell if the pipe EPERMs); "
+                "SSLKEYLOGFILE cannot be audited until pm2 answers")
 
     if poisoned:
         return ("tls-keylog", False,
@@ -652,10 +670,52 @@ def check_pm2_persistence() -> tuple[str, bool, str, str]:
         if "No Start On Batteries" in out:
             problems.append("will not start on battery")
 
+    # ---- LIVENESS, not just configuration --------------------------------
+    #
+    # Everything above answers "is recovery CONFIGURED?". Nothing above answers
+    # "is the fleet actually UP?", and this check is named and read as though it
+    # does. On 2026-08-28 it reported GREEN while coordination_agent.js had been
+    # crash-looping for two days, PM2 itself was returning EPERM on its named
+    # pipe, and four daemons in the dump — including the scheduler, so no cron
+    # had run — were down. A green light on a dead fleet is worse than no light,
+    # because it is the reason nobody looked.
+    #
+    # Deliberately does NOT invoke the pm2 CLI. When pm2 cannot reach its pipe,
+    # every invocation SPAWNS A NEW DAEMON — that is how 23 orphans accumulated,
+    # one per failed call, several of them from diagnosing this very problem. A
+    # health check that worsens the condition it measures is not a health check.
+    # Reading the dump and the live process table answers the question without
+    # touching pm2 at all.
+    try:
+        import json as _json
+        managed = _json.loads(dump.read_text(encoding="utf-8")) if dump.exists() else []
+        scripts = []
+        for app in managed:
+            raw = str(app.get("script") or "")
+            base = Path(raw).name
+            # Skip interpreter-only entries (pythonw.exe et al) — their basename
+            # matches dozens of unrelated processes and would report a false UP.
+            if base and base.lower() not in ("pythonw.exe", "python.exe", "node.exe", ""):
+                scripts.append((app.get("name") or base, base))
+        if scripts:
+            ps = subprocess.run(["wmic", "process", "get", "CommandLine"],
+                                capture_output=True, text=True, timeout=45,
+                                errors="ignore", creationflags=_NO_WINDOW).stdout.lower()
+            down = [n for n, b in scripts if b.lower() not in ps]
+            if down:
+                problems.append(
+                    f"{len(down)}/{len(scripts)} managed process(es) NOT RUNNING: "
+                    + ", ".join(down[:6]))
+    except Exception as e:  # noqa: BLE001
+        problems.append(f"could not verify fleet liveness ({type(e).__name__})")
+
     if problems:
         return ("pm2-persistence", False, "; ".join(problems),
-                "run elevated: scripts/ops/fix_pm2_boot_persistence.ps1  (then `pm2 save`)")
-    return ("pm2-persistence", True, "boot trigger + battery-safe + fresh dump.pm2", "")
+                "restart the down processes; if pm2 itself EPERMs on its pipe that is a "
+                "machine-level named-pipe block needing an elevated shell — do NOT keep "
+                "retrying `pm2`, each failed call leaks another daemon")
+    return ("pm2-persistence", True,
+            "boot trigger + battery-safe + fresh dump.pm2 + managed processes running", "")
 
 
 def check_python_switch() -> tuple[str, bool, str, str]:
