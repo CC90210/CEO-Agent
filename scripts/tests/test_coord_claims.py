@@ -717,3 +717,95 @@ def test_known_agents_come_from_the_ownership_map_not_a_second_list():
     src = (REPO_ROOT / "scripts" / "integrations" / "coord_claim.py").read_text(encoding="utf-8")
     fn = src[src.index("def _validate_agent"):src.index("def _validate_paths")]
     assert "ownership.load()" in fn
+
+
+def test_an_expired_own_lease_does_not_suppress_the_contested_nudge():
+    """Half-fix found by the defect sweep, in coord_guard itself.
+
+    The expiry filter lived in the PEER reader; the nudge filtered own-leases
+    inline without it. So an EXPIRED own-lease still suppressed the nudge, and
+    the agent would edit a contested file believing it held a lease it no longer
+    held — while the peer correctly saw the path as free and could take it.
+
+    Both classes at once: a fix applied to one reader and not its sibling, and
+    two implementations of one question.
+    """
+    import os
+    import subprocess
+    import tempfile
+    import time as _t
+    from datetime import datetime, timedelta, timezone
+    expired = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    own_expired = {"agent": "bravo", "repo": "oasis-command-center",
+                   "path_glob": "lib/drips/executor.ts", "task": "stale",
+                   "status": "held", "expires_at": expired}
+    with tempfile.TemporaryDirectory() as td:
+        mirror = Path(td) / "m.json"
+        mirror.write_text(json.dumps({"fetched_at": _t.time(), "claims": [own_expired]}),
+                          encoding="utf-8")
+        env = {**os.environ, "EMPIRE_HOOK_COORD_GUARD": "enforce",
+               "COORD_GUARD_CACHE_TTL_SEC": "600", "COORD_AGENT_KEY": "bravo",
+               "COORD_GUARD_MIRROR": str(mirror)}
+        r = subprocess.run(
+            [sys.executable, str(GUARD)],
+            input=json.dumps({"tool_name": "Edit",
+                              "tool_input": {"file_path": f"{OCC}/lib/drips/executor.ts"}}),
+            capture_output=True, text=True, env=env, timeout=180)
+    assert r.returncode == 0, "an expired own-lease must never BLOCK"
+    assert "CONTESTED" in r.stderr, (
+        "an expired own-lease must not suppress the nudge — the agent would "
+        "edit a contested file believing it still held the lease")
+
+
+def test_a_live_own_lease_still_suppresses_the_nudge():
+    """Companion: the fix must not make the nudge fire when we genuinely hold
+    the path, or it becomes noise and gets ignored."""
+    import os
+    import subprocess
+    import tempfile
+    import time as _t
+    from datetime import datetime, timedelta, timezone
+    live = (datetime.now(timezone.utc) + timedelta(minutes=60)).isoformat()
+    own_live = {"agent": "bravo", "repo": "oasis-command-center",
+                "path_glob": "lib/drips/executor.ts", "task": "current",
+                "status": "held", "expires_at": live}
+    with tempfile.TemporaryDirectory() as td:
+        mirror = Path(td) / "m.json"
+        mirror.write_text(json.dumps({"fetched_at": _t.time(), "claims": [own_live]}),
+                          encoding="utf-8")
+        env = {**os.environ, "EMPIRE_HOOK_COORD_GUARD": "enforce",
+               "COORD_GUARD_CACHE_TTL_SEC": "600", "COORD_AGENT_KEY": "bravo",
+               "COORD_GUARD_MIRROR": str(mirror)}
+        r = subprocess.run(
+            [sys.executable, str(GUARD)],
+            input=json.dumps({"tool_name": "Edit",
+                              "tool_input": {"file_path": f"{OCC}/lib/drips/executor.ts"}}),
+            capture_output=True, text=True, env=env, timeout=180)
+    assert r.returncode == 0
+    assert "CONTESTED" not in r.stderr
+
+
+def test_migration_allocator_does_not_contradict_its_own_validator():
+    """Half-fix found by the defect sweep.
+
+    `next_free()` used `prefixed OR unprefixed` while `check`/`reserve` used the
+    UNION, so the tool recommended 015 and then refused 015. An allocator whose
+    own validator rejects its recommendation burns the operator's trust on first
+    use — and the operator is an agent that will simply take the number anyway.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    import check_migration_collision as m
+    n = m.next_free("bravo")
+    assert n not in m.taken_numbers("bravo"), (
+        f"next_free() recommended {n:03d} but taken_numbers() considers it taken")
+
+
+def test_migration_taken_set_unions_prefixed_and_unprefixed():
+    """Migration numbers share one ordering on disk regardless of prefix, so a
+    number taken by an unprefixed file must block a prefixed one."""
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    import check_migration_collision as m
+    disk = m.taken_on_disk()
+    union = m.taken_numbers("bravo")
+    assert disk.get("bravo", set()) <= union
+    assert disk.get("", set()) <= union

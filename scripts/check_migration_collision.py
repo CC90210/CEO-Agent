@@ -93,9 +93,24 @@ def peer_reservations() -> list[dict]:
         return []
 
 
-def next_free(prefix: str = "bravo") -> int:
+def taken_numbers(prefix: str = "bravo") -> set[int]:
+    """Every number that is taken for this prefix — the ONE definition.
+
+    `next_free()` used `prefixed OR unprefixed` while `check`/`reserve` used
+    `prefixed | unprefixed`, so the tool CONTRADICTED ITSELF: `next` recommended
+    015 and `check 015` immediately refused it, because 015 exists unprefixed.
+    An allocator whose own validator rejects its recommendation is worse than no
+    allocator — it burns the operator's trust on the first use.
+
+    Migration numbers share one ordering on disk regardless of prefix, so the
+    union is the correct rule and both callers now use it.
+    """
     disk = taken_on_disk()
-    nums = disk.get(prefix.lower(), set()) or disk.get("", set())
+    return disk.get(prefix.lower(), set()) | disk.get("", set())
+
+
+def next_free(prefix: str = "bravo") -> int:
+    nums = taken_numbers(prefix)
     return (max(nums) + 1) if nums else 1
 
 
@@ -117,19 +132,18 @@ def main() -> int:
 
     a = p.parse_args()
     prefix = a.prefix.lower()
-    disk = taken_on_disk()
 
     if a.cmd == "next":
         n = next_free(prefix)
         print(f"next free for prefix {prefix!r}: {n:03d}")
-        print(f"  taken on disk: {sorted(disk.get(prefix, disk.get('', set())))[-8:]}")
+        print(f"  taken on disk: {sorted(taken_numbers(prefix))[-8:]}")
         for c in peer_reservations():
             print(f"  PEER RESERVED: {c['agent']} holds {c['repo']}/{c['path_glob']} "
                   f"(task: {c['task']})")
         return 0
 
     num = a.number
-    nums = disk.get(prefix, set()) | disk.get("", set())
+    nums = taken_numbers(prefix)      # SAME definition next_free() uses
     reasons = []
     if num in nums:
         reasons.append(f"a file with number {num:03d} already exists on disk")

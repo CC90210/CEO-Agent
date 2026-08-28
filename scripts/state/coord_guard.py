@@ -115,23 +115,29 @@ def _save_mirror(claims: list[dict]) -> None:
         pass
 
 
-def _from_mirror(mirror: dict, repo: str, me: str) -> list[dict]:
-    """Peer claims from the mirror that are STILL LIVE.
+def _live_in_mirror(mirror: dict, repo: str, *, agent: str | None = None,
+                    exclude_agent: str | None = None) -> list[dict]:
+    """Live (held, unexpired) leases from the mirror, for EITHER side.
 
-    Expiry must be re-evaluated against the clock NOW, not against the moment
-    the mirror was written. Without this, a Turso outage pins the last-known
-    lease set in place and an expired lease keeps blocking edits for the whole
-    duration of the outage — which contradicts the TTL guarantee that a crashed
-    agent cannot wedge a repo. (Codex adversarial review, 2026-08-27.)
+    ONE definition, parameterised by whose leases you want. The previous shape
+    had the expiry filter in the peer reader and a separate inline filter for
+    own-leases in the nudge — which meant an EXPIRED own-lease still suppressed
+    the nudge, so Bravo would edit a contested file believing it held a lease it
+    no longer held, while the peer correctly saw the path as free.
 
-    An unparseable or missing expiry is treated as NOT live: a corrupt row
-    should free a path, never hold one hostage.
+    That is both of the classes this subsystem keeps producing at once: a fix
+    applied to one reader and not its sibling, and two implementations of one
+    question. Parameterising is what stops it recurring.
     """
     from datetime import datetime, timezone  # noqa: PLC0415
     now = datetime.now(timezone.utc)
     out = []
     for c in mirror.get("claims") or []:
-        if c.get("repo") != repo or c.get("agent") == me:
+        if c.get("repo") != repo:
+            continue
+        if agent is not None and c.get("agent") != agent:
+            continue
+        if exclude_agent is not None and c.get("agent") == exclude_agent:
             continue
         if (c.get("status") or "held") != "held":
             continue
@@ -146,10 +152,16 @@ def _from_mirror(mirror: dict, repo: str, me: str) -> list[dict]:
             if exp.tzinfo is None:
                 exp = exp.replace(tzinfo=timezone.utc)
         except Exception:  # noqa: BLE001
-            continue
+            continue          # unparseable expiry frees the path, never holds it
         if exp > now:
             out.append(c)
     return out
+
+
+def _from_mirror(mirror: dict, repo: str, me: str) -> list[dict]:
+    """Peer claims from the mirror that are still live. Delegates — see
+    _live_in_mirror for why there is exactly one implementation."""
+    return _live_in_mirror(mirror, repo, exclude_agent=me)
 
 
 def _peer_claims(repo: str, me: str) -> tuple[list[dict], str]:
@@ -189,11 +201,11 @@ def _nudge_if_contested(repo: str, rel: str, me: str) -> None:
         if not ownership.is_contested(repo, rel):
             return
         from lib import repo_paths  # noqa: PLC0415
-        # Own leases come from the same mirror the peer check used — no second
-        # round trip just to decide whether to print a hint.
-        mine = [c for c in (_load_mirror().get("claims") or [])
-                if c.get("repo") == repo and c.get("agent") == me
-                and repo_paths.overlaps(c.get("path_glob", ""), rel)]
+        # Own leases through the SAME live filter as the peer check — an expired
+        # own-lease must not suppress the nudge, or the agent edits a contested
+        # file believing it holds a lease it no longer holds.
+        mine = [c for c in _live_in_mirror(_load_mirror(), repo, agent=me)
+                if repo_paths.overlaps(c.get("path_glob", ""), rel)]
         if mine:
             return
     except Exception:  # noqa: BLE001
