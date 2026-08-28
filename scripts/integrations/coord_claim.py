@@ -142,6 +142,54 @@ def _repo_root_for_slug(slug: str) -> Path | None:
     return cand if cand.is_dir() else None
 
 
+def _validate_repo(repo: str) -> str:
+    """Refuse a repo slug that is not the remote-derived one.
+
+    THE BUG THIS EXISTS FOR (APEX, 2026-08-28): the grammar was enforced on
+    PATHS and not on the REPO field, and `acquire()` simply trusted whatever the
+    caller passed as `--repo`. A concurrent Bravo session passed the DIRECTORY
+    name `business-empire-agent` instead of the remote-derived `ceo-agent`, and
+    wrote TEN live leases into a namespace no peer ever queries.
+
+    Neither side would have seen an error. APEX resolves the same repo to
+    `ceo-agent` through the agreed algorithm, would have found zero conflicts,
+    and would have edited straight through ten files Bravo was in at that
+    moment. That is the same defect we spent two days removing — a claim that
+    reads as coverage while protecting nothing — pointing the other way.
+
+    A namespace mismatch is silent by construction, so it has to be refused at
+    write time. There is no later moment when it becomes visible.
+    """
+    want = (repo or "").strip()
+    if not want:
+        raise ValueError("--repo is required")
+
+    # The true slug for the checkout we are standing in, if any.
+    here = repo_root()
+    true = repo_slug(here) if here is not None else None
+
+    if true and want.lower() != true.lower():
+        # Only a real mismatch if the caller is naming THIS checkout by a wrong
+        # name — passing a different repo entirely (a sibling under ~/APPS) is
+        # legitimate and must still work.
+        if here is not None and want.lower() == here.name.lower():
+            raise ValueError(
+                f"{want!r} is the DIRECTORY name, not the repo slug. Use {true!r}.\n"
+                f"  {here} has remote-derived slug {true!r}.\n"
+                "Leases keyed on a directory name land in a namespace the peer "
+                "never queries: they look successful, `conflicts` returns empty "
+                "for everyone, and both agents edit the same files believing "
+                "they are protected. Pass the slug, or let resolve() derive it.")
+    if want != want.lower():
+        # Slugs are lowercased by slug_from_url; a capitalised one would never
+        # match a peer's row.
+        print(f"[coord_claim] normalising repo {want!r} -> {want.lower()!r} "
+              f"(slugs are lowercase; a capitalised one matches no peer row)",
+              file=sys.stderr)
+        want = want.lower()
+    return want
+
+
 def _validate_paths(repo: str, paths: list[str], *, strict: bool) -> list[str]:
     """Enforce the grammar. A claim that cannot be matched is worse than none —
     it reads as coverage while protecting nothing, which is precisely how
@@ -276,8 +324,19 @@ def _db():
 
 
 def conflicts(repo: str, paths: list[str], *, agent: str | None = None) -> list[dict]:
-    """Live leases held by SOMEONE ELSE that cover any of `paths`."""
+    """Live leases held by SOMEONE ELSE that cover any of `paths`.
+
+    Validates the repo slug for the SAME reason acquire() does, and this is the
+    more dangerous half. The write bug APEX found created invisible leases; the
+    read bug tells you it is SAFE TO EDIT when it is not.
+
+    Measured before the fix: `conflicts --repo business-empire-agent` returned
+    "clear — no peer lease covers those paths" with exit 0, while 18 real leases
+    were live under `ceo-agent`. That is the exact command an agent runs
+    immediately before editing.
+    """
     me = (agent or ME).lower()
+    repo = _validate_repo(repo)
     held = live_claims(repo, exclude_agent=me)
     out = []
     for c in held:
@@ -326,6 +385,7 @@ def acquire(repo: str, paths: list[str], task: str, *, branch: str | None = None
             agent: str | None = None, strict: bool = True,
             force: bool = False) -> dict:
     me = (agent or ME).lower()
+    repo = _validate_repo(repo)
     cleaned = _validate_paths(repo, paths, strict=strict)
     _warn_out_of_surface(repo, cleaned, me)
     clash = conflicts(repo, cleaned, agent=me)
@@ -533,7 +593,11 @@ def main() -> int:
         return 0 if res["acquired"] else 3
 
     if a.cmd == "conflicts":
-        cl = conflicts(a.repo, paths)
+        try:
+            cl = conflicts(a.repo, paths)
+        except ValueError as e:
+            print(f"REFUSED: {e}", file=sys.stderr)
+            return 2
         if a.json:
             print(json.dumps(cl, indent=2, default=str))
         elif cl:
@@ -558,7 +622,12 @@ def main() -> int:
         return 0
 
     if a.cmd == "status":
-        cl = live_claims(a.repo, only_agent=None if a.all_agents else ME)
+        try:
+            repo_arg = _validate_repo(a.repo) if a.repo else None
+        except ValueError as e:
+            print(f"REFUSED: {e}", file=sys.stderr)
+            return 2
+        cl = live_claims(repo_arg, only_agent=None if a.all_agents else ME)
         if a.json:
             print(json.dumps(cl, indent=2, default=str))
         elif not cl:

@@ -667,3 +667,19 @@ def test_narration_governs_its_own_clause_not_the_whole_row(text, should_escalat
     sys.path.insert(0, str(REPO_ROOT / "scripts" / "integrations"))
     import agent_activity
     assert bool(agent_activity.escalation_hits(text)) is should_escalate
+
+
+def test_conflicts_validates_the_repo_too(claim_mod):
+    """The READ path is the more dangerous half.
+
+    The write bug APEX found created invisible leases. The read bug tells you it
+    is SAFE TO EDIT when it is not — and `conflicts` is the exact command an
+    agent runs immediately before editing.
+
+    Measured before the fix: `conflicts --repo business-empire-agent` returned
+    "clear — no peer lease covers those paths" with exit 0, while 18 real leases
+    were live under `ceo-agent`. Fixing acquire() alone was a half-fix.
+    """
+    with pytest.raises(ValueError) as e:
+        claim_mod.conflicts("business-empire-agent", ["scripts/harness_eval.py"])
+    assert "ceo-agent" in str(e.value)
