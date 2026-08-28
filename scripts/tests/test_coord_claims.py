@@ -612,3 +612,58 @@ def test_escalation_lint_still_catches_real_reports(report):
     sys.path.insert(0, str(REPO_ROOT / "scripts" / "integrations"))
     import agent_activity
     assert agent_activity.escalation_hits(report), f"{report!r} must escalate"
+
+
+# ======== APEX round 3, 2026-08-28 ===========================================
+
+def test_repo_slug_must_be_remote_derived_not_the_directory_name(claim_mod):
+    """APEX found TEN live Bravo leases keyed `business-empire-agent` — the
+    directory name — while the agreed slug is `ceo-agent`.
+
+    The grammar was enforced on PATHS and not on the REPO field, and acquire()
+    simply trusted `--repo`. Leases in that namespace are invisible: APEX
+    resolves the same repo to `ceo-agent`, finds zero conflicts, and edits
+    straight through the files Bravo holds. Neither side sees an error, which is
+    why it has to be refused at write time — there is no later moment when a
+    namespace mismatch becomes visible.
+    """
+    with pytest.raises(ValueError) as e:
+        claim_mod._validate_repo("business-empire-agent")
+    assert "ceo-agent" in str(e.value)
+    assert "DIRECTORY name" in str(e.value)
+
+
+def test_repo_validation_allows_a_genuine_sibling_repo(claim_mod):
+    """Companion: refusing everything would be as useless as refusing nothing.
+    A different repo under ~/APPS is legitimate and must still work."""
+    assert claim_mod._validate_repo("oasis-command-center") == "oasis-command-center"
+
+
+def test_repo_slug_is_lowercased(claim_mod):
+    """slug_from_url lowercases, so a capitalised repo would match no peer row."""
+    assert claim_mod._validate_repo("OASIS-Command-Center") == "oasis-command-center"
+
+
+@pytest.mark.parametrize("text,should_escalate", [
+    # APEX's counterexamples: a LIVE blocker beside a fixed one
+    ("Fixed the retry loop. Separately, credits exhausted and we are stuck.", True),
+    ("Resolved the timeout. Note that operator-email service is down.", True),
+    # descriptions still suppressed
+    ("Fixed the bug where the bridge said credits exhausted", False),
+    ("Reviewing APEX handover which mentions service is down", False),
+    # plain reports still fire
+    ("Anthropic API credits exhausted and Groq fallback failed", True),
+    ("cannot connect to the database", True),
+])
+def test_narration_governs_its_own_clause_not_the_whole_row(text, should_escalate):
+    """APEX found the false negative in whole-row scanning and concluded a bare
+    verb list cannot converge, because the verbs are subject-dependent. That is
+    correct — and it is why the fix is SCOPE rather than another verb. Judging
+    each sentence independently changes the unit, not the vocabulary.
+
+    Bake-off on APEX's nine-sentence set: whole-row 2/9 wrong, APEX's 2/9,
+    per-sentence 0/9.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "integrations"))
+    import agent_activity
+    assert bool(agent_activity.escalation_hits(text)) is should_escalate

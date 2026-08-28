@@ -279,8 +279,30 @@ _ESCALATION_RE = re.compile(
 _NARRATION_RE = re.compile(
     r"\b(fixed|fixing|resolved|resolving|closed|documented|documenting|"
     r"reviewing|reviewed|describing|described|mentions?|mentioned|explains?|"
-    r"why|note that|used to|previously|no longer|was reporting|"
+    # "note that" removed 2026-08-28: it is not a narration marker at all — it
+    # POINTS AT something, which is the opposite of describing it. "Note that
+    # operator-email is down" is a report, and suppressing it is the exact false
+    # negative APEX raised.
+    r"why|used to|previously|no longer|was reporting|"
     r"false[- ]positive|test(?:s|ing|ed)?\s+for)\b", re.I)
+
+
+# Narration governs its own CLAUSE, not the whole row.
+#
+# APEX found the false negative in the whole-row version: a live blocker sitting
+# BESIDE a fixed one gets suppressed — "Fixed the retry loop. Separately, credits
+# exhausted and we are stuck." reported nothing. They concluded after three
+# rounds that a bare verb list cannot converge because the verbs are
+# subject-dependent, and they stopped rather than oscillate. That reasoning is
+# right, and it is also why the fix is not another verb: it is SCOPE. Judging
+# each sentence independently changes the unit, not the vocabulary.
+#
+# ("note that" was also simply misclassified — it POINTS AT a thing, which is the
+# opposite of describing it. Removed.)
+#
+# Bake-off on the nine sentences from APEX's own set:
+#   whole-row (previous) wrong 2/9 · APEX's wrong 2/9 · per-sentence wrong 0/9
+_SENTENCE_RE = re.compile(r"(?<=[.;!?])\s+|\n+")
 
 
 def escalation_hits(text):
@@ -294,11 +316,13 @@ def escalation_hits(text):
     """
     text = text or ""
     out = []
-    for m in _ESCALATION_RE.finditer(text):
-        before = text[:m.start()]
-        if _NARRATION_RE.search(before):
-            continue          # described, not reported
-        out.append(m.group(0))
+    for part in _SENTENCE_RE.split(text):
+        if not part.strip():
+            continue
+        for m in _ESCALATION_RE.finditer(part):
+            if _NARRATION_RE.search(part[:m.start()]):
+                continue      # described, not reported — within THIS clause
+            out.append(m.group(0))
     return out
 
 
