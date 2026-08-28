@@ -596,7 +596,19 @@ def check_tls_keylog() -> tuple[str, bool, str, str]:
 
     poisoned: list[str] = []
     unreachable = ""
-    if platform.system() == "Windows" and _which("pm2"):
+    # Check whether a pm2 DAEMON is alive BEFORE invoking the pm2 CLI.
+    #
+    # Calling pm2 when no daemon is reachable SPAWNS ONE — and if the named pipe
+    # is blocked, that spawn also fails and leaks. Five daemons re-accumulated
+    # within minutes of clearing 23 of them, purely from health checks running.
+    # The first version of this fix detected the EPERM but still paid a daemon to
+    # learn it, which is the same defect one level down: an audit that damages
+    # the thing it audits. Ask the process table instead — it costs nothing and
+    # spawns nothing.
+    if platform.system() == "Windows" and _which("pm2") and not _pm2_daemon_alive():
+        unreachable = ("no pm2 daemon is running (not querying pm2 — each call "
+                       "against a dead daemon leaks another orphan)")
+    elif platform.system() == "Windows" and _which("pm2"):
         try:
             proc = subprocess.run(["pm2", "jlist"], capture_output=True, text=True,
                                   timeout=30, shell=True)
@@ -716,6 +728,43 @@ def check_pm2_persistence() -> tuple[str, bool, str, str]:
                 "retrying `pm2`, each failed call leaks another daemon")
     return ("pm2-persistence", True,
             "boot trigger + battery-safe + fresh dump.pm2 + managed processes running", "")
+
+
+def _pm2_daemon_alive() -> bool:
+    """Is a pm2 daemon process actually running?
+
+    Answered from the process table, never by invoking pm2 — invoking pm2 when
+    no daemon is reachable spawns one, and if the pipe is blocked that spawn
+    leaks. This predicate exists so the health checks can ask "is pm2 usable?"
+    without making the answer worse.
+    """
+    try:
+        out = subprocess.run(["wmic", "process", "get", "Name,CommandLine"],
+                             capture_output=True, text=True, timeout=45,
+                             errors="ignore", creationflags=_NO_WINDOW).stdout.lower()
+    except Exception:  # noqa: BLE001
+        return False
+
+    # Match PER LINE, and require the line to be a node process.
+    #
+    # A whole-blob substring search reports a false positive against its OWN
+    # CALLER: any shell command that merely MENTIONS the daemon path — a grep, a
+    # Get-Process filter, this very diagnostic — appears in the process table and
+    # matches. That is exactly what happened: this returned True with zero
+    # daemons running, so the guard fell through, pm2 was invoked, and it leaked
+    # the daemon the guard existed to prevent. A detector that matches the string
+    # in its own invocation is measuring itself.
+    for line in out.splitlines():
+        if "node" not in line:
+            continue
+        if r"pm2\lib\daemon.js" in line or "pm2/lib/daemon.js" in line:
+            # Exclude lines that are a *query about* the daemon rather than the
+            # daemon itself (wmic/grep/powershell filters quoting the path).
+            if any(tool in line for tool in ("wmic", "findstr", "select-string",
+                                             "get-ciminstance", "get-process", "grep")):
+                continue
+            return True
+    return False
 
 
 def check_python_switch() -> tuple[str, bool, str, str]:
