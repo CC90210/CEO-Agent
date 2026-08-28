@@ -268,6 +268,37 @@ def _identity(app: dict) -> str:
     return (app["name"] or "").lower()
 
 
+def _windows_session_id() -> int | None:
+    """This process's Windows session, or None if it cannot be determined."""
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes  # noqa: PLC0415
+        sid = ctypes.c_ulong()
+        if ctypes.windll.kernel32.ProcessIdToSessionId(
+                ctypes.c_ulong(os.getpid()), ctypes.byref(sid)):
+            return int(sid.value)
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+class WrongSession(RuntimeError):
+    """This watchdog is running in Windows Session 0.
+
+    A Session-0 process cannot read the command line of a Session-1 process, so
+    from there the entire user-session fleet looks ABSENT — and this watchdog's
+    response to an absent fleet is to start it. That produces a second, invisible
+    copy of every daemon.
+
+    This is the fourth recurrence of the session/PM2 class on this machine
+    (2026-08-07 wrong PM2_HOME, 08-14 elevated daemon, 08-27 S4U/session-0,
+    08-28 duplicate schedulers). The "PM2 Resurrect" task was LogonType=S4U,
+    which is exactly how a supervisor ends up here. Refusing to run is the
+    launcher-level abort that class has needed for three incidents.
+    """
+
+
 class ProcessTableUnreadable(RuntimeError):
     """The OS process table could not be read, so liveness is UNKNOWN.
 
@@ -409,6 +440,20 @@ def main() -> int:
     pe = sub.add_parser("enable"); pe.add_argument("name")
     sub.add_parser("install-task")
     a = p.parse_args()
+
+    # A Session-0 supervisor cannot see the user-session fleet and would start a
+    # duplicate of every daemon. Only block the MUTATING pass — `status` from
+    # session 0 is merely uninformative, but `up` from session 0 is destructive.
+    if a.cmd == "up":
+        session = _windows_session_id()
+        if session == 0:
+            msg = ("REFUSING to supervise from Windows Session 0 — a session-0 "
+                   "process cannot see session-1 daemons, so every one of them "
+                   "would look absent and be started again as an invisible "
+                   "duplicate. Set this task's principal to Interactive.")
+            _log(f"ABORTED: {msg}")
+            print(f"ABORTED: {msg}", file=sys.stderr)
+            return 1
 
     # Only the mutating pass needs the lock; read-only status must stay callable
     # from the health checks that now depend on it.

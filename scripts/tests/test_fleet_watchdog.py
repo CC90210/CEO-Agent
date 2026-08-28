@@ -352,3 +352,37 @@ def test_process_table_works_when_imported_not_just_as_main():
         "process table rejected when called from an importer — the self-check "
         "is keyed on the file rather than the process")
     assert f"|{os.getpid()}|" in table, "self-check token must identify this PID"
+
+
+# --------------------------------------------------- session-0 supervision ---
+
+def test_session_id_is_detectable_on_windows():
+    """The guard is only real if the session can actually be read."""
+    sid = fw._windows_session_id()
+    if os.name != "nt":
+        pytest.skip("windows-only")
+    assert sid is not None, "cannot determine session — the session-0 guard is inert"
+    assert sid >= 0
+
+
+def test_supervision_refuses_to_run_from_session_zero(monkeypatch, capsys):
+    """A session-0 supervisor sees the user-session fleet as ABSENT and starts a
+    duplicate of every daemon. That is how four schedulers came to exist: the
+    "PM2 Resurrect" task was LogonType=S4U, so it supervised from session 0.
+
+    Fourth recurrence of this class on this machine, and the first time the
+    launcher itself refuses.
+    """
+    monkeypatch.setattr(fw, "_windows_session_id", lambda: 0)
+    monkeypatch.setattr(sys, "argv", ["fleet_watchdog.py", "up"])
+    rc = fw.main()
+    assert rc == 1
+    assert "session 0" in capsys.readouterr().err.lower()
+
+
+def test_supervision_allowed_from_a_user_session(monkeypatch):
+    """Break the test before trusting it: the guard must not block session 1."""
+    monkeypatch.setattr(fw, "_windows_session_id", lambda: 1)
+    monkeypatch.setattr(fw, "_acquire_run_lock", lambda: False)
+    monkeypatch.setattr(sys, "argv", ["fleet_watchdog.py", "up"])
+    assert fw.main() == 0, "a user-session pass must be allowed through the guard"
