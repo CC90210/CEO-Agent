@@ -53,6 +53,13 @@ def test_stopword_removal_keeps_domain_words():
 @pytest.mark.parametrize("a,b", [
     ("write", "writing"), ("plan", "plans"), ("skill", "skills"),
     ("deploy", "deployed"), ("review", "reviews"), ("test", "testing"),
+    # -ies/-y needs an EXPLICIT rule. A first draft's comment claimed these
+    # "fall through" to the generic suffix strip; they did not. policies
+    # stemmed to "polic" while policy stemmed to "policy", so the pair never
+    # matched, and the comment asserting otherwise is the exact stale-comment
+    # class already logged in memory/MISTAKES.md.
+    ("policy", "policies"), ("strategy", "strategies"),
+    ("query", "queries"), ("copy", "copies"),
 ])
 def test_inflections_collapse_to_one_stem(a, b):
     """`writing-plans` scored ZERO from its own name for "write ... plan",

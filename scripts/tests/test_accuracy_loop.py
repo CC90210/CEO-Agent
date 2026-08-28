@@ -232,3 +232,60 @@ class TestTrailingWindow:
         assert "HARNESS NOW" in out
         assert out.index("HARNESS NOW") < out.index("HARNESS BY WEEK"), (
             "the lagging weekly figure must not be the first number CC sees")
+
+
+# --- mistakes suite: preventions as executable gates -------------------------
+
+class TestMistakePreventions:
+    """The 12 mistake cases were a flat "n/a" — mined from MISTAKES.md and
+    scored by nobody, so a prevention silently rotting looked identical to a
+    prevention working.
+
+    A case that declares `check:` in meta.yaml now RUNS it: exit 0 means the
+    prevention still holds, non-zero means the regression is back. Cases with no
+    check stay needs-model, so the suite reports "1 of 12 scored" — a visible,
+    shrinking backlog rather than a number that reads as "nothing to do".
+    """
+
+    def _case(self, tmp_path, meta: str):
+        d = tmp_path / "case"
+        d.mkdir(exist_ok=True)
+        (d / "task.md").write_text("x", encoding="utf-8")
+        (d / "meta.yaml").write_text(meta, encoding="utf-8")
+        return d
+
+    def test_a_holding_prevention_scores_honored(self, tmp_path):
+        import adapter
+        d = self._case(tmp_path, 'suite: mistakes\ncheck: python -c "import sys; sys.exit(0)"\n')
+        assert adapter._mistakes(d)["verdict"] == "prevention-honored"
+
+    def test_a_broken_prevention_scores_broken(self, tmp_path):
+        """The whole point: if the gate that caught a mistake stops working, the
+        suite must go red rather than quietly keep saying n/a."""
+        import adapter
+        d = self._case(tmp_path, 'suite: mistakes\ncheck: python -c "import sys; sys.exit(1)"\n')
+        assert adapter._mistakes(d)["verdict"] == "prevention-broken"
+
+    def test_an_unwired_case_stays_honest_pending(self, tmp_path):
+        """Never a fake pass. A mistake with no deterministic check yet is
+        pending, and must not be counted as guarded."""
+        import adapter
+        d = self._case(tmp_path, "suite: mistakes\n")
+        assert adapter._mistakes(d)["verdict"] == "needs-model"
+
+    def test_unwired_cases_are_unscored_not_failures(self, tmp_path, monkeypatch):
+        """They must not drag the suite's score down — that would make the
+        backlog look like a regression and the gate permanently red."""
+        rep = run_suites.run_suite("mistakes")
+        assert rep["n_cases"] > rep["n_scored"], "expected some cases still pending"
+        assert rep["score"] is None or rep["score"] > 0
+
+    def test_the_live_wired_case_passes(self):
+        """audit_mcp_secrets.py is the prevention for the 2-month plaintext
+        Stripe-key leak. If a live key reappears in any IDE MCP config, this
+        goes red — which is exactly what nobody noticed for two months."""
+        rep = run_suites.run_suite("mistakes")
+        wired = [r for r in rep["results"] if r["status"] in ("pass", "fail")]
+        assert wired, "no mistake case is wired to a check any more"
+        assert all(r["status"] == "pass" for r in wired), (
+            f"a prevention has broken: {[r['name'] for r in wired if r['status'] != 'pass']}")

@@ -56,11 +56,18 @@ DAEMON_FRESHNESS_SEC = 120  # PID file must have been touched within 2 minutes
 RRF_K = 60  # Reciprocal Rank Fusion constant (matches memory_retriever)
 
 
-# Suffixes stripped to a common stem, longest-first so "ing" beats "g".
+# (suffix, replacement) applied longest-first, so "ings" beats "ing" beats "s".
 # Deliberately tiny and explicit: resolve_intent is documented as the
 # offline-DETERMINISTIC path that CI and the evals depend on, so this must never
 # depend on a stemmer library's version or locale.
-_SUFFIXES = ("ings", "ing", "ies", "ied", "es", "ed", "s", "e")
+#
+# -ies/-ied map to "y" rather than being stripped: policies->policy, not
+# policies->polic, which would never match policy->policy.
+_SUFFIX_RULES = (
+    ("ings", ""), ("ing", ""),
+    ("ies", "y"), ("ied", "y"),
+    ("es", ""), ("ed", ""), ("s", ""), ("e", ""),
+)
 _MIN_STEM = 3
 
 
@@ -74,14 +81,19 @@ def _stem(word: str) -> str:
     volume. Routing accuracy is the thing the whole router exists for, and it
     was being decided by morphology.
 
-    "ies"->"y" is handled by falling through to the generic strip and then the
-    trailing "e" rule, which is enough for skill names; this is not trying to be
-    a linguist, only to make write/writing and plan/plans the same token.
+    The -ies/-ied forms need an explicit rule, NOT a plain strip. A first draft
+    claimed they "fall through" to the generic suffixes; they do not, and the
+    comment was simply wrong — `policies` stemmed to "polic" while `policy`
+    stemmed to "policy", so the pair never matched. Same for query/queries and
+    strategy/strategies, all plausible words in a routing intent.
+
+    This is not trying to be a linguist, only to make write/writing,
+    plan/plans and policy/policies the same token.
     """
     w = word.lower()
-    for suf in _SUFFIXES:
+    for suf, repl in _SUFFIX_RULES:
         if w.endswith(suf) and len(w) - len(suf) >= _MIN_STEM:
-            return w[: -len(suf)]
+            return w[: -len(suf)] + repl
     return w
 
 

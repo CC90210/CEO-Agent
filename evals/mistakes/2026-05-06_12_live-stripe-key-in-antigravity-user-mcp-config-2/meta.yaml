@@ -3,3 +3,4 @@ surface: regression
 source: mistake
 title: Live Stripe Key in Antigravity User MCP Config — 2-Month Plaintext Leak
 date: 2026-05-06
+check: python scripts/audit_mcp_secrets.py --quiet

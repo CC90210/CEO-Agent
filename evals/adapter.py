@@ -79,11 +79,36 @@ def _compliance(cd: Path) -> dict:
             "has_recipient_in_unsub": recipient.split("@")[0].lower() in low or "unsub" in low}
 
 
-def _mistakes(_cd: Path) -> dict:
-    # Mined from MISTAKES.md as a regression backlog. Until a mistake is wired to a
-    # deterministic check that would have caught it, it scores rubric→needs-model
-    # (honest pending, never a fake pass). Wiring each is the ongoing capability work.
-    return {"verdict": "needs-model"}
+def _mistakes(cd: Path) -> dict:
+    """Mined from MISTAKES.md as a regression backlog.
+
+    A case whose meta.yaml declares `check:` is RUN: the command is the
+    deterministic gate that would have caught that mistake, so a zero exit means
+    the prevention still holds and a non-zero means the regression is back.
+
+    Without `check:` it stays rubric→needs-model — honest pending, never a fake
+    pass. That distinction is the point of the suite: it reports how many of the
+    twelve are actually guarded, so the backlog is visible and shrinking instead
+    of a flat "n/a" that reads as "nothing to do here".
+
+    Wiring a case is not bookkeeping. It means writing the check that would have
+    caught the mistake, which is the real work; the field just makes it count.
+    """
+    check = _meta(cd).get("check")
+    if not check:
+        return {"verdict": "needs-model"}
+    try:
+        r = subprocess.run(check, shell=True, cwd=str(REPO),
+                           capture_output=True, text=True, timeout=180)
+    except subprocess.TimeoutExpired:
+        return {"verdict": "prevention-timeout", "check": check}
+    except Exception as exc:  # noqa: BLE001
+        return {"verdict": "prevention-unrunnable", "check": check,
+                "error": f"{type(exc).__name__}: {exc}"}
+    if r.returncode == 0:
+        return {"verdict": "prevention-honored", "check": check}
+    return {"verdict": "prevention-broken", "check": check,
+            "detail": (r.stderr or r.stdout or "")[-400:]}
 
 
 DISPATCH = {"routing": _routing, "send_policy": _send_policy,

@@ -1,1 +1,1 @@
-{"scorer": "rubric", "field": "verdict", "expected": "prevention-honored", "note": "wire to a deterministic check that would have caught this mistake; until then = needs-model"}
+{"scorer": "exact", "field": "verdict", "expected": "prevention-honored", "note": "WIRED 2026-08-28. The prevention this mistake produced is audit_mcp_secrets.py, which scans every known MCP config path for plaintext live secrets and exits 1 on any leak. Running it IS the regression test — if a live key reappears in any IDE config, this case goes red."}
