@@ -331,6 +331,16 @@ def post(status, task, files=None, branch=None, detail=None, mirror=False, agent
     if status not in VALID_STATUS:
         raise ValueError(f"status must be one of {VALID_STATUS}, got {status!r}")
 
+    # `agent` is the ONLY key every read path filters on (PEER_KEYS / SELF_KEYS),
+    # so an unknown value writes a row neither agent can see. coord_claim was
+    # given this check first; this is its sibling table and had none — the same
+    # half-fix shape, one module over. Found by the defect sweep.
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        from lib import ownership  # noqa: PLC0415
+        ownership.validate_agent_key(agent or ME_KEY, field="agent key")
+    except ImportError:
+        pass                       # ownership map unavailable -> do not block
     hits = escalation_hits(f"{task or ''} {detail or ''}")
     if hits and status != "blocked" and not allow_unescalated:
         raise ValueError(

@@ -716,7 +716,11 @@ def test_known_agents_come_from_the_ownership_map_not_a_second_list():
     is enough."""
     src = (REPO_ROOT / "scripts" / "integrations" / "coord_claim.py").read_text(encoding="utf-8")
     fn = src[src.index("def _validate_agent"):src.index("def _validate_paths")]
-    assert "ownership.load()" in fn
+    # Assert the PROPERTY (the roster comes from the map), not the call spelling.
+    # The first version asserted `ownership.load()` and went red the moment the
+    # roster moved behind validate_agent_key — a test pinned to an
+    # implementation detail rather than the behaviour it cares about.
+    assert "ownership." in fn and "validate_agent_key" in fn
 
 
 def test_an_expired_own_lease_does_not_suppress_the_contested_nudge():
@@ -809,3 +813,42 @@ def test_migration_taken_set_unions_prefixed_and_unprefixed():
     union = m.taken_numbers("bravo")
     assert disk.get("bravo", set()) <= union
     assert disk.get("", set()) <= union
+
+
+# ---- the ungrammared-lookup-key class, closed across every writer ----------
+
+def test_agent_roster_has_exactly_one_definition():
+    """Sixth avoided instance of the duplicate-definition class.
+
+    coord_claim, agent_activity and event_bus all key rows on an agent name.
+    Writing the roster in each would guarantee drift — which is exactly what
+    OWNERSHIP_MAP exists to prevent. All of them resolve through
+    lib.ownership.validate_agent_key.
+    """
+    from lib import ownership
+    src = (REPO_ROOT / "scripts" / "integrations" / "coord_claim.py").read_text(encoding="utf-8")
+    fn = src[src.index("def _validate_agent"):src.index("def _validate_paths")]
+    assert "ownership.validate_agent_key" in fn, "coord_claim must delegate, not copy"
+    aa = (REPO_ROOT / "scripts" / "integrations" / "agent_activity.py").read_text(encoding="utf-8")
+    assert "ownership.validate_agent_key" in aa, "agent_activity must use the shared roster"
+    assert ownership.known_agent_keys() >= {"bravo", "apex"}
+
+
+def test_agent_activity_refuses_an_unknown_agent_key():
+    """`agent` is the ONLY key every read path in agent_activity filters on
+    (PEER_KEYS / SELF_KEYS). An unknown value writes a row neither agent can
+    see — the same silent-namespace failure as the repo-slug bug, one table
+    over. coord_claim got this check first; its sibling had none."""
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "integrations"))
+    import agent_activity
+    with pytest.raises(ValueError) as e:
+        agent_activity.post("working", "should never be written", agent="apex-racetest")
+    assert "not a known agent key" in str(e.value)
+
+
+@pytest.mark.parametrize("key", ["bravo", "apex", "knut", "cc-agent"])
+def test_shared_roster_accepts_every_real_key(key):
+    """A validator that refuses everything is as useless as one that refuses
+    nothing — aliases and legacy wire keys must keep working."""
+    from lib import ownership
+    assert ownership.validate_agent_key(key) == key.lower()

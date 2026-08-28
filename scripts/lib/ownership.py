@@ -121,6 +121,62 @@ def is_contested(repo: str, path: str) -> bool:
     return owner(repo, path) == "shared"
 
 
+def known_agent_keys() -> set[str]:
+    """Every string that legitimately names an agent on the wire.
+
+    Canonical keys, wire keys, aliases and legacy wire keys — all from the
+    ownership map, which is the single roster. Empty set means the map could not
+    be read, and callers must then NOT enforce (never block real work on a
+    config read failure).
+    """
+    out: set[str] = set()
+    for name, meta in (load().get("agents") or {}).items():
+        meta = meta or {}
+        out.add(str(name).lower())
+        for k in ("canonical_key", "wire_key"):
+            v = meta.get(k)
+            if v:
+                out.add(str(v).lower())
+        for lst in ("aliases", "legacy_wire_keys"):
+            for a in (meta.get(lst) or []):
+                out.add(str(a).lower())
+    out.discard("")
+    return out
+
+
+def validate_agent_key(agent: str, *, field: str = "agent") -> str:
+    """Refuse an agent name no peer filter would ever match. ONE definition.
+
+    THE CLASS THIS CLOSES. Every cross-agent table keys on an agent name, and
+    every reader filters on a fixed set. A name outside that set produces rows
+    invisible to BOTH agents whose writer also sees no conflicts — silent by
+    construction, with no later moment where it surfaces.
+
+    It has already happened twice: `business-empire-agent` in coord_claims.repo
+    (10 live leases nobody could see, found by APEX) and `apex-racetest` in
+    coord_claims.agent (written by Bravo's own concurrency test). The sweep then
+    found the same shape unvalidated in agent_activity.agent and
+    event_bus.target_agent.
+
+    Living here rather than in each caller because writing it a third time would
+    itself be the duplicate-definition class — which has bitten five times in
+    this subsystem and is what the ownership map exists to prevent.
+    """
+    key = (agent or "").strip().lower()
+    if not key:
+        raise ValueError(f"{field} is required")
+    known = known_agent_keys()
+    if known and key not in known:
+        raise ValueError(
+            f"{agent!r} is not a known {field}. Known: {sorted(known)}.\n"
+            "A row under an unknown agent key is invisible to BOTH agents' peer "
+            "filters — it reaches nobody and its writer sees no conflicts. If "
+            "this is a real new agent, add it to brain/OWNERSHIP_MAP.yaml first: "
+            "an agent with no ownership entry has no surfaces, so its rows would "
+            "be meaningless even once they were visible.")
+    return key
+
+
 def agent_for_git_identity(name: str) -> str | None:
     for key, meta in (load().get("agents") or {}).items():
         if name in (meta.get("git_identities") or []):
