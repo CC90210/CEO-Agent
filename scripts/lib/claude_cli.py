@@ -24,7 +24,6 @@ timeout, non-zero exit) so callers degrade gracefully instead of crashing.
 """
 from __future__ import annotations
 
-import json
 import os
 import re
 import shutil
@@ -63,12 +62,14 @@ _RESET_HINT = re.compile(
 
 def _quota_cooldown_remaining() -> int:
     """Seconds left on the breaker, or 0. NEVER raises and never fails closed —
-    any unreadable/corrupt/absent state means "make the call"."""
+    any unreadable/corrupt/absent state means "make the call".
+
+    Reads via lib.json_ledger, the repo's single implementation of this on-disk
+    JSON idiom. load_ledger already returns {} for missing/corrupt/non-dict
+    content, which is exactly the fail-open behaviour this needs."""
     try:
-        if not QUOTA_STATE_PATH.exists():
-            return 0
-        data = json.loads(QUOTA_STATE_PATH.read_text(encoding="utf-8"))
-        until = float(data.get("until_epoch", 0))
+        from lib.json_ledger import load_ledger  # noqa: PLC0415
+        until = float(load_ledger(QUOTA_STATE_PATH).get("until_epoch", 0))
     except Exception:  # noqa: BLE001 - fail open, always
         return 0
     remaining = int(until - time.time())
@@ -79,20 +80,17 @@ def _open_quota_breaker(raw_message: str) -> None:
     """Record that quota is spent so sibling processes skip the doomed attempt."""
     cooldown = QUOTA_COOLDOWN_DEFAULT_SEC
     hint = _RESET_HINT.search(raw_message or "")
-    try:
-        QUOTA_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "detected_at": datetime.now(timezone.utc).isoformat(),
-            "until_epoch": time.time() + cooldown,
-            "cooldown_sec": cooldown,
-            "reset_hint": hint.group(1) if hint else None,
-            "raw": (raw_message or "")[:300],
-        }
-        tmp = QUOTA_STATE_PATH.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        os.replace(tmp, QUOTA_STATE_PATH)
-    except Exception as exc:  # noqa: BLE001 - the breaker is an optimisation
-        sys.stderr.write(f"[claude_cli] could not record quota state: {exc}\n")
+    from lib.json_ledger import save_ledger  # noqa: PLC0415
+    ok = save_ledger(QUOTA_STATE_PATH, {
+        "detected_at": datetime.now(timezone.utc).isoformat(),
+        "until_epoch": time.time() + cooldown,
+        "cooldown_sec": cooldown,
+        "reset_hint": hint.group(1) if hint else None,
+        "raw": (raw_message or "")[:300],
+    }, cap=None, indent=2)
+    if not ok:
+        sys.stderr.write("[claude_cli] could not record quota state — the "
+                         "breaker is an optimisation, continuing without it\n")
 
 
 def _close_quota_breaker() -> None:

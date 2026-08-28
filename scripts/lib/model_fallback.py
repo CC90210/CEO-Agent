@@ -27,8 +27,6 @@ prefix so PM2 logs / SESSION_LOG captures the event.
 from __future__ import annotations
 
 import hashlib
-import json
-import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -92,20 +90,20 @@ DEMOTE_TTL_SEC = 1800
 
 def _read_tier_health() -> dict:
     """Never raises. Corrupt/missing state means "no opinion", which restores
-    the declared order — the behaviour that shipped before this existed."""
-    try:
-        if TIER_HEALTH_PATH.exists():
-            data = json.loads(TIER_HEALTH_PATH.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                return data
-    except Exception:  # noqa: BLE001 - advisory data, fail open
-        pass
-    return {}
+    the declared order — the behaviour that shipped before this existed.
+
+    Uses lib.json_ledger, which is the repo's one implementation of this idiom
+    ("the shared implementation for everything written since"). The first draft
+    hand-rolled load/save here and in claude_cli, which is the duplication that
+    module exists to prevent."""
+    from lib.json_ledger import load_ledger  # noqa: PLC0415
+    return load_ledger(TIER_HEALTH_PATH)
 
 
 def _record_tier_health(task_type: str, model: str, *, ok: bool) -> None:
     """Update the consecutive-failure counter for one (task_type, model)."""
     try:
+        from lib.json_ledger import save_ledger  # noqa: PLC0415
         data = _read_tier_health()
         key = f"{task_type}:{model}"
         entry = data.get(key) or {}
@@ -116,10 +114,9 @@ def _record_tier_health(task_type: str, model: str, *, ok: bool) -> None:
             entry["consecutive_fail"] = int(entry.get("consecutive_fail", 0)) + 1
             entry["last_fail"] = datetime.now(timezone.utc).isoformat()
         data[key] = entry
-        TIER_HEALTH_PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp = TIER_HEALTH_PATH.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        os.replace(tmp, TIER_HEALTH_PATH)
+        # cap=None: values here are dicts, not sortable ISO strings, and the key
+        # space is bounded by (task_type x model) anyway.
+        save_ledger(TIER_HEALTH_PATH, data, cap=None, indent=2)
     except Exception:  # noqa: BLE001 - must never break a model call
         pass
 
