@@ -231,19 +231,45 @@ def check_no_dead_api_key_in_active():
 
 
 def check_brief_renders():
-    rc, out, err = _run([sys.executable, "scripts/daily_brief.py", "--dry-run"],
-                        timeout=90, env_extra={"BRAVO_BRIEF_NARRATE": "0"})
-    if rc != 0:
-        return False, f"daily_brief --dry-run exit {rc}: {err[:120]}"
-    lowered = out.lower()
-    degraded = next((marker for marker in _DEGRADED_BRIEF_MARKERS if marker in lowered), None)
-    if degraded:
-        return False, f"brief contains degraded marker {degraded!r}: {out[:160]!r}"
-    if "MRR" in out:
-        return False, "brief contains a banned marker (MRR / narration-unavailable)"
-    if "Pipeline" not in out or ": —" in out:
-        return False, f"brief looks degraded: {out[:160]!r}"
-    return True, "deterministic brief renders with real data, no MRR"
+    """Does the deterministic brief render REAL data, or a degraded placeholder?
+
+    CONFIRMED ON FAILURE (2026-08-28), for the same reason as
+    check_fleet_compiles. This check failed 10 times in a week, and the failures
+    were single runs where one sub-engine (client health) reported "unavailable"
+    — a transient DB/network blip, not a broken brief. Three consecutive manual
+    runs immediately after a failure all rendered fine.
+
+    The check is not softened: a brief that is degraded on BOTH reads still
+    fails, and "0 clients monitored" — the honest CRM-gap message — was never a
+    failure and still is not. This only stops one blip in a dependency from
+    reporting the brief as broken, which is the difference between a gate an
+    operator trusts and one they learn to re-run.
+    """
+    def _attempt():
+        rc, out, err = _run([sys.executable, "scripts/daily_brief.py", "--dry-run"],
+                            timeout=90, env_extra={"BRAVO_BRIEF_NARRATE": "0"})
+        if rc != 0:
+            return f"daily_brief --dry-run exit {rc}: {err[:120]}"
+        lowered = out.lower()
+        degraded = next((m for m in _DEGRADED_BRIEF_MARKERS if m in lowered), None)
+        if degraded:
+            return f"brief contains degraded marker {degraded!r}: {out[:160]!r}"
+        if "MRR" in out:
+            return "brief contains a banned marker (MRR / narration-unavailable)"
+        if "Pipeline" not in out or ": —" in out:
+            return f"brief looks degraded: {out[:160]!r}"
+        return None
+
+    problem = _attempt()
+    if problem is None:
+        return True, "deterministic brief renders with real data, no MRR"
+
+    # One retry. A genuinely broken brief fails twice; a blip does not.
+    confirmed = _attempt()
+    if confirmed is None:
+        return True, ("deterministic brief renders with real data, no MRR "
+                      "(first read degraded, re-read clean — transient dependency)")
+    return False, f"{confirmed} [confirmed on re-read]"
 
 
 def check_self_audit_mandatory_gates():
@@ -438,6 +464,42 @@ def check_cron_health():
     if mrr_on:
         return False, "Weekly MRR Report is active — violates the Atlas boundary"
     return True, f"{sum(1 for j in jobs if j.get('is_active'))} active crons, none in ERROR, no Bravo MRR digest"
+
+
+def check_cron_definitions_match_live():
+    """Is the cron the fleet RUNS the cron the repo DEFINES?
+
+    `cron_engine.py seed` skips any job whose name already exists, so SEED_JOBS
+    was the definition of record on a fresh machine and pure documentation on
+    this one. The two drifted silently for weeks.
+
+    What that cost, measured 2026-08-28 when the comparison was first run:
+      * "Bravo — Review Harvest" was missing `--seed-open`, the argument that
+        gives the whole review loop a trigger. Committed, documented, believed
+        shipped, never once executed.
+      * "Loud Failures Weekly Probe" still carried `--strict`, deliberately
+        REMOVED from the source on 2026-08-03 because it turned every finding
+        into an hourly re-page. The alert metronome ran for 25 more days.
+
+    Both are the same defect as a guard that exists but is not registered in a
+    hook chain: present in the source, absent from the running system. Nothing
+    else in this eval reads the live registry's CONFIG — check_cron_health only
+    asks whether rows are erroring.
+    """
+    rc, out, err = _run([sys.executable, "scripts/core/cron_engine.py", "--json", "drift"],
+                        timeout=90)
+    if not out.strip():
+        return False, f"cron drift check produced no output: {(err or '')[:160]}"
+    try:
+        drifted = json.loads(out).get("drifted", [])
+    except json.JSONDecodeError:
+        return False, "cron drift check returned non-JSON"
+    if drifted:
+        names = ", ".join(d.get("name", "?") for d in drifted[:4])
+        return False, (f"{len(drifted)} live cron(s) disagree with SEED_JOBS: {names}"
+                       + (" …" if len(drifted) > 4 else "")
+                       + " — realign with `cron_engine.py drift --fix`")
+    return True, "every live cron matches its SEED_JOBS definition"
 
 
 def check_pm2_fleet():
@@ -651,6 +713,7 @@ CHECKS = [
     ("lead_engine tenant contract intact", check_tenant_scoping, False, "boundary"),
     ("safety guards in enforce", check_guards_enforce, False, "guards"),
     ("cron table healthy (no ERROR, no MRR digest)", check_cron_health, False, "live-health"),
+    ("cron definitions match live registry", check_cron_definitions_match_live, False, "live-health"),
     ("PM2 fleet online", check_pm2_fleet, False, "live-health"),
     ("fleet compiles (no SyntaxError anywhere)", check_fleet_compiles, False, "live-health"),
     ("model-call path live (claude CLI probe)", check_model_call_path, True, "model-call"),  # --with-model only

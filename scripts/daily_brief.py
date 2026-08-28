@@ -63,7 +63,13 @@ NARRATION_MODEL_CLI = "sonnet"          # CLI alias — always resolves
 # daily_brief (150s) so the inner narration bails to the deterministic brief
 # BEFORE the scheduler kills the whole process. Observed narration ~22s.
 CLI_NARRATION_TIMEOUT_SEC = 60
-SNAPSHOT_REGEN_TIMEOUT_SEC = 75
+# RAISED 75 -> 110 (2026-08-28). The generator measured 64s/68s/70s, so 75s left
+# 5-7s of margin and any ordinary variance stamped the snapshot `_stale` or left
+# a sub-engine as {"_error"}. Above p95, not at the measured value.
+# Chain: engines 90 (briefing_snapshot.TIMEOUT_SEC) -> regen 110 -> narration 60
+#        -> scheduler.run_daily_brief 200. Each layer must exceed the one inside
+#        it or the inner diagnostic is lost to the outer kill.
+SNAPSHOT_REGEN_TIMEOUT_SEC = 110
 SCHEDULER_JOB_TIMEOUT_SEC = 150
 SNAPSHOT_STALENESS_SEC = 5 * 60  # 5 min — was 24h, but CC's revenue events
 # (subscription_start / cancel logged manually) change throughout the day. A

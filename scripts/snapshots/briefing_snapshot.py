@@ -30,7 +30,23 @@ SNAPSHOT_DIR = PROJECT_ROOT / "state" / "snapshots"
 # Must remain above ceo_dashboard.SUBENGINE_TIMEOUT_SEC and below
 # daily_brief.SNAPSHOT_REGEN_TIMEOUT_SEC. See the timeout-contract regression
 # test in test_harness_reporting_integrity.py.
-TIMEOUT_SEC = 65
+# RAISED 65 -> 90 (2026-08-28). Measured, not guessed: the generator's whole
+# wall came in at 64s, 68s and 70s across three runs, which means the slowest
+# engine was landing within a few seconds of the 65s per-engine cap. Engines
+# that cross it are recorded as {"_error": ...} and the brief then renders
+# "⚠️ unavailable" — which is exactly what CC saw for `Client health` and
+# `Follow-ups due` while the underlying data was fine (client_health_alerts read
+# "All clients are GREEN or YELLOW").
+#
+# This is the timeout-below-measured-duration trap: a cap at the measured
+# duration manufactures failures on ordinary variance. Caps go above p95, and on
+# this machine every subprocess pays AV-inflated spawn cost (a bare
+# `python -c pass` measures 3.7s), so seven parallel engines contend far harder
+# than the "wall-clock ≈ the slowest engine" note below assumes.
+#
+# Kept coherent with the callers, which were raised in the same commit:
+#   engines 90  ->  daily_brief regen cap 110  ->  scheduler daily_brief 200
+TIMEOUT_SEC = 90
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 

@@ -791,11 +791,19 @@ def run_daily_brief(_env_vars: dict) -> str:
     that's Atlas's brief. The script self-ships; this handler just invokes it
     and returns stdout so cron_jobs.last_result captures whether it landed.
 
-    Timeout 150s > daily_brief's inner CLI-narration timeout (60s) + snapshot
-    regen (60s) so the script always reaches its own graceful fallback before
-    the scheduler force-kills it.
+    Timeout 200s > daily_brief's inner budgets (snapshot regen 110s + CLI
+    narration 60s = 170s) so the script always reaches its own graceful fallback
+    before the scheduler force-kills it. An outer cap BELOW the inner sum
+    destroys the diagnostic the inner layers were written to produce.
+
+    RAISED 150 -> 200 (2026-08-28). The docstring said "snapshot regen (60s)"
+    while the constant was 75 and the generator actually measured 64-70s, so the
+    stated arithmetic had not been true for some time. Sub-engines were timing
+    out and CC's brief rendered "⚠️ unavailable" for Client health and Follow-ups
+    while the underlying data was fine. Chain, all measured and all above p95:
+        engines 90 -> regen 110 -> +narration 60 = 170 -> outer 200 (< 300 cap).
     """
-    out = run_script("daily_brief.py", [], timeout=150)
+    out = run_script("daily_brief.py", [], timeout=200)
     if not out or not out.strip():
         return "ERROR: daily_brief returned empty output"
     first_line = out.strip().splitlines()[0]
