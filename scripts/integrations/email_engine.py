@@ -1009,6 +1009,44 @@ def cmd_stats(env_vars, args, output_json=False):
 # than a reason to delete. Do not reintroduce a blanket drop here.
 IMAP_MAX_EMAILS = 20
 
+# Seconds of wall-clock this sweep will spend on the message loop before
+# stopping cleanly. MUST stay comfortably below the scheduler's per-job kill at
+# scheduler.py:1116 (300s) — the gap absorbs one in-flight classification plus
+# the backfill pass and IMAP teardown. Note the timeout is NOT settable from
+# cron_engine for this job: the override at scheduler.py:859-862 applies only to
+# action_type "script_run", and this job is "email_inbox_check". So the budget
+# has to live here, on this side of the wall.
+SWEEP_BUDGET_SEC = int(os.environ.get("EMPIRE_SWEEP_BUDGET_SEC", "210"))
+
+# Post-mortem breadcrumb trail for the sweep.
+#
+# WHY (2026-08-28): this job has been dying with exit 3221225480 and EMPTY
+# stdout AND stderr — six recorded failures across three days with not one line
+# of evidence between them, because the captured pipes are lost when the run is
+# killed. Six failures that could not be diagnosed at all is the actual defect;
+# the crash is secondary. Every stage below appends one flushed JSON line to
+# state/email_sweep.log, so the NEXT failure says exactly where it stopped, how
+# long it had been running, and on which message. Rotated by the existing
+# hooks/rotate_logs.py sweep over state/*.log.
+SWEEP_PROGRESS_LOG = (Path(__file__).resolve().parent.parent.parent
+                      / "state" / "email_sweep.log")
+
+
+def _log_sweep_progress(stage: str, started: float | None = None, **fields) -> None:
+    """One flushed line per stage. Never raises, never blocks the sweep."""
+    try:
+        rec = {"ts": datetime.now(timezone.utc).isoformat(), "stage": stage}
+        if started is not None:
+            rec["elapsed_s"] = round(time.monotonic() - started, 1)
+        rec.update(fields)
+        SWEEP_PROGRESS_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(SWEEP_PROGRESS_LOG, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec, default=str) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())  # a kill must not take the evidence with it
+    except Exception:  # noqa: BLE001
+        pass
+
 # V2.1 2026-04-11: Poison UID tracking. If an IMAP fetch fails repeatedly
 # on the same UID (e.g., corrupt message, encoding error), quarantine it
 # by marking it \Seen after 3 failed attempts. This prevents a bad message
@@ -1098,7 +1136,8 @@ def read_mail_financial_decision(cls: dict, fin_threshold: float = 0.65) -> str:
     return "handoff" if confidence > fin_threshold else "skip"
 
 
-def _backfill_read_before_sweep(imap, db, processed_msgids: dict) -> int:
+def _backfill_read_before_sweep(imap, db, processed_msgids: dict,
+                                deadline: float | None = None) -> int:
     """Classify recently-SEEN mail the UNSEEN sweep never saw; hand financial
     mail to Atlas. Returns the number of messages newly examined. Never raises
     — a backfill failure must not take down the main sweep."""
@@ -1128,6 +1167,18 @@ def _backfill_read_before_sweep(imap, db, processed_msgids: dict) -> int:
         )[:SEEN_BACKFILL_MAX_PER_TICK]
 
         for uid_int in uids:
+            # The backfill runs AFTER the main loop and classifies up to
+            # SEEN_BACKFILL_MAX_PER_TICK messages, so before this it could blow
+            # the scheduler's 300s wall entirely on its own — the main loop's
+            # budget did not reach here. Both failures on 2026-08-28 (03:20:53
+            # and 04:05:42) were kills at exactly 300s after their tick started.
+            # Stopping here is free: last_uid is only advanced for messages
+            # actually examined, so the next tick resumes at the same place.
+            if deadline is not None and time.monotonic() > deadline:
+                print(f"[seen_backfill] budget reached — deferring "
+                      f"{len(uids) - uids.index(uid_int)} message(s) to the next tick",
+                      file=sys.stderr)
+                break
             uid = str(uid_int)
             # Cheap header peek first: most candidates are mail the UNSEEN sweep
             # already processed (held mail CC later read), and the ledger skips
@@ -1212,6 +1263,9 @@ def _backfill_read_before_sweep(imap, db, processed_msgids: dict) -> int:
                     pass
 
             processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
+            # Checkpoint per message: this pass runs AFTER the main loop, so on a
+            # 300s kill it was the most likely work to be discarded entirely.
+            _save_processed_msgids(processed_msgids)
             last_uid = uid_int
 
         state["last_uid"] = last_uid
@@ -1573,10 +1627,17 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             print(msg, file=sys.stderr)
         sys.exit(1)
 
+    # First breadcrumb, before ANY network call. Six failures on this job have
+    # produced empty stdout AND stderr, so the open question was whether the run
+    # even reached application code. From now on it says so.
+    _run_started = time.monotonic()
+    _log_sweep_progress("start")
+
     # Both of these are network connects and both have failed transiently in
     # production (tmp/cron_failures/): the Turso connect with os error 10060,
     # the Gmail TLS handshake with WinError 10054.
     db = _retry_transient("turso connect", lambda: get_supabase(env_vars))
+    _log_sweep_progress("db_connected", _run_started)
     imap = None
     found_emails = []
 
@@ -1586,10 +1647,13 @@ def cmd_check_inbox(env_vars, args, output_json=False):
         imap.socket().settimeout(30)
         imap.login(address, password)
         imap.select("INBOX")
+        _log_sweep_progress("imap_ready", _run_started)
 
         status, data = imap.search(None, "UNSEEN")
         if status != "OK":
             raise RuntimeError(f"IMAP search failed: {status}")
+        _log_sweep_progress("searched", _run_started,
+                            unseen=len(data[0].split()) if data and data[0] else 0)
 
         message_ids = data[0].split() if data[0] else []
         # Cap to avoid long runs
@@ -1607,7 +1671,32 @@ def cmd_check_inbox(env_vars, args, output_json=False):
         # 2026-07-24: processed-message idempotency ledger (see the guard below).
         processed_msgids = _load_processed_msgids()
 
+        # WALL-CLOCK BUDGET (2026-08-28). scheduler.py:1116 kills this job at
+        # 300s, and that kill is a SIGKILL-equivalent: no cleanup, no summary,
+        # no IMAP logout. On quota-degraded days a single classification cost
+        # 172.5s, so the sweep reliably died part-way through the mailbox and
+        # the operator's only evidence was a truncated log in tmp/cron_failures.
+        #
+        # Stopping ourselves a minute early turns that into an ordinary partial
+        # run: remaining mail stays UNSEEN and the next 5-minute tick picks it
+        # up. This bounds the run WITHOUT capping how much mail we will ever
+        # process, which a smaller IMAP_MAX_EMAILS would have done.
+        sweep_started = time.monotonic()
+        sweep_deadline = sweep_started + SWEEP_BUDGET_SEC
+        deferred = 0
+        _log_sweep_progress("loop_start", sweep_started,
+                            queued=len(message_ids), budget_s=SWEEP_BUDGET_SEC)
+
         for uid in message_ids:
+            if time.monotonic() > sweep_deadline:
+                deferred = len(message_ids) - message_ids.index(uid)
+                print(f"[email_inbox] wall-clock budget ({SWEEP_BUDGET_SEC}s) reached — "
+                      f"stopping cleanly with {deferred} message(s) left UNSEEN for the "
+                      f"next tick", file=sys.stderr)
+                _log_sweep_progress("budget_reached", sweep_started, deferred=deferred)
+                break
+            _log_sweep_progress("message_start", sweep_started,
+                                idx=message_ids.index(uid) + 1, of=len(message_ids))
             uid_str = uid.decode() if isinstance(uid, bytes) else str(uid)
             fetch_status, fetch_data = imap.fetch(uid, "(RFC822)")
 
@@ -1815,6 +1904,9 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                           f"next sweep: {seen_err}", file=sys.stderr)
                 else:
                     processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
+                    # Checkpoint here too — this branch `continue`s, so it never
+                    # reached the end-of-run flush even before the 300s kill.
+                    _save_processed_msgids(processed_msgids)
                 continue
 
             # Log to Supabase email_log (legacy SMTP-layer visibility)
@@ -2077,11 +2169,33 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             # skips it (the guard at the top of the loop). Runs for every
             # terminal path — brain, legacy, and the brain-failure fallback.
             processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
+            # CHECKPOINT PER MESSAGE (2026-08-28). This used to be an in-memory
+            # mutation flushed once at the end of the run. The sweep is killed at
+            # scheduler.py's 300s wall on quota-degraded days, and the kill never
+            # reaches that flush — so every message already marked \Seen above
+            # was absent from the ledger, the next UNSEEN search skipped it, and
+            # non-financial mail was dropped silently and permanently. (Only
+            # _backfill_read_before_sweep would catch it, and that is
+            # financial-routing only.) The write is atomic (tmp + os.replace),
+            # so a kill mid-write cannot corrupt the ledger either.
+            #
+            # RESIDUAL WINDOW, stated rather than papered over: a kill BETWEEN
+            # the \Seen store above and this line still loses that ONE message.
+            # Closing it fully needs the ledger written before \Seen, but that
+            # inverts the failure into "ledgered, still unread, skipped by the
+            # guard forever" — an equally silent loss. Fixing that properly means
+            # making the guard UNSEEN-aware, which is a larger change than this
+            # one. One message at risk instead of a whole run is the win here.
+            _save_processed_msgids(processed_msgids)
 
         # READ-BEFORE-SWEEP BACKFILL — catch mail CC read before this tick
         # (financial-only routing; see _backfill_read_before_sweep). Shares
         # this run's ledger dict so its entries persist in the save below.
-        _backfill_read_before_sweep(imap, db, processed_msgids)
+        _log_sweep_progress("loop_done", sweep_started,
+                            processed=len(message_ids) - deferred, deferred=deferred)
+        _backfill_read_before_sweep(imap, db, processed_msgids,
+                                    deadline=sweep_deadline)
+        _log_sweep_progress("backfill_done", sweep_started)
 
         # V2.1: Persist poison UID tracker so failure counts survive across runs
         try:

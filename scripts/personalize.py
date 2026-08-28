@@ -57,6 +57,8 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
+from lib.secret_loader import load_env as _load_env  # noqa: E402
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROFILE_PATH = PROJECT_ROOT / "brain" / "operator.profile.json"
 

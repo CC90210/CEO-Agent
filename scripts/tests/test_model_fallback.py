@@ -14,7 +14,24 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
+from lib import model_fallback  # noqa: E402
 from lib.model_fallback import is_fallback_available, run_smart_cli  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _isolate_tier_health(monkeypatch, tmp_path):
+    """Point the fallback-tier health store at a temp file for every test.
+
+    run_smart_cli records per-(task_type, model) success/failure so a tier that
+    keeps timing out gets tried last. Without this fixture those records land in
+    the REAL state/model_tier_health.json, which makes these tests
+    order-dependent — the tests that deliberately fail the primary tier record
+    consecutive failures, and after three of them the ordering flips and the
+    "primary is tried first" assertions below fail. It also means a test run
+    would demote a production model tier, which is worse than the flakiness.
+    """
+    monkeypatch.setattr(model_fallback, "TIER_HEALTH_PATH",
+                        tmp_path / "model_tier_health.json")
 
 
 class TestRunSmartCli:

@@ -549,29 +549,47 @@ def _scan_daemon_backed(findings: dict[str, list[dict]]) -> dict[str, list[dict]
         return findings
     if not daemon_jobs:
         return findings
+    # NEVER invoke pm2 here. This used to shell `pm2 jlist` every hour. On a
+    # machine where pm2's named pipe returns EPERM that call (a) always fails,
+    # so this check reported every daemon-backed job as DOWN and paged CC with
+    # an ERROR every hour, and (b) SPAWNS AN ORPHAN PM2 GOD DAEMON per run.
+    # 132 orphans had accumulated by 2026-08-28 across this and three sibling
+    # probes. The hourly ERROR Telegram CC received on 2026-08-28 00:08 was
+    # this exact call failing.
+    #
+    # fleet_watchdog.status() answers the same question from the OS process
+    # table, and is the supervisor of record since e7d0a50f.
     try:
-        proc = subprocess.run(["pm2", "jlist"], capture_output=True, text=True,
-                              timeout=30, shell=(os.name == "nt"))
-        procs = json.loads(proc.stdout or "[]")
-        status_by_name = {p.get("name"): (p.get("pm2_env") or {}).get("status")
-                          for p in procs}
+        _scripts = Path(__file__).resolve().parents[1]
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        from ops.fleet_watchdog import status as fleet_status
+        rows = {r.get("name"): r for r in fleet_status()}
     except Exception as exc:  # noqa: BLE001
-        print(f"[cron_health_check] WARNING: pm2 jlist unavailable "
+        print(f"[cron_health_check] WARNING: fleet status unavailable "
               f"({type(exc).__name__}); daemon-backed detection DISABLED.",
               file=sys.stderr)
         return findings
     for job_name, pm2_name in daemon_jobs:
-        status = status_by_name.get(pm2_name)
-        if status != "online":
-            findings["failing"].append({
-                "name": job_name, "source": "daemon",
-                "last_result": f"pm2 process {pm2_name!r}: "
-                               f"{status or 'NOT REGISTERED'}",
-                "last_run_at": None,
-                "detail": (f"daemon-backed automation is DOWN — its work stops "
-                           f"silently while the row correctly shows disarmed. "
-                           f"Revive with: pm2 start {pm2_name}"),
-            })
+        row = rows.get(pm2_name)
+        if row is None:
+            state = "NOT IN FLEET MANIFEST"
+        elif row.get("disabled"):
+            continue  # operator stopped it deliberately — not a failure to page on
+        elif row.get("running"):
+            continue
+        elif row.get("unrunnable"):
+            state = f"UNRUNNABLE ({row['unrunnable']})"
+        else:
+            state = "not running"
+        findings["failing"].append({
+            "name": job_name, "source": "daemon",
+            "last_result": f"daemon {pm2_name!r}: {state}",
+            "last_run_at": None,
+            "detail": (f"daemon-backed automation is DOWN — its work stops "
+                       f"silently while the row correctly shows disarmed. "
+                       f"Revive with: python scripts/ops/fleet_watchdog.py up"),
+        })
     return findings
 
 

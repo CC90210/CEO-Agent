@@ -53,7 +53,38 @@ from schedule_helpers import (
 CHECK_INTERVAL_SECONDS = 60  # How often to check for due jobs
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
-PYTHON = sys.executable  # Use same Python that's running this script
+def _console_python() -> str:
+    """The python.exe that pairs with whatever interpreter is running us.
+
+    WHY THIS IS NOT sys.executable (2026-08-28):
+    the scheduler is a background daemon launched with pythonw.exe — correct for
+    the daemon, which has no console. But `PYTHON = sys.executable` then handed
+    pythonw.exe to every child job, and children are spawned with captured
+    output. python.exe + CREATE_NO_WINDOW (already applied at every spawn site
+    below) is the supported way to get an invisible child WITH working pipes;
+    pythonw plus captured output is not, and it is a variable worth removing
+    from a path that has been failing undiagnosably.
+
+    HONEST SCOPE: this is hygiene, not a proven fix. Jobs have been dying with
+    exit 3221225480 (0xC0000008 STATUS_INVALID_HANDLE) and EMPTY stdout AND
+    stderr — Inbound Email Sweep on 2026-08-26 15:16/15:29, 08-27 04:06, 08-28
+    03:20/04:05/04:27, and Marketing Publish Drain. A direct A/B of pythonw.exe
+    vs python.exe with redirected pipes did NOT reproduce it: both exit 0 and
+    both deliver their output. So pythonw is not demonstrably the cause. The
+    likelier reading is that the parent tears the pipes down at the timeout and
+    the child then faults on the dead handle, which also explains why the
+    captured output arrives empty. See _log_sweep_progress in email_engine.py
+    for the change that actually makes the next occurrence diagnosable.
+    """
+    exe = Path(sys.executable)
+    if exe.name.lower() == "pythonw.exe":
+        console = exe.with_name("python.exe")
+        if console.is_file():
+            return str(console)
+    return sys.executable
+
+
+PYTHON = _console_python()
 
 # Scrub this process's own env, then hand a sanitized copy to every child.
 #

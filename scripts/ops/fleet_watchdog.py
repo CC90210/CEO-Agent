@@ -49,8 +49,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -151,13 +153,54 @@ def manifest() -> list[dict]:
     return out
 
 
-def _process_table() -> str:
+def _process_table() -> str | None:
+    """Every running command line, lowercased. None means UNREADABLE.
+
+    THE None MATTERS MORE THAN THE STRING (2026-08-28). This returned "" on any
+    failure, and "" makes every `ident in table` test False — so an unreadable
+    process table was indistinguishable from "the entire fleet is dead", and the
+    watchdog's response to that is to start the entire fleet. Every 5 minutes.
+
+    That is not hypothetical. Four bravo-scheduler instances and duplicate
+    event-routers were found running side by side (started 21:26, 23:56, 00:01,
+    00:10), which means every cron job in the empire was executing up to FOUR
+    TIMES: four concurrent inbound-email sweeps racing the same mailbox, each
+    classifying the same mail, each marking \\Seen, each writing the ledger.
+    Eight email_engine processes were live at once. It also feeds itself — more
+    duplicates means more load, more load means a slower table read, and a
+    slower read means more duplicates.
+
+    So this now fails CLOSED: if we cannot prove a daemon is down, we do not
+    start one. A supervisor that multiplies the fleet is worse than one that
+    pauses.
+
+    WMI is the ONLY source, deliberately. psutil is five times faster (3s vs
+    14.3s) and was tried here first — it returns an EMPTY cmdline for 163 of 579
+    processes on this machine, including every detached pythonw daemon this file
+    supervises. It reported bravo-scheduler, event-router and both bridges as
+    DOWN while all four were running. Had that shipped, the watchdog would have
+    started a second copy of each every five minutes: the exact duplication this
+    function exists to prevent, caused by the fix for it. Speed is worth nothing
+    to a supervisor that cannot see its own fleet.
+
+    A self-check ("can this table see ME?") is not sufficient to catch that, and
+    was tried too: psutil CAN see this process — a normal console python — while
+    being blind to the detached pythonw daemons. A source that sees the observer
+    but not the observed passes that check and is still useless. Hence one
+    source, verified, with no silent fallback.
+    """
     try:
-        return subprocess.run(["wmic", "process", "get", "CommandLine"],
-                              capture_output=True, text=True, timeout=60,
-                              errors="ignore", creationflags=_NO_WINDOW).stdout.lower()
+        proc = subprocess.run(["wmic", "process", "get", "CommandLine"],
+                              capture_output=True, text=True, timeout=90,
+                              errors="ignore", creationflags=_NO_WINDOW)
+        table = (proc.stdout or "").lower()
+        # A table that cannot find this very process is not one we may act on.
+        if table and Path(__file__).name.lower() in table:
+            return table
     except Exception:  # noqa: BLE001
-        return ""
+        pass
+
+    return None  # UNREADABLE — callers must not treat this as "nothing running"
 
 
 def _identity(app: dict) -> str:
@@ -179,8 +222,25 @@ def _identity(app: dict) -> str:
     return (app["name"] or "").lower()
 
 
+class ProcessTableUnreadable(RuntimeError):
+    """The OS process table could not be read, so liveness is UNKNOWN.
+
+    Raised rather than returning a row set, because every caller of status()
+    treats `running: False` as "start it" or "alert on it", and both are wrong
+    when the truth is "we could not look".
+    """
+
+
 def status() -> list[dict]:
     table = _process_table()
+    # `not table`, not `table is None`: an EMPTY table is the precise shape of
+    # the original bug — every `ident in ""` is False, so the whole fleet reads
+    # as dead and the watchdog starts a duplicate of everything. Both spellings
+    # of "no evidence" must land here.
+    if not table:
+        raise ProcessTableUnreadable(
+            "could not read the process table (wmic returned nothing usable) — "
+            "refusing to report the fleet as down on no evidence")
     off = disabled_names()
     rows = []
     for app in manifest():
@@ -215,6 +275,43 @@ def start(app: dict, dry: bool = False) -> tuple[bool, str]:
         return False, f"{type(e).__name__}: {e}"
 
 
+RUN_LOCK = PROJECT_ROOT / "state" / "fleet_watchdog.lock"
+LOCK_STALE_SEC = 600
+
+
+def _acquire_run_lock() -> bool:
+    """O_EXCL lock so two watchdog passes cannot both decide to start the fleet.
+
+    The Task Scheduler fires this every 5 minutes while a pass can take longer
+    than that on a loaded box (the process-table read alone measured 14.3s via
+    wmic). Two overlapping passes each see a daemon as down and each start one,
+    which is half of how four schedulers came to exist.
+    """
+    try:
+        RUN_LOCK.parent.mkdir(parents=True, exist_ok=True)
+        if RUN_LOCK.exists():
+            age = time.time() - RUN_LOCK.stat().st_mtime
+            if age > LOCK_STALE_SEC:
+                RUN_LOCK.unlink(missing_ok=True)  # previous pass died holding it
+            else:
+                return False
+        fd = os.open(str(RUN_LOCK), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        return True
+    except FileExistsError:
+        return False
+    except Exception:  # noqa: BLE001 - a lock failure must not disable supervision
+        return True
+
+
+def _release_run_lock() -> None:
+    try:
+        RUN_LOCK.unlink(missing_ok=True)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -227,6 +324,25 @@ def main() -> int:
     sub.add_parser("install-task")
     a = p.parse_args()
 
+    # Only the mutating pass needs the lock; read-only status must stay callable
+    # from the health checks that now depend on it.
+    if a.cmd == "up" and not _acquire_run_lock():
+        _log("skipped: another watchdog pass holds the lock")
+        print("skipped: another watchdog pass is already running")
+        return 0
+    try:
+        return _dispatch(a)
+    except ProcessTableUnreadable as exc:
+        # Never fall through to "start everything" on no evidence.
+        _log(f"ABORTED: {exc}")
+        print(f"ABORTED: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        if a.cmd == "up":
+            _release_run_lock()
+
+
+def _dispatch(a) -> int:
     if a.cmd == "status":
         rows = status()
         if a.json:

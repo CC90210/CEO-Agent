@@ -442,27 +442,80 @@ def check_cron_health():
 
 
 def check_pm2_fleet():
-    pm2 = shutil.which("pm2") or shutil.which("pm2.cmd")
-    if not pm2:
-        return False, "pm2 not on PATH"
-    rc, out, err = _run([pm2, "jlist"], timeout=30)
-    if rc != 0:
-        return False, f"pm2 jlist failed: {err[:80]}"
+    """Is the daemon fleet actually running? Answered from the OS process table,
+    never by invoking pm2.
+
+    WHY NOT pm2 (2026-08-28): pm2's named pipe returns EPERM on this machine, so
+    `pm2 jlist` failed on every run — and worse, each invocation against the
+    blocked pipe SPAWNS AN ORPHAN PM2 DAEMON. 42 had accumulated, a meaningful
+    share of them from this very check running nightly at 03:30. A health check
+    that degrades the system it measures is worse than no health check, and it
+    also conflated two different states: "supervisor unreachable" was reported
+    as "fleet down" while every daemon was in fact alive.
+
+    Supervision moved to scripts/ops/fleet_watchdog.py (Windows Task Scheduler,
+    every 5 min) in e7d0a50f. Its status() reads `wmic process get CommandLine`
+    and matches on the SCRIPT name rather than the interpreter — matching
+    `pythonw.exe` would report every unrelated python process as a live daemon.
+    Reusing it here keeps one definition of "up" for the watchdog and the gate.
+    """
     try:
-        procs = json.loads(out[out.index("["):])
-    except (ValueError, json.JSONDecodeError):
-        return False, "pm2 jlist returned unparseable output"
-    online = {p["name"] for p in procs if p.get("pm2_env", {}).get("status") == "online"}
-    down = REQUIRED_PM2 - online
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "ops"))
+        from ops.fleet_watchdog import status as fleet_status  # noqa: E402
+    except Exception as e:  # noqa: BLE001
+        return False, f"fleet_watchdog unavailable: {type(e).__name__}: {e}"
+
+    try:
+        rows = fleet_status()
+    except Exception as e:  # noqa: BLE001
+        return False, f"fleet status probe failed: {type(e).__name__}: {e}"
+
+    if not rows:
+        return False, "fleet manifest empty — nothing is being supervised"
+
+    # Three states the fleet distinguishes, and this gate must too:
+    #   disabled   — operator chose to stop it. Not an outage; nagging about a
+    #                deliberate stop is how a gate teaches people to ignore it.
+    #   unrunnable — the MANIFEST is broken (no script recorded), so the daemon
+    #                cannot be started at all. A real defect, but a config one
+    #                that no restart fixes, and it would otherwise pin this
+    #                check red forever — the state in which gates get ignored.
+    #   down       — supposed to be running, is not. The actual alarm.
+    # fleet_watchdog uses the same split ("0 of 8 down" with one unrunnable).
+    disabled = sorted(r["name"] for r in rows if r.get("disabled"))
+    unrunnable = sorted(r["name"] for r in rows if r.get("unrunnable") and not r.get("disabled"))
+    down = sorted(r["name"] for r in rows
+                  if not r["running"] and not r.get("disabled") and not r.get("unrunnable"))
+    up = sum(1 for r in rows if r["running"])
+
     if down:
-        return False, f"required PM2 processes not online: {sorted(down)}"
-    return True, f"{len(REQUIRED_PM2)} required processes online ({len(online)} total)"
+        return False, f"daemons DOWN: {down}"
+    notes = []
+    if unrunnable:
+        notes.append(f"{len(unrunnable)} unrunnable manifest entr{'y' if len(unrunnable) == 1 else 'ies'}: {unrunnable}")
+    if disabled:
+        notes.append(f"{len(disabled)} disabled by operator")
+    suffix = f" ({'; '.join(notes)})" if notes else ""
+    return True, f"{up}/{len(rows)} fleet daemons running{suffix}"
+
+
+# Undefined names that are NOT bugs. Keyed (relative_path, name) so a new
+# undefined name in the same file still fails — an allowlist that silences a
+# whole file is how the next one hides. These three are string annotations
+# (`-> "torch.nn.Module"`) on optional-ML-dependency helpers that import torch
+# inside the function body; pyflakes cannot see through the quoted form.
+_UNDEFINED_NAME_ALLOWLIST = {
+    ("scripts/maml_onboard.py", "torch"),
+    ("scripts/neural_memory.py", "torch"),
+    ("scripts/tft_forecast.py", "torch"),
+}
 
 
 def check_fleet_compiles():
-    """ast.parse every production script under scripts/ — a SyntaxError anywhere
-    in the fleet must fail the eval NOW, not when the cron that runs that script
-    next hits it.
+    """ast.parse every production script under scripts/, then run pyflakes'
+    undefined-name analysis over the same tree. Either a SyntaxError or an
+    unbound name anywhere in the fleet must fail the eval NOW, not when the
+    cron that runs that script next hits it.
 
     WHY (2026-08-11): a session cut off mid-batch-edit left 12 scripts with
     truncated Supabase->Turso fallback edits — 10 with a SyntaxError (one of
@@ -471,24 +524,59 @@ def check_fleet_compiles():
     PARSES the fleet: harness_eval reported ALL GREEN over a codebase whose
     next cron run would crash. A gate that cannot see a syntax error in the
     files it claims to cover is not a gate.
+
+    WHY THE SECOND PASS (2026-08-28): ast.parse stops one notch short of the
+    defect that actually keeps happening. a71826a7 switched inbound_classifier
+    to run_smart_cli but left the import naming run_claude_cli — valid syntax,
+    NameError at runtime, swallowed by a broad except, and every inbound email
+    fell back to keyword classification for two days with the harness green.
+    The identical class had already hit the same function in July (TypeError on
+    a dead `_env` param). Four more unbound-name bugs were sitting in the fleet
+    when this pass was added.
+
+    pyproject.toml already selects ruff rule set "F", which includes F821 — the
+    exact rule. Ruff is not installed and nothing invoked it, so the rule had
+    never run. This uses the pyflakes already in .venv and reuses the AST the
+    loop above parses, so the pass costs no extra read and no subprocess.
     """
+    from pyflakes.checker import Checker
+    from pyflakes.messages import UndefinedName
+
     root = Path(__file__).resolve().parent
     broken: list[str] = []
+    undefined: list[str] = []
     scanned = 0
     for path in root.rglob("*.py"):
         parts = path.parts
         if "_archive" in parts or "__pycache__" in parts or "tests" in parts:
             continue
         scanned += 1
+        rel = path.relative_to(root.parent).as_posix()
         try:
-            ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+            tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
         except SyntaxError as e:
-            broken.append(f"{path.relative_to(root.parent)}:{e.lineno}")
+            broken.append(f"{rel}:{e.lineno}")
+            continue
         except (ValueError, UnicodeDecodeError) as e:
-            broken.append(f"{path.relative_to(root.parent)}:decode({type(e).__name__})")
+            broken.append(f"{rel}:decode({type(e).__name__})")
+            continue
+        try:
+            messages = Checker(tree, filename=str(path)).messages
+        except Exception:  # noqa: BLE001 - analysis must never break the gate
+            continue
+        for m in messages:
+            if not isinstance(m, UndefinedName):
+                continue
+            name = m.message_args[0] if m.message_args else "?"
+            if (rel, name) in _UNDEFINED_NAME_ALLOWLIST:
+                continue
+            undefined.append(f"{rel}:{m.lineno} undefined name {name!r}")
+
     if broken:
         return False, f"syntax errors in {len(broken)} scripts: {broken[:6]}"
-    return True, f"{scanned} production scripts ast-parse clean"
+    if undefined:
+        return False, f"{len(undefined)} undefined names (NameError at runtime): {undefined[:6]}"
+    return True, f"{scanned} production scripts parse clean, no undefined names"
 
 
 def check_model_call_path():

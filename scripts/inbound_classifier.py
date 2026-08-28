@@ -69,6 +69,7 @@ import json
 import os
 import re
 import sys
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -989,6 +990,60 @@ Rules:
 - Output ONLY the JSON object. No code fences, no preamble."""
 
 
+# Errors that mean the classifier CODE is broken rather than the model being
+# unavailable. Both silent outages this module has suffered were of this class:
+# TypeError (2026-07-28, dead `_env` param) and NameError (2026-08-26, import
+# named run_claude_cli while the call named run_smart_cli). A bare
+# `except Exception` cannot tell them apart from a genuine CLI outage, which is
+# why each one degraded classification for days without a single alert.
+_BUG_ERRORS = (NameError, AttributeError, TypeError, ImportError)
+
+# One alert per process. The failure mode is per-message, so an unguarded
+# publish would emit one event per inbound email and get muted as noise.
+_degraded_alerted = False
+
+
+def _alert_degraded(exc: Exception, *, kind: str) -> None:
+    """Report a classifier degradation loudly, then let the caller fall back.
+
+    Always prints the full traceback — the previous handler printed only
+    `str(exc)`, which for a NameError is a single line with no frame and reads
+    like a transient blip. Publishes BRAVO_CLASSIFIER_DEGRADED once per process
+    so the outage is visible in the event bus rather than only in a stderr
+    stream nobody tails.
+    """
+    global _degraded_alerted
+
+    label = "CODE BUG" if kind == "bug" else "operational failure"
+    print(f"[inbound_classifier] {label}: {type(exc).__name__}: {exc} — "
+          "falling back to keyword classifier.", file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
+
+    if _degraded_alerted:
+        return
+    _degraded_alerted = True
+
+    try:
+        from core.event_bus import publish
+        publish(
+            "BRAVO_CLASSIFIER_DEGRADED",
+            {
+                "kind": kind,
+                "error_type": type(exc).__name__,
+                "error": str(exc)[:500],
+                "traceback": traceback.format_exc()[-2000:],
+                "impact": "inbound email classified by keyword fallback, not the LLM",
+            },
+            source="inbound_classifier",
+            severity="critical" if kind == "bug" else "warn",
+            # Collapses repeats within a run while still firing per process.
+            idempotency_key=f"classifier-degraded-{kind}-{type(exc).__name__}-"
+                            f"{datetime.now(timezone.utc):%Y%m%dT%H}",
+        )
+    except Exception:  # noqa: BLE001 - alerting must never break the sweep
+        traceback.print_exc(file=sys.stderr)
+
+
 def _classify_via_haiku(content: str, channel: str,
                          subject: Optional[str], from_identity: Optional[str]) -> dict:
     """Call Claude Haiku via the subscription `claude` CLI (lib.claude_cli) —
@@ -1000,8 +1055,14 @@ def _classify_via_haiku(content: str, channel: str,
     swallowed by the except below — the classifier had silently degraded to the
     keyword fallback on every inbound email. The CLI path needs no env (it
     shells out to the subscription `claude` binary), so the parameter is gone
-    rather than renamed."""
-    from lib.claude_cli import run_claude_cli
+    rather than renamed.
+
+    2026-08-28: the SAME defect, third form. a71826a7 (2026-08-26) switched the
+    call below to run_smart_cli but left this import naming run_claude_cli, so
+    every call raised NameError and was swallowed by the same except — two days
+    of keyword-only inbound triage. Import and call must name the same symbol;
+    `pyflakes` reports both halves and now runs as a harness gate."""
+    from lib.model_fallback import run_smart_cli
 
     user_parts = [f"Channel: {channel}"]
     if from_identity:
@@ -1086,10 +1147,18 @@ def classify(
             from_identity=from_identity,
         )
         return _validate_and_normalize(raw)
+    except _BUG_ERRORS as exc:
+        # The classifier CODE is broken — not the model. This exact shape has
+        # now caused two silent multi-day outages (TypeError 2026-07-28,
+        # NameError 2026-08-26), both because a bare `except Exception` turned a
+        # code bug into a plausible-looking keyword result that nobody queried.
+        # Mail still flows, but the signal is unmissable this time.
+        _alert_degraded(exc, kind="bug")
+        return _keyword_fallback(content or "")
     except Exception as exc:  # noqa: BLE001
-        print(f"[inbound_classifier] Haiku failed ({exc}); "
-              "falling back to keyword classifier.",
-              file=sys.stderr)
+        # Genuine operational failure (CLI down, quota, bad JSON, timeout).
+        # Degrading is correct here — but it is still reported, not swallowed.
+        _alert_degraded(exc, kind="operational")
         return _keyword_fallback(content or "")
 
 

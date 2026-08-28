@@ -39,6 +39,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Optional
 
+from lib.secret_loader import load_env as _load_env  # noqa: E402
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TMP_DIR = PROJECT_ROOT / "tmp"
 DATASET_PATH = TMP_DIR / "rlhf_dataset.jsonl"

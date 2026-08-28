@@ -24,10 +24,14 @@ timeout, non-zero exit) so callers degrade gracefully instead of crashing.
 """
 from __future__ import annotations
 
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -40,6 +44,63 @@ except Exception:  # pragma: no cover - fallback if helper moves
     WINDOWLESS_FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 from lib.claude_auth import build_claude_spawn_env  # noqa: E402
+
+# --- Quota circuit breaker ----------------------------------------------------
+# State lives on disk, not in memory: the callers that hurt are short-lived cron
+# processes (the inbound sweep runs every 5 minutes and exits), so an in-process
+# flag would be forgotten between the very ticks it needs to protect.
+QUOTA_STATE_PATH = PROJECT_ROOT / "state" / "claude_quota_state.json"
+
+# Used when the CLI's message carries no parseable reset time. Deliberately
+# short: the cost of guessing too LOW is one wasted 32s probe, while guessing too
+# HIGH silently keeps the whole fleet on fallback models after quota returns.
+# Prefer re-probing too often over staying degraded.
+QUOTA_COOLDOWN_DEFAULT_SEC = 1800  # 30 min
+
+_RESET_HINT = re.compile(
+    r"reset[s]?\s+(?:at|on|in)?\s*([0-9]{1,2}(?::[0-9]{2})?\s*(?:am|pm)?)", re.IGNORECASE)
+
+
+def _quota_cooldown_remaining() -> int:
+    """Seconds left on the breaker, or 0. NEVER raises and never fails closed —
+    any unreadable/corrupt/absent state means "make the call"."""
+    try:
+        if not QUOTA_STATE_PATH.exists():
+            return 0
+        data = json.loads(QUOTA_STATE_PATH.read_text(encoding="utf-8"))
+        until = float(data.get("until_epoch", 0))
+    except Exception:  # noqa: BLE001 - fail open, always
+        return 0
+    remaining = int(until - time.time())
+    return remaining if remaining > 0 else 0
+
+
+def _open_quota_breaker(raw_message: str) -> None:
+    """Record that quota is spent so sibling processes skip the doomed attempt."""
+    cooldown = QUOTA_COOLDOWN_DEFAULT_SEC
+    hint = _RESET_HINT.search(raw_message or "")
+    try:
+        QUOTA_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "detected_at": datetime.now(timezone.utc).isoformat(),
+            "until_epoch": time.time() + cooldown,
+            "cooldown_sec": cooldown,
+            "reset_hint": hint.group(1) if hint else None,
+            "raw": (raw_message or "")[:300],
+        }
+        tmp = QUOTA_STATE_PATH.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        os.replace(tmp, QUOTA_STATE_PATH)
+    except Exception as exc:  # noqa: BLE001 - the breaker is an optimisation
+        sys.stderr.write(f"[claude_cli] could not record quota state: {exc}\n")
+
+
+def _close_quota_breaker() -> None:
+    """Clear the breaker after any successful call."""
+    try:
+        QUOTA_STATE_PATH.unlink(missing_ok=True)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def resolve_claude_bin() -> Optional[str]:
@@ -92,6 +153,23 @@ def run_claude_cli(
     claude_bin = resolve_claude_bin()
     if not claude_bin:
         sys.stderr.write("[claude_cli] claude CLI not found on PATH\n")
+        return None
+
+    # QUOTA CIRCUIT BREAKER (2026-08-28). When the 5-hour subscription quota is
+    # spent, every call still pays ~32s to spawn the CLI and be told so, and
+    # model_fallback then pays another 120s on the dead middle tier. Measured on
+    # 2026-08-26: 172.5s for ONE classification against a 300s sweep wall — the
+    # inbound sweep died mid-mailbox. Skipping a call we already know will fail
+    # is the cheapest win available.
+    #
+    # Fails OPEN in every direction: an unreadable, corrupt, or absent marker
+    # means "just make the call". A breaker that can wedge the model shut is
+    # worse than the latency it saves.
+    remaining = _quota_cooldown_remaining()
+    if remaining > 0:
+        sys.stderr.write(
+            f"[claude_cli] quota cooldown active ({remaining}s left) — skipping "
+            "the call we already know fails; caller falls back\n")
         return None
 
     # V7 fix (Codex P2, flagged twice): the prompt goes via STDIN, never argv.
@@ -147,12 +225,19 @@ def run_claude_cli(
         if "weekly limit" in blob or "usage limit" in blob or "quota" in blob:
             sys.stderr.write(
                 f"[claude_cli] quota limit reached (resets on schedule): {(err or out)[:150]}\n")
+            _open_quota_breaker(err or out)
             return None
         detail = err[:300] if err else (f"(stderr empty) stdout: {out[:300]}" if out
                                         else "(no output on either stream)")
         sys.stderr.write(f"[claude_cli] exit {proc.returncode}: {detail}\n")
         return None
-    return (proc.stdout or "").strip() or None
+    text = (proc.stdout or "").strip() or None
+    if text is not None:
+        # A success proves quota is back. Clearing here is what makes the breaker
+        # self-healing: even if the cooldown was guessed far too long, the first
+        # call that gets through after it expires reopens the primary path.
+        _close_quota_breaker()
+    return text
 
 
 # --- Document / vision path ---------------------------------------------------

@@ -27,9 +27,11 @@ prefix so PM2 logs / SESSION_LOG captures the event.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -64,6 +66,73 @@ def _safe_call(fn, *args, **kwargs) -> Optional[str]:
             f"[model_fallback] tier {getattr(fn, '__name__', fn)} raised "
             f"{type(e).__name__}: {e} — treating as None\n")
         return None
+
+
+# ── Fallback-tier health ─────────────────────────────────────────────────────
+# On-disk, because the callers that matter are short-lived cron processes: the
+# inbound sweep runs every 5 minutes and exits, so an in-process record would be
+# discarded between exactly the ticks it needs to inform.
+#
+# NOT derived from _log_telemetry below: that appends prose to SESSION_LOG.md,
+# which is an auto-generated file guarded against hand-edits and is not a
+# queryable store. Health needs a real one, and this is the smallest possible.
+TIER_HEALTH_PATH = PROJECT_ROOT / "state" / "model_tier_health.json"
+
+# Consecutive failures before a model is moved to the back of the queue. Three
+# tolerates a transient blip; the 2026-08-26 incident was a model failing every
+# single call for hours.
+TIER_DEMOTE_AFTER = 3
+
+
+def _read_tier_health() -> dict:
+    """Never raises. Corrupt/missing state means "no opinion", which restores
+    the declared order — the behaviour that shipped before this existed."""
+    try:
+        if TIER_HEALTH_PATH.exists():
+            data = json.loads(TIER_HEALTH_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+    except Exception:  # noqa: BLE001 - advisory data, fail open
+        pass
+    return {}
+
+
+def _record_tier_health(task_type: str, model: str, *, ok: bool) -> None:
+    """Update the consecutive-failure counter for one (task_type, model)."""
+    try:
+        data = _read_tier_health()
+        key = f"{task_type}:{model}"
+        entry = data.get(key) or {}
+        if ok:
+            entry["consecutive_fail"] = 0
+            entry["last_ok"] = datetime.now(timezone.utc).isoformat()
+        else:
+            entry["consecutive_fail"] = int(entry.get("consecutive_fail", 0)) + 1
+            entry["last_fail"] = datetime.now(timezone.utc).isoformat()
+        data[key] = entry
+        TIER_HEALTH_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = TIER_HEALTH_PATH.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp, TIER_HEALTH_PATH)
+    except Exception:  # noqa: BLE001 - must never break a model call
+        pass
+
+
+def _order_by_health(task_type: str, candidates: list[str]) -> list[str]:
+    """Stable order: healthy models keep their declared position, models over
+    the demotion threshold move to the back. Never drops a candidate — a model
+    that has failed a thousand times is still tried if it is the only one left,
+    and one success resets it to the front."""
+    data = _read_tier_health()
+
+    def demoted(m: str) -> int:
+        entry = data.get(f"{task_type}:{m}") or {}
+        try:
+            return 1 if int(entry.get("consecutive_fail", 0)) >= TIER_DEMOTE_AFTER else 0
+        except (TypeError, ValueError):
+            return 0
+
+    return sorted(candidates, key=demoted)
 
 
 def _log_telemetry(agent_name: str, fallback_model: str, task_type: str, elapsed: float) -> None:
@@ -126,58 +195,59 @@ def run_smart_cli(
     if result is not None:
         return result
 
-    # ── Tier 2: OpenCode CLI (free model) ─────────────────────────────────
-    fallback_model = model_for_task(task_type)
+    # ── Tier 2: OpenCode CLI (free models), ordered by recent health ──────
+    # WHY THE ORDERING (2026-08-28): the declared primary/secondary order was
+    # static, so a fallback model that had been timing out all day was still
+    # tried FIRST, every time, for the full fallback_timeout. Measured on
+    # 2026-08-26: claude 31.9s -> nemotron 120s TIMEOUT -> mimo 20.6s SUCCESS =
+    # 172.5s for one classification, against the inbound sweep's 300s wall. The
+    # sweep died mid-mailbox because two thirds of its budget went to a tier
+    # already known to be dead.
+    #
+    # Health is advisory and self-healing: a demoted model is moved to the BACK
+    # of the queue, never removed, so it returns to first place on its next
+    # success. With no history the order is exactly the declared one.
+    primary = model_for_task(task_type)
+    _, secondary = TIER_MODELS.get(task_type, TIER_MODELS["default"])
+    candidates = [primary] + ([secondary] if secondary != primary else [])
+    ordered = _order_by_health(task_type, candidates)
+
+    if ordered != candidates:
+        sys.stderr.write(
+            f"[model_fallback] health reorder for task_type={task_type}: "
+            f"{candidates} -> {ordered}\n")
+
     sys.stderr.write(
         f"[model_fallback] Claude CLI returned None after {elapsed_claude}s — "
-        f"falling back to OpenCode ({fallback_model}) for agent={agent_name}, "
+        f"falling back to OpenCode ({ordered[0]}) for agent={agent_name}, "
         f"task_type={task_type}\n"
     )
 
-    start_fb = time.perf_counter()
-    result = _safe_call(
-        run_opencode_cli,
-        prompt,
-        system=system,
-        model=fallback_model,
-        timeout=fallback_timeout,
-        cwd=cwd,
-        task_type=task_type,
-    )
-    elapsed_opencode = round(time.perf_counter() - start_fb, 1)
-
-    if result is not None:
-        sys.stderr.write(
-            f"[model_fallback] OpenCode fallback SUCCESS ({fallback_model}) "
-            f"in {elapsed_opencode}s\n"
-        )
-        _log_telemetry(agent_name, fallback_model, task_type, elapsed_opencode)
-        return result
-
-    # ── Tier 2b: Try the secondary free model ─────────────────────────────
-    _, secondary = TIER_MODELS.get(task_type, TIER_MODELS["default"])
-    if secondary != fallback_model:
-        sys.stderr.write(
-            f"[model_fallback] Primary fallback failed — trying secondary: "
-            f"{secondary}\n"
-        )
-        start_sec = time.perf_counter()
+    for candidate in ordered:
+        start_fb = time.perf_counter()
         result = _safe_call(
             run_opencode_cli,
             prompt,
             system=system,
-            model=secondary,
+            model=candidate,
             timeout=fallback_timeout,
             cwd=cwd,
             task_type=task_type,
         )
-        elapsed_sec = round(time.perf_counter() - start_sec, 1)
+        elapsed_fb = round(time.perf_counter() - start_fb, 1)
+
         if result is not None:
             sys.stderr.write(
-                f"[model_fallback] Secondary fallback SUCCESS ({secondary}) "
-                f"in {elapsed_sec}s\n"
+                f"[model_fallback] OpenCode fallback SUCCESS ({candidate}) "
+                f"in {elapsed_fb}s\n"
             )
+            _record_tier_health(task_type, candidate, ok=True)
+            _log_telemetry(agent_name, candidate, task_type, elapsed_fb)
             return result
+
+        sys.stderr.write(
+            f"[model_fallback] fallback {candidate} failed after {elapsed_fb}s\n")
+        _record_tier_health(task_type, candidate, ok=False)
 
     # ── Both tiers exhausted ──────────────────────────────────────────────
     sys.stderr.write(

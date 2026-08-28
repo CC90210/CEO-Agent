@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -167,3 +168,111 @@ def test_parity_liveness_has_exactly_one_definition():
     src = (REPO_ROOT / "scripts" / "machine_parity.py").read_text(encoding="utf-8")
     assert "from ops import fleet_watchdog" in src
     assert "fleet_watchdog.status()" in src
+
+
+# ------------------------------------------------- unreadable process table ---
+# Added 2026-08-28 after the SECOND incident that day. `_process_table()`
+# returned "" on any failure, and `status()` tested `ident in table`, which is
+# False for every daemon against an empty string. An unreadable table therefore
+# read as "the entire fleet is dead" — and this watchdog's response to a dead
+# fleet is to start the fleet, every five minutes from Task Scheduler.
+#
+# Found running side by side: four bravo-scheduler instances (started 21:26,
+# 23:56, 00:01, 00:10) and duplicate event-routers, so every cron in the empire
+# executed up to 4x — four concurrent inbound-email sweeps racing one mailbox,
+# eight email_engine processes live at once, each classifying the same mail and
+# each marking it \Seen. It also self-amplifies: duplicates raise load, load
+# slows the table read, a slow read times out, and a timeout starts more
+# duplicates.
+
+
+@pytest.fixture
+def restore_table():
+    original = fw._process_table
+    yield
+    fw._process_table = original
+
+
+def test_unreadable_table_raises_rather_than_reporting_down(restore_table):
+    """If we cannot prove a daemon is down, we must not start one."""
+    fw._process_table = lambda: None
+    with pytest.raises(fw.ProcessTableUnreadable):
+        fw.status()
+
+
+def test_empty_table_raises_too(restore_table):
+    """The original bug's exact shape. `table is None` alone lets "" through,
+    so the guard has to be falsy-based, not None-based."""
+    fw._process_table = lambda: ""
+    with pytest.raises(fw.ProcessTableUnreadable):
+        fw.status()
+
+
+def test_valid_table_still_resolves_liveness(restore_table):
+    fw._process_table = lambda: ("pythonw.exe c:/repo/scripts/scheduler.py\n"
+                                 "node c:/repo/telegram_agent.js")
+    running = {r["name"] for r in fw.status() if r["running"]}
+    assert "bravo-scheduler" in running
+    assert "bravo-telegram" in running
+
+
+def test_daemon_absent_from_a_readable_table_is_down(restore_table):
+    """Fail-closed must not become fail-useless: a genuinely absent daemon still
+    has to report down, or the watchdog would never start anything again."""
+    fw._process_table = lambda: "node c:/repo/telegram_agent.js"
+    down = {r["name"] for r in fw.status() if not r["running"] and not r["disabled"]}
+    assert "bravo-scheduler" in down
+
+
+def test_real_process_table_can_see_python_processes():
+    """Guards a near-miss. psutil is 5x faster than wmic and was tried as the
+    source; on this machine it returns an EMPTY cmdline for 163 of 579
+    processes, including every detached pythonw daemon this file supervises. It
+    reported four running daemons as DOWN, which would have started a duplicate
+    of each — the very duplication this module now guards against, caused by the
+    fix for it. Any future swap of the source must still see live processes."""
+    table = fw._process_table()
+    if table is None:
+        pytest.skip("process table unreadable in this environment")
+    assert "python" in table, "process-table source cannot see python processes"
+
+
+# -------------------------------------------------------------- run lock ---
+
+def test_run_lock_is_exclusive(tmp_path, monkeypatch):
+    """Two overlapping passes each seeing a daemon down, and each starting one,
+    is the other half of how four schedulers came to exist. The Task Scheduler
+    fires this every 5 minutes; a pass can take longer than that."""
+    monkeypatch.setattr(fw, "RUN_LOCK", tmp_path / "wd.lock")
+    assert fw._acquire_run_lock() is True
+    assert fw._acquire_run_lock() is False, "second concurrent pass must be refused"
+    fw._release_run_lock()
+    assert fw._acquire_run_lock() is True, "lock must be reusable after release"
+    fw._release_run_lock()
+
+
+def test_stale_lock_is_reclaimed(tmp_path, monkeypatch):
+    """A pass killed mid-run must not disable supervision forever.
+
+    Ages the lock file rather than setting the threshold to 0: a lock written
+    microseconds ago is legitimately NOT older than zero seconds, so that
+    version tested a degenerate boundary instead of the real condition (a lock
+    left behind by a process that died some time ago).
+    """
+    import os as _os
+    lock = tmp_path / "wd.lock"
+    monkeypatch.setattr(fw, "RUN_LOCK", lock)
+    lock.write_text("99999")
+    stale = time.time() - (fw.LOCK_STALE_SEC + 60)
+    _os.utime(lock, (stale, stale))
+    assert fw._acquire_run_lock() is True, "a stale lock must be reclaimable"
+    fw._release_run_lock()
+
+
+def test_fresh_lock_is_not_reclaimed(tmp_path, monkeypatch):
+    """The other half: a lock held by a pass that is genuinely still running
+    must be respected, or the staleness escape hatch defeats the lock."""
+    lock = tmp_path / "wd.lock"
+    monkeypatch.setattr(fw, "RUN_LOCK", lock)
+    lock.write_text("99999")
+    assert fw._acquire_run_lock() is False, "a fresh lock must be honoured"
