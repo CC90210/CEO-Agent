@@ -190,6 +190,54 @@ def _validate_repo(repo: str) -> str:
     return want
 
 
+def _validate_agent(agent: str) -> str:
+    """Refuse an agent key that no peer filter would ever match.
+
+    THE SAME CLASS AS THE REPO BUG, ONE FIELD OVER. `agent` is a LOOKUP KEY —
+    conflicts() and live_claims() filter on it, and each side's peer filter
+    checks a fixed set (bravo/cc-agent on one, apex/knut on the other). A key
+    outside those sets produces leases that are invisible to BOTH agents, and
+    its holder sees no conflicts from either.
+
+    This is not hypothetical: `apex-racetest` is already in the table, written by
+    Bravo's own concurrency test. It took one env var to create a namespace
+    nobody queries — exactly how `business-empire-agent` happened.
+
+    Known agents come from OWNERSHIP_MAP, not a second hardcoded list. A new
+    agent is legitimate; the fix is to ADD IT TO THE MAP, because an agent with
+    no ownership entry has no surfaces, so its leases would be meaningless even
+    if they were visible.
+    """
+    key = (agent or "").strip().lower()
+    if not key:
+        raise ValueError("agent key is required")
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        from lib import ownership  # noqa: PLC0415
+        agents = ownership.load().get("agents") or {}
+    except Exception:  # noqa: BLE001
+        return key          # cannot verify — do not block real work
+    known = set()
+    for name, meta in agents.items():
+        known.add(str(name).lower())
+        known.add(str((meta or {}).get("canonical_key") or "").lower())
+        known.add(str((meta or {}).get("wire_key") or "").lower())
+        for a in ((meta or {}).get("aliases") or []):
+            known.add(str(a).lower())
+        for a in ((meta or {}).get("legacy_wire_keys") or []):
+            known.add(str(a).lower())
+    known.discard("")
+    if known and key not in known:
+        raise ValueError(
+            f"{agent!r} is not a known agent key. Known: {sorted(known)}.\n"
+            "A lease under an unknown key is invisible to BOTH agents' peer "
+            "filters — it protects nothing and its holder sees no conflicts. "
+            "If this is a real new agent, add it to brain/OWNERSHIP_MAP.yaml "
+            "first: an agent with no ownership entry has no surfaces, so its "
+            "leases would be meaningless even once they were visible.")
+    return key
+
+
 def _validate_paths(repo: str, paths: list[str], *, strict: bool) -> list[str]:
     """Enforce the grammar. A claim that cannot be matched is worse than none —
     it reads as coverage while protecting nothing, which is precisely how
@@ -335,7 +383,7 @@ def conflicts(repo: str, paths: list[str], *, agent: str | None = None) -> list[
     were live under `ceo-agent`. That is the exact command an agent runs
     immediately before editing.
     """
-    me = (agent or ME).lower()
+    me = _validate_agent(agent or ME)
     repo = _validate_repo(repo)
     held = live_claims(repo, exclude_agent=me)
     out = []
@@ -384,7 +432,7 @@ def acquire(repo: str, paths: list[str], task: str, *, branch: str | None = None
             ttl_min: int = DEFAULT_TTL_MIN, session_id: str | None = None,
             agent: str | None = None, strict: bool = True,
             force: bool = False) -> dict:
-    me = (agent or ME).lower()
+    me = _validate_agent(agent or ME)
     repo = _validate_repo(repo)
     cleaned = _validate_paths(repo, paths, strict=strict)
     _warn_out_of_surface(repo, cleaned, me)

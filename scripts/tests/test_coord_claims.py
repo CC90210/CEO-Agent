@@ -683,3 +683,37 @@ def test_conflicts_validates_the_repo_too(claim_mod):
     with pytest.raises(ValueError) as e:
         claim_mod.conflicts("business-empire-agent", ["scripts/harness_eval.py"])
     assert "ceo-agent" in str(e.value)
+
+
+def test_agent_key_is_validated_like_the_repo_field(claim_mod):
+    """The same ungrammared-field class, one field over.
+
+    `agent` is a LOOKUP KEY — conflicts() and live_claims() filter on it, and
+    each side's peer filter checks a fixed set. A key outside those sets is
+    invisible to BOTH agents, and its holder sees no conflicts from either.
+
+    Not hypothetical: `apex-racetest` reached the live table, written by Bravo's
+    own concurrency test. One env var created a namespace nobody queries —
+    exactly how `business-empire-agent` happened.
+    """
+    with pytest.raises(ValueError) as e:
+        claim_mod._validate_agent("apex-racetest")
+    assert "not a known agent key" in str(e.value)
+    assert "OWNERSHIP_MAP" in str(e.value)
+
+
+@pytest.mark.parametrize("key", ["bravo", "apex", "knut", "cc-agent", "BRAVO"])
+def test_real_agent_keys_and_aliases_still_work(claim_mod, key):
+    """Companion. Known agents, their aliases, and legacy wire keys must pass —
+    a validator that refuses everything is as useless as one that refuses
+    nothing. Case is normalised."""
+    assert claim_mod._validate_agent(key) == key.lower()
+
+
+def test_known_agents_come_from_the_ownership_map_not_a_second_list():
+    """Sixth instance of the duplicate-definition class avoided deliberately:
+    the agent roster is read from OWNERSHIP_MAP, so adding an agent in one place
+    is enough."""
+    src = (REPO_ROOT / "scripts" / "integrations" / "coord_claim.py").read_text(encoding="utf-8")
+    fn = src[src.index("def _validate_agent"):src.index("def _validate_paths")]
+    assert "ownership.load()" in fn
