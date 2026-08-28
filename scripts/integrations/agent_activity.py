@@ -304,6 +304,17 @@ _NARRATION_RE = re.compile(
 #   whole-row (previous) wrong 2/9 · APEX's wrong 2/9 · per-sentence wrong 0/9
 _SENTENCE_RE = re.compile(r"(?<=[.;!?])\s+|\n+")
 
+# Spans that are QUOTED rather than asserted: code fences, backticks, and
+# double/single-quoted runs. Authored with an editor, never a heredoc — a \b
+# became a literal backspace three times in this file that way, and APEX shipped
+# the same defect in the very test meant to detect it.
+_CITED_RE = re.compile(
+    r"```.*?```"          # fenced block
+    r"|`[^`\n]{1,200}`"   # inline code
+    r'|"[^"\n]{1,200}"'   # double-quoted run
+    r"|“[^”\n]{1,200}”",   # smart quotes
+    re.S)
+
 
 def escalation_hits(text):
     """Escalation phrases that are REPORTS, not descriptions.
@@ -314,7 +325,25 @@ def escalation_hits(text):
     now" is still an outage that a human must know about, and the second must
     keep firing.
     """
-    text = text or ""
+    # CITATION IS SYNTAX, NOT VOCABULARY (APEX's remaining gap, 2026-08-28).
+    #
+    # Quoting a failure example read as making one, so the lint refused two of
+    # APEX's own messages and, before this, three of five citation cases here.
+    # APEX diagnosed why a bigger verb list cannot fix it: the verbs are
+    # SUBJECT-DEPENDENT — a runbook mentioning an outage is documentation, a
+    # person mentioning one is a report — so the list oscillates instead of
+    # converging. They stopped rather than churn, which was the right call.
+    #
+    # Quotes and backticks are not vocabulary. They are structure, and structure
+    # converges — the same reason per-sentence scoping worked where more verbs
+    # did not.
+    #
+    # THE RESIDUAL RISK, STATED: a genuine outage reported ENTIRELY inside
+    # quotes is now missed. Accepted deliberately, because the failure it trades
+    # against is worse — a lint that refuses honest prose trains the operator to
+    # reach for --allow-unescalated, and an override used by habit is the same
+    # as no lint at all. Both agents were already hitting that.
+    text = _CITED_RE.sub(" ", text or "")
     out = []
     for part in _SENTENCE_RE.split(text):
         if not part.strip():

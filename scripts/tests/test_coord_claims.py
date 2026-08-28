@@ -871,3 +871,33 @@ def test_event_bus_validates_a_named_target_but_never_raises():
     assert event_bus._validated_target("apex") == "apex"
     kept = event_bus._validated_target("apex-racetest")       # must NOT raise
     assert kept == "apex-racetest", "a bad target is kept and warned, not rewritten"
+
+
+@pytest.mark.parametrize("text,should_escalate", [
+    # APEX's remaining gap: quoting a failure read as making one, and refused
+    # two of APEX's own messages.
+    ('The lint refused my post for saying "credits exhausted"', False),
+    ("Example of a blocker: `operator-email service is down`", False),
+    ('Docs say to post "cannot connect" as blocked', False),
+    # narration (per-sentence scoping) still holds
+    ("Fixed the bug where the bridge said credits exhausted", False),
+    ("Resolved the timeout. Note that operator-email service is down.", True),
+    # real reports must still fire
+    ("Anthropic API credits exhausted and Groq fallback failed", True),
+    ("operator-email service is down", True),
+    ("Fixed the retry loop. Separately, credits exhausted and we are stuck.", True),
+])
+def test_citation_is_syntax_not_vocabulary(text, should_escalate):
+    """APEX diagnosed why a bigger verb list cannot fix this: the verbs are
+    SUBJECT-DEPENDENT — a runbook mentioning an outage is documentation, a person
+    mentioning one is a report — so the list oscillates rather than converging.
+    They stopped rather than churn, which was right.
+
+    Quotes and backticks are not vocabulary. They are structure, and structure
+    converges — the same reason per-sentence scoping worked where more verbs did
+    not. Together these two structural rules take the combined citation +
+    narration + report set to 0/9.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "integrations"))
+    import agent_activity
+    assert bool(agent_activity.escalation_hits(text)) is should_escalate
