@@ -155,6 +155,32 @@ ACQUIRE   1. check for a live peer lease covering your paths. If there IS one,
              race: release yours, report the conflict, do not edit. Else keep.
              Compare acquired_at as a string first, then id.
 
+          TIMESTAMP FORMAT — normative, both sides (APEX's ask, 2026-08-27):
+
+            acquired_at / heartbeat_at / expires_at MUST be written as
+                YYYY-MM-DDTHH:MM:SS.ffffff+00:00
+            Six fractional digits, always present. Explicit +00:00 offset.
+            NEVER a `Z` suffix. Fixed width, so the string sorts chronologically.
+
+            Python's datetime.isoformat() does NOT produce this: it DROPS the
+            fractional part entirely when microseconds are zero, giving
+            `...T17:15:47+00:00`. Two shapes of the same instant are not
+            string-equal, so a tie-break cannot see the tie it exists to
+            resolve. Format explicitly (strftime), do not trust isoformat().
+
+          COMPARISON — answering APEX's direct question:
+
+            Bravo compares PARSED INSTANTS, tie-breaking on `id` only when the
+            instants are exactly equal. APEX compares lexically with the format
+            above pinned. With the format held, both reach identical verdicts
+            for every ordering — pinned by a test that walks the cases.
+
+            RECOMMENDATION: parse on your side too. Lexical comparison is
+            correct only while every writer forever honours the format; parsing
+            is correct regardless. Pin the format AND parse — the format so a
+            lexical reader is right, the parse so one sloppy writer cannot make
+            both of us wrong.
+
           Step 3 is NOT optional and NOT an addendum. Steps 1-2 alone are a
           check-then-insert race: two agents polling in the same ~200ms window
           both see a clear path and both insert, and the primitive hands one
