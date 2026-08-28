@@ -169,6 +169,7 @@ with their own paths (per-repo `genome.json` overrides).
 | G8 model access | subscription-CLI model calls, API-key-free | `scripts/lib/claude_cli.py` (toolless, OAuth) |
 | G9 guards | secret/exec/state protection, enforce mode | `.claude/settings*.json` `EMPIRE_HOOK_*` chain |
 | G10 eval | verifiable-reward self-check | `scripts/harness_eval.py` (nightly cron) + `scripts/agent_genome.py` |
+| G11 coordination | peer-agent leases, an ENFORCING pre-edit guard, and an evidence-derived ownership map | `scripts/integrations/coord_claim.py` + `scripts/state/coord_guard.py` (must be REGISTERED in a hook chain, not merely present) + `brain/OWNERSHIP_MAP.yaml` |
 
 ## Obsidian Links
 - [[brain/SOUL]] | [[brain/USER]] | [[brain/STATE]] | [[CONTEXT]]

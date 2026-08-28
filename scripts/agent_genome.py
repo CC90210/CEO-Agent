@@ -225,6 +225,50 @@ def verify(repo: Path, structural: bool = False) -> tuple[list[dict], list[str]]
     ev = _any(repo, cfg["eval"])
     gene("G10", "verifiable self-check (eval)", bool(ev), ev or f"missing (looked for {cfg['eval']})")
 
+    # G11 cross-agent coordination — added 2026-08-28.
+    #
+    # WHY THIS IS A GENE AND NOT A DOCUMENT. Two agents (Bravo on CC's machine,
+    # APEX on Adon's) edit the same repos. The protocol that keeps them out of
+    # each other's files existed in prose from 2026-06 and prevented NOTHING:
+    # 226 of 1,596 files in oasis-command-center were touched by both sides and
+    # 117 same-file cross-side edits landed inside 48h. It decayed because
+    # nothing verified it was present.
+    #
+    # Making it a gene means "is this agent coordination-capable?" is a command,
+    # not a belief — and `--repo` already lets either side run it against the
+    # other's checkout, so the two harnesses can be compared rather than
+    # described. That is the whole point: a version gap you can measure.
+    #
+    # Four parts, because each failed independently in the field:
+    #   lease client   — claims must be repo+path scoped with a TTL
+    #   pre-edit guard — the lease must REFUSE an edit, not merely record one
+    #   ownership map  — who owns what, derived from evidence not opinion
+    #   contract       — the negotiated wire format, in a repo the PEER can read
+    coord_parts = [
+        ("lease client", cfg.get("coord_client", ["scripts/integrations/coord_claim.py"])),
+        ("pre-edit guard", cfg.get("coord_guard", ["scripts/state/coord_guard.py"])),
+        ("ownership map", cfg.get("ownership_map", ["brain/OWNERSHIP_MAP.yaml"])),
+    ]
+    found, missing = [], []
+    for label, cands in coord_parts:
+        hit = _any(repo, cands if isinstance(cands, list) else [cands])
+        (found if hit else missing).append(f"{label}" + (f" ({hit})" if hit else ""))
+
+    # The guard must be WIRED, not merely present. A guard file that no hook
+    # invokes is the exact "reads as coverage" failure this gene exists to catch.
+    wired = False
+    for settings_rel in ("​.claude/settings.local.json".replace("​", ""),
+                         ".claude/settings.json"):
+        if "coord_guard" in _read(repo, settings_rel):
+            wired = True
+            break
+    if not wired:
+        missing.append("guard not registered in any settings hook chain")
+
+    gene("G11", "cross-agent coordination (lease + guard + ownership)",
+         not missing,
+         ", ".join(found) if not missing else "missing: " + "; ".join(missing))
+
     return genes, skipped
 
 
