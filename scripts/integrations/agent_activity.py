@@ -267,9 +267,39 @@ _ESCALATION_RE = re.compile(
     re.I)
 
 
+# Narration markers: words that mean the writer is DESCRIBING a failure rather
+# than REPORTING one. "Fixed the bug where credits were exhausted" is a
+# completion report; "credits exhausted" alone is an outage.
+#
+# APEX hit this first on its own lint (it refused two of APEX's own posts for
+# describing a blocker) and reported it as low priority. It is not: a lint that
+# blocks honest prose gets routed around with the override flag, and an override
+# used by habit is the same as no lint at all. Bravo's copy had the identical
+# defect — 3 of 4 descriptive sentences wrongly refused.
+_NARRATION_RE = re.compile(
+    r"\b(fixed|fixing|resolved|resolving|closed|documented|documenting|"
+    r"reviewing|reviewed|describing|described|mentions?|mentioned|explains?|"
+    r"why|note that|used to|previously|no longer|was reporting|"
+    r"false[- ]positive|test(?:s|ing|ed)?\s+for)\b", re.I)
+
+
 def escalation_hits(text):
-    """Every distinct escalation phrase in `text` (empty when clean)."""
-    return [m.group(0) for m in _ESCALATION_RE.finditer(text or "")]
+    """Escalation phrases that are REPORTS, not descriptions.
+
+    A phrase is treated as descriptive — and therefore not an escalation — when a
+    narration marker appears BEFORE it in the text. Position matters: "fixed the
+    credits-exhausted bug" is a report of work, while "credits exhausted, fixing
+    now" is still an outage that a human must know about, and the second must
+    keep firing.
+    """
+    text = text or ""
+    out = []
+    for m in _ESCALATION_RE.finditer(text):
+        before = text[:m.start()]
+        if _NARRATION_RE.search(before):
+            continue          # described, not reported
+        out.append(m.group(0))
+    return out
 
 
 def post(status, task, files=None, branch=None, detail=None, mirror=False, agent=None,

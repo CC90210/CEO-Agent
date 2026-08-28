@@ -33,7 +33,14 @@
 
 version: 2
 updated: 2026-08-27
-derived_from: 90d commit attribution, measured 2026-08-27
+derived_from: 90d commit attribution, measured 2026-08-27; RE-DERIVED 2026-08-28
+# Re-derivation result: NO MATERIAL CHANGE. Bravo warned the map had a hole
+# "exactly the shape of APEX's last three months" because APEX reported 1,000+
+# unpushed commits. APEX then measured it properly — branches without an
+# upstream report their whole history — and the real figure was 16 (3 JARVIS,
+# 13 oasis, now pushed). The map was never missing three months of work.
+# Recorded because the warning was louder than the fact, and a correction that
+# only lives in a chat log is not a correction.
 # v2 (2026-08-27): repo keys are REMOTE-DERIVED SLUGS, per the algorithm agreed
 # with APEX (contract §3.1). Directory names were the v1 key and could not work:
 # APEX runs 85 linked worktrees of oasis-command-center, which produced 85

@@ -144,20 +144,19 @@ def _run_guard(payload: dict, claims: list[dict], mode="enforce"):
     """Drive the hook with a pre-seeded mirror so no network is touched."""
     import os
     import time
-    mirror = REPO_ROOT / "state" / "coord_claims_mirror.json"
-    backup = mirror.read_text(encoding="utf-8") if mirror.exists() else None
-    try:
+    # ISOLATED mirror. Writing the live one races the guard running on the
+    # operator's real edits and the watchdog's 5-minute pass — that produced a
+    # flake that passed in isolation and failed in the suite.
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        mirror = Path(td) / "mirror.json"
         mirror.write_text(json.dumps({"fetched_at": time.time(), "claims": claims}),
                           encoding="utf-8")
         env = {**os.environ, "EMPIRE_HOOK_COORD_GUARD": mode,
-               "COORD_GUARD_CACHE_TTL_SEC": "600", "COORD_AGENT_KEY": "bravo"}
+               "COORD_GUARD_CACHE_TTL_SEC": "600", "COORD_AGENT_KEY": "bravo",
+               "COORD_GUARD_MIRROR": str(mirror)}
         return subprocess.run([sys.executable, str(GUARD)], input=json.dumps(payload),
                               capture_output=True, text=True, env=env, timeout=120)
-    finally:
-        if backup is not None:
-            mirror.write_text(backup, encoding="utf-8")
-        elif mirror.exists():
-            mirror.unlink()
 
 
 def _lease(agent="apex", repo="oasis-command-center", path="lib/drips/executor.ts"):
@@ -449,13 +448,15 @@ def test_guard_shouts_when_it_is_blind():
     that it was allowed without a check."""
     import os
     import subprocess
-    mirror = REPO_ROOT / "state" / "coord_claims_mirror.json"
-    backup = mirror.read_text(encoding="utf-8") if mirror.exists() else None
+    import tempfile
+    _td = tempfile.TemporaryDirectory()
+    mirror = Path(_td.name) / "mirror.json"
+    backup = None
     try:
         mirror.write_text("not json{{{", encoding="utf-8")
         env = {**os.environ, "EMPIRE_HOOK_COORD_GUARD": "enforce",
                "TURSO_DATABASE_URL": "libsql://unreachable-xyz.turso.io",
-               "COORD_AGENT_KEY": "bravo"}
+               "COORD_AGENT_KEY": "bravo", "COORD_GUARD_MIRROR": str(mirror)}
         r = subprocess.run(
             [sys.executable, str(GUARD)],
             input=json.dumps({"tool_name": "Edit",
@@ -464,10 +465,7 @@ def test_guard_shouts_when_it_is_blind():
         assert r.returncode == 0, "a collision gate must not wedge work when blind"
         assert "BLIND" in r.stderr and "WITHOUT A CHECK" in r.stderr
     finally:
-        if backup is not None:
-            mirror.write_text(backup, encoding="utf-8")
-        elif mirror.exists():
-            mirror.unlink()
+        _td.cleanup()
 
 
 # ============ APEX + Codex findings, 2026-08-27 (round 2) =====================
@@ -563,3 +561,54 @@ def test_canonical_and_parsed_comparisons_agree():
         instant = (parse_ts(sa) < parse_ts(sb), parse_ts(sa) == parse_ts(sb),
                    parse_ts(sa) > parse_ts(sb))
         assert lexical == instant, f"diverged at delta={delta}: {lexical} vs {instant}"
+
+
+# ---- the dead-matcher class, killed rather than fixed case by case ----------
+
+def test_no_regex_in_agent_activity_contains_a_control_character():
+    r"""A `` written through a shell heredoc becomes a literal BACKSPACE
+    (\x08), producing a pattern that can never match anything.
+
+    This has now happened THREE times in this file — `top\s*up\s+at\b` and both
+    ends of the narration pattern — and each time it was invisible, because a
+    dead alternative hides behind a live one. APEX taught the general form of
+    this (its section 4.4) and then hit it again on its own lint.
+
+    Fixing instances is not enough; this asserts the class cannot return.
+    """
+    src = (REPO_ROOT / "scripts" / "integrations" / "agent_activity.py").read_text(
+        encoding="utf-8")
+    bad = [(i + 1, repr(ln)) for i, ln in enumerate(src.splitlines())
+           if any(ord(c) < 32 and c != "\t" for c in ln)]
+    assert not bad, f"control characters in source (dead-regex risk): {bad[:3]}"
+
+
+@pytest.mark.parametrize("prose", [
+    "Fixed the bug where the bridge said credits exhausted",
+    "Documented why auth token expired handling matters",
+    "Reviewing APEX handover which mentions service is down",
+    "Testing for the case where quota exceeded fires",
+])
+def test_escalation_lint_allows_describing_a_failure(prose):
+    """APEX reported this on its own lint: it refused two of APEX's own posts for
+    DESCRIBING a blocker rather than reporting one. Bravo's copy had the same
+    defect. A lint that blocks honest prose gets routed around with the override
+    flag, and an override used by habit is the same as no lint at all."""
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "integrations"))
+    import agent_activity
+    assert agent_activity.escalation_hits(prose) == []
+
+
+@pytest.mark.parametrize("report", [
+    "Anthropic API credits exhausted and Groq fallback failed",
+    "operator-email service is down",
+    "credits exhausted, fixing now",          # narration AFTER the phrase still fires
+    "cannot connect to the database",
+])
+def test_escalation_lint_still_catches_real_reports(report):
+    """The companion. Loosening a lint until it never fires is not a fix — and
+    `credits exhausted, fixing now` must still escalate, because position
+    matters: describing precedes, reporting does not."""
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "integrations"))
+    import agent_activity
+    assert agent_activity.escalation_hits(report), f"{report!r} must escalate"

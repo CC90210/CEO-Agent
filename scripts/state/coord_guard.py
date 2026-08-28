@@ -64,7 +64,12 @@ from lib.hook_runtime import (  # noqa: E402
 )
 
 LOG_PATH = state_log_path("coord_guard")
-MIRROR_PATH = PROJECT_ROOT / "state" / "coord_claims_mirror.json"
+# Overridable so tests do not share the LIVE mirror. The suite previously
+# backed up and restored the real file, which races the guard running on
+# the operator's own edits and the watchdog's 5-minute pass — a live queue
+# used as a test fixture. One flake was observed before this was fixed.
+MIRROR_PATH = Path(os.environ.get("COORD_GUARD_MIRROR")
+                   or PROJECT_ROOT / "state" / "coord_claims_mirror.json")
 CACHE_TTL_SEC = int(os.environ.get("COORD_GUARD_CACHE_TTL_SEC", "30"))
 
 EDIT_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
