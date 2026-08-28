@@ -617,6 +617,30 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # Added 2026-08-28. Nothing in the fleet moves an event to a terminal
+        # state, so agent_events is append-only in practice: 9,533 rows older
+        # than 30 days were still 'pending' when this was written, waiting on a
+        # consumer that was never coming.
+        #
+        # SCHEDULED, not just built. The whole reason the eval suites went
+        # eleven weeks unmeasured is that the tooling existed and nothing ran
+        # it; a retention tool nobody invokes is the same defect with a
+        # different name. 40 rows crossed the cutoff within two hours of the
+        # first manual sweep, which is the drift rate this exists to absorb.
+        #
+        # Marks 'dead' (a schema-valid terminal state), never deletes —
+        # agent_events is the Bravo<->APEX coordination channel and a shared
+        # audit trail.
+        "name": "Weekly Event Bus Retention",
+        "description": "Sunday 03:30 ET — age agent_events rows still 'pending' after 30 days to 'dead' so the bus stays bounded. Marks, never deletes; the live 30-day window is untouched.",
+        "schedule": "30 3 * * SUN",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/core/event_retention.py",
+                          "args": ["--apply", "--days", "30", "--json"],
+                          "timeout": 900},
+        "is_active": True,
+    },
+    {
         # Added 2026-08-28. RULE -1 makes FTS retrieval the preferred path over
         # whole-file reads, so the whole retrieval-first design rests on this
         # index — and nothing rebuilt it. memory_index.db appeared in this file
