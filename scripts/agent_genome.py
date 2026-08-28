@@ -1,7 +1,8 @@
 """agent_genome.py — verify an agent repo fully expresses the genome.
 
-The genome (2026-07-09): every agent in CC's fleet is an EXPRESSION of a
-portable core — ten genes that turn a bare model into a fully-capable agent:
+The genome (2026-07-09, G11 added 2026-08-28): every agent in CC's fleet is an
+EXPRESSION of a portable core — eleven genes that turn a bare model into a
+fully-capable agent:
 
   G1 seed        one canonical identity+wiring file (PERSONAL.md)
   G2 expression  runtime entry points carry the seed's LOCKSTEP blocks, byte-identical
@@ -13,6 +14,14 @@ portable core — ten genes that turn a bare model into a fully-capable agent:
   G8 model       subscription-CLI model access, API-key-free
   G9 guards      secret/exec/state protection in enforce mode
   G10 eval       a verifiable self-check (harness_eval or equivalent)
+  G11 coord      peer leases + an ENFORCING pre-edit guard + an ownership map
+
+G11 is why this tool matters across MACHINES, not just repos. Bravo and APEX run
+separate harnesses against shared repos; "is that agent at our level?" used to be
+a conversation. Point --repo at the other checkout and it is a per-gene verdict.
+The guard must be REGISTERED in a hook chain, not merely present on disk — a
+guard nothing invokes reads as coverage while protecting nothing, which is the
+exact failure the coordination work spent two days removing.
 
 This tool checks STRUCTURE (is the gene present and wired); harness_eval.py
 checks LIVE HEALTH (is the phenotype currently green). Together they are the
@@ -72,6 +81,21 @@ DEFAULTS: dict[str, list[str]] = {
     "guards": [".claude/settings.json", ".claude/settings.local.json", ".claude/settings.hooks.template.json"],
     "eval": ["scripts/harness_eval.py", "scripts/agent_genome.py"],
     "learning_loop_extra": [],  # reserved
+    # G11 cross-agent coordination. Listed here like every other gene so a
+    # foreign repo can point them at its own paths via genome.json — APEX's
+    # client is JS, not scripts/integrations/coord_claim.py, and the gene must
+    # verify the CAPABILITY rather than Bravo's filenames.
+    "coord_client": ["scripts/integrations/coord_claim.py", "scripts/coord_claim.py",
+                     "services/coordination/coord-claim.js", "src/coordination/claim.js"],
+    "coord_guard": ["scripts/state/coord_guard.py", "scripts/coord_guard.py",
+                    "services/coordination/coord-guard.js", "hooks/coord-guard.js"],
+    "ownership_map": ["brain/OWNERSHIP_MAP.yaml", "docs/coordination/OWNERSHIP_MAP.yaml",
+                      "OWNERSHIP_MAP.yaml"],
+    # Where the guard must be REGISTERED. A guard on disk that no hook invokes is
+    # the "reads as coverage" failure this gene exists to catch, so the wiring is
+    # checked in whichever settings file the runtime actually loads.
+    "guard_wiring": [".claude/settings.local.json", ".claude/settings.json",
+                     ".codex/settings.json", ".agent/settings.json"],
 }
 
 
@@ -257,9 +281,9 @@ def verify(repo: Path, structural: bool = False) -> tuple[list[dict], list[str]]
     # The guard must be WIRED, not merely present. A guard file that no hook
     # invokes is the exact "reads as coverage" failure this gene exists to catch.
     wired = False
-    for settings_rel in ("​.claude/settings.local.json".replace("​", ""),
-                         ".claude/settings.json"):
-        if "coord_guard" in _read(repo, settings_rel):
+    for settings_rel in cfg.get("guard_wiring", [".claude/settings.local.json"]):
+        blob = _read(repo, settings_rel)
+        if "coord_guard" in blob or "coord-guard" in blob:
             wired = True
             break
     if not wired:
