@@ -852,3 +852,22 @@ def test_shared_roster_accepts_every_real_key(key):
     nothing — aliases and legacy wire keys must keep working."""
     from lib import ownership
     assert ownership.validate_agent_key(key) == key.lower()
+
+
+def test_event_bus_validates_a_named_target_but_never_raises():
+    """The third writer, completing a fix my own commit message claimed was
+    already complete — it said 'three consumers' while only two were wired.
+
+    `target_agent` is the routing key the consumer dequeues on, so an unknown
+    value publishes an event nobody claims. But publish() documents NEVER
+    RAISES and long-lived subscriber daemons depend on that, so a routing typo
+    must not become a crashed daemon. It warns loudly and KEEPS the value —
+    never silently rewriting it to None, which would look like a broadcast and
+    be its own silent failure.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "scripts" / "core"))
+    import event_bus
+    assert event_bus._validated_target(None) is None          # broadcast is legal
+    assert event_bus._validated_target("apex") == "apex"
+    kept = event_bus._validated_target("apex-racetest")       # must NOT raise
+    assert kept == "apex-racetest", "a bad target is kept and warned, not rewritten"

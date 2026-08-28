@@ -111,6 +111,41 @@ def _append_offline(record: dict[str, Any]) -> None:
 
 # ---- Publisher --------------------------------------------------------------
 
+def _validated_target(target):
+    """A NAMED target must be a real agent; None means broadcast and is fine.
+
+    Same shared roster as coord_claim and agent_activity — a fourth copy would
+    be the duplicate-definition class again. A roster read failure must NOT drop
+    the event: the bus is durable by design and losing an event to enforce a
+    config check is the worse trade, so it warns and passes the value through.
+    """
+    if target is None:
+        return None
+    try:
+        import sys as _s
+        from pathlib import Path as _P
+        _s.path.insert(0, str(_P(__file__).resolve().parent.parent))
+        from lib import ownership  # noqa: PLC0415
+        return ownership.validate_agent_key(target, field="target_agent")
+    except ValueError as e:
+        # publish() documents "NEVER raises", and long-lived subscriber daemons
+        # depend on that. Raising here would turn a routing typo into a crashed
+        # daemon — a worse failure than the one being prevented.
+        #
+        # So: WARN LOUDLY and keep the value. The row is still written, so the
+        # bad target is visible in `agent_events` and greppable, rather than
+        # silently rewritten to None (which would look like a broadcast and be
+        # its own silent failure — the exact class this check exists for).
+        print(f"[event_bus] INVALID target_agent {target!r} — {str(e).splitlines()[0]}\n"
+              f"[event_bus] publishing anyway (publish() must not raise); this event "
+              f"will reach NO consumer. Fix the caller.", file=sys.stderr)
+        return target
+    except Exception as e:  # noqa: BLE001
+        print(f"[event_bus] WARN could not verify target_agent {target!r} "
+              f"({type(e).__name__}) — publishing unvalidated", file=sys.stderr)
+        return target
+
+
 def publish(
     event_type: str,
     payload: dict[str, Any],
@@ -136,7 +171,17 @@ def publish(
         "event_type": event_type,
         "source_agent": source,
         "publisher_agent": source,   # migration 006 compat
-        "target_agent": target,
+        # `target_agent` is the routing key the consumer dequeues on, so an
+        # unknown value publishes an event nobody claims — silent by
+        # construction, exactly like the coord_claims repo/agent bugs. None is
+        # legitimate here (broadcast) and stays unvalidated; a NAMED target must
+        # be a real agent.
+        #
+        # Validated through the same shared roster as coord_claim and
+        # agent_activity rather than a fourth copy. A read failure never blocks
+        # a publish: the bus is durable-by-design and dropping an event to
+        # enforce a config check would be the worse trade.
+        "target_agent": _validated_target(target),
         "severity": severity,
         "payload": payload or {},
         "correlation_id": correlation_id,
