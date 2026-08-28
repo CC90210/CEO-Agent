@@ -30,7 +30,6 @@ import argparse
 import ast
 import json
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -533,13 +532,50 @@ def check_fleet_compiles():
     exact rule. Ruff is not installed and nothing invoked it, so the rule had
     never run. This uses the pyflakes already in .venv and reuses the AST the
     loop above parses, so the pass costs no extra read and no subprocess.
+
+    WHY FAILURES ARE CONFIRMED BY A SECOND READ (2026-08-28, same day):
+    the first version flapped. Over 44 runs it failed in bursts of 4-8 and then
+    went green, and every burst lined up with an editing window — 17:09-17:47
+    UTC matched commits at 13:09-13:47 local, to the minute. It was reading
+    files mid-write: a partially written file is a SyntaxError, and a file saved
+    between its call site and its import is an undefined name. Neither is a
+    defect in the fleet; both are a snapshot taken during a save.
+
+    That cost ~3 percentage points of the weekly score and, worse, it is the
+    shape of gate that teaches an operator to ignore it. So a failure is now
+    RE-READ and RE-CHECKED before it counts. This is confirmation, not
+    suppression: a real SyntaxError or unbound name is still there on the second
+    read. Only a file that was being written is not.
     """
     from pyflakes.checker import Checker
     from pyflakes.messages import UndefinedName
 
+    def _analyse(text: str, path: Path, rel: str):
+        """(syntax_error, undefined_names) for one file's content."""
+        try:
+            tree = ast.parse(text)
+        except SyntaxError as e:
+            return f"{rel}:{e.lineno}", []
+        except (ValueError, UnicodeDecodeError) as e:
+            return f"{rel}:decode({type(e).__name__})", []
+        try:
+            messages = Checker(tree, filename=str(path)).messages
+        except Exception:  # noqa: BLE001 - analysis must never break the gate
+            return None, []
+        names = []
+        for m in messages:
+            if not isinstance(m, UndefinedName):
+                continue
+            name = m.message_args[0] if m.message_args else "?"
+            if (rel, name) in _UNDEFINED_NAME_ALLOWLIST:
+                continue
+            names.append(f"{rel}:{m.lineno} undefined name {name!r}")
+        return None, names
+
     root = Path(__file__).resolve().parent
     broken: list[str] = []
     undefined: list[str] = []
+    transient = 0
     scanned = 0
     for path in root.rglob("*.py"):
         parts = path.parts
@@ -548,30 +584,40 @@ def check_fleet_compiles():
         scanned += 1
         rel = path.relative_to(root.parent).as_posix()
         try:
-            tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
-        except SyntaxError as e:
-            broken.append(f"{rel}:{e.lineno}")
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue  # vanished mid-scan: another agent's rename, not a defect
+        syntax_err, names = _analyse(text, path, rel)
+        if syntax_err is None and not names:
             continue
-        except (ValueError, UnicodeDecodeError) as e:
-            broken.append(f"{rel}:decode({type(e).__name__})")
-            continue
-        try:
-            messages = Checker(tree, filename=str(path)).messages
-        except Exception:  # noqa: BLE001 - analysis must never break the gate
-            continue
-        for m in messages:
-            if not isinstance(m, UndefinedName):
-                continue
-            name = m.message_args[0] if m.message_args else "?"
-            if (rel, name) in _UNDEFINED_NAME_ALLOWLIST:
-                continue
-            undefined.append(f"{rel}:{m.lineno} undefined name {name!r}")
 
+        # CONFIRM before failing. Re-read from disk: a genuine defect is still
+        # there, a mid-save snapshot is not. Cheap because it only runs on the
+        # handful of files that failed, never on the clean 350.
+        try:
+            text2 = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        syntax_err2, names2 = _analyse(text2, path, rel)
+        if syntax_err2 is None and not names2:
+            transient += 1
+            continue
+        if text2 != text:
+            # Still failing but the content moved under us — the file is being
+            # written right now, so we cannot judge it either way this run.
+            transient += 1
+            continue
+        if syntax_err2:
+            broken.append(syntax_err2)
+        undefined.extend(names2)
+
+    note = f" ({transient} transient mid-write, re-read clean)" if transient else ""
     if broken:
-        return False, f"syntax errors in {len(broken)} scripts: {broken[:6]}"
+        return False, f"syntax errors in {len(broken)} scripts: {broken[:6]}{note}"
     if undefined:
-        return False, f"{len(undefined)} undefined names (NameError at runtime): {undefined[:6]}"
-    return True, f"{scanned} production scripts parse clean, no undefined names"
+        return False, (f"{len(undefined)} undefined names (NameError at runtime): "
+                       f"{undefined[:6]}{note}")
+    return True, f"{scanned} production scripts parse clean, no undefined names{note}"
 
 
 def check_model_call_path():

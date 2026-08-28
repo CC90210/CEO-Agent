@@ -56,6 +56,81 @@ DAEMON_FRESHNESS_SEC = 120  # PID file must have been touched within 2 minutes
 RRF_K = 60  # Reciprocal Rank Fusion constant (matches memory_retriever)
 
 
+# Suffixes stripped to a common stem, longest-first so "ing" beats "g".
+# Deliberately tiny and explicit: resolve_intent is documented as the
+# offline-DETERMINISTIC path that CI and the evals depend on, so this must never
+# depend on a stemmer library's version or locale.
+_SUFFIXES = ("ings", "ing", "ies", "ied", "es", "ed", "s", "e")
+_MIN_STEM = 3
+
+
+def _stem(word: str) -> str:
+    """Collapse common English inflections so a query matches a skill's NAME.
+
+    WHY (2026-08-28): matching was exact set intersection, so the skill literally
+    named `writing-plans` scored ZERO from its own name for the query "write an
+    implementation plan" — {writing, plans} & {write, plan} is empty. It lost to
+    `harness-refinement` (13.0 vs 11.0), which won purely on description-word
+    volume. Routing accuracy is the thing the whole router exists for, and it
+    was being decided by morphology.
+
+    "ies"->"y" is handled by falling through to the generic strip and then the
+    trailing "e" rule, which is enough for skill names; this is not trying to be
+    a linguist, only to make write/writing and plan/plans the same token.
+    """
+    w = word.lower()
+    for suf in _SUFFIXES:
+        if w.endswith(suf) and len(w) - len(suf) >= _MIN_STEM:
+            return w[: -len(suf)]
+    return w
+
+
+# Function words carry no routing signal, and counting them is not merely noise
+# — it decides matches.
+#
+# MEASURED 2026-08-28 on "write an implementation plan for a feature":
+# harness-refinement scored 13.0 and beat writing-plans, and 12.0 of those 13
+# points came from triggers matching the words "a", "an" and "for":
+#     +2.0 ['a']         <- "propose a change to my own rules"
+#     +2.0 ['an']        <- "change an agent rule"
+#     +4.0 ['a','for']   <- "queue a proposed change for CC"
+#     +2.0 ['a']         <- "roll back a harness refinement"
+#     +2.0 ['a']         <- "apply a refinement"
+# Not one of those matches has any meaning. Meanwhile writing-plans matched on
+# "implementation plan" and "feature plan" and lost. The router was ranking
+# skills by how much English grammar their triggers contained, and because
+# trigger score is summed across ALL triggers with no cap, a skill with many
+# chatty triggers accumulated points indefinitely.
+#
+# Deliberately conservative: only unambiguous function words. Domain nouns that
+# look small ("state", "log", "run", "job") stay, because here they mean things.
+_STOPWORDS = frozenset("""
+a an the this that these those
+and or but not
+for to of in on at by with from into over under
+is are was were be been being am
+it its as if then than so such
+my your our their his her
+do does did done doing
+have has had
+i you we they he she
+me us them him
+can could should would will shall may might must
+what which who whom whose when where why how
+""".split())
+
+
+def _stems(text: str) -> set[str]:
+    out = set()
+    for w in re.findall(r"\w+", text.lower()):
+        if w in _STOPWORDS:
+            continue
+        s = _stem(w)
+        if s and s not in _STOPWORDS:
+            out.add(s)
+    return out
+
+
 def _rrf(rankings: list[list[str]], k: int = RRF_K) -> dict[str, float]:
     """Reciprocal Rank Fusion over ranked node-id lists → {node_id: score}."""
     scores: dict[str, float] = {}
@@ -111,7 +186,7 @@ class Graph:
         semantic leg reuses the LanceDB skill index via `core.memory_retriever.query`
         and degrades silently to lexical if unavailable.
         """
-        words = set(re.findall(r"\w+", intent.lower()))
+        words = _stems(intent)
         if not words:
             return []
         scored: list[tuple[float, dict[str, Any]]] = []
@@ -126,13 +201,30 @@ class Graph:
             triggers = n.get("triggers") or []
             if isinstance(triggers, list):
                 for t in triggers:
-                    t_words = set(re.findall(r"\w+", str(t).lower()))
-                    overlap = len(words & t_words)
-                    if overlap:
-                        score += overlap * 2.0  # triggers weighted higher
-            desc_words = set(re.findall(r"\w+", str(n.get("description", "")).lower()))
+                    t_stems = _stems(str(t))
+                    if not t_stems:
+                        continue
+                    overlap = len(words & t_stems)
+                    if not overlap:
+                        continue
+                    # COVERAGE-WEIGHTED, not a raw count. A trigger the query
+                    # matches ENTIRELY is a deliberate "if they say this, use
+                    # me"; a long trigger sharing one generic word is barely a
+                    # signal, and summing those unweighted let trigger COUNT beat
+                    # match QUALITY.
+                    #
+                    # MEASURED 2026-08-28 on "debug a failing test with a stack
+                    # trace": systematic-debugging matched the trigger "stack
+                    # trace" completely and scored 6.0, while webapp-testing
+                    # scored 10.0 from FIVE triggers ("webapp test", "local app
+                    # test", "frontend test", ...) that each matched only the
+                    # generic word "test". The skill with the exact phrase match
+                    # lost to the skill with more chances to match one word.
+                    coverage = overlap / len(t_stems)
+                    score += overlap * coverage * 2.0
+            desc_words = _stems(str(n.get("description", "")))
             score += len(words & desc_words) * 0.5
-            name_words = set(re.findall(r"\w+", str(n.get("name", "")).lower()))
+            name_words = _stems(str(n.get("name", "")))
             score += len(words & name_words) * 1.0
             if score > 0:
                 scored.append((score, n))
