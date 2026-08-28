@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **62 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **63 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -44,6 +44,7 @@ Auto-generated index of tracked `brain/*.md` — **62 files**. Each file's first
 - [C_SUITE_ARCHITECTURE.md](C_SUITE_ARCHITECTURE.md) — AGENT ARCHITECTURE — Four-Agent Operating Model
 - [DAILY_SCHEDULE.md](DAILY_SCHEDULE.md) — CC'S DAILY SCHEDULE
 - [DASHBOARD.md](DASHBOARD.md) — Command Center
+- [DATA_LIFECYCLE.md](DATA_LIFECYCLE.md) — Data Lifecycle
 - [DATA_TAXONOMY.md](DATA_TAXONOMY.md) — Data Taxonomy
 - [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS Website Sales Engine V5
 - [EMAIL_PIPELINE.md](EMAIL_PIPELINE.md) — Inbound Email Pipeline — Runbook

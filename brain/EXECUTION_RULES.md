@@ -503,3 +503,29 @@ guard is the problem it was built to solve.
 Ownership is a **default, not a fence.** Either agent may work anywhere. Owning a
 surface means you are the one who does not have to ask, and the one who gets
 asked.
+
+## § 20 — Every store gets a lifecycle, in the same commit
+
+Capture in this system is comprehensive; expiry is not. Almost every subsystem
+logs well and almost none of them delete anything, so the failure mode is never
+a crash — it is a 43 MB/day log, a 9,533-row event queue waiting on a consumer
+that was never coming, and a table nobody remembers adding.
+
+When you add a store, decide its lifecycle in the SAME commit and record it in
+[[DATA_LIFECYCLE]]. Three rules, each from something that actually happened:
+
+1. **Schedule the sweep with the tool.** A retention script nobody runs is not a
+   retention policy. `event_retention.py` was written, run once by hand and left
+   unscheduled — 40 rows crossed its cutoff within two hours. The eval suites
+   went eleven weeks unmeasured for the same reason: the runner existed, nothing
+   invoked it.
+2. **A log hitting its rotation cap repeatedly is a broken log, not a rotation
+   problem.** `secret_access.log` reached 43 MB/day *with* rotation working
+   correctly. The fix was at the source — it was recording all 204 env key names
+   on every call.
+3. **Mark, do not delete, in a shared store.** `agent_events` is the Bravo↔APEX
+   channel. Terminal states exist in the schema for this; use them.
+
+Undecided is allowed. Invisible is not — an unbounded store with no decision
+goes in [[DATA_LIFECYCLE]]'s "needs an operator decision" table so it is at
+least being looked at.

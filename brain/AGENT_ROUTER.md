@@ -88,6 +88,7 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Dashboard structure | `oasis-command-center:lib/agent-roots.ts` | the relevant `oasis-command-center:app/<route>/page.tsx` |
 | **Audit the system / health check** | (run `python scripts/core/self_audit.py`) | `brain/ORCHESTRATION.md` |
 | **Clean up the repo / delete junk** | (run `python scripts/core/system_cleanup.py` — dry-run by default) | `brain/EXECUTION_RULES.md` Rule 9 |
+| **How long is X kept / adding a new store or log** | `brain/DATA_LIFECYCLE.md` | (schedule the sweep in the SAME commit — a retention tool nobody runs is not a policy) |
 | **Current date / day-of-week / time** | (run the date snippet in `brain/EXECUTION_RULES.md` Rule 11 — never quote from prompt) | `brain/STATE.md` |
 | **Create a new skill / agent / workflow** | `skills/agent-forge/SKILL.md` | use the matching `python scripts/register.py skill|agent|workflow ...` contract |
 | **Diagnose why you made a mistake** | `memory/MISTAKES.md` | `brain/BRAIN_LOOP.md` (Reflexion section) |

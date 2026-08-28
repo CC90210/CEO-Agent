@@ -209,6 +209,45 @@ def gate_verdict(result: GateResult) -> str:
     return "red"
 
 
+def _accuracy_line() -> str | None:
+    """One line of week-over-week accuracy, or None if there is nothing to say.
+
+    WHY IT LIVES IN THIS DIGEST (2026-08-28): scripts/core/accuracy_trend.py
+    turns three existing time-series into a week-over-week table, and a report
+    nobody surfaces is a report nobody reads — the same defect that left the
+    eval suites unmeasured for eleven weeks while the tooling sat on disk.
+    This digest is already the weekly message CC actually opens, so the trend
+    goes here rather than becoming a fourth thing to remember to run.
+
+    Deliberately ONE line and never fatal: this is context on an existing gate
+    report, not a gate of its own. Trend data going missing must not turn the
+    weekly health digest red.
+    """
+    try:
+        from core.accuracy_trend import build  # noqa: PLC0415
+        data = build(2)
+        harness = data.get("harness") or {}
+        evals = data.get("evals") or {}
+        parts = []
+        if harness:
+            weeks = sorted(harness)
+            curr = harness[weeks[-1]]["mean"]
+            if len(weeks) > 1:
+                prev = harness[weeks[-2]]["mean"]
+                delta = (curr - prev) * 100
+                parts.append(f"harness {curr * 100:.1f}% ({delta:+.1f}pt)")
+            else:
+                parts.append(f"harness {curr * 100:.1f}%")
+        if evals:
+            latest = evals[sorted(evals)[-1]]
+            red = [s for s, v in latest.items() if v < 0.9]
+            parts.append(f"evals {len(latest) - len(red)}/{len(latest)} at/above 90%"
+                         + (f" — below: {', '.join(sorted(red))}" if red else ""))
+        return "  accuracy: " + "; ".join(parts) if parts else None
+    except Exception as exc:  # noqa: BLE001 - context, never a gate
+        return f"  accuracy: unavailable ({type(exc).__name__})"
+
+
 def compose_digest(results: list[GateResult]) -> str:
     verdicts = [gate_verdict(result) for result in results]
     overall = ("RED" if "red" in verdicts
@@ -217,6 +256,9 @@ def compose_digest(results: list[GateResult]) -> str:
     lines = [f"Weekly full-truth health digest — {stamp}", ""]
     for result, verdict in zip(results, verdicts):
         lines.append(f"{_MARKS[verdict]} {result.name}: {_summary(result)}")
+    trend = _accuracy_line()
+    if trend:
+        lines.extend(["", trend])
     lines.extend(["", f"OVERALL: {overall}"])
     return "\n".join(lines)
 
