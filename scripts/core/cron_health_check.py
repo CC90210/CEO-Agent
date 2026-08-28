@@ -563,6 +563,7 @@ def _scan_daemon_backed(findings: dict[str, list[dict]]) -> dict[str, list[dict]
         _scripts = Path(__file__).resolve().parents[1]
         if str(_scripts) not in sys.path:
             sys.path.insert(0, str(_scripts))
+        from ops.fleet_watchdog import classify
         from ops.fleet_watchdog import status as fleet_status
         rows = {r.get("name"): r for r in fleet_status()}
     except Exception as exc:  # noqa: BLE001
@@ -574,14 +575,12 @@ def _scan_daemon_backed(findings: dict[str, list[dict]]) -> dict[str, list[dict]
         row = rows.get(pm2_name)
         if row is None:
             state = "NOT IN FLEET MANIFEST"
-        elif row.get("disabled"):
-            continue  # operator stopped it deliberately — not a failure to page on
-        elif row.get("running"):
-            continue
-        elif row.get("unrunnable"):
-            state = f"UNRUNNABLE ({row['unrunnable']})"
         else:
-            state = "not running"
+            # One definition of daemon state — see fleet_watchdog.classify.
+            kind = classify(row)
+            if kind in ("running", "disabled"):
+                continue  # healthy, or an operator stop we must not page on
+            state = f"UNRUNNABLE ({row['unrunnable']})" if kind == "unrunnable" else "not running"
         findings["failing"].append({
             "name": job_name, "source": "daemon",
             "last_result": f"daemon {pm2_name!r}: {state}",

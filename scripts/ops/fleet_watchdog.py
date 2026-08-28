@@ -189,13 +189,59 @@ def _process_table() -> str | None:
     but not the observed passes that check and is still useless. Hence one
     source, verified, with no silent fallback.
     """
+    # Self-check on our own PID, not on this file's name.
+    #
+    # The first version looked for "fleet_watchdog.py" in the table, which is
+    # only present when this module is the __main__ script. Every consumer
+    # IMPORTS it — harness_eval, cron_health_check, local_bridge — so for them
+    # the running command line is harness_eval.py and the check failed on a
+    # perfectly good table, returning UNREADABLE and (now that this fails
+    # closed) turning the harness gate red. The PID is what actually identifies
+    # "this process" regardless of who called us.
+    me = f"|{os.getpid()}|"
+
+    def _verified(table: str | None) -> str | None:
+        # A source that cannot find THIS process cannot be trusted to claim
+        # another one is absent.
+        if table and me in table:
+            return table
+        return None
+
+    # CIM first. Same WMI data as wmic, but the modern client: wmic is
+    # deprecated on Windows 11, measured 14.3s here, and returned nothing usable
+    # often enough to fail the harness check outright — which, now that this
+    # fails closed, turns every flake into a red gate.
     try:
-        proc = subprocess.run(["wmic", "process", "get", "CommandLine"],
-                              capture_output=True, text=True, timeout=90,
-                              errors="ignore", creationflags=_NO_WINDOW)
-        table = (proc.stdout or "").lower()
-        # A table that cannot find this very process is not one we may act on.
-        if table and Path(__file__).name.lower() in table:
+        proc = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             # "|<pid>|<cmdline>" per line so the PID self-check has an
+             # unambiguous token to match and cannot collide with a substring
+             # of some other number in a command line.
+             "Get-CimInstance Win32_Process | "
+             "ForEach-Object { '|' + $_.ProcessId + '|' + $_.CommandLine }"],
+            capture_output=True, text=True, timeout=90,
+            errors="ignore", creationflags=_NO_WINDOW)
+        table = _verified((proc.stdout or "").lower())
+        if table:
+            return table
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        proc = subprocess.run(
+            ["wmic", "process", "get", "ProcessId,CommandLine", "/format:csv"],
+            capture_output=True, text=True, timeout=90,
+            errors="ignore", creationflags=_NO_WINDOW)
+        # CSV rows are Node,CommandLine,ProcessId — normalise the PID into the
+        # same |<pid>| token the self-check looks for.
+        raw = (proc.stdout or "").lower()
+        lines = []
+        for line in raw.splitlines():
+            parts = line.rsplit(",", 1)
+            if len(parts) == 2 and parts[1].strip().isdigit():
+                lines.append(f"|{parts[1].strip()}|{parts[0]}")
+        table = _verified("\n".join(lines) if lines else None)
+        if table:
             return table
     except Exception:  # noqa: BLE001
         pass
@@ -249,6 +295,46 @@ def status() -> list[dict]:
                      "running": bool(ident and ident in table),
                      "disabled": app["name"] in off})
     return rows
+
+
+def classify(row: dict) -> str:
+    """The state of one daemon: 'running' | 'disabled' | 'unrunnable' | 'down'.
+
+    ONE DEFINITION, deliberately. `status()` returns raw flags, and every
+    consumer used to re-derive meaning from them by hand — harness_eval,
+    cron_health_check, dashboard_email_queue_monitor, local_bridge and
+    machine_parity each had their own predicate, and they did not agree: some
+    treated an operator-disabled daemon as an outage, some as fine; some folded
+    an unrunnable manifest entry into "down", some reported it separately.
+
+    This subsystem has form for exactly this. test_parity_liveness_has_exactly
+    _one_definition exists because liveness had TWO definitions, and its
+    docstring calls that "the fifth instance in this subsystem after two claim
+    mechanisms, two coverage implementations, two ownership maps and two
+    identity lists". Five more hand-rolled copies is how the sixth happens.
+
+    The distinctions matter and are why this is not just a boolean:
+      disabled   — the operator stopped it. Not an outage. Paging about a
+                   deliberate stop is how a gate teaches people to ignore it.
+      unrunnable — the MANIFEST is broken (no script recorded), so no restart
+                   can fix it. Real, but a config defect, and folding it into
+                   "down" pins every alert permanently red.
+      down       — supposed to be running, is not. The actual alarm.
+    """
+    if row.get("disabled"):
+        return "disabled"
+    if row.get("running"):
+        return "running"
+    if row.get("unrunnable"):
+        return "unrunnable"
+    return "down"
+
+
+def down_names(rows: list[dict] | None = None) -> list[str]:
+    """Names of daemons that are a genuine outage — the ONLY thing worth paging
+    on. Excludes operator-disabled and unrunnable-manifest entries."""
+    return sorted(r["name"] for r in (rows if rows is not None else status())
+                  if classify(r) == "down")
 
 
 def start(app: dict, dry: bool = False) -> tuple[bool, str]:

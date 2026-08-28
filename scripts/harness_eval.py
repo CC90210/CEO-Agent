@@ -461,6 +461,7 @@ def check_pm2_fleet():
     """
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent / "ops"))
+        from ops.fleet_watchdog import classify, down_names  # noqa: E402
         from ops.fleet_watchdog import status as fleet_status  # noqa: E402
     except Exception as e:  # noqa: BLE001
         return False, f"fleet_watchdog unavailable: {type(e).__name__}: {e}"
@@ -473,20 +474,14 @@ def check_pm2_fleet():
     if not rows:
         return False, "fleet manifest empty — nothing is being supervised"
 
-    # Three states the fleet distinguishes, and this gate must too:
-    #   disabled   — operator chose to stop it. Not an outage; nagging about a
-    #                deliberate stop is how a gate teaches people to ignore it.
-    #   unrunnable — the MANIFEST is broken (no script recorded), so the daemon
-    #                cannot be started at all. A real defect, but a config one
-    #                that no restart fixes, and it would otherwise pin this
-    #                check red forever — the state in which gates get ignored.
-    #   down       — supposed to be running, is not. The actual alarm.
-    # fleet_watchdog uses the same split ("0 of 8 down" with one unrunnable).
-    disabled = sorted(r["name"] for r in rows if r.get("disabled"))
-    unrunnable = sorted(r["name"] for r in rows if r.get("unrunnable") and not r.get("disabled"))
-    down = sorted(r["name"] for r in rows
-                  if not r["running"] and not r.get("disabled") and not r.get("unrunnable"))
-    up = sum(1 for r in rows if r["running"])
+    # State meaning lives in fleet_watchdog.classify, not here. Re-deriving it
+    # from the raw flags is what left five consumers disagreeing about whether
+    # an operator-disabled daemon is an outage.
+    states = [classify(r) for r in rows]
+    down = down_names(rows)
+    disabled = sorted(r["name"] for r in rows if classify(r) == "disabled")
+    unrunnable = sorted(r["name"] for r in rows if classify(r) == "unrunnable")
+    up = states.count("running")
 
     if down:
         return False, f"daemons DOWN: {down}"

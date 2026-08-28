@@ -11,6 +11,7 @@ lying without anything noticing.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -276,3 +277,78 @@ def test_fresh_lock_is_not_reclaimed(tmp_path, monkeypatch):
     monkeypatch.setattr(fw, "RUN_LOCK", lock)
     lock.write_text("99999")
     assert fw._acquire_run_lock() is False, "a fresh lock must be honoured"
+
+
+# ------------------------------------------------ one definition of state ---
+# Added after a self-review found that fixing the pm2 probes had created FIVE
+# hand-rolled predicates for "is this daemon a problem?" — in harness_eval,
+# cron_health_check, dashboard_email_queue_monitor, local_bridge and
+# machine_parity — and they disagreed. Some treated an operator-disabled daemon
+# as an outage; some folded an unrunnable manifest entry into "down", which pins
+# an alert permanently red. This subsystem has form: see
+# test_parity_liveness_has_exactly_one_definition above, whose docstring calls
+# the two-definitions problem "the fifth instance in this subsystem".
+
+
+@pytest.mark.parametrize("row,expected", [
+    ({"disabled": True, "running": False, "unrunnable": ""}, "disabled"),
+    ({"disabled": True, "running": True, "unrunnable": ""}, "disabled"),
+    ({"disabled": False, "running": True, "unrunnable": ""}, "running"),
+    ({"disabled": False, "running": False, "unrunnable": "no script"}, "unrunnable"),
+    ({"disabled": False, "running": False, "unrunnable": ""}, "down"),
+])
+def test_classify_covers_every_state(row, expected):
+    assert fw.classify(row) == expected
+
+
+def test_disabled_outranks_running():
+    """An operator stop is the operator's decision even if the process lingers;
+    reporting it as healthy would hide a stop that did not take effect."""
+    assert fw.classify({"disabled": True, "running": True}) == "disabled"
+
+
+def test_down_names_excludes_disabled_and_unrunnable():
+    """Only a genuine outage is worth paging on. Including the other two is what
+    trains an operator to ignore the alert."""
+    rows = [
+        {"name": "a", "running": True, "disabled": False, "unrunnable": ""},
+        {"name": "b", "running": False, "disabled": True, "unrunnable": ""},
+        {"name": "c", "running": False, "disabled": False, "unrunnable": "no script"},
+        {"name": "d", "running": False, "disabled": False, "unrunnable": ""},
+    ]
+    assert fw.down_names(rows) == ["d"]
+
+
+def test_consumers_do_not_reimplement_the_predicate():
+    """Every consumer must ASK fleet_watchdog rather than re-derive state from
+    the raw flags. A second copy is how the five disagreed in the first place."""
+    consumers = [
+        REPO_ROOT / "scripts" / "harness_eval.py",
+        REPO_ROOT / "scripts" / "core" / "cron_health_check.py",
+        REPO_ROOT / "scripts" / "dashboard_email_queue_monitor.py",
+        REPO_ROOT / "bravo_cli" / "local_bridge.py",
+    ]
+    for path in consumers:
+        src = path.read_text(encoding="utf-8")
+        assert "fleet_watchdog import classify" in src, (
+            f"{path.name} must use fleet_watchdog.classify, not its own predicate")
+
+
+def test_process_table_works_when_imported_not_just_as_main():
+    """The self-check must identify THIS PROCESS, not this FILE.
+
+    The first version verified the table by looking for "fleet_watchdog.py" in
+    it. That string is only present when this module is the __main__ script —
+    but every real consumer IMPORTS it (harness_eval, cron_health_check,
+    local_bridge), so for them the running command line is harness_eval.py and
+    the check rejected a perfectly good table. Combined with fail-closed, that
+    turned every consumer's gate red on healthy infrastructure.
+
+    This test runs in pytest, so the process is NOT fleet_watchdog.py — exactly
+    the condition that broke it.
+    """
+    table = fw._process_table()
+    assert table is not None, (
+        "process table rejected when called from an importer — the self-check "
+        "is keyed on the file rather than the process")
+    assert f"|{os.getpid()}|" in table, "self-check token must identify this PID"

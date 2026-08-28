@@ -110,6 +110,7 @@ def _consumer_online() -> bool | None:
         _ops = Path(__file__).resolve().parent / "ops"
         if str(_ops.parent) not in sys.path:
             sys.path.insert(0, str(_ops.parent))
+        from ops.fleet_watchdog import classify
         from ops.fleet_watchdog import status as fleet_status
         rows = fleet_status()
     except Exception as exc:  # noqa: BLE001
@@ -117,9 +118,11 @@ def _consumer_online() -> bool | None:
         return None
     for row in rows:
         if row.get("name") == CONSUMER_PROC:
-            if row.get("disabled"):
+            # One definition of daemon state — see fleet_watchdog.classify.
+            kind = classify(row)
+            if kind == "disabled":
                 return None  # deliberately stopped — not an outage to alert on
-            return bool(row.get("running"))
+            return kind == "running"
     return False  # fleet readable but process absent ⇒ definitively down
 
 

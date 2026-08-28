@@ -339,18 +339,21 @@ def detect_pm2_daemons() -> dict[str, dict]:
         _fw = Path(__file__).resolve().parent.parent / "scripts"
         if str(_fw) not in sys.path:
             sys.path.insert(0, str(_fw))
+        from ops.fleet_watchdog import classify as _classify
         from ops.fleet_watchdog import status as _fleet_status
 
+        # One definition of daemon state — see fleet_watchdog.classify. This
+        # maps it onto the dashboard's integrations_health vocabulary.
+        _HEALTH = {"running": "healthy", "disabled": "degraded",
+                   "unrunnable": "down", "down": "down"}
         for row in _fleet_status():
             name = row.get("name") or "unnamed"
-            if row.get("disabled"):
-                health, detail = "degraded", "disabled by operator"
-            elif row.get("running"):
-                health, detail = "healthy", "running"
-            elif row.get("unrunnable"):
-                health, detail = "down", f"unrunnable: {row['unrunnable']}"
-            else:
-                health, detail = "down", "not running"
+            kind = _classify(row)
+            health = _HEALTH[kind]
+            detail = (f"unrunnable: {row['unrunnable']}" if kind == "unrunnable"
+                      else {"running": "running",
+                            "disabled": "disabled by operator",
+                            "down": "not running"}[kind])
             out[f"pm2.{name}"] = {
                 "status": health,
                 "metadata": {
