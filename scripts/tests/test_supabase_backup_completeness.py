@@ -29,7 +29,20 @@ FOREIGN = "some-other-tenant/lead-9/secret.pdf"
 
 
 def _run_export(doc_rows, download_ok=True):
-    """Run cmd_export against stubbed table + storage reads."""
+    """Run cmd_export against stubbed table + storage reads.
+
+    BACKUP_INCLUDE_STORAGE=1 is forced (2026-08-28). On 2026-08-12 documents
+    were deliberately excluded from the backup by default — this host has no R2
+    credentials, so the scope decision was database-only, recorded in the
+    manifest as an explicit exclusion rather than as zero objects.
+
+    These tests were written before that decision and assert on the
+    tenant-prefix guard, which lives INSIDE the storage path. With storage off
+    by default they stopped reaching the code under test at all and failed with
+    "0 != 1" — the guard was never broken, it was never run. Opting the tests
+    into the storage path is the fix; weakening the assertions to match a code
+    path that no longer executes would have deleted the coverage instead.
+    """
     def fake_page_table(_sb, table):
         return doc_rows if table == "lead_documents" else []
 
@@ -52,6 +65,7 @@ def _run_export(doc_rows, download_ok=True):
         with mock.patch.object(bk, "_client", return_value=fake_sb), \
              mock.patch.object(bk, "_page_table", fake_page_table), \
              mock.patch.object(bk, "TABLES", []), \
+             mock.patch.dict(bk.os.environ, {"BACKUP_INCLUDE_STORAGE": "1"}), \
              redirect_stdout(stdout), redirect_stderr(stderr):
             code = bk.cmd_export(out)
         manifest = {}
@@ -108,6 +122,53 @@ class TestBackupCompleteness(unittest.TestCase):
             [{"storage_path": GOOD}, {"storage_path": FOREIGN}], download_ok=False)
         self.assertIn("UNREADABLE", err)
         self.assertIn("SKIPPED", err)
+
+
+def _run_export_default(doc_rows):
+    """Run cmd_export with the PRODUCTION default (storage excluded)."""
+    def fake_page_table(_sb, table):
+        return doc_rows if table == "lead_documents" else []
+
+    fake_sb = mock.Mock()
+    with TemporaryDirectory() as tmp:
+        out = Path(tmp) / "backup"
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with mock.patch.object(bk, "_client", return_value=fake_sb), \
+             mock.patch.object(bk, "_page_table", fake_page_table), \
+             mock.patch.object(bk, "TABLES", []), \
+             mock.patch.dict(bk.os.environ, {"BACKUP_INCLUDE_STORAGE": "0"}), \
+             redirect_stdout(stdout), redirect_stderr(stderr):
+            code = bk.cmd_export(out)
+        import json
+        mf = out / "manifest.json"
+        return code, (json.loads(mf.read_text(encoding="utf-8")) if mf.exists() else {})
+
+
+class TestStorageToggle(unittest.TestCase):
+    """Both sides of BACKUP_INCLUDE_STORAGE.
+
+    ce3e3037 added the exclusion branch and deleted the fetch that fed the loop
+    below it, so BACKUP_INCLUDE_STORAGE=1 — the escape hatch this module's own
+    comment documents — raised UnboundLocalError and could never have produced a
+    document backup. It survived because the tests could only reach the excluded
+    path: the dead default hid the broken alternative.
+    """
+
+    def test_default_excludes_storage_and_says_so(self):
+        """An exclusion must be RECORDED, never look like zero documents — those
+        two states mean opposite things to a restore."""
+        code, man = _run_export_default([{"storage_path": GOOD}])
+        self.assertEqual(code, 0)
+        self.assertTrue(man["storage"]["excluded"])
+        self.assertIn("NOT IN THIS ARCHIVE", man["storage"]["exclusion_reason"])
+        self.assertEqual(man["storage"]["objects"], 0)
+
+    def test_enabling_storage_does_not_crash(self):
+        """The regression itself: this raised UnboundLocalError."""
+        code, man, _out, _err = _run_export([{"storage_path": GOOD}])
+        self.assertEqual(code, 0)
+        self.assertNotIn("excluded", man["storage"])
+        self.assertEqual(man["storage"]["objects"], 1)
 
 
 if __name__ == "__main__":

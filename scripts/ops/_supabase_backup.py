@@ -172,6 +172,27 @@ def cmd_export(out_dir: Path) -> int:
         )
         print("  storage: EXCLUDED BY CONFIG (database-only backup) — documents are NOT in this archive")
         doc_rows = []
+    else:
+        # RESTORED 2026-08-28. ce3e3037 added the exclusion branch above and
+        # deleted the fetch that used to sit here, but left the `for d in
+        # doc_rows` loop below — so BACKUP_INCLUDE_STORAGE=1, the escape hatch
+        # this file's own comment documents, raised UnboundLocalError and could
+        # never have produced a document backup at all.
+        #
+        # It went unnoticed because the only tests covering this path could not
+        # reach it: with storage excluded by default they exercised the
+        # exclusion branch and asserted on a guard that never ran. The dead
+        # default hid the broken alternative.
+        try:
+            doc_rows = _page_table(sb, "lead_documents")
+        except Exception as exc:  # noqa: BLE001
+            # Do NOT degrade to [] silently — that is indistinguishable from
+            # "this tenant has no documents", which is the exact confusion the
+            # exclusion branch above exists to avoid.
+            manifest["storage"]["failed"] += 1
+            print(f"  storage: could not list lead_documents: {str(exc)[:120]}",
+                  file=sys.stderr)
+            doc_rows = []
     from lib.r2_storage import normalize_object_path  # noqa: PLC0415
 
     for d in doc_rows:
