@@ -594,6 +594,12 @@ bot.on('message', async (msg) => {
         const speaker = speakerOf(msg);
         const who = (msg.from && (msg.from.username || msg.from.first_name)) || '?';
 
+        // A HUMAN spoke in the room. That is what breaks an agent<->agent chain,
+        // so the depth counter resets here and only here — including for chatter
+        // Bravo does not otherwise answer. The cap exists to force a human back
+        // into the loop; the moment one arrives, its job is done.
+        if (speaker === 'cc' || speaker === 'partner') resetChainDepth();
+
         if (speaker === 'partner' && !ADON_ID) log(`[INFO] Unrecognised human ${who} (${msg.from.id}). Set ADON_TELEGRAM_USER_ID to label them.`);
 
         if (!shouldRespond(speaker, msg)) {
@@ -684,10 +690,60 @@ const TABLE_MAX_SPAWNS_PER_HOUR = Number(process.env.COORD_TABLE_MAX_SPAWNS_PER_
 // keyword. Otherwise every APEX status line (external, uncontrolled) would burn
 // a spawn. Humans already see APEX's posts in the group; Bravo only engages
 // when APEX is blocked or directly hands off to Bravo.
+// ---- WHAT DESERVES A REPLY, AND WHAT WOULD START A PING-PONG ----
+//
+// CC, 2026-08-27: "they should know to respond to each other and know when
+// everything is finalised" — without a vicious loop.
+//
+// The old rule was `blocked` OR an explicit mention. Measured against APEX's
+// real traffic that was too narrow: 5 of 8 recent rows were silent, and two of
+// them plainly wanted an answer — a HANDOVER of PR #341, and APEX reporting it
+// had IMPLEMENTED the blocking change Bravo asked for. A peer completing your
+// ask and hearing nothing back is how a channel stops feeling like a channel.
+//
+// So the trigger widens, and three explicit suppressors keep it from looping.
+// The suppressors are checked FIRST, because a loop is worse than a miss: a
+// missed row costs one late reply, a loop costs both agents' credits and floods
+// the operators' only visibility surface.
+
+// 1. `Re:` rows are the peer ACKNOWLEDGING one of ours. Replying to an
+//    acknowledgement is the ping-pong, exactly and only.
+const isReplyRow = (row) => /^\s*re:/i.test(row.task || '');
+
+// 2. An explicit terminal marker. Either side may close a thread by putting
+//    [FINAL] in the task or detail; nothing replies to it. This is the
+//    "everything is finalised in turnkey" signal — a convention both harnesses
+//    honour, so a wrap-up does not read as a new question.
+const isFinalRow = (row) => /\[final\]|\bno reply needed\b|\bthread closed\b/i
+    .test(`${row.task || ''} ${row.detail || ''}`);
+
+// 3. Chain depth. Track how many consecutive agent<->agent exchanges have
+//    happened with no human in between. Past the cap Bravo stops answering and
+//    escalates to CC instead, so two agents cannot talk each other in circles
+//    while the humans see only noise.
+let chainDepth = 0;
+let chainEscalated = false;
+const CHAIN_DEPTH_CAP = Number(process.env.COORD_CHAIN_DEPTH_CAP || 3);
+// A human speaking is what breaks a chain — that is the whole point of the cap.
+const resetChainDepth = () => { chainDepth = 0; chainEscalated = false; };
+
 const isActionableRow = (row) => {
+    if (isFinalRow(row)) return false;   // terminal beats everything, including `blocked`
+    if (isReplyRow(row)) return false;   // never answer an acknowledgement
+
+    // `blocked` always deserves an answer — it means a human or peer must act.
     if (row.status === 'blocked') return true;
+
     const blob = `${row.task || ''} ${row.detail || ''}`.toLowerCase();
-    return /(@?bravo\b|\bcc-agent\b|needs?\s+bravo|over to you|your turn|for cc\b|hand(ing)?\s*off|mid-?edit|collision|conflict on)/.test(blob);
+    if (/(@?bravo\b|\bcc-agent\b|needs?\s+bravo|over to you|your turn|for cc\b|hand(ing)?\s*off|mid-?edit|collision|conflict on)/.test(blob)) return true;
+
+    // NEW: a substantive completion or handover. The peer finishing something,
+    // shipping something, or handing work over is a state change Bravo should
+    // acknowledge — not a status ping to be filed silently.
+    if ((row.status === 'done' || row.status === 'ack')
+        && /(handover|handoff|implemented|shipped|merged|deployed|pr #?\d+|closes|resolved|complete)/i.test(blob)) return true;
+
+    return false;
 };
 
 const pollTable = async () => {
@@ -715,6 +771,22 @@ const pollTable = async () => {
         saveSeen();
         if (!actionable.length) return;
 
+        // Chain-depth backstop. The spawn-gap and hourly cap bound the RATE;
+        // this bounds the DEPTH. Two agents can stay under 20/hour and still
+        // talk past each other indefinitely, which is a loop that looks polite.
+        // Past the cap Bravo stops answering and escalates to the humans, who
+        // are the only ones who can actually break a disagreement.
+        if (chainDepth >= CHAIN_DEPTH_CAP) {
+            log(`[TABLE] chain depth ${chainDepth} >= cap ${CHAIN_DEPTH_CAP} — not auto-replying. Escalating to CC instead.`);
+            if (!chainEscalated) {
+                chainEscalated = true;
+                sendGroup(`🔁 Bravo and APEX have exchanged ${chainDepth} messages with no human in between, and APEX just posted again:\n\n` +
+                         `"${(actionable[actionable.length - 1].task || '').slice(0, 160)}"\n\n` +
+                         `Bravo has stopped auto-replying so this cannot become a loop. Reply in the group to resume, ` +
+                         `or have either side post a row containing [FINAL] to close the thread.`);
+            }
+            return;
+        }
         if ((Date.now() - lastTableSpawn) < TABLE_MIN_SPAWN_GAP_SEC * 1000) { log('[TABLE] actionable row within spawn-gap — will retry next poll'); return; }
         // Hourly cost backstop: a noisy/compromised APEX can't drive unbounded spawns.
         const hourAgo = Date.now() - 3600000;
@@ -723,6 +795,8 @@ const pollTable = async () => {
         if (busy) return;
 
         busy = true; lastTableSpawn = Date.now(); tableSpawnTimes.push(Date.now());
+        // One more agent<->agent exchange with no human in between.
+        chainDepth += 1;
         let target;
         try {
             target = actionable[actionable.length - 1]; // newest actionable
