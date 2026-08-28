@@ -227,17 +227,23 @@ def _accuracy_line() -> str | None:
         from core.accuracy_trend import build  # noqa: PLC0415
         data = build(2)
         harness = data.get("harness") or {}
+        now = data.get("harness_now") or {}
         evals = data.get("evals") or {}
         parts = []
+        # Trailing window FIRST, week second. The weekly mean is lagging: on the
+        # day six defects were fixed it read 91.3% while the trailing 20 read
+        # 95.7%, because it averages in every run taken while things were broken.
+        # Leading with it would tell CC a fix had not landed when it had.
+        if 20 in now:
+            parts.append(f"harness {now[20]['mean'] * 100:.1f}% (last 20 runs)")
         if harness:
             weeks = sorted(harness)
             curr = harness[weeks[-1]]["mean"]
             if len(weeks) > 1:
-                prev = harness[weeks[-2]]["mean"]
-                delta = (curr - prev) * 100
-                parts.append(f"harness {curr * 100:.1f}% ({delta:+.1f}pt)")
+                delta = (curr - harness[weeks[-2]]["mean"]) * 100
+                parts.append(f"week {curr * 100:.1f}% ({delta:+.1f}pt)")
             else:
-                parts.append(f"harness {curr * 100:.1f}%")
+                parts.append(f"week {curr * 100:.1f}%")
         if evals:
             latest = evals[sorted(evals)[-1]]
             red = [s for s, v in latest.items() if v < 0.9]

@@ -160,10 +160,50 @@ def evals_by_week(weeks: int) -> dict[str, dict]:
     return {w: buckets[w] for w in keep}
 
 
+def harness_trailing(windows=(5, 20, 50)) -> dict[int, dict]:
+    """Trailing-window rates — what the harness scores NOW.
+
+    WHY THIS EXISTS SEPARATELY FROM THE WEEKLY MEAN (2026-08-28): the weekly
+    figure is a lagging average. On the day six substantial defects were fixed
+    it read 91.3%, because it averaged 110 runs most of which were taken while
+    the fleet was genuinely broken — while the trailing 20 read 95.7% and the
+    last seven runs were all perfect. Reporting only the weekly number tells an
+    operator the system is worse than it is, and hides the moment a fix lands.
+
+    Both are kept. The weekly mean answers "how was this week"; the trailing
+    window answers "what is true right now", and a fix should move the second
+    immediately and the first only slowly.
+    """
+    rows = []
+    if HARNESS_HISTORY.is_file():
+        for line in HARNESS_HISTORY.read_text(encoding="utf-8",
+                                              errors="replace").splitlines():
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if _ratio(row.get("score")) is not None and row.get("timestamp"):
+                rows.append(row)
+    rows.sort(key=lambda r: r["timestamp"])
+    out = {}
+    for n in windows:
+        w = rows[-n:]
+        if not w:
+            continue
+        vals = [_ratio(r["score"]) for r in w]
+        out[n] = {"runs": len(w),
+                  "mean": sum(vals) / len(vals),
+                  "perfect": sum(1 for r in w if r.get("pass"))}
+    return out
+
+
 def build(weeks: int) -> dict:
     return {"generated": datetime.now(timezone.utc).isoformat(),
             "weeks": weeks,
             "harness": harness_by_week(weeks),
+            "harness_now": harness_trailing(),
             "gate": gate_by_week(weeks),
             "evals": evals_by_week(weeks)}
 
@@ -184,9 +224,18 @@ def render(data: dict) -> str:
     L.append(" ACCURACY TREND — harness · eval suites · review gate")
     L.append("=" * 72)
 
+    now = data.get("harness_now") or {}
+    if now:
+        L.append("")
+        L.append("HARNESS NOW (trailing windows — a fix moves these immediately)")
+        for n in sorted(now):
+            v = now[n]
+            L.append(f"  last {n:>3} runs  {v['mean'] * 100:5.1f}%   "
+                     f"perfect {v['perfect']}/{v['runs']}")
+
     h = data["harness"]
     L.append("")
-    L.append("HARNESS (mean of the run score; ratio, because the denominator moved)")
+    L.append("HARNESS BY WEEK (lagging — averages in runs from before a fix landed)")
     if not h:
         L.append("  no history yet")
     else:

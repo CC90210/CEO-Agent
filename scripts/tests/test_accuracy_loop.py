@@ -172,3 +172,63 @@ def test_render_states_what_it_cannot_measure():
     out = trend.render(trend.build(2))
     assert "NOT MEASURED" in out
     assert "validator_pending" in out
+
+
+# --- trailing windows: current state vs lagging average ----------------------
+
+class TestTrailingWindow:
+    """The weekly mean is lagging and, on its own, misleading.
+
+    On 2026-08-28 — the day six substantial defects were fixed — the weekly
+    figure read 91.3% because it averaged 110 runs most of which were taken
+    while the fleet was genuinely broken. The trailing 20 read 95.7% and the
+    last seven runs were all perfect. Reporting only the weekly number tells an
+    operator a fix has not landed when it has, which is the opposite of what a
+    health report is for.
+    """
+
+    def _hist(self, tmp_path, monkeypatch, scores):
+        p = tmp_path / "h.jsonl"
+        p.write_text("\n".join(
+            json.dumps({"timestamp": f"2026-08-28T{i:02d}:00:00+00:00",
+                        "score": s, "pass": s.split("/")[0] == s.split("/")[1]})
+            for i, s in enumerate(scores)), encoding="utf-8")
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", p)
+
+    def test_trailing_window_reflects_recent_runs_only(self, tmp_path, monkeypatch):
+        """Ten bad runs then five perfect ones: the last-5 window must be 100%
+        even though the overall mean is far lower."""
+        self._hist(tmp_path, monkeypatch, ["7/14"] * 10 + ["14/14"] * 5)
+        out = trend.harness_trailing(windows=(5, 15))
+        assert out[5]["mean"] == pytest.approx(1.0)
+        assert out[5]["perfect"] == 5
+        assert out[15]["mean"] < 0.8, "the wide window must still show the history"
+
+    def test_a_fix_moves_the_trailing_window_before_the_weekly_mean(self, tmp_path, monkeypatch):
+        """The property the whole split exists for."""
+        self._hist(tmp_path, monkeypatch, ["7/14"] * 40 + ["14/14"] * 5)
+        out = trend.harness_trailing(windows=(5, 50))
+        assert out[5]["mean"] > out[50]["mean"]
+
+    def test_runs_are_ordered_by_time_not_file_order(self, tmp_path, monkeypatch):
+        """A trailing window keyed on file order would be wrong the moment two
+        processes append out of sequence."""
+        p = tmp_path / "h.jsonl"
+        p.write_text("\n".join([
+            json.dumps({"timestamp": "2026-08-28T23:00:00+00:00", "score": "14/14", "pass": True}),
+            json.dumps({"timestamp": "2026-08-28T01:00:00+00:00", "score": "7/14", "pass": False}),
+        ]), encoding="utf-8")
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", p)
+        out = trend.harness_trailing(windows=(1,))
+        assert out[1]["mean"] == pytest.approx(1.0), "newest run is the 23:00 one"
+
+    def test_missing_history_is_empty_not_an_error(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", tmp_path / "nope.jsonl")
+        assert trend.harness_trailing() == {}
+
+    def test_render_leads_with_current_state(self, tmp_path, monkeypatch):
+        self._hist(tmp_path, monkeypatch, ["14/14"] * 5)
+        out = trend.render(trend.build(2))
+        assert "HARNESS NOW" in out
+        assert out.index("HARNESS NOW") < out.index("HARNESS BY WEEK"), (
+            "the lagging weekly figure must not be the first number CC sees")
