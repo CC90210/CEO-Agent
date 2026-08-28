@@ -177,7 +177,9 @@ def test_a_forbidden_edit_is_preserved_not_destroyed():
     """Same rule as a test-failure revert: reverting is fine, losing the work is
     not (Codex P1, 2026-07-30)."""
     src = Path(review_fix.__file__).read_text(encoding="utf-8")
-    block = src.split("off_limits = forbidden_edits")[1][:700]
+    # Sliced to the end of the branch, not a fixed character count — the block
+    # grew and a [:700] window silently stopped covering the assertion.
+    block = src.split("off_limits = forbidden_edits")[1].split("return out")[0]
     assert "_save_patch" in block, "save the diff before reverting it"
     assert "escalated" in block
 
@@ -192,7 +194,7 @@ def test_both_fix_paths_go_through_the_same_safety_chain():
     calls = src.count("spawn_claude_editor(prompt, repo_dir)")
     assert calls == 1, f"the editor is spawned in exactly one place, found {calls}"
     assert src.count('run(["git", "commit"') == 1
-    assert "_apply_edit(finding, repo_dir, branch, prompt, out)" in src
+    assert "_apply_edit(finding, repo_dir, branch, prompt, out, allowed)" in src
     ci = src.split("def fix_failing_check")[1].split("\ndef ")[0]
     assert "_apply_edit(" in ci, "the CI path must not hand-roll the chain"
 
@@ -230,3 +232,111 @@ def test_dangerous_predicate_still_covers_what_this_test_assumes():
         assert review_harvest.is_dangerous(path), path
     for path in ("app/page.tsx", "scripts/review_loop.py"):
         assert not review_harvest.is_dangerous(path), path
+
+
+def test_dangerous_is_checked_before_the_kind_routes_anywhere():
+    """A failing_check carries no path today, so is_dangerous never fires on
+    one — which is exactly the condition under which an ordering bug stays
+    invisible until the harvester starts attaching a path to them."""
+    src = Path(review_fix.__file__).read_text(encoding="utf-8")
+    fn = src.split("def fix_one(finding")[1].split("\ndef ")[0]
+    assert fn.index('finding.get("dangerous")') < fn.index('"failing_check"'), (
+        "the dangerous escalation must precede the kind routing")
+
+
+def test_a_dangerous_failing_check_escalates_rather_than_being_fixed(monkeypatch):
+    """Behavioural companion to the ordering assertion above."""
+    called = []
+    monkeypatch.setattr(review_fix, "fix_failing_check",
+                        lambda *a, **kw: called.append(1))
+    out = review_fix.fix_one(
+        {"thread_id": "t", "kind": "failing_check", "severity": "high",
+         "dangerous": True, "path": ".github/workflows/ci.yml"},
+        Path("."), "some-branch", dry_run=True)
+    assert out["status"] == "escalated"
+    assert not called, "a dangerous finding must never reach the fixer"
+
+
+# ── the PR's own diff is the edit boundary ───────────────────────────────────
+#
+# Codex adversarial review, 2026-08-28, [high]: fix_failing_check hands an
+# attacker-controlled build log to a model holding Read/Edit/Write over the whole
+# checkout, and the only deterministic gate afterwards was forbidden_edits —
+# which blocks migrations, CI, secrets and money paths and says nothing about the
+# other several thousand files. A PR failing CI on purpose, with output shaped
+# like repair instructions, could steer an edit into any ordinary production
+# file; if the suite still passed it was committed and pushed.
+
+def test_edits_outside_the_prs_own_diff_are_refused(monkeypatch, tmp_path):
+    allowed = frozenset({"app/lib/thing.ts", "tests/thing.test.ts"})
+    changed = [" M app/lib/thing.ts",
+               " M tests/thing.test.ts",
+               " M lib/auth/session.ts"]          # the injection's real target
+    monkeypatch.setattr(review_fix, "run",
+                        lambda *_a, **_kw: (0, "\n".join(changed), ""))
+    assert review_fix.edits_outside(tmp_path, allowed) == ["lib/auth/session.ts"]
+
+
+def test_an_edit_confined_to_the_pr_is_allowed(monkeypatch, tmp_path):
+    allowed = frozenset({"app/lib/thing.ts"})
+    monkeypatch.setattr(review_fix, "run",
+                        lambda *_a, **_kw: (0, " M app/lib/thing.ts", ""))
+    assert review_fix.edits_outside(tmp_path, allowed) == []
+
+
+def test_an_unfetchable_pr_file_list_bounds_nothing_so_nothing_is_edited(monkeypatch):
+    """Fail closed. Without the PR's diff there is no boundary to enforce, and an
+    unbounded autonomous edit is worse than a missed fix."""
+    monkeypatch.setattr(review_fix, "gh", lambda *_a, **_kw: (1, "", "gh: API rate limit"))
+    allowed, err = review_fix.pr_changed_paths("CC90210/x", 1)
+    assert allowed == frozenset()
+    assert "could not list" in err and "rate limit" in err
+
+    monkeypatch.setattr(review_fix, "gh", lambda *_a, **_kw: (0, "   \n  ", ""))
+    allowed, err = review_fix.pr_changed_paths("CC90210/x", 1)
+    assert allowed == frozenset() and err
+
+
+def test_the_allowlist_is_fetched_before_any_checkout_is_built():
+    """An unbounded edit is not worth building a worktree for, and the gate must
+    not sit downstream of work that can fail for unrelated reasons."""
+    src = Path(review_fix.__file__).read_text(encoding="utf-8")
+    main = src.split("def main() -> None:")[1]
+    assert main.index("pr_changed_paths(") < main.index("prepare_pr_checkout(")
+    assert 'blocked("unbounded_edit"' in main
+
+
+def test_both_bounds_are_applied_together_before_the_commit():
+    """forbidden paths AND outside-the-PR, checked on what actually changed, and
+    both before anything is committed."""
+    src = Path(review_fix.__file__).read_text(encoding="utf-8")
+    chain = src.split("def _apply_edit")[1].split("\ndef ")[0]
+    assert "forbidden_edits(repo_dir) + edits_outside(repo_dir, allowed)" in chain
+    assert chain.index("edits_outside(") < chain.index('"commit"')
+
+
+def test_the_boundary_reaches_the_ci_path_not_only_review_threads():
+    """The CI path is the one with fully attacker-controlled input, so it is the
+    one that must not be able to skip the allowlist."""
+    src = Path(review_fix.__file__).read_text(encoding="utf-8")
+    ci = src.split("def fix_failing_check")[1].split("\ndef ")[0]
+    assert "allowed" in ci.split("_apply_edit(")[1][:80], (
+        "fix_failing_check must pass the allowlist through")
+    assert src.count("_apply_edit(finding, repo_dir, branch, prompt, out, allowed)") == 2
+
+
+
+def test_a_new_file_left_by_a_reverted_fix_is_named_not_deleted():
+    """A pathspec revert restores tracked files and leaves NEW ones behind.
+
+    In a worktree run that residue dies with the worktree; when the operator's
+    own checkout is already on the PR branch it stays in their tree. Deleting
+    files is not this process's call — but a silent leftover is how an injected
+    file gets committed later by a human who never knew it appeared.
+    """
+    src = Path(review_fix.__file__).read_text(encoding="utf-8")
+    chain = src.split("def _apply_edit")[1].split("\ndef ")[0]
+    block = chain.split("off_limits = forbidden_edits")[1]
+    assert "residue" in block
+    assert "NOT auto-removed" in block
+    assert "clean" not in block, "must not wipe untracked files — that is not ours to do"

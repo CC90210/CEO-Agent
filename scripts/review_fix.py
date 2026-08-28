@@ -20,6 +20,12 @@ HARD LIMITS — these are not configurable:
     verify what CodeRabbit said and what the Vercel bot said"). It fixes the
     CODE that broke the build; a failure whose cause is CI config or the
     environment is escalated, because CI config is on the never-touch list.
+  * Edits ONLY files the PR itself changes. The reviewer comment and the build
+    log are both attacker-controlled text handed to a model with Edit/Write, so
+    "the log is UNTRUSTED" in a prompt is a request; the PR's own diff, fetched
+    from gh, is the enforceable boundary. It grants an attacker nothing they do
+    not already have — those files are theirs — and removes the reach to
+    everything else. A PR whose file list cannot be fetched is not edited.
   * Pushes ONLY to the PR's own head branch, and only if that branch is not
     a protected/default branch.
   * If tests fail after the edit, the work is REVERTED and escalated. A red
@@ -591,7 +597,8 @@ def ci_failure_context(repo: str, body: str) -> tuple:
     return distilled, ""
 
 
-def fix_failing_check(finding: dict, repo_dir: Path, branch: str, *, dry_run: bool) -> dict:
+def fix_failing_check(finding: dict, repo_dir: Path, branch: str, *, dry_run: bool,
+                      allowed: frozenset = frozenset()) -> dict:
     """Diagnose a red check from its LOG and fix the code that broke it."""
     out = {"thread_id": finding["thread_id"], "path": "",
            "severity": finding["severity"], "status": "pending", "detail": ""}
@@ -622,10 +629,11 @@ def fix_failing_check(finding: dict, repo_dir: Path, branch: str, *, dry_run: bo
         f"operator-only."
     )
 
-    return _apply_edit(finding, repo_dir, branch, prompt, out)
+    return _apply_edit(finding, repo_dir, branch, prompt, out, allowed)
 
 
-def _apply_edit(finding: dict, repo_dir: Path, branch: str, prompt: str, out: dict) -> dict:
+def _apply_edit(finding: dict, repo_dir: Path, branch: str, prompt: str, out: dict,
+                allowed: frozenset = frozenset()) -> dict:
     """Spawn the editor with `prompt`, then run the safety chain over its work.
 
     ONE implementation of: baseline the suite, edit, verify something changed,
@@ -668,16 +676,28 @@ def _apply_edit(finding: dict, repo_dir: Path, branch: str, prompt: str, out: di
         out.update(status="no-op", detail="model reported a fix but changed no files")
         return out
 
-    off_limits = forbidden_edits(repo_dir)
+    # Two independent bounds, both checked on what the edit ACTUALLY changed:
+    # never a forbidden path, and never outside the PR's own diff.
+    off_limits = forbidden_edits(repo_dir) + edits_outside(repo_dir, allowed)
     if off_limits:
-        # The model edited something rule 5 forbids. Keep the work, revert the
+        # The model edited something it may not push. Keep the work, revert the
         # tree, hand it to CC. Never push it.
         patch_ref = _save_patch(repo_dir, finding)
         run(["git", "checkout", "--", "."], repo_dir)
+
+        # `checkout -- .` restores tracked files and leaves NEW ones sitting
+        # there. In a worktree run that residue dies with the worktree, but when
+        # the operator's own checkout is already on the PR branch it stays in
+        # their tree. Deleting files is not this process's call, so it says so
+        # instead — a silent leftover is how an injected file gets committed by
+        # a human who never knew it appeared.
+        residue = [p for p in _changed_paths(repo_dir) if p in set(off_limits)]
         out.update(status="escalated",
-                   detail=f"fix touched operator-only paths ({', '.join(off_limits[:4])}) "
-                          f"— reverted, not pushed."
-                          + (f" Proposed diff preserved at {patch_ref}" if patch_ref else ""))
+                   detail=f"fix touched paths it may not push "
+                          f"({', '.join(sorted(set(off_limits))[:4])}) — reverted."
+                          + (f" Proposed diff preserved at {patch_ref}" if patch_ref else "")
+                          + (f" NOT auto-removed (new files): {', '.join(sorted(residue)[:4])}"
+                             if residue else ""))
         return out
 
     if test_cmd:
@@ -736,17 +756,58 @@ def _apply_edit(finding: dict, repo_dir: Path, branch: str, prompt: str, out: di
     return out
 
 
-def fix_one(finding: dict, repo_dir: Path, branch: str, *, dry_run: bool) -> dict:
+def pr_changed_paths(repo: str, number: int) -> tuple:
+    """(paths the PR itself changes, error). The fixer may not edit outside it.
+
+    THE BOUNDARY THE PROMPT WAS PRETENDING TO BE (Codex adversarial review,
+    2026-08-28, [high]): `fix_failing_check` hands an attacker-controlled build
+    log to a model holding Read/Edit/Write over the whole checkout, and the only
+    deterministic gate afterwards was `forbidden_edits` — which blocks
+    migrations, CI, secrets and money paths but says nothing about the other
+    several thousand files. A PR that fails CI on purpose, with output shaped
+    like repair instructions, could steer an edit into any ordinary production
+    file, and if the suite still passed it was committed and pushed. "The log is
+    UNTRUSTED" was a line in a prompt, which is a request.
+
+    The PR's own diff is the trustworthy boundary. It comes from `gh`, not from
+    the log, and it grants the attacker nothing they do not already have: those
+    files are theirs. What it removes is the ability to reach anything else.
+
+    Fails closed. A PR whose file list cannot be fetched is one whose edits
+    cannot be bounded, so nothing is edited.
+    """
+    rc, out, err = gh(["pr", "diff", str(number), "--repo", canonical_repo(repo),
+                       "--name-only"], timeout=120)
+    if rc != 0:
+        return frozenset(), f"could not list the PR's changed files: {(err or out)[:160]}"
+    paths = frozenset(line.strip() for line in (out or "").splitlines() if line.strip())
+    if not paths:
+        return frozenset(), "the PR reports no changed files"
+    return paths, ""
+
+
+def edits_outside(repo_dir: Path, allowed: frozenset) -> list:
+    """Changed paths the PR does not itself touch."""
+    return [path for path in _changed_paths(repo_dir) if path not in allowed]
+
+
+def fix_one(finding: dict, repo_dir: Path, branch: str, *, dry_run: bool,
+            allowed: frozenset = frozenset()) -> dict:
     out = {"thread_id": finding["thread_id"], "path": finding.get("path"),
            "severity": finding["severity"], "status": "pending", "detail": ""}
 
-    if finding.get("kind") == "failing_check":
-        return fix_failing_check(finding, repo_dir, branch, dry_run=dry_run)
-
+    # Dangerous is checked FIRST, before the kind routes anywhere. A
+    # failing_check carries no path today so is_dangerous never fires on one —
+    # which is exactly the condition under which an ordering bug stays
+    # invisible until the day the harvester starts attaching a path to them.
     if finding.get("dangerous"):
         out.update(status="escalated",
                    detail="touches migrations/credentials/CI/money — operator approval required")
         return out
+
+    if finding.get("kind") == "failing_check":
+        return fix_failing_check(finding, repo_dir, branch, dry_run=dry_run,
+                                 allowed=allowed)
 
     loc = f"{finding['path']}:{finding['line']}" if finding.get("path") else "(PR-level)"
     prompt = (
@@ -766,7 +827,7 @@ def fix_one(finding: dict, repo_dir: Path, branch: str, *, dry_run: bool) -> dic
         out.update(status="would-fix", detail=loc)
         return out
 
-    return _apply_edit(finding, repo_dir, branch, prompt, out)
+    return _apply_edit(finding, repo_dir, branch, prompt, out, allowed)
 
 
 def main() -> None:
@@ -815,6 +876,12 @@ def main() -> None:
         blocked("no_local_checkout",
                 f"no local checkout registered for {repo} (add it to REPO_PATHS)")
 
+    # Fetched BEFORE any checkout work: an unbounded edit is not worth building
+    # a worktree for, and this is the gate that bounds it.
+    allowed, allow_err = pr_changed_paths(repo, int(num))
+    if allow_err:
+        blocked("unbounded_edit", allow_err)
+
     work_dir, wt_err, cleanup = prepare_pr_checkout(repo_dir, branch)
     if wt_err or work_dir is None:
         blocked("worktree_failed", wt_err or "could not prepare a checkout")
@@ -842,7 +909,8 @@ def main() -> None:
         return
 
     try:
-        results = [fix_one(f, work_dir, branch, dry_run=args.dry_run) for f in todo]
+        results = [fix_one(f, work_dir, branch, dry_run=args.dry_run, allowed=allowed)
+                   for f in todo]
     finally:
         # Always. A worktree left behind holds a lock on the branch and the next
         # pass inherits a tree it did not build.
