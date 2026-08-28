@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-28T01:30:59.816613+00:00",
-  "script_count": 161,
-  "entry_count": 339,
+  "generated_at_iso": "2026-08-28T04:04:15.039471+00:00",
+  "script_count": 162,
+  "entry_count": 340,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -722,6 +722,14 @@
       "risk": "local_write",
       "project": "empire",
       "help": "Database restore-point tool \u2014 the enforcer behind V9.0 Defense #5. \u2014 subcommand: verify"
+    },
+    {
+      "key": "detect_shared_repos",
+      "path": "scripts/detect_shared_repos.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "detect_shared_repos \u2014 find app repos that BOTH agents commit to, and are unmapped."
     },
     {
       "key": "dns_reputation",
