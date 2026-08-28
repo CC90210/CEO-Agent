@@ -53,6 +53,10 @@
           {
             "type": "command",
             "command": "{{PY}} $CLAUDE_PROJECT_DIR/scripts/integrations/coord_claim.py release --session \"$CLAUDE_SESSION_ID\""
+          },
+          {
+            "type": "command",
+            "command": "{{PY}} $CLAUDE_PROJECT_DIR/scripts/integrations/coord_claim.py reap"
           }
         ]
       }

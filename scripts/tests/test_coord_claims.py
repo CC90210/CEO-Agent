@@ -939,3 +939,33 @@ def test_expired_status_is_not_live_anywhere():
     assert is_live({"status": "held", "expires_at": future}) is True
     assert is_live({"status": "expired", "expires_at": future}) is False
     assert is_live({"status": "released", "expires_at": future}) is False
+
+
+def test_reap_is_wired_to_sessionend_not_only_available_as_a_verb():
+    """Fixing the instance is not fixing the mechanism.
+
+    18 stale leases were reaped by hand. Nothing prevented the next 18:
+    SessionEnd ran only `release --session`, which cannot reach a lease with no
+    session_id (any CLI invocation) or one from a session that crashed before
+    the hook fired. Those are exactly the rows that were stale.
+
+    A cleanup that exists only as a verb someone must remember to run is the
+    same shape as the protocol that decayed to zero — which is the failure this
+    entire subsystem was built to correct.
+    """
+    import json as _json
+    settings = _json.loads(
+        (REPO_ROOT / ".claude" / "settings.local.json").read_text(encoding="utf-8"))
+    cmds = [h.get("command", "")
+            for m in settings["hooks"].get("SessionEnd", [])
+            for h in m.get("hooks", [])]
+    assert any("coord_claim" in c and "reap" in c for c in cmds), \
+        "reap must run automatically on SessionEnd, not only on request"
+    # and the portable template too, or it is one machine's local fix
+    tmpl = _json.loads(
+        (REPO_ROOT / ".claude" / "settings.hooks.template.json").read_text(encoding="utf-8"))
+    tcmds = [h.get("command", "")
+             for m in tmpl["hooks"].get("SessionEnd", [])
+             for h in m.get("hooks", [])]
+    assert any("coord_claim" in c and "reap" in c for c in tcmds), \
+        "template must carry it or machine_parity will not propagate it"
