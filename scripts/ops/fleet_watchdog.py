@@ -262,6 +262,17 @@ def main() -> int:
             print(f"  FAILED  {n}  ({d})", file=sys.stderr)
         if not started and not failed:
             print("  nothing to start — everything up or disabled")
+        # Always record the PASS, not only the starts.
+        #
+        # Logging only on action makes "the watchdog ran and everything was up"
+        # indistinguishable from "the watchdog never ran" — and the second is
+        # the failure that matters. That ambiguity is exactly what let the fleet
+        # sit dead for two days behind a green light, and it is APEX's own point
+        # about heartbeats reporting what a job DID rather than that it ran.
+        # A silent supervisor cannot be audited.
+        up = sum(1 for r in rows if r["running"])
+        _log(f"pass: {up}/{len(rows)} up, {len(started)} started, "
+             f"{len(failed)} failed, {sum(1 for r in rows if r['disabled'])} disabled")
         return 1 if failed else 0
 
     if a.cmd in ("disable", "enable"):

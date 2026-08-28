@@ -698,28 +698,29 @@ def check_pm2_persistence() -> tuple[str, bool, str, str]:
     # health check that worsens the condition it measures is not a health check.
     # Reading the dump and the live process table answers the question without
     # touching pm2 at all.
+    # Fleet liveness is answered by ONE definition — scripts/ops/fleet_watchdog.py.
+    #
+    # This check previously carried its own copy: read the dump, guess an
+    # identity, grep the process table. It agreed with the watchdog today, which
+    # is exactly how this class of defect hides — it is the fifth instance in
+    # this subsystem, after two claim mechanisms, two coverage implementations,
+    # two ownership maps and two identity lists.
+    #
+    # There is already a latent divergence: the watchdog honours an operator's
+    # `disable`, and a private copy here would not, so a deliberate stop would
+    # show up as a parity FAILURE and train the operator to ignore the check.
     try:
-        import json as _json
-        managed = _json.loads(dump.read_text(encoding="utf-8")) if dump.exists() else []
-        scripts = []
-        for app in managed:
-            raw = str(app.get("script") or "")
-            base = Path(raw).name
-            # Skip interpreter-only entries (pythonw.exe et al) — their basename
-            # matches dozens of unrelated processes and would report a false UP.
-            if base and base.lower() not in ("pythonw.exe", "python.exe", "node.exe", ""):
-                scripts.append((app.get("name") or base, base))
-        if scripts:
-            ps = subprocess.run(["wmic", "process", "get", "CommandLine"],
-                                capture_output=True, text=True, timeout=45,
-                                errors="ignore", creationflags=_NO_WINDOW).stdout.lower()
-            down = [n for n, b in scripts if b.lower() not in ps]
-            if down:
-                problems.append(
-                    f"{len(down)}/{len(scripts)} managed process(es) NOT RUNNING: "
-                    + ", ".join(down[:6]))
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        from ops import fleet_watchdog  # noqa: PLC0415
+        rows = fleet_watchdog.status()
+        down = [r["name"] for r in rows
+                if not r["running"] and not r["disabled"] and not r.get("unrunnable")]
+        if down:
+            problems.append(f"{len(down)}/{len(rows)} managed process(es) NOT RUNNING: "
+                            + ", ".join(down[:6]))
     except Exception as e:  # noqa: BLE001
-        problems.append(f"could not verify fleet liveness ({type(e).__name__})")
+        problems.append(f"could not verify fleet liveness via fleet_watchdog "
+                        f"({type(e).__name__}: {e})")
 
     if problems:
         return ("pm2-persistence", False, "; ".join(problems),
