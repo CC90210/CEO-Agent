@@ -1018,6 +1018,14 @@ IMAP_MAX_EMAILS = 20
 # has to live here, on this side of the wall.
 SWEEP_BUDGET_SEC = int(os.environ.get("EMPIRE_SWEEP_BUDGET_SEC", "210"))
 
+# Budget a single message must have available before the loop will START it.
+# Sized from the measured worst case: claude_cli timeout (90s) + one OpenCode
+# fallback (120s). A message admitted with less than this can push the run past
+# scheduler.py's 300s kill. Checked as a RESERVE rather than a deadline because
+# a deadline alone only says when the last message may begin, not when the run
+# will end — the distinction Codex's adversarial review caught.
+MESSAGE_RESERVE_SEC = int(os.environ.get("EMPIRE_MESSAGE_RESERVE_SEC", "60"))
+
 # Post-mortem breadcrumb trail for the sweep.
 #
 # WHY (2026-08-28): this job has been dying with exit 3221225480 and EMPTY
@@ -1688,12 +1696,27 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                             queued=len(message_ids), budget_s=SWEEP_BUDGET_SEC)
 
         for uid in message_ids:
-            if time.monotonic() > sweep_deadline:
+            # ADMISSION RESERVE, not just a deadline. Codex's adversarial review
+            # caught that checking `now > deadline` alone lets a message start
+            # with one second left and then run for the full model timeout plus
+            # fallback (~210s worst case) — so SWEEP_BUDGET_SEC was never a bound
+            # on the run, only on when the LAST message may BEGIN. Requiring a
+            # per-message reserve is what actually keeps the run inside the
+            # scheduler's 300s kill window.
+            #
+            # This is best-effort, and deliberately so: with per-message ledger
+            # checkpointing above, an overrun that does get killed no longer
+            # loses mail — it wastes one partial message. Bounding the frequency
+            # is worth doing; claiming a hard guarantee would not be true.
+            remaining = sweep_deadline - time.monotonic()
+            if remaining < MESSAGE_RESERVE_SEC:
                 deferred = len(message_ids) - message_ids.index(uid)
-                print(f"[email_inbox] wall-clock budget ({SWEEP_BUDGET_SEC}s) reached — "
+                print(f"[email_inbox] only {remaining:.0f}s of the {SWEEP_BUDGET_SEC}s "
+                      f"budget left (need {MESSAGE_RESERVE_SEC}s to start a message) — "
                       f"stopping cleanly with {deferred} message(s) left UNSEEN for the "
                       f"next tick", file=sys.stderr)
-                _log_sweep_progress("budget_reached", sweep_started, deferred=deferred)
+                _log_sweep_progress("budget_reached", sweep_started,
+                                    deferred=deferred, remaining_s=round(remaining, 1))
                 break
             _log_sweep_progress("message_start", sweep_started,
                                 idx=message_ids.index(uid) + 1, of=len(message_ids))
@@ -1958,8 +1981,12 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             sender_name = ("" if forwarded_from
                            else _extract_display_name(from_addr))
 
-            def _write_inbound_ledger(routing: dict | None = None) -> None:
+            def _write_inbound_ledger(routing: dict | None = None) -> bool:
                 """Write the unified inbound ledger row the Command Center reads.
+
+                Returns True on success, False if the row could not be written.
+                The caller MUST NOT mark a message \\Seen or record it as
+                processed when this returns False — see the except clause below.
 
                 DEFERRED until after the brain runs so the row carries the
                 brain's routing decision. The retired n8n workflow achieved this
@@ -1998,9 +2025,24 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                         "p_message_id": rfc_message_id,
                         "p_received_at": datetime.now(timezone.utc).isoformat(),
                     }).execute()
+                    return True
                 except Exception as rpc_err:
-                    # Never block the inbox flow — email_log still captures it.
-                    print(f"[email_inbox] ledger write warning: {rpc_err}", file=sys.stderr)
+                    # DO NOT swallow into a success. Codex's adversarial review
+                    # caught that this used to print a warning and return None,
+                    # after which the caller marked the message \Seen and wrote
+                    # it to the processed-msgid ledger anyway. Under a DB/RPC
+                    # outage that reproduces the EXACT failure this commit set
+                    # out to remove — mail vanishes from the UNSEEN sweep, is
+                    # skipped by every future run, and no Command Center row was
+                    # ever created — just through the swallowed-RPC path instead
+                    # of the end-of-run-flush path.
+                    #
+                    # Returning False makes the caller leave the message UNSEEN
+                    # and unrecorded, so the next tick retries it. A retry costs
+                    # a re-classification; a silent drop costs the lead.
+                    print(f"[email_inbox] LEDGER WRITE FAILED: {rpc_err} — leaving "
+                          f"message UNSEEN for retry", file=sys.stderr)
+                    return False
 
             # V1.0 — bump the OASIS Command Center integrations_health row so
             # the dashboard's green dot lights up. Best-effort.
@@ -2147,7 +2189,8 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     # to the dashboard, now written straight into the ledger row
                     # so the Command Center shows WHICH brain handled the mail
                     # and WHAT it did — not just a bare intent.
-                    _write_inbound_ledger(_routing_contract(outcome, classification))
+                    ledger_ok = _write_inbound_ledger(
+                        _routing_contract(outcome, classification))
                     # auto_reply/archive already marked read by the brain. Financial
                     # hand-offs and holds/reviews stay UNREAD so CC still sees them:
                     # Atlas's consumer marks a financial email read only after it
@@ -2156,14 +2199,26 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 except Exception as brain_err:
                     print(f"[email_inbox] email_brain failed, legacy fallback: {brain_err}",
                           file=sys.stderr)
-                    _write_inbound_ledger()
+                    ledger_ok = _write_inbound_ledger()
                     notify(notify_msg)
-                    imap.store(uid, "+FLAGS", "\\Seen")
+                    if ledger_ok:
+                        imap.store(uid, "+FLAGS", "\\Seen")
             else:
-                _write_inbound_ledger()
+                ledger_ok = _write_inbound_ledger()
                 notify(notify_msg)
-                # Mark as read
-                imap.store(uid, "+FLAGS", "\\Seen")
+                if ledger_ok:
+                    # Mark as read
+                    imap.store(uid, "+FLAGS", "\\Seen")
+
+            # A message whose ledger row was never written must stay UNSEEN and
+            # unrecorded, so the next tick retries it. Recording it here would
+            # make the UNSEEN sweep skip it forever with no Command Center row —
+            # the precise silent-loss shape this run was meant to remove.
+            if not ledger_ok:
+                _log_sweep_progress("ledger_failed_message_deferred", sweep_started)
+                print("[email_inbox] not marking processed — ledger row missing",
+                      file=sys.stderr)
+                continue
 
             # Record this Message-ID as processed so the next UNSEEN sweep
             # skips it (the guard at the top of the loop). Runs for every

@@ -129,5 +129,82 @@ class TestIsFallbackAvailable:
         assert is_fallback_available() is False
 
 
+class TestTierHealthRecovery:
+    """Regression tests for the fallback-tier health ordering.
+
+    Codex's adversarial review caught that the first draft could not recover
+    from a demotion. run_smart_cli returns on the first candidate that succeeds,
+    so a demoted model is never called again, never records a success, and its
+    consecutive_fail never resets — one transient outage would re-order that
+    task type permanently until someone deleted the state file by hand.
+
+    The first draft's test PASSED, because it called _record_tier_health(ok=True)
+    directly. That proved the reset mechanism existed while proving nothing
+    about whether any real code path could reach it. These tests assert on
+    reachability instead.
+    """
+
+    CANDS = ["nemotron-3.5-lightning-free", "mimo-v2.5-free"]
+
+    def _fail_n(self, task, model, n):
+        for _ in range(n):
+            model_fallback._record_tier_health(task, model, ok=False)
+
+    def test_no_history_preserves_declared_order(self):
+        assert model_fallback._order_by_health("classify", self.CANDS) == self.CANDS
+
+    def test_repeated_failure_demotes(self):
+        self._fail_n("classify", self.CANDS[0], model_fallback.TIER_DEMOTE_AFTER)
+        assert model_fallback._order_by_health("classify", self.CANDS)[0] == self.CANDS[1]
+
+    def test_demotion_never_drops_a_candidate(self):
+        """A model that failed a thousand times is still tried if it is the only
+        one left — demotion reorders, it must never remove."""
+        self._fail_n("classify", self.CANDS[0], 50)
+        assert set(model_fallback._order_by_health("classify", self.CANDS)) == set(self.CANDS)
+
+    def test_demotion_expires_so_recovery_does_not_need_a_success(self):
+        """THE bug Codex found. Without a TTL the demoted model is never probed
+        again, so it can never record the success that would clear it."""
+        import json
+        from datetime import datetime, timedelta, timezone
+        task, model = "classify", self.CANDS[0]
+        self._fail_n(task, model, model_fallback.TIER_DEMOTE_AFTER)
+        assert model_fallback._order_by_health(task, self.CANDS)[0] == self.CANDS[1]
+
+        # Age the last failure past the TTL — no success recorded, deliberately.
+        data = model_fallback._read_tier_health()
+        old = datetime.now(timezone.utc) - timedelta(
+            seconds=model_fallback.DEMOTE_TTL_SEC + 60)
+        data[f"{task}:{model}"]["last_fail"] = old.isoformat()
+        model_fallback.TIER_HEALTH_PATH.write_text(json.dumps(data), encoding="utf-8")
+
+        assert model_fallback._order_by_health(task, self.CANDS) == self.CANDS, (
+            "an expired demotion must return the model to its declared position "
+            "WITHOUT requiring a success it can never get")
+
+    def test_fresh_demotion_still_holds(self):
+        """The TTL must not defeat the demotion it is escaping from."""
+        self._fail_n("classify", self.CANDS[0], model_fallback.TIER_DEMOTE_AFTER)
+        assert model_fallback._order_by_health("classify", self.CANDS)[0] == self.CANDS[1]
+
+    def test_corrupt_store_falls_back_to_declared_order(self):
+        model_fallback.TIER_HEALTH_PATH.write_text("{not json", encoding="utf-8")
+        assert model_fallback._order_by_health("classify", self.CANDS) == self.CANDS
+
+    def test_unparseable_timestamp_does_not_hold_a_demotion(self):
+        import json
+        task, model = "classify", self.CANDS[0]
+        self._fail_n(task, model, model_fallback.TIER_DEMOTE_AFTER)
+        data = model_fallback._read_tier_health()
+        data[f"{task}:{model}"]["last_fail"] = "not-a-timestamp"
+        model_fallback.TIER_HEALTH_PATH.write_text(json.dumps(data), encoding="utf-8")
+        assert model_fallback._order_by_health(task, self.CANDS) == self.CANDS
+
+    def test_task_types_are_isolated(self):
+        self._fail_n("classify", self.CANDS[0], model_fallback.TIER_DEMOTE_AFTER)
+        assert model_fallback._order_by_health("reasoning", self.CANDS) == self.CANDS
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

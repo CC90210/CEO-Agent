@@ -83,6 +83,12 @@ TIER_HEALTH_PATH = PROJECT_ROOT / "state" / "model_tier_health.json"
 # single call for hours.
 TIER_DEMOTE_AFTER = 3
 
+# How long a demotion holds before the model is probed again. Without an expiry
+# a demotion is permanent in practice — see _order_by_health for why. 30 minutes
+# is long enough to ride out the kind of outage that caused the demotion, short
+# enough that a recovered model returns to first place within a few sweeps.
+DEMOTE_TTL_SEC = 1800
+
 
 def _read_tier_health() -> dict:
     """Never raises. Corrupt/missing state means "no opinion", which restores
@@ -120,17 +126,39 @@ def _record_tier_health(task_type: str, model: str, *, ok: bool) -> None:
 
 def _order_by_health(task_type: str, candidates: list[str]) -> list[str]:
     """Stable order: healthy models keep their declared position, models over
-    the demotion threshold move to the back. Never drops a candidate — a model
-    that has failed a thousand times is still tried if it is the only one left,
-    and one success resets it to the front."""
+    the demotion threshold move to the back. Never drops a candidate.
+
+    A DEMOTION EXPIRES. Codex's adversarial review caught that the first draft
+    could not recover: run_smart_cli returns on the first candidate that
+    succeeds, so once a model is behind a working one it is never called again,
+    never records a success, and its consecutive_fail never resets — a single
+    transient outage would have re-ordered that task type permanently, until
+    someone deleted the state file by hand.
+
+    The first draft's test "passed" because it called _record_tier_health(ok=True)
+    directly. That proved the reset mechanism worked while proving nothing about
+    whether any real code path could reach it. Time-based expiry is what makes
+    the recovery reachable without a success: after DEMOTE_TTL_SEC the model is
+    simply eligible again and gets probed on the next call.
+    """
     data = _read_tier_health()
+    now = datetime.now(timezone.utc)
 
     def demoted(m: str) -> int:
         entry = data.get(f"{task_type}:{m}") or {}
         try:
-            return 1 if int(entry.get("consecutive_fail", 0)) >= TIER_DEMOTE_AFTER else 0
+            if int(entry.get("consecutive_fail", 0)) < TIER_DEMOTE_AFTER:
+                return 0
         except (TypeError, ValueError):
             return 0
+        last_fail = entry.get("last_fail")
+        if not last_fail:
+            return 1
+        try:
+            age = (now - datetime.fromisoformat(str(last_fail))).total_seconds()
+        except (TypeError, ValueError):
+            return 0  # unparseable timestamp — do not hold a demotion on it
+        return 1 if age < DEMOTE_TTL_SEC else 0
 
     return sorted(candidates, key=demoted)
 
