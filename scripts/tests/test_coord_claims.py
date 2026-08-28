@@ -901,3 +901,41 @@ def test_citation_is_syntax_not_vocabulary(text, should_escalate):
     sys.path.insert(0, str(REPO_ROOT / "scripts" / "integrations"))
     import agent_activity
     assert bool(agent_activity.escalation_hits(text)) is should_escalate
+
+
+def test_reap_retires_expired_rows_still_marked_held():
+    """APEX found all 18 of Bravo's rows `held` with an expiry twelve hours past.
+
+    Reads were correct — expiry is evaluated against the clock on both sides —
+    so nothing was mis-gated. But APEX named the shape exactly: this is the old
+    `60 working rows against 25 done` reappearing inside the mechanism built to
+    replace it. "held" that does not mean held is the same lie the old status
+    told, and the row set grows without bound.
+
+    Status becomes `expired`, not `released`, so a lease that timed out stays
+    distinguishable from one somebody finished — the first is a signal that a
+    session died or forgot.
+    """
+    from integrations import coord_claim
+    src = (REPO_ROOT / "scripts" / "integrations" / "coord_claim.py").read_text(encoding="utf-8")
+    fn = src[src.index("def reap("):src.index("def release(")]
+    # Match the WORD, not the SQL escaping — the first version asserted
+    # "'expired'" while the source writes 'expired', so it was pinned to the
+    # quoting rather than the behaviour and went red on correct code.
+    assert "expired" in fn, "must distinguish a timeout from a deliberate release"
+    assert "status = " in fn and "released_at" in fn
+    assert "parse_ts" in fn, "expiry must be parsed, not string-compared"
+    # an unparseable expiry must also be reaped: it can never show live, so
+    # leaving it `held` is a row dead to every reader and alive to every human
+    assert "ts is None" in fn
+    assert callable(coord_claim.reap)
+
+
+def test_expired_status_is_not_live_anywhere():
+    """The reaper only helps if every reader agrees `expired` is not live."""
+    from datetime import datetime, timedelta, timezone
+    from integrations.coord_claim import is_live
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    assert is_live({"status": "held", "expires_at": future}) is True
+    assert is_live({"status": "expired", "expires_at": future}) is False
+    assert is_live({"status": "released", "expires_at": future}) is False

@@ -504,6 +504,50 @@ def heartbeat(task: str, *, ttl_min: int = DEFAULT_TTL_MIN, agent: str | None = 
     return len(live_claims(only_agent=me))
 
 
+def reap(agent: str | None = None) -> int:
+    """Retire rows that are past their expiry but still marked `held`.
+
+    APEX, 2026-08-28: all 18 of Bravo's rows were `held` with an expiry twelve
+    hours in the past. Reads were correct — expiry is evaluated against the clock
+    on both sides, and a conflicts check against one of those paths correctly
+    returned clear — so nothing was mis-gated. But APEX named the shape exactly:
+    this is `60 working rows against 25 done` reappearing inside the mechanism
+    built to replace it.
+
+    Why it still matters when reads are correct:
+      · an operator reading the table cannot tell a live lease from a dead one
+      · the row set grows without bound, and every guard poll pays for it
+      · "held" that does not mean held is the same lie the old `working` told
+
+    Status becomes `expired`, not `released`, so the table distinguishes a lease
+    somebody finished from one that simply timed out — the second is a signal
+    that a session died or forgot, and collapsing them would hide it.
+    """
+    me = (agent or ME).lower()
+    db = _db()
+    rows = db.query(
+        'SELECT id, expires_at FROM "' + TABLE + '" '
+        "WHERE agent = ? AND status = 'held'",
+        [me], allow_unscoped=True, reason=UNSCOPED_REASON)
+    now = _now()
+    dead = []
+    for r in rows:
+        rid, exp = (r["id"], r["expires_at"]) if isinstance(r, dict) else (r[0], r[1])
+        ts = parse_ts(exp)
+        # An unparseable expiry is reaped too: it can never be shown live by
+        # is_live(), so leaving it `held` is a row that is dead to every reader
+        # and alive to every human looking at the table.
+        if ts is None or ts <= now:
+            dead.append(rid)
+    for rid in dead:
+        db.execute(
+            'UPDATE "' + TABLE + '" SET status = \'expired\', released_at = ? WHERE id = ?',
+            [_iso(now), rid], allow_unscoped=True, reason=UNSCOPED_REASON)
+    if dead:
+        db.commit()
+    return len(dead)
+
+
 def release(*, task: str | None = None, session_id: str | None = None,
             agent: str | None = None) -> int:
     """Release by task or by session. SessionEnd calls the session form so a
@@ -575,6 +619,8 @@ def main() -> int:
     prl.add_argument("--task")
     prl.add_argument("--session")
 
+    sub.add_parser("reap", help="retire rows past expiry that are still marked held")
+
     ps = sub.add_parser("status", help="live leases")
     ps.add_argument("--repo")
     ps.add_argument("--all-agents", action="store_true")
@@ -632,6 +678,12 @@ def main() -> int:
             print(f"ERROR: {e}", file=sys.stderr)
             return 2
         print(f"released {n} lease(s)")
+        return 0
+
+    if a.cmd == "reap":
+        n = reap()
+        print(f"reaped {n} expired-but-held lease(s)" if n
+              else "nothing to reap — no expired rows still marked held")
         return 0
 
     if a.cmd == "status":
