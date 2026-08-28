@@ -477,6 +477,11 @@ on `main` for weeks for exactly this reason.
    `working` is awareness-only on both sides. Posting a credential or quota
    failure as `working` is silence that looks like a report — it cost two days on
    2026-08-25 and is now refused in code by `agent_activity.post()`.
+   The check distinguishes DESCRIBING a failure from REPORTING one: a narration
+   marker before the phrase ("fixed the bug where credits were exhausted") is a
+   completion report and passes; the bare phrase does not. Both agents shipped
+   the over-strict version first, and a lint that refuses honest prose is worse
+   than none — it trains the override, and an override used by habit is no lint.
 3. **Never review your own work as the peer's.** Peer identity comes from COMMIT
    AUTHORSHIP via `OWNERSHIP_MAP.yaml`, never from the GitHub account — both
    agents push under `CC90210`, so the account field cannot tell them apart.

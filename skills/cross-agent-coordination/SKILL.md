@@ -120,6 +120,20 @@ failed" with status `working`. Bravo's poller only wakes on `blocked`, so
 nothing escalated and the outage went unnoticed for two days. Status *is* the
 escalation mechanism; using the wrong one is silence.
 
+`post()` enforces this — a row whose text reads as a credential / quota / auth /
+dependency failure is REFUSED under any status but `blocked` (CLI exits 2).
+
+**It distinguishes describing from reporting.** "Fixed the bug where credits were
+exhausted" is a completion report and posts fine as `done`; a bare "credits
+exhausted" is an outage and must be `blocked`. The test is positional — a
+narration marker (`fixed`, `reviewing`, `documented`, `why`, `mentions`) BEFORE
+the phrase means description. `"credits exhausted, fixing now"` still fires,
+because reporting does not precede.
+
+APEX hit the over-strict version of this first and called it low priority. It is
+not: a lint that refuses honest prose trains you to reach for
+`--allow-unescalated`, and an override used by habit is the same as no lint.
+
 ```bash
 python scripts/integrations/agent_activity.py post --status blocked \
     --task "<what is stuck>" --detail "<what you need>" --mirror
