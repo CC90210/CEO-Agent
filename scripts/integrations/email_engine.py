@@ -1149,7 +1149,7 @@ def _backfill_read_before_sweep(imap, db, processed_msgids: dict,
     """Classify recently-SEEN mail the UNSEEN sweep never saw; hand financial
     mail to Atlas. Returns the number of messages newly examined. Never raises
     — a backfill failure must not take down the main sweep."""
-    handed = examined = 0
+    handed = examined = labelled = 0
     try:
         state = {}
         try:
@@ -1233,6 +1233,44 @@ def _backfill_read_before_sweep(imap, db, processed_msgids: dict,
                 fin_threshold = float(_resolve_config(None)["financial_threshold"])
             except Exception:  # noqa: BLE001
                 fin_threshold = 0.65  # DEFAULT_FINANCIAL_THRESHOLD
+            # File it BEFORE deciding whether it can be booked. This path
+            # handles mail CC opened on his phone before the 5-minute sweep saw
+            # it — which is exactly what a forwarded receipt looks like — and it
+            # previously skipped anything the model called low_priority, so a
+            # forwarded invoice read on a phone was never labelled at all.
+            fin_label = None
+            try:
+                from lib.financial_labels import assess
+                from lib.gmail_labels import apply_label as _apply_gmail_label
+                _fin = assess({
+                    "from": from_addr,
+                    "subject": subject,
+                    "body": body_full,
+                    "attachments": _extract_attachment_meta(msg),
+                    "date": msg.get("Date"),
+                }, prefilter_route=cls.get("route_target"))
+                if _fin.get("is_financial") and _fin.get("label"):
+                    # UID addressing: this loop fetches with imap.uid(...).
+                    _apply_gmail_label(imap, uid, _fin["label"], use_uid=True)
+                    fin_label = _fin["label"]
+                    labelled += 1
+                    # ASCII only: this stream is cp1252 on Windows and a stray
+                    # arrow/emoji here raises UnicodeEncodeError *inside* the
+                    # labelling try-block, which would report a successful
+                    # label as a failure. Emoji is fine in Telegram copy (sent
+                    # as UTF-8 over HTTP), never in a stderr print.
+                    print(f"[seen_backfill] filed -> {fin_label}: {subject[:60]}",
+                          file=sys.stderr)
+            except Exception as label_err:  # noqa: BLE001
+                print(f"[seen_backfill] LABEL FAILED on {rfc_message_id}: "
+                      f"{label_err}", file=sys.stderr)
+                try:
+                    notify(f"⚠️ FINANCIAL LABEL FAILED (read-before-sweep)\n"
+                           f"From: {from_addr}\nSubject: {subject}\n"
+                           f"Error: {label_err}", category="email")
+                except Exception:  # noqa: BLE001
+                    pass
+
             decision = read_mail_financial_decision(cls, fin_threshold)
             if decision == "handoff":
                 from email_brain import handoff_to_atlas
@@ -1243,6 +1281,9 @@ def _backfill_read_before_sweep(imap, db, processed_msgids: dict,
                     "body": body_full,
                     "rfc_message_id": rfc_message_id,
                     "attachments": _extract_attachment_meta(msg),
+                    # Already filed by Bravo above; Atlas should reuse this
+                    # label rather than deriving a different one.
+                    "gmail_label": fin_label,
                 }, db=db)
                 if ok:
                     handed += 1
@@ -1284,7 +1325,8 @@ def _backfill_read_before_sweep(imap, db, processed_msgids: dict,
 
         if examined:
             print(f"[seen_backfill] examined {examined} read message(s), "
-                  f"{handed} handed to Atlas", file=sys.stderr)
+                  f"{labelled} filed by label, {handed} handed to Atlas",
+                  file=sys.stderr)
     except Exception as exc:  # noqa: BLE001
         print(f"[seen_backfill] backfill error (main sweep unaffected): {exc}",
               file=sys.stderr)
@@ -1564,6 +1606,13 @@ def _routing_contract(outcome: dict, classification: dict) -> dict:
         "archived": bool(outcome.get("archived")),
         "handed_off": bool(outcome.get("handed_off")),
         "notified": bool(outcome.get("notified")),
+        # Where this email was actually FILED, so the Command Center shows the
+        # outcome rather than the intent. `gmail_label: null` on a row whose
+        # financial_document is true is the signal that filing failed — the
+        # thing that was previously invisible.
+        "gmail_label": outcome.get("label"),
+        "financial_document": bool(outcome.get("financial_document")),
+        "label_error": outcome.get("label_error"),
         "routing_extracted": True,
         "source": "email_brain",
     }
@@ -2170,7 +2219,17 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     def _mark_read(_e, _u=uid):
                         imap.store(_u, "+FLAGS", "\\Seen")
 
-                    deps = build_default_deps(mark_read=_mark_read, db=db)
+                    def _apply_label(_e, _label, _u=uid):
+                        # Raises gmail_labels.LabelError on anything that is not
+                        # an OK STORE. process_email relies on that: a returned
+                        # False would be indistinguishable from success at the
+                        # call site, which is how 42 statement notices were lost
+                        # before the '&' encoding fix on 2026-08-24.
+                        from lib.gmail_labels import apply_label
+                        return apply_label(imap, _u, _label)
+
+                    deps = build_default_deps(mark_read=_mark_read, db=db,
+                                              apply_label=_apply_label)
                     brain_email = {
                         "from": from_addr,
                         "from_identity": sender_addr,
