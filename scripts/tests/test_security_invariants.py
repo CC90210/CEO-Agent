@@ -159,16 +159,33 @@ def test_point_1_scanner_detects_a_planted_remote_credential():
     if not scanner.exists():
         pytest.skip("scan_secrets.py not present")
 
+    def _git(*argv):
+        """Build the fixture LOUDLY.
+
+        These ran fire-and-forget, so a `git` that failed to spawn produced an
+        empty probe repo and the assertion below then read as "the scanner
+        missed a planted credential" — a red security invariant pointing at the
+        wrong thing entirely. Seen for real in a 2081-test run on 2026-08-28,
+        where the process table was under enough pressure that a subprocess
+        died at fork; the same run's shell logged `fork: retry: Resource
+        temporarily unavailable`. A failed fixture and a failed scan must not
+        look identical.
+        """
+        r = subprocess.run(argv, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace")
+        if r.returncode != 0:
+            pytest.skip(f"fixture setup failed ({' '.join(argv[:3])}): "
+                        f"{(r.stderr or r.stdout or '').strip()[:200]}")
+
     with tempfile.TemporaryDirectory() as td:
         probe = Path(td) / "probe"
         probe.mkdir()
-        subprocess.run(["git", "init", "-q", str(probe)], capture_output=True)
+        _git("git", "init", "-q", str(probe))
         planted = "ghp_" + "A" * 36          # PAT-shaped, not a real credential
-        subprocess.run(["git", "-C", str(probe), "remote", "add", "origin",
-                        f"https://{planted}@github.com/acme/widget.git"],
-                       capture_output=True)
-        subprocess.run(["git", "-C", str(probe), "remote", "add", "upstream",
-                        "https://github.com/acme/widget.git"], capture_output=True)
+        _git("git", "-C", str(probe), "remote", "add", "origin",
+             f"https://{planted}@github.com/acme/widget.git")
+        _git("git", "-C", str(probe), "remote", "add", "upstream",
+             "https://github.com/acme/widget.git")
 
         r = subprocess.run([sys.executable, str(scanner), "--json", "--path", str(probe)],
                            capture_output=True, text=True, encoding="utf-8", errors="replace")

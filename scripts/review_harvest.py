@@ -270,15 +270,26 @@ def harvest_pr(repo: str, number: int, *, include_seen: bool = False) -> dict:
     }
 
 
-def open_prs(repo: str) -> list[int]:
+def open_prs_detailed(repo: str) -> list[dict]:
+    """Open, non-draft PRs with the fields callers need to TRIAGE them.
+
+    ONE listing call, not one-plus-N. review_loop needs `updatedAt` to skip
+    branches too old to auto-edit; asking gh for it here costs nothing, whereas
+    a per-PR `gh api repos/../pulls/N` lookup is an extra request per PR on
+    every */15 pass — and a second source of truth for "what is open".
+    """
     rc, out, _ = gh(["pr", "list", "--repo", canonical_repo(repo), "--state", "open",
-                     "--json", "number,isDraft", "--limit", "50"])
+                     "--json", "number,isDraft,updatedAt,headRefName", "--limit", "50"])
     if rc != 0 or not out:
         return []
     try:
-        return [p["number"] for p in json.loads(out) if not p.get("isDraft")]
+        return [p for p in json.loads(out) if not p.get("isDraft")]
     except Exception:  # noqa: BLE001
         return []
+
+
+def open_prs(repo: str) -> list[int]:
+    return [p["number"] for p in open_prs_detailed(repo)]
 
 
 def mark_seen(thread_ids: list[str]) -> int:

@@ -1285,6 +1285,100 @@ def cmd_seed(client, args, output_json: bool) -> None:
             print(f"  - {name}")
 
 
+def _seed_by_normalized_name() -> dict:
+    return {_normalize_dash(d["name"]).casefold(): d for d in SEED_JOBS}
+
+
+# Fields where a live row disagreeing with its SEED_JOBS definition changes what
+# actually runs. `description` is deliberately excluded — prose drift is noise.
+DRIFT_FIELDS = ("schedule", "action_type", "action_config")
+
+
+def _drift_rows(client, only=None) -> list:
+    """Live rows whose behaviour-bearing fields disagree with SEED_JOBS.
+
+    WHY THIS EXISTS: `seed` skips any job whose name already exists, and there
+    was no update path at all. So SEED_JOBS was the definition of record for
+    NEW machines and pure documentation for this one — the two could disagree
+    forever with nothing to notice.
+
+    Found live on 2026-08-28: SEED_JOBS had given "Bravo — Review Harvest" the
+    `--seed-open` argument that gives the whole review loop a trigger, with a
+    long comment explaining why. The live row was still running the old args.
+    The feature was committed, documented, believed shipped, and never once
+    executed. Same shape as a guard that is written but not registered in a hook
+    chain: present in the source, absent from the running system.
+    """
+    by_name = _seed_by_normalized_name()
+    if only:
+        wanted = _normalize_dash(only).casefold()
+        by_name = {k: v for k, v in by_name.items() if k == wanted}
+        if not by_name:
+            print(f"ERROR: no SEED_JOBS definition named {only!r}", file=sys.stderr)
+            raise SystemExit(2)
+
+    live = client.table("cron_jobs").select("*").execute().data or []
+    out = []
+    for row in live:
+        definition = by_name.get(_normalize_dash(row.get("name", "")).casefold())
+        if not definition:
+            continue
+        diffs = {}
+        for field in DRIFT_FIELDS:
+            want, got = definition.get(field), row.get(field)
+            if field == "action_config":
+                # Stored as TEXT by some writers and dict by others; compare
+                # meaning, not encoding, or every row reads as drifted.
+                want = json.loads(want) if isinstance(want, str) else want
+                try:
+                    got = json.loads(got) if isinstance(got, str) else got
+                except (TypeError, ValueError):
+                    pass
+            if want is not None and want != got:
+                diffs[field] = {"seed": want, "live": got}
+        if diffs:
+            out.append({"id": row.get("id"), "name": row.get("name"),
+                        "is_active": row.get("is_active"), "diffs": diffs})
+    return out
+
+
+def cmd_drift(client, args, output_json: bool) -> None:
+    """Report SEED_JOBS vs the live registry. Exits 1 when they disagree.
+
+    Reports by default and mutates only with --fix, because rewriting a live
+    production schedule is exactly the change CLAUDE.md says CC reviews first.
+    """
+    rows = _drift_rows(client, getattr(args, "only", None))
+
+    if getattr(args, "fix", False) and rows:
+        for row in rows:
+            patch = {f: d["seed"] for f, d in row["diffs"].items()}
+            if "action_config" in patch and not isinstance(patch["action_config"], str):
+                patch["action_config"] = json.dumps(patch["action_config"])
+            client.table("cron_jobs").update(patch).eq("id", row["id"]).execute()
+            row["fixed"] = True
+
+    if output_json:
+        print(json.dumps({"drifted": rows}, indent=2, default=str))
+    elif not rows:
+        print("No drift: every live cron matches its SEED_JOBS definition.")
+    else:
+        verb = "Realigned" if getattr(args, "fix", False) else "DRIFTED"
+        print(f"{verb} {len(rows)} cron job(s):\n")
+        for row in rows:
+            print(f"  {row['name']}  (active={row['is_active']})")
+            for field, d in row["diffs"].items():
+                print(f"    {field}:")
+                print(f"      seed: {d['seed']}")
+                print(f"      live: {d['live']}")
+            print()
+        if not getattr(args, "fix", False):
+            print('Re-align with:  cron_engine.py drift --fix --only "<name>"')
+
+    if rows and not getattr(args, "fix", False):
+        raise SystemExit(1)
+
+
 # -- Argument parser -----------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1353,6 +1447,13 @@ Examples:
         help="Seed exactly one definition by name (recommended for production changes)",
     )
 
+    p_drift = subparsers.add_parser(
+        "drift", help="Report live crons that disagree with their SEED_JOBS definition")
+    p_drift.add_argument("--only", help="Check exactly one definition by name")
+    p_drift.add_argument("--fix", action="store_true",
+                         help="Rewrite the live row to match SEED_JOBS "
+                              "(a production-schedule mutation — CC reviews first)")
+
     return parser
 
 
@@ -1378,12 +1479,16 @@ def main() -> None:
         "run":    cmd_run,
         "due":    cmd_due,
         "seed":   cmd_seed,
+        "drift":  cmd_drift,
     }
 
     handler = dispatch.get(args.command)
     if handler:
         try:
             handler(client, args, output_json)
+        except SystemExit:
+            raise            # `drift` exits 1 to signal disagreement; that is a
+                             # verdict, not an error to be reported as one
         except Exception as e:
             if output_json:
                 print(json.dumps({"error": str(e)}, indent=2))

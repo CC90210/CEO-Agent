@@ -11,7 +11,9 @@ No network, no gh, no model.
 """
 from __future__ import annotations
 
+import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -268,3 +270,129 @@ def test_failing_checks_are_surfaced_not_silently_dropped():
     assert 'kind"] == "failing_check"' in src, (
         "review_fix must consume failing_check findings, not filter them away")
     assert "escalated" in src.split('kind"] == "failing_check"')[0][-800:]
+
+
+# ── the seed poll's recency bound ────────────────────────────────────────────
+
+def test_seed_skips_prs_too_old_to_auto_edit():
+    """--seed-open must not queue branches that have been dead for weeks.
+
+    The email path had this bound implicitly: mail only ever arrived for a PR
+    that had JUST generated a notification, so recency came free. Polling has no
+    such limit — the first real run queued 22 PRs, including CEO-Agent
+    Dependabot branches untouched since 2026-07-28 and seven of APEX's abandoned
+    branches. review_fix EDITS AND PUSHES to the PR branch, so an unbounded poll
+    is not a more thorough email path; it is an indiscriminate one.
+    """
+    import review_loop
+
+    now = datetime.now(timezone.utc)
+    fresh = (now - timedelta(days=2)).isoformat().replace("+00:00", "Z")
+    edge = (now - timedelta(days=14)).isoformat().replace("+00:00", "Z")
+    stale = (now - timedelta(days=15)).isoformat().replace("+00:00", "Z")
+
+    assert review_loop._is_recent(fresh, 14) is True
+    assert review_loop._is_recent(edge, 14) is True, "the bound is inclusive"
+    assert review_loop._is_recent(stale, 14) is False
+
+    # Undatable is NOT a pass. A PR whose timestamp we could not read is one we
+    # have no business pushing commits to.
+    assert review_loop._is_recent(None, 14) is False
+    assert review_loop._is_recent("", 14) is False
+    assert review_loop._is_recent("not-a-date", 14) is False
+
+
+def test_seed_gets_its_dates_from_the_listing_not_a_second_lookup():
+    """One listing call, not one-plus-N.
+
+    A per-PR `gh api repos/../pulls/N` date lookup on every */15 pass is both an
+    extra request per open PR and a SECOND source of truth for what is open. The
+    timestamp is already in the listing; ask for it there.
+    """
+    import review_harvest
+    import review_loop
+
+    src = Path(review_loop.__file__).read_text(encoding="utf-8")
+    assert "open_prs_detailed" in src, "seed must use the detailed listing"
+    assert "/pulls/" not in src, "no per-PR date lookup — the listing carries it"
+
+    # open_prs must stay a thin projection of the detailed call, so the two
+    # cannot drift into disagreeing about what is open.
+    proj = Path(review_harvest.__file__).read_text(encoding="utf-8")
+    body = proj.split("def open_prs(repo")[1].split("\ndef ")[0]
+    assert "open_prs_detailed" in body, "open_prs must delegate, not re-query"
+
+
+def test_seed_actually_filters_and_reports(tmp_path, monkeypatch, capsys):
+    """Drive the real seed against a fake GitHub -- behaviour, not source text.
+
+    The first version of this test asserted `"print(" in <source after the
+    counter>`, which still passed when the print was disabled with `if False`.
+    A test that reads the source can only prove a string is present, never that
+    the code runs -- the useless-guard shape this repo keeps producing. So this
+    one calls seed_from_open_prs and reads what it did.
+
+    Also pins the ORDER: the already-queued check must come before the date
+    check, or a PR queued by mail last week gets counted as a stale skip.
+    """
+    import review_harvest
+    import review_loop
+
+    now = datetime.now(timezone.utc)
+
+    def _iso(days):
+        return (now - timedelta(days=days)).isoformat().replace("+00:00", "Z")
+
+    monkeypatch.setattr(review_harvest, "TRACKED_REPOS", ["CC90210/fake"])
+    monkeypatch.setattr(review_harvest, "open_prs_detailed", lambda repo: [
+        {"number": 1, "updatedAt": _iso(1), "headRefName": "fresh"},
+        {"number": 2, "updatedAt": _iso(40), "headRefName": "dead"},
+        {"number": 3, "updatedAt": None, "headRefName": "undatable"},
+    ])
+    harvested = []
+
+    def _harvest(repo, number):
+        harvested.append(number)
+        return {"findings": [{"kind": "review_thread"}]}
+
+    monkeypatch.setattr(review_harvest, "harvest_pr", _harvest)
+    monkeypatch.setattr(review_loop, "QUEUE_PATH", tmp_path / "q.json")
+
+    added = review_loop.seed_from_open_prs()
+
+    assert added == 1, "only the fresh PR may be queued"
+    assert harvested == [1], (
+        "a stale PR must be skipped BEFORE the expensive harvest, not after")
+
+    out = capsys.readouterr().out
+    assert "skipped 2" in out, f"skips must be surfaced, got: {out!r}"
+
+    queue = json.loads((tmp_path / "q.json").read_text(encoding="utf-8"))
+    assert list(queue) == ["CC90210/fake#1"]
+    assert queue["CC90210/fake#1"]["branch"] == "fresh", (
+        "the branch is in the listing already -- carry it, do not write None")
+    assert queue["CC90210/fake#1"]["source"] == "seed-open"
+
+
+def test_seed_does_not_count_already_queued_prs_as_stale(tmp_path, monkeypatch, capsys):
+    """An old PR the EMAIL path queued is already-handled, not a stale skip.
+
+    If the date check ran first, a legitimately-queued mail entry would inflate
+    the skip count every pass and read as the poll rejecting real work.
+    """
+    import review_harvest
+    import review_loop
+
+    (tmp_path / "q.json").write_text(json.dumps({
+        "CC90210/fake#2": {"repo": "CC90210/fake", "pr": 2, "source": "mail"},
+    }), encoding="utf-8")
+
+    old_ts = (datetime.now(timezone.utc) - timedelta(days=40)).isoformat().replace("+00:00", "Z")
+    monkeypatch.setattr(review_harvest, "TRACKED_REPOS", ["CC90210/fake"])
+    monkeypatch.setattr(review_harvest, "open_prs_detailed",
+                        lambda repo: [{"number": 2, "updatedAt": old_ts, "headRefName": "b"}])
+    monkeypatch.setattr(review_loop, "QUEUE_PATH", tmp_path / "q.json")
+
+    assert review_loop.seed_from_open_prs() == 0
+    assert "skipped" not in capsys.readouterr().out, (
+        "an already-queued PR is not a stale skip")

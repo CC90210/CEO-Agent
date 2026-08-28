@@ -212,6 +212,118 @@ def detect_test_cmd(repo_dir: Path) -> Optional[list[str]]:
     return None
 
 
+# ── isolated PR checkouts ────────────────────────────────────────────────────
+#
+# The fixer needs the PR's branch checked out. It must NEVER get there by
+# switching the operator's working checkout: that repo is shared with APEX, it
+# usually holds uncommitted work, and a branch switch under a running dev server
+# is its own outage. So the fixer builds a throwaway `git worktree` instead.
+#
+# Measured on 2026-08-28: EVERY drain in the live loop exited
+# `blocked: branch_mismatch` — 2100 cron runs, one "successful" drain, zero
+# fixes, because the local oasis-command-center checkout is never sitting on the
+# PR branch. The loop was healthy and useless, one layer below the trigger gap
+# that --seed-open fixed the same day.
+WORKTREE_ROOT = Path.home() / ".bravo-review-worktrees"
+
+# node_modules is LINKED, not copied — an npm install per finding would blow the
+# cron budget. Which makes the teardown order load-bearing: `git worktree
+# remove` walks into a junction and deletes what it points at, so the operator's
+# node_modules is one wrong ordering away from being erased. The link comes out
+# first, always, and _drop_link only ever unlinks (rmdir/unlink), never recurses.
+LINKED_DIRS = ("node_modules",)
+
+
+def _drop_link(link: Path) -> None:
+    """Remove a junction/symlink WITHOUT following it.
+
+    os.rmdir on a Windows junction and os.unlink on a POSIX symlink both remove
+    the link itself. Neither recurses, which is the entire point: this runs
+    against a path that points INTO the operator's real checkout.
+    """
+    if not link.exists() and not link.is_symlink():
+        return
+    try:
+        if link.is_symlink():
+            link.unlink()
+        elif link.is_dir():
+            link.rmdir()          # junction: removes the link, not the target
+    except OSError:
+        pass
+
+
+def _link_dir(src: Path, dst: Path) -> bool:
+    if not src.is_dir() or dst.exists():
+        return False
+    try:
+        if sys.platform == "win32":
+            r = subprocess.run(["cmd", "/c", "mklink", "/J", str(dst), str(src)],
+                               capture_output=True, text=True, timeout=60,
+                               creationflags=WINDOWLESS_FLAGS)
+            return r.returncode == 0
+        dst.symlink_to(src, target_is_directory=True)
+        return True
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def prepare_pr_checkout(repo_dir: Path, branch: str) -> tuple[Optional[Path], Optional[str], list]:
+    """Return (dir_to_work_in, error, cleanup_steps).
+
+    If the operator's checkout already happens to be on the PR branch, use it —
+    no worktree, no teardown, and the fixer behaves exactly as it did before.
+    Otherwise fetch the branch and materialise a fresh worktree for it.
+    """
+    rc, cur, _ = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], repo_dir)
+    if rc == 0 and cur.strip() == branch:
+        return repo_dir, None, []
+
+    rc, _, err = run(["git", "fetch", "origin", branch], repo_dir, timeout=300)
+    if rc != 0:
+        return None, f"could not fetch {branch}: {err[:200]}", []
+
+    WORKTREE_ROOT.mkdir(parents=True, exist_ok=True)
+    safe = re.sub(r"[^A-Za-z0-9._-]", "-", f"{repo_dir.name}-{branch}")
+    wt = WORKTREE_ROOT / safe
+    cleanup: list = []
+
+    if wt.exists():
+        # Left over from a killed run. Tear it down before reusing the name, so
+        # the fixer never edits a stale tree it did not create this pass.
+        for name in LINKED_DIRS:
+            _drop_link(wt / name)
+        run(["git", "worktree", "remove", "--force", str(wt)], repo_dir)
+        run(["git", "worktree", "prune"], repo_dir)
+
+    # Detached on the fetched tip: the branch may already be checked out in
+    # another worktree, and a detached HEAD never contends for it. The push is
+    # `HEAD:branch` either way, so nothing downstream cares.
+    rc, _, err = run(["git", "worktree", "add", "--detach", str(wt),
+                      f"origin/{branch}"], repo_dir, timeout=600)
+    if rc != 0:
+        return None, f"could not create a worktree for {branch}: {err[:200]}", []
+
+    cleanup.append(("worktree", wt))
+    for name in LINKED_DIRS:
+        if _link_dir(repo_dir / name, wt / name):
+            cleanup.insert(0, ("link", wt / name))   # links come out FIRST
+    return wt, None, cleanup
+
+
+def teardown_pr_checkout(repo_dir: Path, cleanup: list) -> None:
+    """Undo prepare_pr_checkout. Ordering is the safety property, not an optimisation."""
+    for kind, path in cleanup:
+        if kind == "link":
+            _drop_link(path)
+    for kind, path in cleanup:
+        if kind == "worktree":
+            for name in LINKED_DIRS:
+                _drop_link(path / name)       # belt and braces: never remove a
+                                              # worktree with a live link inside
+            run(["git", "worktree", "remove", "--force", str(path)], repo_dir)
+    run(["git", "worktree", "prune"], repo_dir)
+
+
 def fix_one(finding: dict, repo_dir: Path, branch: str, *, dry_run: bool) -> dict:
     out = {"thread_id": finding["thread_id"], "path": finding.get("path"),
            "severity": finding["severity"], "status": "pending", "detail": ""}
@@ -375,11 +487,9 @@ def main() -> None:
         blocked("no_local_checkout",
                 f"no local checkout registered for {repo} (add it to REPO_PATHS)")
 
-    rc, cur, _ = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], repo_dir)
-    if rc != 0 or cur.strip() != branch:
-        blocked("branch_mismatch",
-                f"local checkout is on '{cur.strip()}', PR branch is '{branch}' — "
-                f"checkout the PR branch to let the fixer run")
+    work_dir, wt_err, cleanup = prepare_pr_checkout(repo_dir, branch)
+    if wt_err or work_dir is None:
+        blocked("worktree_failed", wt_err or "could not prepare a checkout")
 
     wanted = {s.strip().lower() for s in args.severity.split(",") if s.strip()}
     todo = [f for f in harvest["findings"]
@@ -402,7 +512,13 @@ def main() -> None:
         print(json.dumps({"results": []}) if args.json else msg)
         return
 
-    results = [fix_one(f, repo_dir, branch, dry_run=args.dry_run) for f in todo] + failing
+    try:
+        results = [fix_one(f, work_dir, branch, dry_run=args.dry_run)
+                   for f in todo] + failing
+    finally:
+        # Always. A worktree left behind holds a lock on the branch and the next
+        # pass inherits a tree it did not build.
+        teardown_pr_checkout(repo_dir, cleanup)
 
     if not args.dry_run:
         # 'escalated' is deliberately NOT marked seen (Codex P2): it means the

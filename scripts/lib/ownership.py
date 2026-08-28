@@ -197,3 +197,28 @@ if __name__ == "__main__":
     r, p = sys.argv[1], sys.argv[2]
     o = owner(r, p)
     print(f"{r}/{p} -> owner={o}" + ("  [LEASE REQUIRED]" if o == "shared" else ""))
+
+    # An unrecognised repo falls back to the map's `default` — deliberately
+    # `shared`, so an unknown surface demands a lease rather than waving you
+    # through (pinned by test_coord_claims). But the ANSWER and the REASON then
+    # look identical: a genuinely-contested path and a repo slug this tool has
+    # never heard of both print `owner=shared [LEASE REQUIRED]`.
+    #
+    # That is not hypothetical. 2026-08-28: asking about `business-empire-agent`
+    # (the DIRECTORY name, not the remote-derived slug `ceo-agent`) answered
+    # "shared, lease required" for a path that is plainly Bravo-owned. The
+    # fail-safe was right; the silence about which question was answered was
+    # not. coord_claim refuses a directory name outright — this only reports, so
+    # the least it can do is say the name is unknown.
+    if r not in (load().get("repos") or {}):
+        print(f"  NOTE: '{r}' is not a repo in brain/OWNERSHIP_MAP.yaml — this is "
+              f"the fail-safe default, not a lookup.")
+        try:
+            from lib import repo_paths as _rp
+            here = _rp.repo_root()
+            true = _rp.repo_slug(here) if here is not None else None
+            if true and true != r:
+                print(f"  The checkout you are standing in is '{true}'. "
+                      f"Known repos: {', '.join(sorted((load().get('repos') or {})))}")
+        except Exception:  # noqa: BLE001
+            pass

@@ -95,3 +95,127 @@ def test_timeouts_are_positive_numbers():
         if t is None:
             continue
         assert isinstance(t, (int, float)) and t > 0, f"{j['name']}: timeout {t!r} is not a positive number"
+
+
+# ── SEED_JOBS vs the LIVE registry ───────────────────────────────────────────
+#
+# `seed` skips any job whose name already exists and has no update path, so
+# these definitions were the source of record on a fresh machine and pure
+# documentation on a running one. Measured 2026-08-28, the first time anything
+# compared them: 5 of 32 active crons disagreed, including two that mattered.
+#   * "Bravo — Review Harvest" was missing `--seed-open` — the argument that
+#     gives the whole review loop a trigger. Committed, believed shipped, never
+#     executed.
+#   * "Loud Failures Weekly Probe" still carried `--strict`, removed from the
+#     source on 2026-08-03 precisely because it re-paged hourly. 25 more days.
+
+class _FakeTable:
+    def __init__(self, rows, updates):
+        self._rows, self._updates, self._patch, self._id = rows, updates, None, None
+
+    def select(self, *_a):
+        return self
+
+    def execute(self):
+        return type("R", (), {"data": self._rows})()
+
+    def update(self, patch):
+        self._patch = patch
+        return self
+
+    def eq(self, _col, value):
+        self._id = value
+        return self
+
+
+class _FakeClient:
+    """Minimal stand-in for the Turso compat client: select/update only."""
+
+    def __init__(self, rows):
+        self.rows, self.updates = rows, []
+
+    def table(self, _name):
+        client = self
+
+        class T(_FakeTable):
+            def execute(inner):                      # noqa: N805
+                if inner._patch is not None:
+                    client.updates.append((inner._id, inner._patch))
+                    return type("R", (), {"data": []})()
+                return type("R", (), {"data": client.rows})()
+
+        return T(self.rows, self.updates)
+
+
+def _row_from(definition, **overrides):
+    row = {"id": "row-1", "name": definition["name"], "is_active": 1,
+           "schedule": definition["schedule"],
+           "action_type": definition["action_type"],
+           "action_config": definition["action_config"]}
+    row.update(overrides)
+    return row
+
+
+def test_no_drift_when_the_live_row_matches():
+    definition = JOBS[0]
+    assert ce._drift_rows(_FakeClient([_row_from(definition)])) == []
+
+
+def test_drift_detected_when_live_args_differ():
+    """The exact live defect: the seed grew an argument, the row did not."""
+    definition = next(j for j in JOBS if isinstance(j["action_config"], dict)
+                      and j["action_config"].get("args"))
+    stale = dict(definition["action_config"])
+    stale["args"] = stale["args"][1:]                # one argument dropped
+    drift = ce._drift_rows(_FakeClient([_row_from(definition, action_config=stale)]))
+    assert len(drift) == 1
+    assert "action_config" in drift[0]["diffs"]
+
+
+def test_encoding_is_not_mistaken_for_drift():
+    """action_config comes back as TEXT from some writers and dict from others.
+    Comparing the raw values would report every single row as drifted, and a
+    check that always fires is a check nobody reads."""
+    import json
+    definition = JOBS[0]
+    as_text = _row_from(definition, action_config=json.dumps(definition["action_config"]))
+    assert ce._drift_rows(_FakeClient([as_text])) == []
+
+
+def test_a_row_with_no_seed_definition_is_not_drift():
+    """Jobs added live with `cron_engine.py add` are legitimate and have no
+    SEED_JOBS counterpart. Reporting them would make the signal noise."""
+    assert ce._drift_rows(_FakeClient([{
+        "id": "x", "name": "Ad-hoc job nobody seeded", "is_active": 1,
+        "schedule": "0 0 * * *", "action_type": "script_run",
+        "action_config": {"script": "whatever.py"}}])) == []
+
+
+def test_drift_reports_by_default_and_only_writes_with_fix(capsys):
+    """Rewriting a live production schedule is the change CLAUDE.md says CC
+    reviews first. Report-only is the default; --fix is the deliberate act."""
+    definition = next(j for j in JOBS if isinstance(j["action_config"], dict)
+                      and j["action_config"].get("args"))
+    stale = dict(definition["action_config"])
+    stale["args"] = []
+
+    client = _FakeClient([_row_from(definition, action_config=stale)])
+    args = type("A", (), {"only": None, "fix": False})()
+    with pytest.raises(SystemExit) as exc:
+        ce.cmd_drift(client, args, False)
+    assert exc.value.code == 1, "drift must exit non-zero so a caller can gate on it"
+    assert client.updates == [], "report mode must not write"
+
+    client = _FakeClient([_row_from(definition, action_config=stale)])
+    ce.cmd_drift(client, type("A", (), {"only": None, "fix": True})(), False)
+    assert len(client.updates) == 1, "--fix must write exactly one row"
+    _, patch = client.updates[0]
+    assert isinstance(patch["action_config"], str), "action_config is stored as TEXT"
+
+
+def test_the_harness_eval_actually_runs_the_drift_check():
+    """A check that exists but is not in CHECKS is the same defect it detects."""
+    import harness_eval
+    names = [name for name, *_ in harness_eval.CHECKS]
+    assert any("cron definitions match" in n for n in names), (
+        "the drift check must be registered in CHECKS, not merely defined")
