@@ -393,7 +393,12 @@ SEED_JOBS: list[dict] = [
         # 2026-06-06 Daily-MRR-Auto-Sync lesson). Plain mode ends with
         # "ALL GREEN — harness is turnkey for any runtime." on success and
         # exits 1 on any red check → notify_on nonzero_exit fires.
-        "action_config": {"script": "scripts/harness_eval.py", "args": [], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
+        # --source cron so the trend can separate scheduled health from the
+        # ad-hoc runs an agent fires while mid-refactor. On 2026-08-28 there
+        # were 44 ad-hoc runs against ONE nightly run, and the ad-hoc ones —
+        # correctly red, because the tree was genuinely broken between two
+        # edits — set the reported score.
+        "action_config": {"script": "scripts/harness_eval.py", "args": ["--source", "cron"], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
         "is_active": True,
     },
     {
@@ -550,8 +555,15 @@ SEED_JOBS: list[dict] = [
         # test suite. The 300s script_run default would SIGKILL it mid-fix and
         # could leave uncommitted edits in a client repo. review_loop drains ONE
         # PR per pass, so 1500s is a ceiling, not an expectation.
+        # --seed-open added 2026-08-28. The queue was fed ONLY by notification
+        # mail, so the whole loop depended on a message arriving, being unread,
+        # and being classified. Live evidence: 2098 runs, 0 failures, and
+        # {"drained": 0} every single time, while 14 PRs sat open with
+        # unresolved CodeRabbit findings. A healthy-looking loop doing nothing,
+        # because its only trigger never fired. Email stays the fast path;
+        # polling GitHub is the floor under it.
         "action_config": {"script": "scripts/review_loop.py",
-                          "args": ["--once", "--json"], "timeout": 1500},
+                          "args": ["--seed-open", "--once", "--json"], "timeout": 1500},
         # Retired 2026-08-16 (CC). It only pays off on repos with active PR
         # review and there were no open PRs, so it was draining a slot every 15
         # minutes to do nothing. It also depends on a `gh` login that had
@@ -566,7 +578,18 @@ SEED_JOBS: list[dict] = [
         #     review_harvest.py against PR #340 returned live thread state and
         #     correctly reported the one unresolved finding.
         # PR review has become a habit. Recommend toggling this back on.
-        "is_active": False,
+        #
+        # 2026-08-28 — REACTIVATED by CC. He described this loop verbatim as the
+        # functionality he wants: "every time Apex or Adon pushes something to
+        # GitHub... CodeRabbit verifies it, and our inbound email automation
+        # verifies it and uses CLI powers to verify what CodeRabbit said and what
+        # the Vercel bot said. It should then make the necessary changes
+        # accordingly, deploy it autonomously, and notify us via Telegram."
+        #
+        # Both 2026-08-16 retirement reasons are now false, verified rather than
+        # assumed: there are 20+ open peer PRs (there were none), and the gh
+        # login works (harvest against PR #340 returned live thread state).
+        "is_active": True,
     },
     {
         # Added 2026-08-27. The peer-review half of the coordination contract:
@@ -585,10 +608,11 @@ SEED_JOBS: list[dict] = [
         "action_type": "script_run",
         "action_config": {"script": "scripts/cross_agent_review.py",
                           "args": ["scan", "--json"], "timeout": 600},
-        # Inactive on arrival. Seeding the shared cron_jobs registry is a
-        # production-scheduling mutation and CC reviews new entries first
-        # (CLAUDE.md). Toggle on with `cron_engine.py toggle` after review.
-        "is_active": False,
+        # Reviewed and approved by CC 2026-08-28. Still SCAN-ONLY — it lists
+        # what is waiting and never publishes a verdict unattended, because a
+        # verdict posted under Bravo's name is an outward effect the peer acts
+        # on and a wrong one spends the channel's credibility.
+        "is_active": True,
     },
     # 'Bravo — Override Queue Cleanup' removed 2026-05-22 along with the
     # entire exec_override approval-request system. exec_guard still blocks
