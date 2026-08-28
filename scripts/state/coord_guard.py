@@ -188,7 +188,7 @@ def _nudge_if_contested(repo: str, rel: str, me: str) -> None:
         # round trip just to decide whether to print a hint.
         mine = [c for c in (_load_mirror().get("claims") or [])
                 if c.get("repo") == repo and c.get("agent") == me
-                and repo_paths.covers(c.get("path_glob", ""), rel)]
+                and repo_paths.overlaps(c.get("path_glob", ""), rel)]
         if mine:
             return
     except Exception:  # noqa: BLE001

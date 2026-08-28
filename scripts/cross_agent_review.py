@@ -53,6 +53,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 VERDICT_LOG = PROJECT_ROOT / "state" / "cross_agent_reviews.jsonl"
 # Git identities that mean "the peer", from the ownership map rather than a
 # second hardcoded list that would drift from it.
+def _self_identities() -> set[str]:
+    """Bravo's own git identities, from the ownership map."""
+    meta = (ownership.load().get("agents") or {}).get("bravo") or {}
+    return set(meta.get("git_identities") or []) | {"bravo"}
+
+
 def _peer_identities() -> set[str]:
     agents = ownership.load().get("agents") or {}
     out: set[str] = set()
@@ -143,7 +149,12 @@ def scan(repo: str) -> list[dict]:
         # commit on it is at least partly Bravo's own work, and reviewing your
         # own change as the peer's is a false verdict published under the
         # peer-review channel.
-        mine = {"CC90210", "CC", "bravo"}
+        # Read Bravo's identities from the SAME map as the peer's. A second
+        # hardcoded list here would be the fourth instance of this drift class
+        # in this subsystem, and the one that fails silently: add a new Bravo
+        # git identity to the map, forget this copy, and Bravo starts reviewing
+        # its own pull requests as the peer's.
+        mine = _self_identities()
         if not authors or (authors & mine) or not (authors & peers):
             continue
         files = _pr_files(repo, number)
