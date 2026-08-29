@@ -529,3 +529,9 @@ When you add a store, decide its lifecycle in the SAME commit and record it in
 Undecided is allowed. Invisible is not — an unbounded store with no decision
 goes in [[DATA_LIFECYCLE]]'s "needs an operator decision" table so it is at
 least being looked at.
+
+**Where the answer lives:** [[AUTOMATIONS]] is the generated register of every
+scheduled job, daemon, hook and OS task — what it does, when it fires, and
+whether it is healthy. Read it before answering "what runs?" or "is X
+scheduled?"; do not reconstruct the answer from SEED_JOBS alone, which says what
+is DECLARED rather than what the live table actually fires.

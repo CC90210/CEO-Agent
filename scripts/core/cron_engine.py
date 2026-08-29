@@ -641,6 +641,25 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # Added 2026-08-29. Nothing answered "what is running?" in one place:
+        # INVENTORY.md carried counts and drifted (it read 37 cron jobs while the
+        # live registry held 41), fleet_health covered agent pulses, and the rest
+        # was spread across SEED_JOBS, a PM2 manifest, a hooks config and Task
+        # Scheduler. An operator asking a simple question got a research project.
+        #
+        # Daily because the answer changes daily — a register that is a week old
+        # is the drift it was written to remove. It exits non-zero and prints
+        # ERROR if any source was unreadable, so an INCOMPLETE register pages
+        # rather than quietly omitting a third of the automations.
+        "name": "Daily Automation Register",
+        "description": "Daily 05:30 ET — regenerate brain/AUTOMATIONS.md from the live cron table, fleet manifest, hook config and Task Scheduler so any session can answer what runs, when, and whether it is healthy without running anything.",
+        "schedule": "30 5 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/core/generate_automations.py",
+                          "args": [], "timeout": 300},
+        "is_active": True,
+    },
+    {
         # Added 2026-08-28. Nothing in the fleet moves an event to a terminal
         # state, so agent_events is append-only in practice: 9,533 rows older
         # than 30 days were still 'pending' when this was written, waiting on a

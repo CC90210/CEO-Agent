@@ -89,6 +89,7 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | **Audit the system / health check** | (run `python scripts/core/self_audit.py`) | `brain/ORCHESTRATION.md` |
 | **Clean up the repo / delete junk** | (run `python scripts/core/system_cleanup.py` — dry-run by default) | `brain/EXECUTION_RULES.md` Rule 9 |
 | **How long is X kept / adding a new store or log** | `brain/DATA_LIFECYCLE.md` | (schedule the sweep in the SAME commit — a retention tool nobody runs is not a policy) |
+| **What automations run / is X scheduled / why did Y fire** | [[AUTOMATIONS]] — every job, daemon, hook and OS task with what it does and whether it is healthy | (regenerate with `python scripts/core/generate_automations.py`; it is auto-generated, never hand-edit) |
 | **Current date / day-of-week / time** | (run the date snippet in `brain/EXECUTION_RULES.md` Rule 11 — never quote from prompt) | `brain/STATE.md` |
 | **Create a new skill / agent / workflow** | `skills/agent-forge/SKILL.md` | use the matching `python scripts/register.py skill|agent|workflow ...` contract |
 | **Diagnose why you made a mistake** | `memory/MISTAKES.md` | `brain/BRAIN_LOOP.md` (Reflexion section) |

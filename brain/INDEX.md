@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **63 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **64 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -33,6 +33,7 @@ Auto-generated index of tracked `brain/*.md` — **63 files**. Each file's first
 
 ## Reference & architecture
 - [APP_REGISTRY.md](APP_REGISTRY.md) — APP REGISTRY — External Codebase Routing
+- [AUTOMATIONS.md](AUTOMATIONS.md) — AUTOMATIONS.md — What Actually Runs (auto-generated)
 - [BENCHMARK.md](BENCHMARK.md) — 🧠 BRAVO BENCHMARK — Agentic Maturity Assessment
 - [BRAIN_LOOP.md](BRAIN_LOOP.md) — BRAIN LOOP — 10-Step Reasoning Protocol (V5.5 Enhanced)
 - [CANONICAL_ROLES.md](CANONICAL_ROLES.md) — CANONICAL ROLES -- C-Suite Function Reference
