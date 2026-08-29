@@ -396,3 +396,44 @@ def test_seed_does_not_count_already_queued_prs_as_stale(tmp_path, monkeypatch, 
     assert review_loop.seed_from_open_prs() == 0
     assert "skipped" not in capsys.readouterr().out, (
         "an already-queued PR is not a stale skip")
+
+
+# ── severity: read the reviewer's own label ──────────────────────────────────
+
+def test_severity_reads_coderabbits_own_marker_not_just_keywords():
+    """CodeRabbit states its severity in a marker line:
+
+        _🎯 Functional Correctness_ | _🟠 Major_ | _🏗️ Heavy lift_
+
+    None of the inference keywords appear in it, so before 2026-08-28 EVERY
+    CodeRabbit review thread on the live queue classified as "low", fell under
+    the critical,high default, and the fixer had nothing to do. A filter that
+    rejects the reviewer's entire vocabulary is the same defect as a poll with
+    no trigger: healthy, and unable to fire.
+    """
+    from review_harvest import severity_of
+
+    assert severity_of("_🛡️ Security_ | _🔴 Critical_ | tenant bypass") == "critical"
+    assert severity_of("_🎯 Functional Correctness_ | _🟠 Major_ | heavy lift") == "high"
+    assert severity_of("_🎯 Functional Correctness_ | _🟡 Minor_ | quick win") == "medium"
+
+
+def test_inference_still_covers_reviewers_that_label_nothing():
+    """Vercel, CI and humans carry no marker. The fallback must survive."""
+    from review_harvest import severity_of
+
+    assert severity_of("[!CAUTION] credential leak") == "critical"
+    assert severity_of("[!WARNING] potential issue with the null check") == "high"
+    assert severity_of("consider a refactor here") == "medium"
+    assert severity_of("just a passing thought") == "low"
+
+
+def test_the_reviewers_label_outranks_inference():
+    """A Minor finding whose prose happens to say 'timeout' is still Minor.
+    Inference reading first would promote it and spend the pass budget on a nit
+    ahead of a real Major."""
+    from review_harvest import severity_of
+
+    assert severity_of(
+        "_🎯 Functional Correctness_ | _🟡 Minor_ | rename the timeout constant"
+    ) == "medium"

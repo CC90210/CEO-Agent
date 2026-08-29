@@ -123,7 +123,7 @@ def test_forbidden_edits_uses_the_harvesters_definition():
     assert "DANGER_PATHS = " not in src, "must not carry its own copy of the pattern"
 
 
-def test_forbidden_edits_agrees_with_the_harvester_on_every_path(monkeypatch, tmp_path):
+def test_forbidden_edits_agrees_with_the_harvester_on_every_path():
     """Behavioural version of the above: whatever the harvester calls dangerous,
     the fixer refuses to push. Asserted by running both, so it holds even if
     somebody reintroduces a private pattern the source scan does not name."""
@@ -131,36 +131,78 @@ def test_forbidden_edits_agrees_with_the_harvester_on_every_path(monkeypatch, tm
              "scripts/lib/send_gateway.py", "scripts/state/secret_guard.py",
              "app/(dash)/page.tsx", "lib/drips/executor.ts", "README.md",
              "scripts/stripe_tool.py", "components/Button.tsx"]
-    monkeypatch.setattr(review_fix, "run",
-                        lambda *_a, **_kw: (0, "\n".join(f" M {p}" for p in paths), ""))
-    refused = set(review_fix.forbidden_edits(tmp_path))
+    refused = set(review_fix.forbidden_edits(paths))
     flagged = {p for p in paths if review_harvest.is_dangerous(p)}
     assert refused == flagged, f"fixer and harvester disagree: {refused ^ flagged}"
     assert flagged, "the fixture must contain at least one dangerous path"
 
 
-def test_forbidden_edits_catches_the_paths_the_prompt_only_asked_about(monkeypatch, tmp_path):
-    changed = [
-        " M app/lib/thing.ts",
-        " M .github/workflows/build.yml",
-        "?? database/turso_migrations/bravo__099_x.sql",
-        " M scripts/lib/send_gateway.py",
-    ]
-    monkeypatch.setattr(review_fix, "run",
-                        lambda *_a, **_kw: (0, "\n".join(changed), ""))
-    got = review_fix.forbidden_edits(tmp_path)
+def test_forbidden_edits_catches_the_paths_the_prompt_only_asked_about():
+    got = review_fix.forbidden_edits([
+        "app/lib/thing.ts",
+        ".github/workflows/build.yml",
+        "database/turso_migrations/bravo__099_x.sql",
+        "scripts/lib/send_gateway.py",
+    ])
     assert "app/lib/thing.ts" not in got
     assert ".github/workflows/build.yml" in got
     assert "database/turso_migrations/bravo__099_x.sql" in got
     assert "scripts/lib/send_gateway.py" in got
 
 
-def test_forbidden_edits_reads_the_destination_of_a_rename(monkeypatch, tmp_path):
-    """`R  a.ts -> .github/workflows/b.yml` must be judged on where the file
-    LANDED. Judging the source path would wave the rename straight through."""
-    monkeypatch.setattr(review_fix, "run",
-                        lambda *_a, **_kw: (0, 'R  app/a.ts -> .github/workflows/b.yml', ""))
-    assert review_fix.forbidden_edits(tmp_path) == [".github/workflows/b.yml"]
+def test_changed_paths_against_a_real_repo(tmp_path):
+    """Driven by REAL git, because the bug this replaces was invisible to a mock.
+
+    The old implementation sliced `line[3:]` off `git status --porcelain` to
+    skip the status field. Correct against the raw command — and wrong here,
+    because run() returns `stdout.strip()`, which eats the leading space of the
+    FIRST line only. `docs/coordination/tools/agent_genome.py` came back as
+    `ocs/...`, matched no allowlist, and the PR-diff bound rejected the model's
+    correct fix as out-of-bounds on every single run.
+
+    The unit test that was supposed to cover this passed a fixture with no
+    leading space to lose. A mock cannot reproduce a defect that lives in the
+    seam between two real commands, so this one uses both.
+    """
+    import subprocess as sp
+    sp.run(["git", "init", "-q", str(tmp_path)], check=True, timeout=120)
+    for key, value in (("user.email", "t@example.com"), ("user.name", "t")):
+        sp.run(["git", "-C", str(tmp_path), "config", key, value], check=True, timeout=60)
+
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "alpha.py").write_text("one\n", encoding="utf-8")
+    (tmp_path / "zeta.py").write_text("two\n", encoding="utf-8")
+    sp.run(["git", "-C", str(tmp_path), "add", "-A"], check=True, timeout=60)
+    sp.run(["git", "-C", str(tmp_path), "commit", "-qm", "init"], check=True, timeout=120)
+
+    (tmp_path / "docs" / "alpha.py").write_text("one changed\n", encoding="utf-8")   # modified
+    (tmp_path / "brand_new.py").write_text("three\n", encoding="utf-8")              # untracked
+
+    got = review_fix._changed_paths(tmp_path)
+
+    assert "docs/alpha.py" in got, (
+        f"the first path must not lose a character — got {got}")
+    assert "brand_new.py" in got, "untracked files are edits too"
+    assert not any(p.startswith("ocs/") for p in got), "prefix truncation is back"
+
+
+def test_forbidden_edits_judges_a_renames_destination(tmp_path):
+    """A rename INTO a forbidden path must be caught on where the file landed."""
+    import subprocess as sp
+    sp.run(["git", "init", "-q", str(tmp_path)], check=True, timeout=120)
+    for key, value in (("user.email", "t@example.com"), ("user.name", "t")):
+        sp.run(["git", "-C", str(tmp_path), "config", key, value], check=True, timeout=60)
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "a.ts").write_text("x\n", encoding="utf-8")
+    sp.run(["git", "-C", str(tmp_path), "add", "-A"], check=True, timeout=60)
+    sp.run(["git", "-C", str(tmp_path), "commit", "-qm", "init"], check=True, timeout=120)
+
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / "app" / "a.ts").rename(tmp_path / ".github" / "workflows" / "b.yml")
+
+    got = review_fix._changed_paths(tmp_path)
+    assert ".github/workflows/b.yml" in got, f"destination must appear: {got}"
+    assert review_fix.forbidden_edits(got) == [".github/workflows/b.yml"]
 
 
 def test_the_forbidden_check_runs_before_the_commit():
@@ -267,21 +309,16 @@ def test_a_dangerous_failing_check_escalates_rather_than_being_fixed(monkeypatch
 # like repair instructions, could steer an edit into any ordinary production
 # file; if the suite still passed it was committed and pushed.
 
-def test_edits_outside_the_prs_own_diff_are_refused(monkeypatch, tmp_path):
+def test_edits_outside_the_prs_own_diff_are_refused():
     allowed = frozenset({"app/lib/thing.ts", "tests/thing.test.ts"})
-    changed = [" M app/lib/thing.ts",
-               " M tests/thing.test.ts",
-               " M lib/auth/session.ts"]          # the injection's real target
-    monkeypatch.setattr(review_fix, "run",
-                        lambda *_a, **_kw: (0, "\n".join(changed), ""))
-    assert review_fix.edits_outside(tmp_path, allowed) == ["lib/auth/session.ts"]
+    changed = ["app/lib/thing.ts", "tests/thing.test.ts",
+               "lib/auth/session.ts"]            # the injection's real target
+    assert review_fix.edits_outside(changed, allowed) == ["lib/auth/session.ts"]
 
 
-def test_an_edit_confined_to_the_pr_is_allowed(monkeypatch, tmp_path):
-    allowed = frozenset({"app/lib/thing.ts"})
-    monkeypatch.setattr(review_fix, "run",
-                        lambda *_a, **_kw: (0, " M app/lib/thing.ts", ""))
-    assert review_fix.edits_outside(tmp_path, allowed) == []
+def test_an_edit_confined_to_the_pr_is_allowed():
+    assert review_fix.edits_outside(["app/lib/thing.ts"],
+                                    frozenset({"app/lib/thing.ts"})) == []
 
 
 def test_an_unfetchable_pr_file_list_bounds_nothing_so_nothing_is_edited(monkeypatch):
@@ -311,7 +348,7 @@ def test_both_bounds_are_applied_together_before_the_commit():
     both before anything is committed."""
     src = Path(review_fix.__file__).read_text(encoding="utf-8")
     chain = src.split("def _apply_edit")[1].split("\ndef ")[0]
-    assert "forbidden_edits(repo_dir) + edits_outside(repo_dir, allowed)" in chain
+    assert "forbidden_edits(model_changed) + edits_outside(model_changed, allowed)" in chain
     assert chain.index("edits_outside(") < chain.index('"commit"')
 
 
@@ -340,3 +377,89 @@ def test_a_new_file_left_by_a_reverted_fix_is_named_not_deleted():
     assert "residue" in block
     assert "NOT auto-removed" in block
     assert "clean" not in block, "must not wipe untracked files — that is not ours to do"
+
+
+# ── the residue the fixer's own test run leaves ──────────────────────────────
+
+def test_the_test_runs_own_residue_is_not_judged_as_a_model_edit():
+    """THE BLOCKER. oasis-command-center tracks
+    tests/__pycache__/test_harness_canonical.cpython-312-pytest-9.0.3.pyc in git.
+    The baseline suite rewrites it, so the PR-diff bound found an out-of-bounds
+    path on EVERY attempt and the run escalated before reaching `git commit`.
+    Three correct fixes to the exact file the CI log named are sitting in
+    tmp/review_rejected_patches/ because of it.
+
+    A guard that rejects the thing it exists to protect is worse than no guard —
+    it fails silently and looks careful doing it.
+    """
+    src = Path(review_fix.__file__).read_text(encoding="utf-8")
+    chain = src.split("def _apply_edit")[1].split("\ndef ")[0]
+
+    assert "test_residue = set(_changed_paths(repo_dir))" in chain, (
+        "the baseline run's own output must be snapshotted")
+    assert chain.index("test_residue = set(") < chain.index("model_changed ="), (
+        "the snapshot must be taken BEFORE the model edits anything")
+    assert "if p not in test_residue" in chain
+    # Every downstream judgement reads model_changed, never the raw tree.
+    # Sliced from the line AFTER the definition, since the definition itself is
+    # the one legitimate _changed_paths call down here.
+    lines = chain.splitlines()
+    i = next(n for n, ln in enumerate(lines) if ln.strip().startswith("model_changed ="))
+    after = "\n".join(lines[i + 1:])
+    assert "_changed_paths(repo_dir)" not in after, (
+        "nothing below the definition may re-read the tree — that is the bug")
+
+
+def test_the_test_child_is_told_not_to_write_build_output():
+    """Belt to the braces: stop the residue existing rather than only excusing
+    it. .pytest_cache in a throwaway worktree also outlives the run as an
+    ACL-locked orphan that git can no longer remove."""
+    assert review_fix.TEST_CHILD_ENV["PYTHONDONTWRITEBYTECODE"] == "1"
+    assert "no:cacheprovider" in review_fix.TEST_CHILD_ENV["PYTEST_ADDOPTS"]
+    src = Path(review_fix.__file__).read_text(encoding="utf-8")
+    assert src.count("env_extra=TEST_CHILD_ENV") == 2, (
+        "both the baseline and the post-edit run must carry it")
+
+
+def test_the_fixer_proves_a_fix_with_the_suite_ci_actually_runs():
+    """oasis-command-center has NO `test` script and 250-plus TypeScript tests.
+    The old inference matched its `tests/` directory and ran pytest, 'proving' a
+    TypeScript fix with three Python lockstep assertions — and rewriting a
+    tracked .pyc while it did. ci.yml runs `npm run test:sunbiz`, which is the
+    same suite whose failure the fixer reads."""
+    oasis = Path.home() / "APPS" / "oasis-command-center"
+    if not oasis.exists():
+        import pytest as _pytest
+        _pytest.skip("needs the oasis-command-center checkout")
+    assert review_fix.detect_test_cmd(oasis) == ["npm", "run", "test:sunbiz"]
+
+
+def test_a_tests_directory_is_not_evidence_of_pytest(tmp_path):
+    """A repo can have a tests/ folder full of TypeScript. Requiring real
+    test_*.py files is what stops the fixer running the wrong suite and
+    believing the result."""
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "thing.test.ts").write_text("x", encoding="utf-8")
+    assert review_fix.detect_test_cmd(tmp_path) is None
+
+    (tmp_path / "tests" / "test_real.py").write_text("def test_x(): pass", encoding="utf-8")
+    cmd = review_fix.detect_test_cmd(tmp_path)
+    assert cmd and "pytest" in cmd and "no:cacheprovider" in cmd
+
+
+def test_nothing_is_built_until_there_is_work():
+    """The worktree block used to sit ABOVE the `if not todo` return, so a pass
+    with nothing to do built a checkout and returned past the `finally` that
+    tears it down. Eight leaked worktrees (~479 MB) accumulated that way, every
+    one of them from a pass that did nothing.
+
+    An early return is exactly where a `finally` does not save you.
+    """
+    src = Path(review_fix.__file__).read_text(encoding="utf-8")
+    main = src.split("def main() -> None:")[1]
+    assert main.index("if not todo:") < main.index("prepare_pr_checkout("), (
+        "the worktree must be built only after there is work to do")
+    assert main.index("if not todo:") < main.index("pr_changed_paths("), (
+        "do not even ask GitHub for the PR's files when there is nothing to fix")
+    # and the teardown must still be in a finally
+    assert "finally:" in main and main.index("finally:") < main.index("teardown_pr_checkout(")

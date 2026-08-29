@@ -157,11 +157,15 @@ Rules, in priority order:
 When done, output a single line: FIXED: <what you changed, one sentence>."""
 
 
-def run(cmd: list[str], cwd: Path, timeout: int = 120) -> tuple[int, str, str]:
+def run(cmd: list[str], cwd: Path, timeout: int = 120,
+        env_extra: Optional[dict] = None) -> tuple[int, str, str]:
     try:
+        env = None
+        if env_extra:
+            env = {**os.environ, **env_extra}
         r = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=timeout,
-                           creationflags=WINDOWLESS_FLAGS)
+                           creationflags=WINDOWLESS_FLAGS, env=env)
         return r.returncode, (r.stdout or "").strip(), (r.stderr or "").strip()
     except subprocess.TimeoutExpired:
         return 124, "", f"timed out after {timeout}s"
@@ -216,14 +220,61 @@ def spawn_claude_editor(prompt: str, cwd: Path, timeout: int = 900) -> Optional[
     return (proc.stdout or "").strip() or None
 
 
+# A repo whose real suite is not reachable as `npm test` or `pytest <dir>`.
+# Keyed by local directory name, because that is what detect_test_cmd is handed.
+#
+# oasis-command-center has NO "test" script and 250-plus TypeScript tests behind
+# per-area scripts. The pytest branch below matched it anyway — `tests/` exists —
+# so the fixer was "proving" a TypeScript fix by running three Python lockstep
+# assertions over a TypeScript directory, and rewriting a TRACKED .pyc while it
+# did. `npm run test:sunbiz` is what .github/workflows/ci.yml runs, and it is the
+# suite whose failure the fixer is reading in the first place.
+REPO_TEST_CMDS = {
+    "oasis-command-center": ["npm", "run", "test:sunbiz"],
+}
+
+# Handed to every test child. A throwaway worktree must come back exactly as
+# clean as it went in: without these, pytest writes .pytest_cache (which then
+# outlives the run as an ACL-locked orphan) and CPython writes .pyc files that
+# the fixer's own bounds check then reads as edits the model made.
+TEST_CHILD_ENV = {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTEST_ADDOPTS": "-p no:cacheprovider",
+}
+
+
 def detect_test_cmd(repo_dir: Path) -> Optional[list[str]]:
-    if (repo_dir / "scripts" / "tests").is_dir() or (repo_dir / "tests").is_dir():
+    """The command that PROVES a fix in this repo — CI's suite, not a lookalike.
+
+    Order matters: an explicit per-repo command beats inference, and inference
+    reads package.json BEFORE guessing pytest from a directory name. A repo can
+    have a `tests/` folder full of TypeScript.
+    """
+    override = REPO_TEST_CMDS.get(repo_dir.name)
+    if override:
+        return list(override)
+
+    # Python evidence first, and it must be REAL evidence — actual test_*.py
+    # files, not a directory that merely happens to be called tests/. Ordering
+    # note that cost a round trip: putting package.json first sent
+    # Business-Empire-Agent to `npm test`, which is itself a python wrapper
+    # (`python scripts/run_tests.py -v`) and drops the no-cache flag on the way.
+    #
+    # Both real repos are genuinely ambiguous — oasis-command-center holds
+    # tests/test_harness_canonical.py beside 250 TypeScript tests. Inference
+    # cannot settle that; REPO_TEST_CMDS does, and that is what it is for.
+    for rel in ("scripts/tests", "tests"):
+        target = repo_dir / rel
+        if not target.is_dir():
+            continue
+        if not any(target.rglob("test_*.py")) and not any(target.rglob("*_test.py")):
+            continue
         venv = repo_dir / ".venv" / "Scripts" / "python.exe"
         if not venv.exists():
             venv = repo_dir / ".venv" / "bin" / "python"
         py = str(venv) if venv.exists() else sys.executable
-        target = "scripts/tests" if (repo_dir / "scripts" / "tests").is_dir() else "tests"
-        return [py, "-m", "pytest", target, "-q"]
+        return [py, "-m", "pytest", rel, "-q", "-p", "no:cacheprovider"]
+
     pkg = repo_dir / "package.json"
     if pkg.exists():
         try:
@@ -443,7 +494,23 @@ def prepare_pr_checkout(repo_dir: Path, branch: str) -> tuple[Optional[Path], Op
         # the fixer never edits a stale tree it did not create this pass.
         for name in LINKED_DIRS:
             _drop_link(wt / name)
-        run(["git", "worktree", "remove", "--force", str(wt)], repo_dir)
+        rc, _, _ = run(["git", "worktree", "remove", "--force", str(wt)], repo_dir)
+        if rc != 0 and not _purge_orphan_tree(wt):
+            # UNREMOVABLE, AND THAT MUST NOT BE FATAL. One ACL-locked
+            # .pytest_cache left by a killed run made `git worktree add` fail
+            # with "already exists" — permanently, for that branch, on every
+            # subsequent pass. A leftover the fixer cannot delete is a disk
+            # problem; refusing to work on that branch again is an outage.
+            for n in range(2, 6):
+                candidate = WORKTREE_ROOT / f"{safe}-{n}"
+                if not candidate.exists():
+                    wt = candidate
+                    break
+            else:
+                return None, (f"{safe}: 4 undeletable leftovers under "
+                              f"{WORKTREE_ROOT} — clear them (see O4)"), []
+            print(f"review_fix: {safe} is undeletable; using {wt.name}",
+                  file=sys.stderr)
         run(["git", "worktree", "prune"], repo_dir)
 
     # Detached on the fetched tip: the branch may already be checked out in
@@ -492,20 +559,32 @@ def teardown_pr_checkout(repo_dir: Path, cleanup: list) -> None:
 
 
 def _changed_paths(repo_dir: Path) -> list:
-    """Repo-relative paths the working tree currently differs on."""
-    _, out, _ = run(["git", "status", "--porcelain"], repo_dir)
-    paths = []
-    for line in out.splitlines():
-        entry = line[3:].strip().strip('"')
-        if " -> " in entry:                    # rename: take the destination
-            entry = entry.split(" -> ", 1)[1].strip().strip('"')
-        if entry:
-            paths.append(entry)
-    return paths
+    """Repo-relative paths the working tree currently differs on.
+
+    NO FIXED-WIDTH PREFIX PARSING. This read `git status --porcelain` and sliced
+    `line[3:]` to skip the two status characters and a space — correct against
+    the raw command, and wrong here, because run() returns `stdout.strip()`.
+    That strip eats the leading space of the FIRST line only, so the first
+    changed path came back missing its first character:
+    `docs/coordination/tools/agent_genome.py` arrived as `ocs/...`.
+
+    A truncated path is in no allowlist, so the PR-diff bound rejected the
+    model's correct fix as out-of-bounds and escalated — on every run, on
+    whichever file happened to sort first. Found by running the fixer for real;
+    the unit test missed it because its fixture had no leading space to lose.
+
+    Two commands that emit BARE paths instead. Nothing to mis-slice.
+    """
+    paths: list[str] = []
+    for cmd in (["git", "diff", "--name-only", "HEAD"],
+                ["git", "ls-files", "--others", "--exclude-standard"]):
+        _, out, _ = run(cmd, repo_dir)
+        paths += [line.strip().strip('"') for line in out.splitlines() if line.strip()]
+    return sorted(set(paths))
 
 
-def forbidden_edits(repo_dir: Path) -> list:
-    """Changed paths the fixer is never allowed to push.
+def forbidden_edits(paths) -> list:
+    """Of `paths`, the ones the fixer is never allowed to push.
 
     Rule 5 of FIX_SYSTEM_PROMPT — never touch migrations, credentials, CI
     workflows, the send gateway, the guards, anything money-adjacent — was
@@ -520,7 +599,7 @@ def forbidden_edits(repo_dir: Path) -> list:
     control. Same DANGER_PATHS as the harvester — one definition, so the rule
     the fixer enforces cannot drift from the rule the harvester flags.
     """
-    return [path for path in _changed_paths(repo_dir) if is_dangerous(path)]
+    return [path for path in paths if is_dangerous(path)]
 
 
 # ── red CI: read the log, not the notification ───────────────────────────────
@@ -657,11 +736,33 @@ def _apply_edit(finding: dict, repo_dir: Path, branch: str, prompt: str, out: di
     # trusting a green-looking suite that was never green is worse.
     test_cmd = detect_test_cmd(repo_dir)
     baseline_green = None
+    # Paths the TEST RUN dirtied, not the model. Subtracted from every later
+    # judgement about "what the edit changed".
+    #
+    # THE BLOCKER THIS EXISTS FOR. oasis-command-center tracks
+    # tests/__pycache__/test_harness_canonical.cpython-312-pytest-9.0.3.pyc in
+    # git. The baseline suite rewrote it, so the PR-diff bound found a path
+    # outside the PR on EVERY attempt and the run escalated before reaching
+    # `git commit`. Three correct fixes to the exact file the CI log named are
+    # sitting in tmp/review_rejected_patches/ because of it — the loop
+    # diagnosed the bug and then rejected its own work, every single time.
+    #
+    # TEST_CHILD_ENV stops most residue being created at all; this is the belt
+    # to that pair of braces, because the next repo's suite will write some
+    # other artifact and the bound must not read it as an edit. A guard that
+    # rejects the thing it exists to protect is worse than no guard: it fails
+    # silently and looks careful while doing it.
+    test_residue: set = set()
+
     if test_cmd:
-        brc, _, _ = run(test_cmd, repo_dir, timeout=900)
+        brc, _, _ = run(test_cmd, repo_dir, timeout=900,
+                        env_extra=TEST_CHILD_ENV)
         baseline_green = (brc == 0)
         if not baseline_green:
             out["baseline"] = "tests were ALREADY failing before this fix"
+        test_residue = set(_changed_paths(repo_dir))
+        if test_residue:
+            out["test_residue"] = sorted(test_residue)[:6]
 
     reply = spawn_claude_editor(prompt, repo_dir)
     if not reply:
@@ -671,14 +772,14 @@ def _apply_edit(finding: dict, repo_dir: Path, branch: str, prompt: str, out: di
         out.update(status="skipped", detail=reply.strip()[:300])
         return out
 
-    _, changed, _ = run(["git", "status", "--porcelain"], repo_dir)
-    if not changed.strip():
+    model_changed = [p for p in _changed_paths(repo_dir) if p not in test_residue]
+    if not model_changed:
         out.update(status="no-op", detail="model reported a fix but changed no files")
         return out
 
     # Two independent bounds, both checked on what the edit ACTUALLY changed:
     # never a forbidden path, and never outside the PR's own diff.
-    off_limits = forbidden_edits(repo_dir) + edits_outside(repo_dir, allowed)
+    off_limits = forbidden_edits(model_changed) + edits_outside(model_changed, allowed)
     if off_limits:
         # The model edited something it may not push. Keep the work, revert the
         # tree, hand it to CC. Never push it.
@@ -691,7 +792,7 @@ def _apply_edit(finding: dict, repo_dir: Path, branch: str, prompt: str, out: di
         # their tree. Deleting files is not this process's call, so it says so
         # instead — a silent leftover is how an injected file gets committed by
         # a human who never knew it appeared.
-        residue = [p for p in _changed_paths(repo_dir) if p in set(off_limits)]
+        residue = [p for p in model_changed if p in set(off_limits)]
         out.update(status="escalated",
                    detail=f"fix touched paths it may not push "
                           f"({', '.join(sorted(set(off_limits))[:4])}) — reverted."
@@ -701,7 +802,8 @@ def _apply_edit(finding: dict, repo_dir: Path, branch: str, prompt: str, out: di
         return out
 
     if test_cmd:
-        trc, tout, terr = run(test_cmd, repo_dir, timeout=900)
+        trc, tout, terr = run(test_cmd, repo_dir, timeout=900,
+                              env_extra=TEST_CHILD_ENV)
         if trc != 0 and baseline_green:
             # We broke it. A red branch is worse than an open review comment.
             run(["git", "checkout", "--", "."], repo_dir)
@@ -786,9 +888,9 @@ def pr_changed_paths(repo: str, number: int) -> tuple:
     return paths, ""
 
 
-def edits_outside(repo_dir: Path, allowed: frozenset) -> list:
-    """Changed paths the PR does not itself touch."""
-    return [path for path in _changed_paths(repo_dir) if path not in allowed]
+def edits_outside(paths, allowed: frozenset) -> list:
+    """Of `paths`, the ones the PR does not itself touch."""
+    return [path for path in paths if path not in allowed]
 
 
 def fix_one(finding: dict, repo_dir: Path, branch: str, *, dry_run: bool,
@@ -876,16 +978,6 @@ def main() -> None:
         blocked("no_local_checkout",
                 f"no local checkout registered for {repo} (add it to REPO_PATHS)")
 
-    # Fetched BEFORE any checkout work: an unbounded edit is not worth building
-    # a worktree for, and this is the gate that bounds it.
-    allowed, allow_err = pr_changed_paths(repo, int(num))
-    if allow_err:
-        blocked("unbounded_edit", allow_err)
-
-    work_dir, wt_err, cleanup = prepare_pr_checkout(repo_dir, branch)
-    if wt_err or work_dir is None:
-        blocked("worktree_failed", wt_err or "could not prepare a checkout")
-
     wanted = {s.strip().lower() for s in args.severity.split(",") if s.strip()}
     threads = [f for f in harvest["findings"]
                if f["severity"] in wanted and f["kind"] == "review_thread"]
@@ -907,6 +999,19 @@ def main() -> None:
         msg = f"{repo}#{num}: no unresolved {'/'.join(sorted(wanted))} review threads"
         print(json.dumps({"results": []}) if args.json else msg)
         return
+
+    # NOTHING IS BUILT UNTIL THERE IS WORK. This block used to sit above the
+    # `if not todo` return, so a pass with nothing to do created a worktree and
+    # returned past the `finally` that tears it down. Eight leaked checkouts in
+    # ~479 MB accumulated that way — every one of them from a pass that did
+    # nothing. An early return is exactly where a `finally` does not save you.
+    allowed, allow_err = pr_changed_paths(repo, int(num))
+    if allow_err:
+        blocked("unbounded_edit", allow_err)
+
+    work_dir, wt_err, cleanup = prepare_pr_checkout(repo_dir, branch)
+    if wt_err or work_dir is None:
+        blocked("worktree_failed", wt_err or "could not prepare a checkout")
 
     try:
         results = [fix_one(f, work_dir, branch, dry_run=args.dry_run, allowed=allowed)

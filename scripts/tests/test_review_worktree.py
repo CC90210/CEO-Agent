@@ -285,3 +285,34 @@ def test_teardown_does_not_prune_after_a_failed_removal():
     prune_at = fn.index('"prune"')
     assert "if not stuck:" in fn[:prune_at], "prune must be guarded by a clean removal"
     assert "file=sys.stderr" in fn, "a failed removal must be said out loud"
+
+
+def test_an_undeletable_leftover_does_not_wedge_the_branch(tmp_path, monkeypatch):
+    """One ACL-locked .pytest_cache made `git worktree add` fail with "already
+    exists" — permanently, for that branch, on every subsequent pass. Found by
+    running the fixer for real, not by reading it.
+
+    A leftover the fixer cannot delete is a disk problem. Refusing to work on
+    that branch ever again is an outage.
+    """
+    repo_dir = _sandbox_repo(tmp_path)
+    root = tmp_path / "wt"
+    root.mkdir()
+    monkeypatch.setattr(review_fix, "WORKTREE_ROOT", root)
+
+    # An undeletable squatter on the name prepare_pr_checkout wants.
+    squatter = root / f"{repo_dir.name}-main"
+    squatter.mkdir()
+    (squatter / "keep.txt").write_text("locked", encoding="utf-8")
+    monkeypatch.setattr(review_fix, "_purge_orphan_tree", lambda _p: False)
+
+    work, err, cleanup = review_fix.prepare_pr_checkout(repo_dir, "main")
+    try:
+        assert err is None, f"an undeletable leftover must not be fatal: {err}"
+        assert work is not None and work.exists()
+        assert work != squatter, "must not reuse a tree it could not clear"
+        assert (work / "app.txt").read_text(encoding="utf-8") == "hello"
+    finally:
+        review_fix.teardown_pr_checkout(repo_dir, cleanup)
+
+    assert squatter.exists(), "the squatter is left alone, not force-deleted"

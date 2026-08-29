@@ -78,12 +78,28 @@ REVIEW_BOTS = {"coderabbitai", "coderabbitai[bot]", "vercel", "vercel[bot]",
 
 # CodeRabbit tags its own findings with these markers; they map cleanly onto our
 # triage order. Order matters — first match wins.
+# CodeRabbit states its OWN severity, and until 2026-08-28 nothing here read it.
+# Its inline findings carry a marker line like:
+#     _🎯 Functional Correctness_ | _🟠 Major_ | _🏗️ Heavy lift_
+# and none of the words below appear in them — so every single CodeRabbit review
+# thread on the live queue classified as "low", fell under the critical,high
+# default, and the fixer had nothing to do. A filter that rejects the reviewer's
+# entire vocabulary is the same defect as a poll with no trigger: the mechanism
+# is healthy and it can never fire.
+#
+# The reviewer's own label wins over inference. Inference stays as the fallback
+# for Vercel, CI and human comments, which carry no marker.
 SEVERITY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("critical", re.compile(r"\[!CAUTION\]|critical|security|vulnerab|injection|"
+    # -- what the reviewer explicitly SAID --
+    ("critical", re.compile(r"_?🔴\s*Critical_?|\[!CAUTION\]", re.I)),
+    ("high", re.compile(r"_?🟠\s*Major_?|\[!WARNING\]|potential issue", re.I)),
+    ("medium", re.compile(r"_?🟡\s*Minor_?|\[!NOTE\]", re.I)),
+    # -- inference, for reviewers that state nothing --
+    ("critical", re.compile(r"critical|security|vulnerab|injection|"
                             r"credential|secret|rce|data\s*loss", re.I)),
-    ("high", re.compile(r"\[!WARNING\]|potential issue|bug|race|deadlock|"
+    ("high", re.compile(r"bug|race|deadlock|"
                         r"unguarded|null|crash|leak|timeout", re.I)),
-    ("medium", re.compile(r"\[!NOTE\]|refactor|simplif|duplicat|performance|n\+1", re.I)),
+    ("medium", re.compile(r"refactor|simplif|duplicat|performance|n\+1", re.I)),
 ]
 
 # Never let the auto-fixer near these. Money, credentials, the outbound
