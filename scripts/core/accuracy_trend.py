@@ -85,11 +85,25 @@ def _ratio(score) -> float | None:
     return None
 
 
-def harness_by_week(weeks: int) -> dict[str, dict]:
-    out: dict[str, list[float]] = defaultdict(list)
-    fails: dict[str, list[str]] = defaultdict(list)
+def history_rows(rows: list[dict] | None = None) -> list[dict]:
+    """Every harness run that has a parseable score, oldest first.
+
+    ONE parser. The by-week, trailing-window and scheduled-only views each grew
+    their own copy of this loop — same read, same json.loads, same skip-bad-line
+    handling, three times — which meant three chances to disagree about what
+    counts as a valid row, and three full reads of the file per report on a
+    machine where IO is the bottleneck. build() reads once and passes the result
+    down; the individual functions still accept None so each stays callable and
+    testable on its own.
+
+    Sorted by timestamp, not file order: several processes append here, and a
+    trailing window keyed on file order is wrong the moment two interleave.
+    """
+    if rows is not None:
+        return rows
     if not HARNESS_HISTORY.is_file():
-        return {}
+        return []
+    out = []
     for line in HARNESS_HISTORY.read_text(encoding="utf-8", errors="replace").splitlines():
         if not line.strip():
             continue
@@ -97,6 +111,17 @@ def harness_by_week(weeks: int) -> dict[str, dict]:
             row = json.loads(line)
         except json.JSONDecodeError:
             continue
+        if _ratio(row.get("score")) is None or not row.get("timestamp"):
+            continue
+        out.append(row)
+    out.sort(key=lambda r: r["timestamp"])
+    return out
+
+
+def harness_by_week(weeks: int, rows: list[dict] | None = None) -> dict[str, dict]:
+    out: dict[str, list[float]] = defaultdict(list)
+    fails: dict[str, list[str]] = defaultdict(list)
+    for row in history_rows(rows):
         d = _as_date(row.get("timestamp"))
         r = _ratio(row.get("score"))
         if d is None or r is None:
@@ -160,7 +185,7 @@ def evals_by_week(weeks: int) -> dict[str, dict]:
     return {w: buckets[w] for w in keep}
 
 
-def harness_scheduled(limit: int = 14) -> dict:
+def harness_scheduled(limit: int = 14, rows: list[dict] | None = None) -> dict:
     """The last N SCHEDULED runs — system health with mid-edit noise removed.
 
     WHY THIS IS THE HONEST NUMBER (2026-08-28): the fleet-compiles check reads
@@ -176,20 +201,8 @@ def harness_scheduled(limit: int = 14) -> dict:
     this second". Runs before --source existed have no label and are excluded
     rather than assumed — guessing would defeat the point.
     """
-    rows = []
-    if HARNESS_HISTORY.is_file():
-        for line in HARNESS_HISTORY.read_text(encoding="utf-8",
-                                              errors="replace").splitlines():
-            if not line.strip():
-                continue
-            try:
-                r = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if r.get("source") == "cron" and _ratio(r.get("score")) is not None:
-                rows.append(r)
-    rows.sort(key=lambda r: r.get("timestamp") or "")
-    w = rows[-limit:]
+    cron = [r for r in history_rows(rows) if r.get("source") == "cron"]
+    w = cron[-limit:]
     if not w:
         return {}
     vals = [_ratio(r["score"]) for r in w]
@@ -198,7 +211,7 @@ def harness_scheduled(limit: int = 14) -> dict:
             "latest": w[-1].get("timestamp", "")[:16]}
 
 
-def harness_trailing(windows=(5, 20, 50)) -> dict[int, dict]:
+def harness_trailing(windows=(5, 20, 50), rows: list[dict] | None = None) -> dict[int, dict]:
     """Trailing-window rates — what the harness scores NOW.
 
     WHY THIS EXISTS SEPARATELY FROM THE WEEKLY MEAN (2026-08-28): the weekly
@@ -212,22 +225,10 @@ def harness_trailing(windows=(5, 20, 50)) -> dict[int, dict]:
     window answers "what is true right now", and a fix should move the second
     immediately and the first only slowly.
     """
-    rows = []
-    if HARNESS_HISTORY.is_file():
-        for line in HARNESS_HISTORY.read_text(encoding="utf-8",
-                                              errors="replace").splitlines():
-            if not line.strip():
-                continue
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if _ratio(row.get("score")) is not None and row.get("timestamp"):
-                rows.append(row)
-    rows.sort(key=lambda r: r["timestamp"])
+    parsed = history_rows(rows)
     out = {}
     for n in windows:
-        w = rows[-n:]
+        w = parsed[-n:]
         if not w:
             continue
         vals = [_ratio(r["score"]) for r in w]
@@ -269,11 +270,15 @@ def incident_guard_coverage() -> dict:
 
 
 def build(weeks: int) -> dict:
+    # Read the history ONCE and hand it to every view. Three separate parses of
+    # the same file is three chances to disagree about what counts as a valid
+    # row, and three full reads per report on a box where IO is the bottleneck.
+    rows = history_rows()
     return {"generated": datetime.now(timezone.utc).isoformat(),
             "weeks": weeks,
-            "harness": harness_by_week(weeks),
-            "harness_now": harness_trailing(),
-            "harness_scheduled": harness_scheduled(),
+            "harness": harness_by_week(weeks, rows),
+            "harness_now": harness_trailing(rows=rows),
+            "harness_scheduled": harness_scheduled(rows=rows),
             "incident_guards": incident_guard_coverage(),
             "gate": gate_by_week(weeks),
             "evals": evals_by_week(weeks)}

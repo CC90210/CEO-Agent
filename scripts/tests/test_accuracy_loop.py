@@ -340,3 +340,62 @@ class TestIncidentGuardCoverage:
         out = trend.render(trend.build(2))
         assert "INCIDENT GUARD COVERAGE" in out
         assert "/12" in out
+
+
+class TestHistoryIsParsedOnce:
+    """The by-week, trailing-window and scheduled-only views each grew their own
+    copy of the history-parsing loop — same read, same json.loads, same
+    skip-bad-line handling, three times. That is three chances to disagree about
+    what counts as a valid row, and three full reads of the file per report on a
+    machine where IO is already the bottleneck.
+    """
+
+    def test_build_reads_the_history_file_exactly_once(self, monkeypatch, tmp_path):
+        hist = tmp_path / "h.jsonl"
+        hist.write_text("\n".join(
+            json.dumps({"timestamp": f"2026-08-28T{i:02d}:00:00+00:00",
+                        "score": "14/14", "pass": True, "source": "cron"})
+            for i in range(3)), encoding="utf-8")
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", hist)
+
+        reads = {"n": 0}
+        real = type(hist).read_text
+
+        def counting(self, *a, **k):
+            if self == hist:
+                reads["n"] += 1
+            return real(self, *a, **k)
+
+        monkeypatch.setattr(type(hist), "read_text", counting)
+        trend.build(2)
+        assert reads["n"] == 1, (
+            f"history parsed {reads['n']} times per report — the per-view copies "
+            "of the parse loop have come back")
+
+    def test_each_view_still_works_standalone(self, monkeypatch, tmp_path):
+        """Sharing a parser must not make the views uncallable on their own —
+        they are used individually by the weekly digest and by tests."""
+        hist = tmp_path / "h.jsonl"
+        hist.write_text(json.dumps(
+            {"timestamp": "2026-08-28T01:00:00+00:00", "score": "14/14",
+             "pass": True, "source": "cron"}), encoding="utf-8")
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", hist)
+        assert trend.harness_by_week(2)
+        assert trend.harness_trailing(windows=(1,))
+        assert trend.harness_scheduled()
+
+    def test_all_views_agree_on_what_a_valid_row_is(self, monkeypatch, tmp_path):
+        """The reason to share the parser: a row with an unparseable score must
+        be invisible to every view, not just to the one that happened to check."""
+        hist = tmp_path / "h.jsonl"
+        hist.write_text("\n".join([
+            json.dumps({"timestamp": "2026-08-28T01:00:00+00:00", "score": "14/14",
+                        "pass": True, "source": "cron"}),
+            json.dumps({"timestamp": "2026-08-28T02:00:00+00:00", "score": "garbage",
+                        "source": "cron"}),
+            "{not json at all",
+        ]), encoding="utf-8")
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", hist)
+        assert len(trend.history_rows()) == 1
+        assert trend.harness_scheduled()["runs"] == 1
+        assert trend.harness_trailing(windows=(10,))[10]["runs"] == 1
