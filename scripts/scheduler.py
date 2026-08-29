@@ -611,15 +611,29 @@ def summarize_stdout(stdout: str, limit: int = RESULT_LIMIT) -> str:
     text = (stdout or "").strip()
     if not text:
         return "ok"
-    if text[:1] in "{[":
+
+    def _render(candidate: str) -> str | None:
+        """Summarize as JSON when it IS JSON, else None."""
+        if candidate[:1] not in "{[":
+            return None
         try:
-            return _summarize_json(json.loads(text), limit)
+            return _summarize_json(json.loads(candidate), limit)
         except (ValueError, TypeError):
-            pass  # not JSON after all — fall through to the line scan
+            return None
+
+    # The whole output first, then the last meaningful LINE. Both paths have to
+    # try JSON: a script that logs a line before its payload leaves the payload
+    # as the last line, and clipping it there reproduces exactly the truncated
+    # JSON this function exists to stop. Observed live on "Bravo - Review
+    # Harvest", whose first post-fix result was still a 200-char JSON fragment
+    # because only the whole-output path was checking.
+    rendered = _render(text)
+    if rendered is not None:
+        return rendered
     for line in reversed(text.splitlines()):
         stripped = line.strip()
         if stripped and not _NOISE_ONLY.match(stripped):
-            return _clip_result(stripped, limit)
+            return _render(stripped) or _clip_result(stripped, limit)
     return _clip_result(text.splitlines()[-1], limit)
 
 

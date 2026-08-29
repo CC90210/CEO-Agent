@@ -65,6 +65,23 @@ def test_truncation_announces_itself():
     assert "cut" in out, "truncated result gives no sign it was truncated"
 
 
+def test_json_on_the_last_line_is_summarized_not_clipped():
+    """The miss in the first version, caught by watching the real job.
+
+    "Bravo - Review Harvest" logs a line before its payload, so the payload is
+    the last LINE rather than the whole output. Only the whole-output path was
+    trying JSON, so its first post-fix result was still a 200-char JSON
+    fragment — the exact signature the harness flags as truncated.
+    """
+    payload = ('{"drained": ["CC90210/oasis-command-center#236"], "kept": [], '
+               '"remaining": 6, "fixed": 0, "escalated": 0, "errors": [], '
+               '"report": [{"repo": "' + "r" * 400 + '"}]}')
+    out = sch.summarize_stdout("[harvest] scanning 6 PRs\n" + payload)
+    assert "remaining=6" in out, out
+    assert len(out) <= sch.RESULT_LIMIT
+    assert not out.startswith("{"), "still storing a raw JSON fragment"
+
+
 def test_a_summary_never_lands_on_the_slice_signature():
     """harness_eval flags a stored result that is JSON-shaped, unparseable and
     exactly a slice length. A summary must not reproduce that signature: it is

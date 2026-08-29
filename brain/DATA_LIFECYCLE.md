@@ -42,6 +42,9 @@ are complete. Never prune.
 |---|---|---|
 | `state/*.log` (all) | 5 MB, 5 gzipped backups | `scripts/hooks/rotate_logs.py`, fired by SessionStart **and** the Daily Log Rotation Audit cron (04:00 ET) |
 | `~/.pm2/logs/*` | daily rotation | `pm2-logrotate` (legacy; PM2 is no longer the supervisor — see [[V6_ARCHITECTURE]]) |
+| `state/cron_timings.jsonl` | 4,000 records, trimmed in place | `scheduler._record_job_timing` on write. **`rotate_logs.py` covers `state/*.log` only — a `.jsonl` is invisible to it**, which is why this file bounds itself. |
+| `state/email_sweep.log` | 5 MB via the `state/*.log` rule above | `rotate_logs.py` |
+| `state/logs/daemon-*.log` | 2 MB + one rolled copy | `fleet_watchdog._daemon_log` on each start. Hand-rolled because the handle is given to a DETACHED child, so no logging handler is in the loop to rotate it. One copy is kept so a crash loop's FIRST traceback survives the noise that follows it. |
 
 **Rotation is the backstop, not the fix.** `state/secret_access.log` reached
 43 MB/day *with* rotation working correctly, because the write volume outran a

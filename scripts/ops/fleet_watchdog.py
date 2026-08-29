@@ -449,6 +449,74 @@ def down_names(rows: list[dict] | None = None) -> list[str]:
                   if classify(r) == "down")
 
 
+DAEMON_LOG_DIR = PROJECT_ROOT / "state" / "logs"
+DAEMON_LOG_MAX_BYTES = 2_000_000
+# A daemon started more often than this in the window is not being supervised,
+# it is being resuscitated. Manifest daemons are long-running; three starts in
+# an hour means each one died.
+CRASH_LOOP_STARTS = 3
+CRASH_LOOP_WINDOW_SEC = 3600
+
+
+def _daemon_log(name: str):
+    """An append handle for one daemon's stdout+stderr, or None.
+
+    Before this, `start()` passed stdout=DEVNULL and stderr=DEVNULL. PM2 used to
+    capture those streams; PM2 is no longer the supervisor, so a daemon that
+    dies on boot — a SyntaxError, a missing env var, an import that raises —
+    produced NOTHING anywhere. The watchdog would start it, it would exit, and
+    the next pass five minutes later would start it again, forever, with the
+    fleet reading "0 down" in between passes because the timing hid it.
+
+    Bounded by hand: this is a raw file handle given to a detached child, so no
+    logging handler is in the loop to rotate it. One rolled copy is kept, which
+    is what makes a crash loop's FIRST failure survivable — the loop's later
+    output would otherwise push the original traceback out.
+    """
+    try:
+        DAEMON_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        path = DAEMON_LOG_DIR / f"daemon-{name}.log"
+        if path.exists() and path.stat().st_size > DAEMON_LOG_MAX_BYTES:
+            rolled = path.with_suffix(".log.1")
+            try:
+                if rolled.exists():
+                    rolled.unlink()
+                path.rename(rolled)
+            except OSError:
+                path.write_text("", encoding="utf-8")  # held open: truncate
+        return open(path, "a", encoding="utf-8", errors="replace")
+    except OSError:
+        return None  # never block a start on a log file
+
+
+def recent_starts(name: str, window_sec: int = CRASH_LOOP_WINDOW_SEC) -> int:
+    """How many times this daemon has been started in the window.
+
+    Turns an invisible crash loop into a number. The watchdog already recorded
+    every start; nothing ever read them back, so a daemon dying and being
+    restarted every five minutes looked identical to one that had been up all
+    day."""
+    if not LOG.exists():
+        return 0
+    cutoff = datetime.now(timezone.utc).timestamp() - window_sec
+    needle = f"started {name}"
+    count = 0
+    try:
+        for line in LOG.read_text(encoding="utf-8", errors="replace").splitlines()[-2000:]:
+            if needle not in line:
+                continue
+            try:
+                rec = json.loads(line)
+                ts = datetime.fromisoformat(str(rec.get("ts", "")).replace("Z", "+00:00"))
+            except (ValueError, TypeError, json.JSONDecodeError):
+                continue
+            if ts.timestamp() >= cutoff:
+                count += 1
+    except OSError:
+        return 0
+    return count
+
+
 def start(app: dict, dry: bool = False) -> tuple[bool, str]:
     if app.get("unrunnable"):
         return False, app["unrunnable"]
@@ -462,15 +530,41 @@ def start(app: dict, dry: bool = False) -> tuple[bool, str]:
         return False, "no launchable command"
     if dry:
         return True, "DRY: " + " ".join(cmd)
+    prior = recent_starts(app["name"])
+    sink = _daemon_log(app["name"])
     try:
         subprocess.Popen(cmd, cwd=app["cwd"] or str(PROJECT_ROOT),
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         stdout=sink or subprocess.DEVNULL,
+                         stderr=subprocess.STDOUT if sink else subprocess.DEVNULL,
                          creationflags=_NO_WINDOW | DETACHED, close_fds=True)
-        _log(f"started {app['name']}: {' '.join(cmd)}")
-        return True, " ".join(cmd)
+        note = ""
+        if prior + 1 >= CRASH_LOOP_STARTS:
+            note = (f" [CRASH LOOP: {prior + 1} starts in "
+                    f"{CRASH_LOOP_WINDOW_SEC // 60}m — see "
+                    f"state/logs/daemon-{app['name']}.log]")
+            # States the COUNT, not a diagnosis. An operator restarting a
+            # daemon three times while deploying is indistinguishable from a
+            # crash loop at this layer, and a warning that asserts the wrong
+            # cause is how a real alert gets ignored. The count is the fact;
+            # the log named here is where the cause is.
+            print(f"WARNING: {app['name']} has been started {prior + 1} times in "
+                  f"the last {CRASH_LOOP_WINDOW_SEC // 60} minutes. If that was "
+                  f"not you, it is dying rather than running — its output is in "
+                  f"state/logs/daemon-{app['name']}.log", file=sys.stderr)
+        _log(f"started {app['name']}: {' '.join(cmd)}{note}")
+        return True, " ".join(cmd) + note
     except Exception as e:  # noqa: BLE001
         _log(f"FAILED to start {app['name']}: {type(e).__name__}: {e}")
         return False, f"{type(e).__name__}: {e}"
+    finally:
+        # The child holds its own duplicate of the handle. Keeping the parent's
+        # copy open would leave this short-lived process pinning the file, which
+        # is what makes the next rotation fail with a sharing violation.
+        if sink is not None:
+            try:
+                sink.close()
+            except OSError:
+                pass
 
 
 RUN_LOCK = PROJECT_ROOT / "state" / "fleet_watchdog.lock"

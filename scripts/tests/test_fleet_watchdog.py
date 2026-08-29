@@ -453,3 +453,84 @@ def test_supervision_allowed_from_a_user_session(monkeypatch):
     monkeypatch.setattr(fw, "_acquire_run_lock", lambda: False)
     monkeypatch.setattr(sys, "argv", ["fleet_watchdog.py", "up"])
     assert fw.main() == 0, "a user-session pass must be allowed through the guard"
+
+
+# ------------------------------------------- a crash is not a silent event ---
+# Added 2026-08-29. `start()` passed stdout=DEVNULL and stderr=DEVNULL. PM2 used
+# to capture those streams and PM2 is no longer the supervisor, so a daemon that
+# died on boot produced nothing anywhere: the watchdog started it, it exited,
+# and the next pass started it again — forever, with `status` reading "0 down"
+# in between because the timing hid it.
+
+def test_a_started_daemon_gets_its_output_captured(tmp_path, monkeypatch):
+    monkeypatch.setattr(fw, "DAEMON_LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(fw, "LOG", tmp_path / "fleet.log")
+    captured = {}
+
+    class _P:
+        def __init__(self, *a, **kw):
+            captured.update(kw)
+
+    monkeypatch.setattr(fw.subprocess, "Popen", _P)
+    ok, _ = fw.start({"name": "probe", "interp": "python.exe", "script": "s.py",
+                      "args": [], "cwd": str(tmp_path), "unrunnable": ""})
+    assert ok
+    assert captured["stdout"] is not fw.subprocess.DEVNULL, "output still discarded"
+    assert captured["stderr"] == fw.subprocess.STDOUT, "stderr must join stdout"
+    assert (tmp_path / "logs" / "daemon-probe.log").exists()
+
+
+def test_an_unwritable_log_does_not_block_the_start(tmp_path, monkeypatch):
+    """Never trade a running daemon for a log file."""
+    monkeypatch.setattr(fw, "DAEMON_LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(fw, "LOG", tmp_path / "fleet.log")
+    monkeypatch.setattr(fw, "_daemon_log", lambda name: None)
+    started = {}
+    monkeypatch.setattr(fw.subprocess, "Popen",
+                        lambda *a, **kw: started.update(kw) or object())
+    ok, _ = fw.start({"name": "probe", "interp": "python.exe", "script": "s.py",
+                      "args": [], "cwd": str(tmp_path), "unrunnable": ""})
+    assert ok
+    assert started["stdout"] is fw.subprocess.DEVNULL
+
+
+def test_the_daemon_log_is_bounded(tmp_path, monkeypatch):
+    """A raw handle handed to a detached child has no logging handler behind it,
+    so nothing else can rotate this file."""
+    monkeypatch.setattr(fw, "DAEMON_LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(fw, "DAEMON_LOG_MAX_BYTES", 500)
+    (tmp_path / "logs").mkdir()
+    big = tmp_path / "logs" / "daemon-probe.log"
+    big.write_text("x" * 5000, encoding="utf-8")
+    fh = fw._daemon_log("probe")
+    assert fh is not None
+    fh.close()
+    assert big.stat().st_size < 500, "oversized daemon log was not rolled"
+    assert (tmp_path / "logs" / "daemon-probe.log.1").exists(), "first traceback was lost"
+
+
+def test_a_crash_loop_is_counted_not_just_restarted(tmp_path, monkeypatch):
+    """The watchdog already recorded every start; nothing read them back, so a
+    daemon dying every five minutes looked exactly like one that had been up all
+    day."""
+    import json as _json
+    from datetime import datetime, timedelta, timezone as _tz
+    monkeypatch.setattr(fw, "LOG", tmp_path / "fleet.log")
+    now = datetime.now(_tz.utc)
+    lines = [_json.dumps({"ts": (now - timedelta(minutes=m)).isoformat(),
+                          "msg": "started probe: python s.py"})
+             for m in (1, 6, 11)]
+    lines.append(_json.dumps({"ts": (now - timedelta(hours=9)).isoformat(),
+                              "msg": "started probe: python s.py"}))
+    (tmp_path / "fleet.log").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert fw.recent_starts("probe") == 3, "starts outside the window must not count"
+    assert fw.recent_starts("other") == 0
+
+
+def test_a_healthy_daemon_start_carries_no_crash_loop_note(tmp_path, monkeypatch):
+    monkeypatch.setattr(fw, "DAEMON_LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(fw, "LOG", tmp_path / "fleet.log")
+    monkeypatch.setattr(fw.subprocess, "Popen", lambda *a, **kw: object())
+    _, msg = fw.start({"name": "probe", "interp": "python.exe", "script": "s.py",
+                       "args": [], "cwd": str(tmp_path), "unrunnable": ""})
+    assert "CRASH LOOP" not in msg
