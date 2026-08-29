@@ -450,6 +450,22 @@ class TursoDB:
     # is counted and re-logged on a widening interval, carrying the running
     # total — so a NEW bypass is still immediately visible, and an existing one
     # is quantified instead of shouted.
+    # WHY THIS IS NOT SHARED WITH THE OTHER THREE SUPPRESSORS. As of 2026-08-29
+    # this fleet has four: notify.py (persisted, backoff, human-facing alerts),
+    # event_router (persisted windows with a rollup, a long-running daemon),
+    # outbound_log_post._hint_once (a one-shot bool), and this one. They look
+    # like duplication and are not: the distinguishing requirement is LIFETIME.
+    #
+    # db_turso is imported by hundreds of short-lived scripts, so this counter
+    # must stay in-process. Persisting it would put a file write on the hot path
+    # of every connect and make every one of those processes contend on one
+    # file — which is exactly the multi-writer race that stopped db_turso.log
+    # rotating and let it reach 190 MB. A shared abstraction spanning all four
+    # would be configured four different ways at four call sites, which is the
+    # over-abstracted helper this repo bans, not an improvement.
+    #
+    # So: if you are adding a FIFTH, copy the shape that matches your lifetime.
+    # Do not merge these.
     _unscoped_seen: dict = {}
 
     def _audit_unscoped(self, touched: list, reason: str | None, sql: str) -> None:
