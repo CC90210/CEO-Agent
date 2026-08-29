@@ -601,8 +601,12 @@ def _notify(text: str, *, conv_id: str, event: str, live: bool) -> tuple[bool, s
 
 # ── the operator-visible health surface ──────────────────────────────────────
 #
-# scheduler.py stores `out[-1][:200]` as cron_jobs.last_result — the last line of
-# stdout, hard-capped at 200 characters. The full-key summary was 358 characters,
+# scheduler.py stored `out[-1][:200]` as cron_jobs.last_result — the last line of
+# stdout, hard-capped at 200 characters. (Replaced 2026-08-29 by
+# scheduler.summarize_stdout, which renders a JSON payload as a verdict and
+# marks any truncation. The design below is no longer FORCED by the cap, but it
+# is still the right shape and the reasoning still explains why.)
+# The full-key summary was 358 characters,
 # so EVERY counter that says something went wrong was cut off: skipped_budget
 # started at char 214, skipped_red_flag 233, failures_model 254,
 # failures_guardrail 273, budget_exhausted 296, errors 317. A run where every
@@ -981,6 +985,9 @@ def _poll(args) -> int:
 
     print()
     # ONE LINE, deliberately — do not "improve" this with indent=2.
+    # (2026-08-29: scheduler.summarize_stdout replaced the 200-char slice this
+    # was shaped around. The abbreviation below is no longer forced, but it is
+    # still the most readable thing to put in a log line, so it stays.)
     # scheduler.py records `out[-1][:200]` as cron_jobs.last_result, i.e. the LAST
     # LINE of stdout. See _summary_line: the line is abbreviated and
     # failure-ordered so the counters that matter survive that 200-char cap, and

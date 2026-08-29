@@ -281,9 +281,10 @@ def main() -> int:
         result["executed"] = True
 
     if args.json:
-        # ONE compact line — scheduler.py keeps out[-1][:200] as last_result;
-        # pretty JSON ends in a lone bracket and the watchdog reads the run
-        # as OPAQUE.
+        # ONE compact line. scheduler.py's out[-1][:200] slice — which turned
+        # pretty JSON into a lone bracket and made the run read as OPAQUE — was
+        # replaced by summarize_stdout on 2026-08-29, so this is preference now
+        # rather than a workaround. Compact is still the right shape.
         print(json.dumps(result, separators=(",", ":")))
     else:
         _print(result, result["executed"])

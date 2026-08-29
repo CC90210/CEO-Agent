@@ -638,8 +638,9 @@ SEED_JOBS: list[dict] = [
         #
         # Paging contract: scheduler.py ignores notify_on. A job pages CC by
         # exiting non-zero AND printing a line starting "ERROR:" — run_suites.py
-        # does both. --json keeps the LAST stdout line a single compact object,
-        # since scheduler stores out[-1][:200] as last_result.
+        # does both. --json keeps the LAST stdout line a single compact object.
+        # Mandatory until 2026-08-29, when scheduler.summarize_stdout replaced
+        # the out[-1][:200] slice; preference since.
         "name": "Weekly Eval Suites",
         "description": "Sunday 05:00 ET — score the eval suites against baselines.json and write evals/reports/. Pages only on a baselined suite regressing or a suite erroring; un-baselined suites are reported, not gated.",
         "schedule": "0 5 * * SUN",

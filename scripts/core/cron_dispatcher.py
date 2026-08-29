@@ -134,6 +134,24 @@ def execute_job(client, job: dict[str, Any], dry_run: bool = False) -> dict[str,
     error = (proc.stderr or "").strip()
     ok = proc.returncode == 0
     result = "ok" if ok else f"failed:{proc.returncode}"
+    # What the job actually REPORTED, not just whether it exited 0 (2026-08-29).
+    # This path stored a bare "ok" and discarded stdout, so a job triggered by
+    # hand — the debugging path, where you most need to know what happened —
+    # overwrote cron_jobs.last_result with strictly less information than the
+    # scheduler had written on its previous scheduled run.
+    #
+    # Reuses scheduler.summarize_stdout rather than re-deriving a summary: two
+    # dispatch paths storing one column in two shapes is how last_result became
+    # unreadable in the first place. Lazy import — scheduler is a heavy module
+    # and this is the only line here that needs it.
+    if ok and output:
+        try:
+            from scheduler import summarize_stdout  # noqa: PLC0415
+            summary = summarize_stdout(output)
+            if summary and summary != "ok":
+                result = f"ok: {summary}"
+        except Exception:  # noqa: BLE001 - never fail a dispatch over a summary
+            pass
     if error:
         result += f" stderr={error[:220]}"
     _update_run_state(client, job, ok, result)

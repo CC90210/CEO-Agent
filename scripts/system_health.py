@@ -370,10 +370,14 @@ def main():
         alert_failed = bool(rep["reds"]) and not notify_reds(rep)
 
     if a.json:
-        # ONE compact line, deliberately — scheduler.py stores out[-1][:200] as
-        # last_result, so pretty JSON ends in a lone bracket and the watchdog
-        # classifies the run as OPAQUE ("verdict unknowable"). Same fix as the
-        # Instagram poller; do not "improve" this back to indent=2.
+        # ONE compact line, deliberately. scheduler.py USED TO store
+        # out[-1][:200] as last_result, so pretty JSON ended in a lone bracket
+        # and the run read as OPAQUE ("verdict unknowable"). That slice is gone
+        # (scheduler.summarize_stdout, 2026-08-29) and a pretty payload would
+        # now be summarized correctly — so this is no longer load-bearing for
+        # legibility. Keep it compact anyway: one line is what the downstream
+        # parsers expect and what a log is readable as. Do not "improve" this
+        # back to indent=2.
         print(json.dumps(rep, separators=(",", ":")))
     if alert_failed:
         print("ERROR: red checks found but the Telegram alert did not send — "
