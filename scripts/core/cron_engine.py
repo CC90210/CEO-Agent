@@ -740,9 +740,14 @@ SEED_JOBS: list[dict] = [
         # quoting "$2,000" can never auto-book. Exit contract mirrors
         # weekly_truth_digest: nonzero only when the reconciliation itself
         # could not run or deliver its summary — findings are content.
-        "name": "Monthly Receipts Reconciliation",
-        "description": "Monthly 04:23 on the 2nd — reconcile the mailbox against Receipts/* labels (rolling 45d), auto-hand confident financial gaps to Atlas, one Telegram summary for anything held for review.",
-        "schedule": "23 4 2 * *",
+        # 2026-08-28: monthly -> WEEKLY, per CC. A monthly backstop can hide a
+        # filing outage for 30 days, and one just did: the financial hand-off
+        # bus published nothing between 2026-08-24 and 2026-08-28 while a real
+        # Google Cloud invoice was archived unlabelled, and nothing noticed.
+        # Monday (not the weekend — quiet days) so any gap opens CC's week.
+        "name": "Weekly Receipts Reconciliation",
+        "description": "Weekly Monday 04:23 local — reconcile the mailbox against Receipts/* labels (rolling 45d), auto-hand confident financial gaps to Atlas, one Telegram summary for anything held for review.",
+        "schedule": "23 4 * * 1",
         "action_type": "script_run",
         # notify_on added when two concurrent sessions each wrote this seed
         # (2026-08-24) and the definitions were merged: the scheduler pages on
