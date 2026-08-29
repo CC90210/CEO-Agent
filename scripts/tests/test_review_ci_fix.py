@@ -212,7 +212,9 @@ def test_the_forbidden_check_runs_before_the_commit():
     chain = src.split("def _apply_edit")[1].split("\ndef ")[0]
     assert chain.index("forbidden_edits(") < chain.index('"commit"'), (
         "forbidden-path check must precede the commit")
-    assert chain.index("forbidden_edits(") < chain.index('"push"')
+    # The push moved into _push_to_pr_branch when it was given its own
+    # credentials, so follow the CALL, not the literal argv.
+    assert chain.index("forbidden_edits(") < chain.index("_push_to_pr_branch(")
 
 
 def test_a_forbidden_edit_is_preserved_not_destroyed():

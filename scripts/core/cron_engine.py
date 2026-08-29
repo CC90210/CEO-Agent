@@ -300,7 +300,8 @@ SEED_JOBS: list[dict] = [
     {
         "name": "Stripe Revenue Sync",
         "description": "Sync latest Stripe events to revenue_events",
-        "schedule": "0 6 * * *",
+        # Moved off 06:00 so it stops contending with the brief's fan-out.
+        "schedule": "15 6 * * *",
         "action_type": "stripe_sync",
         "action_config": {"lookback_hours": 25},
         # moved_to_atlas 2026-08-01 — Atlas (CFO-Agent) owns revenue sync; the live
@@ -463,7 +464,14 @@ SEED_JOBS: list[dict] = [
     {
         "name": "Daily Briefing Snapshot",
         "description": "Prep Table layer (brain/AGENTIC_OS_REFERENCE.md §3). Aggregates revenue/pipeline/health into state/snapshots/latest_briefing.json so ceo-briefing skill reads one JSON instead of running 4 engines live. Runnable manually until n8n handler exists.",
-        "schedule": "0 6 * * *",
+        # 05:57, not 06:00. All three of these fired at exactly 06:00 and the brief
+        # regenerates the snapshot itself whenever it is more than
+        # SNAPSHOT_STALENESS_SEC (5 min) old — so a concurrent snapshot cron ran
+        # the SAME ten-process fan-out at the same moment, doubling contention
+        # and then having its work thrown away. Finishing at ~05:58 (the run
+        # measures ~31s) puts the snapshot ~2 min old when the brief reads it,
+        # inside the window, so the brief uses it and does not regenerate.
+        "schedule": "57 5 * * *",
         "action_type": "snapshot_run",
         "action_config": {"script": "scripts/snapshots/briefing_snapshot.py", "args": []},
         "is_active": True,

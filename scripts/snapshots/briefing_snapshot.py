@@ -98,6 +98,13 @@ def build_snapshot() -> dict:
         "goal": ["scripts/revenue_engine.py", "--json", "goal"],
         "pipeline": ["scripts/lead_engine.py", "--json", "pipeline"],
         "followups": ["scripts/lead_engine.py", "--json", "followups"],
+        # Sibling agents (Maven, Atlas, APEX, Codex) post here when they need
+        # Bravo. Until now the ONLY things that read it were the session-start
+        # hook — which needs a human to open a session — and the Sunday digest.
+        # So a HIGH message from another agent reached CC weekly at best, and
+        # seven were sitting unread. An inbox nothing reads on a schedule is a
+        # channel that exists on paper.
+        "agent_inbox": ["scripts/core/agent_inbox.py", "--json", "list", "--to", "bravo"],
         "health_alerts": ["scripts/client_health.py", "--json", "alerts"],
         "health_full": ["scripts/client_health.py", "--json", "report"],
         "briefing": ["scripts/ceo_dashboard.py", "--json", "briefing"],
@@ -145,6 +152,11 @@ def build_snapshot() -> dict:
         "pipeline": pipeline,
         "followups_due": followups,
         "client_health_alerts": health_alerts,
+        # Listed explicitly, like every other key: this function returns a
+        # hand-built dict, so an engine added to `calls` and not added HERE runs
+        # on every snapshot and is thrown away. Caught by rendering the brief and
+        # finding the section absent, not by reading the code.
+        "agent_inbox": results["agent_inbox"],
         "briefing": briefing,
     }
 

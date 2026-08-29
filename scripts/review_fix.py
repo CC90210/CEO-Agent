@@ -860,7 +860,7 @@ def _apply_edit(finding: dict, repo_dir: Path, branch: str, prompt: str, out: di
         out.update(status="failed", detail=f"commit failed: {cerr[:200]}")
         return out
 
-    prc, _, perr = run(["git", "push", "origin", f"HEAD:{branch}"], repo_dir, timeout=300)
+    prc, perr = _push_to_pr_branch(repo_dir, branch)
     if prc != 0:
         out.update(status="committed-not-pushed", detail=f"push failed: {perr[:200]}")
         return out
@@ -902,6 +902,47 @@ def pr_changed_paths(repo: str, number: int) -> tuple:
 def edits_outside(paths, allowed: frozenset) -> list:
     """Of `paths`, the ones the PR does not itself touch."""
     return [path for path in paths if path not in allowed]
+
+
+def _push_to_pr_branch(repo_dir: Path, branch: str) -> tuple:
+    """Push HEAD to the PR's branch, carrying credentials rather than assuming them.
+
+    THE ASYMMETRY THIS CLOSES. Every `gh` call in this loop goes through
+    `lib.gh_auth.gh_env()` and carries a token. This push did not — it inherited
+    the ambient environment and relied on Git Credential Manager, which on
+    Windows unseals its store with DPAPI bound to the interactive user session.
+
+    So the loop's LAST and most consequential step had its weakest auth. Run
+    interactively it works, which is why it looked fine. Run from a Session 0 /
+    S4U scheduled task — the exact configuration needed for the fleet to survive
+    a reboot without CC logging in — DPAPI cannot decrypt, and the push fails
+    while every `gh` subprocess around it keeps working. A fixer that diagnoses,
+    edits, tests and commits, then cannot push, is a fixer that silently does
+    nothing.
+
+    `lib.git_auth.git_credential_env` already solves this for git_push_tool.py
+    and prune_merged_branches.py — GIT_ASKPASS, token in one child's env and a
+    0600 temp file deleted in a finally, never in argv or .git/config. This was
+    the one push site of three that had not been wired to it.
+
+    Falls back to the ambient credential helper if the token cannot be loaded,
+    because that path does work interactively and refusing to push at all would
+    be a regression. The fallback is REPORTED, never silent.
+    """
+    try:
+        from lib.git_auth import git_credential_env  # noqa: PLC0415
+        with git_credential_env() as env:
+            rc, _, err = run(["git", "push", "origin", f"HEAD:{branch}"],
+                             repo_dir, timeout=300, env_extra=env)
+        return rc, err
+    except Exception as exc:  # noqa: BLE001 — token unavailable, not a push failure
+        print(f"review_fix: no PAT for the push ({type(exc).__name__}: "
+              f"{str(exc)[:120]}); falling back to the ambient credential "
+              f"helper, which only works in an interactive session",
+              file=sys.stderr)
+        rc, _, err = run(["git", "push", "origin", f"HEAD:{branch}"],
+                         repo_dir, timeout=300)
+        return rc, err
 
 
 def fix_one(finding: dict, repo_dir: Path, branch: str, *, dry_run: bool,

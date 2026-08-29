@@ -439,6 +439,30 @@ class TursoDB:
     def is_tenant_scoped(self, table: str) -> bool:
         return table.lower() in self._tenant_tables
 
+    # An audit line nobody can read audits nothing. This WARNING fired on every
+    # deliberate cross-tenant query and became 308,105 of 400,000 sampled lines
+    # in state/logs/db_turso.log — 77% of a 190 MB file. The signal it carries
+    # is real and must not be dropped, but the thing that made it useless was
+    # repetition, not existence: the same handful of (reason, tables) pairs,
+    # hundreds of thousands of times.
+    #
+    # First occurrence of each distinct pair logs in full. After that the pair
+    # is counted and re-logged on a widening interval, carrying the running
+    # total — so a NEW bypass is still immediately visible, and an existing one
+    # is quantified instead of shouted.
+    _unscoped_seen: dict = {}
+
+    def _audit_unscoped(self, touched: list, reason: str | None, sql: str) -> None:
+        key = (reason or "(no reason given)", tuple(touched))
+        count = self._unscoped_seen.get(key, 0) + 1
+        self._unscoped_seen[key] = count
+        # 1st, 10th, 100th, 1000th ... — enough to see it is still happening and
+        # how fast, without one line per query.
+        if count > 1 and count % (10 ** min(len(str(count)) - 1, 4)) != 0:
+            return
+        log.warn("UNSCOPED QUERY ALLOWED — audit this", tables=list(touched),
+                 reason=key[0], occurrences=count, sql=sql[:400])
+
     # -- the guard ----------------------------------------------------------
     def _enforce_scope(self, sql: str, *, allow_unscoped: bool, reason: str | None) -> None:
         if allow_unscoped:
@@ -449,8 +473,7 @@ class TursoDB:
             except UnscopedQueryError:
                 touched = ["<unparseable>"]
             if touched:
-                log.warn("UNSCOPED QUERY ALLOWED — audit this", tables=touched,
-                         reason=reason or "(no reason given)", sql=sql[:400])
+                self._audit_unscoped(touched, reason, sql)
             return
         offenders = unscoped_tables(sql, self._tenant_tables)
         if not offenders:

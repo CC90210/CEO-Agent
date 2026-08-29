@@ -283,6 +283,30 @@ def _render_brief(snapshot: dict) -> str:
     else:
         lines.append("📞 Follow-ups due: ⚠️ unavailable")
 
+    # --- Agent inbox: what another agent needs from Bravo -------------------
+    #
+    # Only surfaced when there is something HIGH or urgent waiting. A count of
+    # routine chatter every morning is how a line stops being read, and this one
+    # has to still mean something on the day it matters.
+    inbox = snapshot.get("agent_inbox")
+    if _is_failed_block(inbox):
+        lines.append("")
+        lines.append("📬 Agent inbox: ⚠️ unavailable")
+    else:
+        msgs = inbox if isinstance(inbox, list) else (
+            (inbox or {}).get("messages") if isinstance(inbox, dict) else None)
+        if isinstance(msgs, list):
+            hot = [m for m in msgs
+                   if isinstance(m, dict) and m.get("priority") in ("urgent", "high")]
+            if hot:
+                lines.append("")
+                lines.append(f"📬 Agent inbox: {len(hot)} high/urgent "
+                             f"({len(msgs)} unread)")
+                for m in hot[:3]:
+                    who = m.get("from_agent") or m.get("from") or "?"
+                    subj = (m.get("subject") or "").strip()
+                    lines.append(f"   • {who}: {subj[:70]}")
+
     # --- Client health: honour the '0 monitored' truth-note; degraded = unavailable
     ch_raw = brief.get("client_health")
     alerts = snapshot.get("client_health_alerts")

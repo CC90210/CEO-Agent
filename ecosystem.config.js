@@ -568,6 +568,48 @@ if (IS_LINUX) {
     });
 }
 
+// ============================================================================
+// breeze-live-watch — go-live watch for the Breeze Advance portal
+// ============================================================================
+//
+// RESTORING A DAEMON THAT WENT SILENT WITHOUT ANYONE NOTICING. dump.pm2 records
+// this app's args (["loop","--interval","300"]) but NO script, so when PM2 was
+// retired on 2026-08-28 and fleet_watchdog took over, the entry became
+// UNRUNNABLE: the watchdog could see it was supposed to exist and could not
+// reconstruct the command. It has been reporting "1 unrunnable manifest entry"
+// ever since, which reads as a manifest wart rather than what it is — a live
+// client portal with nobody watching it.
+//
+// The committed spec wins over the dump (see fleet_watchdog.manifest), so
+// naming the script here is the whole fix.
+//
+// Safe to arm: the script is read-only against Breeze (its own docstring), it
+// polls a health endpoint plus failed interaction rows, and it Telegrams on
+// STATE CHANGE only — one ping when something breaks, one when it recovers,
+// hourly while still broken. Verified by running `once` on 2026-08-29:
+// {"ok": true, "problems": [], "alerted": false}.
+apps.push({
+    name: "breeze-live-watch",
+    script: "scripts/breeze_live_watch.py",
+    args: ["loop", "--interval", "300"],
+    interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
+    cwd: PROJECT_ROOT,
+    watch: false,
+    autorestart: true,
+    max_restarts: 20,
+    restart_delay: 10000,
+    windowsHide: true,
+    env: {
+        PYTHONIOENCODING: "utf-8",
+        PYTHONUNBUFFERED: "1",
+    },
+    log_date_format: "YYYY-MM-DD HH:mm:ss",
+    error_file: "tmp/pm2-breeze-live-watch-error.log",
+    out_file: "tmp/pm2-breeze-live-watch-out.log",
+    merge_logs: true,
+    max_size: "10M",
+});
+
 // Uniformly stamp shared safety policy onto every daemon. DATA_BACKEND_ENV is
 // applied last so a future app cannot accidentally override the fleet-wide
 // database mode in its local env block.
