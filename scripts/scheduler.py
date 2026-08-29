@@ -313,6 +313,46 @@ def calculate_next_run(schedule: str) -> str:
 
 # ── Job execution ─────────────────────────────────────────────────────────────
 
+TIMINGS_PATH = PROJECT_ROOT / "state" / "cron_timings.jsonl"
+TIMINGS_KEEP = 4000
+
+
+def _record_job_timing(name: str, action_type: str, seconds: float, result: str) -> None:
+    """Append one duration record. Never raises, never blocks a job.
+
+    Uses lib.json_ledger's atomic-write idiom in spirit but stays JSONL, because
+    this is an append-only time series rather than a keyed ledger — a dict keyed
+    by job name would keep only the LAST run and lose the distribution, which is
+    the whole point of measuring.
+
+    Trimmed to TIMINGS_KEEP so it cannot grow unbounded; state/*.log rotation
+    does not cover .jsonl. See brain/DATA_LIFECYCLE.md.
+    """
+    try:
+        rec = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "job": name,
+            "action_type": action_type,
+            "seconds": round(float(seconds), 1),
+            # Store the VERDICT, not the payload: last_result can carry an
+            # entire harness scoreboard, and this file is read for timing.
+            "ok": not str(result or "").upper().startswith(("ERROR", "FAILED")),
+        }
+        TIMINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(TIMINGS_PATH, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec) + "\n")
+            fh.flush()
+        # Cheap bounded trim: only when the file is comfortably over budget, so
+        # the common path is one append and nothing else.
+        if TIMINGS_PATH.stat().st_size > TIMINGS_KEEP * 220:
+            lines = TIMINGS_PATH.read_text(encoding="utf-8", errors="replace").splitlines()
+            tmp = TIMINGS_PATH.with_suffix(".jsonl.tmp")
+            tmp.write_text("\n".join(lines[-TIMINGS_KEEP:]) + "\n", encoding="utf-8")
+            os.replace(tmp, TIMINGS_PATH)
+    except Exception:  # noqa: BLE001 - telemetry must never break a cron run
+        pass
+
+
 def execute_job(job: dict, env_vars: dict[str, str]) -> str:
     """
     Execute a cron job based on its action_type.
@@ -500,6 +540,87 @@ def persist_failure(label: str, cmd: List[str], returncode: "int | str",
     except Exception as exc:  # noqa: BLE001
         log(f"  [warn] could not persist failure dump for {label}: {exc}")
         return None
+
+
+_NOISE_ONLY = re.compile(r"^[\s{}\[\](),;:'\"`~*=+_.\-|]*$")
+# How much of a script's stdout survives into cron_jobs.last_result. Same 200
+# the four hand-rolled copies used, so the stored size does not change.
+RESULT_LIMIT = 200
+
+
+def _clip_result(text: str, limit: int = RESULT_LIMIT) -> str:
+    """Truncate, and SAY SO. A silent cut at exactly `limit` is
+    indistinguishable from a complete short result — which is how three jobs'
+    escalation reasons were lost while their rows read as healthy."""
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    marker = " ...(+{} cut)"
+    keep = limit - len(marker.format(len(text)))
+    return text[:keep].rstrip() + marker.format(len(text) - keep)
+
+
+def _summarize_json(data: Any, limit: int = RESULT_LIMIT) -> str:
+    """A JSON payload rendered as a VERDICT, not as its first 200 bytes.
+
+    Scalars first, then containers by size, because the scalars are the counts
+    an operator reads ("reds=0 yellows=2") and the containers are the detail
+    that never fit anyway. Deliberately does not start with a brace: a clipped
+    raw dump does, and one that lands on a slice boundary is exactly what the
+    harness has to flag as truncated.
+    """
+    if isinstance(data, list):
+        head = _summarize_json(data[0], limit - 12) if data else ""
+        return _clip_result(f"{len(data)} item(s)" + (f": {head}" if head else ""), limit)
+    if not isinstance(data, dict):
+        return _clip_result(str(data), limit)
+    scalars, containers = [], []
+    for k, v in data.items():
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            scalars.append(f"{k}={v}")
+        elif isinstance(v, list):
+            containers.append(f"{k}=[{len(v)}]")
+        elif isinstance(v, dict):
+            containers.append(f"{k}={{{len(v)}}}")
+    out = ""
+    for part in scalars + containers:
+        candidate = f"{out} {part}".strip()
+        if len(candidate) > limit:
+            return f"{out} ...".strip() if out else _clip_result(part, limit)
+        out = candidate
+    return out or "ok"
+
+
+def summarize_stdout(stdout: str, limit: int = RESULT_LIMIT) -> str:
+    """One readable verdict line from a script's stdout.
+
+    Replaces four copies of `out[-1][:200] if out else "ok"`, which had two
+    failure modes the cron registry made permanent:
+
+      OPAQUE   — the last line of pretty-printed JSON is `}`. "Bravo —
+                 Cross-Agent Review Scan" stored `]` and "Daily Memory Index
+                 Rebuild" stored `}` as their entire recorded result. Total
+                 information loss, scored as healthy because it did not start
+                 with ERROR.
+      TRUNCATED — three rows sat on exactly the 200-char boundary with the cut
+                 landing inside the JSON, so the escalation reasons — the only
+                 part worth storing — were the part removed, silently.
+
+    Both are the same root cause: a slice is not a summary.
+    """
+    text = (stdout or "").strip()
+    if not text:
+        return "ok"
+    if text[:1] in "{[":
+        try:
+            return _summarize_json(json.loads(text), limit)
+        except (ValueError, TypeError):
+            pass  # not JSON after all — fall through to the line scan
+    for line in reversed(text.splitlines()):
+        stripped = line.strip()
+        if stripped and not _NOISE_ONLY.match(stripped):
+            return _clip_result(stripped, limit)
+    return _clip_result(text.splitlines()[-1], limit)
 
 
 def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
@@ -860,8 +981,7 @@ def run_snapshot(config: dict) -> str:
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
         return f"ERROR: snapshot_run exit {result.returncode}: {err}"
-    out = (result.stdout or "").strip().splitlines()
-    return out[-1][:200] if out else "ok"
+    return summarize_stdout(result.stdout)
 
 
 def run_script_action(config: dict) -> str:
@@ -923,8 +1043,7 @@ def run_script_action(config: dict) -> str:
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
         return f"ERROR: script_run exit {result.returncode}: {err}"
-    out = (result.stdout or "").strip().splitlines()
-    return out[-1][:200] if out else "ok"
+    return summarize_stdout(result.stdout)
 
 
 def run_morning_powwow(_env_vars: dict) -> str:
@@ -972,8 +1091,7 @@ def run_morning_powwow(_env_vars: dict) -> str:
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
         return f"ERROR: morning_powwow exit {result.returncode}: {err}"
-    out = (result.stdout or "").strip().splitlines()
-    return out[-1][:200] if out else "ok"
+    return summarize_stdout(result.stdout)
 
 
 def run_auto_score_leads(_env_vars: dict) -> str:
@@ -989,9 +1107,11 @@ def run_auto_score_leads(_env_vars: dict) -> str:
     out = run_script("auto_score_leads.py", ["--limit", "25"], timeout=600)
     if not out or not out.strip():
         return "ERROR: auto_score_leads returned empty output"
-    # The script prints "Done. N scored, M failed." on its last line.
-    last_line = out.strip().splitlines()[-1]
-    return last_line[:200]
+    # The script prints "Done. N scored, M failed." on its last line — but the
+    # LAST line is only the right answer when nothing follows it, and a
+    # traceback or a trailing brace does. summarize_stdout picks the last line
+    # that carries information.
+    return summarize_stdout(out)
 
 
 def run_pipeline_review(env_vars: dict) -> str:
@@ -1580,8 +1700,30 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                     log(f"  [warn] failed to advance next_run_at for stale skip: {skip_exc}")
                 continue
 
-        # Execute the job
+        # Execute the job, and TIME it.
+        #
+        # Nothing measured how long any automation takes. cron_jobs has no
+        # duration column and the scheduler timed only its own loop, so "which
+        # automation is eating the machine" was unanswerable — and on this box
+        # that is the question most likely to matter, because every subprocess
+        # pays AV-inflated spawn cost (a bare `python -c pass` measures 3.7s).
+        # Three separate timeout bugs this week were diagnosed by hand-timing
+        # things that should already have been on record.
+        #
+        # Recorded to a local JSONL rather than a new cron_jobs column on
+        # purpose: a schema change means a migration number, and database/** is
+        # a contested surface shared with APEX. This needs no coordination and
+        # no migration.
+        _job_started = time.monotonic()
         result_msg = execute_job(job, env_vars)
+        # job.get(...) inline, NOT the `action_type` local: that name is first
+        # assigned at :1747, LATER in this same function, which makes it a local
+        # for the whole frame and therefore UNBOUND here on the first iteration
+        # of every call. pyflakes flagged it (F821) the moment the gate added in
+        # this session ran over the fleet — the gate catching its author's own
+        # bug, in the class it was built for.
+        _record_job_timing(job_name, job.get("action_type", ""),
+                           time.monotonic() - _job_started, result_msg)
 
         # V2.1 2026-04-11: Retry-on-error logic.
         # Old: next_run_at always advances to the normal schedule, so a daily

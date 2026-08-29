@@ -50,6 +50,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -308,6 +309,72 @@ class ProcessTableUnreadable(RuntimeError):
     """
 
 
+_ROW_PID = re.compile(r"^\|\d+\|")
+_TOKENS = re.compile(r'"[^"]*"|\S+')
+# Flags whose VALUE is inline code, never a script path. A process running
+# inline code is a probe or a one-liner, never a supervised daemon — and it is
+# the single most common way a daemon's name appears in a command line that is
+# not that daemon.
+_INLINE_CODE_FLAGS = {"-c", "/c", "-e", "--eval"}
+
+
+def _table_rows(table: str) -> list[str]:
+    """One command line per element.
+
+    A command line can itself contain newlines (a shell invoked with a heredoc
+    body is the common case here), so a line that does not open a new
+    `|<pid>|` record is a CONTINUATION of the previous one, not a row of its
+    own. Splitting naively would shred one process's arguments into several
+    fake processes — and those fragments are exactly what used to satisfy the
+    substring liveness test below.
+    """
+    lines = table.splitlines()
+    # The continuation rule only has meaning when rows are actually delimited.
+    # A table with no `|pid|` records at all (hand-built fixtures, and any
+    # future source that emits bare command lines) is one process per line —
+    # folding those together would merge the whole fleet into a single row.
+    if not any(_ROW_PID.match(line) for line in lines):
+        return lines
+    rows: list[str] = []
+    for line in lines:
+        if _ROW_PID.match(line) or not rows:
+            rows.append(_ROW_PID.sub("", line))
+        else:
+            rows[-1] += "\n" + line
+    return rows
+
+
+def _cmdline_target(cmdline: str) -> str:
+    """What this command line is actually EXECUTING: its script or -m module.
+
+    Not "what it mentions". `python -m pyflakes scripts/scheduler.py` mentions
+    the scheduler; it is a linter. `bash -c "... scheduler.py ..."` mentions it;
+    it is a shell. Both used to count as a live bravo-scheduler.
+    """
+    toks = [t.strip('"') for t in _TOKENS.findall(cmdline)]
+    rest = toks[1:]  # drop the interpreter itself
+    i = 0
+    while i < len(rest):
+        tok = rest[i]
+        if tok == "-m":
+            return rest[i + 1] if i + 1 < len(rest) else ""
+        if tok in _INLINE_CODE_FLAGS:
+            return ""
+        if tok.startswith("-") or tok.startswith("/"):
+            i += 1
+            continue
+        return tok
+    return ""
+
+
+def _row_runs(cmdline: str, ident: str) -> bool:
+    """True only if this command line is running THIS daemon."""
+    target = _cmdline_target(cmdline)
+    if not target:
+        return False
+    return target == ident or target.replace("\\", "/").rsplit("/", 1)[-1] == ident
+
+
 def status() -> list[dict]:
     table = _process_table()
     # `not table`, not `table is None`: an EMPTY table is the precise shape of
@@ -319,11 +386,25 @@ def status() -> list[dict]:
             "could not read the process table (wmic returned nothing usable) — "
             "refusing to report the fleet as down on no evidence")
     off = disabled_names()
+    # Per-ROW matching, not `ident in table` (fixed 2026-08-29). The old test
+    # was a substring search over the entire concatenated process table, so ANY
+    # process whose command line merely contained "scheduler.py" — a grep, an
+    # editor, `python -m pyflakes scripts/scheduler.py`, a shell whose heredoc
+    # body quoted the path — proved bravo-scheduler was alive.
+    #
+    # Caught live: the scheduler was killed, `up` reported "nothing to start —
+    # everything up or disabled", and the fleet stayed down. The false green
+    # came from this session's own diagnostic shell. A supervisor that a
+    # bystander command can talk out of restarting a dead daemon is not a
+    # supervisor. It is the mirror image of the duplicate-fleet bug: that one
+    # started daemons on no evidence, this one refuses to on false evidence.
+    cmdlines = _table_rows(table)
     rows = []
     for app in manifest():
         ident = _identity(app)
         rows.append({**app, "ident": ident,
-                     "running": bool(ident and ident in table),
+                     "running": bool(ident and any(_row_runs(c, ident)
+                                                   for c in cmdlines)),
                      "disabled": app["name"] in off})
     return rows
 

@@ -36,6 +36,19 @@ import harness_eval as he  # noqa: E402
 BROKEN_NAME = "def f():\n    return undefined_thing_xyz()\n"
 BROKEN_SYNTAX = "def f(:\n"
 CLEAN = "def f():\n    return 1\n"
+# Two definitions of one name. The later wins and the first is dead — the
+# scheduler.py `_clip` collision and the structured_log.py `doRollover`
+# collision, both found 2026-08-29. pyflakes reports this as
+# RedefinedWhileUnused; the gate simply was not collecting that message type,
+# only UndefinedName. The defect was in the gate's coverage, not in the linter.
+SHADOWED = "def f(a):\n    return a\n\n\ndef g():\n    return f(1)\n\n\ndef f(a, b):\n    return a + b\n"
+# The legitimate shapes that must NOT be flagged: an alternate definition is
+# always inside a conditional or a handler, never at unconditional top level.
+CONDITIONAL_ALT = (
+    "import sys\n\nif sys.platform == 'win32':\n    def f():\n        return 1\n"
+    "else:\n    def f():\n        return 2\n\n"
+    "try:\n    from os import getcwd as g\nexcept ImportError:\n    def g():\n        return '.'\n"
+)
 
 
 class _Scan:
@@ -86,6 +99,52 @@ def test_a_stable_syntax_error_fails(monkeypatch, tmp_path):
     ok, msg = _Scan(monkeypatch, tmp_path, [BROKEN_SYNTAX, BROKEN_SYNTAX]).run()
     assert ok is False
     assert "syntax error" in msg.lower()
+
+
+def test_a_dead_redefinition_fails(monkeypatch, tmp_path):
+    """Two live examples on the day this landed: scheduler.py's second `_clip`
+    silently rebound five call sites to a different signature, and
+    structured_log.py's second `doRollover` made the sharing-violation fallback
+    the class exists for unreachable — while a 190 MB log went unrotated."""
+    ok, msg = _Scan(monkeypatch, tmp_path, [SHADOWED, SHADOWED]).run()
+    assert not ok
+    assert "redefined" in msg, msg
+    assert "'f'" in msg, msg
+
+
+def test_conditional_alternate_definitions_are_not_flagged(monkeypatch, tmp_path):
+    """Fail-loud must not become fail-noisy. A platform branch and a
+    try/except-ImportError fallback both define one name twice on purpose;
+    flagging them would make the gate something operators mute."""
+    ok, msg = _Scan(monkeypatch, tmp_path, [CONDITIONAL_ALT]).run()
+    assert ok, msg
+
+
+def test_the_allowlist_only_holds_entries_that_still_fire():
+    """An allowlist is a mute button, so it has to decay. Every entry must
+    correspond to a redefinition pyflakes ACTUALLY reports today; once the
+    underlying code is cleaned up the entry has to go, or the next real defect
+    in that file and name is muted by a stale exemption."""
+    import ast
+
+    from pyflakes.checker import Checker
+    from pyflakes.messages import RedefinedWhileUnused
+
+    root = Path(__file__).resolve().parents[2]
+    live = set()
+    for rel, _name in he._REDEFINITION_ALLOWLIST:
+        path = root / rel
+        if not path.exists():
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+        except SyntaxError:
+            continue
+        for m in Checker(tree, filename=str(path)).messages:
+            if isinstance(m, RedefinedWhileUnused) and m.message_args:
+                live.add((rel, m.message_args[0]))
+    stale = sorted(he._REDEFINITION_ALLOWLIST - live)
+    assert not stale, f"allowlist entries no longer needed — remove them: {stale}"
 
 
 def test_a_clean_file_passes(monkeypatch, tmp_path):

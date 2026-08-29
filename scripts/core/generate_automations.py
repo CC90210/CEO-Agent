@@ -139,6 +139,49 @@ def collect_hooks() -> tuple[dict, str | None]:
     return out, None
 
 
+def collect_timings(limit: int = 12) -> tuple[list[dict], str | None]:
+    """Slowest automations by median duration, from state/cron_timings.jsonl.
+
+    Answers "what is eating the machine", which nothing could answer before —
+    cron_jobs has no duration column and the scheduler timed only its own loop.
+    MEDIAN, not mean: one 300s timeout would otherwise make an ordinarily-fast
+    job look permanently slow, and it is the typical cost that decides whether a
+    schedule is sane.
+
+    An empty file is not an error. It means the scheduler has not dispatched
+    since timing was added, and saying so is better than showing nothing.
+    """
+    p = PROJECT_ROOT / "state" / "cron_timings.jsonl"
+    if not p.is_file():
+        return [], None
+    from collections import defaultdict  # noqa: PLC0415
+    runs: dict[str, list[float]] = defaultdict(list)
+    fails: dict[str, int] = defaultdict(int)
+    try:
+        for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line.strip():
+                continue
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            job = str(r.get("job") or "?")
+            runs[job].append(float(r.get("seconds") or 0))
+            if not r.get("ok", True):
+                fails[job] += 1
+    except Exception as exc:  # noqa: BLE001
+        return [], f"{type(exc).__name__}: {exc}"
+
+    out = []
+    for job, vals in runs.items():
+        s = sorted(vals)
+        med = s[len(s) // 2]
+        out.append({"job": job, "runs": len(s), "median": med,
+                    "worst": s[-1], "failures": fails.get(job, 0)})
+    out.sort(key=lambda x: -x["median"])
+    return out[:limit], None
+
+
 def collect_os_tasks() -> tuple[list[dict], str | None]:
     """Windows Task Scheduler entries that drive this empire."""
     if sys.platform != "win32":
@@ -232,6 +275,19 @@ def render(data: dict) -> str:
     else:
         L.append("_none configured_")
 
+    tm = data.get("timings") or []
+    L += ["", "## What it costs (slowest by median duration)", ""]
+    if tm:
+        L += ["Median, not mean — one 300s timeout would otherwise make an",
+              "ordinarily-fast job look permanently slow.", "",
+              "| Job | Median | Worst | Runs | Failures |", "|---|---|---|---|---|"]
+        for t_ in tm:
+            L.append(f"| {t_['job']} | {t_['median']:.0f}s | {t_['worst']:.0f}s "
+                     f"| {t_['runs']} | {t_['failures'] or '—'} |")
+    else:
+        L.append("_no timings recorded yet — the scheduler has not dispatched "
+                 "since duration tracking was added_")
+
     tasks = data["os_tasks"]
     if tasks:
         L += ["", "## OS scheduled tasks", ""]
@@ -250,8 +306,11 @@ def build() -> dict:
     daemons, e2 = collect_daemons()
     hooks, e3 = collect_hooks()
     tasks, e4 = collect_os_tasks()
+    timings, e5 = collect_timings()
     return {"crons": crons, "daemons": daemons, "hooks": hooks, "os_tasks": tasks,
-            "errors": {"cron_jobs": e1, "fleet": e2, "hooks": e3, "os_tasks": e4}}
+            "timings": timings,
+            "errors": {"cron_jobs": e1, "fleet": e2, "hooks": e3, "os_tasks": e4,
+                       "timings": e5}}
 
 
 def main() -> int:

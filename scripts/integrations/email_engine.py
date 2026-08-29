@@ -1016,7 +1016,14 @@ IMAP_MAX_EMAILS = 20
 # cron_engine for this job: the override at scheduler.py:859-862 applies only to
 # action_type "script_run", and this job is "email_inbox_check". So the budget
 # has to live here, on this side of the wall.
-SWEEP_BUDGET_SEC = int(os.environ.get("EMPIRE_SWEEP_BUDGET_SEC", "210"))
+#
+# 210 -> 170 (2026-08-29). 210 + the backfill's 90s reserve is exactly 300 —
+# the wall itself, with nothing left for the IMAP teardown and ledger flush that
+# follow. Measured that day: backfill_done at 285.8s, process killed at 301.6s,
+# so teardown costs ~15s. The budget is now sized so the LAST thing the run can
+# legally start still finishes inside the wall with margin:
+#   170 budget + 90 worst message + 15 teardown = 275s, under the 300s kill.
+SWEEP_BUDGET_SEC = int(os.environ.get("EMPIRE_SWEEP_BUDGET_SEC", "170"))
 
 # Budget a single message must have available before the loop will START it.
 # Sized from the measured worst case: claude_cli timeout (90s) + one OpenCode
@@ -1025,6 +1032,19 @@ SWEEP_BUDGET_SEC = int(os.environ.get("EMPIRE_SWEEP_BUDGET_SEC", "210"))
 # a deadline alone only says when the last message may begin, not when the run
 # will end — the distinction Codex's adversarial review caught.
 MESSAGE_RESERVE_SEC = int(os.environ.get("EMPIRE_MESSAGE_RESERVE_SEC", "60"))
+
+# The SAME reserve, for the backfill pass — which had a deadline but no reserve,
+# and that gap is what still blew the wall on 2026-08-29 (measured, not
+# inferred: the duration instrumentation added the same day recorded the sweep
+# at 301.6s against a 300s kill, and the breadcrumbs put 278.5s of it inside the
+# backfill). `if now > deadline: break` only decides when the last message may
+# BEGIN. One admitted at 209s ran to 285.8s — a classify plus a label plus a
+# handoff — and 285.8 + IMAP teardown + ledger flush is 301.
+#
+# 90s, not 60s: the same worst case the main loop sizes against (claude_cli 90s
+# + one OpenCode fallback 120s) applies here, and the one observed overrun cost
+# ~76s. Above the measured value, not at it.
+BACKFILL_RESERVE_SEC = int(os.environ.get("EMPIRE_BACKFILL_RESERVE_SEC", "90"))
 
 # Post-mortem breadcrumb trail for the sweep.
 #
@@ -1043,7 +1063,13 @@ SWEEP_PROGRESS_LOG = (Path(__file__).resolve().parent.parent.parent
 def _log_sweep_progress(stage: str, started: float | None = None, **fields) -> None:
     """One flushed line per stage. Never raises, never blocks the sweep."""
     try:
-        rec = {"ts": datetime.now(timezone.utc).isoformat(), "stage": stage}
+        # pid, because this log is shared and two overlapping sweeps interleave
+        # into it indistinguishably. On 2026-08-29 two `start` records landed
+        # 0.9s apart and there was no way to tell one process running the sweep
+        # twice from two processes running it once — which are different bugs
+        # with different fixes. One field makes that answerable forever.
+        rec = {"ts": datetime.now(timezone.utc).isoformat(),
+               "pid": os.getpid(), "stage": stage}
         if started is not None:
             rec["elapsed_s"] = round(time.monotonic() - started, 1)
         rec.update(fields)
@@ -1182,10 +1208,19 @@ def _backfill_read_before_sweep(imap, db, processed_msgids: dict,
             # and 04:05:42) were kills at exactly 300s after their tick started.
             # Stopping here is free: last_uid is only advanced for messages
             # actually examined, so the next tick resumes at the same place.
-            if deadline is not None and time.monotonic() > deadline:
-                print(f"[seen_backfill] budget reached — deferring "
+            # RESERVE, not deadline (fixed 2026-08-29). `> deadline` admitted a
+            # message with one second left and then ran it to completion; the
+            # completion is what overruns, not the admission. See
+            # BACKFILL_RESERVE_SEC for the measurement.
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining < BACKFILL_RESERVE_SEC:
+                print(f"[seen_backfill] {remaining:.0f}s left, need "
+                      f"{BACKFILL_RESERVE_SEC}s to start a message — deferring "
                       f"{len(uids) - uids.index(uid_int)} message(s) to the next tick",
                       file=sys.stderr)
+                _log_sweep_progress("backfill_budget_reached",
+                                    remaining_s=round(remaining, 1),
+                                    deferred=len(uids) - uids.index(uid_int))
                 break
             uid = str(uid_int)
             # Cheap header peek first: most candidates are mail the UNSEEN sweep

@@ -151,3 +151,75 @@ def test_the_committed_register_exists_and_is_non_trivial():
     assert "Scheduled jobs" in text and "Daemons" in text
     assert "INCOMPLETE" not in text, (
         "the committed register was generated while a source was unreadable")
+
+
+# --- duration: the question nothing could answer -----------------------------
+# Added 2026-08-29. Nothing measured how long an automation takes, so "which
+# one is eating the machine" was unanswerable on a box where every subprocess
+# pays AV-inflated spawn cost. The first record written after the fix caught
+# the inbound sweep at 301.6s against its 300s kill.
+
+def _timings(tmp_path, monkeypatch, rows):
+    import json as _json
+    d = tmp_path / "state"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "cron_timings.jsonl").write_text(
+        "\n".join(_json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    monkeypatch.setattr(ga, "PROJECT_ROOT", tmp_path)
+
+
+def test_duration_uses_the_median_not_the_mean(tmp_path, monkeypatch):
+    """One 300s timeout must not make an ordinarily-fast job look permanently
+    slow. Mean of these is 65s; median is 5s, and 5s is the truth about the
+    typical run."""
+    _timings(tmp_path, monkeypatch, [
+        {"job": "Inbound Email Sweep", "seconds": s, "ok": s < 300}
+        for s in (4, 5, 5, 6, 302)
+    ])
+    rows, err = ga.collect_timings()
+    assert err is None
+    row = next(r for r in rows if r["job"] == "Inbound Email Sweep")
+    assert row["median"] == 5
+    assert row["worst"] == 302, "the outlier must still be visible, just not as the headline"
+    assert row["failures"] == 1
+    assert row["runs"] == 5
+
+
+def test_the_slowest_job_leads(tmp_path, monkeypatch):
+    _timings(tmp_path, monkeypatch, [
+        {"job": "fast", "seconds": 2, "ok": True},
+        {"job": "slow", "seconds": 120, "ok": True},
+    ])
+    rows, _ = ga.collect_timings()
+    assert [r["job"] for r in rows] == ["slow", "fast"]
+
+
+def test_no_timings_yet_is_not_an_error(tmp_path, monkeypatch):
+    """The scheduler may not have dispatched since timing was added. Saying so
+    beats an empty section, and it must not turn the register INCOMPLETE."""
+    monkeypatch.setattr(ga, "PROJECT_ROOT", tmp_path)
+    rows, err = ga.collect_timings()
+    assert rows == [] and err is None
+
+
+def test_a_corrupt_line_does_not_lose_the_rest(tmp_path, monkeypatch):
+    """This file is appended to by a live daemon; a torn write at the tail must
+    not discard every measurement before it."""
+    d = tmp_path / "state"
+    d.mkdir(parents=True)
+    (d / "cron_timings.jsonl").write_text(
+        '{"job": "a", "seconds": 3, "ok": true}\n{"job": "b", "sec\n',
+        encoding="utf-8")
+    monkeypatch.setattr(ga, "PROJECT_ROOT", tmp_path)
+    rows, err = ga.collect_timings()
+    assert err is None
+    assert [r["job"] for r in rows] == ["a"]
+
+
+def test_the_cost_table_is_rendered_when_there_is_data(tmp_path, monkeypatch):
+    _timings(tmp_path, monkeypatch, [{"job": "Slow Job", "seconds": 121, "ok": True}])
+    timings, err = ga.collect_timings()
+    assert err is None
+    out = ga.render(_data(timings=timings))
+    assert "What it costs" in out
+    assert "Slow Job" in out and "121s" in out

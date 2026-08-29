@@ -29,9 +29,11 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -438,14 +440,37 @@ def check_guards_enforce():
     return True, f"{len(_REQUIRED_GUARDS)} required guards enforce ({', '.join(seen_files)})"
 
 
-def check_cron_health():
+_CRON_ROWS_CACHE: tuple[list | None, str] | None = None
+
+
+def _load_cron_rows() -> tuple[list | None, str]:
+    """(rows, error) from the live cron registry, fetched at most once per run.
+
+    Memoized because two checks now read the same registry and the fetch is a
+    ~5s subprocess against Turso. This eval runs nightly on a cron; paying for
+    the same query twice is exactly the kind of cost that gets a gate disabled.
+    On error, rows is None and the string names the cause — never an empty list,
+    which a caller would read as "no crons exist" (a failed query and a zero
+    result must not look identical).
+    """
+    global _CRON_ROWS_CACHE
+    if _CRON_ROWS_CACHE is not None:
+        return _CRON_ROWS_CACHE
     rc, out, _ = _run([sys.executable, "scripts/core/cron_engine.py", "--json", "list"], timeout=60)
     if rc != 0 or not out.strip():
-        return False, "cron_engine list failed (Supabase unreachable?)"
-    try:
-        jobs = json.loads(out)
-    except json.JSONDecodeError:
-        return False, "cron_engine returned non-JSON"
+        _CRON_ROWS_CACHE = (None, "cron_engine list failed (Supabase unreachable?)")
+    else:
+        try:
+            _CRON_ROWS_CACHE = (json.loads(out), "")
+        except json.JSONDecodeError:
+            _CRON_ROWS_CACHE = (None, "cron_engine returned non-JSON")
+    return _CRON_ROWS_CACHE
+
+
+def check_cron_health():
+    jobs, err = _load_cron_rows()
+    if jobs is None:
+        return False, err
     # Self-scored suppression lives at module level as is_self_scored_failure()
     # so core/cron_health_check.py enforces the identical rule. Rationale kept
     # here because this is where it bites:
@@ -470,6 +495,168 @@ def check_cron_health():
     if mrr_on:
         return False, "Weekly MRR Report is active — violates the Atlas boundary"
     return True, f"{sum(1 for j in jobs if j.get('is_active'))} active crons, none in ERROR, no Bravo MRR digest"
+
+
+FAILURE_DUMP_DIR = PROJECT_ROOT / "tmp" / "cron_failures"
+# scheduler.persist_failure names dumps "<slug>-<YYYYMMDDTHHMMSSZ>.log".
+_DUMP_NAME_RE = re.compile(r"^(?P<slug>.+)-(?P<ts>\d{8}T\d{6}Z)\.log$")
+_DUMP_FRESH_SECONDS = 24 * 3600
+
+
+def check_no_recent_cron_failure_dumps():
+    """Has any cron crashed hard in the last 24h?
+
+    WHY (2026-08-29): scheduler.persist_failure writes a full stderr/stdout dump
+    to tmp/cron_failures/ on every non-zero child exit, precisely because
+    everything upstream truncates. 47 dumps were sitting there and NOTHING in
+    this eval read them — the newest was 17 hours old
+    (integrations-email-engine-py-20260829T001311Z.log, exit code 3221225480 =
+    0xC0000005, an access violation, with both streams empty) and the run was
+    still ALL GREEN. email_engine has been crashing this way most days since
+    2026-08-15.
+
+    A dump is the ONLY surviving evidence of that class of failure: an access
+    violation produces no traceback for last_result to carry, so the cron row
+    reports whatever the previous run left behind and check_cron_health sees
+    nothing wrong. The directory is a ring buffer (FAILURE_DUMP_KEEP), so old
+    dumps are history, not news — only a dump newer than 24h is an open wound.
+
+    Cost: one scandir over <=N filenames, no stat call in the common path (the
+    UTC stamp is IN the name). Cheap enough to run nightly.
+    """
+    try:
+        entries = list(os.scandir(FAILURE_DUMP_DIR))
+    except FileNotFoundError:
+        # Never written to on this machine — no crashes recorded, not a gap.
+        return True, "tmp/cron_failures/ absent — no cron has crashed hard here"
+    except OSError as exc:
+        # An unreadable directory is NOT an empty one. Fail closed: reading
+        # "cannot list" as "nothing to report" is how a dead check reads green.
+        return False, f"tmp/cron_failures/ unreadable: {type(exc).__name__}: {exc}"
+
+    now = datetime.now(timezone.utc)
+    fresh: dict[str, int] = {}
+    newest: tuple[datetime, str] | None = None
+    for e in entries:
+        if not e.name.endswith(".log"):
+            continue
+        m = _DUMP_NAME_RE.match(e.name)
+        if m:
+            slug = m.group("slug")
+            when = datetime.strptime(m.group("ts"), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+        else:
+            # Unrecognized name — fall back to mtime rather than skipping it.
+            # tmp/ is gitignored, so no checkout can restamp these.
+            slug = e.name
+            try:
+                when = datetime.fromtimestamp(e.stat().st_mtime, timezone.utc)
+            except OSError:
+                continue
+        if (now - when).total_seconds() > _DUMP_FRESH_SECONDS:
+            continue
+        fresh[slug] = fresh.get(slug, 0) + 1
+        if newest is None or when > newest[0]:
+            newest = (when, e.name)
+
+    total = len(entries)
+    if not fresh:
+        return True, f"no cron failure dumps in the last 24h ({total} older dumps retained)"
+    named = ", ".join(f"{slug} x{n}" for slug, n in sorted(fresh.items(), key=lambda kv: -kv[1]))
+    return False, (f"{sum(fresh.values())} cron failure dump(s) <24h old: {named} — "
+                   f"newest tmp/cron_failures/{newest[1]}")
+
+
+# scripts/scheduler.py stores `out[-1][:200]` (run_script_action / run_snapshot /
+# run_morning_powwow) and `result_msg[:500]` (the cron_jobs write). A JSON result
+# longer than the slice therefore lands in the registry cut mid-token.
+_SCHEDULER_RESULT_SLICES = (200, 500)
+
+
+def check_cron_results_legible():
+    """Can the cron registry's stored results actually be READ as a verdict?
+
+    A third state exists between pass and fail, and nothing scored it: OPAQUE.
+
+    WHY (verified live 2026-08-29 against the 33 active rows):
+      * "Bravo — Cross-Agent Review Scan" stores `]` and "Daily Memory Index
+        Rebuild" stores `}` — the last line of pretty-printed JSON. Total
+        information loss. core/cron_health_check._is_opaque already classifies
+        these correctly and never pages on them, which is right; but THIS eval's
+        check_cron_health only tests `startswith(("ERROR","FAILED"))`, so both
+        rows count toward "N active crons, none in ERROR". They are scored as
+        healthy, and the operator reads the green tick as coverage.
+      * Worse, three rows sit at EXACTLY the 200-char slice boundary with
+        unparseable JSON: "Loud Failures Weekly Probe"
+        (`{"reds":0,"yellows":2,"checks":[...` — cut before the two yellow
+        findings), "Bravo — Review Harvest" (cut inside `report[0]`, which is
+        where escalation reasons live) and "Weekly tmp/ Hygiene". Confirmed
+        against the live rule: classify_last_result on that truncated text
+        returns (False, '') and _is_opaque returns False, so this class is
+        invisible to the alerting path TOO, not just to this eval.
+
+    Root cause was scripts/scheduler.py returning `out[-1][:200]` — the slice
+    that cuts away the only place escalation reasons are recorded. FIXED
+    2026-08-29: four copies of that expression are now one `summarize_stdout`,
+    which renders a JSON payload as a verdict ("reds=0 yellows=2 checks=[3]")
+    and marks any truncation instead of cutting silently.
+
+    This check stays, and stays failing until the stored rows turn over: a row
+    written before the fix is still unreadable today, and the operator reading
+    the registry cannot tell that from a live defect. Each clears on its job's
+    next run — minutes for a 5-minute job, up to a week for a weekly one.
+
+    The rules are IMPORTED from core/cron_health_check, never re-implemented:
+    two copies of "what counts as opaque" drifting apart is how the alert and
+    the eval ended up disagreeing before. Import is lazy and DB-free (~0.06s).
+    """
+    from core.cron_health_check import _is_opaque  # noqa: E402
+
+    jobs, err = _load_cron_rows()
+    if jobs is None:
+        return False, err
+
+    opaque: list[str] = []
+    truncated: list[str] = []
+    for j in jobs:
+        if not j.get("is_active"):
+            continue
+        last = j.get("last_result")
+        # The Turso compat layer decodes JSON-looking columns, so a dict/list
+        # here arrived intact — the slice never bit. Nothing lost, nothing to say.
+        if isinstance(last, (dict, list)):
+            continue
+        text = str(last or "").strip()
+        if not text:
+            continue  # never run yet — that is staleness, a different question
+        name = str(j.get("name") or "?")
+        if _is_opaque(text):
+            opaque.append(name)
+            continue
+        # Truncation signature: JSON-shaped, unparseable, and sitting exactly on
+        # one of scheduler.py's slice boundaries. Requiring the boundary keeps
+        # legible plain text that merely opens with a bracket — e.g. "Daily State
+        # DB Backup" stores "[OK] {'db': ...}" at 195 chars — out of the finding.
+        if text[:1] in "{[" and len(text) in _SCHEDULER_RESULT_SLICES:
+            try:
+                json.loads(text)
+            except (ValueError, TypeError):
+                truncated.append(f"{name}({len(text)}ch)")
+
+    active = sum(1 for j in jobs if j.get("is_active"))
+    if opaque or truncated:
+        bits = []
+        if opaque:
+            bits.append(f"{len(opaque)} OPAQUE (result is a bare closing brace): {opaque}")
+        if truncated:
+            bits.append(f"{len(truncated)} TRUNCATED on a slice boundary, "
+                        f"escalation reasons cut: {truncated}")
+        return False, ("; ".join(bits)
+                       + " — these are unknowable, not healthy; they are counted "
+                         "green by the ERROR-prefix check. The WRITER is fixed "
+                         "(scheduler.summarize_stdout, 2026-08-29); each row "
+                         "above is pre-fix residue and clears on its next run, "
+                         "so a weekly job can hold this red for up to 7 days")
+    return True, f"all {active} active cron results are legible (0 opaque, 0 truncated)"
 
 
 def check_cron_definitions_match_live():
@@ -572,6 +759,29 @@ _UNDEFINED_NAME_ALLOWLIST = {
     ("scripts/tft_forecast.py", "torch"),
 }
 
+# Redefinitions that are intentional. Every entry was read before it was added,
+# and the reason is recorded — an allowlist nobody can audit is a mute button.
+#
+# Fleet-wide this rule fires 6 times. Five are these; the sixth was a REAL bug
+# and is why the rule is now collected at all: lib/structured_log.py defined
+# doRollover twice, so the Windows sharing-violation fallback the class exists
+# for was dead and rollover still ended in `except OSError: pass`. That handler
+# had left state/logs/db_turso.log at 190 MB against a 5 MB cap with zero
+# backups on disk.
+_REDEFINITION_ALLOWLIST = {
+    # Callables bound by an if/else and REBOUND on the Management-API retry
+    # path — a deliberate reassignment, not a lost definition.
+    ("scripts/etl_supabase_to_turso.py", "src_count"),
+    ("scripts/etl_supabase_to_turso.py", "src_page"),
+    # `import torch.nn.functional as F` inside a nested function, shadowing the
+    # same import in the enclosing one. Both are needed; torch is lazy here.
+    ("scripts/neural_memory.py", "F"),
+    # Duplicated stdlib imports in the header. Redundant, harmless, and not
+    # this session's file to tidy.
+    ("scripts/integrations/google_tool.py", "os"),
+    ("scripts/integrations/google_tool.py", "sys"),
+}
+
 
 def check_fleet_compiles():
     """ast.parse every production script under scripts/, then run pyflakes'
@@ -616,10 +826,10 @@ def check_fleet_compiles():
     read. Only a file that was being written is not.
     """
     from pyflakes.checker import Checker
-    from pyflakes.messages import UndefinedName
+    from pyflakes.messages import RedefinedWhileUnused, UndefinedName
 
     def _analyse(text: str, path: Path, rel: str):
-        """(syntax_error, undefined_names) for one file's content."""
+        """(syntax_error, problems) for one file's content."""
         try:
             tree = ast.parse(text)
         except SyntaxError as e:
@@ -630,15 +840,20 @@ def check_fleet_compiles():
             messages = Checker(tree, filename=str(path)).messages
         except Exception:  # noqa: BLE001 - analysis must never break the gate
             return None, []
-        names = []
+        problems = []
         for m in messages:
-            if not isinstance(m, UndefinedName):
-                continue
-            name = m.message_args[0] if m.message_args else "?"
-            if (rel, name) in _UNDEFINED_NAME_ALLOWLIST:
-                continue
-            names.append(f"{rel}:{m.lineno} undefined name {name!r}")
-        return None, names
+            if isinstance(m, UndefinedName):
+                name = m.message_args[0] if m.message_args else "?"
+                if (rel, name) in _UNDEFINED_NAME_ALLOWLIST:
+                    continue
+                problems.append(f"{rel}:{m.lineno} undefined name {name!r}")
+            elif isinstance(m, RedefinedWhileUnused):
+                name = m.message_args[0] if m.message_args else "?"
+                if (rel, name) in _REDEFINITION_ALLOWLIST:
+                    continue
+                problems.append(f"{rel}:{m.lineno} {name!r} redefined, "
+                                f"first definition is dead")
+        return None, problems
 
     root = Path(__file__).resolve().parent
     broken: list[str] = []
@@ -683,9 +898,10 @@ def check_fleet_compiles():
     if broken:
         return False, f"syntax errors in {len(broken)} scripts: {broken[:6]}{note}"
     if undefined:
-        return False, (f"{len(undefined)} undefined names (NameError at runtime): "
-                       f"{undefined[:6]}{note}")
-    return True, f"{scanned} production scripts parse clean, no undefined names{note}"
+        return False, (f"{len(undefined)} runtime-name defects "
+                       f"(NameError / silent shadowing): {undefined[:6]}{note}")
+    return True, (f"{scanned} production scripts parse clean, no undefined names "
+                  f"or dead redefinitions{note}")
 
 
 def check_model_call_path():
@@ -719,6 +935,8 @@ CHECKS = [
     ("lead_engine tenant contract intact", check_tenant_scoping, False, "boundary"),
     ("safety guards in enforce", check_guards_enforce, False, "guards"),
     ("cron table healthy (no ERROR, no MRR digest)", check_cron_health, False, "live-health"),
+    ("no cron failure dumps <24h old", check_no_recent_cron_failure_dumps, False, "live-health"),
+    ("cron results legible (no opaque/truncated last_result)", check_cron_results_legible, False, "live-health"),
     ("cron definitions match live registry", check_cron_definitions_match_live, False, "live-health"),
     ("PM2 fleet online", check_pm2_fleet, False, "live-health"),
     ("fleet compiles (no SyntaxError anywhere)", check_fleet_compiles, False, "live-health"),

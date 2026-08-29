@@ -33,6 +33,11 @@ SCHEDULER_WALL_SEC = 300
 # 41.6s on two runs. Rounded up, because it is AV- and network-dependent.
 OBSERVED_STARTUP_SEC = 45
 
+# The other end of the run, and the piece the first fix forgot to budget for:
+# after the last message there is still an IMAP teardown and a ledger flush.
+# Measured 2026-08-29 — backfill_done at 285.8s, process killed at 301.6s.
+OBSERVED_TEARDOWN_SEC = 15
+
 
 def test_budget_leaves_room_for_startup_and_one_in_flight_message():
     """The arithmetic that was wrong.
@@ -41,10 +46,44 @@ def test_budget_leaves_room_for_startup_and_one_in_flight_message():
     the loop requires before STARTING a message, so the worst admitted case is
     budget + reserve.
     """
-    worst = ee.SWEEP_BUDGET_SEC + ee.MESSAGE_RESERVE_SEC
+    worst = ee.SWEEP_BUDGET_SEC + ee.MESSAGE_RESERVE_SEC + OBSERVED_TEARDOWN_SEC
     assert worst < SCHEDULER_WALL_SEC, (
-        f"budget {ee.SWEEP_BUDGET_SEC}s + reserve {ee.MESSAGE_RESERVE_SEC}s = "
-        f"{worst}s, which does not fit the {SCHEDULER_WALL_SEC}s wall")
+        f"budget {ee.SWEEP_BUDGET_SEC}s + reserve {ee.MESSAGE_RESERVE_SEC}s + "
+        f"{OBSERVED_TEARDOWN_SEC}s teardown = {worst}s, which does not fit the "
+        f"{SCHEDULER_WALL_SEC}s wall")
+
+
+def test_the_backfill_pass_is_bounded_by_a_reserve_not_only_a_deadline():
+    """The half the first fix missed, caught by the duration instrumentation.
+
+    The main loop got a reserve; `_backfill_read_before_sweep` got only a
+    deadline. `if now > deadline: break` decides when the last message may
+    BEGIN, and a message admitted at 209s ran to 285.8s — measured on
+    2026-08-29, the run that recorded 301.6s against a 300s kill.
+
+    Same arithmetic as the main loop, so the same assertion applies: whatever
+    the backfill can still admit has to finish inside the wall.
+    """
+    worst = ee.SWEEP_BUDGET_SEC + ee.BACKFILL_RESERVE_SEC + OBSERVED_TEARDOWN_SEC
+    assert worst < SCHEDULER_WALL_SEC, (
+        f"budget {ee.SWEEP_BUDGET_SEC}s + backfill reserve "
+        f"{ee.BACKFILL_RESERVE_SEC}s + {OBSERVED_TEARDOWN_SEC}s teardown = "
+        f"{worst}s, past the {SCHEDULER_WALL_SEC}s wall")
+    # And it must be at least as large as the main loop's, because a backfill
+    # message does strictly more work than a swept one (classify + label +
+    # handoff, vs classify + route).
+    assert ee.BACKFILL_RESERVE_SEC >= ee.MESSAGE_RESERVE_SEC
+
+
+def test_backfill_admission_uses_a_reserve_comparison():
+    """Pins the SHAPE, not just the constant. A future edit that reverts the
+    comparison to `now > deadline` keeps both numbers valid and reintroduces the
+    exact overrun, so the constants alone cannot guard this."""
+    import inspect
+    src = inspect.getsource(ee._backfill_read_before_sweep)
+    assert "BACKFILL_RESERVE_SEC" in src, (
+        "the backfill loop no longer consults the reserve — a bare deadline "
+        "check cannot bound the run, only the admission")
 
 
 def test_budget_is_large_enough_to_do_real_work_after_startup():

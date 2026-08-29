@@ -225,6 +225,73 @@ def test_daemon_absent_from_a_readable_table_is_down(restore_table):
     assert "bravo-scheduler" in down
 
 
+# ------------------------------------------------- liveness is not mention ---
+# Added 2026-08-29 after the mirror-image incident. `status()` tested
+# `ident in table` — a substring search across the WHOLE process table — so any
+# command line that merely NAMED a daemon's script proved it alive. Observed
+# live: bravo-scheduler was killed, `fleet_watchdog up` answered "nothing to
+# start — everything up or disabled", and the scheduler stayed dead. The false
+# evidence was this session's own diagnostic shell, whose command line quoted
+# the string "scheduler.py".
+#
+# The two failure directions are not symmetric and both are represented below:
+#   false NEGATIVE (says down while up)  -> starts a duplicate. Catastrophic;
+#                                           this is the 4x-scheduler incident.
+#   false POSITIVE (says up while down)  -> never restarts. This bug.
+# So every case that a REAL daemon row must still satisfy is asserted too.
+
+@pytest.mark.parametrize("cmdline,why", [
+    ("/usr/bin/bash -c \"grep -n scheduler.py scripts/scheduler.py\"",
+     "a shell whose argument quotes the path"),
+    ("c:/python312/python.exe -c \"print('scripts/scheduler.py')\"",
+     "inline code that mentions the path"),
+    ("c:/python312/python.exe -m pyflakes scripts/scheduler.py",
+     "a linter RUN AGAINST the script"),
+    ("c:/python312/python.exe scripts/tail_scheduler.py",
+     "a different script whose name merely ends with the identity"),
+])
+def test_mentioning_a_daemon_is_not_running_it(restore_table, cmdline, why):
+    fw._process_table = lambda: f"|4242|{cmdline}\n|1|c:/repo/.venv/scripts/python.exe -m pytest"
+    running = {r["name"] for r in fw.status() if r["running"]}
+    assert "bravo-scheduler" not in running, f"{why} counted as the daemon running"
+
+
+@pytest.mark.parametrize("cmdline", [
+    "|900|c:/repo/.venv/scripts/pythonw.exe scripts/scheduler.py",
+    '|900|"c:/users/user/appdata/local/programs/python/python312/pythonw.exe" scripts/scheduler.py',
+    "|900|pythonw.exe c:/repo/scripts/scheduler.py",
+])
+def test_the_real_daemon_row_still_reads_as_running(restore_table, cmdline):
+    """Recall must not regress: a false negative starts a SECOND scheduler."""
+    fw._process_table = lambda: cmdline
+    running = {r["name"] for r in fw.status() if r["running"]}
+    assert "bravo-scheduler" in running
+
+
+def test_module_launched_daemons_still_resolve(restore_table):
+    """`pythonw -m bravo_cli.bridge_chat_server` has no script path at all —
+    the identity is the -m module, and it must survive the same tightening."""
+    fw._process_table = lambda: ('|901|"c:/repo/.venv/scripts/pythonw.exe" '
+                                 '-m bravo_cli.bridge_chat_server')
+    running = {r["name"] for r in fw.status() if r["running"]}
+    assert "claude-bridge" in running
+    assert "claude-bridge-ping" not in running, "sibling -m daemon must not alias"
+
+
+def test_a_multiline_command_line_stays_one_process(restore_table):
+    """A shell invoked with a heredoc carries newlines INSIDE its command line.
+    Split naively, each fragment becomes a fake process — and a fragment that
+    happens to start with the daemon's path is indistinguishable from the real
+    row. Continuation lines must stay attached to the row that opened them."""
+    fw._process_table = lambda: (
+        "|55|/usr/bin/bash -c \"python - <<PY\n"
+        "scripts/scheduler.py\n"
+        "PY\"\n"
+        "|56|c:/repo/.venv/scripts/python.exe -m pytest")
+    assert len(fw._table_rows(fw._process_table())) == 2
+    assert "bravo-scheduler" not in {r["name"] for r in fw.status() if r["running"]}
+
+
 def test_real_process_table_can_see_python_processes():
     """Guards a near-miss. psutil is 5x faster than wmic and was tried as the
     source; on this machine it returns an EMPTY cmdline for 163 of 579
