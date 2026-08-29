@@ -376,8 +376,50 @@ class TursoDB:
                  tenant_scoped_tables=len(self._tenant_tables))
 
     # -- schema awareness ---------------------------------------------------
+    #
+    # THE 38 SECONDS EVERY PROCESS PAID TO CONNECT. The loop below issues one
+    # `PRAGMA table_info` per table against a REMOTE database — 206 sequential
+    # round trips at ~258 ms each. Measured 2026-08-28: 38 of the 43 seconds
+    # each briefing engine spent, and the daily brief fans out ten of them. That
+    # is what was rendering "Client health: unavailable" in CC's brief while
+    # client_health.py itself was returning `status: ok`.
+    #
+    # One query replaces all 206: 0.23 s, same 145 tables.
+    #
+    # BUT THIS SET IS A SECURITY BOUNDARY. `unscoped_tables()` exports it as the
+    # tenant-scoping predicate, and an empty or short set reads as "nothing is
+    # tenant-scoped" — a data-isolation failure, categorically worse than a slow
+    # connect. So the fast path must prove itself: it is used only when it
+    # returns a NON-EMPTY set, and any error or empty result falls through to
+    # the slow loop rather than being trusted.
     def _discover_tenant_tables(self) -> frozenset[str]:
         """Every table with a tenant_id column, read from the live schema."""
+        fast = self._discover_tenant_tables_fast()
+        if fast:
+            return fast
+        return self._discover_tenant_tables_slow()
+
+    def _discover_tenant_tables_fast(self) -> frozenset[str]:
+        """One round trip via pragma_table_info as a table-valued function.
+
+        Returns an EMPTY set on any problem — including a libsql build without
+        TVF support — so the caller falls back rather than trusting a partial
+        answer. Never let this raise: a connect that dies here takes down every
+        caller of get_db().
+        """
+        try:
+            rows = self._conn.execute(
+                "select m.name from sqlite_master m "
+                "join pragma_table_info(m.name) p on p.name = ? "
+                "where m.type = 'table' and m.name not like 'sqlite_%'",
+                (TENANT_COLUMN,),
+            ).fetchall()
+        except Exception:  # noqa: BLE001 — any failure means "use the slow path"
+            return frozenset()
+        return frozenset(name.lower() for (name,) in rows if name not in GLOBAL_TABLES)
+
+    def _discover_tenant_tables_slow(self) -> frozenset[str]:
+        """The original per-table PRAGMA walk. Correct, and 165x slower."""
         scoped: set[str] = set()
         rows = self._conn.execute(
             "select name from sqlite_master where type='table' and name not like 'sqlite_%'"

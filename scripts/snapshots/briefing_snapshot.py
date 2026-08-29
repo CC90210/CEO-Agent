@@ -66,7 +66,23 @@ def _call(args: list[str]) -> dict | list | None:
     except (subprocess.TimeoutExpired, OSError) as e:
         return {"_error": str(e)}
     if result.returncode != 0:
-        return {"_error": result.stderr.strip()[:500] or "non-zero exit"}
+        # RECORD THE CODE, NOT JUST "non-zero exit". An abnormal Windows
+        # termination arrives with empty stdout AND empty stderr AND no
+        # traceback, so the old string was the same for a crashed child, a
+        # killed child and a child that simply printed nothing. The brief's
+        # "Client health: unavailable" was re-diagnosed as a timeout three
+        # separate times because of it — the real cause was a 43-second
+        # per-connect schema walk, which the returncode would have ruled out
+        # in one reading.
+        rc = result.returncode
+        detail = result.stderr.strip()[:500]
+        if not detail:
+            # Windows NTSTATUS codes arrive as large unsigned values; anything
+            # above 0xC0000000 is a crash, not an exit status the child chose.
+            abnormal = (rc & 0xFFFFFFFF) > 0xC0000000
+            detail = (f"abnormal termination 0x{rc & 0xFFFFFFFF:08X}"
+                      if abnormal else f"exit {rc}, no output")
+        return {"_error": detail, "_returncode": rc}
     raw = result.stdout.strip()
     if not raw:
         return None
