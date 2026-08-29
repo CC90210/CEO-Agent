@@ -53,8 +53,6 @@ from lib.financial_labels import assess  # noqa: E402
 from lib.gmail_labels import LabelError, apply_label  # noqa: E402
 
 ALL_MAIL = '"[Gmail]/All Mail"'
-MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
-          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 # Cheap subject-level prefilter so we do not pull the full body of several
 # thousand messages. Deliberately WIDER than the real gate: anything this lets

@@ -408,6 +408,46 @@ class TestImapEncoding(unittest.TestCase):
         self.assertEqual(conn.uid_calls[-1][0], "STORE")
 
 
+CFO_GMAIL_RECEIPTS = Path("C:/Users/User/APPS/CFO-Agent/cfo/gmail_receipts.py")
+
+
+class TestEncoderDoesNotDriftFromAtlas(unittest.TestCase):
+    """Two repos now encode the same IMAP label rule, so pin them together.
+
+    Bravo labels in-sweep (lib/gmail_labels.encode_label) and Atlas labels
+    out-of-band (cfo/gmail_receipts.add_label_by_message_id). Extracting one
+    into the other was considered and rejected: Atlas runs in CI where Bravo is
+    not checked out (see its own skipif idiom), so a hard runtime import would
+    break it. Duplication is the deliberate choice — but it must not DRIFT,
+    because this exact rule silently lost 42 statement notices when only one
+    side had it.
+
+    Skipped where CFO-Agent is not on the machine; present locally as a canary.
+    """
+
+    @unittest.skipIf(not CFO_GMAIL_RECEIPTS.exists(),
+                     "CFO-Agent not on this machine")
+    def test_atlas_still_encodes_ampersand_the_same_way(self):
+        src = CFO_GMAIL_RECEIPTS.read_text(encoding="utf-8")
+        self.assertIn('replace("&", "&-")', src,
+                      "Atlas's add_label_by_message_id no longer encodes '&' as "
+                      "'&-'. Every '&'-bearing label ('Income & Invoices', "
+                      "'Statements & Notices') will fail its IMAP STORE, and "
+                      "the return value is a bare False. Restore it, or move "
+                      "both sides onto one encoder.")
+
+    @unittest.skipIf(not CFO_GMAIL_RECEIPTS.exists(),
+                     "CFO-Agent not on this machine")
+    def test_both_sides_produce_the_same_wire_form(self):
+        # Bravo's encoder, applied to the labels Atlas actually emits.
+        for leaf in ("Business Expenses", "Income & Invoices",
+                     "Statements & Notices"):
+            logical = f"Receipts/2026/{leaf}"
+            with self.subTest(leaf):
+                self.assertEqual(encode_label(logical),
+                                 logical.replace("&", "&-"))
+
+
 class TestProcessEmailFiling(unittest.TestCase):
     """End-to-end through the brain with injected deps."""
 
