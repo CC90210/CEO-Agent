@@ -237,12 +237,44 @@ def harness_trailing(windows=(5, 20, 50)) -> dict[int, dict]:
     return out
 
 
+def incident_guard_coverage() -> dict:
+    """How many recorded incidents have an EXECUTABLE guard.
+
+    The number that says whether this system is getting safer, rather than
+    whether it happened to be healthy this week. Every entry in evals/mistakes/
+    is a production failure that actually cost something; a `check:` in its
+    meta.yaml means a test would catch the recurrence. Without one the fix is a
+    story in a folder, and a fix that silently rots looks identical to one that
+    works.
+
+    Went 1/12 -> 4/12 on 2026-08-28, when four incidents turned out to have real
+    enforcement already in the codebase that nothing was verifying. The
+    remaining 8 are process rules or live in another repo; they stay uncounted
+    rather than getting a check that would pass without proving anything.
+    """
+    d = PROJECT_ROOT / "evals" / "mistakes"
+    if not d.is_dir():
+        return {}
+    total = wired = 0
+    for case in sorted(d.iterdir()):
+        meta = case / "meta.yaml"
+        if not (case.is_dir() and meta.is_file()):
+            continue
+        total += 1
+        if any(line.startswith("check:")
+               for line in meta.read_text(encoding="utf-8", errors="replace").splitlines()):
+            wired += 1
+    return {"incidents": total, "guarded": wired,
+            "pct": (wired / total) if total else None}
+
+
 def build(weeks: int) -> dict:
     return {"generated": datetime.now(timezone.utc).isoformat(),
             "weeks": weeks,
             "harness": harness_by_week(weeks),
             "harness_now": harness_trailing(),
             "harness_scheduled": harness_scheduled(),
+            "incident_guards": incident_guard_coverage(),
             "gate": gate_by_week(weeks),
             "evals": evals_by_week(weeks)}
 
@@ -306,6 +338,13 @@ def render(data: dict) -> str:
                 (f"{e[w][s] * 100:12.1f}%" if s in e[w] else f"{'—':>13}")
                 for s in suites)
             L.append(f"  {w}" + cells)
+
+    ig = data.get("incident_guards") or {}
+    if ig.get("incidents"):
+        L.append("")
+        L.append("INCIDENT GUARD COVERAGE (recorded failures with an executable test)")
+        L.append(f"  {ig['guarded']}/{ig['incidents']} guarded ({ig['pct'] * 100:.0f}%)"
+                 " — the rest are process rules or live in another repo")
 
     g = data["gate"]
     L.append("")

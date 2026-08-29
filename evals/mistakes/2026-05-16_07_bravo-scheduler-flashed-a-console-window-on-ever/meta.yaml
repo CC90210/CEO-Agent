@@ -3,3 +3,4 @@ surface: regression
 source: mistake
 title: bravo-scheduler Flashed a Console Window on Every PM2 Restart
 date: 2026-05-16
+check: python -m pytest scripts/tests/test_regression_guards.py::test_scheduler_runs_windowless -q

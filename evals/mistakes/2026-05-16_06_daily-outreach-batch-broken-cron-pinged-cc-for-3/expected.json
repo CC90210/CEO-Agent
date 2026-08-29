@@ -1,1 +1,1 @@
-{"scorer": "rubric", "field": "verdict", "expected": "prevention-honored", "note": "wire to a deterministic check that would have caught this mistake; until then = needs-model"}
+{"scorer": "exact", "field": "verdict", "expected": "prevention-honored", "note": "WIRED 2026-08-28. The anti-pattern hook already BLOCKS recreating this cron - it blocked a command during this very session. This verifies the rule is still registered, since a trimmed registry is an outage nobody sees until the pings resume."}

@@ -1,1 +1,1 @@
-{"scorer": "rubric", "field": "verdict", "expected": "prevention-honored", "note": "wire to a deterministic check that would have caught this mistake; until then = needs-model"}
+{"scorer": "exact", "field": "verdict", "expected": "prevention-honored", "note": "WIRED 2026-08-28. Asserts ecosystem.config.js still gives bravo-scheduler the windowless PYTHONW interpreter. Reverting it brings the console flash back silently, and only CC would notice."}

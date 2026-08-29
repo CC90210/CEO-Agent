@@ -289,3 +289,54 @@ class TestMistakePreventions:
         assert wired, "no mistake case is wired to a check any more"
         assert all(r["status"] == "pass" for r in wired), (
             f"a prevention has broken: {[r['name'] for r in wired if r['status'] != 'pass']}")
+
+
+class TestIncidentGuardCoverage:
+    """How many recorded incidents have an executable guard.
+
+    The metric that says whether the system is getting SAFER, as opposed to
+    whether it happened to be healthy this week. Went 1/12 -> 4/12 on
+    2026-08-28, when four incidents turned out to have real enforcement already
+    in the codebase that nothing was verifying.
+    """
+
+    def _tree(self, tmp_path, specs):
+        d = tmp_path / "evals" / "mistakes"
+        d.mkdir(parents=True)
+        for name, wired in specs:
+            c = d / name
+            c.mkdir()
+            meta = "suite: mistakes\n" + ('check: python -c "pass"\n' if wired else "")
+            (c / "meta.yaml").write_text(meta, encoding="utf-8")
+        return d
+
+    def test_counts_only_cases_with_an_executable_check(self, tmp_path, monkeypatch):
+        self._tree(tmp_path, [("a", True), ("b", False), ("c", True), ("d", False)])
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        assert trend.incident_guard_coverage() == {
+            "incidents": 4, "guarded": 2, "pct": 0.5}
+
+    def test_a_case_without_meta_is_not_counted(self, tmp_path, monkeypatch):
+        d = self._tree(tmp_path, [("a", True)])
+        (d / "stray").mkdir()
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        assert trend.incident_guard_coverage()["incidents"] == 1
+
+    def test_missing_directory_is_empty_not_an_error(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        assert trend.incident_guard_coverage() == {}
+
+    def test_live_coverage_is_reported_and_non_zero(self):
+        """Guards the metric silently reading zero, which would look like
+        'nothing to do' rather than 'the check broke'."""
+        cov = trend.incident_guard_coverage()
+        assert cov["incidents"] >= 12, "recorded incidents disappeared"
+        assert cov["guarded"] >= 4, (
+            f"incident guard coverage dropped to {cov['guarded']} - a `check:` "
+            "was removed from a mistakes case")
+
+    def test_render_shows_the_backlog_not_just_the_score(self):
+        """A suite reporting 100% on 4 of 12 cases must not read as 'done'."""
+        out = trend.render(trend.build(2))
+        assert "INCIDENT GUARD COVERAGE" in out
+        assert "/12" in out

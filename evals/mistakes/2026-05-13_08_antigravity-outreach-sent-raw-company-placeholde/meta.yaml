@@ -3,3 +3,4 @@ surface: regression
 source: mistake
 title: Antigravity Outreach Sent Raw `{{company}}` Placeholders
 date: 2026-05-13
+check: python -m pytest scripts/tests/test_regression_guards.py::TestTemplatePlaceholdersNeverShip -q
