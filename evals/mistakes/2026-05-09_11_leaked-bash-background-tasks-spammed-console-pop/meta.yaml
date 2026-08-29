@@ -3,3 +3,5 @@ surface: regression
 source: mistake
 title: Leaked Bash Background Tasks Spammed Console Popups Every 8s
 date: 2026-05-09
+tier: operating
+check: python -m pytest scripts/tests/test_regression_guards.py::test_periodic_health_check_spawns_windowless -q

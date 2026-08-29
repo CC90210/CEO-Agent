@@ -3,3 +3,5 @@ surface: regression
 source: mistake
 title: Shipped Wizard Changes Without Testing the Real `curl | bash` Mac Path
 date: 2026-05-12
+tier: design
+check: python -m pytest scripts/tests/test_regression_guards.py::test_incident_lesson_is_still_codified -q

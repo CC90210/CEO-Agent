@@ -3,3 +3,5 @@ surface: regression
 source: mistake
 title: Vercel Deploys Blocked for 90 Minutes — Wrong Committer Identity After Repo Extr
 date: 2026-05-18
+tier: operating
+check: python -m pytest scripts/tests/test_regression_guards.py::test_vercel_linked_repo_keeps_the_canonical_committer_identity -q

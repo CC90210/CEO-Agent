@@ -3,3 +3,5 @@ surface: regression
 source: mistake
 title: Assumed Shared Supabase Tenanting for a New Client Product
 date: 2026-05-11
+tier: design
+check: python -m pytest scripts/tests/test_regression_guards.py::test_incident_lesson_is_still_codified -q

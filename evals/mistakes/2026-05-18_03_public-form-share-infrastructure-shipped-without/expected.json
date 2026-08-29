@@ -1,1 +1,1 @@
-{"scorer": "rubric", "field": "verdict", "expected": "prevention-honored", "note": "wire to a deterministic check that would have caught this mistake; until then = needs-model"}
+{"scorer": "exact", "field": "verdict", "expected": "prevention-honored", "note": "DESIGN tier only. Adversarial-review-before-done is operator process, not code; this verifies the rule is still codified."}

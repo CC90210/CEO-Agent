@@ -274,11 +274,36 @@ class TestMistakePreventions:
         assert adapter._mistakes(d)["verdict"] == "needs-model"
 
     def test_unwired_cases_are_unscored_not_failures(self, tmp_path, monkeypatch):
-        """They must not drag the suite's score down — that would make the
-        backlog look like a regression and the gate permanently red."""
+        """An unguarded case must not drag the suite's score down — that would
+        make the backlog look like a regression and pin the gate red.
+
+        Asserted against a FIXTURE, not live state. The first version asserted
+        `n_cases > n_scored` on the real suite, which encoded "some cases are
+        still unwired" as a permanent expectation — so finishing the backlog
+        broke the test that existed to protect the backlog.
+        """
+        d = tmp_path / "mixed"
+        d.mkdir()
+        wired = d / "wired"
+        wired.mkdir()
+        (wired / "meta.yaml").write_text(
+            'suite: mistakes\ncheck: python -c "pass"\n', encoding="utf-8")
+        (wired / "expected.json").write_text(json.dumps(
+            {"scorer": "exact", "field": "verdict",
+             "expected": "prevention-honored"}), encoding="utf-8")
+        pending = d / "pending"
+        pending.mkdir()
+        (pending / "meta.yaml").write_text("suite: mistakes\n", encoding="utf-8")
+        (pending / "expected.json").write_text(json.dumps(
+            {"scorer": "rubric", "field": "verdict", "expected": "x"}),
+            encoding="utf-8")
+
+        monkeypatch.setattr(run_suites, "_case_dirs", lambda s: [wired, pending])
         rep = run_suites.run_suite("mistakes")
-        assert rep["n_cases"] > rep["n_scored"], "expected some cases still pending"
-        assert rep["score"] is None or rep["score"] > 0
+        assert rep["n_cases"] == 2
+        assert rep["n_scored"] == 1, "the unguarded case must not be scored"
+        assert rep["score"] == pytest.approx(1.0), (
+            "an unguarded case dragged the score down")
 
     def test_the_live_wired_case_passes(self):
         """audit_mcp_secrets.py is the prevention for the 2-month plaintext
@@ -313,8 +338,13 @@ class TestIncidentGuardCoverage:
     def test_counts_only_cases_with_an_executable_check(self, tmp_path, monkeypatch):
         self._tree(tmp_path, [("a", True), ("b", False), ("c", True), ("d", False)])
         monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
-        assert trend.incident_guard_coverage() == {
-            "incidents": 4, "guarded": 2, "pct": 0.5}
+        cov = trend.incident_guard_coverage()
+        # Asserted field-by-field, not by whole-dict equality: the first version
+        # compared the entire dict, so ADDING the operating/design tier split —
+        # a deliberate improvement — broke a test about counting.
+        assert cov["incidents"] == 4
+        assert cov["guarded"] == 2
+        assert cov["pct"] == pytest.approx(0.5)
 
     def test_a_case_without_meta_is_not_counted(self, tmp_path, monkeypatch):
         d = self._tree(tmp_path, [("a", True)])
@@ -399,3 +429,57 @@ class TestHistoryIsParsedOnce:
         assert len(trend.history_rows()) == 1
         assert trend.harness_scheduled()["runs"] == 1
         assert trend.harness_trailing(windows=(10,))[10]["runs"] == 1
+
+
+class TestGuardTiering:
+    """SOC2/ISO27001 separate design effectiveness (does a control exist?) from
+    operating effectiveness (does it work when exercised?). Reporting one number
+    for both is how a compliance programme becomes theatre — 12/12 guarded reads
+    as complete when half of those guards only prove a rule file still exists.
+    """
+
+    def _case(self, tmp_path, name, *, check=True, tier=None):
+        d = tmp_path / "evals" / "mistakes" / name
+        d.mkdir(parents=True)
+        lines = ["suite: mistakes"]
+        if tier:
+            lines.append(f"tier: {tier}")
+        if check:
+            lines.append('check: python -c "pass"')
+        (d / "meta.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def test_tiers_are_counted_separately(self, tmp_path, monkeypatch):
+        self._case(tmp_path, "a", tier="operating")
+        self._case(tmp_path, "b", tier="operating")
+        self._case(tmp_path, "c", tier="design")
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        cov = trend.incident_guard_coverage()
+        assert cov["operating"] == 2 and cov["design"] == 1
+        assert cov["guarded"] == 3
+
+    def test_an_untagged_guard_defaults_to_the_WEAKER_claim(self, tmp_path, monkeypatch):
+        """Assuming the stronger tier is precisely the failure this split exists
+        to prevent — an unlabelled guard must not be counted as operating."""
+        self._case(tmp_path, "a")  # check, no tier
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        cov = trend.incident_guard_coverage()
+        assert cov["design"] == 1 and cov["operating"] == 0
+
+    def test_an_unguarded_case_counts_in_neither_tier(self, tmp_path, monkeypatch):
+        self._case(tmp_path, "a", check=False)
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        cov = trend.incident_guard_coverage()
+        assert cov["guarded"] == 0 and cov["incidents"] == 1
+
+    def test_live_operating_coverage_does_not_silently_drop(self):
+        """The number that would quietly fall if someone downgraded a real
+        behaviour guard to a rule-exists check."""
+        cov = trend.incident_guard_coverage()
+        assert cov["operating"] >= 6, (
+            f"operating-tested guards fell to {cov['operating']} — a behaviour "
+            "test was downgraded to design tier")
+
+    def test_render_never_shows_coverage_without_the_split(self):
+        """100% guarded is misleading on its own when half are design-only."""
+        out = trend.render(trend.build(2))
+        assert "operating-tested" in out and "design-tested" in out

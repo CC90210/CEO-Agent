@@ -1,1 +1,1 @@
-{"scorer": "rubric", "field": "verdict", "expected": "prevention-honored", "note": "wire to a deterministic check that would have caught this mistake; until then = needs-model"}
+{"scorer": "exact", "field": "verdict", "expected": "prevention-honored", "note": "DESIGN tier only. Classifying a data boundary before writing tenant-scoped queries is a judgement call; this verifies the Turso-for-client-automations correction is still codified."}

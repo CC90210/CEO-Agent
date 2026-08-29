@@ -256,17 +256,31 @@ def incident_guard_coverage() -> dict:
     d = PROJECT_ROOT / "evals" / "mistakes"
     if not d.is_dir():
         return {}
-    total = wired = 0
+    total = wired = operating = design = 0
     for case in sorted(d.iterdir()):
         meta = case / "meta.yaml"
         if not (case.is_dir() and meta.is_file()):
             continue
         total += 1
-        if any(line.startswith("check:")
-               for line in meta.read_text(encoding="utf-8", errors="replace").splitlines()):
-            wired += 1
+        lines = meta.read_text(encoding="utf-8", errors="replace").splitlines()
+        if not any(line.startswith("check:") for line in lines):
+            continue
+        wired += 1
+        # SOC2/ISO27001 split. A control that merely EXISTS is not a control
+        # that WORKS, and reporting one number for both is how a compliance
+        # programme becomes theatre. Untagged guards default to design — the
+        # weaker claim — because assuming the stronger one is the failure this
+        # distinction exists to prevent.
+        tier = next((l.split(":", 1)[1].strip() for l in lines
+                     if l.startswith("tier:")), None)
+        if tier == "operating":
+            operating += 1
+        else:
+            design += 1
     return {"incidents": total, "guarded": wired,
-            "pct": (wired / total) if total else None}
+            "operating": operating, "design": design,
+            "pct": (wired / total) if total else None,
+            "operating_pct": (operating / total) if total else None}
 
 
 def build(weeks: int) -> dict:
@@ -348,8 +362,11 @@ def render(data: dict) -> str:
     if ig.get("incidents"):
         L.append("")
         L.append("INCIDENT GUARD COVERAGE (recorded failures with an executable test)")
-        L.append(f"  {ig['guarded']}/{ig['incidents']} guarded ({ig['pct'] * 100:.0f}%)"
-                 " — the rest are process rules or live in another repo")
+        L.append(f"  {ig['guarded']}/{ig['incidents']} guarded ({ig['pct'] * 100:.0f}%)")
+        L.append(f"    operating-tested  {ig.get('operating', 0)}/{ig['incidents']}"
+                 "   the guard is exercised and must behave correctly")
+        L.append(f"    design-tested     {ig.get('design', 0)}/{ig['incidents']}"
+                 "   the codified rule survives; enforcement is elsewhere")
 
     g = data["gate"]
     L.append("")

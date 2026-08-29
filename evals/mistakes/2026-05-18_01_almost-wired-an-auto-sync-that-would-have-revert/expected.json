@@ -1,1 +1,1 @@
-{"scorer": "rubric", "field": "verdict", "expected": "prevention-honored", "note": "wire to a deterministic check that would have caught this mistake; until then = needs-model"}
+{"scorer": "exact", "field": "verdict", "expected": "prevention-honored", "note": "DESIGN tier only. The lesson is the pre-automation dry-run audit, a process rule. sync_mrr was later wired to a cron DELIBERATELY, after the audit found and fixed the upstream discrepancy - so 'do not wire it' would be the wrong guard."}
