@@ -84,6 +84,42 @@ def _run(cmd: list[str], timeout: int = TIMEOUT_SEC) -> str | None:
         return None
 
 
+def _run_raw(cmd: list[str], timeout: int = TIMEOUT_SEC) -> str | None:
+    """Like _run, but WITHOUT stripping — for output parsed by column.
+
+    `_run` returns `stdout.strip()`, which is right for the scalar values it is
+    otherwise used for and fatally wrong for `git status --porcelain`: the strip
+    eats the leading space of the FIRST line only, so a ` M brain/CAPABILITIES.md`
+    line was read as `M brain/CAPABILITIES.md` and `ln[3:]` returned
+    `rain/CAPABILITIES.md`.
+
+    That truncated path went into the session baseline, so the SubagentStop gate
+    saw the REAL `brain/CAPABILITIES.md` as new-this-session and nagged about a
+    file that was already dirty at boot — which is the failure mode the baseline
+    exists to prevent, and which on 2026-07-02 pressured a read-only agent into
+    destructive remediation.
+
+    Found 2026-08-29 in the live baseline (`rain/CAPABILITIES.md`), after the
+    identical defect was fixed in review_fix.py an hour earlier. Same bug, second
+    file: a fix applied where it was noticed rather than to the class.
+    """
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(PROJECT_ROOT),
+            encoding="utf-8",
+            errors="replace",
+            creationflags=WINDOWLESS_FLAGS)
+        if result.returncode != 0:
+            return None
+        return result.stdout or None
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        return None
+
+
 def _state_summary() -> str:
     raw = _run([PY, "scripts/state/state_manager.py", "status"])
     if not raw:
@@ -178,7 +214,7 @@ def _write_git_baseline() -> None:
     see memory/MISTAKES.md). Fail-open: any error leaves no baseline and the gate
     falls back to reporting all dirty files (advisory only, never destructive).
     """
-    raw = _run(["git", "status", "--porcelain"], timeout=5)
+    raw = _run_raw(["git", "status", "--porcelain"], timeout=5)
     # Map path -> 2-char porcelain status code. The validator gate flags a file
     # if it's new OR its status changed vs this baseline — so a sub-agent editing
     # a file that was ALREADY dirty at boot (status transition) is still caught,
@@ -186,8 +222,12 @@ def _write_git_baseline() -> None:
     dirty = {}
     if raw:
         for ln in raw.splitlines():
+            if len(ln) < 4:
+                continue          # not a `XY PATH` record
             code = ln[:2]
             p = ln[3:].strip().strip('"')
+            if " -> " in p:       # rename: the destination is the live path
+                p = p.split(" -> ", 1)[1].strip().strip('"')
             if p:
                 dirty[p] = code
     try:

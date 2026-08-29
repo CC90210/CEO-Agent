@@ -382,6 +382,20 @@ def _has_reparse_point(root: Path) -> bool:
     return bool(unreadable)
 
 
+def unlink_all(worktree: Path) -> None:
+    """Drop every linked directory inside `worktree`, without following any.
+
+    THE PRECONDITION OF EVERY REMOVAL IN THIS FILE. `git worktree remove` and
+    any recursive delete walk into a junction and destroy what it points at, so
+    the links must be gone first — and this was the same three-line loop at
+    three call sites. Three copies of a precondition is three chances for the
+    next removal path to be added without it, and the cost of forgetting once is
+    the operator's real node_modules.
+    """
+    for name in LINKED_DIRS:
+        _drop_link(worktree / name)
+
+
 def _purge_orphan_tree(path: Path) -> bool:
     """Delete a review worktree directory git has disowned.
 
@@ -448,8 +462,7 @@ def sweep_stale_worktrees(repo_dir: Path, max_age_h: int = WORKTREE_MAX_AGE_H) -
                 continue
         except OSError:
             continue
-        for name in LINKED_DIRS:
-            _drop_link(path / name)
+        unlink_all(path)
         rc, _, _ = run(["git", "worktree", "remove", "--force", str(path)], repo_dir)
         if rc != 0:
             # Not a worktree any more — an orphan a previous prune disowned.
@@ -492,8 +505,7 @@ def prepare_pr_checkout(repo_dir: Path, branch: str) -> tuple[Optional[Path], Op
     if wt.exists():
         # Left over from a killed run. Tear it down before reusing the name, so
         # the fixer never edits a stale tree it did not create this pass.
-        for name in LINKED_DIRS:
-            _drop_link(wt / name)
+        unlink_all(wt)
         rc, _, _ = run(["git", "worktree", "remove", "--force", str(wt)], repo_dir)
         if rc != 0 and not _purge_orphan_tree(wt):
             # UNREMOVABLE, AND THAT MUST NOT BE FATAL. One ACL-locked
@@ -536,9 +548,8 @@ def teardown_pr_checkout(repo_dir: Path, cleanup: list) -> None:
     stuck = []
     for kind, path in cleanup:
         if kind == "worktree":
-            for name in LINKED_DIRS:
-                _drop_link(path / name)       # belt and braces: never remove a
-                                              # worktree with a live link inside
+            unlink_all(path)      # belt and braces: never remove a worktree
+                                  # while a live link is still inside it
             rc, _, err = run(["git", "worktree", "remove", "--force", str(path)], repo_dir)
             if rc != 0:
                 stuck.append((path, err))

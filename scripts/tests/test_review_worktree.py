@@ -78,7 +78,7 @@ def test_teardown_removes_links_before_the_worktree():
     i_link = fn.index('kind == "link"')
     i_wt = fn.index('kind == "worktree"')
     assert i_link < i_wt, "links must be dropped before any worktree removal"
-    assert "_drop_link(path / name)" in fn, (
+    assert "unlink_all(path)" in fn, (
         "the worktree branch must also unlink defensively before removing")
     assert "rmtree" not in fn, "teardown must never recursively delete"
 
@@ -316,3 +316,27 @@ def test_an_undeletable_leftover_does_not_wedge_the_branch(tmp_path, monkeypatch
         review_fix.teardown_pr_checkout(repo_dir, cleanup)
 
     assert squatter.exists(), "the squatter is left alone, not force-deleted"
+
+
+def test_every_removal_path_drops_links_first():
+    """The precondition has ONE definition, and every removal honours it.
+
+    This was the same three-line loop at three call sites. Three copies of a
+    precondition is three chances for the next removal path to be added without
+    it, and the cost of forgetting once is the operator's real node_modules.
+    """
+    src = Path(review_fix.__file__).read_text(encoding="utf-8")
+
+    body = src.split("def unlink_all")[1].split("\ndef ")[0]
+    assert "_drop_link(worktree / name)" in body
+
+    # No call site may re-implement it.
+    assert src.count("for name in LINKED_DIRS") == 2, (
+        "expected exactly two LINKED_DIRS loops: unlink_all, and the link "
+        "CREATION loop in prepare_pr_checkout")
+
+    for fn_name in ("sweep_stale_worktrees", "teardown_pr_checkout"):
+        fn = src.split(f"def {fn_name}")[1].split("\ndef ")[0]
+        assert "unlink_all(" in fn, f"{fn_name} must drop links before removing"
+        assert fn.index("unlink_all(") < fn.index('"remove"'), (
+            f"{fn_name} unlinks AFTER removing — that is the trapdoor")
