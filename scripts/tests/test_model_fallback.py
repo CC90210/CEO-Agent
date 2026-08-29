@@ -18,6 +18,9 @@ from lib import model_fallback  # noqa: E402
 from lib.model_fallback import is_fallback_available, run_smart_cli  # noqa: E402
 
 
+REAL_PROJECT_ROOT = PROJECT_ROOT
+
+
 @pytest.fixture(autouse=True)
 def _isolate_tier_health(monkeypatch, tmp_path):
     """Point the fallback-tier health store at a temp file for every test.
@@ -32,6 +35,25 @@ def _isolate_tier_health(monkeypatch, tmp_path):
     """
     monkeypatch.setattr(model_fallback, "TIER_HEALTH_PATH",
                         tmp_path / "model_tier_health.json")
+
+    # AND the telemetry log, which was NOT isolated. _log_telemetry appends a
+    # "MODEL FALLBACK: ... latency=<n>s" line to PROJECT_ROOT/memory/SESSION_LOG.md
+    # on every successful fallback — including the mocked ones below, which
+    # return instantly and so land as latency=0.0s.
+    #
+    # Measured 2026-08-29: 166 of the 186 MODEL FALLBACK rows in the production
+    # SESSION_LOG were latency=0.0s, i.e. written by this suite, in five-row
+    # bursts one second apart (one per test that reaches _log_telemetry). A real
+    # subprocess model call cannot return in 0.0s. That noise is 89% of the only
+    # per-model success record the repo keeps, and reading it is how a hop that
+    # HAS succeeded gets mistaken for one that never has.
+    #
+    # Redirecting PROJECT_ROOT rather than stubbing _log_telemetry keeps the real
+    # function body under test — it still opens and appends, just into tmp_path.
+    log_root = tmp_path / "fake_repo"
+    (log_root / "memory").mkdir(parents=True)
+    (log_root / "memory" / "SESSION_LOG.md").write_text("", encoding="utf-8")
+    monkeypatch.setattr(model_fallback, "PROJECT_ROOT", log_root)
 
 
 class TestRunSmartCli:
@@ -204,6 +226,43 @@ class TestTierHealthRecovery:
     def test_task_types_are_isolated(self):
         self._fail_n("classify", self.CANDS[0], model_fallback.TIER_DEMOTE_AFTER)
         assert model_fallback._order_by_health("reasoning", self.CANDS) == self.CANDS
+
+
+class TestTelemetryIsolation:
+    """The suite must not write to the production memory/SESSION_LOG.md.
+
+    Why this is a test and not just a fixture: the fixture is one line, and the
+    damage from losing it is silent and cumulative. On 2026-08-29 the production
+    SESSION_LOG held 186 MODEL FALLBACK rows, 166 of them latency=0.0s written
+    by this suite. Those rows are indistinguishable in shape from real ones, and
+    SESSION_LOG is the ONLY place a per-model success is recorded — the health
+    ledger keeps a counter, not a history. Fake successes in the one success
+    record are how a working provider gets reported as a dead one.
+    """
+
+    @patch("lib.model_fallback.run_claude_cli", return_value=None)
+    @patch("lib.model_fallback.run_opencode_cli", return_value="mocked reply")
+    def test_successful_fallback_does_not_touch_production_session_log(
+            self, _mock_oc, _mock_claude):
+        real_log = REAL_PROJECT_ROOT / "memory" / "SESSION_LOG.md"
+        before = real_log.read_bytes() if real_log.is_file() else None
+
+        assert run_smart_cli("test", task_type="classify") == "mocked reply"
+
+        after = real_log.read_bytes() if real_log.is_file() else None
+        assert after == before, (
+            "run_smart_cli appended telemetry to the REAL SESSION_LOG — the "
+            "_isolate_tier_health fixture no longer redirects PROJECT_ROOT")
+
+    @patch("lib.model_fallback.run_claude_cli", return_value=None)
+    @patch("lib.model_fallback.run_opencode_cli", return_value="mocked reply")
+    def test_telemetry_is_still_written_somewhere(self, _mock_oc, _mock_claude):
+        """The isolation must redirect the write, not silence it. A fixture that
+        stubbed _log_telemetry out would pass the test above while leaving the
+        real telemetry path completely unexercised."""
+        run_smart_cli("test", task_type="classify")
+        redirected = (model_fallback.PROJECT_ROOT / "memory" / "SESSION_LOG.md")
+        assert "MODEL FALLBACK" in redirected.read_text(encoding="utf-8")
 
 
 if __name__ == "__main__":

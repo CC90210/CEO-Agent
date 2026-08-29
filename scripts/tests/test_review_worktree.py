@@ -155,6 +155,20 @@ def _sandbox_repo(tmp_path: Path) -> Path:
     packages = work / "node_modules" / "react"
     packages.mkdir(parents=True)
     (packages / "index.js").write_text("module.exports = 1", encoding="utf-8")
+
+    # The fixture proves its own postcondition. Without this, a push that has
+    # not landed yet surfaces later as "could not fetch main: Could not read
+    # from remote repository" attributed to prepare_pr_checkout — the test
+    # blaming the code for the fixture's race. Seen intermittently under a
+    # loaded full-suite run and never in isolation.
+    for attempt in range(3):
+        probe = subprocess.run(["git", "-C", str(work), "ls-remote", "origin", "main"],
+                               capture_output=True, text=True, timeout=120)
+        if probe.returncode == 0 and probe.stdout.strip():
+            return work
+        subprocess.run(["git", "-C", str(work), "push", "-q", "origin", "HEAD:main"],
+                       capture_output=True, timeout=120)
+    pytest.skip("could not build the sandbox remote — fixture problem, not a defect")
     return work
 
 
@@ -219,6 +233,16 @@ def test_sweep_only_touches_this_repos_worktrees(tmp_path, monkeypatch):
     for d in (mine, theirs):
         d.mkdir()
         (d / "f.txt").write_text("x", encoding="utf-8")
+
+    # Age them explicitly. `max_age_h=0` makes the cutoff exactly `now`, and a
+    # directory created microseconds earlier can land on either side of it — the
+    # test passed alone and failed inside the full suite, where the machine is
+    # loaded and the timing shifts. An assertion whose truth depends on how busy
+    # the box is proves nothing about the code.
+    import os as _os
+    old_mtime = __import__("time").time() - 7200
+    for d in (mine, theirs):
+        _os.utime(d, (old_mtime, old_mtime))
 
     seen = []
     monkeypatch.setattr(review_fix, "run",

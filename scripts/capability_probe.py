@@ -23,10 +23,15 @@ CONTRACT
     lengths, no hashes. A leak here would defeat the secret guard.
   * Exit 0 = capability available. Exit 1 = genuinely unavailable (the only
     case in which "I don't have access" is a true statement).
+  * Most services are proven by env-key presence. Some authenticate by a CLI
+    session rather than a key — those are probed LIVE (see LIVE_PROBES),
+    because asking "is the env var set?" about a tool that never reads one
+    reports a working capability as missing.
 
 USAGE
   python scripts/capability_probe.py list                    # every service + status
   python scripts/capability_probe.py check stripe            # one service
+  python scripts/capability_probe.py check codex             # alias -> openai
   python scripts/capability_probe.py check stripe --json
   python scripts/capability_probe.py have STRIPE_API_KEY     # one raw key
 """
@@ -36,11 +41,20 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO_ROOT / "docs" / "ENV_KEYS_TEMPLATE.md"
+
+# `codex login status` is what the codex plugin ITSELF calls to decide whether it
+# can run (~/.claude/codex-plugin/scripts/lib/codex.mjs:704), so it is the
+# authoritative liveness question, not a proxy for one. Measured at 2.9s cold on
+# this machine (2026-08-29); the cap is ~5x that so a slow disk or a cold npm
+# shim can never manufacture a "not authenticated" verdict.
+CODEX_STATUS_TIMEOUT = 15
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
@@ -59,7 +73,22 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 SERVICES: dict[str, tuple[list[list[str]], str]] = {
     "anthropic": ([["CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"]],
                   "python scripts/lib/claude_cli.py  (subscription CLI — never the API key)"),
+    # The env-key group is kept because an API-key login IS a valid Codex auth
+    # path — but it is the MINORITY path here, and gating on it alone was the
+    # worst false negative this tool has produced. On this machine Codex
+    # authenticates by ChatGPT subscription (`codex login status` -> "Logged in
+    # using ChatGPT", creds in ~/.codex/auth.json); no OPENAI_* key exists in the
+    # agents env and none is needed. So `check openai` reported NOT CONFIGURED
+    # about a CLI that answers in under three seconds.
+    #
+    # That is not a cosmetic wrong answer. RULE 8 makes the Codex independent
+    # audit MANDATORY on any big task, and this file is the one an agent is told
+    # to trust over its own memory — so the probe was actively instructing agents
+    # that the required audit was impossible, and the skip looked justified.
+    # _codex_auth below asks the real question instead. See LIVE_PROBES.
     "openai": ([["OPENAI_API_KEY"]],
+               "python scripts/core/codex_review.py review --session '<task-slug>'   "
+               "(the RULE 8 audit — records the verdict to task_outcomes)  |  "
                "node ~/.claude/codex-plugin/scripts/codex-companion.mjs task --write '<ctx>'"),
     "openrouter": ([["OPENROUTER_API_KEY"]], "python scripts/model_router.py"),
     # RETIRED 2026-08-09 — and this entry was the most dangerous kind of stale:
@@ -188,6 +217,96 @@ def _satisfy(group: list[str], have: set[str]) -> list[str]:
     )
 
 
+def _codex_auth() -> tuple[bool, str]:
+    """Is the Codex CLI installed AND logged in? Presence only — never the token.
+
+    Returns (authenticated, one-line reason).
+
+    The reason NEVER carries the CLI's own stdout/stderr. `codex login status`
+    prints the auth MODE, and the API-key mode prints a description of the key
+    itself — piping that into a model's context is precisely the leak the
+    CONTRACT at the top of this file forbids. So the result is classified into a
+    fixed vocabulary here and the raw text is dropped on the floor.
+    """
+    exe = shutil.which("codex")
+    if exe is None:
+        # Not a credential problem, and saying "not configured" would send the
+        # reader hunting for a key that was never the issue.
+        return False, "codex CLI not on PATH — install it: npm install -g @openai/codex"
+    try:
+        proc = subprocess.run(
+            [exe, "login", "status"],
+            capture_output=True,
+            text=True,
+            timeout=CODEX_STATUS_TIMEOUT,
+            # A status question must never be able to consume — or block on —
+            # the caller's stdin. `codex` resolves to a .CMD shim on Windows, so
+            # this spawns cmd.exe, which will read stdin if it is handed one.
+            stdin=subprocess.DEVNULL,
+        )
+    except subprocess.TimeoutExpired:
+        # UNVERIFIED, not absent — and the wording is load-bearing. This tool
+        # exists to stop agents concluding "I don't have access"; a probe that
+        # let a transient stall harden into that claim would reintroduce the bug.
+        return False, (
+            f"codex CLI found but `codex login status` did not answer within "
+            f"{CODEX_STATUS_TIMEOUT}s — auth UNVERIFIED, not absent. Re-run the probe, "
+            f"or run `codex login status` yourself before concluding anything."
+        )
+    except OSError as exc:
+        return False, f"codex CLI at {exe} could not be executed — {type(exc).__name__}: {exc}"
+
+    if proc.returncode != 0:
+        # A crash is not a verdict. Exit codes are 0-255 by convention, so
+        # anything outside that is an abnormal termination — a Windows NTSTATUS
+        # or a POSIX signal — not the CLI answering "logged out".
+        #
+        # This is defensive, and measured: process creation on this box
+        # intermittently dies with 3221225480 (0xC0000008 STATUS_INVALID_HANDLE)
+        # printing nothing on either stream. It is NOT specific to the codex
+        # spawn — 2026-08-29 it hit 1 of 15 runs of `check stripe`, which spawns
+        # no subprocess at all, and 0 of 15 of `check openai`. But when it does
+        # land on this child, an NTSTATUS in returncode would otherwise be read
+        # as "not logged in" — a confident false negative on a transient, which
+        # is the whole failure mode this file exists to prevent.
+        if proc.returncode < 0 or proc.returncode > 0xFF:
+            return False, (
+                f"`codex login status` terminated abnormally (exit {proc.returncode}) — "
+                f"auth UNVERIFIED, not absent. Re-run the probe before concluding anything."
+            )
+        return False, (
+            f"codex CLI installed but not logged in (`codex login status` exit "
+            f"{proc.returncode}) — run: codex login"
+        )
+
+    # Both streams: `codex login status` prints its verdict to STDERR and leaves
+    # stdout empty (measured 2026-08-29 — stdout 0 bytes, stderr 24 bytes
+    # "Logged in using ChatGPT"). Classifying stdout alone reported an
+    # authenticated CLI as "mode not recognised".
+    said = proc.stdout + proc.stderr
+    if "ChatGPT" in said:
+        mode = "ChatGPT subscription"
+    elif "API key" in said:
+        mode = "API key"
+    else:
+        # Authenticated (exit 0 is the verdict), but do not invent a mode name —
+        # and do not print the line to find out what it says. See the docstring.
+        mode = "mode not recognised"
+    return True, f"codex CLI logged in ({mode}) — OPENAI_API_KEY is not required for this path"
+
+
+# Services whose credential is a CLI SESSION, not an env var. A live probe here
+# overrides the key check when it succeeds; when it fails, the key check still
+# stands (an API key remains a valid alternative). Keep this list tiny — every
+# entry costs a subprocess on `list`.
+LIVE_PROBES = {"openai": _codex_auth}
+
+# `check codex` used to exit 2 "unknown service" — the same false negative in a
+# different costume, since RULE 8 and every entry point call this capability
+# "Codex", never "openai". The name an agent will actually type has to resolve.
+ALIASES = {"codex": "openai", "codex-cli": "openai"}
+
+
 def probe(service: str, have: set[str]) -> dict:
     groups, invoke = SERVICES[service]
     matched: list[str] = []
@@ -199,7 +318,7 @@ def probe(service: str, have: set[str]) -> dict:
         else:
             # Name the canonical key so the operator knows what to add.
             unsatisfied.append(group[0])
-    return {
+    result = {
         "service": service,
         # EVERY required group must be satisfied — see the SERVICES comment.
         "available": not unsatisfied,
@@ -207,6 +326,17 @@ def probe(service: str, have: set[str]) -> dict:
         "keys_missing": unsatisfied,
         "invoke": invoke,
     }
+    live = LIVE_PROBES.get(service)
+    if live is not None:
+        authed, detail = live()
+        result["auth"] = detail
+        if authed:
+            # The CLI's own session IS the credential, so an absent env key is
+            # not an absent capability — and reporting it under "keys missing"
+            # would read as a defect to fix rather than a path not taken.
+            result["available"] = True
+            result["keys_missing"] = []
+    return result
 
 
 def main() -> int:
@@ -239,10 +369,10 @@ def main() -> int:
         return 0 if ok else 1
 
     if args.cmd == "check":
-        svc = args.service.lower()
+        svc = ALIASES.get(args.service.lower(), args.service.lower())
         if svc not in SERVICES:
-            print(f"unknown service '{svc}'. known: {', '.join(sorted(SERVICES))}",
-                  file=sys.stderr)
+            known = ", ".join(sorted(set(SERVICES) | set(ALIASES)))
+            print(f"unknown service '{svc}'. known: {known}", file=sys.stderr)
             return 2
         r = probe(svc, have)
         if args.json:
@@ -253,6 +383,8 @@ def main() -> int:
                 print(f"  keys present : {', '.join(r['keys_present'])}")
             if r["keys_missing"]:
                 print(f"  keys missing : {', '.join(r['keys_missing'])}")
+            if r.get("auth"):
+                print(f"  auth         : {r['auth']}")
             print(f"  invoke       : {r['invoke']}")
         return 0 if r["available"] else 1
 
