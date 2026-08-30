@@ -10,6 +10,46 @@ tags: [cloudflare, migration, dns, cutover, vercel-exit]
 > [[brain/WAVE3_OASIS_CC_RUNBOOK]] (cron cutover) · gap report
 > `state/cloudflare_baselines/2026-08-29/secret_gaps.md` (§3 NS audit, §8 state).
 
+## 0. ⛔ BLOCKER FOUND 2026-08-30 — the Workers and the zones are in DIFFERENT accounts
+
+Zone access is now live (CC was granted Super Admin on the zone account), and
+the first real binding attempt failed on a structural problem no permission can
+fix:
+
+```
+PUT /accounts/d5e302…/workers/domains  {hostname: www.oasisai.work, service: oasis-ai-platform, zone_id: 9bc95545…}
+ -> 10084: The zone "9bc95545…" does not exist on your account.
+```
+
+**A Workers custom domain requires the Worker and the zone to live in the SAME
+Cloudflare account.** They do not:
+
+| | account | contents |
+|---|---|---|
+| Workers | `d5e302…` (Konamak@icloud.com's) | all **8** deployed workers, subdomain `oasis-cc.workers.dev` |
+| Zones | `e371c0f2…` (Oasisaisolutions@gmail.com's) | `oasisai.work`, both tunnels — and **0 workers**, no workers.dev subdomain yet |
+
+**Every custom-domain cutover in §1 is blocked until these converge.** Two ways:
+
+- **(A) Move the 8 Workers into the zone account `e371c0f2…` — RECOMMENDED.**
+  Mechanical and low-risk: the pipeline is registry-driven, so it is a
+  `CLOUDFLARE_ACCOUNT_ID` change plus `wrangler_tool.py deploy --app <slug>`
+  per app, then re-push secrets (they are per-account). No DNS is touched at
+  any point. Costs: a new workers.dev subdomain (the account has none yet — CC
+  must open Workers & Pages once in that account's dashboard to create it),
+  re-verifying Workers Paid **on that account**, and re-pointing the 10 CI
+  workflows' `CLOUDFLARE_ACCOUNT_ID` secret. The 5 not-yet-onboarded domains
+  should then be added to `e371c0f2…` too, so one account holds zones + workers.
+- **(B) Move the `oasisai.work` zone into `d5e302…`** — rejected. A zone move is
+  remove-and-re-add: all 15 records recreated by hand, including two proxied
+  tunnel CNAMEs and the entire Google Workspace mail set, with a live DNS
+  window in between. Workers are disposable; the zone carries mail and the
+  agent bridges.
+
+Also noted: the zone account's `/subscriptions` is not readable with this token,
+so **Workers Paid status on `e371c0f2…` is unverified** — check before assuming
+the 3 MiB cap is lifted there.
+
 ## 0a. ⚠ FENCE LIST CORRECTED — verified against live DNS 2026-08-30
 
 The protected-record list in §0 and the migration log was compiled from
