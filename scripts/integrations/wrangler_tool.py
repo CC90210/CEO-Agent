@@ -165,8 +165,11 @@ def _npx() -> str:
 
 
 def _run(cmd: list[str], *, cwd: Path, env: dict, capture: bool = False,
-         stdin_text: str | None = None) -> subprocess.CompletedProcess:
+         stdin_text: str | None = None,
+         timeout: float | None = None) -> subprocess.CompletedProcess:
     kwargs: dict = {"cwd": str(cwd), "env": env}
+    if timeout is not None:
+        kwargs["timeout"] = timeout
     if capture:
         # Explicit utf-8: Windows text mode defaults to cp1252 and wrangler's
         # output contains bytes cp1252 cannot decode (kills the reader thread).
@@ -493,10 +496,26 @@ def cmd_scaffold(registry: dict, args: argparse.Namespace) -> int:
 
 
 def cmd_tail(registry: dict, args: argparse.Namespace) -> int:
+    """Bounded log sample (default 120s). An unbounded stream is useless here:
+    the windowless .cmd shim swallows inherited stdout (discovered 2026-08-30 —
+    a 400s tail produced zero bytes), and agent workflows need a capture that
+    terminates. On expiry the captured lines are printed."""
     app = _app(registry, args.app)
-    proc = _run([_npx(), "wrangler", "tail", "--format", "pretty", app["worker_name"]],
-                cwd=app["path"], env=_wrangler_env(registry))
-    return proc.returncode
+    from lib.subprocess_helpers import safe_popen
+    cmd = [_npx(), "wrangler", "tail", "--format", "pretty", app["worker_name"]]
+    proc = safe_popen(cmd, cwd=str(app["path"]), env=_wrangler_env(registry),
+                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                      text=True, encoding="utf-8", errors="replace")
+    try:
+        out, _ = proc.communicate(timeout=args.seconds)
+    except subprocess.TimeoutExpired:  # expected exit path for a tail sample
+        # The npx .cmd shim's grandchild (node/wrangler) survives a plain
+        # kill() and keeps the pipe open forever — kill the whole tree.
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                       capture_output=True)
+        out, _ = proc.communicate()
+    print((out or "")[-8000:] or "(no log lines captured in the window)")
+    return 0
 
 
 # ---------------------------------------------------------------- main
@@ -531,7 +550,8 @@ def main() -> int:
     add("deploy", cmd_deploy, needs_app=True,
         **{"--skip-build": {"action": "store_true", "dest": "skip_build"},
            "--skip-secrets": {"action": "store_true", "dest": "skip_secrets"}})
-    add("tail", cmd_tail, needs_app=True)
+    add("tail", cmd_tail, needs_app=True,
+        **{"--seconds": {"type": float, "default": 120.0, "dest": "seconds"}})
     add("scaffold", cmd_scaffold, needs_app=True,
         **{"--force": {"action": "store_true", "dest": "force"}})
 
