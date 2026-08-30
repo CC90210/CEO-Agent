@@ -1,0 +1,154 @@
+{
+  "secrets": [
+    {
+      "key": "AUTH_SESSION_SECRET",
+      "source": "PROPFLOW__AUTH_SESSION_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "CLOUDFLARE_ACCOUNT_ID",
+      "source": "PROPFLOW__CLOUDFLARE_ACCOUNT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "CRON_SECRET",
+      "source": "PROPFLOW__CRON_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "EMPIRE_AUTH_BACKEND",
+      "source": "PROPFLOW__EMPIRE_AUTH_BACKEND",
+      "scope": "runtime"
+    },
+    {
+      "key": "EMPIRE_DATA_BACKEND",
+      "source": "PROPFLOW__EMPIRE_DATA_BACKEND",
+      "scope": "runtime"
+    },
+    {
+      "key": "GOOGLE_CLIENT_ID",
+      "source": "PROPFLOW__GOOGLE_CLIENT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "GOOGLE_CLIENT_SECRET",
+      "source": "PROPFLOW__GOOGLE_CLIENT_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "LATE_API_KEY",
+      "source": "PROPFLOW__LATE_API_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "N8N_API_KEY",
+      "source": "PROPFLOW__N8N_API_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_APP_URL",
+      "source": "PROPFLOW__NEXT_PUBLIC_APP_URL",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "source": "PROPFLOW__NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "source": "PROPFLOW__NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "source": "PROPFLOW__NEXT_PUBLIC_SUPABASE_URL",
+      "scope": "both"
+    },
+    {
+      "key": "PROPFLOW_GMAIL_APP_PASSWORD",
+      "source": "PROPFLOW__PROPFLOW_GMAIL_APP_PASSWORD",
+      "scope": "runtime"
+    },
+    {
+      "key": "PROPFLOW_MASTER_EMAIL",
+      "source": "PROPFLOW__PROPFLOW_MASTER_EMAIL",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_ACCESS_KEY_ID",
+      "source": "PROPFLOW__R2_ACCESS_KEY_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_BUCKET",
+      "source": "PROPFLOW__R2_BUCKET",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_PUBLIC_BASE_URL",
+      "source": "PROPFLOW__R2_PUBLIC_BASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_SECRET_ACCESS_KEY",
+      "source": "PROPFLOW__R2_SECRET_ACCESS_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "RUNPOD_API_KEY",
+      "source": "PROPFLOW__RUNPOD_API_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "STRIPE_SECRET_KEY",
+      "source": "PROPFLOW__STRIPE_SECRET_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "STRIPE_WEBHOOK_SIGNING_SECRET",
+      "source": "PROPFLOW__STRIPE_WEBHOOK_SIGNING_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "source": "PROPFLOW__SUPABASE_SERVICE_ROLE_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_AUTH_TOKEN",
+      "source": "PROPFLOW__TURSO_AUTH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_DATABASE_URL",
+      "source": "PROPFLOW__TURSO_DATABASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "WALKTHROUGH_WEBHOOK_SECRET",
+      "source": "PROPFLOW__WALKTHROUGH_WEBHOOK_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "WEBHOOK_SECRET",
+      "source": "PROPFLOW__WEBHOOK_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "WORKER_SHARED_SECRET",
+      "source": "PROPFLOW__WORKER_SHARED_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPER_ADMIN_EMAILS",
+      "source": "PROPFLOW__NEXT_PUBLIC_SUPER_ADMIN_EMAILS",
+      "scope": "both"
+    },
+    {
+      "key": "SUPER_ADMIN_EMAILS",
+      "source": "PROPFLOW__SUPER_ADMIN_EMAILS",
+      "scope": "runtime"
+    }
+  ]
+}

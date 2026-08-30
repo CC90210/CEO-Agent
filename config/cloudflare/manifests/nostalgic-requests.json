@@ -1,0 +1,99 @@
+{
+  "secrets": [
+    {
+      "key": "AUTH_SESSION_SECRET",
+      "source": "NOSTALGIC_REQUESTS__AUTH_SESSION_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "CLOUDFLARE_ACCOUNT_ID",
+      "source": "NOSTALGIC_REQUESTS__CLOUDFLARE_ACCOUNT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "EMPIRE_AUTH_BACKEND",
+      "source": "NOSTALGIC_REQUESTS__EMPIRE_AUTH_BACKEND",
+      "scope": "runtime"
+    },
+    {
+      "key": "EMPIRE_DATA_BACKEND",
+      "source": "NOSTALGIC_REQUESTS__EMPIRE_DATA_BACKEND",
+      "scope": "runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_APP_URL",
+      "source": "NOSTALGIC_REQUESTS__NEXT_PUBLIC_APP_URL",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_EMPIRE_AUTH_BACKEND",
+      "source": "NOSTALGIC_REQUESTS__NEXT_PUBLIC_EMPIRE_AUTH_BACKEND",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "source": "NOSTALGIC_REQUESTS__NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "source": "NOSTALGIC_REQUESTS__NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "source": "NOSTALGIC_REQUESTS__NEXT_PUBLIC_SUPABASE_URL",
+      "scope": "both"
+    },
+    {
+      "key": "R2_ACCESS_KEY_ID",
+      "source": "NOSTALGIC_REQUESTS__R2_ACCESS_KEY_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_BUCKET",
+      "source": "NOSTALGIC_REQUESTS__R2_BUCKET",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_PUBLIC_BASE_URL",
+      "source": "NOSTALGIC_REQUESTS__R2_PUBLIC_BASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_SECRET_ACCESS_KEY",
+      "source": "NOSTALGIC_REQUESTS__R2_SECRET_ACCESS_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "RESEND_API_KEY",
+      "source": "NOSTALGIC_REQUESTS__RESEND_API_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "STRIPE_SECRET_KEY",
+      "source": "NOSTALGIC_REQUESTS__STRIPE_SECRET_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "STRIPE_WEBHOOK_SECRET",
+      "source": "NOSTALGIC_REQUESTS__STRIPE_WEBHOOK_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "source": "NOSTALGIC_REQUESTS__SUPABASE_SERVICE_ROLE_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_AUTH_TOKEN",
+      "source": "NOSTALGIC_REQUESTS__TURSO_AUTH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_DATABASE_URL",
+      "source": "NOSTALGIC_REQUESTS__TURSO_DATABASE_URL",
+      "scope": "runtime"
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "secrets": [
+    {
+      "key": "APP_URL",
+      "source": "LISTING_STUDIO__APP_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "BLOB_READ_WRITE_TOKEN",
+      "source": "LISTING_STUDIO__BLOB_READ_WRITE_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "PUBLISH_MODE",
+      "source": "LISTING_STUDIO__PUBLISH_MODE",
+      "scope": "runtime"
+    },
+    {
+      "key": "SESSION_SECRET",
+      "source": "LISTING_STUDIO__SESSION_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "SMTP_FROM",
+      "source": "LISTING_STUDIO__SMTP_FROM",
+      "scope": "runtime"
+    },
+    {
+      "key": "SMTP_HOST",
+      "source": "LISTING_STUDIO__SMTP_HOST",
+      "scope": "runtime"
+    },
+    {
+      "key": "SMTP_PASSWORD",
+      "source": "LISTING_STUDIO__SMTP_PASSWORD",
+      "scope": "runtime"
+    },
+    {
+      "key": "SMTP_PORT",
+      "source": "LISTING_STUDIO__SMTP_PORT",
+      "scope": "runtime"
+    },
+    {
+      "key": "SMTP_USER",
+      "source": "LISTING_STUDIO__SMTP_USER",
+      "scope": "runtime"
+    },
+    {
+      "key": "STORAGE_DRIVER",
+      "source": "LISTING_STUDIO__STORAGE_DRIVER",
+      "scope": "runtime"
+    },
+    {
+      "key": "TELEGRAM_BOT_TOKEN",
+      "source": "LISTING_STUDIO__TELEGRAM_BOT_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TELEGRAM_WEBHOOK_SECRET",
+      "source": "LISTING_STUDIO__TELEGRAM_WEBHOOK_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_AUTH_TOKEN",
+      "source": "LISTING_STUDIO__TURSO_AUTH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_DATABASE_URL",
+      "source": "LISTING_STUDIO__TURSO_DATABASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "WORKER_SHARED_SECRET",
+      "source": "LISTING_STUDIO__WORKER_SHARED_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "ZILLOW_WORKER_SECRET",
+      "source": "LISTING_STUDIO__ZILLOW_WORKER_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "ZILLOW_WORKER_TENANT",
+      "source": "LISTING_STUDIO__ZILLOW_WORKER_TENANT",
+      "scope": "runtime"
+    },
+    {
+      "key": "TELEGRAM_APPROVER_IDS",
+      "source": "LISTING_STUDIO__TELEGRAM_APPROVER_IDS",
+      "scope": "runtime"
+    }
+  ]
+}

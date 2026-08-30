@@ -1,0 +1,19 @@
+{
+  "secrets": [
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "source": "TIKTIK__NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "source": "TIKTIK__NEXT_PUBLIC_SUPABASE_URL",
+      "scope": "both"
+    },
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "source": "TIKTIK__SUPABASE_SERVICE_ROLE_KEY",
+      "scope": "runtime"
+    }
+  ]
+}
