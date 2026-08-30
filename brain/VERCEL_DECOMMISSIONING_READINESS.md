@@ -10,7 +10,38 @@ tags: [cloudflare, migration, vercel-exit, readiness]
 > [[brain/WAVE3_OASIS_CC_RUNBOOK]] · baselines in
 > `state/cloudflare_baselines/2026-08-30/`.
 
-## VERDICT: **NOT READY.** Seven production hostnames have moved. Blockers below.
+## VERDICT: **NOT READY** (`vercel_exit_report.py` exit 2 — work outstanding, 0 regressions)
+
+> The verdict is no longer maintained by hand. Run
+> `python scripts/vercel_exit_report.py` — it measures all six gates live and
+> exits 0 green / 1 regression / 2 expected-work.
+
+### 2026-08-30 late — OASIS CC deployed; soak threshold lowered to 12h
+
+**Soak 48h → 12h at CC's direction.** Recorded in the script with what it gives
+up: the 28 crons include daily, twice-daily and weekly schedules, so 12h cannot
+observe one full cycle of any of them.
+
+**OASIS Command Center IS deployed** to workers.dev — 74 secrets pushed, 26
+outstanding. It corrected an earlier assumption of mine: it renders correctly
+and `/api/forms/submit` + `/api/forms/upload-url` are at **exact parity with
+Vercel (400/400)**. One confirmed defect: **`/api/cron/health-check` returns 500
+where Vercel returns 401** — `lib/cron-auth.ts` fails closed when `CRON_SECRET`
+is unset, so all 28 cron routes would fail. Harmless today only because
+`cron-driver.yml` targets the Vercel URL directly; fatal the moment Vercel goes.
+
+**`oasisai.work` apex NOT attached — deliberate.** The guard would have allowed
+it (titles match), so this was judgement: that worker had **0h soak** under CC's
+own newly-set 12h rule, and apex is the primary revenue domain. Attach once it
+has 12h clean AND `CRON_SECRET` is filled; rollback is one record
+(`A 216.198.79.1`, unproxied).
+
+**breeze-portal does not build** — `npm error could not determine executable to
+run`: the OpenNext adapter was never installed in that repo. That is a
+prerequisite *before* its 16 secrets and the `BREEZE_ENCRYPTION_KEY` recovery
+even become the blocker.
+
+## Earlier: seven production hostnames moved
 
 ### 2026-08-30 evening — Workers Paid unlocked Phase 2
 

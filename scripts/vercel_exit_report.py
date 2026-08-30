@@ -97,11 +97,36 @@ def gate_fleet() -> dict:
             "detail": detail}
 
 
+# Apps deployed KNOWINGLY INCOMPLETE. A probe failure here is outstanding work,
+# not a regression — the distinction is the whole point of the health/work split,
+# and calling incomplete work a regression would make the alarm meaningless.
+# Same contract as KNOWN_BROKEN: a reason and a removal condition, or it becomes
+# a hiding place. gate_secrets still reports these loudly, so nothing is buried.
+KNOWN_INCOMPLETE = {
+    # Deployed 2026-08-30 with 26 sensitive secrets outstanding. Its cron routes
+    # 500 because CRON_SECRET is unset (lib/cron-auth.ts fails closed).
+    # REMOVE WHEN: CRON_SECRET is filled and secrets-plan reports 0 gaps.
+    "oasis-command-center": "deployed with 26 secrets outstanding; cron routes 500 without CRON_SECRET",
+}
+
+
 def gate_dataplane() -> dict:
-    rc, out = _run(["node", str(ROOT / "scripts" / "turso_bridge_smoke.mjs")])
-    last = [l for l in out.splitlines() if "ok," in l and "failed" in l]
-    return {"gate": "data plane + VPS bridge", "pass": rc == 0,
-            "detail": last[-1].strip() if last else out.strip()[-120:]}
+    """Alarms on a data-plane failure in an app that is supposed to be complete."""
+    rc, out = _run(["node", str(ROOT / "scripts" / "turso_bridge_smoke.mjs"), "--json"])
+    try:
+        report = json.loads(out[out.index("["):out.rindex("]") + 1])
+    except (ValueError, json.JSONDecodeError):
+        return {"gate": "data plane + VPS bridge", "pass": False,
+                "detail": f"COULD NOT PARSE turso_bridge_smoke output (rc={rc})"}
+    failed = [r["app"] for r in report if r.get("verdict") == "FAIL"]
+    new = [a for a in failed if a not in KNOWN_INCOMPLETE]
+    ok = len([r for r in report if r.get("verdict") == "ok"])
+    if new:
+        detail = "FAILING: " + ", ".join(sorted(new))
+    else:
+        held = ", ".join(sorted(failed)) or "none"
+        detail = f"{ok}/{len(report)} ok; known-incomplete only ({held})"
+    return {"gate": "data plane + VPS bridge", "pass": not new, "detail": detail}
 
 
 def gate_migrated() -> dict:

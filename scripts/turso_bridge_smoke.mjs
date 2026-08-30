@@ -78,6 +78,14 @@ const TARGETS = {
       { path: "/api/forms/submit", tier: "boot", expectStatus: [400, 401, 405],
         why: "an invalid payload must reach the validator, not a parking page" },
       { path: "/login", tier: "boot", expectStatus: [200] },
+      // Added 2026-08-30 after finding this BY HAND while the harness reported
+      // the app "ok". lib/cron-auth.ts returns 401 when a bearer is missing but
+      // 500 ("cron_not_configured") when CRON_SECRET itself is unset — so 401 is
+      // the healthy answer and 500 means every one of the 28 cron routes is
+      // dead. Reaching the app through a browser cannot see this; only asking
+      // the route can.
+      { path: "/api/cron/health-check", tier: "boot", expectStatus: [401],
+        why: "500 here = CRON_SECRET unset = all 28 cron routes fail closed" },
     ],
   },
 };
