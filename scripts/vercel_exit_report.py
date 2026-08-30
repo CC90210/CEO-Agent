@@ -37,7 +37,17 @@ from lib.subprocess_helpers import safe_run  # noqa: E402
 
 REGISTRY = ROOT / "config" / "cloudflare" / "apps.json"
 SOAK_START = dt.datetime(2026, 8, 30, 7, 45, tzinfo=dt.timezone.utc)
-SOAK_HOURS = 48
+# 2026-08-30: CC lowered this from 48h to 12h to accelerate the exit. That is an
+# operator risk decision, recorded here rather than silently applied — and what
+# the shortened window gives up is specific, not theoretical:
+#   * The 28 OASIS CC crons include daily (0 3 * * *), twice-daily and WEEKLY
+#     (40 13 * * 1) schedules. A 12h window cannot observe a single full cycle
+#     of any of them, so a break in a once-a-day job is invisible to this gate.
+#   * Slow-accumulating faults — memory growth, connection-pool exhaustion, cache
+#     churn — are what a multi-day soak is actually for.
+# What 12h DOES prove is real: request-path health, DNS/TLS settling, and the
+# data plane, all of which have been green throughout.
+SOAK_HOURS = 12
 
 
 def _run(cmd: list[str]) -> tuple[int, str]:
@@ -50,7 +60,7 @@ def gate_soak() -> dict:
     now = dt.datetime.now(dt.timezone.utc)
     end = SOAK_START + dt.timedelta(hours=SOAK_HOURS)
     done = now >= end
-    return {"gate": "48h soak elapsed", "pass": done,
+    return {"gate": f"{SOAK_HOURS}h soak elapsed", "pass": done,
             "detail": f"{(now - SOAK_START)} elapsed of {SOAK_HOURS}h; "
                       f"{'complete' if done else f'closes {end:%Y-%m-%d %H:%M} UTC'}"}
 
