@@ -10,7 +10,35 @@ tags: [cloudflare, migration, dns, cutover, vercel-exit]
 > [[brain/WAVE3_OASIS_CC_RUNBOOK]] (cron cutover) · gap report
 > `state/cloudflare_baselines/2026-08-29/secret_gaps.md` (§3 NS audit, §8 state).
 
-## 0. ⛔ BLOCKER FOUND 2026-08-30 — the Workers and the zones are in DIFFERENT accounts
+## 0. ✅ RESOLVED 2026-08-30 ~07:40 UTC — the account split below is FIXED
+
+Option (A) was executed: **7 of 10 workers were redeployed into the zone-owning
+account `e371c0f2…`** (`*.oasisaisolutions.workers.dev`), secrets re-pushed, all
+verified healthy. Custom-domain binding works from there — proven by cutting
+`www.oasisai.work` over to the `oasis-ai-platform` Worker (it had been returning
+000/SSL-failure; now 200), with the zone diffed byte-identical on the fence.
+
+Two things that bit during the move, both fixed and worth remembering:
+- `wrangler_tool.py` gave the env store's `CLOUDFLARE_ACCOUNT_ID` precedence
+  over the registry, so editing the registry to re-point the fleet did
+  **nothing** and every command kept hitting the old account. A deploy to the
+  wrong account still succeeds, so this would have been reported as a completed
+  migration. Registry now wins; every deploy prints its target account.
+- The generated CI workflows hard-documented the old account id in their header.
+  Regenerated across all 10 repos.
+
+**Still deployed in the OLD account `d5e302…`** on `*.oasis-cc.workers.dev`: the
+same 7 workers. Harmless (nothing routes there) but delete them after the soak,
+or two fleets drift.
+
+Remaining from this section: **Workers Paid is NOT enabled on `e371c0f2…`** —
+it is a fresh account, so `oasis-command-center` (8.13 MiB gz), `propflow`
+(5.27) and `nostalgic-requests` (3.08) still fail the 3 MiB free cap. All three
+build clean; this is a plan setting, nothing more.
+
+<details><summary>Original blocker writeup (kept for the record)</summary>
+
+## ⛔ BLOCKER FOUND 2026-08-30 — the Workers and the zones are in DIFFERENT accounts
 
 Zone access is now live (CC was granted Super Admin on the zone account), and
 the first real binding attempt failed on a structural problem no permission can
@@ -48,7 +76,10 @@ Cloudflare account.** They do not:
 
 Also noted: the zone account's `/subscriptions` is not readable with this token,
 so **Workers Paid status on `e371c0f2…` is unverified** — check before assuming
-the 3 MiB cap is lifted there.
+the 3 MiB cap is lifted there. (Confirmed NOT enabled: the three large workers
+failed validation there on 2026-08-30.)
+
+</details>
 
 ## 0a. ⚠ FENCE LIST CORRECTED — verified against live DNS 2026-08-30
 
