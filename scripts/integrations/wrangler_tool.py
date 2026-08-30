@@ -773,12 +773,20 @@ def cmd_workflow(registry: dict, args: argparse.Namespace) -> int:
     for key, value in (app.get("build_env") or {}).items():
         lines.append(f"          {key}: {json.dumps(value)}")
     lines.append('          CF_MIGRATION_BUILD: "1"')
+    # EVERY manifest key, not just build-scoped ones — this must mirror
+    # _build_env() exactly. Next runs module-scope code during page-data
+    # collection (`const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)`),
+    # so a RUNTIME-scoped secret can still be required at BUILD time. CI proved
+    # it on 2026-08-30: nostalgic-requests failed with "Neither apiKey nor
+    # config.authenticator provided" because the generator emitted only the
+    # build-scoped subset while the local builder injected everything.
     for m in _manifest(slug):
-        if m.get("scope") in ("build", "both"):
-            lines.append("          %s: ${{ secrets.%s }}" % (m["key"], m["key"]))
-            docs.append(f"#   {m['key']}\n")
+        lines.append("          %s: ${{ secrets.%s }}" % (m["key"], m["key"]))
+        scope = m.get("scope", "runtime")
+        docs.append(f"#   {m['key']}{'  (inlined into the client bundle)' if scope in ('build', 'both') else ''}\n")
     if docs:
-        docs.insert(0, "#   -- build-time values inlined by the bundler:\n")
+        docs.insert(0, "#   -- every manifest key: the build needs runtime secrets too,\n"
+                       "#      because module-scope SDK init runs during page-data collection\n")
 
     text = WORKFLOW_TEMPLATE % {
         "slug": slug,
