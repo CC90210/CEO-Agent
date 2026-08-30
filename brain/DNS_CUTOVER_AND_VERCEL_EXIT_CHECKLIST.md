@@ -137,6 +137,29 @@ Vercel deployment warm 7d (14d Wave 3) → then retire the Vercel project.
 Rollback at any point: restore the snapshotted Vercel A/CNAME records (the
 `_vercel` TXT is NEVER deleted until retirement — it IS the rollback).
 
+**Use the tool for the attach step — do not hand-edit DNS or add a
+`custom_domain` route to wrangler.jsonc:**
+
+```
+python scripts/integrations/wrangler_tool.py zone-baseline          # snapshot + MX check, first
+python scripts/integrations/wrangler_tool.py attach-domain --app <slug> --hostname <host> --dry-run
+python scripts/integrations/wrangler_tool.py attach-domain --app <slug> --hostname <host>
+```
+
+It prints rollback values before deleting anything, and it **aborts (exit 1)
+when the live host and the Worker serve different pages** — the check that
+stopped `breezeadvance.credit` (a live client portal) from being repointed at a
+marketing Worker, and that refused all three attachments on 2026-08-30 because
+their Workers were not deployed. `--force` overrides; use it only with a stated
+reason.
+
+**After a nameserver repoint, expect an HTTPS gap.** A freshly-activated zone
+serves HTTP (308) while Cloudflare issues its Universal SSL certificate; HTTPS
+returns 000 until it lands. Observed on `propflow.pro` 2026-08-30 — it resolved
+to Cloudflare IPs, Vercel reported the domain correctly configured, and it
+recovered to 200 on its own. **Do not "fix" this by editing records.** Wait, and
+escalate only if it persists beyond a few hours.
+
 | # | App / worker | Domain(s) | NS today | Zone action (CC) | Notes |
 |---|---|---|---|---|---|
 | 1 | tiktik | none (vercel.app) | — | none | "Cutover" = flip external links/webhooks to `tiktik.oasis-cc.workers.dev`, CC login click-through first |
