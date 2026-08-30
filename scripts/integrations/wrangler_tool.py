@@ -373,6 +373,10 @@ def _build_env(registry: dict, slug: str) -> dict[str, str]:
     app = _app(registry, slug)
     loaded = _secrets()
     extra = dict(app.get("build_env") or {})
+    # Marks the build as Cloudflare-bound: apps gate migration-only next.config
+    # behavior (e.g. heavy tracing includes) on this so their VERCEL builds,
+    # which still ship production, stay untouched.
+    extra["CF_MIGRATION_BUILD"] = "1"
     for m in _manifest(slug):
         v = (loaded.get(m.get("source") or m["key"]) or "").strip()
         if v:
