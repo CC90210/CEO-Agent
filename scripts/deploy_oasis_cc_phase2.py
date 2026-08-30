@@ -91,8 +91,13 @@ def preflight() -> tuple[bool, list[str]]:
     workers = run(["list-workers"])
     deployed = APP in (workers.stdout or "")
     print(f"  [info] {APP} currently deployed: {deployed}")
-    print(f"  [info] bundle measured 8.13MiB gzip — needs Workers PAID "
-          f"(free cap {FREE_CAP_MIB}MiB, paid {PAID_CAP_MIB}MiB)")
+    # Workers Paid was enabled on e371c0f2 on 2026-08-30 and PROVEN by two
+    # deploys that the free cap had been rejecting (nostalgic-requests 3.08MiB,
+    # propflow 5.27MiB). Size is therefore no longer the gate for this app —
+    # kept as an info line because 8.13 leaves ~1.9MiB of headroom under the
+    # paid cap, which is worth watching as the bundle grows.
+    print(f"  [info] bundle 8.13MiB gzip vs paid cap {PAID_CAP_MIB}MiB "
+          f"(~{PAID_CAP_MIB - 8.13:.1f}MiB headroom); Workers Paid confirmed active")
     return (not blockers), blockers
 
 

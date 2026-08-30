@@ -10,7 +10,36 @@ tags: [cloudflare, migration, vercel-exit, readiness]
 > [[brain/WAVE3_OASIS_CC_RUNBOOK]] · baselines in
 > `state/cloudflare_baselines/2026-08-30/`.
 
-## VERDICT: **NOT READY.** Three production hostnames have moved. Blockers below.
+## VERDICT: **NOT READY.** Seven production hostnames have moved. Blockers below.
+
+### 2026-08-30 evening — Workers Paid unlocked Phase 2
+
+**Paid confirmed** on `e371c0f2`, proven by two deploys the free cap had been
+rejecting: `nostalgic-requests` (3.08MiB, 19 secrets) and `propflow` (5.27MiB,
+28 of 30). **9 workers now deployed.**
+
+PropFlow shipped without `SUPER_ADMIN_EMAILS` / `NEXT_PUBLIC_SUPER_ADMIN_EMAILS`
+— sensitive-type in Vercel and therefore unrecoverable. Verified fail-closed
+first in `src/lib/access-control.ts`: unset yields an empty allowlist, so nobody
+gains email-based admin and the DB `is_super_admin` flag still governs. Pushed
+behind an explicit `--allow-missing` that names every skipped key.
+
+**Cut over (all 200, titles matched against the live site first):**
+`propflow.pro` + `www`, `nostalgicrequests.com` + `www`. Rollback A-records
+printed before each deletion and recorded in the tool output.
+
+**Running total — 7 production hostnames on Workers:** `www.oasisai.work`,
+`bluerisebusinesscapital.com` + `www`, `propflow.pro` + `www`,
+`nostalgicrequests.com` + `www`.
+
+`breezeadvance.credit` remains **correctly refused** — `breeze-portal` has never
+been deployed (16 unfilled secrets), so binding it would point David's live
+Client Portal at a worker that does not exist.
+
+**Mail re-verified after the cutovers:** `oasisai.work` keeps all 5 MX and 6 TXT
+(SPF/DKIM/DMARC). The two "no MX" warnings on `nostalgicrequests.com` and
+`propflow.pro` predate this work — both were flagged in the pre-cutover baseline
+and neither ever had mail records.
 
 ### 2026-08-30 late — 6 zones baselined, Blue Rise cut over, and a near-miss
 
