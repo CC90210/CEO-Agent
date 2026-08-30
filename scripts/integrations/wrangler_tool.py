@@ -28,6 +28,7 @@ import argparse
 import datetime as _dt
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -123,6 +124,32 @@ def _wrangler_env(registry: dict, extra: dict | None = None) -> dict[str, str]:
 
 
 # ---------------------------------------------------------------- REST reads
+
+def _cf_call(method: str, path: str, token: str, body: dict | None = None, timeout: int = 40) -> dict:
+    """One mutating-call shape for the whole tool. Was open-coded three times
+    (www cutover, Blue Rise attach, zone probes) before this existed."""
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(
+        f"{CF_BASE}{path}", data=data, method=method,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                 "User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read())
+        except Exception:
+            return {"success": False, "http_status": e.code}
+
+
+def _cf_delete(path: str, token: str) -> dict:
+    return _cf_call("DELETE", path, token)
+
+
+def _cf_put(path: str, token: str, body: dict) -> dict:
+    return _cf_call("PUT", path, token, body)
+
 
 def _cf_get(path: str, token: str, timeout: int = 30) -> dict:
     req = urllib.request.Request(
@@ -292,6 +319,88 @@ def cmd_zone_baseline(registry: dict, args: argparse.Namespace) -> int:
     print(f"\nbaselines written to {out}")
     if problems:
         print(f"WARNING: {problems} ACTIVE zone(s) have no MX records.")
+    return 0
+
+
+def _title_of(url: str) -> str | None:
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=25) as r:
+            body = r.read(200_000).decode("utf-8", "replace")
+    except Exception:
+        return None
+    m = re.search(r"<title[^>]*>(.*?)</title>", body, re.I | re.S)
+    return " ".join(m.group(1).split()) if m else None
+
+
+def cmd_attach_domain(registry: dict, args: argparse.Namespace) -> int:
+    """Point a hostname at an app's Worker: delete the existing A/AAAA/CNAME,
+    then bind the Workers custom domain.
+
+    THE TITLE GUARD IS THE POINT. On 2026-08-30 an instruction to attach
+    breezeadvance.credit to `breezeadvance-website` would have replaced a live
+    CLIENT PORTAL with a marketing page — the registry's domain map was wrong,
+    and only comparing what the live host actually serves against what the
+    Worker serves caught it. That comparison is now mandatory: a mismatch
+    ABORTS unless --force is passed with eyes open.
+
+    Rollback values for every deleted record are printed BEFORE deletion.
+    """
+    app = _app(registry, args.app)
+    loaded = _secrets()
+    token = _cf_token(loaded)
+    acct = _account_id(registry, loaded)
+    host = args.hostname
+
+    zres = _cf_get(f"/zones?name={host.split('.', 1)[1] if host.count('.') > 1 else host}", token)
+    zones = zres.get("result") or []
+    if not zones:
+        zres = _cf_get(f"/zones?name={host}", token)
+        zones = zres.get("result") or []
+    if not zones:
+        print(f"no Cloudflare zone found for {host} — onboard the zone first")
+        return 1
+    zone = zones[0]
+    print(f"[zone] {zone['name']} ({zone['status']}) {zone['id']}")
+
+    worker_url = f"https://{app['worker_name']}.{args.subdomain}.workers.dev/"
+    live_title, worker_title = _title_of(f"https://{host}/"), _title_of(worker_url)
+    print(f"[live]   {host} -> {live_title!r}")
+    print(f"[worker] {app['worker_name']} -> {worker_title!r}")
+    if worker_title is None:
+        print("ABORT: the Worker did not respond with HTML — deploy/verify it first.")
+        return 1
+    if live_title is not None and live_title != worker_title and not args.force:
+        print("\nABORT: the live host and the Worker serve DIFFERENT pages.\n"
+              "  This is the check that caught breezeadvance.credit serving a client\n"
+              "  portal while its 'marketing' Worker served a brochure. Confirm which\n"
+              "  app should own this hostname (check the Vercel project's domains),\n"
+              "  then re-run with --force only if the difference is intended.")
+        return 1
+
+    for rtype in ("A", "AAAA", "CNAME"):
+        recs = _cf_get(f"/zones/{zone['id']}/dns_records?name={host}&type={rtype}", token)
+        for r in recs.get("result") or []:
+            print(f"[rollback] {r['type']} {r['name']} -> {r['content']} "
+                  f"proxied={r.get('proxied')} ttl={r.get('ttl')}")
+            if args.dry_run:
+                continue
+            d = _cf_delete(f"/zones/{zone['id']}/dns_records/{r['id']}", token)
+            if not d.get("success"):
+                print("DELETE FAILED:", [e.get("message") for e in (d.get("errors") or [])][:1])
+                return 1
+    if args.dry_run:
+        print("\ndry run — no records deleted, no binding created.")
+        return 0
+
+    out = _cf_put(f"/accounts/{acct}/workers/domains", token,
+                  {"environment": "production", "hostname": host,
+                   "service": app["worker_name"], "zone_id": zone["id"]})
+    if not out.get("success"):
+        print("BIND FAILED:", [f"{e.get('code')}: {e.get('message')}" for e in (out.get("errors") or [])][:2])
+        print("Recreate the records printed above to roll back.")
+        return 1
+    print(f"BOUND {host} -> {app['worker_name']}")
     return 0
 
 
@@ -731,6 +840,11 @@ def main() -> int:
     add("accounts", cmd_accounts)
     add("zones", cmd_zones)
     add("zone-baseline", cmd_zone_baseline, **{"--date": {"default": None}})
+    add("attach-domain", cmd_attach_domain, needs_app=True,
+        **{"--hostname": {"required": True},
+           "--subdomain": {"default": "oasisaisolutions"},
+           "--dry-run": {"action": "store_true", "dest": "dry_run"},
+           "--force": {"action": "store_true", "dest": "force"}})
     add("registrar-status", cmd_registrar_status, **{"--domain": {"required": True}})
     add("subdomain", cmd_subdomain, **{"--register": {"default": None}})
     add("list-workers", cmd_list_workers)

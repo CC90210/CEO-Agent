@@ -142,8 +142,8 @@ Rollback at any point: restore the snapshotted Vercel A/CNAME records (the
 | 1 | tiktik | none (vercel.app) | — | none | "Cutover" = flip external links/webhooks to `tiktik.oasis-cc.workers.dev`, CC login click-through first |
 | 2 | ig-setter-pro | none (vercel.app) | — | none | Same; IG/Meta webhook URLs re-point manually |
 | 3 | sunbiz-funding | sunbizfunding.com | Google Domains | Add zone to CF, change NS at Google | Static site; zero env |
-| 4 | arthrisil-website | arthrisil.com | GoDaddy | Add zone to CF, change NS at GoDaddy | Resend email keys unaffected |
-| 5 | breezeadvance-website | breezeadvance.credit | **Vercel NS** | Likely Vercel-registered: unlock/transfer or re-point NS from Vercel dashboard | David's funder brand — schedule with CC |
+| 4 | arthrisil-website | arthrisil.com | GoDaddy | Add zone to CF, change NS at GoDaddy | ⚠ Vercel has NO custom domain for this project, and **arthrisil.com currently serves an error page** — the Worker serves the real site, so onboarding the zone repairs it |
+| 5 | **breeze-portal** (NOT breezeadvance-website) | breezeadvance.credit | Cloudflare (zone active) | already in CF | ⚠ **CORRECTED 2026-08-30.** This row previously said `breezeadvance-website`. The domain belongs to **breeze-portal** and serves David's live *Client Portal*; the marketing Worker serves a brochure. Attaching per the old row would have taken the portal down. `attach-domain` now aborts on exactly this. breeze-portal is not yet deployed to Workers, so this row is BLOCKED on that, not on DNS |
 | 6 | blue-rise-website | bluerisebusinesscapital.com | **Vercel NS** | Same Vercel unlock/transfer dance | dir=sunbiz-front-website |
 | 7 | nostalgic-requests | nostalgicrequests.com | **Vercel NS** | Same | Deploy blocked on Paid first |
 | 8 | propflow | propflow.pro | Vercel IPs (NS TBD) | Confirm registrar; move zone to CF | 2 secret fills; 1 cron (`reap-stale`, needs its own trigger or fleet-cron entry at flip) |
