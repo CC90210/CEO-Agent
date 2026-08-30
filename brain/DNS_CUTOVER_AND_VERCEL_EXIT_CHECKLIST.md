@@ -10,6 +10,30 @@ tags: [cloudflare, migration, dns, cutover, vercel-exit]
 > [[brain/WAVE3_OASIS_CC_RUNBOOK]] (cron cutover) · gap report
 > `state/cloudflare_baselines/2026-08-29/secret_gaps.md` (§3 NS audit, §8 state).
 
+## 0a. ⚠ FENCE LIST CORRECTED — verified against live DNS 2026-08-30
+
+The protected-record list in §0 and the migration log was compiled from
+`docs/OASISAI_WORK_DOMAIN_RESTORE.md` (what *should* exist). Live DNS says
+otherwise — queried against BOTH 1.1.1.1 and 8.8.8.8:
+
+| Hostname | Live DNS | Note |
+|---|---|---|
+| `bridge.oasisai.work` | **EXISTS**, proxied (172.64.80.1) — `/health` returns 401 (bearer-gated, i.e. tunnel up and routing to the VPS) | genuinely protected; do not touch |
+| `breeze-bridge.oasisai.work` | **NXDOMAIN** | Mac Mini tunnel record absent |
+| `ops.oasisai.work` | **NXDOMAIN** | VPS/Caddy A record absent |
+| `media.oasisai.work` | **NXDOMAIN** | R2 public base absent |
+
+**What this changes:** only ONE tunnel record actually needs preserving, not
+four. **What it means:** these three were either never restored after the
+2026-07-07 domain lapse or were removed since — and anything still configured
+to call `ops.` (n8n/Stripe webhooks per V6_ARCHITECTURE) or `media.` (R2 asset
+URLs) is **already broken today**, independent of this migration. Not caused by
+migration work: no DNS record has been created, changed or deleted by it, and
+the migration token cannot even see the zone. Worth a separate look by CC.
+
+Google Workspace MX/SPF/DKIM/DMARC were NOT re-verified here (no zone read
+access) — treat them as protected until proven otherwise.
+
 ## 0. Global preconditions (before ANY cutover)
 - [ ] **Workers Paid enabled** on `d5e302…` (free CPU limits + 3MiB cap; 3 deploys queued behind it: propflow, nostalgic-requests, oasis-command-center @ 8.13MiB gz).
 - [ ] Zone-visibility token for the account that owns `oasisai.work` (still `e371c0f2…`-side; current token sees no zones) → take the **zone baseline snapshot** and verify the protected fence (tunnels `bridge`/`breeze-bridge`, Google MX/SPF/DKIM/DMARC, `ops.`, `media.`) BEFORE and AFTER every DNS touch.
