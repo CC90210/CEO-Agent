@@ -552,6 +552,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # NOTE: the deploy step below is gated on this step's OUTPUT, not on
+      # `if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}`. GitHub does not expose
+      # the `secrets` context to `if:` at job OR step level (docs, Context
+      # availability: step-level `if` gets github/needs/strategy/matrix/job/
+      # runner/env/vars/steps/inputs only). Written that way the condition never
+      # sees the token, evaluates false, and the deploy SILENTLY never runs.
+      # Reading the secret into `env` here is the supported workaround.
       - name: Preflight - is the Cloudflare token configured?
         id: preflight
         env:
@@ -561,7 +568,10 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::CLOUDFLARE_API_TOKEN is not set - building only, deploy skipped."
+            # notice, not warning: an un-provisioned repo is an expected state
+            # during the migration and must not decorate every run with a
+            # yellow annotation operators learn to ignore.
+            echo "::notice::CLOUDFLARE_API_TOKEN not set - build-only run, deploy skipped."
           fi
 
       - name: Build (%(build_label)s)
