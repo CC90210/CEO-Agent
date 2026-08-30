@@ -1,0 +1,589 @@
+"""marketing_publish_drain — turn queued publish intents into published posts.
+
+WHY THIS EXISTS AND WHY IT LIVES HERE
+CC, 2026-08-14: "I should be able to click on one of these videos and then
+manually post it to all the social media channels via our API key that we have
+connected."
+
+The Command Center runs on Vercel and cannot do that itself. The only sanctioned
+publisher is CMO-Agent/scripts/publishers/base.publish(): Python, runs
+send_gateway FIRST (killswitch, daily caps, audit trail), and needs credentials
+that live on this machine. The dashboard therefore records INTENT in
+`marketing_publish_intent`, and this drains it.
+
+The tempting alternative — have the Next route call Zernio's HTTP API directly —
+skips the killswitch, the caps and the audit row (late_adapter's own docstring
+calls that a bug) and forks per-platform knowledge that took real failures to
+learn: Instagram video must declare contentType: reel, YouTube needs a <=95-char
+title. Tried by hand first; Zernio answered "Instagram posts require media
+content". That is what a second, thinner publisher looks like on day one.
+
+SAFETY
+  * Claims each intent with a guarded UPDATE (queued -> running) and checks the
+    row actually changed before doing anything. Two overlapping drains must not
+    both publish the same asset — there is no unsending.
+  * send_gateway still runs inside publish(); this never bypasses it.
+  * A failure is recorded with its reason, never swallowed.
+
+USAGE
+  python scripts/marketing_publish_drain.py            # drain everything queued
+  python scripts/marketing_publish_drain.py --dry-run  # claim nothing, show work
+  python scripts/marketing_publish_drain.py --once     # at most one intent
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import pathlib
+import sys
+import tempfile
+import traceback
+from datetime import datetime, timedelta, timezone
+
+HERE = pathlib.Path(__file__).resolve().parent
+BRAVO = HERE.parent
+CMO = pathlib.Path(os.environ.get("CMO_REPO", r"C:\Users\User\CMO-Agent"))
+
+sys.path.insert(0, str(HERE))
+
+from lib import secret_loader, r2_storage  # noqa: E402
+from integrations import supabase_tool  # noqa: E402
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def _db():
+    """The same client every other Bravo integration uses.
+
+    supabase_tool.get_client routes through the Turso compat shim, so this drain
+    reads and writes exactly what the Command Center does — no second data path.
+    """
+    return supabase_tool.get_client(secret_loader.bootstrap(), project="bravo")
+
+
+# ── the publisher, imported with Bravo's credentials in the environment ──────
+def _load_publisher():
+    """Import CMO-Agent's publisher with the ledger credentials it needs.
+
+    send_gateway.get_supabase() looks for MAVEN_* then BRAVO_* in its own
+    .env.agents and then os.environ (send_gateway.py:225-234). CMO-Agent's env
+    has neither, so the gateway could not query the interaction ledger and
+    refused every publish. Bravo holds the BRAVO_* pair, so put them in the
+    process environment before the import.
+
+    Nothing is written to disk or logged — the same "invoke, never copy" borrow
+    CMO-Agent/scripts/publish_to_library.py documents for R2.
+    """
+    for key in ("BRAVO_SUPABASE_URL", "BRAVO_SUPABASE_SERVICE_ROLE_KEY",
+                "LATE_API_KEY", "TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN",
+                "EMPIRE_DATA_BACKEND"):
+        val = secret_loader.get(key)
+        if val and not os.environ.get(key):
+            os.environ[key] = val
+
+    # path-drift-ok: "scripts/publishers/base.py" is rooted at CMO,
+    # the CMO-Agent repo, not at this one. system_health's drift check reads
+    # segmented Path builds without knowing their root, so it reports a file
+    # that is deliberately not here.
+    if not (CMO / "scripts" / "publishers" / "base.py").exists():
+        raise SystemExit(
+            f"no publisher at {CMO}. Set CMO_REPO to CMO-Agent's path — this drain "
+            f"deliberately has no publishing code of its own."
+        )
+    sys.path.insert(0, str(CMO / "scripts"))
+    from publishers.base import PublishRequest, publish   # noqa: E402
+    import publishers.late_adapter                        # noqa: E402,F401
+    return PublishRequest, publish
+
+
+# LinkedIn takes a different register from the short-form networks — the same
+# split CMO-Agent/scripts/schedule_posts.py makes (SHORT_FORM vs its own post).
+SHORT_FORM = {"instagram", "tiktok", "youtube", "twitter", "threads"}
+
+# How many images each channel accepts in ONE post. 0 means the surface is
+# video-only and cannot take an image deck at all.
+#
+# THIS IS THE THIRD COPY OF ONE RULE, and that is deliberate rather than lazy:
+#   - CMO-Agent/scripts/schedule_posts.py PLATFORM_IMAGE_CAP  (Maven's scheduled path)
+#   - oasis-command-center lib/founders/publish-targets.ts    (picker + publish route)
+#   - here                                                    (the drain, last gate)
+# They live in two languages and three repos, so there is no import that would
+# make them one. Importing schedule_posts across repos at drain runtime would
+# couple this daemon to CMO-Agent being present and healthy, which is a worse
+# failure than a duplicated dict.
+#
+# What keeps them honest instead is a test: tests/test_publish_caps_agree.py
+# reads CMO-Agent's copy and asserts it matches this one, so a change to either
+# fails CI rather than silently posting to a surface that will reject it.
+PLATFORM_IMAGE_CAP = {
+    "twitter": 4,
+    "instagram": 10,
+    "threads": 10,
+    "linkedin": 20,
+    "tiktok": 0,      # video-only
+    "youtube": 0,     # video-only
+}
+
+
+def caption_for(asset: dict, professional: bool) -> str:
+    """Build the caption from the copy Maven already wrote for the asset.
+
+    Never invents copy. If Maven left the fields empty the title is the honest
+    fallback — a publisher is not the place to start writing brand voice.
+    """
+    hook = (asset.get("hook") or "").strip()
+    body = (asset.get("body") or "").strip()
+    cta = (asset.get("cta") or "").strip()
+    landing = (asset.get("landing_url") or "").strip()
+
+    parts = []
+    if professional:
+        # LinkedIn: lead with the argument, not the hook line.
+        if body:
+            parts.append(body)
+        elif hook:
+            parts.append(hook)
+    else:
+        if hook:
+            parts.append(hook)
+        if body:
+            parts.append(body)
+    if not parts:
+        parts.append(asset.get("title") or "")
+    if cta and landing:
+        parts.append(f"{cta[:1].upper()}{cta[1:]} → {landing}")
+    elif landing:
+        parts.append(landing)
+    return "\n\n".join(p for p in parts if p).strip()
+
+
+def _download(bucket: str, key: str, dest: pathlib.Path) -> pathlib.Path:
+    dest.write_bytes(r2_storage.storage_surface().from_(bucket).download(key))
+    return dest
+
+
+def fetch_media(asset_id: str, tenant_id: str, db,
+                asset: dict | None = None) -> tuple[pathlib.Path, str, list[pathlib.Path]] | None:
+    """(cover, kind, extra_slides). Every slide for a carousel, in ORDER.
+
+    THIS USED TO RETURN ONE FILE. It took the first video row, or failing that
+    `next(m for m in rows if kind == "image")` — whichever image row the driver
+    happened to return first. So a five-slide carousel published as a SINGLE
+    image, and after the slide backfill it was not even reliably slide 1: row
+    order is not slide order, and nothing had ever made it be.
+
+    The order lives in marketing_asset.media_urls, recorded from the render
+    manifest at migration time. That is the only ordering that means anything —
+    the media rows carry no rank, and sorting by storage_path would sort by an
+    upload timestamp embedded in the key.
+    """
+    r = db.table("marketing_asset_media").select(
+        "kind, storage_bucket, storage_path, mime"
+    ).eq("tenant_id", tenant_id).eq("asset_id", asset_id).execute()
+    rows = list(r.data or [])
+    if not rows:
+        return None
+
+    tmpdir = pathlib.Path(tempfile.gettempdir())
+    by_path = {str(m.get("storage_path")): m for m in rows}
+
+    ordered: list[str] = []
+    raw = (asset or {}).get("media_urls")
+    if isinstance(raw, list):
+        ordered = [str(x) for x in raw]
+    elif isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+            ordered = [str(x) for x in parsed] if isinstance(parsed, list) else []
+        except json.JSONDecodeError:
+            print("    media_urls is unparseable; falling back to the cover only")
+
+    # Only trust the recorded order for paths that actually exist as media rows.
+    ordered = [p for p in ordered if p in by_path]
+
+    if (asset or {}).get("asset_type") == "carousel" and len(ordered) > 1:
+        paths: list[pathlib.Path] = []
+        for i, key in enumerate(ordered, 1):
+            m = by_path[key]
+            suffix = pathlib.Path(key).suffix or ".png"
+            paths.append(_download(m["storage_bucket"], key,
+                                   tmpdir / f"publish_{asset_id}_slide{i}{suffix}"))
+        return paths[0], "image", paths[1:]
+
+    pick = next((m for m in rows if m.get("kind") == "video"), None) or \
+        next((m for m in rows if m.get("kind") == "image"), None)
+    if not pick:
+        return None
+    key = pick["storage_path"]
+    suffix = pathlib.Path(key).suffix or (".mp4" if pick.get("kind") == "video" else ".jpg")
+    cover = _download(pick["storage_bucket"], key, tmpdir / f"publish_{asset_id}{suffix}")
+    return cover, pick.get("kind", "video"), []
+
+
+def claim(db, intent_id: str, attempts: int = 0) -> bool:
+    """queued -> running, and ONLY if this call is the one that changed it.
+
+    The returned rows are the lock. An earlier version updated with the same
+    guard and then re-read the row, which looks equivalent and is not: the read
+    cannot tell "I set this to running" from "someone else did", so a second
+    drain saw `running` and happily concluded it held the claim. Caught by
+    tests/marketing_publish_drain_test.py, which claims twice on purpose.
+
+    `.select()` on the update makes the guard observable — rows come back only
+    for rows that actually matched `state = 'queued'`. Empty means someone else
+    got there first, which is the whole question being asked. Two drains
+    publishing the same reel is unrecoverable; there is no unsending.
+    """
+    res = (
+        db.table("marketing_publish_intent")
+        .update({"state": "running", "started_at": _now(), "attempts": attempts + 1})
+        .eq("id", intent_id)
+        .eq("state", "queued")
+        .select("id")
+        .execute()
+    )
+    return bool(list(res.data or []))
+
+
+# How long a `running` intent may sit before it is presumed dead, and how many
+# times we will re-try it before giving up for good.
+STALE_AFTER_MINUTES = 20
+MAX_ATTEMPTS = 3
+
+
+def dispatched(row: dict) -> bool:
+    """Did this attempt get as far as contacting a network?
+
+    Pure so it can be tested without a database, because the cost of being wrong
+    is asymmetric and worth pinning down: a false NO republishes a post that is
+    already live and cannot be unsent; a false YES costs one manual requeue.
+    Everything ambiguous therefore answers YES.
+    """
+    raw = row.get("result")
+    if not raw:
+        return False
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return True          # unparseable is not "no marker"
+    if not isinstance(parsed, dict):
+        return True
+    if parsed.get("_dispatch_started_at"):
+        return True
+    # A finished run's result is per-platform outcomes. If any platform reports
+    # a post_id, something went out — retrying would duplicate it.
+    return any(
+        isinstance(v, dict) and v.get("post_id")
+        for v in parsed.values()
+    )
+
+
+def reap_stale(db) -> int:
+    """Rescue intents left `running` by a drain that died mid-publish.
+
+    WITHOUT THIS, ONE CRASH BLOCKS AN ASSET FOREVER. `running` exists so two
+    drains cannot publish the same reel twice, but nothing releases it: if the
+    process is killed — cron timeout, reboot, an exception outside the handler —
+    the row stays `running`, the drain skips it (it only reads `queued`) and the
+    API keeps returning 409 "already queued" for that asset. Silent, permanent,
+    and invisible until someone asks why a video will not post.
+
+    Found exactly that way: a probe intent sat `running` while the cron logged
+    "nothing queued" every minute afterwards.
+
+    Retries are capped. An intent that dies three times is failing for a reason
+    that will not fix itself, and re-queueing forever would hide it.
+    """
+    now = datetime.now(timezone.utc)
+    cutoff = (now - timedelta(minutes=STALE_AFTER_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    stuck = db.table("marketing_publish_intent").select("*").eq("state", "running").execute()
+    rescued = 0
+    for row in list(stuck.data or []):
+        started = str(row.get("started_at") or "")
+        if started and started > cutoff:
+            continue  # still plausibly working
+        attempts = int(row.get("attempts") or 0)
+        if attempts >= MAX_ATTEMPTS:
+            db.table("marketing_publish_intent").update({
+                "state": "failed",
+                "error": (f"abandoned after {attempts} attempts — the drain died mid-publish "
+                          f"each time. Check the platform response and requeue deliberately."),
+                "finished_at": _now(),
+            }).eq("id", row["id"]).eq("state", "running").execute()
+            print(f"  reaped {row['id']}: giving up after {attempts} attempts")
+        else:
+            # Did this attempt get as far as contacting a network?
+            #
+            # CMO-Agent's publisher checks data/content_pool/_posted.jsonl for
+            # duplicates but only schedule_posts WRITES that ledger — a publish
+            # driven from here is never recorded in it, so the shared dedupe
+            # guard cannot save us. The marker drain_one writes before dispatch
+            # is what we have, and it is enough: no marker means we died before
+            # any network was touched, which is safe to retry.
+            if dispatched(row):
+                db.table("marketing_publish_intent").update({
+                    "state": "failed",
+                    "error": ("died AFTER dispatch began — the post may already be live. "
+                              "Not retried automatically, because a duplicate post cannot be "
+                              "undone. Check the channels, then requeue deliberately if nothing "
+                              "went out."),
+                    "finished_at": _now(),
+                }).eq("id", row["id"]).eq("state", "running").execute()
+                print(f"  reaped {row['id']}: died mid-dispatch — NOT retried, needs a human")
+            else:
+                db.table("marketing_publish_intent").update({
+                    "state": "queued", "started_at": None,
+                }).eq("id", row["id"]).eq("state", "running").execute()
+                print(f"  reaped {row['id']}: back to queued (attempt {attempts} died before dispatch)")
+        rescued += 1
+    return rescued
+
+
+def finish(db, intent_id: str, *, state: str, result: dict, error: str | None) -> None:
+    db.table("marketing_publish_intent").update({
+        "state": state,
+        "result": json.dumps(result),
+        "error": (error or "")[:2000] or None,
+        "finished_at": _now(),
+    }).eq("id", intent_id).execute()
+
+
+def drain_one(db, intent: dict, PublishRequest, publish, dry_run: bool) -> bool:
+    iid = intent["id"]
+    tenant_id = intent["tenant_id"]
+    asset_id = intent["asset_id"]
+    raw = intent.get("platforms")
+    platforms = raw if isinstance(raw, list) else json.loads(raw or "[]")
+
+    a = db.table("marketing_asset").select("*").eq("tenant_id", tenant_id).eq("id", asset_id).execute()
+    assets = list(a.data or [])
+    if not assets:
+        print(f"  intent {iid}: asset {asset_id} is gone")
+        if not dry_run:
+            finish(db, iid, state="failed", result={}, error="asset no longer exists")
+        return False
+    asset = assets[0]
+
+    print(f"  intent {iid}: {asset.get('title')!r} -> {', '.join(platforms)}")
+    if dry_run:
+        print("    (dry run — not claimed, nothing published)")
+        return False
+
+    if not claim(db, iid, int(intent.get("attempts") or 0)):
+        print("    another drain claimed it first — skipping")
+        return False
+
+    media = None
+    slides: list[pathlib.Path] = []
+    try:
+        got = fetch_media(asset_id, tenant_id, db, asset)
+        if not got:
+            finish(db, iid, state="failed", result={}, error="no media attached to the asset")
+            print("    FAILED: no media attached")
+            return False
+        media, _kind, slides = got
+        if slides:
+            print(f"    carousel: {len(slides) + 1} slides in recorded order")
+
+        # Per-channel image caps — the LAST gate before the network.
+        #
+        # Added 2026-08-21. The founders picker disables a channel this asset
+        # cannot satisfy, and the publish route now refuses such a request
+        # outright, but this drain is what actually posts and it enforced
+        # nothing: it handed every slide to every platform on the intent. Any
+        # row created outside that route — one queued before the route was
+        # fixed, a replay, a direct insert, a future code path — would be sent
+        # to X with 5 images (cap 4) and fail at the API, or to TikTok/YouTube
+        # which cannot take an image deck at all.
+        #
+        # Drop the platform rather than fail the whole post, which is what
+        # schedule_posts.py does on Maven's scheduled path: the other surfaces
+        # are still worth publishing to. Truncating instead would eat the CTA
+        # slide, which is why neither path does it.
+        deck_size = len(slides) + 1 if slides else 0
+        if deck_size:
+            over = [p for p in platforms
+                    if deck_size > PLATFORM_IMAGE_CAP.get(p, deck_size)]
+            if over:
+                platforms = [p for p in platforms if p not in over]
+                note = (f"{deck_size}-slide deck exceeds the image cap on "
+                        f"{', '.join(over)} — dropped "
+                        f"({', '.join(f'{p}={PLATFORM_IMAGE_CAP[p]}' for p in over)})")
+                print(f"    {note}")
+                if not platforms:
+                    finish(db, iid, state="failed", result={}, error=note)
+                    print("    FAILED: no platform can take this deck")
+                    return False
+
+        short = [p for p in platforms if p in SHORT_FORM]
+        longform = [p for p in platforms if p not in SHORT_FORM]
+
+        # DISPATCH MARKER — written before the first network call, on purpose.
+        #
+        # claim() stamps `running` before we publish and finish() records the
+        # outcome after. A process killed BETWEEN those two — cron timeout,
+        # reboot, OOM — leaves a row that looks identical whether the post went
+        # out or not, and reap_stale used to put every such row back to `queued`.
+        # If the post had already landed, the retry published it a second time,
+        # and there is no unsending.
+        #
+        # This marker is the one bit that tells those cases apart. finish()
+        # overwrites `result` with the real outcome, so it exists only inside the
+        # dangerous window.
+        db.table("marketing_publish_intent").update({
+            "result": json.dumps({"_dispatch_started_at": _now(), "platforms": platforms}),
+        }).eq("id", iid).eq("state", "running").execute()
+
+        result: dict = {}
+        errors: list[str] = []
+        for group, pro in ((short, False), (longform, True)):
+            if not group:
+                continue
+            req = PublishRequest(
+                brand="oasis",                       # the CAMPAIGN's brand, never the handle
+                caption=caption_for(asset, professional=pro),
+                platforms=group,
+                media_path=str(media),
+                extra_media_paths=[str(p) for p in slides] or None,
+                title=(asset.get("title") or "")[:95],
+                creative_id=asset_id,
+                idempotency_key=f"intent-{iid}-{'pro' if pro else 'short'}",
+                metadata={"campaign": asset.get("campaign"), "intent_id": iid, "via": "drain"},
+            )
+            bad = req.validate()
+            if bad:
+                errors.append(f"{group}: {bad}")
+                for p in group:
+                    result[p] = {"ok": False, "error": "; ".join(bad)}
+                continue
+            res = publish(req)
+            ok = bool(getattr(res, "ok", False))
+            pid = getattr(res, "post_id", None)
+            reason = getattr(res, "reason", None)
+            for p in group:
+                result[p] = {"ok": ok, "post_id": pid, "reason": reason if not ok else None}
+            if not ok:
+                errors.append(f"{group}: {reason}")
+
+        any_ok = any(v.get("ok") for v in result.values())
+        # Both arms of the old `if any_ok and not errors else (if any_ok ...)`
+        # returned "done", so it read as if it distinguished a partial publish
+        # and did not. It cannot: state is CHECK-constrained to
+        # queued/running/done/failed (bravo__003), and there is no `partial`.
+        #
+        # `done` here means "at least one network took it", which is the only
+        # answer that keeps the reaper from re-queueing an intent whose post is
+        # already live — a re-publish cannot be undone. What actually failed is
+        # not lost: `error` carries every refusal, `result` carries per-platform
+        # detail, and the asset records ONLY the platforms that accepted it (see
+        # `landed` below), so nothing downstream claims a distribution that did
+        # not happen.
+        finish(db, iid,
+               state="done" if any_ok else "failed",
+               result=result,
+               error="; ".join(errors) if errors else None)
+
+        if any_ok:
+            # The library must stop claiming this is still awaiting a verdict.
+            first_id = next((v.get("post_id") for v in result.values() if v.get("ok")), None)
+            # Stamp WHERE IT ACTUALLY WENT. `channel` holds one value and an
+            # asset goes to six places, which is the whole reason the Library
+            # read INSTAGRAM for everything (CC: "it's only posting to
+            # Instagram"). Only the platforms that ACCEPTED it are recorded —
+            # a refusal is not a distribution.
+            landed = sorted(p for p, v in result.items() if v.get("ok"))
+            db.table("marketing_asset").update({
+                "status": "published",
+                "published_at": _now(),
+                "external_id": first_id,
+                "platforms": json.dumps(landed),
+                "updated_at": _now(),
+            }).eq("tenant_id", tenant_id).eq("id", asset_id).execute()
+
+        for p, v in result.items():
+            print(f"    {p:11} {'ok' if v.get('ok') else 'FAILED'} {v.get('post_id') or v.get('reason') or ''}")
+        return any_ok
+    except Exception as exc:  # noqa: BLE001 — recorded, never swallowed
+        finish(db, iid, state="failed", result={}, error=f"{exc}\n{traceback.format_exc()[-1200:]}")
+        print(f"    FAILED: {exc}")
+        return False
+    finally:
+        # Every slide, not just the cover — a carousel leaves N temp files.
+        for f in [media, *(slides or [])]:
+            if f and f.exists():
+                try:
+                    f.unlink()
+                except OSError:
+                    pass
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--dry-run", action="store_true", help="show queued work, claim nothing")
+    ap.add_argument("--once", action="store_true", help="drain at most one intent")
+    args = ap.parse_args()
+
+    # Exit 1 is reserved for "the drain could not do its job". A dead Turso
+    # connection is exactly that, and it is what actually paged CC on
+    # 2026-08-15 (Hrana: tcp connect error, os error 10060) — as a raw
+    # traceback. Catch it, keep the traceback in stderr for the failure dump
+    # (Defense 4), and return a clean 1 instead of an unhandled crash.
+    try:
+        db = _db()
+    except Exception as exc:  # noqa: BLE001 - re-raised as a clean exit code
+        traceback.print_exc()
+        print(f"ERROR: database unavailable: {exc}", file=sys.stderr)
+        return 1
+
+    # Before anything: release intents a dead drain is still holding, or they
+    # block their asset forever.
+    reaped = reap_stale(db)
+    if reaped:
+        print(f"reaped {reaped} stale claim(s)")
+
+    q = db.table("marketing_publish_intent").select("*").eq("state", "queued").execute()
+    queued = sorted(list(q.data or []), key=lambda r: str(r.get("created_at") or ""))
+    if not queued:
+        print("nothing queued")
+        return 0
+
+    print(f"{len(queued)} queued intent(s)")
+    PublishRequest = publish = None
+    if not args.dry_run:
+        PublishRequest, publish = _load_publisher()
+
+    done = 0
+    for intent in queued:
+        if drain_one(db, intent, PublishRequest, publish, args.dry_run):
+            done += 1
+        if args.once:
+            break
+    failed = len(queued) - done
+    print(f"published: {done}/{len(queued)}"
+          + (f"  ·  failed: {failed}" if failed else ""))
+
+    # Exit code semantics (2026-08-15, set by CC):
+    #   0 — the drain RAN and recorded what happened, per-intent failures
+    #       included. finish() writes state + error to marketing_publish_intent,
+    #       so the row is the signal and the dashboard is where it is read.
+    #   1 — the drain could NOT run: DB unreachable (above) or an unhandled
+    #       exception (which exits non-zero on its own).
+    #
+    # This deliberately replaces `return 1 if failed else 0`. Recording why that
+    # line existed, because deleting the reason is how it comes back: an earlier
+    # version returned 0 unconditionally, so a run where every publish was
+    # refused reported healthy and nothing paged. The signal is not being
+    # dropped — it moves from the exit code to the persisted row plus the
+    # summary line above. The tradeoff CC accepted: a cron that fails to publish
+    # every single time now shows green at the scheduler and red only in the
+    # data. If per-intent failures ever stop being written by finish(), this
+    # exit code will no longer catch that, and nothing else will either.
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

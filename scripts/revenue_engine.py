@@ -1,6 +1,6 @@
 """
 Revenue Engine - OASIS Business Operations CLI
-Combines Stripe subscription data with Supabase manual tracking.
+Combines Stripe subscription data with Turso-backed manual tracking (via supabase-compat shim).
 All credentials loaded from .env.agents (never hardcoded).
 
 Usage:
@@ -121,22 +121,29 @@ def _stripe_get_all(secret_key: str, endpoint: str, params: dict | None = None, 
 # -- Supabase client ------------------------------------------------------------
 
 def get_supabase(env_vars: dict[str, str]):
-    """Return a Supabase client for the bravo project. Exits on missing credentials."""
+    """Return a DB client for the bravo project.
+
+    `https://bravo.turso.compat` / `turso-compat-key` are NOT placeholder
+    credentials — they are the fleet-wide sentinel the post-Turso-migration
+    harness uses (40+ call sites; see lib/turso_supabase_compat._project_for_url,
+    which maps the `.turso.compat` host to the real bravo Turso database and
+    RAISES rather than guessing on an unknown host). The credentials that
+    actually authenticate are TURSO_DATABASE_URL / TURSO_AUTH_TOKEN, resolved
+    inside the compat layer; if those are absent, resolve_project_target raises
+    and this call fails closed rather than returning an empty client.
+
+    The old `if not url or not key: sys.exit(1)` guard was removed with the
+    fallback that made it unreachable — a dead branch advertising a check it no
+    longer performs is worse than no branch.
+    """
     try:
         from supabase import create_client
     except ImportError:
         print("ERROR: 'supabase' package not installed. Run: pip install supabase", file=sys.stderr)
         sys.exit(1)
 
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-
-    if not url or not key:
-        print(
-            "ERROR: BRAVO_SUPABASE_URL and BRAVO_SUPABASE_SERVICE_ROLE_KEY required in .env.agents",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key"
 
     return create_client(url, key)
 
@@ -199,7 +206,23 @@ def _mrr_from_stripe(secret_key: str, account_id: str | None = None) -> tuple[fl
     return round(total, 2), rows
 
 
-def _mrr_manual_from_supabase(db) -> float:
+def _manual_mrr_from_snapshot() -> tuple[float, str] | None:
+    """Last known-good manual MRR from the briefing snapshot, with its stamp.
+
+    Read-only and never raises — this is the degraded path, so it must not be
+    able to add a second failure on top of the one that got us here.
+    """
+    snap = Path(__file__).resolve().parent.parent / "state" / "snapshots" / "latest_briefing.json"
+    try:
+        data = json.loads(snap.read_text(encoding="utf-8"))
+        value = float(data["revenue"]["mrr"]["manual_mrr"])
+        stamped = str(data.get("ts") or data.get("date") or "unknown")
+        return value, stamped
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _mrr_manual_from_supabase(db) -> tuple[float, str | None]:
     """
     Sum manual recurring entries from revenue_events:
     type='subscription_start' with no matching 'subscription_cancel' for the same client.
@@ -226,9 +249,23 @@ def _mrr_manual_from_supabase(db) -> float:
             for row in (starts.data or [])
             if row["client_name"] not in cancelled_clients
         )
-        return round(total, 2)
-    except Exception:
-        return 0.0
+        return round(total, 2), None
+    except Exception as e:  # noqa: BLE001
+        # This path carries $6,191 of the $6,263 total MRR, so returning a bare
+        # 0.0 here reported a fake $72 total — a plausible number nobody would
+        # investigate. Prefer the last known-good value from the briefing
+        # snapshot, tagged stale, over a confident zero.
+        reason = f"{type(e).__name__}: {e}"
+        cached = _manual_mrr_from_snapshot()
+        if cached is not None:
+            value, stamped = cached
+            print(f"[revenue_engine] WARNING manual-MRR live read failed ({reason}); "
+                  f"using cached ${value:,.2f} from snapshot {stamped}", file=sys.stderr)
+            return value, f"stale: live read failed ({reason}); cached from {stamped}"
+        print(f"[revenue_engine] ERROR manual-MRR live read failed ({reason}) and no "
+              f"cached snapshot is available — manual component reported as $0",
+              file=sys.stderr)
+        return 0.0, f"unavailable: live read failed ({reason}); no cached snapshot"
 
 
 def calculate_mrr(env_vars: dict[str, str], db) -> dict:
@@ -262,10 +299,10 @@ def calculate_mrr(env_vars: dict[str, str], db) -> dict:
     if not stripe_available and not stripe_error:
         stripe_error = "No Stripe keys configured in .env.agents"
 
-    manual_mrr = _mrr_manual_from_supabase(db)
+    manual_mrr, manual_stale = _mrr_manual_from_supabase(db)
     total_mrr = round(stripe_mrr + manual_mrr, 2)
 
-    return {
+    payload = {
         "stripe_mrr": stripe_mrr,
         "manual_mrr": manual_mrr,
         "total_mrr": total_mrr,
@@ -273,6 +310,12 @@ def calculate_mrr(env_vars: dict[str, str], db) -> dict:
         "stripe_error": stripe_error,
         "stripe_subs": stripe_subs,
     }
+    # Present ONLY when the manual component could not be read live, so any
+    # consumer (sync_mrr, the brief, Atlas) can tell a real total from a
+    # carried-forward one instead of silently persisting a degraded figure.
+    if manual_stale:
+        payload["manual_stale"] = manual_stale
+    return payload
 
 
 # -- Pipeline + lead stats from Supabase ---------------------------------------

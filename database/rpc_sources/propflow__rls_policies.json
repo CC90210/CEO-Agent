@@ -1,0 +1,362 @@
+[
+ {
+  "tablename": "activity_log",
+  "policyname": "activity_log_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "agent_social_profiles",
+  "policyname": "agent_social_profiles_owner_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(user_id = auth.uid())",
+  "check_expr": "(user_id = auth.uid())"
+ },
+ {
+  "tablename": "application_documents",
+  "policyname": "application_documents_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "application_screening_reports",
+  "policyname": "application_screening_reports_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "applications",
+  "policyname": "applications_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "areas",
+  "policyname": "areas_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "audit_logs",
+  "policyname": "audit_logs_admin_select",
+  "cmd": "SELECT",
+  "roles": "{authenticated}",
+  "using_expr": "((company_id = get_user_company_id()) AND current_user_is_admin())",
+  "check_expr": ""
+ },
+ {
+  "tablename": "audit_logs",
+  "policyname": "audit_logs_member_insert",
+  "cmd": "INSERT",
+  "roles": "{authenticated}",
+  "using_expr": "",
+  "check_expr": "((company_id = get_user_company_id()) AND (user_id = auth.uid()))"
+ },
+ {
+  "tablename": "automation_configs",
+  "policyname": "automation_configs_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "automation_executions",
+  "policyname": "automation_executions_company_access",
+  "cmd": "SELECT",
+  "roles": "{authenticated}",
+  "using_expr": "(EXISTS ( SELECT 1\n   FROM automation_configs c\n  WHERE ((c.id = automation_executions.automation_id) AND (c.company_id = get_user_company_id()))))",
+  "check_expr": ""
+ },
+ {
+  "tablename": "automation_logs",
+  "policyname": "automation_logs_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "automation_settings",
+  "policyname": "automation_settings_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "automation_subscriptions",
+  "policyname": "automation_subscriptions_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "buildings",
+  "policyname": "buildings_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "commissions",
+  "policyname": "commissions_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "companies",
+  "policyname": "companies_admin_update",
+  "cmd": "UPDATE",
+  "roles": "{authenticated}",
+  "using_expr": "(current_user_is_super_admin() OR ((id = get_user_company_id()) AND current_user_is_admin()))",
+  "check_expr": "(current_user_is_super_admin() OR ((id = get_user_company_id()) AND current_user_is_admin()))"
+ },
+ {
+  "tablename": "companies",
+  "policyname": "companies_member_access",
+  "cmd": "SELECT",
+  "roles": "{authenticated}",
+  "using_expr": "((id = get_user_company_id()) OR current_user_is_super_admin())",
+  "check_expr": ""
+ },
+ {
+  "tablename": "contacts",
+  "policyname": "contacts_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "documents",
+  "policyname": "documents_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "gmail_oauth_tokens",
+  "policyname": "gmail_oauth_tokens_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "inspection_items",
+  "policyname": "inspection_items_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(EXISTS ( SELECT 1\n   FROM inspections i\n  WHERE ((i.id = inspection_items.inspection_id) AND (i.company_id = get_user_company_id()))))",
+  "check_expr": "(EXISTS ( SELECT 1\n   FROM inspections i\n  WHERE ((i.id = inspection_items.inspection_id) AND (i.company_id = get_user_company_id()))))"
+ },
+ {
+  "tablename": "inspections",
+  "policyname": "inspections_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "invoice_items",
+  "policyname": "invoice_items_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(EXISTS ( SELECT 1\n   FROM invoices i\n  WHERE ((i.id = invoice_items.invoice_id) AND (i.company_id = get_user_company_id()))))",
+  "check_expr": "(EXISTS ( SELECT 1\n   FROM invoices i\n  WHERE ((i.id = invoice_items.invoice_id) AND (i.company_id = get_user_company_id()))))"
+ },
+ {
+  "tablename": "invoices",
+  "policyname": "invoices_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "landlord_properties",
+  "policyname": "landlord_properties_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(EXISTS ( SELECT 1\n   FROM properties p\n  WHERE ((p.id = landlord_properties.property_id) AND (p.company_id = get_user_company_id()))))",
+  "check_expr": "(EXISTS ( SELECT 1\n   FROM properties p\n  WHERE ((p.id = landlord_properties.property_id) AND (p.company_id = get_user_company_id()))))"
+ },
+ {
+  "tablename": "landlords",
+  "policyname": "landlords_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "leases",
+  "policyname": "leases_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "maintenance_requests",
+  "policyname": "maintenance_requests_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "notifications",
+  "policyname": "notifications_owner_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(user_id = auth.uid())",
+  "check_expr": "(user_id = auth.uid())"
+ },
+ {
+  "tablename": "platform_invitations",
+  "policyname": "platform_invitations_super_admin_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "current_user_is_super_admin()",
+  "check_expr": "current_user_is_super_admin()"
+ },
+ {
+  "tablename": "profiles",
+  "policyname": "profiles_admin_update",
+  "cmd": "UPDATE",
+  "roles": "{authenticated}",
+  "using_expr": "(current_user_is_super_admin() OR ((company_id = get_user_company_id()) AND current_user_is_admin()))",
+  "check_expr": "(current_user_is_super_admin() OR (company_id = get_user_company_id()))"
+ },
+ {
+  "tablename": "profiles",
+  "policyname": "profiles_company_select",
+  "cmd": "SELECT",
+  "roles": "{authenticated}",
+  "using_expr": "(current_user_is_super_admin() OR (id = auth.uid()) OR (company_id = get_user_company_id()))",
+  "check_expr": ""
+ },
+ {
+  "tablename": "profiles",
+  "policyname": "profiles_self_update",
+  "cmd": "UPDATE",
+  "roles": "{authenticated}",
+  "using_expr": "(id = auth.uid())",
+  "check_expr": "(id = auth.uid())"
+ },
+ {
+  "tablename": "properties",
+  "policyname": "properties_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "property_photos",
+  "policyname": "property_photos_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(EXISTS ( SELECT 1\n   FROM properties p\n  WHERE ((p.id = property_photos.property_id) AND (p.company_id = get_user_company_id()))))",
+  "check_expr": "(EXISTS ( SELECT 1\n   FROM properties p\n  WHERE ((p.id = property_photos.property_id) AND (p.company_id = get_user_company_id()))))"
+ },
+ {
+  "tablename": "showings",
+  "policyname": "showings_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "signing_audit_log",
+  "policyname": "signing_audit_log_company_select",
+  "cmd": "SELECT",
+  "roles": "{authenticated}",
+  "using_expr": "(EXISTS ( SELECT 1\n   FROM signing_requests r\n  WHERE ((r.id = signing_audit_log.signing_request_id) AND (r.company_id = get_user_company_id()))))",
+  "check_expr": ""
+ },
+ {
+  "tablename": "signing_requests",
+  "policyname": "signing_requests_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "social_accounts",
+  "policyname": "social_accounts_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "social_posts",
+  "policyname": "social_posts_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "stripe_connect_accounts",
+  "policyname": "stripe_connect_accounts_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "team_invitations",
+  "policyname": "team_invitations_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "tenant_payments",
+  "policyname": "tenant_payments_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "walkthrough_jobs",
+  "policyname": "walkthrough_jobs_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ },
+ {
+  "tablename": "webhook_events",
+  "policyname": "webhook_events_company_access",
+  "cmd": "ALL",
+  "roles": "{authenticated}",
+  "using_expr": "(company_id = get_user_company_id())",
+  "check_expr": "(company_id = get_user_company_id())"
+ }
+]

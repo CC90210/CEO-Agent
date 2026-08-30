@@ -61,7 +61,11 @@ jobs:
         # (hardcoded_credential / missing_outbound_gate), which must block deploy.
         run: python scripts/skill_spector.py scan
       - name: Run tests
-        run: python -m pytest tests/ scripts/ -q --ignore=scripts/test_send_gateway.py --ignore=scripts/test_csuite_pulse_flow.py
+        # Both --ignore flags were dropped, not repointed: scripts/test_send_gateway.py
+        # and scripts/test_csuite_pulse_flow.py stopped existing when those files moved
+        # under scripts/tests/, so the flags matched nothing and both suites already run
+        # green. Repointing them at the real paths would newly DISABLE working tests.
+        run: python -m pytest tests/ scripts/ -q
       - name: Self audit
         run: python scripts/core/self_audit.py
         continue-on-error: true

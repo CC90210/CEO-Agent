@@ -45,7 +45,6 @@ import shlex
 import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 IS_WINDOWS = os.name == "nt"
@@ -503,9 +502,8 @@ _ENV_NOISE = {
 # so we report that as an ADVISORY count, never a hard parity failure.
 REQUIRED_ENV_GROUPS = [
     ("ANTHROPIC_API_KEY", "BRAVO_ANTHROPIC_API_KEY", "CLAUDE_API_KEY"),
-    ("BRAVO_SUPABASE_URL", "SUPABASE_URL"),
-    # Service-role key is its own group: a URL alone must NOT satisfy Supabase parity.
-    ("BRAVO_SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"),
+    ("TURSO_DATABASE_URL", "BRAVO_SUPABASE_URL", "SUPABASE_URL"),
+    ("TURSO_AUTH_TOKEN", "BRAVO_SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"),
     ("TELEGRAM_BOT_TOKEN",),
 ]
 
@@ -545,8 +543,12 @@ def check_env_agents() -> tuple[str, bool, str, str]:
     return ("env.agents", True, detail, "")
 
 
+#: The exact shape AVG exports — a kernel device handle, not a file path.
+_POISONED_KEYLOG = r"\\.\avgMonFltProxy\DEADBEEFCAFE0000"
+
+
 def check_tls_keylog() -> tuple[str, bool, str, str]:
-    """Fail if this process inherited an unusable SSLKEYLOGFILE.
+    """Prove a poisoned SSLKEYLOGFILE cannot kill a daemon spawned on this rig.
 
     The 2026-07-29 outage: AVG exports SSLKEYLOGFILE=\\\\.\\avgMonFltProxy\\<handle>
     into process environments. CPython's ssl.create_default_context() opens that
@@ -555,9 +557,31 @@ def check_tls_keylog() -> tuple[str, bool, str, str]:
     froze one such handle into bravo-scheduler and 31 of 145 inbox sweeps died
     over 25h, silently, because notify.py died the same way.
 
-    lib/tls_trust.ensure_os_trust() strips it in-process; this check reports
-    whether the AMBIENT environment is still handing it out, which is what
-    tells us a PM2 restart or a shell would re-acquire it.
+    WHY THIS NO LONGER ASKS PM2 (2026-08-29)
+    ----------------------------------------
+    The second half of this check used to read `pm2 jlist` for apps carrying the
+    variable, because a PM2 daemon froze the handle that was live when IT started
+    into every child forever. PM2 is not the supervisor here any more:
+    scripts/ops/fleet_watchdog.py replaced it (e7d0a50f), never invokes pm2, and
+    both "PM2 Resurrect" tasks were disabled (0e88aa21) — so pm2's daemon is
+    deliberately not running, and the guard that (correctly) refuses to invoke
+    pm2 without one meant this check could only ever return "no pm2 daemon is
+    running". Permanently red, for a dependency retired on purpose.
+
+    It cannot simply be re-pointed at the new daemons: Windows does not expose
+    another process's environment block, so there is nothing to audit. What CAN
+    be proved is what the audit was a proxy for — that a poisoned value INHERITED
+    ACROSS A SPAWN does not break the child. fleet_watchdog.start() launches
+    every daemon with subprocess.Popen and no `env=`, so a child inherits this
+    environment verbatim; the probe below reproduces that exact path with the
+    poison in place, in a fresh interpreter, which is strictly more than the old
+    in-process assertion proved.
+
+    Still deliberately NOT asserted: the mere presence of an ambient
+    SSLKEYLOGFILE. AVG re-exports a fresh handle into every new process for as
+    long as HTTPS scanning is on, the fleet survives it (that is what the probe
+    proves), and a check that fails on it would be red forever and get ignored.
+    It is reported in the detail line instead.
     """
     try:
         sys.path.insert(0, str(REPO_ROOT / "scripts"))
@@ -566,107 +590,333 @@ def check_tls_keylog() -> tuple[str, bool, str, str]:
         return ("tls-keylog", False, f"lib/tls_trust unavailable: {exc}",
                 "check scripts/lib/tls_trust.py exists and imports")
 
-    ambient = tls_diagnostics()
+    v = venv_python(_root_as_posix())
+    interp = str(v) if v else (_which("python3") or _which("python"))
+    if not interp:
+        return ("tls-keylog", False, "no python interpreter to spawn the guard probe with",
+                "python3 -m venv .venv && pip install -r requirements.txt")
 
-    # The DEFENCE is what we assert, not the absence of the AV. AVG will keep
-    # exporting a fresh handle into every new process for as long as it is
-    # installed — a check that fails on its mere presence would be red forever
-    # and get ignored. What actually matters:
-    #   1. ensure_os_trust() can build an SSL context despite a poisoned value;
-    #   2. no long-lived PM2 daemon is CARRYING a poisoned value (that is the
-    #      state that took the fleet down — a frozen, stale handle).
+    # A CHILD process, not this one: the daemons are spawned, so the guard has to
+    # hold across the spawn. It also keeps the probe from mutating the parity
+    # run's own os.environ, which the previous version did.
+    probe = (
+        "import ssl, sys\n"
+        f"sys.path.insert(0, {str(REPO_ROOT / 'scripts')!r})\n"
+        "from lib.tls_trust import ensure_os_trust\n"
+        "ensure_os_trust()\n"
+        "ssl.create_default_context()\n"
+        "print('GUARD-OK')\n"
+    )
     try:
-        import ssl
-
-        from lib.tls_trust import ensure_os_trust
-        prior = os.environ.get("SSLKEYLOGFILE")
-        os.environ["SSLKEYLOGFILE"] = r"\\.\avgMonFltProxy\DEADBEEFCAFE0000"
-        try:
-            ensure_os_trust()
-            ssl.create_default_context()
-        finally:
-            if prior is not None:
-                os.environ["SSLKEYLOGFILE"] = prior
-            else:
-                os.environ.pop("SSLKEYLOGFILE", None)
+        proc = subprocess.run(
+            [interp, "-c", probe],
+            env={**os.environ, "SSLKEYLOGFILE": _POISONED_KEYLOG},
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=120, creationflags=_NO_WINDOW,
+        )
     except Exception as exc:  # noqa: BLE001
+        return ("tls-keylog", False, f"could not run the guard probe: {type(exc).__name__}: {exc}",
+                "run: python scripts/lib/tls_trust.py or pytest scripts/tests/test_tls_trust.py")
+
+    if proc.returncode != 0 or "GUARD-OK" not in (proc.stdout or ""):
+        err = (proc.stderr or "").strip().splitlines()
+        why = err[-1][:120] if err else f"exit {proc.returncode}, no output"
         return ("tls-keylog", False,
-                f"ensure_os_trust does NOT survive a poisoned SSLKEYLOGFILE: {exc}",
-                "scripts/lib/tls_trust.py neutralize_keylog is broken - "
+                f"a daemon inheriting a poisoned SSLKEYLOGFILE would die: {why}",
+                "scripts/lib/tls_trust.py neutralize_keylog is broken (or "
+                "EMPIRE_ALLOW_SSLKEYLOG=1 is disabling it) - "
                 "run pytest scripts/tests/test_tls_trust.py")
 
-    poisoned: list[str] = []
-    if platform.system() == "Windows" and _which("pm2"):
-        try:
-            raw = subprocess.run(["pm2", "jlist"], capture_output=True, text=True,
-                                 timeout=30, shell=True).stdout
-            for app in json.loads(raw):
-                v = app.get("pm2_env", {}).get("SSLKEYLOGFILE")
-                if v and not str(v).strip() == "":
-                    poisoned.append(app.get("name", "?"))
-        except Exception:  # noqa: BLE001 — pm2 absent or not running is not a parity failure
-            pass
-
-    if poisoned:
-        return ("tls-keylog", False,
-                f"PM2 apps carrying a frozen SSLKEYLOGFILE: {', '.join(poisoned)}",
-                "add SSLKEYLOGFILE: \"\" to that app's env, then "
-                "`pm2 restart <app> --update-env`")
-
-    note = "guard active" + (
-        f"; ambient env is poisoned ({ambient['keylog_value']}) but neutralized"
-        if ambient["keylog_present"] and not ambient["keylog_usable"] else "")
-    return ("tls-keylog", True, note, "")
+    ambient = tls_diagnostics()
+    if not ambient["keylog_present"]:
+        state = "no ambient SSLKEYLOGFILE"
+    elif ambient["keylog_usable"]:
+        state = "ambient SSLKEYLOGFILE is a real writable path"
+    else:
+        state = "ambient SSLKEYLOGFILE is poisoned but neutralized at startup"
+    return ("tls-keylog", True, f"spawned daemons survive a poisoned handle; {state}", "")
 
 
-def check_pm2_persistence() -> tuple[str, bool, str, str]:
-    """Will the PM2 fleet come back after an UNATTENDED reboot?
+def _schtasks_query(name: str) -> tuple[str | None, str]:
+    """Verbose schtasks record for one task: (output, error).
 
-    Three independent ways this silently fails, all found on 2026-07-29:
-      * the resurrect task triggers 'At logon time' only -> nothing restarts
-        after a power cut or an overnight Windows Update until CC logs in;
-      * 'No Start On Batteries' -> on a laptop it will not start at all;
-      * dump.pm2 goes stale -> it resurrects an old fleet, missing whatever was
-        added since the last `pm2 save` (it was 8 days behind when checked).
+    Three outcomes, kept distinct on purpose: (record, "") = it exists,
+    (None, "") = it genuinely does not exist, (None, reason) = we could not
+    look. The previous version collapsed every failure into `out = ""` and then
+    read that empty string as a definite answer about the task — the same
+    "absent is not zero" conflation that has bitten this subsystem repeatedly.
+    """
+    try:
+        proc = subprocess.run(
+            ["schtasks", "/query", "/tn", name, "/fo", "LIST", "/v"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=30, creationflags=_NO_WINDOW,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return None, f"schtasks failed for '{name}' ({type(exc).__name__}: {exc})"
+    if proc.returncode == 0 and proc.stdout.strip():
+        return proc.stdout, ""
+    blob = f"{proc.stdout}{proc.stderr}".strip()
+    if "cannot find" in blob.lower():
+        return None, ""
+    tail = blob.splitlines()[-1][:90] if blob else f"exit {proc.returncode}, no output"
+    return None, f"schtasks errored on '{name}': {tail}"
+
+
+def _task_field(record: str, field: str) -> set[str]:
+    """Every value schtasks reports for `field` (once per trigger row).
+
+    Empty set = the field was not in the output, which callers must treat as
+    "unknown", never as "fine". Reading a task's TRIGGERS while never reading
+    its state is exactly how a DISABLED task was reported as a working recovery
+    path for a day.
+    """
+    # Sliced by prefix length, not split(":", 1): schtasks labels contain their
+    # own colons ("Repeat: Every:"), so a first-colon split returns half the
+    # label as the value.
+    prefix = f"{field}:"
+    return {ln.strip()[len(prefix):].strip() for ln in record.splitlines()
+            if ln.strip().startswith(prefix)}
+
+
+def _has_battery() -> bool:
+    """Does this machine actually run on a battery?
+
+    'No Start On Batteries' is the schtasks default and is inert on a desktop
+    (this rig reports Win32_SystemEnclosure ChassisTypes = 3 and no Win32_Battery),
+    so firing on it here would be permanent noise — and noise is how a real
+    laptop finding gets ignored. BatteryFlag 128 means "no system battery";
+    anything else, including 255/unknown, errs toward reporting.
+    """
+    if os.name != "nt":
+        return False
+    import ctypes  # noqa: PLC0415
+
+    class _PowerStatus(ctypes.Structure):
+        _fields_ = [("ACLineStatus", ctypes.c_ubyte), ("BatteryFlag", ctypes.c_ubyte),
+                    ("BatteryLifePercent", ctypes.c_ubyte), ("SystemStatusFlag", ctypes.c_ubyte),
+                    ("BatteryLifeTime", ctypes.c_ulong), ("BatteryFullLifeTime", ctypes.c_ulong)]
+
+    status = _PowerStatus()
+    if not ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(status)):
+        return True  # cannot tell -> assume a battery so the check speaks up
+    return status.BatteryFlag != 128
+
+
+def check_fleet_persistence() -> tuple[str, bool, str, str]:
+    """Is the fleet supervised, by exactly ONE supervisor, and actually up?
+
+    Was `pm2-persistence` until 2026-08-29. PM2 is no longer the supervisor:
+    scripts/ops/fleet_watchdog.py replaced it (e7d0a50f) and both "PM2 Resurrect"
+    tasks were disabled (0e88aa21), because their S4U principal ran them in
+    Windows Session 0 — where a supervisor cannot read a session-1 command line,
+    concludes the whole fleet is absent, and starts a second invisible copy of
+    every daemon. That is the mechanism behind four concurrent bravo-schedulers.
+
+    The old check read the DISABLED "PM2 Resurrect" task and reported GREEN
+    ("boot trigger + battery-safe"): it parsed the task's triggers and never
+    once read its state, so it certified a recovery path that had been switched
+    off on purpose. Its dump.pm2 freshness rule was days from being permanently
+    red for the same reason — nothing rewrites dump.pm2 any more, because
+    `pm2 save` needs the daemon that is blocked.
+
+    What is asserted now, and why each still guards something real:
+      * the watchdog task exists and is ENABLED — no supervisor, no recovery;
+      * it runs 'Interactive only', never S4U/Session 0 — the 08-28 root cause;
+      * it has a repeating trigger, so a daemon that dies comes back in minutes;
+      * it will start on battery IF this machine has one;
+      * the retired supervisor stays retired — neither PM2 Resurrect task is
+        re-enabled, because two supervisors IS the incident;
+      * the manifest is non-empty — an empty one supervises nothing, silently;
+      * the fleet is up, per fleet_watchdog's own single definition of down.
+
+    Deliberately NOT asserted: a boot trigger. Getting one means an S4U
+    principal, which means Session 0, which is the failure above. Recovery from
+    an unattended reboot is a known, accepted gap on this rig — named in the
+    detail line rather than held permanently red.
     """
     if platform.system() != "Windows":
-        return ("pm2-persistence", True, "not Windows - resurrect task is a Windows concern", "")
+        return ("fleet-persistence", True,
+                "not Windows - the scheduled-task supervisor is a Windows concern", "")
 
-    dump = Path.home() / ".pm2" / "dump.pm2"
-    problems: list[str] = []
-
-    if not dump.exists():
-        problems.append("dump.pm2 missing (never ran `pm2 save`)")
-    else:
-        age_days = (time.time() - dump.stat().st_mtime) / 86400
-        if age_days > 7:
-            problems.append(f"dump.pm2 is {age_days:.0f}d stale")
-
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
     try:
-        out = subprocess.run(
-            ["schtasks", "/query", "/tn", "PM2 Resurrect", "/fo", "LIST", "/v"],
-            capture_output=True, text=True, timeout=20,
-        ).stdout
-    except Exception:  # noqa: BLE001
-        out = ""
+        from ops import fleet_watchdog  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001
+        return ("fleet-persistence", False,
+                f"cannot import ops.fleet_watchdog - there is no supervisor "
+                f"({type(exc).__name__}: {exc})",
+                "restore scripts/ops/fleet_watchdog.py, then: "
+                "python scripts/ops/fleet_watchdog.py install-task")
 
-    if not out.strip():
-        problems.append("no 'PM2 Resurrect' scheduled task (run `pm2 startup`)")
+    problems: list[str] = []
+    task = fleet_watchdog.TASK_NAME
+    record, err = _schtasks_query(task)
+    interval = "?"
+    if err:
+        problems.append(err)
+    elif record is None:
+        problems.append(f"no '{task}' scheduled task - nothing restarts a dead daemon")
     else:
-        if "At logon time" in out and "At system start up" not in out:
-            problems.append("logon-trigger only - fleet stays down until CC logs in")
-        if "No Start On Batteries" in out:
-            problems.append("will not start on battery")
+        states = _task_field(record, "Scheduled Task State")
+        if not states:
+            problems.append(f"could not read the state of '{task}' from schtasks")
+        elif "Disabled" in states:
+            problems.append(f"'{task}' is DISABLED - the fleet is unsupervised")
+        # S4U/"Interactive/Background" is how a supervisor lands in Session 0.
+        modes = _task_field(record, "Logon Mode")
+        if not modes:
+            problems.append(f"could not read the logon mode of '{task}'")
+        elif modes != {"Interactive only"}:
+            problems.append(f"'{task}' logon mode is {sorted(modes)} - an S4U/background "
+                            "principal runs it in Session 0, where it cannot see the fleet "
+                            "it supervises and starts a duplicate of every daemon")
+        repeats = {r for r in _task_field(record, "Repeat: Every") if r and r != "N/A"}
+        if not repeats:
+            problems.append(f"'{task}' has no repeating trigger - a daemon that dies "
+                            "between logons is never restarted")
+        else:
+            interval = sorted(repeats)[0]
+        if _has_battery() and "No Start On Batteries" in record:
+            problems.append(f"'{task}' will not start on battery")
+
+    # The retired supervisor must stay retired. Two supervisors, neither able to
+    # see the other's daemons, is the 2026-08-28 incident — not a hypothetical.
+    for retired in ("PM2 Resurrect", "PM2 Resurrect on Login"):
+        rec, rerr = _schtasks_query(retired)
+        if rerr:
+            problems.append(rerr)
+        elif rec is not None:
+            rstates = _task_field(rec, "Scheduled Task State")
+            if not rstates:
+                problems.append(f"could not read the state of '{retired}'")
+            elif rstates != {"Disabled"}:
+                problems.append(f"'{retired}' is ENABLED again ({sorted(rstates)}) - that is a "
+                                "second supervisor, running S4U in Session 0")
+    # A live pm2 DAEMON would be the other half of "two supervisors", and
+    # _pm2_daemon_alive() looks like the detector for it. It is not usable as a
+    # gate: see its docstring — `wmic process get Name,CommandLine` times out at
+    # 45s on this machine, every time, and the timeout returns False. Wiring a
+    # guard onto it would add 45 seconds per --check to always report "no second
+    # supervisor". The two scheduled-task states above cover the path that
+    # actually persists across a reboot, cheaply and fail-closed.
+
+    # LIVENESS, not just configuration. On 2026-08-28 this check reported GREEN
+    # while coordination_agent.js had been crash-looping for two days and four
+    # daemons — the scheduler among them, so no cron ran — were down. A green
+    # light on a dead fleet is worse than no light: it is why nobody looked.
+    #
+    # Answered by fleet_watchdog's ONE definition (status + down_names), never a
+    # private copy. The copy that used to live here re-derived "down" by hand and
+    # would have diverged the moment classify() gained a state — the sixth such
+    # duplication in this subsystem, after two claim mechanisms, two coverage
+    # implementations, two ownership maps and two identity lists.
+    fleet = ""
+    try:
+        rows = fleet_watchdog.status()
+        if not rows:
+            problems.append(f"fleet manifest is EMPTY ({fleet_watchdog.DUMP}) - the watchdog "
+                            "is supervising nothing")
+        else:
+            down = fleet_watchdog.down_names(rows)
+            if down:
+                problems.append(f"{len(down)}/{len(rows)} managed process(es) NOT RUNNING: "
+                                + ", ".join(down[:6]))
+            # Counted by classify(), so "6/8 up" can never again read as "2 are
+            # down" when the other two are an operator stop and a broken
+            # manifest entry — two things nobody should be paged about.
+            tally = {state: sum(1 for r in rows if fleet_watchdog.classify(r) == state)
+                     for state in ("running", "disabled", "unrunnable")}
+            fleet = ", ".join(f"{n} {state}" for state, n in tally.items() if n)
+    except Exception as e:  # noqa: BLE001
+        problems.append(f"could not verify fleet liveness via fleet_watchdog "
+                        f"({type(e).__name__}: {e})")
 
     if problems:
-        return ("pm2-persistence", False, "; ".join(problems),
-                "run elevated: scripts/ops/fix_pm2_boot_persistence.ps1  (then `pm2 save`)")
-    return ("pm2-persistence", True, "boot trigger + battery-safe + fresh dump.pm2", "")
+        return ("fleet-persistence", False, "; ".join(problems),
+                "python scripts/ops/fleet_watchdog.py status  (then `up`, or `install-task` if "
+                "the task is missing) — do NOT run `pm2`, each call against the blocked pipe "
+                "leaks another orphan daemon")
+    return ("fleet-persistence", True,
+            f"'{task}' enabled, interactive, repeats every {interval}; {fleet}; "
+            "no boot trigger by design (S4U would run it in Session 0)", "")
+
+
+def _pm2_daemon_alive() -> bool:
+    """Is a pm2 daemon process actually running?
+
+    Answered from the process table, never by invoking pm2 — invoking pm2 when
+    no daemon is reachable spawns one, and if the pipe is blocked that spawn
+    leaks. This predicate exists so the health checks can ask "is pm2 usable?"
+    without making the answer worse.
+
+    NOT USABLE AS A GATE ON THIS MACHINE (measured 2026-08-29). Its only source,
+    `wmic process get Name,CommandLine`, hits the 45s timeout on every one of
+    three consecutive runs, and the timeout lands in the except below, which
+    returns False. So it costs 45 seconds to always answer "no daemon" — a
+    fail-OPEN answer. It is retained because it is the pm2-CLI safety interlock
+    the parity checks are pinned against, not because it currently discriminates.
+    Anything that needs a trustworthy process table must use
+    fleet_watchdog._process_table(): CIM first, self-verified against its own
+    PID, and None (not "") when it cannot see.
+    """
+    try:
+        out = subprocess.run(["wmic", "process", "get", "Name,CommandLine"],
+                             capture_output=True, text=True, timeout=45,
+                             errors="ignore", creationflags=_NO_WINDOW).stdout.lower()
+    except Exception:  # noqa: BLE001
+        return False
+
+    # Match PER LINE, and require the line to be a node process.
+    #
+    # A whole-blob substring search reports a false positive against its OWN
+    # CALLER: any shell command that merely MENTIONS the daemon path — a grep, a
+    # Get-Process filter, this very diagnostic — appears in the process table and
+    # matches. That is exactly what happened: this returned True with zero
+    # daemons running, so the guard fell through, pm2 was invoked, and it leaked
+    # the daemon the guard existed to prevent. A detector that matches the string
+    # in its own invocation is measuring itself.
+    for line in out.splitlines():
+        if "node" not in line:
+            continue
+        if r"pm2\lib\daemon.js" in line or "pm2/lib/daemon.js" in line:
+            # Exclude lines that are a *query about* the daemon rather than the
+            # daemon itself (wmic/grep/powershell filters quoting the path).
+            if any(tool in line for tool in ("wmic", "findstr", "select-string",
+                                             "get-ciminstance", "get-process", "grep")):
+                continue
+            return True
+    return False
+
+
+def check_python_switch() -> tuple[str, bool, str, str]:
+    """Is the Supabase->Turso switch installed in this machine's venv?
+
+    The switch is a sitecustomize.py, so it must live in site-packages — which
+    is in no repo. It therefore existed on exactly one workstation and never on
+    the VPS, where setting EMPIRE_DATA_BACKEND=turso_cloud consequently did
+    nothing at all, silently. Provisioning a rig has to install it, and this is
+    the check that says whether it did.
+
+    Asks the interpreter rather than looking for the file: a present-but-stale
+    or shadowed sitecustomize is the same failure as an absent one.
+    """
+    fix = "python scripts/install_python_switch.py"
+    v = venv_python(_root_as_posix())
+    interp = str(v) if v else (_which("python3") or _which("python"))
+    if not interp:
+        return ("turso-switch", False, "no python interpreter", fix)
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    from lib import turso_switch  # noqa: PLC0415
+
+    status = turso_switch.probe(interp)
+    return ("turso-switch", status.active, status.detail[:80], "" if status.active else fix)
 
 
 ALL_CHECKS = [
     check_hooks,
     check_python_deps,
+    check_python_switch,
     check_node_deps,
     check_system_bins,
     check_codex,
@@ -674,7 +924,7 @@ ALL_CHECKS = [
     check_plugins,
     check_env_agents,
     check_tls_keylog,
-    check_pm2_persistence,
+    check_fleet_persistence,
 ]
 
 # Cheap, no-subprocess subset for the SessionStart hook (pure file reads, <5ms).
@@ -695,14 +945,14 @@ def print_report(results, self_tests=None) -> bool:
     all_ok = True
     for name, ok, detail, hint in results:
         mark = "OK  " if ok else "FIX "
-        print(f"  [{mark}] {name:<16} {detail}")
+        print(f"  [{mark}] {name:<17} {detail}")
         if not ok:
             all_ok = False
             if hint:
                 print(f"           -> {hint}")
     if self_tests:
         bad = [t for t in self_tests if not t[1]]
-        print(f"  [{'OK  ' if not bad else 'FIX '}] hook-self-test   {len(self_tests) - len(bad)}/{len(self_tests)} hook scripts run clean")
+        print(f"  [{'OK  ' if not bad else 'FIX '}] {'hook-self-test':<17} {len(self_tests) - len(bad)}/{len(self_tests)} hook scripts run clean")
         for tname, ok, det in self_tests:
             if not ok:
                 all_ok = False

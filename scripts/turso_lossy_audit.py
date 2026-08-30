@@ -243,8 +243,11 @@ def main() -> int:
     nulls = [n for r in results for n in r["secret_or_expiry_nulls"]]
     unreachable = [r for r in results if r["db_error"]]
 
+    if args.json:
+        return 2 if unreachable else (1 if (missing or nulls) else 0)
+
     print()
-    if unreachable and not args.json:
+    if unreachable:
         for r in unreachable:
             print(f"COULD NOT VERIFY {r['project']}: {r['db_error']}")
         return 2

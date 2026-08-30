@@ -154,20 +154,20 @@ def _load_env() -> dict[str, str]:
 
 
 def _fetch_client_tasks() -> list[dict]:
-    """Try to fetch client engagement tasks from Supabase. Returns [] on failure."""
+    """Fetch client engagement tasks from the configured data backend.
+
+    Goes through supabase.create_client, so it follows EMPIRE_DATA_BACKEND
+    (Supabase by default, Turso when the switch is on). Returns [] on failure.
+    """
     env = _load_env()
     url = env.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
     key = env.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_SERVICE_KEY", "")
     if not url or not key:
         return []
     try:
-        import urllib.request
-        req = urllib.request.Request(
-            f"{url}/rest/v1/clients?select=id,name,vertical,stage,notes",
-            headers={"apikey": key, "Authorization": f"Bearer {key}"},
-        )
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            clients = json.loads(resp.read())
+        from supabase import create_client
+        client = create_client(url, key)
+        clients = client.table("clients").select("id,name,vertical,stage,notes").execute().data
         if not isinstance(clients, list):
             return []
         tasks = []

@@ -95,11 +95,39 @@ def _make_formatter() -> logging.Formatter:
 
 
 class _GzipRotatingFileHandler(RotatingFileHandler):
-    """RotatingFileHandler that gzips the rotated backup."""
+    """RotatingFileHandler that gzips the rotated backup.
 
+    ROLLOVER HAS TO SURVIVE A SHARING VIOLATION. Rotation renames the live file,
+    and on Windows that fails with WinError 32 whenever another process holds it
+    open — which, for a log every script writes to, is most of the time. The
+    handler's default error path swallows that and keeps appending, so the file
+    grows without limit and no backup is ever produced.
+
+    Measured 2026-08-29: state/logs/db_turso.log was 190 MB against a 5 MB cap,
+    38x over, with ZERO rotated backups on disk. Rotation had never once
+    succeeded. The same race already produced a real WinError 32 recorded in
+    tmp/cron_failures/booking-engine-py-20260809T220038Z.log.
+
+    When the rename cannot be taken, truncating in place bounds the file. That
+    loses the oldest lines, which is what rotation does anyway — and an
+    unbounded log loses them too, just later and along with the disk.
+    """
+
+    # ONE definition. There were two — the sharing-violation fallback above the
+    # gzip one — and Python keeps the LAST, so the fallback this class exists
+    # for was dead from the moment it was written and rollover still ended in
+    # `except OSError: pass`, the exact swallow the docstring calls the bug.
+    # Found 2026-08-29 by pyflakes' redefinition rule, which the harness gate
+    # was not collecting: it only looked at undefined names.
     def doRollover(self) -> None:  # noqa: N802 — stdlib override
-        super().doRollover()
-        # Gzip the most recent rotated file (e.g., module.log.1)
+        try:
+            super().doRollover()
+        except OSError as exc:
+            self._truncate_in_place(exc)
+            return
+        # Gzip the most recent rotated file (e.g. module.log.1). Failing here
+        # leaves a rotated-but-uncompressed backup, which is fine; failing to
+        # rotate at all is what is not.
         rotated = Path(f"{self.baseFilename}.1")
         if rotated.exists():
             gz_path = rotated.with_suffix(rotated.suffix + ".gz")
@@ -109,6 +137,33 @@ class _GzipRotatingFileHandler(RotatingFileHandler):
                 rotated.unlink()
             except OSError:
                 pass  # leave uncompressed if gzip fails — don't break the daemon
+
+    def _truncate_in_place(self, exc: OSError) -> None:
+        """Another process holds the file, so the rename cannot be taken.
+        Bound the file in place instead — losing the oldest lines is what
+        rotation does anyway, and an unbounded log loses them too, later and
+        along with the disk."""
+        try:
+            if self.stream:
+                self.stream.close()
+                self.stream = None
+            with open(self.baseFilename, "w", encoding=self.encoding or "utf-8") as fh:
+                fh.write(json.dumps({
+                    "level": "WARNING",
+                    "module": "structured_log",
+                    "message": "log truncated in place — rollover could not "
+                               "rename while another process held the file",
+                    "context": {"error": str(exc)[:200],
+                                "max_bytes": self.maxBytes},
+                }) + "\n")
+            self.stream = self._open()
+        except OSError:
+            # Truncation failed too. Reopen and keep logging: losing the
+            # logger is worse than an oversized file.
+            try:
+                self.stream = self._open()
+            except OSError:
+                pass
 
 
 class StructuredLogger:

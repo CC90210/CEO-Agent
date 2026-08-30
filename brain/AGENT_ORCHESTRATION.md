@@ -1,10 +1,18 @@
 ---
 description: "Fleet coordination contract: defines agent roles, responsibilities, pulse-protocol state hand-offs, approval authority, and veto boundaries"
 tags: [orchestration, contract, multi-agent, autonomy]
-last_updated: 2026-07-22
+last_updated: 2026-08-27
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
+
+> **Updated 2026-08-27 — claims are now enforced LEASES.** The free-text
+> `agent_activity.files` claim described below is advisory only; it was measured
+> to have detected zero collisions in 90 days while 226 of 1,596 files in
+> oasis-command-center were touched by both agents. The enforceable mechanism is
+> `coord_claims` + `scripts/state/coord_guard.py`, which refuses an edit to a
+> path a peer holds. Ownership: `brain/OWNERSHIP_MAP.yaml`. Procedure:
+> `skills/cross-agent-coordination/SKILL.md`. Decision: [[docs/adr/0017-cross-agent-claim-leases]].
 # AGENT ORCHESTRATION — Master Multi-Agent Contract
 
 > Canonical contract for how Bravo, Atlas, Maven, AURA, Hermes, and Codex coordinate. **Read this before designing any cross-agent flow.** Atlas's `brain/AGENT_ORCHESTRATION.md` and Maven's `brain/RESPONSIBILITY_BOUNDARIES.md` are the per-agent views; this is the single source of truth.
@@ -189,6 +197,34 @@ This is the pattern Hermes already enforces (`brain/SOUL.md` immutable: "Local-f
 - **No agent introduces itself as a generic AI.** Each agent has a non-negotiable identity.
 - **No agent skips the inbox at session start.** Cross-agent messages must be acknowledged.
 - **No agent silently drops a CC instruction.** Every directive logged in `memory/SESSION_LOG.md`.
+- **No agent posts internal operational noise to the OASIS partner group.** Blocked sending numbers, scraper logs, cron failures, tracebacks and daemon crashes go to CC's private DM. See below.
+- **No agent treats Apex and Knut as two peers.** They are one system — Adon's agent.
+
+---
+
+## External peer: APEX / Knut (Adon's agent)
+
+**APEX == Knut == Adon's agent.** One system, two names: "Apex" is the persona, "Knut" is the bot (`@KnutRPEbot`). `PEER_KEYS` defaults to `apex,knut` in BOTH `scripts/integrations/agent_activity.py` and `coordination_agent.js`. Watching only one key makes rows written under the other invisible — including **file claims**, so Bravo could edit a file Knut had open.
+
+### Channel isolation — what may reach the partner group
+
+`OASIS 🏝️💸` (`COORD_GROUP_CHAT_ID` = `-5165125484`) contains **Adon**, who is a 50/50 partner on **PropFlow only**. Everything in that room is partner-scoped by definition.
+
+| Traffic | Destination | Enforced by |
+|---|---|---|
+| Operational / outreach / scraper / cron / crash | **CC private DM** (`TELEGRAM_ALLOWED_USERS`) | `_GROUP_BLOCKED_TERMS_RE` reroutes `group=True` → DM |
+| Financial receipts & invoices | Atlas bridge (`ATLAS_TELEGRAM_*`) | `notify(..., agent="atlas")` |
+| Content & marketing | Maven bridge (`MAVEN_TELEGRAM_*`) | `CATEGORY_TO_AGENT` |
+| Partner broadcast / deliverable handover | **OASIS group** | explicit `group=True`, or `agent_activity.py --mirror` |
+
+Enforced by CONTENT in two live places, not just by lane:
+- `scripts/notify.py` — reroutes to CC's DM rather than dropping. A dropped alert trades a noise problem for a silence problem, which is worse.
+- `scripts/integrations/agent_activity.py` — refuses the `--mirror` broadcast. **The `agent_activity` row is still written**, so the agent↔agent channel loses nothing; only the human-facing echo is withheld.
+- `coordination_agent.js` — same denylist, **automated posts only**.
+
+**Reply exemption.** A message answering a human who spoke in the group is exempt. If CC asks "why is the cron failing?" in that room, gagging Bravo's answer would defeat the bridge. Consent is the line: unprompted broadcast = noise; answer to a question asked there = not.
+
+**Known gap (2026-08-03):** `notify.py`'s `group=True` lane reads `GROUP_TELEGRAM_CHAT_ID`, which resolves to nothing — `telegram_identity_audit.py` reports `FAIL notify-group-broadcast … sends on this lane are refused`. The lane fails closed, so it leaks nothing, but it also cannot deliver a deliberate broadcast. Repointing it at `COORD_GROUP_CHAT_ID` would ACTIVATE a currently-dead path into the partner group — do that only deliberately, with the filter above already in place.
 
 ---
 

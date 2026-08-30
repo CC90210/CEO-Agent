@@ -1,0 +1,43 @@
+{
+  "project": "nostalgic",
+  "generated": "2026-08-07T06:52:25+00:00",
+  "table_count": 8,
+  "index_count": 38,
+  "view_count": 2,
+  "ported_trigger_count": 0,
+  "turso_native_statements": 0,
+  "plpgsql_functions": [
+    "generate_unique_slug",
+    "handle_new_user",
+    "increment_lead_stats",
+    "update_custom_agreements_timestamp",
+    "update_dj_profile_updated_at",
+    "update_product_purchases_timestamp",
+    "update_updated_at_column"
+  ],
+  "triggers": [
+    "custom_agreements.custom_agreements_updated",
+    "dj_profiles.update_dj_profiles_updated_at",
+    "events.update_events_updated_at",
+    "product_purchases.product_purchases_updated"
+  ],
+  "lossy": {
+    "defaults_dropped": [
+      "leads.user_id: auth.uid()",
+      "events.user_id: auth.uid()"
+    ],
+    "indexes_skipped": [],
+    "checks_skipped": [],
+    "cross_schema_fks_dropped": [
+      "events(user_id) -> auth.users",
+      "leads(user_id) -> auth.users",
+      "profiles(id) -> auth.users"
+    ],
+    "unenforceable_fks_dropped": []
+  },
+  "executed": {
+    "applied_tables": 8,
+    "failures": 0,
+    "failure_sample": []
+  }
+}

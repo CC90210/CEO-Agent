@@ -19,6 +19,7 @@ import datetime
 import json
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
@@ -41,6 +42,13 @@ CONTENT_TARGETS: dict[str, int] = {
     "tiktok": 3,
     "threads": 5,
 }
+
+# Late reports the bird site as "twitter"; CONTENT_TARGETS keys it as "x", so
+# without this every tweet landed in a phantom "twitter" bucket and the X row
+# read 0/7 BEHIND while posts were going out. Verified against live API data
+# 2026-08-13, which also returns "youtube" — deliberately NOT aliased, it has
+# no target row and should surface as its own untracked platform.
+_PLATFORM_ALIASES: dict[str, str] = {"twitter": "x"}
 
 MONTHLY_OVERHEAD_USD = 184.0  # Claude $140 + Supabase $25 + Hostinger $14 + buffer
 
@@ -230,22 +238,35 @@ def _pipeline_stats(leads: list[dict]) -> dict:
 # subprocess to Maven's copy of late_tool.py for read-only stats. Override
 # Maven's location with the MAVEN_REPO env var if your machine differs.
 
-def _content_this_week() -> dict[str, int]:
-    """Count posts published this week by platform via Maven's late_tool.py."""
+def _content_this_week() -> tuple[dict[str, int], Optional[str]]:
+    """Count posts published this week by platform via Maven's late_tool.py.
+
+    Returns (counts, error). `({}, None)` means a genuine zero; `({}, "...")`
+    means we could not find out — the caller must not render those the same way.
+    """
     from sibling_repos import script_in
     script = script_in("maven", "scripts", "late_tool.py")
     if script is None or not script.exists():
-        # Maven not installed on this machine — return empty rather than error.
-        return {}
+        # Maven not installed on this machine — a real "no data", not a failure.
+        return {}, None
 
     try:
         result = subprocess.run(
-            [sys.executable, str(script), "posts", "--status", "published", "--json"],
-            capture_output=True, text=True, timeout=20,
-         creationflags=WINDOWLESS_FLAGS)
-        posts = json.loads(result.stdout) if result.returncode == 0 else []
-    except Exception:
-        return {}
+            # `--json` sits on late_tool's TOP-LEVEL parser, so it must precede
+            # the `posts` verb. The old `posts --status published --json` order
+            # exited 2 with "unrecognized arguments: --json" on every single
+            # run, and the bare `except` below turned that into "0 posts" — so
+            # the brief reported "content pipeline dead across every platform"
+            # without ever reaching the API. Same argparse trap already fixed
+            # for lead_engine.py and client_health.py; late_tool was missed.
+            [sys.executable, str(script), "--json", "posts", "--status", "published"],
+            capture_output=True, text=True, timeout=60,
+            creationflags=WINDOWLESS_FLAGS, encoding="utf-8", errors="replace")
+        if result.returncode != 0:
+            return {}, f"late_tool exit {result.returncode}: {(result.stderr or '').strip()[-200:]}"
+        posts = json.loads(result.stdout)
+    except Exception as e:  # noqa: BLE001
+        return {}, f"{type(e).__name__}: {e}"
 
     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     week_start = now - datetime.timedelta(days=now.weekday())
@@ -253,24 +274,45 @@ def _content_this_week() -> dict[str, int]:
 
     counts: dict[str, int] = {}
     for post in posts:
+        # Field names verified against the live Late API 2026-08-13. A post has
+        # NO `publishedAt` at all: the publish time is `scheduledFor`, and the
+        # platform lives in `platforms` — a LIST of {platform, accountId} dicts,
+        # not a scalar `platform`. The old names matched nothing, so this loop
+        # `continue`d on every post and content velocity was structurally
+        # pinned at 0 no matter what Maven shipped. Legacy names kept as
+        # fallbacks in case the API ever returns them.
         published_at_str = (
-            post.get("publishedAt") or post.get("published_at") or post.get("scheduledAt") or ""
+            post.get("scheduledFor") or post.get("publishedAt")
+            or post.get("published_at") or post.get("scheduledAt")
+            or post.get("createdAt") or ""
         )
         if not published_at_str:
             continue
         try:
             # Handle ISO 8601 with or without Z
             published_at = datetime.datetime.fromisoformat(
-                published_at_str.replace("Z", "+00:00")
+                str(published_at_str).replace("Z", "+00:00")
             ).replace(tzinfo=None)
         except ValueError:
             continue
 
-        if published_at >= week_start:
-            platform = (post.get("platform") or post.get("account_platform") or "unknown").lower()
-            counts[platform] = counts.get(platform, 0) + 1
+        if published_at < week_start:
+            continue
 
-    return counts
+        # One post can fan out to several platforms; CONTENT_TARGETS is
+        # per-platform, so each destination counts once against its own target.
+        entries = post.get("platforms")
+        if isinstance(entries, list) and entries:
+            for entry in entries:
+                name = (entry.get("platform") if isinstance(entry, dict) else entry) or "unknown"
+                key = _PLATFORM_ALIASES.get(str(name).lower(), str(name).lower())
+                counts[key] = counts.get(key, 0) + 1
+        else:
+            raw = (post.get("platform") or post.get("account_platform") or "unknown").lower()
+            key = _PLATFORM_ALIASES.get(raw, raw)
+            counts[key] = counts.get(key, 0) + 1
+
+    return counts, None
 
 
 # ---------------------------------------------------------------------------
@@ -318,9 +360,50 @@ def _progress_bar(pct: float, width: int = 10) -> str:
 # Dashboard sections
 # ---------------------------------------------------------------------------
 
+# Nested timeout contract (inner -> outer): dashboard child 50s, briefing
+# snapshot child 65s, daily-brief snapshot wrapper 75s, scheduler job 150s.
+# Each layer must expire before its parent so the parent can report the real
+# failing component instead of being killed first. The child CLIs measured
+# ~35s on 2026-08-13, so 50s preserves operating headroom without contradicting
+# the snapshot's budget.
+SUBENGINE_TIMEOUT_SEC = 50
+
+
+def _run_engine(script: Path, *args: str) -> tuple[Optional[str], Optional[str]]:
+    """Run a sub-engine CLI. Returns (stdout, None) or (None, error-string).
+
+    Never raises: the briefing must still render when one engine is down — but
+    the caller gets the reason so it can be surfaced rather than zeroed out.
+    """
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script), *args],
+            capture_output=True, text=True, timeout=SUBENGINE_TIMEOUT_SEC,
+            creationflags=WINDOWLESS_FLAGS, encoding="utf-8", errors="replace",
+        )
+    except subprocess.TimeoutExpired:
+        return None, f"timed out after {SUBENGINE_TIMEOUT_SEC}s"
+    except (OSError, subprocess.SubprocessError) as e:
+        return None, f"{type(e).__name__}: {e}"
+    if result.returncode != 0:
+        return None, f"exit {result.returncode}: {(result.stderr or '').strip()[:200]}"
+    return result.stdout, None
+
+
 def _build_north_star(env: dict, as_json: bool) -> dict:
     """Gather all 5 North Star metrics."""
     stripe_key = env.get("STRIPE_SECRET_KEY") or env.get("STRIPE_API_KEY") or ""
+
+    # Both sub-engines are independent of each other AND of the in-process MRR
+    # calculation below, so they start now and are collected after MRR returns.
+    # Sequentially this function took ~75s — past briefing_snapshot's 45s cap,
+    # which is what produced "Pipeline — unavailable" in the daily brief.
+    errors: dict[str, str] = {}
+    lead_engine = PROJECT_ROOT / "scripts" / "lead_engine.py"
+    client_script = PROJECT_ROOT / "scripts" / "client_health.py"
+    pool = ThreadPoolExecutor(max_workers=2)
+    fut_pipeline = pool.submit(_run_engine, lead_engine, "--json", "pipeline") if lead_engine.exists() else None
+    fut_health = pool.submit(_run_engine, client_script, "--json", "report") if client_script.exists() else None
 
     # --- MRR ---
     stripe_mrr = 0.0
@@ -353,16 +436,26 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
     # the dead CSV with a stage-name vocabulary (Discovery/Proposal/...)
     # that doesn't match the canonical new/contacted/qualified/won statuses.
     pipeline = {"total_pipeline": 0.0, "active_count": 0, "by_stage": {}}
-    lead_engine = PROJECT_ROOT / "scripts" / "lead_engine.py"
-    if lead_engine.exists():
+    if fut_pipeline is not None:
+        # .result() is inside the guard too: _run_engine is written not to
+        # raise, but a future that somehow does must not take the whole
+        # briefing down — the old code had the subprocess call inside a try.
         try:
-            result = subprocess.run(
-                [sys.executable, str(lead_engine), "--json", "pipeline"],
-                capture_output=True, text=True, timeout=20,
-                creationflags=(0x08000000 if sys.platform == "win32" else 0),
-            )
-            if result.returncode == 0 and result.stdout.strip().startswith("{"):
-                pdata = json.loads(result.stdout)
+            out, err = fut_pipeline.result()
+        except Exception as e:  # noqa: BLE001 - degrade, but say why
+            out, err = None, f"{type(e).__name__}: {e}"
+        if err:
+            errors["pipeline"] = err
+        try:
+            if out is not None and not out.strip().startswith("{"):
+                # Exit 0 but no JSON object. lead_engine ALWAYS emits a dict for
+                # `--json pipeline`, so this is a malformed run, not an empty
+                # pipeline — record it or it reads as a genuine zero.
+                errors.setdefault(
+                    "pipeline", f"non-JSON output: {out.strip()[:120]!r}" if out.strip()
+                    else "empty output")
+            if out and out.strip().startswith("{"):
+                pdata = json.loads(out)
                 # lead_engine returns { new: {count, avg_score, total_value?}, contacted: {...}, ... }
                 ACTIVE_STAGES = {"new", "contacted", "qualified", "proposal"}
                 by_stage: dict[str, int] = {}
@@ -381,8 +474,8 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
                     "active_count": active_count,
                     "by_stage": by_stage,
                 }
-        except Exception:
-            pass
+        except (ValueError, TypeError, json.JSONDecodeError) as e:
+            errors["pipeline"] = f"unparseable output: {type(e).__name__}: {e}"
 
     # --- Client health (via client_health.py if available) ---
     # NOTE: argparse on client_health.py puts --json on the TOP-LEVEL parser,
@@ -391,16 +484,19 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
     # showing "0 alerts, score 0" when there were actually 2 at-risk clients.
     client_health_avg = 0.0
     clients_at_risk = 0
-    client_script = PROJECT_ROOT / "scripts" / "client_health.py"
-    if client_script.exists():
+    if fut_health is not None:
         try:
-            result = subprocess.run(
-                [sys.executable, str(client_script), "--json", "report"],
-                capture_output=True, text=True, timeout=20,
-                creationflags=(0x08000000 if sys.platform == "win32" else 0),
-            )
-            if result.returncode == 0:
-                health_data = json.loads(result.stdout)
+            out, err = fut_health.result()
+        except Exception as e:  # noqa: BLE001 - degrade, but say why
+            out, err = None, f"{type(e).__name__}: {e}"
+        if err:
+            errors["client_health"] = err
+        try:
+            # client_health prints a human line ("No clients found ...") rather
+            # than JSON when nobody is tagged status='client' — a real empty,
+            # not a failure, so it must not land in `errors`.
+            if out and out.strip()[:1] in ("{", "["):
+                health_data = json.loads(out.strip())
                 # client_health.py --json report returns a LIST of clients
                 # directly (not wrapped in {"clients": [...]}). Be tolerant
                 # of both shapes — the wrapped form was assumed for months
@@ -414,14 +510,18 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
                 if scores:
                     client_health_avg = round(sum(scores) / len(scores), 1)
                     clients_at_risk = sum(1 for s in scores if s < 55)
-        except Exception:
-            pass
+        except (ValueError, TypeError, AttributeError, json.JSONDecodeError) as e:
+            errors["client_health"] = f"unparseable output: {type(e).__name__}: {e}"
+
+    pool.shutdown(wait=False)
 
     # --- Cash position ---
     cash_stripe = _stripe_balance(stripe_key) if stripe_available else 0.0
 
     # --- Content velocity ---
-    content_counts = _content_this_week()
+    content_counts, content_err = _content_this_week()
+    if content_err:
+        errors["content"] = content_err
     total_posts = sum(content_counts.values())
     total_target = sum(CONTENT_TARGETS.values())
 
@@ -456,6 +556,12 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
             "by_platform": content_counts,
         },
     }
+
+    # Degraded sources announce themselves. Without this a failed sub-engine is
+    # indistinguishable from a genuine zero, which is how "0 active leads" sat
+    # in CC's brief for weeks while the CRM held 11.
+    if errors:
+        data["_errors"] = errors
 
     return data
 
@@ -609,7 +715,7 @@ def _format_pipeline() -> str:
 
 
 def _format_content() -> str:
-    counts = _content_this_week()
+    counts, err = _content_this_week()
     total = sum(counts.values())
     target = sum(CONTENT_TARGETS.values())
 
@@ -617,6 +723,12 @@ def _format_content() -> str:
         "=" * 54,
         f"CONTENT DASHBOARD -- {datetime.date.today().isoformat()}",
         "=" * 54,
+    ]
+    if err:
+        # Never let "could not reach Late" read as "nothing was published".
+        lines += [f"!! CONTENT DATA UNAVAILABLE -- {err}",
+                  "   Counts below are NOT a real zero.", ""]
+    lines += [
         "",
         f"Posts this week: {total} / {target} target",
         "",
@@ -700,9 +812,13 @@ def main() -> None:
             print(_format_pipeline())
 
     elif args.command == "content":
-        counts = _content_this_week()
+        counts, err = _content_this_week()
         if args.as_json:
-            print(json.dumps({"by_platform": counts, "total": sum(counts.values()), "target": sum(CONTENT_TARGETS.values())}, indent=2))
+            payload = {"by_platform": counts, "total": sum(counts.values()),
+                       "target": sum(CONTENT_TARGETS.values())}
+            if err:
+                payload["_error"] = err
+            print(json.dumps(payload, indent=2))
         else:
             print(_format_content())
 
@@ -715,11 +831,15 @@ def main() -> None:
             }
             leads = _read_lead_tracker()
             pipeline = _pipeline_stats(leads)
-            content_counts = _content_this_week()
+            content_counts, content_err = _content_this_week()
+            content_block: dict = {"by_platform": content_counts,
+                                   "total": sum(content_counts.values())}
+            if content_err:
+                content_block["_error"] = content_err
             print(json.dumps({
                 "north_star": data,
                 "pipeline": pipeline,
-                "content": {"by_platform": content_counts, "total": sum(content_counts.values())},
+                "content": content_block,
             }, indent=2))
         else:
             print(_format_full(env, data))

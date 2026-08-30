@@ -30,10 +30,15 @@ BOOTSTRAP = REPO / "scripts" / "_bootstrap" / "sitecustomize.py"
 
 
 def _load():
-    """Import the bootstrap WITHOUT executing its install (no flag set)."""
+    """Import helpers under the one mode that deliberately skips installation."""
     spec = importlib.util.spec_from_file_location("_sc_under_test", BOOTSTRAP)
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    with mock.patch.dict(
+        "os.environ",
+        {"EMPIRE_DATA_BACKEND": "legacy_supabase_rollback"},
+        clear=False,
+    ):
+        spec.loader.exec_module(mod)
     return mod
 
 

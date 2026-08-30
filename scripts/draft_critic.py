@@ -233,8 +233,11 @@ def _call_haiku(system_prompt: str, user_msg: str, _env: dict[str, str],
     (lib.claude_cli) — never the metered ANTHROPIC_API_KEY (out of credits +
     banned per CC's CLI-only rule). max_tokens is kept for signature stability;
     the CLI manages its own output length."""
-    from lib.claude_cli import run_claude_cli
-    text = run_claude_cli(user_msg, system=system_prompt, model="haiku", timeout=90)
+    from lib.model_fallback import run_smart_cli
+    text = run_smart_cli(
+        user_msg, system=system_prompt, model="haiku", timeout=90,
+        task_type="reasoning", agent_name="draft_critic",
+    )
     if text is None:
         raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")
     text = text.strip()

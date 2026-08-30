@@ -1,7 +1,7 @@
 ---
 description: "Central index for the 4-agent ecosystem (Bravo/Atlas/Maven/Aura): maps governance, cross-agent workflows, shared DB, and app registry"
 tags: [index, agents, hub, graph]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -50,13 +50,13 @@ Obsidian's graph view shows wikilinks inside the current vault only. To see the 
 
 Each agent's brain/ is its own sovereign space — this is intentional. Cross-agent synthesis happens via:
 - [[brain/CROSS_AGENT_AWARENESS]] — pulse file reads
-- [[brain/SHARED_DB]] (in Maven's vault) — Supabase `phctllmtsogkovoilwos`, 38 tables, all 4 agents read/write
+- [[brain/SHARED_DB]] (in Maven's vault) — Turso shared empire DB (191 tables, primary backend; legacy Supabase `phctllmtsogkovoilwos` for event bus LISTEN/NOTIFY only), all 4 agents read/write
 
 ## The Shared Data Layer
 
 - **Pulse files** (JSON, per-agent sovereign path): fast "now-state" — runway, MRR, content pipeline, presence
-- **Shared Supabase** (`phctllmtsogkovoilwos`): long-term memory — `agent_traces`, `skill_activation`, `session_logs`, `agent_state`, `content_calendar`, `leads`, `funnels`, etc. (38 tables)
-- **Each app's own DB**: Turso for PULSE, OASIS Supabase, Nostalgic Supabase, etc.
+- **Shared Turso DB** (primary backend, 191 tables): long-term memory — `agent_traces`, `skill_activation`, `session_logs`, `agent_state`, `content_calendar`, `leads`, `funnels`, etc. Legacy Supabase (`phctllmtsogkovoilwos`) retained for event bus (Postgres LISTEN/NOTIFY) only.
+- **Each app's own DB**: Turso for PULSE, OASIS, Nostalgic, PropFlow, TIKTIK, etc. (all migrated off Supabase)
 
 ## When You Need To Find Something
 

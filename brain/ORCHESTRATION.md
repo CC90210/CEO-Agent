@@ -1,9 +1,9 @@
 ---
 description: "Routes tasks inline or to sub-agents by 6-dimension risk matrix; governs tool choice, delegation scope, and agent-layer selection"
 tags: [orchestration, governance, routing, critical, delegation]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
-verified: 2026-07-22
+verified: 2026-08-22
 ---
 # ORCHESTRATION — Capability Governance & Routing Integrity
 
@@ -366,6 +366,27 @@ When the same user request could map to multiple tools:
 | "Transcribe audio" | Quick voice note → `scripts/transcribe.py` · Full video pipeline → Maven (`../CMO-Agent/scripts/content_pipeline.py`) |
 | "Generate image" | AI generation → Maven (`../CMO-Agent/scripts/codex_image_gen.py`) · Cover art → `generate_covers.py` |
 | "Book a meeting" | CC's calendar → `google_tool.py` · Client booking → `booking_engine.py` |
+
+## Daemon-Backed Automations (added 2026-08-22)
+
+A job with a HUMAN WAITING on the other end does not belong behind the shared
+scheduler queue. scripts/scheduler.py runs every due job sequentially, so a
+conversational reply inherits the latency of whatever batch job ran first —
+measured 2026-08-21: the Instagram setter's real interval was ~291s regardless
+of its cron expression, and a prospect waited 3m46s for "Yo Wsp".
+
+The pattern (first instance: `bravo-ig-dm` → `ig_dm_daemon.py`):
+
+| Rule | Why |
+|---|---|
+| Human-waiting work gets its OWN PM2 process | its latency must not depend on the email sweep |
+| The cron row stays `is_active=0` FOREVER, seeded with `daemon_backed: "<pm2-name>"` | the daemon refuses to boot while the row is armed — two runners double-message |
+| Toggling = `pm2 start/stop <name>`, never the row | the dashboard's daemon-cron-guard enforces this at the API |
+| `cron_health_check` watches the PM2 process itself | a row-based scan can never see a daemon die; a non-online process reports as FAILING with the revive command |
+| The daemon gates each tick on pyflakes over its imports | it runs the working tree — a half-saved refactor otherwise reaches live prospects in ~20s (happened 2026-08-21, errors=25) |
+
+Batch jobs stay on the scheduler; the queue is fine when nobody is watching a
+typing indicator.
 
 ## Entry Point Parity
 

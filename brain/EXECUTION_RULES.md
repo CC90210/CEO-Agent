@@ -3,9 +3,9 @@ name: EXECUTION RULES
 description: Non-negotiables for the chat agent. Never tell the operator to run commands you can run yourself. Self-execute, audit, confirm.
 mutability: IMMUTABLE
 tags: [brain, agent-only, iron-law]
-last_updated: 2026-07-20
+last_updated: 2026-08-15
 freshness_threshold_days: 30
-verified: 2026-07-20
+verified: 2026-08-15
 ---
 # EXECUTION RULES — The Iron Law
 
@@ -39,7 +39,7 @@ Good: "Tried hitting the bridge at localhost:9100/health — connection refused.
 When you change anything (DB row, file, env var, deployed app), end your reply with a one-line confirmation:
 
 - WHAT changed (the field / file / env / row).
-- WHERE it changed (Supabase table, file path, Vercel env name).
+- WHERE it changed (Turso table, file path, Vercel env name).
 - WHAT'S NEXT (what should happen on the next refresh / cron tick / deploy).
 
 This is not optional. If you're not confirming, you're not done.
@@ -241,7 +241,7 @@ ask permission between them unless a step's own gate says to.
 | 2 | **Credential & tool discovery** | `python scripts/capability_probe.py check <service>` | every service the plan touches reports AVAILABLE — never assume a gap (Tool Discipline #8) |
 | 3 | **Blueprint** | write the discrete mutation sequence into the Todo list | ≥3 steps are tracked, exactly one `in_progress` |
 | 4 | **Surgical mutation + local verify** | edit, then `python -m pytest scripts/tests -q` (or the module's own gate) | tests green, and their output is captured for the report |
-| 5 | **DB / state integrity gate** | `python scripts/apply_migration.py <file>` only if schema changed; else assert no migration needed | migration applied and re-queried, or explicitly N/A |
+| 5 | **DB / state integrity gate** | schema changed → `python scripts/db_snapshot.py create --name pre-<NNN>` + `verify --max-age-hours 1` (exit 0 = real restore point), *then* `python scripts/apply_migration.py <file>`; else assert no migration needed | baseline verified, migration applied and re-queried, or explicitly N/A |
 | 6 | **Commit & push** | conventional commit; branch first if on `main` | pushed to the correct repo (RULE 7 — app work commits from the app's own repo) |
 | 7 | **CI/CD + machine review** | `gh pr checks <n> --repo <owner>/<repo>`; inline threads via `gh api --paginate repos/<owner>/<repo>/pulls/<n>/comments`; Vercel prod verified live, not just "deployed" | checks green **and** CodeRabbit/Codex findings triaged (Rule 16 — a bot finding you ignore is worse than one you never had) |
 | 8 | **State & memory sync** | `python scripts/state/state_sync.py --note "<summary>"`; `python scripts/integrations/agent_activity.py post` when a peer agent shares the surface | STATE/SESSION_LOG updated, peers notified, four-line report delivered |
@@ -249,6 +249,30 @@ ask permission between them unless a step's own gate says to.
 **Skipping a step is a reportable omission, not a shortcut.** If step 5 or 7 does not apply,
 say so explicitly in the report ("no schema change", "no remote CI on this repo") — silence
 reads as "done" and that is how a red check reaches `main`.
+
+**Step 6.5 — long-running processes hold the OLD code. Restart them, or nothing shipped.**
+A green suite, a clean push and a passing CI say the *file* changed. They say nothing about
+the *process*. Anything under PM2 — `bravo-scheduler`, `breeze-live-watch`, the Telegram
+bridges, `event-router` — loaded its Python at boot and keeps running it until restarted, so
+an edit to `scheduler.py` changes the operator's experience not at all. Scripts the scheduler
+*spawns* per run (`email_engine.py`, `marketing_publish_drain.py`) do pick up new code, because
+each run is a fresh interpreter — that asymmetry is exactly what makes this easy to miss: half
+the change goes live and half does not.
+
+```bash
+pm2 jlist            # is the process older than your edit?
+pm2 restart <name> --update-env
+```
+Then **prove it took**: a new field your change writes appearing in the process's own state
+file, a log line only the new code emits, or the behaviour itself. `pm2 status: online` proves
+the process is running, not that it is running *your* code — see
+[[memory/PATTERNS]] "verify the running daemon, not the repo".
+
+**Why this is step 6.5 and not a footnote:** 2026-08-15, four cron/monitor daemons were fixed,
+tested (19 tests, 6/6 mutations caught), committed and pushed with CI green — and two of the
+four were still paging CC with the exact alerts the change removed, because
+`bravo-scheduler` and `breeze-live-watch` had been up since the previous day. The work was
+correct, verified, and inert.
 
 **On big tasks** (≥3 commits, ≥5 files, or any user-facing change) step 7 also requires an
 independent audit: `python scripts/core/codex_review.py review --session "<slug>"`, presented
@@ -298,7 +322,216 @@ them is a workaround. The fix that ends it is an antivirus exclusion a human has
 hardening the code and ask what on the machine is producing it — and say plainly which part of
 the answer you cannot do yourself.
 
+## 20. THE OPUS 5 EXECUTION CONTRACT — FINISH, SCOPE, DELEGATE, NARRATE (added 2026-08-02)
+
+Four protocols that govern *how* a task is executed, independent of what the task is. They are
+restated inside every blueprint [[skills/vibe-to-execution/SKILL]] emits, because the executor
+is usually a fresh context that never read this file.
+
+| # | Protocol | The rule |
+|---|---|---|
+| 20a | **Zero-stub mandate** | Complete the feature suite end-to-end in one run. No `// TODO`, no `pass  # later`, no truncated edit left for "the next agent", no handler returning a success shape it did not compute. If something genuinely cannot finish — a credential only CC can create, a vendor account, a human approval — finish everything that does not depend on it and **name the blocker**. Partial delivery is fine; silent partial delivery is the defect. |
+| 20b | **Scope boundary control** | Deliver what was asked, at the scope intended. Make routine technical calls yourself (file layout, helper naming, which util to reuse). If the request looks mistaken, state the alternative in **one sentence** and continue as asked — CC repeating himself ends the debate. Do not widen into adjacent files (Anti-Slop #5); do not narrow because part of the ask looks hard. |
+| 20c | **Controlled subagent delegation** | Subagents are for large, genuinely independent, parallelizable tracks — a multi-file backend beside frontend work, a codebase-wide sweep, an independent audit. Never for a trivial edit, a two-grep lookup, or to re-verify your own work: self-verification is a command you run, not an agent you hire. The always-correct delegation is the *independent* audit (Rule 8, `codex_review.py`) precisely because it is not you. |
+| 20d | **Focused narration** | One sentence before the first tool call saying what you are about to do. No per-step preamble, no plan recitation. The report **leads with the outcome** — what now exists and works — and the proof sits beneath it. Progress chatter is noise; the four-line report is the product. |
+
+**Why it is a rule and not a style note.** 20a and 20d are the two halves of the fleet's most
+expensive failure: work that reads as finished. A stub with a confident summary and a narrated
+plan with no output land identically in CC's inbox — as "done". The contract makes the outcome
+the first thing said and an unfinished part impossible to leave unsaid.
+
+## 21. THE 20-POINT VIBE-SECURITY MATRIX — AUDIT WHAT WAS ALREADY BUILT (added 2026-08-15)
+
+Rules 13, 14, 15 and 17 each fix one security hole this fleet actually shipped. They are
+reactive by construction: every one was written *after* CC or Codex found the bug. The
+20-Point Vibe-Security Matrix is the proactive form — twenty defects that recur in
+AI-generated code, each with a mechanical check, so a codebase can be swept before anyone
+has been bitten by it.
+
+**The matrix itself lives in one place: [[skills/security-protocol/SKILL]].** Do not restate
+the twenty rows here or anywhere else. Two copies of a twenty-row table is drift with a
+schedule attached — the same hazard `test_antislop_matrix_sync.py` exists to catch on the
+seven-row matrix. `scripts/tests/test_20_point_security_contract.py` pins the single source.
+
+### Three matrices, three jobs — do not merge them
+
+| Matrix | Where | When it applies | Count |
+|---|---|---|---|
+| **Production Defenses** | `prompts/_TEMPLATE_SYSTEM_PROMPT.md` § 3.1 + [[skills/vibe-to-execution/SKILL]] | **Build-time** — what a change must satisfy as you write it | 7 |
+| **Vibe-Security Matrix** | [[skills/security-protocol/SKILL]] | **Audit-time** — what you sweep for in code that already exists | 20 |
+| **Anti-Slop Matrix** | `PERSONAL.md` LOCKSTEP `anti_patterns` → all six entry points, § 19 above | **Always** — process defects, not security holes | 7 |
+
+The seven defenses do not cover the twenty points. Five of them — rate limiting, injection,
+input validation, XSS, and dependency hygiene — have **no owning defense at all**, because the
+defenses were written for building a feature and never treated untrusted input or dependency
+staleness as first-class. An audit run against the defenses alone misses a quarter of the
+matrix. The full mapping, including that gap, is the second table in the skill.
+
+### When the audit is mandatory
+
+Run it — `python scripts/capability_query.py resolve "audit codebase for security vulnerabilities"`
+routes to the skill; [[prompts/20_POINT_SECURITY_AUDITOR_SYSTEM_PROMPT]] is the portable
+system message for a fresh context, Codex, or a sibling agent:
+
+- **Before any public flip** — a repo going public, a route going unauthenticated, a form
+  going out to prospects. This is the case that has already cost us twice.
+- **Before a new app's first production deploy**, and on any diff that adds an unauthenticated
+  surface, a file upload, a webhook receiver, or a new tenant-scoped table.
+- **Quarterly across the portfolio**, or whenever a point's check is cheap and the repo is new
+  to us.
+
+**The auditor may not be the author.** Rule 8 already requires an independent Codex pass on big
+tasks; for security specifically it is the whole mechanism, not a second opinion. Bravo's
+self-review of Bravo's own boundary has now failed on record twice — the public-forms diff
+below, and the `fnmatch` allowlist in [[docs/adr/0015-evidence-gated-harness-refinement]] that
+was asserted as fail-closed in an ADR, four commits and a PR body while `memory/../CLAUDE.md`
+walked straight through it.
+
+### The incident behind the matrix
+
+**2026-05-18 — the public form-share diff.** Bravo declared it "TypeScript clean + deploy
+ready" **twice**. Two Codex adversarial passes then found **nine real bugs in that same diff**,
+and eight of them are one of the twenty points:
+
+| Point | The bug, as found |
+|---|---|
+| 5 — bypassable rate limit | `anonymous_init`'s bucket keyed on `lead_id`, which is freshly minted per anonymous request — so every bot request got its own bucket. The limiter existed and defended nothing. |
+| 7 — no input validation | `inline_base64` blobs accepted against *any* payload key, with attacker-controlled MIME and no form-schema validation. |
+| 14 — IDOR | Form lookup by `slug` alone allowed cross-tenant collision plus tenant enumeration through the 404 difference; separately the signed-URL minter trusted a mutable `storage_path` (a confused deputy, enabled by a `FOR ALL` RLS policy on `lead_documents`). |
+| 15 — raw body persisted | `file_attachments` taken straight off the request body and stored — a path for planting foreign-tenant storage paths that the underwrite route then forwarded downstream. |
+| 20 — unvalidated upload | SVG left in the tenant-logo MIME allowlist, served from a public bucket as `Content-Type: image/svg+xml` — stored script execution. |
+| 4 — frontend-only authz | `read_only` was enforced as a paragraph in Solara's persona while the cloud-tool palette still contained `create_record` / `update_record` / `delete_record`. |
+| 3 — RLS shape | The `FOR ALL` policy that made the confused-deputy possible; `database/057b_lead_documents_drop_member_all.sql` removes it. |
+| 11 — admin chrome on a public page | The operator sidebar rendered over a prospect's form view — the layout half of the § 13 two-layer gate. |
+
+The durable fix for #20 is the one worth copying: `database/057_lead_documents_storage_path_check.sql`
+adds `CHECK (storage_path LIKE tenant_id::text || '/%')`. Application code can regress; the
+constraint cannot. **Where a point can be enforced by the database, enforce it there** — an
+allowlist in a route handler is one refactor away from being deleted.
+
+**Why this is a rule and not a checklist.** The nine bugs were not found because the code was
+sloppy; they were found because someone other than the author went looking with a specific
+list. Points 5 and 4 are the sharpest illustration: both surfaces *had* a control — a rate
+limiter, a role restriction — and both controls were decorative. **A defense you have not
+tried to defeat is a defense you have not verified**, which is
+the *attack the boundary before you claim it* pattern ([[memory/PATTERNS]]) wearing a security hat.
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]
 - [[brain/EXTERNAL_REVIEW_INTEGRATION]] | [[brain/SUBCONSCIOUS_LAYER]]
+- [[skills/security-protocol/SKILL]] (the 20-point matrix) | [[docs/adr/0016-20-point-vibe-code-security-standard]] | [[prompts/20_POINT_SECURITY_AUDITOR_SYSTEM_PROMPT]]
+
+---
+
+## 22. TWO AGENTS, THREE REVIEW LAYERS — AND ONLY ONE OF THEM IS YOURS (added 2026-08-27)
+
+CC and Adon run separate AIOSs against shared repos. They execute independently
+and must never depend on each other to get work done. What they owe each other is
+not permission — it is **awareness, and a review the machines cannot perform.**
+
+### 22.1 The three layers are not interchangeable
+
+| Layer | Sees | Cannot see |
+|---|---|---|
+| **CodeRabbit** | the diff: null derefs, N+1s, missing guards, security smells | why the code is shaped that way |
+| **Vercel / CI** | that it builds, deploys, and passes tests | whether it should exist |
+| **The peer agent** | the constraint that is not in the diff | nothing — this is the only layer with history |
+
+A bot finds the null deref. **Only the surface owner knows the field is nullable
+because a client's import in July depended on it.** That knowledge is not in the
+code and cannot be inferred from it. It lives in whichever agent owns the
+surface, which is why the peer review is not optional politeness.
+
+Its first live run caught APEX proposing to build an approval surface that
+already existed in `coordination_agent.js` and that APEX had already been
+onboarded to. Duplicate infrastructure across two harnesses means two suppression
+lists, two approval gates, two sources of truth — and it is invisible to every
+bot, because each half is individually correct.
+
+### 22.2 The loop, in commands
+
+```bash
+# before you edit anything in a repo the peer also works in
+python scripts/lib/ownership.py <repo-slug> <path>          # bravo | apex | shared
+python scripts/integrations/coord_claim.py acquire --repo <slug> --paths "<p>" --task "<t>"
+
+# review what the peer changed on your surfaces
+python scripts/cross_agent_review.py scan                    # open peer PRs on my ground
+python scripts/cross_agent_review.py review --pr OWNER/REPO#N  # publishes ack | blocked
+
+# bot findings are not advisory — fetch and act on them
+python scripts/review_harvest.py --pr OWNER/REPO#N           # UNRESOLVED threads, live
+python scripts/review_fix.py ...                             # applies, tests, pushes to the PR branch
+```
+
+**Inline review threads do NOT appear in `gh pr view --comments`.** A finding you
+never fetched is one you silently shipped past. A CodeRabbit CRITICAL sat unfixed
+on `main` for weeks for exactly this reason.
+
+### 22.3 The rules that carry the weight
+
+1. **Claim before you touch a contested surface; release when you stop.** The
+   lease is the only thing that makes an overlap detectable *before* it happens.
+2. **Status IS the escalation mechanism.** `blocked` means a human must act;
+   `working` is awareness-only on both sides. Posting a credential or quota
+   failure as `working` is silence that looks like a report — it cost two days on
+   2026-08-25 and is now refused in code by `agent_activity.post()`.
+   The check distinguishes DESCRIBING a failure from REPORTING one: a narration
+   marker before the phrase ("fixed the bug where credits were exhausted") is a
+   completion report and passes; the bare phrase does not. Both agents shipped
+   the over-strict version first, and a lint that refuses honest prose is worse
+   than none — it trains the override, and an override used by habit is no lint.
+3. **Never review your own work as the peer's.** Peer identity comes from COMMIT
+   AUTHORSHIP via `OWNERSHIP_MAP.yaml`, never from the GitHub account — both
+   agents push under `CC90210`, so the account field cannot tell them apart.
+4. **Cross-team artifacts live in the shared repo.** A contract in one party's
+   private repo is not a contract. Bravo broke this first and APEX called it.
+5. **Formats that two languages both emit must be pinned AND parsed.** The lease
+   tie-break compared ISO timestamps as strings; Python emits six fractional
+   digits and JS emits three with a `Z`, so at the same millisecond the order
+   inverted and BOTH agents kept the lease — from the fix for both agents keeping
+   the lease. Pin the wire format, and parse rather than trusting it.
+
+### 22.4 What this is NOT
+
+It is not a dependency. Either agent can work with the peer offline, mid-outage,
+or asleep. The lease guard **fails degraded, never closed** — a collision gate
+that halts all work when a database blinks gets switched off, and a switched-off
+guard is the problem it was built to solve.
+
+Ownership is a **default, not a fence.** Either agent may work anywhere. Owning a
+surface means you are the one who does not have to ask, and the one who gets
+asked.
+
+## § 20 — Every store gets a lifecycle, in the same commit
+
+Capture in this system is comprehensive; expiry is not. Almost every subsystem
+logs well and almost none of them delete anything, so the failure mode is never
+a crash — it is a 43 MB/day log, a 9,533-row event queue waiting on a consumer
+that was never coming, and a table nobody remembers adding.
+
+When you add a store, decide its lifecycle in the SAME commit and record it in
+[[DATA_LIFECYCLE]]. Three rules, each from something that actually happened:
+
+1. **Schedule the sweep with the tool.** A retention script nobody runs is not a
+   retention policy. `event_retention.py` was written, run once by hand and left
+   unscheduled — 40 rows crossed its cutoff within two hours. The eval suites
+   went eleven weeks unmeasured for the same reason: the runner existed, nothing
+   invoked it.
+2. **A log hitting its rotation cap repeatedly is a broken log, not a rotation
+   problem.** `secret_access.log` reached 43 MB/day *with* rotation working
+   correctly. The fix was at the source — it was recording all 204 env key names
+   on every call.
+3. **Mark, do not delete, in a shared store.** `agent_events` is the Bravo↔APEX
+   channel. Terminal states exist in the schema for this; use them.
+
+Undecided is allowed. Invisible is not — an unbounded store with no decision
+goes in [[DATA_LIFECYCLE]]'s "needs an operator decision" table so it is at
+least being looked at.
+
+**Where the answer lives:** [[AUTOMATIONS]] is the generated register of every
+scheduled job, daemon, hook and OS task — what it does, when it fires, and
+whether it is healthy. Read it before answering "what runs?" or "is X
+scheduled?"; do not reconstruct the answer from SEED_JOBS alone, which says what
+is DECLARED rather than what the live table actually fires.

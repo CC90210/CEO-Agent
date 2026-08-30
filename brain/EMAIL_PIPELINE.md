@@ -1,7 +1,7 @@
 ---
 tags: [runbook, email, inbound, automation, atlas]
 related: ["[[STATE]]", "[[QUICK_REFERENCE]]", "[[AGENTS]]"]
-last_updated: 2026-07-26
+last_updated: 2026-08-26
 ---
 
 # Inbound Email Pipeline — Runbook
@@ -9,7 +9,10 @@ last_updated: 2026-07-26
 The native replacement for the n8n **"OASIS Inbound Qualifier"** workflow
 (`1cGIN32alM8sf8OV`, now inactive). Classifies every inbound email into 4 brains
 and acts under a hybrid/guarded autonomy policy — entirely on the subscription
-Claude CLI, **no metered API keys**. Durable memory: `[[project_native_email_pipeline]]`.
+Claude CLI, **no metered API keys**. Since 2026-08-25 every model call in this
+chain routes through `scripts/lib/model_fallback.py` (Claude CLI first,
+automatic OpenCode CLI fallback on quota/auth/timeout). Durable memory:
+`[[project_native_email_pipeline]]`.
 See also the outbound twin: `scripts/integrations/send_gateway.py` (`scripts/integrations/send_gateway.py`).
 
 ## The chain (every 5 min)

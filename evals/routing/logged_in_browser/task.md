@@ -1,0 +1,1 @@
+run the browser with a logged in session

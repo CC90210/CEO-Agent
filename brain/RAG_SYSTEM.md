@@ -1,7 +1,7 @@
 ---
-description: "Documents the 4-layer memory stack (markdown, Obsidian, Supabase, Claude-mem) that agents reference to query and persist cross-session knowledge"
+description: "Documents the 4-layer memory stack (markdown, Obsidian, Turso, Claude-mem) that agents reference to query and persist cross-session knowledge"
 tags: [rag, memory, infrastructure, obsidian]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -29,13 +29,13 @@ All 4 agents share the same memory stack. Different data, same pipes.
 - **Graph scope**: per-vault (Obsidian doesn't cross vaults by default)
 - **Cross-vault hub**: [[brain/AGENT_INDEX]] lives in Bravo and references all agents
 
-### 3. Shared Supabase (`phctllmtsogkovoilwos`)
+### 3. Shared Turso (libSQL) — `bravo` DB (191 tables)
 - **Tables that make this a RAG**:
   - `memories` — categorized memory entries (mistake, pattern, decision, preference)
   - `agent_traces` — every material action with agent + span_id + trace_id + timestamp
   - `skill_activation` — pattern scoring (recency × 0.3 + frequency × 0.4 + confidence × 0.3)
   - `session_logs` — cross-agent session summaries
-- **RPC helpers**:
+- **RPC helpers** (were Postgres-side functions; Turso equivalents live in `scripts/core/memory_retriever.py`):
   - `search_memories(query)` — semantic search across memory entries
   - `log_trace(agent, action, payload)` — append to traces
   - `calculate_activation_score(skill_id)` — refresh a pattern's score
@@ -57,7 +57,7 @@ When you ask *"what happened in marketing last week?"*:
 
 1. **Markdown** (instant): read `../CMO-Agent/memory/SESSION_LOG.md`
 2. **Obsidian graph** (only if I need context on linked docs): follow backlinks from cmo_pulse references
-3. **Supabase** (queryable history): `SELECT * FROM agent_traces WHERE agent='maven' AND created_at > now() - interval '7 days'`
+3. **Turso** (queryable history): `SELECT * FROM agent_traces WHERE agent='maven' AND created_at > datetime('now', '-7 days')`
 4. **Claude-mem** (fuzzy, conversational): `mem-search "ad campaign last week"` for prior chats about it
 
 I typically query layers 1 + 3 for structured answers; layers 2 + 4 for harder narrative questions.
@@ -66,11 +66,11 @@ I typically query layers 1 + 3 for structured answers; layers 2 + 4 for harder n
 
 Each layer feeds the others:
 - Obsidian notes get indexed by claude-mem on edit
-- Agent actions write to Supabase `agent_traces` + update `skill_activation`
-- Supabase `memories` can be surfaced in Obsidian via dataview queries (wire this up later if needed)
+- Agent actions write to Turso `agent_traces` + update `skill_activation`
+- Turso `memories` can be surfaced in Obsidian via dataview queries (wire this up later if needed)
 - Every session, Bravo's `ceo_pulse.json` + `brain/STATE.md` update — which shows up in the graph next session
 
-If you write something in a markdown file, it's also available as structured data (via Supabase if tagged) and as conversational memory (via claude-mem). Three entry points to the same knowledge.
+If you write something in a markdown file, it's also available as structured data (via Turso if tagged) and as conversational memory (via claude-mem). Three entry points to the same knowledge.
 
 ## Fix Checklist (run if Obsidian misbehaves)
 

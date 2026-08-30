@@ -40,6 +40,7 @@ an interactive transaction (which is not reliable over remote HTTP).
 from __future__ import annotations
 
 import os
+import re
 import sys
 import threading
 import traceback
@@ -327,6 +328,39 @@ def unscoped_tables(sql: str, tenant_tables: frozenset[str]) -> set[str]:
 
 # ------------------------------------------------------------------- the client
 
+# A plain unquoted SQL identifier. Table and column names in this codebase are
+# literals written by us, so anything outside this shape is a caller bug.
+_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
+
+
+def quote_ident(name: str) -> str:
+    """Validate a SQL identifier, then return it double-quoted.
+
+    THE canonical identifier guard for the Turso data path. Values are always
+    bound (`?`); identifiers cannot be, so table and column names reach the
+    statement by interpolation and are the one place injection can enter.
+
+    Lives here rather than in turso_supabase_compat because this module is the
+    layer every caller reaches — the compat shim is only ONE of them, and a guard
+    that sits in the shim leaves every direct `get_db().insert(...)` unprotected.
+    The compat shim delegates here (2026-08-15, point 6 of the 20-point matrix).
+
+    An allowlist, not an escape: a name that is not a plain identifier is refused
+    loudly rather than quoted-and-hoped.
+
+    NOTE the deliberate gap: `select(where=..., order_by=..., columns=...)` are
+    free-form SQL fragments by design — the documented escape hatch this API
+    already exposes to 49 modules — and are NOT validated here. Never build them
+    from untrusted input; pass values through `params` instead.
+    """
+    if not isinstance(name, str) or not _IDENT_RE.match(name):
+        raise ValueError(
+            f"unsafe SQL identifier: {name!r} — must match {_IDENT_RE.pattern}. "
+            "Values are bound with ?; only table and column NAMES pass through here."
+        )
+    return f'"{name}"'
+
+
 class TursoDB:
     def __init__(self, url: str, auth_token: str | None, mode: str):
         self.url = url
@@ -342,46 +376,50 @@ class TursoDB:
                  tenant_scoped_tables=len(self._tenant_tables))
 
     # -- schema awareness ---------------------------------------------------
+    #
+    # THE 38 SECONDS EVERY PROCESS PAID TO CONNECT. The loop below issues one
+    # `PRAGMA table_info` per table against a REMOTE database — 206 sequential
+    # round trips at ~258 ms each. Measured 2026-08-28: 38 of the 43 seconds
+    # each briefing engine spent, and the daily brief fans out ten of them. That
+    # is what was rendering "Client health: unavailable" in CC's brief while
+    # client_health.py itself was returning `status: ok`.
+    #
+    # One query replaces all 206: 0.23 s, same 145 tables.
+    #
+    # BUT THIS SET IS A SECURITY BOUNDARY. `unscoped_tables()` exports it as the
+    # tenant-scoping predicate, and an empty or short set reads as "nothing is
+    # tenant-scoped" — a data-isolation failure, categorically worse than a slow
+    # connect. So the fast path must prove itself: it is used only when it
+    # returns a NON-EMPTY set, and any error or empty result falls through to
+    # the slow loop rather than being trusted.
     def _discover_tenant_tables(self) -> frozenset[str]:
-        """Every table with a tenant_id column, read from the live schema.
+        """Every table with a tenant_id column, read from the live schema."""
+        fast = self._discover_tenant_tables_fast()
+        if fast:
+            return fast
+        return self._discover_tenant_tables_slow()
 
-        Runs on EVERY client construction, so its cost is paid by every script,
-        daemon tick and cron run. The obvious loop — one `PRAGMA table_info`
-        per table — is one network round-trip per table: 201 tables x ~208ms
-        = ~41s against a remote Turso, which is most of the wall clock of a
-        short cron job and was pushing the bridge's cron poller to a ~108s
-        cycle (it sleeps 60s AFTER the work), so it stepped over ~half of all
-        scheduled minutes.
+    def _discover_tenant_tables_fast(self) -> frozenset[str]:
+        """One round trip via pragma_table_info as a table-valued function.
 
-        `pragma_table_info` as a table-valued function answers the same
-        question in one round-trip (~0.4s). Verified against the loop on the
-        live bravo database 2026-08-24: both return the identical 142 tables.
-
-        This set decides which queries get the cross-tenant guard, so a wrong
-        answer here silently un-guards tables. Any failure — and any
-        implausible empty result while tables exist — falls back to the loop
-        rather than proceeding with a set we do not trust.
+        Returns an EMPTY set on any problem — including a libsql build without
+        TVF support — so the caller falls back rather than trusting a partial
+        answer. Never let this raise: a connect that dies here takes down every
+        caller of get_db().
         """
         try:
             rows = self._conn.execute(
-                "select m.name from sqlite_master as m "
-                "join pragma_table_info(m.name) as c "
-                "where m.type='table' and m.name not like 'sqlite_%' "
-                f"and c.name = '{TENANT_COLUMN}'"
+                "select m.name from sqlite_master m "
+                "join pragma_table_info(m.name) p on p.name = ? "
+                "where m.type = 'table' and m.name not like 'sqlite_%'",
+                (TENANT_COLUMN,),
             ).fetchall()
-            scoped = {n.lower() for (n,) in rows if n not in GLOBAL_TABLES}
-            if scoped:
-                return frozenset(scoped)
-            log.warning("tenant-table discovery returned nothing via pragma_table_info "
-                        "— falling back to per-table introspection")
-        except Exception as exc:  # noqa: BLE001 - never trade correctness for speed
-            log.warning("pragma_table_info discovery failed — falling back to "
-                        "per-table introspection", error=str(exc))
-        return self._discover_tenant_tables_per_table()
+        except Exception:  # noqa: BLE001 — any failure means "use the slow path"
+            return frozenset()
+        return frozenset(name.lower() for (name,) in rows if name not in GLOBAL_TABLES)
 
-    def _discover_tenant_tables_per_table(self) -> frozenset[str]:
-        """Original one-round-trip-per-table discovery. Correct but slow; kept
-        as the fallback for any libSQL build without pragma functions."""
+    def _discover_tenant_tables_slow(self) -> frozenset[str]:
+        """The original per-table PRAGMA walk. Correct, and 165x slower."""
         scoped: set[str] = set()
         rows = self._conn.execute(
             "select name from sqlite_master where type='table' and name not like 'sqlite_%'"
@@ -389,7 +427,7 @@ class TursoDB:
         for (name,) in rows:
             if name in GLOBAL_TABLES:
                 continue
-            cols = self._conn.execute(f'PRAGMA table_info("{name}")').fetchall()
+            cols = self._conn.execute(f"PRAGMA table_info({quote_ident(name)})").fetchall()
             if any(c[1] == TENANT_COLUMN for c in cols):
                 scoped.add(name.lower())
         return frozenset(scoped)
@@ -401,6 +439,46 @@ class TursoDB:
     def is_tenant_scoped(self, table: str) -> bool:
         return table.lower() in self._tenant_tables
 
+    # An audit line nobody can read audits nothing. This WARNING fired on every
+    # deliberate cross-tenant query and became 308,105 of 400,000 sampled lines
+    # in state/logs/db_turso.log — 77% of a 190 MB file. The signal it carries
+    # is real and must not be dropped, but the thing that made it useless was
+    # repetition, not existence: the same handful of (reason, tables) pairs,
+    # hundreds of thousands of times.
+    #
+    # First occurrence of each distinct pair logs in full. After that the pair
+    # is counted and re-logged on a widening interval, carrying the running
+    # total — so a NEW bypass is still immediately visible, and an existing one
+    # is quantified instead of shouted.
+    # WHY THIS IS NOT SHARED WITH THE OTHER THREE SUPPRESSORS. As of 2026-08-29
+    # this fleet has four: notify.py (persisted, backoff, human-facing alerts),
+    # event_router (persisted windows with a rollup, a long-running daemon),
+    # outbound_log_post._hint_once (a one-shot bool), and this one. They look
+    # like duplication and are not: the distinguishing requirement is LIFETIME.
+    #
+    # db_turso is imported by hundreds of short-lived scripts, so this counter
+    # must stay in-process. Persisting it would put a file write on the hot path
+    # of every connect and make every one of those processes contend on one
+    # file — which is exactly the multi-writer race that stopped db_turso.log
+    # rotating and let it reach 190 MB. A shared abstraction spanning all four
+    # would be configured four different ways at four call sites, which is the
+    # over-abstracted helper this repo bans, not an improvement.
+    #
+    # So: if you are adding a FIFTH, copy the shape that matches your lifetime.
+    # Do not merge these.
+    _unscoped_seen: dict = {}
+
+    def _audit_unscoped(self, touched: list, reason: str | None, sql: str) -> None:
+        key = (reason or "(no reason given)", tuple(touched))
+        count = self._unscoped_seen.get(key, 0) + 1
+        self._unscoped_seen[key] = count
+        # 1st, 10th, 100th, 1000th ... — enough to see it is still happening and
+        # how fast, without one line per query.
+        if count > 1 and count % (10 ** min(len(str(count)) - 1, 4)) != 0:
+            return
+        log.warn("UNSCOPED QUERY ALLOWED — audit this", tables=list(touched),
+                 reason=key[0], occurrences=count, sql=sql[:400])
+
     # -- the guard ----------------------------------------------------------
     def _enforce_scope(self, sql: str, *, allow_unscoped: bool, reason: str | None) -> None:
         if allow_unscoped:
@@ -411,8 +489,7 @@ class TursoDB:
             except UnscopedQueryError:
                 touched = ["<unparseable>"]
             if touched:
-                log.warn("UNSCOPED QUERY ALLOWED — audit this", tables=touched,
-                         reason=reason or "(no reason given)", sql=sql[:400])
+                self._audit_unscoped(touched, reason, sql)
             return
         offenders = unscoped_tables(sql, self._tenant_tables)
         if not offenders:
@@ -535,7 +612,7 @@ class TursoDB:
         if where:
             clauses.append(f"({where})")
             args.extend(params or ())
-        sql = f'SELECT {columns} FROM "{table}"'
+        sql = f"SELECT {columns} FROM {quote_ident(table)}"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         if order_by:
@@ -562,10 +639,17 @@ class TursoDB:
                          reason=reason or "(no reason given)")
         cols = list(row)
         placeholders = ", ".join("?" for _ in cols)
-        col_sql = ", ".join(f'"{c}"' for c in cols)
-        sql = f'INSERT INTO "{table}" ({col_sql}) VALUES ({placeholders})'
+        col_sql = ", ".join(quote_ident(c) for c in cols)
+        sql = f"INSERT INTO {quote_ident(table)} ({col_sql}) VALUES ({placeholders})"
         self.execute(sql, [row[c] for c in cols], allow_unscoped=True,
                      reason="insert stamps tenant_id via values")
+        # execute() deliberately leaves the transaction open so a caller can batch.
+        # A one-shot helper must not inherit that: without this commit the row is
+        # visible to the connection that wrote it and to nothing else, so a
+        # same-connection read-back confirms a write that was never durable.
+        # claim() has always committed; insert() silently did not, which is the
+        # kind of disagreement between neighbours that costs a night of debugging.
+        self.commit()
 
     def claim(self, table: str, *, key: dict[str, Any], set_values: dict[str, Any],
               unclaimed_col: str, tenant_id: str | None = None) -> bool:
@@ -593,11 +677,11 @@ class TursoDB:
                 f"claim() requires a non-NULL owner token for {unclaimed_col!r} — "
                 f"setting it back to NULL re-opens the row to every other worker."
             )
-        sets = ", ".join(f'"{c}" = ?' for c in set_values)
+        sets = ", ".join(f"{quote_ident(c)} = ?" for c in set_values)
         args: list[Any] = list(set_values.values())
-        conds = [f'"{unclaimed_col}" IS NULL']
+        conds = [f"{quote_ident(unclaimed_col)} IS NULL"]
         for col, val in key.items():
-            conds.append(f'"{col}" = ?')
+            conds.append(f"{quote_ident(col)} = ?")
             args.append(val)
         if tenant_id is not None:
             conds.append(f'"{TENANT_COLUMN}" = ?')
@@ -607,7 +691,7 @@ class TursoDB:
                 f'claim("{table}") requires tenant_id — cross-tenant claims would let '
                 f"one tenant's worker take another tenant's row."
             )
-        sql = f'UPDATE "{table}" SET {sets} WHERE ' + " AND ".join(conds)
+        sql = f"UPDATE {quote_ident(table)} SET {sets} WHERE " + " AND ".join(conds)
         cur = self.execute(sql, args, allow_unscoped=True, reason="claim scopes explicitly")
         self.commit()
         changed = getattr(cur, "rowcount", -1)
@@ -616,12 +700,13 @@ class TursoDB:
         # Driver did not report rowcount — read the row back and require the
         # marker to equal OUR token. Comparing against set_values without the
         # non-NULL check above would make None == None report a false win.
-        check_conds = " AND ".join(f'"{c}" = ?' for c in key)
+        check_conds = " AND ".join(f"{quote_ident(c)} = ?" for c in key)
         check_args = list(key.values())
         if tenant_id is not None:
             check_conds += f' AND "{TENANT_COLUMN}" = ?'
             check_args.append(tenant_id)
-        probe = f'SELECT "{unclaimed_col}" AS v FROM "{table}" WHERE {check_conds}'
+        probe = (f"SELECT {quote_ident(unclaimed_col)} AS v "
+                 f"FROM {quote_ident(table)} WHERE {check_conds}")
         rows = self.query(probe, check_args, allow_unscoped=True,
                           reason="claim verification read")
         return bool(rows) and rows[0]["v"] == set_values[unclaimed_col]

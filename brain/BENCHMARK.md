@@ -1,7 +1,7 @@
 ---
 description: "Agentic maturity self-assessment framework scoring Bravo 0-100 across 10 dimensions; agents reference it to understand autonomy tier and gaps"
 tags: [benchmark, sentience, performance, self-assessment]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -38,10 +38,10 @@ Ten dimensions, each scored 0-10. Total = 100. Based on:
 
 | # | Dimension | Score | Evidence | Gap |
 |---|-----------|-------|----------|-----|
-| 1 | **Memory** | **9/10** | `brain/` (41 files), `memory/` (13 files + journals), Supabase Bravo DB (14 agent-intelligence tables + 14 business-ops tables), `mem0` semantic memory, claude-mem plugin, 4-agent pulse protocol. | No true vector-embedded recall across all prior sessions at scale. |
+| 1 | **Memory** | **9/10** | `brain/` (41 files), `memory/` (13 files + journals), Turso `bravo` DB (191 tables, 132 tenant-scoped), `mem0` semantic memory, claude-mem plugin, 4-agent pulse protocol. | No true vector-embedded recall across all prior sessions at scale. |
 | 2 | **Self-Awareness** | **9/10** | `scripts/core/self_audit.py` (100/100 live), `brain/STATE.md`, `brain/PERSONALITY.md` (identity + growth edges), `brain/GROWTH.md`, `memory/MISTAKES.md`, `memory/PATTERNS.md`, `memory/DECISIONS.md`. | Can't yet explain WHY a past decision was made without re-reading the file. |
 | 3 | **Autonomy** | **7/10** | `scripts/autonomous_agent.py`, 12 cron jobs, Heartbeat protocol, Telegram-poke trigger. Can run scheduler unattended on Mac. | Not yet proven for a full 24-hour hands-off business day. Still needs CC for ambiguous decisions. |
-| 4 | **Tool Use** | **10/10** | 70+ CLI scripts (Stripe, Supabase, n8n, Zernio, Google Workspace, Firecrawl, Playwright, Browser Harness). 9 MCP servers synced across 3 configs. Codex delegation for backend work. Tool routing (skills/task-routing). | None. This is Bravo's strongest dimension. |
+| 4 | **Tool Use** | **10/10** | 70+ CLI scripts (Stripe, Turso, n8n, Zernio, Google Workspace, Firecrawl, Playwright, Browser Harness). 9 MCP servers synced across 3 configs. Codex delegation for backend work. Tool routing (skills/task-routing). | None. This is Bravo's strongest dimension. |
 | 5 | **Learning** | **8/10** | Journals: MISTAKES, PATTERNS, DECISIONS. Reflexion protocol in BRAIN_LOOP.md. `/evolve` workflow to promote probationary patterns → validated. `brain/CHANGELOG.md` for self-modification audit. | Learning still gated by CC writing the lesson. No autonomous failure → journal entry → protocol change loop yet. |
 | 6 | **Coordination** | **8/10** | 4-agent operating system (Bravo/Atlas/Maven/Aura) with pulse-file protocol. Codex as 17th agent with dedicated delegation rules. Sub-agent orchestration via `skills/agent-teams`. 16 file-based agents + 6 native Claude Code agents. | Cross-agent handoff is still file-read-only. No real-time message passing between agents. |
 | 7 | **Proactivity** | **6/10** | `brain/HEARTBEAT.md` proactive monitoring protocol. Rule 9 (continuous self-improvement after every task). `memory/PATTERNS.md` automatic entry for validated approaches. | Most actions still triggered by CC prompt. Doesn't autonomously surface "hey, we should do X." |
@@ -63,7 +63,7 @@ Ten dimensions, each scored 0-10. Total = 100. Based on:
 ## Top 5 Capability Strengths
 
 1. **Tool use (10/10)** — 47 CLI scripts + 9 MCPs + Codex delegation. Bravo can actually DO things, not just reason.
-2. **Memory (9/10)** — Three-tier persistence: `brain/` (instructions), `memory/` (episodic), Supabase (relational). No other solo operator I've seen has this stack.
+2. **Memory (9/10)** — Three-tier persistence: `brain/` (instructions), `memory/` (episodic), Turso (relational). No other solo operator I've seen has this stack.
 3. **Identity (9/10)** — SOUL + PERSONALITY means Bravo won't drift into generic-chatbot behavior. Responds like Bravo, not like GPT-with-a-hat.
 4. **Self-awareness (9/10)** — `self_audit.py` is the killer feature. Bravo knows when it's degraded.
 5. **Learning (8/10)** — MISTAKES/PATTERNS/DECISIONS structure means CC never teaches the same lesson twice (iron law).

@@ -1,1 +1,1 @@
-{"scorer": "rubric", "field": "verdict", "expected": "prevention-honored", "note": "wire to a deterministic check that would have caught this mistake; until then = needs-model"}
+{"scorer": "exact", "field": "verdict", "expected": "prevention-honored", "note": "DESIGN tier only. Verifying through the real curl|bash entrypoint needs a Mac; this verifies the verification-means-actual-probing rule is still codified."}

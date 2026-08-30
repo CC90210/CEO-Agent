@@ -3,9 +3,13 @@
 bank. Designed for the Monitor tool: SILENT on no-change, emits ONE line only on
 a real event (a bank connects, an error, or transactions first sync) — each line
 becomes a notification AND fires a Telegram ping to CC (same discipline as
-breeze_live_watch.py). Read-only; loops until stopped."""
+breeze_live_watch.py). Read-only; loops until stopped.
+
+Data plane follows EMPIRE_DATA_BACKEND (see _client below) — Supabase today,
+the breeze Turso database once the flag is on."""
 from __future__ import annotations
 
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -18,7 +22,6 @@ try:
     truststore.inject_into_ssl()
 except Exception:  # noqa: BLE001
     pass
-import requests  # noqa: E402
 from lib.secret_loader import load_env  # noqa: E402
 
 try:
@@ -45,35 +48,60 @@ def _alert(msg: str, sound: bool = True) -> None:
         pass
 
 
-def main() -> None:
-    e = load_env()
-    URL = e.get("Breeze_SUPABASE_URL")
-    SVC = e.get("Breeze_SUPABASE_SERVICE_ROLE_KEY")
-    if not URL or not SVC:
-        print("[watch] missing Breeze creds", flush=True)
-        sys.exit(1)
-    H = {"apikey": SVC, "authorization": f"Bearer {SVC}"}
+def _client():
+    """A supabase-dialect client pointed at the BREEZE project's data.
 
-    def rows(path: str) -> list:
+    NOT `supabase.create_client(Breeze_SUPABASE_URL, ...)`. Under
+    EMPIRE_DATA_BACKEND=turso_cloud, sitecustomize swaps create_client for
+    turso_supabase_compat.create_client, which discards the url/key it is handed
+    and always resolves `bravo` (turso_supabase_compat.py:618-621). Calling it
+    here would read `merchants` / `bank_accounts` / `plaid_transactions` out of
+    the harness database instead of Breeze's — a silent wrong-database read, not
+    an error. So the breeze target is resolved explicitly; with the flag off we
+    fall through to the real Supabase client for the same project.
+    """
+    if os.environ.get("EMPIRE_DATA_BACKEND") == "turso_cloud":
+        from lib.db_turso import TursoDB, resolve_project_target  # noqa: PLC0415
+        from lib.turso_supabase_compat import TursoSupabaseCompat  # noqa: PLC0415
+
+        return TursoSupabaseCompat(TursoDB(*resolve_project_target("breeze")))
+
+    e = load_env()
+    url = e.get("Breeze_SUPABASE_URL")
+    svc = e.get("Breeze_SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not svc:
+        raise RuntimeError("missing Breeze creds")
+    from supabase import create_client  # noqa: PLC0415
+
+    return create_client(url, svc)
+
+
+def main() -> None:
+    try:
+        sb = _client()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[watch] {exc}", flush=True)
+        sys.exit(1)
+
+    def rows(query) -> list:
         try:
-            r = requests.get(f"{URL}/rest/v1/{path}", headers=H, timeout=30)
-            return r.json() if r.status_code < 300 else []
+            return query.execute().data or []
         except Exception:  # noqa: BLE001
             return []
 
     def count_tx(m_id: str) -> int:
         try:
-            r = requests.get(
-                f"{URL}/rest/v1/plaid_transactions?merchant_id=eq.{m_id}&select=id",
-                headers={**H, "Prefer": "count=exact", "Range": "0-0"},
-                timeout=30,
+            res = (
+                sb.table("plaid_transactions")
+                .select("id", count="exact", head=True)
+                .eq("merchant_id", m_id)
+                .execute()
             )
-            tail = r.headers.get("content-range", "*/0").split("/")[-1]
-            return int(tail) if tail.isdigit() else 0
+            return int(res.count or 0)
         except Exception:  # noqa: BLE001
             return 0
 
-    merchants = rows("merchants?select=id,primary_contact_email")
+    merchants = rows(sb.table("merchants").select("id,primary_contact_email"))
     mid = {m["primary_contact_email"]: m["id"] for m in merchants}
 
     def snapshot() -> dict:
@@ -84,8 +112,9 @@ def main() -> None:
                 state[name] = {"banks": [], "tx": 0}
                 continue
             banks = rows(
-                f"bank_accounts?merchant_id=eq.{m_id}"
-                "&select=status,institution_name,plaid_item_id,mask,created_at"
+                sb.table("bank_accounts")
+                .select("status,institution_name,plaid_item_id,mask,created_at")
+                .eq("merchant_id", m_id)
             )
             state[name] = {"banks": banks, "tx": count_tx(m_id)}
         return state

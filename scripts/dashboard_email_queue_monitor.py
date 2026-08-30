@@ -38,7 +38,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -94,20 +93,37 @@ def _telegram(env: dict[str, str], text: str) -> bool:
 
 
 def _consumer_online() -> bool | None:
-    """True/False if pm2 reports the consumer online; None if pm2 is unreadable
-    (unknown — we do NOT alert on unknown, to avoid false alarms on pm2 hiccups)."""
+    """True/False if the consumer daemon is running; None if unknown (we do NOT
+    alert on unknown, to avoid false alarms on a probe hiccup).
+
+    NEVER invokes pm2. This used to shell `pm2 jlist`, and on a machine where
+    pm2's named pipe returns EPERM every such call SPAWNS AN ORPHAN PM2 GOD
+    DAEMON that never exits — 132 had accumulated by 2026-08-28, from this and
+    two sibling probes. A monitor that degrades the machine it monitors is worse
+    than no monitor.
+
+    Supervision moved to scripts/ops/fleet_watchdog.py (e7d0a50f); its status()
+    reads the OS process table and matches on the script name rather than the
+    interpreter, which is the same question this needs answered.
+    """
     try:
-        out = subprocess.run(
-            ["pm2", "jlist"], capture_output=True, text=True, timeout=15
-        )
-        procs = json.loads(out.stdout or "[]")
+        _ops = Path(__file__).resolve().parent / "ops"
+        if str(_ops.parent) not in sys.path:
+            sys.path.insert(0, str(_ops.parent))
+        from ops.fleet_watchdog import classify
+        from ops.fleet_watchdog import status as fleet_status
+        rows = fleet_status()
     except Exception as exc:  # noqa: BLE001
-        print(f"[queue_monitor] pm2 jlist failed: {exc}", file=sys.stderr)
+        print(f"[queue_monitor] fleet status unavailable: {exc}", file=sys.stderr)
         return None
-    for p in procs:
-        if p.get("name") == CONSUMER_PROC:
-            return (p.get("pm2_env", {}) or {}).get("status") == "online"
-    return False  # pm2 readable but process absent ⇒ definitively down
+    for row in rows:
+        if row.get("name") == CONSUMER_PROC:
+            # One definition of daemon state — see fleet_watchdog.classify.
+            kind = classify(row)
+            if kind == "disabled":
+                return None  # deliberately stopped — not an outage to alert on
+            return kind == "running"
+    return False  # fleet readable but process absent ⇒ definitively down
 
 
 def _stale_queued(env: dict[str, str]) -> tuple[int, str | None]:

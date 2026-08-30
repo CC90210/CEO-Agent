@@ -32,8 +32,9 @@ DESIGN
    fallback evaluator handles the exact embedded rules without clingo.
 
 2. Fact extraction: `_extract_facts()` reads the draft text + runtime state
-   (Supabase cooldown query, environment HOURLY_CAP) and builds a ground-fact
-   dictionary that feeds into the rule evaluator.
+   (cooldown/cap queries through the EMPIRE_DATA_BACKEND-aware client,
+   environment HOURLY_CAP) and builds a ground-fact dictionary that feeds into
+   the rule evaluator.
 
 3. Neural scorer (optional): a tiny MLP trained on past send/no-send labels
    provides a spam-risk probability score alongside the rule verdicts.  Not
@@ -195,26 +196,57 @@ def _extract_facts(draft_text: str, recipient: str) -> dict[str, Any]:
     return facts
 
 
-def _query_cooldown(recipient: str, env: dict[str, str]) -> float:
-    """Hours since last outbound to recipient. Returns 9999 if no record."""
+# One client per process, not per query. The three runtime-state queries below
+# used to be three cheap HTTP calls; building a client is not cheap on the Turso
+# side (connect + tenant-column schema sweep measured at ~34s), so constructing
+# one per query would put ~100s in front of every outbound send. Memo is keyed on
+# the resolved URL so a changed backend still rebuilds.
+_DB_CLIENT_MEMO: tuple[str, Any] | None = None
+
+
+def _db_client(env: dict[str, str]):
+    """Return a postgrest-dialect client for the runtime-state queries, or None.
+
+    Goes through `supabase.create_client` so this module follows
+    EMPIRE_DATA_BACKEND: sitecustomize.py swaps that factory for the Turso
+    compat client when the harness runs on Turso, so no call site changes.
+    Credential gate is unchanged — missing creds still means "no runtime
+    state", and each caller degrades to its permissive default. Never raises.
+    """
+    global _DB_CLIENT_MEMO
     url = env.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
     key = env.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_SERVICE_KEY", "")
     if not url or not key:
+        return None
+    if _DB_CLIENT_MEMO is not None and _DB_CLIENT_MEMO[0] == url:
+        return _DB_CLIENT_MEMO[1]
+    try:
+        from supabase import ClientOptions, create_client
+        # Keep the old urllib timeout=4 bound: this gate runs in front of every
+        # outbound send, and the client default is 120s.
+        client = create_client(url, key,
+                               options=ClientOptions(postgrest_client_timeout=4))
+    except Exception:  # noqa: BLE001
+        client = None
+    _DB_CLIENT_MEMO = (url, client)
+    return client
+
+
+def _query_cooldown(recipient: str, env: dict[str, str]) -> float:
+    """Hours since last outbound to recipient. Returns 9999 if no record."""
+    sb = _db_client(env)
+    if sb is None:
         return 9999.0
     try:
-        import urllib.request
         from datetime import datetime, timezone
-        endpoint = (
-            f"{url}/rest/v1/outreach_events"
-            f"?select=sent_at&recipient=eq.{recipient}"
-            f"&order=sent_at.desc&limit=1"
-        )
-        req = urllib.request.Request(
-            endpoint,
-            headers={"apikey": key, "Authorization": f"Bearer {key}"},
-        )
-        with urllib.request.urlopen(req, timeout=4) as resp:
-            rows = json.loads(resp.read())
+        rows = (
+            sb.table("outreach_events")
+            .select("sent_at")
+            .eq("recipient", recipient)
+            .order("sent_at", desc=True)
+            .limit(1)
+            .execute()
+        ).data or []
         if not rows:
             return 9999.0
         last = rows[0].get("sent_at", "")
@@ -228,55 +260,39 @@ def _query_cooldown(recipient: str, env: dict[str, str]) -> float:
 
 
 def _query_domain_sends_today(domain: str, env: dict[str, str]) -> int:
-    url = env.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
-    key = env.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_SERVICE_KEY", "")
-    if not url or not key:
+    sb = _db_client(env)
+    if sb is None:
         return 0
     try:
-        import urllib.request
         from datetime import date
         today = date.today().isoformat()
-        endpoint = (
-            f"{url}/rest/v1/outreach_events"
-            f"?select=id&recipient_domain=eq.{domain}"
-            f"&sent_at=gte.{today}T00:00:00Z"
+        resp = (
+            sb.table("outreach_events")
+            .select("id", count="exact", head=True)
+            .eq("recipient_domain", domain)
+            .gte("sent_at", f"{today}T00:00:00Z")
+            .execute()
         )
-        req = urllib.request.Request(
-            endpoint,
-            headers={"apikey": key, "Authorization": f"Bearer {key}",
-                     "Prefer": "count=exact", "Range-Unit": "items", "Range": "0-0"},
-        )
-        with urllib.request.urlopen(req, timeout=4) as resp:
-            cr = resp.headers.get("Content-Range", "*/0")
-            total_str = cr.split("/")[-1]
-            return int(total_str) if total_str.isdigit() else 0
+        return int(resp.count or 0)
     except Exception:  # noqa: BLE001
         return 0
 
 
 def _query_sends_this_hour(env: dict[str, str]) -> int:
-    url = env.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
-    key = env.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_SERVICE_KEY", "")
-    if not url or not key:
+    sb = _db_client(env)
+    if sb is None:
         return 0
     try:
-        import urllib.request
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
         hour_start = now.replace(minute=0, second=0, microsecond=0).isoformat()
-        endpoint = (
-            f"{url}/rest/v1/outreach_events"
-            f"?select=id&sent_at=gte.{hour_start}"
+        resp = (
+            sb.table("outreach_events")
+            .select("id", count="exact", head=True)
+            .gte("sent_at", hour_start)
+            .execute()
         )
-        req = urllib.request.Request(
-            endpoint,
-            headers={"apikey": key, "Authorization": f"Bearer {key}",
-                     "Prefer": "count=exact", "Range-Unit": "items", "Range": "0-0"},
-        )
-        with urllib.request.urlopen(req, timeout=4) as resp:
-            cr = resp.headers.get("Content-Range", "*/0")
-            total_str = cr.split("/")[-1]
-            return int(total_str) if total_str.isdigit() else 0
+        return int(resp.count or 0)
     except Exception:  # noqa: BLE001
         return 0
 

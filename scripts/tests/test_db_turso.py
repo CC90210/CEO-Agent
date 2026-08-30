@@ -92,6 +92,35 @@ def test_insert_without_tenant_id_raises(db):
         db.insert("leads", {"id": "1", "email": "a@b.com"})
 
 
+def test_insert_is_durable_from_a_second_connection(tmp_path):
+    """insert() must commit, or the row exists only inside the writer.
+
+    Every other insert test in this file reads back through the same TursoDB
+    object, which sees its own open transaction and passes whether or not the
+    write was ever committed. That is why insert() shipped without a commit for
+    as long as it did. This test deliberately opens a SECOND connection to the
+    same file — the only reader that can tell durability from illusion.
+    """
+    conn_path = str(tmp_path / "durable.db")
+    writer = TursoDB(conn_path, None, "local(test)")
+    writer.execute(
+        'CREATE TABLE "leads" ("id" TEXT PRIMARY KEY, "tenant_id" TEXT NOT NULL, '
+        '"email" TEXT, "status" TEXT)',
+        allow_unscoped=True, reason="test setup",
+    )
+    writer.commit()
+    writer._tenant_tables = writer._discover_tenant_tables()
+
+    writer.insert("leads", {"id": "1", "email": "a@b.com"}, tenant_id=TENANT_A)
+
+    reader = TursoDB(conn_path, None, "local(test)")
+    rows = reader.query("SELECT id FROM leads WHERE tenant_id = ?", (TENANT_A,))
+    assert [r["id"] for r in rows] == ["1"], (
+        "insert() did not commit — the row is invisible outside the writing "
+        "connection, so a same-connection read-back would have reported success"
+    )
+
+
 def test_claim_without_tenant_id_raises(db):
     with pytest.raises(UnscopedQueryError):
         db.claim("scheduled_sends", key={"id": "1"},

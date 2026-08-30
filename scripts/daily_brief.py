@@ -29,7 +29,6 @@ Cron: register as a cron_jobs SEED entry at 06:00 daily.
 from __future__ import annotations
 
 import argparse
-import html
 import json
 import os
 import subprocess
@@ -40,7 +39,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
-from lib.claude_cli import run_claude_cli  # noqa: E402
+from lib.model_fallback import run_smart_cli  # noqa: E402
 
 # Windows console defaults to cp1252; the brief includes 🌅 + bullet
 # glyphs. Reconfigure to UTF-8 so --dry-run prints don't UnicodeEncodeError.
@@ -64,6 +63,24 @@ NARRATION_MODEL_CLI = "sonnet"          # CLI alias — always resolves
 # daily_brief (150s) so the inner narration bails to the deterministic brief
 # BEFORE the scheduler kills the whole process. Observed narration ~22s.
 CLI_NARRATION_TIMEOUT_SEC = 60
+# RAISED 75 -> 110 (2026-08-28). The generator measured 64s/68s/70s, so 75s left
+# 5-7s of margin and any ordinary variance stamped the snapshot `_stale` or left
+# a sub-engine as {"_error"}. Above p95, not at the measured value.
+# Chain: engines 90 (briefing_snapshot.TIMEOUT_SEC) -> regen 110 -> narration 60
+#        -> scheduler.run_daily_brief 200. Each layer must exceed the one inside
+#        it or the inner diagnostic is lost to the outer kill.
+SNAPSHOT_REGEN_TIMEOUT_SEC = 110
+# MIRROR of scheduler.run_daily_brief's run_script(timeout=...). Two definitions
+# of one number, which is the drift trap this codebase keeps hitting — and it
+# hit here: raising the scheduler to 200 on 2026-08-28 left this at 150, and the
+# only reason it surfaced is that test_brief_timeout_layers_have_ordered_headroom
+# then saw 110 + 60 > 150 - 10. That test checks the layers are ORDERED; it could
+# not have caught the mirror being stale on its own, because a stale mirror that
+# still satisfies the ordering looks fine.
+#
+# test_scheduler_timeout_mirror_matches_reality now asserts this equals the value
+# the scheduler actually passes, so the copy cannot drift silently again.
+SCHEDULER_JOB_TIMEOUT_SEC = 200
 SNAPSHOT_STALENESS_SEC = 5 * 60  # 5 min — was 24h, but CC's revenue events
 # (subscription_start / cancel logged manually) change throughout the day. A
 # 24h-old snapshot caused the 2026-05-18 15:15 brief to report MRR $3,322 / 12d
@@ -129,7 +146,11 @@ def _regenerate_snapshot() -> bool:
         r = subprocess.run(
             [sys.executable, "scripts/snapshots/briefing_snapshot.py"],
             cwd=str(PROJECT_ROOT),
-            timeout=60,
+            # Budget math against the scheduler's 150s outer cap for this job:
+            # 75s regen + 60s narration = 135s, leaving 15s for imports,
+            # rendering and notification. Nested children expire at 50s/65s,
+            # so this layer can preserve and surface their diagnostics.
+            timeout=SNAPSHOT_REGEN_TIMEOUT_SEC,
             capture_output=True,
             text=True,
             creationflags=WINDOWLESS_FLAGS,
@@ -168,17 +189,19 @@ def _narrate_via_cli(snapshot: dict) -> str | None:
         f"{json.dumps(cleaned, indent=2, default=str)[:6000]}\n\n"
         f"Write CC's 5-bullet operational brief."
     )
-    text = run_claude_cli(
+    text = run_smart_cli(
         user_prompt, system=SYSTEM_PROMPT,
         model=NARRATION_MODEL_CLI, timeout=CLI_NARRATION_TIMEOUT_SEC,
+        task_type="reasoning", agent_name="daily_brief",
     )
     if not text:
         return None
-    # notify() ships with parse_mode=HTML and has NO plain-text fallback, so a
-    # stray <, >, or & in the model's prose ("score > 70", "A & B") would make
-    # Telegram reject the whole message → CC gets nothing. Escape the three
-    # HTML-special chars; they render as literal glyphs.
-    return html.escape(text, quote=False)
+    # A stray <, >, or & in the model's prose ("score > 70", "A & B") would make
+    # Telegram reject the whole message → CC gets nothing. That escaping now
+    # happens once inside notify() for EVERY caller (2026-08-04), because doing
+    # it per-caller is how the scheduler's own path stayed unprotected. Escaping
+    # here too would double-encode it and show CC a literal "&amp;".
+    return text
 
 
 def _count_stage(pipe: dict, stage: str) -> int:
@@ -209,7 +232,8 @@ def _render_brief(snapshot: dict) -> str:
     Reads the ACTUAL snapshot schema (the old fallback read keys that never
     existed → every field '—'). A DEGRADED sub-engine renders '⚠️ unavailable',
     never a false zero/green. MRR/cash omitted — revenue is Atlas's (CFO) job.
-    Output is HTML-escaped for Telegram's parse_mode=HTML."""
+    Returns PLAIN text — notify() escapes for parse_mode=HTML on the way out
+    (2026-08-04). Escaping here as well would double-encode."""
     date = snapshot.get("date", "today")
     brief = snapshot.get("briefing") if isinstance(snapshot.get("briefing"), dict) else {}
     lines = [f"🌅 Bravo brief · {date}", ""]
@@ -259,6 +283,30 @@ def _render_brief(snapshot: dict) -> str:
     else:
         lines.append("📞 Follow-ups due: ⚠️ unavailable")
 
+    # --- Agent inbox: what another agent needs from Bravo -------------------
+    #
+    # Only surfaced when there is something HIGH or urgent waiting. A count of
+    # routine chatter every morning is how a line stops being read, and this one
+    # has to still mean something on the day it matters.
+    inbox = snapshot.get("agent_inbox")
+    if _is_failed_block(inbox):
+        lines.append("")
+        lines.append("📬 Agent inbox: ⚠️ unavailable")
+    else:
+        msgs = inbox if isinstance(inbox, list) else (
+            (inbox or {}).get("messages") if isinstance(inbox, dict) else None)
+        if isinstance(msgs, list):
+            hot = [m for m in msgs
+                   if isinstance(m, dict) and m.get("priority") in ("urgent", "high")]
+            if hot:
+                lines.append("")
+                lines.append(f"📬 Agent inbox: {len(hot)} high/urgent "
+                             f"({len(msgs)} unread)")
+                for m in hot[:3]:
+                    who = m.get("from_agent") or m.get("from") or "?"
+                    subj = (m.get("subject") or "").strip()
+                    lines.append(f"   • {who}: {subj[:70]}")
+
     # --- Client health: honour the '0 monitored' truth-note; degraded = unavailable
     ch_raw = brief.get("client_health")
     alerts = snapshot.get("client_health_alerts")
@@ -286,7 +334,8 @@ def _render_brief(snapshot: dict) -> str:
     if snapshot.get("_stale"):
         lines.append("⚠️ data may be stale — snapshot refresh failed")
     lines.append(f"⏱ snapshot {hhmm} UTC" if hhmm else "⏱ snapshot generated")
-    return html.escape("\n".join(lines), quote=False)
+    # Not escaped here: notify() escapes once for every caller (2026-08-04).
+    return "\n".join(lines)
 
 
 def build_brief(regenerate: bool = False) -> str:

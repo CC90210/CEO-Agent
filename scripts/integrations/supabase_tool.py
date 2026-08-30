@@ -1,7 +1,9 @@
-"""
-Supabase SDK Integration — Universal Agent Tool
-Replaces the broken Supabase MCP server with direct Python SDK access.
-All credentials loaded from .env.agents (never hardcoded).
+"""Deprecated filename-compatible database CLI.
+
+The empire backend is Turso. sitecustomize routes this module's SDK-shaped
+calls through lib.turso_supabase_compat; it is retained only for old scripts
+and explicit compatibility diagnostics. New agent/database routing must use
+scripts/integrations/turso_tool.py.
 
 Usage (from any agent via terminal):
   python scripts/integrations/supabase_tool.py list-tables [--project bravo|oasis|nostalgic]
@@ -30,19 +32,17 @@ from lib.tls_trust import ensure_os_trust  # noqa: E402
 ensure_os_trust()
 
 CAPABILITY_META = {
-    "category": "data.supabase",
-    "lifecycle": "active",
+    "category": "data.turso_compat",
+    "lifecycle": "deprecated",
     "risk": "destructive",
     "triggers": [
-        "query Supabase",
-        "select database rows",
-        "insert database row",
-        "update database rows",
+        "run the deprecated supabase_tool compatibility CLI",
+        "diagnose the Turso Supabase SDK shim",
     ],
     "owner": "bravo",
     "project": "empire",
     "bridge": {
-        "visible": True,
+        "visible": False,
         "confirm": True,
         "subcommands": {
             "list-projects": {"visible": True, "confirm": False},
@@ -135,6 +135,15 @@ PROJECTS = {
         "url_key": "Breeze_SUPABASE_URL",
         "key_key": "Breeze_SUPABASE_SERVICE_ROLE_KEY",
         "description": "CredPort / Breeze — MCA merchant portal (separate trust boundary)"
+    },
+    "propflow": {
+        # Added 2026-08-05 during the Turso migration: the key was fetched via
+        # the Management API (/v1/projects/{ref}/api-keys?reveal=true) — it was
+        # never stored before, which had made PropFlow unreachable to every
+        # PostgREST-based tool here.
+        "url_key": "PROPFLOW_SUPABASE_URL",
+        "key_key": "PROPFLOW_SUPABASE_SERVICE_ROLE_KEY",
+        "description": "PropFlow — tenant-screening/landlord SaaS (CC + Adon 50/50)"
     }
 }
 
@@ -174,13 +183,8 @@ def get_client(env_vars, project="bravo"):
         print(f"ERROR: Unknown project '{project}'. Options: {list(PROJECTS.keys())}", file=sys.stderr)
         sys.exit(1)
 
-    url = env_vars.get(config["url_key"])
-    key = env_vars.get(config["key_key"])
-
-    if not url or not key:
-        print(f"ERROR: Missing credentials for project '{project}' in .env.agents", file=sys.stderr)
-        print(f"  Need: {config['url_key']} and {config['key_key']}", file=sys.stderr)
-        sys.exit(1)
+    url = env_vars.get(config["url_key"]) or f"https://{project}.turso.compat"
+    key = env_vars.get(config["key_key"]) or f"dummy-{project}-turso-key"
 
     client = create_client(url, key)
     # Best-effort health ping — flips /integrations green when this CLI

@@ -1,0 +1,149 @@
+{
+  "secrets": [
+    {
+      "key": "AUTH_SESSION_SECRET",
+      "source": "BREEZE_PORTAL__AUTH_SESSION_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "CLOUDFLARE_ACCOUNT_ID",
+      "source": "BREEZE_PORTAL__CLOUDFLARE_ACCOUNT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "CRON_SECRET",
+      "source": "BREEZE_PORTAL__CRON_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "EMPIRE_AUTH_BACKEND",
+      "source": "BREEZE_PORTAL__EMPIRE_AUTH_BACKEND",
+      "scope": "runtime"
+    },
+    {
+      "key": "EMPIRE_DATA_BACKEND",
+      "source": "BREEZE_PORTAL__EMPIRE_DATA_BACKEND",
+      "scope": "runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_EMPIRE_AUTH_BACKEND",
+      "source": "BREEZE_PORTAL__NEXT_PUBLIC_EMPIRE_AUTH_BACKEND",
+      "scope": "both"
+    },
+    {
+      "key": "PLAID_REDIRECT_URI",
+      "source": "BREEZE_PORTAL__PLAID_REDIRECT_URI",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_ACCESS_KEY_ID",
+      "source": "BREEZE_PORTAL__R2_ACCESS_KEY_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_BUCKET",
+      "source": "BREEZE_PORTAL__R2_BUCKET",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_PUBLIC_BASE_URL",
+      "source": "BREEZE_PORTAL__R2_PUBLIC_BASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_SECRET_ACCESS_KEY",
+      "source": "BREEZE_PORTAL__R2_SECRET_ACCESS_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_AUTH_TOKEN",
+      "source": "BREEZE_PORTAL__TURSO_AUTH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_DATABASE_URL",
+      "source": "BREEZE_PORTAL__TURSO_DATABASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "BREEZE_APP_URL",
+      "source": "BREEZE_PORTAL__BREEZE_APP_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "BREEZE_DEFAULT_WEBHOOK_SECRET",
+      "source": "BREEZE_PORTAL__BREEZE_DEFAULT_WEBHOOK_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "BREEZE_ENCRYPTION_KEY",
+      "source": "BREEZE_PORTAL__BREEZE_ENCRYPTION_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "BREEZE_SUPABASE_ANON_KEY",
+      "source": "BREEZE_PORTAL__BREEZE_SUPABASE_ANON_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "BREEZE_SUPABASE_SERVICE_ROLE_KEY",
+      "source": "BREEZE_PORTAL__BREEZE_SUPABASE_SERVICE_ROLE_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "BREEZE_SUPABASE_URL",
+      "source": "BREEZE_PORTAL__BREEZE_SUPABASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "BREEZE_UNSUBSCRIBE_HMAC_SECRET",
+      "source": "BREEZE_PORTAL__BREEZE_UNSUBSCRIBE_HMAC_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "BRIDGE_SECRET",
+      "source": "BREEZE_PORTAL__BRIDGE_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_BREEZE_APP_URL",
+      "source": "BREEZE_PORTAL__NEXT_PUBLIC_BREEZE_APP_URL",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "source": "BREEZE_PORTAL__NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "source": "BREEZE_PORTAL__NEXT_PUBLIC_SUPABASE_URL",
+      "scope": "both"
+    },
+    {
+      "key": "PLAID_CLIENT_ID",
+      "source": "BREEZE_PORTAL__PLAID_CLIENT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "PLAID_ENV",
+      "source": "BREEZE_PORTAL__PLAID_ENV",
+      "scope": "runtime"
+    },
+    {
+      "key": "PLAID_SECRET",
+      "source": "BREEZE_PORTAL__PLAID_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "VPS_BRIDGE_SECRET",
+      "source": "BREEZE_PORTAL__VPS_BRIDGE_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "VPS_BRIDGE_URL",
+      "source": "BREEZE_PORTAL__VPS_BRIDGE_URL",
+      "scope": "runtime"
+    }
+  ]
+}

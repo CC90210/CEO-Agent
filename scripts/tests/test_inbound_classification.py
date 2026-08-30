@@ -32,8 +32,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from email_brain import DEFAULT_FINANCIAL_THRESHOLD, decide_action  # noqa: E402
 from inbound_classifier import (  # noqa: E402
     FALLBACK_CONFIDENCE,
+    PLATFORM_SENDERS,
+    _BILLING_TOPIC_RE,
+    _INTEGRATION_FAILURE_RE,
     _category_keyword_fallback,
     _has_transaction_evidence,
+    _platform_prefilter,
     classify_category,
 )
 
@@ -97,6 +101,28 @@ CODERABBIT = dict(
     ("Check the syntax of your billing config", False, "'tax' inside 'syntax'"),
     ("Prepaid credits are now available", False, "'paid' inside 'prepaid'"),
     ("Our billing docs have moved", False, "bare 'billing'"),
+    # 2026-08-03: these three used to return True because "statement is ready"
+    # and "account statement" sat in _TXN_PHRASE_RE. A statement being
+    # AVAILABLE is not money moving, and treating it as evidence both disabled
+    # the marketing veto and inflated confidence past the Atlas hand-off gate.
+    ("Your statement is ready", False, "statement availability is not a transaction"),
+    ("Your account statement is available", False, "announcement, no amount"),
+    ("Here's your April statement from Kraken", False, "THE Kraken ledger regression"),
+    # ...but a statement that names an actual charge is still evidence.
+    ("Your statement is ready. You were charged $412.00", True,
+     "amount + receipt vocabulary survives the removal"),
+    # Codex audit 2026-08-03: removing the statement phrases stranded real
+    # deductible statement-detail fees, which had an amount but no promoting
+    # vocabulary. Losing a genuine deduction costs as much as inventing one.
+    ("Your bank statement for July: monthly account fee $16.95", True,
+     "statement-detail fee is a real deductible"),
+    ("Amex statement: annual card fee $120.00", True, "annual card fee"),
+    ("Wise account statement: monthly service fee CAD 10.00", True,
+     "service fee with a non-symbol currency"),
+    ("Statement: interest charge $4.20", True, "interest charge"),
+    # ...but a pricing blast that merely mentions fees is still not evidence.
+    ("Our fees are changing — plans start at $49/mo", False,
+     "qualified fee terms only; a bare 'fees' in marketing must not promote"),
 ])
 def test_transaction_evidence(text, expected, why):
     assert _has_transaction_evidence(text) is expected, why
@@ -258,6 +284,142 @@ def test_veto_does_NOT_touch_a_real_receipt():
     assert got["category"] == "financial_legal", got
 
 
+# ── Statement-availability notices (2026-08-03 ledger-pollution regression) ──
+#
+# Atlas's data/receipts_cache.json held 16 unquantified rows out of 52. Four
+# were Kraken "Here's your <month> statement" notices: transactional-looking
+# mail from a real financial relationship, no List-Unsubscribe, no marketing
+# language, and no dollar amount. It cleared the bulk/marketing veto because it
+# is neither, routed to financial_legal, handed off, and Atlas booked it as a
+# None-CAD expense row.
+KRAKEN_STATEMENT = {
+    "subject": "Here's your April statement from Kraken",
+    "body": ("Your April account statement is ready. Sign in to Kraken to view "
+             "and download your statement for the period ending April 30."),
+    "sender": "no-reply@kraken.com",
+}
+
+
+@pytest.mark.parametrize("subject,body", [
+    ("Here's your April statement from Kraken", "Your statement is ready to view."),
+    ("Your monthly statement is ready", "Sign in to download it."),
+    ("Your account statement is available", "View your statement online."),
+    ("Statement is now available", "Log in to see it."),
+])
+def test_statement_availability_notice_is_not_financial(subject, body):
+    """No amount + statement-announcement shape => never Financial & Legal.
+
+    Asserted even though the model is TOLD the answer is Financial, because in
+    production the model did say exactly that.
+    """
+    got = classify_category(content=body, subject=subject,
+                            from_identity="no-reply@kraken.com", is_bulk=False,
+                            runner=_says("Financial & Legal", 0.95))
+    assert got["category"] == "low_priority", got
+    assert "statement" in got["notes"].lower(), got["notes"]
+
+
+def test_statement_notice_never_reaches_atlas():
+    """The end of the chain: no hand-off means no ledger row, whatever Atlas
+    would have done with it."""
+    got = classify_category(
+        content=KRAKEN_STATEMENT["body"], subject=KRAKEN_STATEMENT["subject"],
+        from_identity=KRAKEN_STATEMENT["sender"], is_bulk=False,
+        runner=_says("Financial & Legal", 0.95))
+    action = decide_action(got["category"], confidence=got["confidence"],
+                           degraded=bool(got.get("fallback")))
+    assert got["category"] == "low_priority"
+    assert action.get("handoff_to_atlas") is not True, action
+
+
+@pytest.mark.parametrize("subject,body", [
+    ("CC has used $15 of $20 in monthly Pro plan credit",
+     "You have used 15 of your 20 dollars of included credit this month."),
+    ("Usage alert", "You have used 80% of your included credits."),
+    ("Your quota used this month", "Quota used: 4,000 of 5,000 requests."),
+    ("Heads up", "You are approaching your limit for this billing period."),
+])
+def test_usage_notice_is_not_financial(subject, body):
+    """Consuming prepaid credit is not a purchase.
+
+    The third non-transaction shape, and the one that defeats the other two
+    guards: it carries a real dollar amount, so the amount gate sees a number.
+    A Vercel credit-usage email was booked as a $20 hosting_cloud expense.
+
+    Sender is deliberately NOT a known platform. `_platform_prefilter` catches
+    vercel/stripe/google mail earlier and returns technical_support without ever
+    consulting the model — which is why the same four subjects are asserted
+    separately below from a platform sender. This case exercises the veto
+    itself, on the long tail of vendors the prefilter has never heard of.
+    """
+    got = classify_category(content=body, subject=subject,
+                            from_identity="no-reply@somevendor.example",
+                            is_bulk=False,
+                            runner=_says("Financial & Legal", 0.95))
+    assert got["category"] == "low_priority", got
+    assert "usage" in got["notes"].lower(), got["notes"]
+
+
+@pytest.mark.parametrize("subject,body,sender", [
+    ("CC has used $15 of $20 in monthly Pro plan credit",
+     "You have used 15 of your 20 dollars of included credit.", "no-reply@vercel.com"),
+    ("Usage alert", "You have used 80% of your included credits.", "no-reply@vercel.com"),
+    ("Your quota used this month", "Quota used: 4,000 of 5,000.", "no-reply@stripe.com"),
+])
+def test_usage_notice_from_a_platform_never_reaches_atlas(subject, body, sender):
+    """The guarantee that actually protects the ledger.
+
+    For platform senders the prefilter answers first (technical_support), so
+    the veto never runs. That is fine — what must hold either way is that a
+    usage notice is NOT financial_legal, because only that category hands off
+    to Atlas for booking. Asserting the specific losing category would pin an
+    implementation detail; asserting the hand-off cannot happen pins the
+    contract.
+    """
+    got = classify_category(content=body, subject=subject, from_identity=sender,
+                            is_bulk=False,
+                            runner=_says("Financial & Legal", 0.95))
+    assert got["category"] != "financial_legal", got
+
+
+def test_usage_notice_with_a_real_overage_charge_is_still_financial():
+    """The counter-case: an overage that actually bills money is a transaction."""
+    got = classify_category(
+        content="You exceeded your quota. We charged $42.00 for overage. Invoice #77.",
+        subject="Overage invoice", from_identity="billing@vendor.example",
+        is_bulk=False, runner=_says("Financial & Legal", 0.95))
+    assert got["category"] == "financial_legal", got
+
+
+def test_forwarded_signup_receipt_still_routes_financial():
+    """goldstorm2003@gmail.com forwards are CC's real signup receipts.
+
+    CC registers with that address and forwards the receipts in. Suppressing
+    the sender — as an earlier draft of this work proposed — would have thrown
+    away five genuine deductions worth $242.32. It is send-suppressed for
+    OUTBOUND mail only; inbound forwards must classify normally.
+    """
+    got = classify_category(
+        content="Your invoice from Google Cloud is available. Total charged: $15.53",
+        subject="Fwd: Google Cloud Platform & APIs: Your invoice is available",
+        from_identity="GOLD STORM <goldstorm2003@gmail.com>", is_bulk=False,
+        runner=_says("Financial & Legal", 0.95))
+    assert got["category"] == "financial_legal", got
+
+
+def test_statement_WITH_a_real_charge_is_still_financial():
+    """The other direction. A statement that names an actual charge carries
+    transaction evidence, so the veto must leave it alone — otherwise this fix
+    would start losing genuine deductible expenses."""
+    got = classify_category(
+        content=("Your statement is ready. This period you were charged "
+                 "$412.00 for your invoice #A-2291."),
+        subject="Your April statement is ready",
+        from_identity="billing@vendor.example", is_bulk=False,
+        runner=_says("Financial & Legal", 0.95))
+    assert got["category"] == "financial_legal", got
+
+
 def test_missing_confidence_is_derived_from_evidence_not_invented():
     """The old flat 0.6 default meant a genuine receipt scored BELOW the
     hand-off threshold and silently never booked — a lost deductible."""
@@ -295,3 +457,189 @@ def test_model_failure_degrades_to_fallback_not_a_crash():
                             from_identity=LINDY["sender"], runner=dead_runner)
     assert got["fallback"] is True
     assert got["category"] == "low_priority", got
+
+
+# ── Platform prefilter: money topics outrank technical keywords ──────────────
+#
+# 2026-08-01. CC screenshotted three Google alerts in Telegram, all stamped
+# "Route: ops_technical (NOT financial)". Two of them were an invoice and a
+# past-due billing account. Cause: "billing" was listed as a tech_keyword for
+# google.com, and a tech-keyword hit hard-returns technical_support from
+# classify_category WITHOUT consulting the model — so a real bill could never
+# reach Atlas. The subjects below are the verbatim ones from those alerts.
+
+@pytest.mark.parametrize("sender,subject,body,expected,why", [
+    ("payments-noreply@google.com",
+     "Google Workspace: Your invoice is available for oasisai.work", "",
+     "financial",
+     "an invoice is money even though 'workspace' is a tech keyword"),
+    ("cloudplatform-noreply@google.com",
+     "Action required: your billing account 014050-B7D660-B0C981 is past due "
+     "or has invalid payment info", "",
+     "financial",
+     "a past-due billing account is the single most financial mail Google sends"),
+    ("cloudplatform-noreply@google.com",
+     "Your Project: My First Project is at risk of suspension",
+     "Your project uses the cloud api quota",
+     "ops_technical",
+     "suspension notice with no money words stays ops"),
+    ("noreply@google.com", "Google Cloud API quota exceeded",
+     "cloud api quota alert", "ops_technical",
+     "pure tech alert must not be dragged into financial"),
+    ("noreply@stripe.com", "Your webhook endpoint is failing",
+     "delivery error api", "ops_technical",
+     "Stripe webhook failure is ops — the 2026-05-11 incident this prefilter exists for"),
+    ("noreply@stripe.com", "Your invoice #1234 is ready", "payment of $20.00",
+     "financial", "Stripe invoice keeps its financial route"),
+    ("noreply@vercel.com", "Deployment failed: build error", "ssl domain",
+     "ops_technical", "deploy failure is ops"),
+])
+def test_billing_topic_outranks_tech_keywords(sender, subject, body, expected, why):
+    got = _platform_prefilter(sender, subject, body)
+    assert got is not None, f"prefilter did not match a known platform: {sender}"
+    assert got["route_target"] == expected, f"{why} — got {got['route_target']}"
+
+
+@pytest.mark.parametrize("text", [
+    "your billing account is past due or has invalid payment info",
+    "Google Workspace: Your invoice is available for oasisai.work",
+])
+def test_billing_topic_routes_to_finance_but_never_books(text):
+    """Routing to finance and booking an expense are different questions.
+
+    _BILLING_TOPIC_RE decides "should Atlas see this"; _has_transaction_evidence
+    decides "did money move". A bill that has not been paid must reach Atlas
+    WITHOUT creating a ledger row — widening the routing predicate must never
+    widen the booking one. This is the guard on that separation.
+    """
+    assert _has_transaction_evidence(text) is False, (
+        "an unpaid bill is not transaction evidence — booking it would invent "
+        "a ledger row for money that never moved")
+
+
+def test_real_receipts_still_count_as_transaction_evidence():
+    """The other side of the same fence: don't fix routing by breaking booking."""
+    assert _has_transaction_evidence("Your receipt for $20.00 USD") is True
+    assert _has_transaction_evidence("invoice #1234 payment received $49.00") is True
+
+
+# ── Mixed tech + billing: an outage must never be held as finance ────────────
+#
+# 2026-08-01, from a Codex adversarial review of the billing-override commit.
+# A real webhook-failure email NAMES the events it could not deliver, and those
+# names are billing events ("invoice.payment_failed", "charge.refunded"). The
+# first cut of _BILLING_TOPIC_RE matched those names and routed a live outage
+# to finance — strictly worse than the misrouting it fixed, and precisely the
+# failure _platform_prefilter was built for in 2026-05. The original tests
+# missed it because every fixture was cleanly one thing or the other.
+
+@pytest.mark.parametrize("sender,subject,body,expected,why", [
+    ("notifications@stripe.com",
+     "Action required: your webhook endpoint is failing",
+     "We were unable to deliver events to your webhook endpoint. The endpoint "
+     "returned an API error on 47 delivery attempts. Failing event types: "
+     "invoice.payment_failed, customer.subscription.renewed, charge.refunded.",
+     "ops_technical",
+     "THE regression: an outage quoting billing event names is still an outage"),
+    ("cloudplatform-noreply@google.com", "Your Cloud API quota exceeded",
+     "Your project exceeded its api quota. Update your payment method to raise limits.",
+     "ops_technical",
+     "quota exhaustion is ops even when the remedy is a payment method"),
+    ("noreply@vercel.com", "Deployment failed",
+     "build failed; your invoice is attached", "ops_technical",
+     "a broken deploy outranks an attached invoice"),
+    ("payments-noreply@google.com",
+     "Google Workspace: Your invoice is available for oasisai.work", "",
+     "financial", "a pure bill must still reach finance after the failure carve-out"),
+    ("noreply@stripe.com", "Your invoice #1234 is ready", "payment of $20.00",
+     "financial", "a pure bill must still reach finance after the failure carve-out"),
+])
+def test_integration_failure_outranks_billing_topic(sender, subject, body, expected, why):
+    got = _platform_prefilter(sender, subject, body)
+    assert got is not None, f"prefilter did not match a known platform: {sender}"
+    assert got["route_target"] == expected, f"{why} — got {got['route_target']}"
+
+
+def test_no_platform_lists_a_money_word_as_a_technical_keyword():
+    """The original defect, as an invariant rather than one fixed case.
+
+    google.com listed "billing" in tech_keywords, and a tech-keyword hit
+    short-circuits classify_category without ever calling the model — so the
+    word "billing" appearing in a bill guaranteed that bill was filed as a tech
+    alert. Any money word in any of these lists recreates that bug for that
+    vendor, so assert the whole registry, not just the one row that was wrong.
+    """
+    # An explicit stem list, NOT _BILLING_TOPIC_RE. That regex is tuned for
+    # message bodies and requires context ("billing account", "payment
+    # declined"), so it does not match the bare word "billing" — reusing it
+    # here produced an assertion that passed while the original bug was
+    # present. Caught by re-adding "billing" and watching the test stay green.
+    money_stems = ("billing", "invoice", "payment", "receipt", "charge",
+                   "refund", "past due", "overdue", "subscription", "card")
+    offenders = {
+        domain: [kw for kw in cfg.get("tech_keywords", [])
+                 if any(stem in kw.lower() for stem in money_stems)]
+        for domain, cfg in PLATFORM_SENDERS.items()
+    }
+    offenders = {d: kws for d, kws in offenders.items() if kws}
+    assert not offenders, (
+        f"money words used as technical keywords: {offenders} — a tech-keyword "
+        f"hit skips the model, so these bills would never reach Atlas")
+
+
+@pytest.mark.parametrize("domain", sorted(PLATFORM_SENDERS))
+def test_every_platform_routes_a_bill_to_finance(domain):
+    """Holds regardless of the vendor's default_route.
+
+    cloudflare.com and googlecloud.com carry empty tech_keywords and a
+    "technical" default_route, so before the billing branch existed every bill
+    they sent went to ops by default — not via a keyword match, which is why
+    fixing google's keyword list alone would not have covered them.
+    """
+    got = _platform_prefilter(f"noreply@{domain}",
+                              "Your invoice is available — account past due", "")
+    assert got is not None and got["route_target"] == "financial", (
+        f"{domain} misroutes a plain bill: {got}")
+
+
+def test_end_to_end_bill_reaches_the_model_and_outage_does_not():
+    """The prefilter is a unit; classify_category is what drives the hand-off.
+
+    Asserting on _platform_prefilter alone would pass even if classify_category
+    still short-circuited, so pin the two behaviours that actually matter: a
+    bill must reach the model (only the model can say whether THIS message is a
+    transaction), and an outage must still skip it (paging ops must not wait on
+    an LLM call).
+    """
+    def boom(*_a, **_kw):
+        raise AssertionError("model must NOT be called — outage should short-circuit")
+
+    bill = classify_category(
+        content="", subject="Google Workspace: Your invoice is available for oasisai.work",
+        from_identity="payments-noreply@google.com",
+        runner=lambda *_a, **_kw: "Financial & Legal")
+    assert bill["category"] == "financial_legal", bill
+    assert bill["fallback"] is False, "a consulted model is not a degraded fallback"
+
+    outage = classify_category(
+        content="unable to deliver events to your webhook endpoint. api error on 47 "
+                "delivery attempts. invoice.payment_failed, charge.refunded",
+        subject="Action required: your webhook endpoint is failing",
+        from_identity="notifications@stripe.com", runner=boom)
+    assert outage["category"] == "technical_support", outage
+
+
+def test_routing_regexes_are_not_redos_vulnerable():
+    """Subjects and bodies are attacker-controlled — inbound mail is untrusted.
+
+    Both routing regexes are flat alternations of literals with no nested
+    quantifiers. This guards against someone later adding one.
+    """
+    import time
+
+    evil = "invoice " * 4000 + "x" * 40000
+    start = time.perf_counter()
+    _BILLING_TOPIC_RE.search(evil)
+    _INTEGRATION_FAILURE_RE.search(evil)
+    elapsed = time.perf_counter() - start
+    assert elapsed < 1.0, f"routing regex took {elapsed:.2f}s on a 72KB input"

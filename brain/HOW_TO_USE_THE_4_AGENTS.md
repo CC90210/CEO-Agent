@@ -1,7 +1,7 @@
 ---
 description: "Operating manual with decision tree to route CC's questions to correct agent: Bravo (CEO), Atlas (CFO), Maven (CMO), Aura (Life/personal) by domain"
 tags: [operating-manual, how-to, c-suite, life]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -225,10 +225,10 @@ Every agent writes ONE file: its own pulse (JSON at `data/pulse/<agent>_pulse.js
 
 ## The Shared Database
 
-Single Supabase project: `phctllmtsogkovoilwos` (38 tables live). Every agent can write to it, tagged with `agent: 'bravo'|'atlas'|'maven'|'aura'` and (for Aura) `resident: 'cc'|'adon'|'shared'`.
+Shared Turso DB `bravo` (191 tables, 132 tenant-scoped; legacy Supabase `phctllmtsogkovoilwos` retained for event bus only). Every agent can write to it, tagged with `agent: 'bravo'|'atlas'|'maven'|'aura'` and (for Aura) `resident: 'cc'|'adon'|'shared'`.
 
 **Pulse** = "what's happening now" (fast, local JSON)
-**Supabase** = "what happened over time" (queryable history)
+**Turso** = "what happened over time" (queryable history)
 
 ## The Decision Hierarchy (when agents disagree)
 
@@ -284,7 +284,7 @@ cd C:\Users\User\CMO-Agent
 | "How's my body / sleep / habits?" | Aura |
 | "Give me a stock pick" | Atlas |
 | "Pull receipts for taxes" | Atlas |
-| "What did we ship last week?" | Bravo (queries Supabase agent_traces) |
+| "What did we ship last week?" | Bravo (queries Turso agent_traces) |
 | "Audit my marketing funnel" | Maven |
 
 ---

@@ -3,3 +3,5 @@ surface: regression
 source: mistake
 title: Daily Outreach Batch — Broken Cron Pinged CC for 39 Days
 date: 2026-05-16
+tier: operating
+check: python -m pytest scripts/tests/test_regression_guards.py::test_the_retired_cold_outreach_cron_stays_retired scripts/tests/test_regression_guards.py::test_the_anti_pattern_hook_actually_blocks -q

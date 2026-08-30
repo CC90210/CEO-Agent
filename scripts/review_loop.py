@@ -141,13 +141,107 @@ def run_fixer(repo: str, pr: int, dry_run: bool) -> dict:
         return {"error": f"unparseable review_fix output: {(r.stdout or '')[:200]}"}
 
 
+SEED_MAX_AGE_DAYS = 14
+
+
+def _is_recent(updated_at: Optional[str], days: int) -> bool:
+    """Was this PR touched recently enough to be worth auto-fixing?
+
+    THE BOUND THE EMAIL PATH HAD IMPLICITLY. Mail only ever queued a PR that had
+    just generated a notification, so recency came free. Polling has no such
+    limit, and the first real run queued 22 PRs — including ones untouched since
+    2026-07-20, several of them APEX's branches.
+
+    review_fix EDITS AND PUSHES to the PR branch. Doing that to a branch dead for
+    five weeks is wasted work at best and an unwelcome surprise on a peer's
+    abandoned branch at worst. An unbounded poll is not more thorough than the
+    email path; it is indiscriminate, which is a different thing.
+
+    Pure on purpose: the timestamp arrives with the PR listing, so this is a
+    date comparison a test can drive without touching the network.
+    """
+    if not updated_at:
+        return False                      # cannot date it -> do not touch it
+    try:
+        ts = datetime.fromisoformat(updated_at.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - ts).days <= days
+
+
+def seed_from_open_prs(dry_run: bool = False, max_age_days: int = SEED_MAX_AGE_DAYS) -> int:
+    """Queue every open PR that has UNRESOLVED review findings, without email.
+
+    WHY: the queue was fed only by notification mail. That made the whole loop
+    depend on a message arriving, being unread, and being classified — and the
+    live evidence was a cron with 2098 runs, 0 failures, and `{"drained": 0}`
+    every time, while 20+ peer PRs sat open with CodeRabbit findings on them. A
+    healthy-looking loop doing nothing, because its only trigger never fired.
+
+    Email stays as the fast path — it reacts in minutes. This is the floor: it
+    asks GitHub directly, so a push with no mail (a forward that never arrived,
+    a filtered notification, a peer pushing while the mailbox is quiet) is still
+    picked up on the next pass.
+
+    Entries match the shape email_engine._enqueue_review_harvest writes, keyed
+    repo#pr, so the two producers cannot create competing formats for one queue.
+    """
+    import review_harvest as rh  # noqa: PLC0415
+
+    queue = load_queue()
+    added = 0
+    skipped_stale = 0
+    for repo in rh.TRACKED_REPOS if hasattr(rh, "TRACKED_REPOS") else []:
+        for pr in rh.open_prs_detailed(repo):
+            number = pr["number"]
+            key = f"{repo}#{number}"
+            if key in queue:
+                continue                     # already queued by mail or a prior pass
+            if not _is_recent(pr.get("updatedAt"), max_age_days):
+                skipped_stale += 1           # dead branch — not ours to auto-edit
+                continue
+            res = rh.harvest_pr(repo, number)
+            if not res or not res.get("findings"):
+                continue
+            if dry_run:
+                print(f"  DRY seed {key} ({len(res['findings'])} unresolved)")
+                added += 1
+                continue
+            queue[key] = {
+                "repo": repo, "pr": number, "branch": pr.get("headRefName"),
+                "kinds": sorted({f.get("kind", "review") for f in res["findings"]}),
+                "message_ids": [], "count": len(res["findings"]),
+                "last_seen": datetime.now(timezone.utc).isoformat(),
+                "source": "seed-open",       # distinguishes a poll from a mail ping
+            }
+            added += 1
+    if added and not dry_run:
+        save_queue(queue)
+    if skipped_stale:
+        # Never silent. A poll that quietly drops candidates reads as "nothing
+        # to do", which is the exact failure this whole function exists to fix.
+        print(f"  seed: skipped {skipped_stale} PR(s) not updated in "
+              f"{max_age_days}d")
+    return added
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Drain the automated-review queue")
     ap.add_argument("--once", action="store_true", help="one drain pass")
     ap.add_argument("--status", action="store_true", help="show the queue, change nothing")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--seed-max-age-days", type=int, default=SEED_MAX_AGE_DAYS,
+                    help="only seed PRs updated within this many days")
+    ap.add_argument("--seed-open", action="store_true",
+                    help="seed the queue from OPEN PRs with unresolved findings, "
+                         "instead of waiting for a notification email")
     args = ap.parse_args()
+
+    if args.seed_open:
+        seed_from_open_prs(dry_run=args.dry_run, max_age_days=args.seed_max_age_days)
 
     queue = load_queue()
 

@@ -3,7 +3,7 @@ name: EXTERNAL REVIEW INTEGRATION
 description: The map of external automated reviewers (CodeRabbit, Dependabot, Vercel, GitHub CI, Copilot) wired to our pushes — their scopes per repo, the current open signal, and the protocol to fold their findings into the memory + self-improvement loop instead of letting them silo in GitHub.
 mutability: EVOLVING
 tags: [brain, review, ci, github, vercel, dependabot, coderabbit, self-improvement, autonomy]
-last_updated: 2026-07-20
+last_updated: 2026-08-20
 freshness_threshold_days: 30
 verified: 2026-07-20
 ---

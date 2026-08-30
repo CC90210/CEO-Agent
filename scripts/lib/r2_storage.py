@@ -333,26 +333,39 @@ class R2Bucket:
         })
 
     def list(self, path: str | None = None, options: dict | None = None) -> list[dict]:
-        """Objects directly under `path`. Non-recursive, like supabase-py, so a
-        caller matching on an exact `name` behaves the same on both backends."""
+        """Objects directly under `path`. Non-recursive by default, like
+        supabase-py, so a caller matching on an exact `name` behaves the same on
+        both backends.
+
+        `options={"recursive": True}` walks the whole prefix and returns FULL
+        keys in `name`. Added because an orphan sweep is impossible without it:
+        objects live at <tenant>/<asset_id>/<file>, the default list drops both
+        nested keys and the sub-prefixes, so listing a tenant returned ZERO while
+        73 objects sat underneath — a false negative that reads exactly like a
+        clean bucket. publish_to_library's delete path already promises the bytes
+        survive "so a sweep can find it"; this is what makes that true."""
         c = _creds()
         dir_ = (path or "").replace("\\", "/").strip("/")
         prefix = _object_key(self._bucket, f"{dir_}/" if dir_ else "")
         limit = int(_opt(options, "limit", default=1000) or 1000)
         search = _opt(options, "search")
+        recursive = bool(_opt(options, "recursive", default=False))
         out: list[dict] = []
         token = None
         try:
             while True:
                 kw: dict[str, Any] = {"Bucket": c["R2_BUCKET"], "Prefix": prefix,
-                                      "Delimiter": "/",
                                       "MaxKeys": min(max(limit - len(out), 1), 1000)}
+                if not recursive:
+                    kw["Delimiter"] = "/"
                 if token:
                     kw["ContinuationToken"] = token
                 r = _s3().list_objects_v2(**kw)
                 for o in r.get("Contents", []):
                     name = o["Key"][len(prefix):]
-                    if not name or "/" in name:
+                    if not name:
+                        continue
+                    if "/" in name and not recursive:
                         continue
                     if search and search not in name:
                         continue

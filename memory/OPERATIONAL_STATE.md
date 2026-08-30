@@ -27,7 +27,7 @@ Reboot-persistent via `pm2 save` (dump.pm2) + the **`PM2 Resurrect` scheduled ta
 
 | Process | Role | Status |
 |---------|------|--------|
-| **bravo-scheduler** | Cron engine (`scripts/scheduler.py`) — polls Supabase `cron_jobs` every 60s | ✅ executing jobs; now writes an `agent_state` heartbeat (fixed 2026-07-07) |
+| **bravo-scheduler** | Cron engine (`scripts/scheduler.py`) — polls `cron_jobs` every 60s (Turso via supabase-compat shim) | ✅ executing jobs; now writes an `agent_state` heartbeat (fixed 2026-07-07) |
 | **bravo-telegram** | DM bridge (`telegram_agent.js`) — full computer control, subscription-first auth | ✅ V15.8 ready, polling |
 | **bravo-coord** | OASIS group bridge (`coordination_agent.js`) — Bravo↔APEX | ✅ online |
 | **claude-bridge** | Dashboard chat server (`bravo_cli.bridge_chat_server`) :9100, 19 tools | ✅ `/health` 200 |

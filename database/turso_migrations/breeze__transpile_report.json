@@ -1,0 +1,85 @@
+{
+  "project": "breeze",
+  "generated": "2026-08-07T06:51:54+00:00",
+  "table_count": 46,
+  "index_count": 170,
+  "view_count": 4,
+  "ported_trigger_count": 4,
+  "turso_native_statements": 1,
+  "plpgsql_functions": [
+    "accrue_iso_commission",
+    "approve_draw_request",
+    "assert_no_cross_role_binding",
+    "cancel_draw_request",
+    "claim_plaid_statement_link_token",
+    "compute_platform_fee",
+    "estimate_platform_fee",
+    "import_merchant_position",
+    "record_funded_draw",
+    "submit_draw_request",
+    "touch_updated_at",
+    "update_merchant_contact"
+  ],
+  "triggers": [
+    "advances.advances_touch",
+    "bank_accounts.bank_accounts_touch",
+    "board_columns.board_columns_touch",
+    "board_groups.board_groups_touch",
+    "board_items.board_items_touch",
+    "board_views.board_views_touch",
+    "boards.boards_touch",
+    "chat_conversations.chat_conversations_touch",
+    "draw_requests.draw_requests_touch",
+    "draws.draws_accrue_iso_commission",
+    "historical_deals.historical_deals_touch",
+    "iso_commissions.iso_commissions_touch",
+    "iso_partners.iso_partners_touch",
+    "kb_documents.kb_documents_touch",
+    "mca_positions.mca_positions_touch",
+    "merchant_users.merchant_users_no_cross_role",
+    "merchant_users.merchant_users_touch",
+    "merchants.merchants_touch",
+    "message_templates.message_templates_touch",
+    "plaid_items.plaid_items_touch",
+    "plaid_statement_link_tokens.plaid_statement_link_tokens_touch",
+    "plaid_statement_requests.plaid_statement_requests_touch",
+    "plaid_sync_state.plaid_sync_state_touch",
+    "plaid_transactions.plaid_transactions_touch",
+    "position_account_months.position_account_months_touch",
+    "position_summaries.position_summaries_touch",
+    "sequence_state.sequence_state_touch",
+    "sequences.sequences_touch",
+    "tenant_users.tenant_users_no_cross_role",
+    "tenant_users.tenant_users_touch",
+    "tenants.tenants_touch",
+    "webhook_events.webhook_events_touch"
+  ],
+  "lossy": {
+    "defaults_dropped": [
+      "audit_log.id: nextval('audit_log_id_seq'::regclass)",
+      "platform_fee_ledger.id: nextval('platform_fee_ledger_id_seq'::regclass)"
+    ],
+    "indexes_skipped": [
+      "repayments_recorded_day_idx: CREATE INDEX repayments_recorded_day_idx ON public.repayments USING btree (advance_id, (((recorded_a",
+      "kb_chunks_embedding_idx: CREATE INDEX kb_chunks_embedding_idx ON public.kb_chunks USING hnsw (embedding vector_cosine_ops)"
+    ],
+    "checks_skipped": [],
+    "cross_schema_fks_dropped": [
+      "documents(uploaded_by_user_id) -> auth.users",
+      "draw_requests(decided_by_user_id) -> auth.users",
+      "draw_requests(submitted_by_user_id) -> auth.users",
+      "merchant_users(auth_user_id) -> auth.users",
+      "merchant_users(invited_by) -> auth.users",
+      "plaid_statement_requests(requested_by_user_id) -> auth.users",
+      "repayments(recorded_by_user_id) -> auth.users",
+      "tenant_users(auth_user_id) -> auth.users",
+      "tenant_users(invited_by) -> auth.users"
+    ],
+    "unenforceable_fks_dropped": []
+  },
+  "executed": {
+    "applied_tables": 47,
+    "failures": 0,
+    "failure_sample": []
+  }
+}

@@ -107,9 +107,9 @@ def load_env() -> dict[str, str]:
 
 def get_supabase(env_vars: Optional[dict[str, str]] = None):
     env = env_vars if env_vars is not None else load_env()
-    url = env.get("BRAVO_SUPABASE_URL") or os.environ.get("BRAVO_SUPABASE_URL")
+    url = env.get("BRAVO_SUPABASE_URL") or os.environ.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
     key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-           or os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY"))
+           or os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key")
     if not url or not key:
         raise RuntimeError("Missing Bravo Supabase credentials in .env.agents")
     from supabase import create_client

@@ -50,6 +50,7 @@ from lib.tls_trust import ensure_os_trust  # noqa: E402
 ensure_os_trust()
 
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.gh_auth import gh_env, gh_exe, status_is_authenticated  # noqa: E402
 from lib.json_ledger import load_ledger, save_ledger  # noqa: E402
 
 # Per-thread ledger. Without it a harvest run that fires every 15 minutes would
@@ -77,12 +78,28 @@ REVIEW_BOTS = {"coderabbitai", "coderabbitai[bot]", "vercel", "vercel[bot]",
 
 # CodeRabbit tags its own findings with these markers; they map cleanly onto our
 # triage order. Order matters — first match wins.
+# CodeRabbit states its OWN severity, and until 2026-08-28 nothing here read it.
+# Its inline findings carry a marker line like:
+#     _🎯 Functional Correctness_ | _🟠 Major_ | _🏗️ Heavy lift_
+# and none of the words below appear in them — so every single CodeRabbit review
+# thread on the live queue classified as "low", fell under the critical,high
+# default, and the fixer had nothing to do. A filter that rejects the reviewer's
+# entire vocabulary is the same defect as a poll with no trigger: the mechanism
+# is healthy and it can never fire.
+#
+# The reviewer's own label wins over inference. Inference stays as the fallback
+# for Vercel, CI and human comments, which carry no marker.
 SEVERITY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
-    ("critical", re.compile(r"\[!CAUTION\]|critical|security|vulnerab|injection|"
+    # -- what the reviewer explicitly SAID --
+    ("critical", re.compile(r"_?🔴\s*Critical_?|\[!CAUTION\]", re.I)),
+    ("high", re.compile(r"_?🟠\s*Major_?|\[!WARNING\]|potential issue", re.I)),
+    ("medium", re.compile(r"_?🟡\s*Minor_?|\[!NOTE\]", re.I)),
+    # -- inference, for reviewers that state nothing --
+    ("critical", re.compile(r"critical|security|vulnerab|injection|"
                             r"credential|secret|rce|data\s*loss", re.I)),
-    ("high", re.compile(r"\[!WARNING\]|potential issue|bug|race|deadlock|"
+    ("high", re.compile(r"bug|race|deadlock|"
                         r"unguarded|null|crash|leak|timeout", re.I)),
-    ("medium", re.compile(r"\[!NOTE\]|refactor|simplif|duplicat|performance|n\+1", re.I)),
+    ("medium", re.compile(r"refactor|simplif|duplicat|performance|n\+1", re.I)),
 ]
 
 # Never let the auto-fixer near these. Money, credentials, the outbound
@@ -100,11 +117,17 @@ def canonical_repo(slug: str) -> str:
 
 
 def gh(args: list[str], timeout: int = 90) -> tuple[int, str, str]:
-    """Run gh. Returns (rc, stdout, stderr) — never raises on a non-zero exit."""
+    """Run gh authenticated. Returns (rc, stdout, stderr) — never raises.
+
+    Auth + binary resolution live in lib.gh_auth so every gh caller in the
+    fleet shares one implementation; see that module for why a bare spawn
+    silently ran anonymous (core 60/hr, graphql 0).
+    """
     try:
-        r = subprocess.run(["gh", *args], capture_output=True, text=True,
+        r = subprocess.run([gh_exe(), *args], capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=timeout,
-                           cwd=str(PROJECT_ROOT), creationflags=WINDOWLESS_FLAGS)
+                           cwd=str(PROJECT_ROOT), creationflags=WINDOWLESS_FLAGS,
+                           env=gh_env())
         return r.returncode, (r.stdout or "").strip(), (r.stderr or "").strip()
     except FileNotFoundError:
         return 127, "", "gh CLI not found on PATH"
@@ -263,15 +286,26 @@ def harvest_pr(repo: str, number: int, *, include_seen: bool = False) -> dict:
     }
 
 
-def open_prs(repo: str) -> list[int]:
+def open_prs_detailed(repo: str) -> list[dict]:
+    """Open, non-draft PRs with the fields callers need to TRIAGE them.
+
+    ONE listing call, not one-plus-N. review_loop needs `updatedAt` to skip
+    branches too old to auto-edit; asking gh for it here costs nothing, whereas
+    a per-PR `gh api repos/../pulls/N` lookup is an extra request per PR on
+    every */15 pass — and a second source of truth for "what is open".
+    """
     rc, out, _ = gh(["pr", "list", "--repo", canonical_repo(repo), "--state", "open",
-                     "--json", "number,isDraft", "--limit", "50"])
+                     "--json", "number,isDraft,updatedAt,headRefName", "--limit", "50"])
     if rc != 0 or not out:
         return []
     try:
-        return [p["number"] for p in json.loads(out) if not p.get("isDraft")]
+        return [p for p in json.loads(out) if not p.get("isDraft")]
     except Exception:  # noqa: BLE001
         return []
+
+
+def open_prs(repo: str) -> list[int]:
+    return [p["number"] for p in open_prs_detailed(repo)]
 
 
 def mark_seen(thread_ids: list[str]) -> int:
@@ -320,8 +354,12 @@ def main() -> None:
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    rc, _, err = gh(["auth", "status"], timeout=30)
-    if rc != 0:
+    # gh exits 1 if ANY stored account is unhealthy, even when a working one is
+    # active — this box holds a dead keyring entry beside the good injected
+    # token, and a bare `rc != 0` aborted every harvest despite full API access.
+    # Interpretation lives in lib.gh_auth so other gh callers judge it the same.
+    rc, out, err = gh(["auth", "status"], timeout=30)
+    if not status_is_authenticated(rc, f"{out}\n{err}"):
         msg = f"gh not authenticated: {err[:200]}"
         print(json.dumps({"error": msg}) if args.json else msg, file=sys.stderr)
         sys.exit(1)

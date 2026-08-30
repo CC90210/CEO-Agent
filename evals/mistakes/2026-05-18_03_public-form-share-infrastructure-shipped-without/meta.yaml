@@ -3,3 +3,5 @@ surface: regression
 source: mistake
 title: Public-Form Share Infrastructure Shipped Without Adversarial Review — 9 Bugs in 
 date: 2026-05-18
+tier: design
+check: python -m pytest scripts/tests/test_regression_guards.py::test_incident_lesson_is_still_codified -q

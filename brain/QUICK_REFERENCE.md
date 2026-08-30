@@ -68,7 +68,14 @@ verified: 2026-06-09
 ### Database & Infrastructure
 | CC Says | Tool | Command |
 |---------|------|---------|
-| Supabase query / CRUD | `supabase_tool.py` | `select <table> --project bravo`, `insert`, `update`, `query` |
+| Turso query / CRUD (PRIMARY) | `integrations/turso_tool.py` | `status`, `tables`, `schema <t>`, `select <t> --tenant <id>`, `sql "<read-only>"`. `--db-path <file>` for local libSQL. **Tenant-scoped tables REQUIRE `--tenant`** — Turso has no RLS, the guard in `lib/db_turso.py` is the substitute |
+| Supabase query / CRUD (DEPRECATED — legacy apps only) | `integrations/supabase_tool.py` | `select <table> --project bravo`, `insert`, `update`, `query`. Use only for apps not yet cut over to Turso |
+| Provision Turso databases | `integrations/turso_admin.py` | `status`, `create --all --write-env`, `token --db <n> --write-env`, `set-org --org <slug>`. Needs `TURSO_PLATFORM_TOKEN` (org-scoped, `turso auth api-tokens mint`) — **NOT** `TURSO_API_KEY`, which is a database token for ig-setter-pro |
+| Generate Turso schema from live Postgres | `core/turso_schema_transpiler.py` | `--project bravo --verify`. Introspects the LIVE db — `database/*.sql` covers only 43% of real tables |
+| Apply Turso DDL / copy rows | `apply_turso_migration.py`, `etl_supabase_to_turso.py` | `--test-mode` (throwaway local db); ETL: `--project bravo`, `--verify-parity`, `--dry-run`, `--source mgmt` (Management-API rows when PostgREST keys are dead). Refuses to overwrite populated target tables without `--allow-overwrite` |
+| Preserve Supabase auth users/identities | `etl_auth_to_turso.py` | `--all --verify` → `_supabase_auth_users`/`_supabase_auth_identities` per Turso DB (bcrypt hashes intact — the Better Auth seed) |
+| Archive Supabase Storage files | `etl_storage_archive.py` | `--all` → `state/backups/supabase_storage/` + SHA-256 manifest (mirrored to Turso); `--verify` re-hashes. gitignored via `state/*` |
+| **"Can we cancel Supabase?" data gate** | `migration_completeness_audit.py` | One verdict table: tables (exact counts) + auth + storage per project. Exit 0 = all data accounted for. Data parity ≠ cancel-ready — auth/rpc/app cutover must also be live |
 | n8n workflows (read/exec) | `n8n_tool.py` | `list`, `search`, `execute <id>`, `stats` |
 | n8n workflows (build/modify) | n8n-mcp SDK flow | `get_sdk_reference` → `search_nodes` → `get_node_types` → `validate_workflow` → `create_workflow_from_code`. See `skills/n8n-mcp-integration` |
 | **Fetch a URL — DEFAULT entry point (auto-escalates Firecrawl→Cloak + remembers per-domain)** | `research_fetch.py` | `python scripts/research_fetch.py <url> --json`. Reputation: `reputation [domain]`, `reputation-clear <domain>`. Skill: `skills/research-fetch/SKILL.md` |
@@ -102,7 +109,7 @@ verified: 2026-06-09
 | Stale memory detection | `memory_aging.py` | `scan`, `stale`, `health`, `archive` |
 | Cross-agent self-improvement sweep | `agent_self_improvement.py` | `run [--json] [--agents bravo,atlas,maven]` — runs **weekly Sunday 4 AM** via cron `7d3d2a77`. Now wired to call drift_autofix + memory archive before reporting. Zero LLM cost. |
 | Auto-fix capability-graph drift | `drift_autofix.py` | `scan` (preview) / `apply` — deterministically adds missing `triggers:` to skills (from description) + module docstrings to scripts. No LLM. Bravo went 115→28 drift (remaining are detector false positives). |
-| Real-time anti-pattern hook | `anti_pattern_hook.py` | Wired as PreToolUse Bash hook. Reads `memory/ANTI_PATTERNS.json` regex list, warns when about-to-execute commands match logged anti-patterns (e.g. ad-hoc `python -c` lead filters). Pure regex, ~50ms, no LLM. Add patterns to JSON, no settings.json edits. |
+| Real-time anti-pattern hook | `hooks/anti_pattern_hook.py` | Wired as PreToolUse Bash hook. Reads `memory/ANTI_PATTERNS.json` regex list, warns when about-to-execute commands match logged anti-patterns (e.g. ad-hoc `python -c` lead filters). Pure regex, ~50ms, no LLM. Add patterns to JSON, no settings.json edits. |
 | Cron cost audit | `cost_audit.py` | `[--json] [--include-disabled]` — for each active cron, traces handler chain (scheduler → scripts → cross-agent repos), reports per-cron LLM use. Distinguishes transactional vs commercial sends. Zero LLM cost, static analysis only. |
 | Memory consolidation | `auto_dream.py` | `run [--dry-run]`, `status` |
 | Memory index rebuild | `memory_index.py` | `build`, `search "<query>"`, `stats` |
@@ -128,12 +135,13 @@ When multiple tools could handle a request, use this precedence:
 1. **One-off email** → `google_tool.py` | **Email sequence/template** → `email_engine.py`
 2. **Any "fetch URL X" task** → **`research_fetch.py` (default, auto-escalates + remembers per-domain)**. Specific tiers only when you need their unique features: `firecrawl_tool.py` (crawl / extract / map / search), `cloak_browser_tool.py` (interactive goto / screenshot / direct Cloak), Playwright MCP (interactive flow on unprotected), Browser Harness (act as CC under CC's login).
 3. **Quick post** → Maven (`../CMO-Agent/scripts/late_tool.py`) | **Full content pipeline** → Maven (`../CMO-Agent/scripts/content_pipeline.py`)
-4. **Simple DB query** → `supabase_tool.py` | **Operational metrics (pipeline/health)** → `ceo_dashboard.py` | **MRR/revenue** → ATLAS-owned, defer
+4. **Simple DB query** → `turso_tool.py` (PRIMARY) / `supabase_tool.py` (legacy only) | **Operational metrics (pipeline/health)** → `ceo_dashboard.py` | **MRR/revenue** → ATLAS-owned, defer
 5. **Structured memory** → markdown files | **Fuzzy recall** → `mem0_tool.py`
 6. **Model call from ANY automation/script** → `scripts/lib/claude_cli.py` `run_claude_cli()` — local `claude` CLI on CC's subscription OAuth, toolless. NEVER call api.anthropic.com / `ANTHROPIC_API_KEY` from an automation (key is out of credits AND banned — CLI-only rule).
 7. **Is the harness itself healthy? (ANY runtime, session-start on unfamiliar machines, after substrate changes)** → `python scripts/harness_eval.py` — 10 deterministic checks (entry-point lockstep, skill routing, Atlas boundary, guards, crons, PM2, tenant scoping); `--json` for machines, `--with-model` adds a live claude-CLI probe. All-green = turnkey. Nightly cron runs it at 03:30 and Telegrams CC on any red.
 8. **Identity/wiring change across runtimes** → edit `PERSONAL.md` (germline seed) → `python scripts/genome_sync.py` (stamps all 6 entry points + mirrors). Verify expression anywhere: `python scripts/agent_genome.py [--repo <sibling>]` — 10-gene score (fleet: Bravo/Atlas/Maven 10/10, SunBiz 8/10 by design, Breeze 5/10 product).
 9. **Associative recall (2026-07-10)** → `memory_retriever.py query` now spreads activation over the vault's `[[wiki-link]]` graph — well-connected notes rank up, and 1-hop neighbors of strong matches surface as `kind: associative` extras. Engine: `scripts/core/graph_activation.py` (`build` / `status` / `neighbors <rel>` / `query "<q>"`); cache `state/graph_adjacency.json` (6h TTL). Opt-out per-call env `EMPIRE_GRAPH_BOOST=0`; hard fallback to plain hybrid on any failure. This is WHY every markdown file needs ≥2 wiki-links (RULE 6) — links are the agent's associations, not just human navigation.
+10. **Bravo did work in a peer's domain (marketing→Maven, finance→Atlas, ops→broadcast; CC directive 2026-08-01)** → end with `python scripts/state/state_sync.py --note "..." --domain marketing|finance|ops` (or standalone: `python scripts/core/cross_agent_ping.py --domain <d> --summary "..." [--files a,b]`) — lands a row on `agent_activity` + a `domain.ping` event on the bus so the peer resumes with full awareness.
 
 ## MCP Servers (9 registered in `.claude/mcp.json` — the 7 stateless ones below are the agent-usable set; +4 via `enabledMcpjsonServers` = 13 across configs)
 
@@ -191,8 +199,12 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | `instagram_engine.py` | Instagram DM/engagement | Daemon |
 | _(LinkedIn outreach removed 2026-04-25)_ | research-only via Browser Harness — no automation by design | n/a |
 | **--- Infrastructure ---** | | |
-| `supabase_tool.py` | Database CRUD (3 projects) | CLI tool |
+| `turso_tool.py` | libSQL/Turso CRUD — PRIMARY backend, tenant guard enforced | CLI tool |
+| `turso_admin.py` | Turso database provisioning (Platform API) | CLI tool |
+| `supabase_tool.py` | Database CRUD (DEPRECATED — legacy apps) | CLI tool |
 | `n8n_tool.py` | Workflow automation | CLI tool |
+| `git_push_tool.py` | **Push branches / open PRs / read PR checks.** The gh CLI's stored login is stale and plain `git push` cannot authenticate; this feeds the PAT via GIT_ASKPASS + GH_TOKEN. `--checks` reads check CONCLUSIONS, not review state | CLI tool |
+| `integrations/vercel_deploy_tool.py` | Deployment state + build logs (`list`/`logs`/`inspect`, `--json`). Read-only by design — promote/rollback/redeploy are an operator call | CLI tool |
 | `firecrawl_tool.py` | Web scraping, extraction | CLI tool |
 | `browser_harness_doctor.py` | Browser Harness install/attach diagnostics | CLI tool |
 | `onboarding_diagnostics.py` | Productized Bravo onboarding health check | CLI tool |
@@ -206,7 +218,7 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | `memory_aging.py` | Memory health, stale detection | CLI tool |
 | `agent_self_improvement.py` | Cross-agent self_audit + autofix + archive + mistake-repeat detection | CLI tool + cron `7d3d2a77` weekly Sun 4 AM |
 | `drift_autofix.py` | Deterministic capability-graph drift autofix (zero LLM cost) | CLI tool, called by self_improvement |
-| `anti_pattern_hook.py` | Real-time PreToolUse hook scanning Bash commands against ANTI_PATTERNS.json | Hook (settings.local.json) |
+| `hooks/anti_pattern_hook.py` | Real-time PreToolUse hook scanning Bash commands against ANTI_PATTERNS.json | Hook (settings.local.json) |
 | `cost_audit.py` | Static-analysis cost audit — traces every active cron's handler chain to identify which jobs burn Anthropic tokens | CLI tool |
 | `auto_dream.py` | Memory consolidation | CLI tool |
 | `memory_index.py` | 3-layer memory indexing | CLI tool |
@@ -217,7 +229,7 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | `macos_control.py` | macOS system automation | CLI tool |
 | `music_control.py` | Audio/music control | CLI tool |
 | `browse_and_capture.py` | Browser screenshot + capture | Script |
-| `late_publisher.py` | Late API direct publisher | Script |
+| `../CMO-Agent/scripts/late_publisher.py` (owned by Maven) | Late API direct publisher | Script |
 
 ## Workflow Commands (33 — `.agents/workflows/`)
 

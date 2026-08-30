@@ -3,9 +3,9 @@ name: INTENTS
 description: Verb-by-verb playbook. For each kind of operator request, the exact sequence the agent should run.
 mutability: SEMI-MUTABLE
 tags: [brain, agent-only, playbook]
-last_updated: 2026-07-22
+last_updated: 2026-08-22
 freshness_threshold_days: 30
-verified: 2026-07-22
+verified: 2026-08-22
 ---
 # INTENTS — Verb-by-Verb Playbook
 
@@ -27,9 +27,38 @@ In chat (bridge mode), this runs through the `run_script` tool with `confirm:tru
 
 ---
 
+## "Edit / build / fix something in a repo APEX also works in"
+
+**Canonical: `oasis-command-center`. 226 of its 1,596 files have been edited by
+both agents; 117 same-file cross-side edits landed inside 48h of each other.**
+
+1. `python scripts/lib/ownership.py <repo-slug> <path>` — whose surface is this?
+   `shared` (and anything unmapped) means a lease is MANDATORY.
+2. `python scripts/integrations/coord_claim.py acquire --repo <slug> --paths "<p>" --task "<t>"`
+   Exit 3 means a peer holds it — pick other work or agree a handoff. Do not --force.
+3. Work. `heartbeat --task "<t>"` on anything long-running.
+4. `release --task "<t>"` when you stop. SessionEnd releases too, but explicitly is better.
+
+The repo slug is REMOTE-DERIVED (last segment of origin url, lowercased), never
+the directory name — APEX runs 85 worktrees of one repo and the directory rule
+gave 85 namespaces, 84 of which protected nothing.
+
+## "Review APEX's work / they changed something I own"
+
+1. `python scripts/cross_agent_review.py scan` — open peer PRs on Bravo surfaces.
+2. `python scripts/cross_agent_review.py review --pr OWNER/REPO#N` — publishes
+   `ack` or `blocked` to the channel APEX polls, and records the verdict.
+
+This is CONTEXT review, not code review. CodeRabbit already read the diff and CI
+already proved it builds. Your job is the part they structurally cannot do: the
+constraint not visible in the code, the caller three repos away, the duplicate
+of something that already exists. Its first live run caught APEX proposing to
+build an approval surface that already existed.
+
 ## "Apply this database migration"
 
 1. Confirm migration file is in `database/<NNN>_<name>.sql`. If not, write it with the next number.
+1b. **Take the restore point first** (V9.0 Defense #5): `python scripts/db_snapshot.py create --name pre-<NNN> --project bravo`, then `python scripts/db_snapshot.py verify --project bravo --max-age-hours 1`. Exit 0 = checksummed, complete, fresh baseline (schema + exact row counts). Non-zero = you do not have one; stop and escalate. It is a *logical* baseline — for a genuinely destructive change also confirm the Supabase PITR window covers the snapshot timestamp.
 2. Run `python scripts/apply_migration.py database/<NNN>_<name>.sql`. The script applies through Supabase Management API; gates on dangerous patterns (`DROP TABLE`, `TRUNCATE`, naked `GRANT`/`REVOKE`).
 3. If gated, surface the reason. Operator may approve via the Supabase Dashboard SQL editor — only then do you suggest a manual path.
 4. Confirm post-apply: `python scripts/integrations/supabase_tool.py select <new_table> --project bravo --limit 1` to verify the schema is live.
@@ -270,6 +299,27 @@ CC drops a URL, a paste, a file path, a research request, or any vague pointer l
 **Anti-slop guardrails:** no stub functions, no "Proposed future tooling" claims in ADRs, no duplicate scripts, no substrate touches without need. See the full guardrails block in the prompt body.
 
 ---
+
+## "Instagram DMs / the setter" (check it, tune it, never re-arm its cron)
+
+The setter is AUTONOMOUS: PM2 process `bravo-ig-dm` runs
+`scripts/integrations/ig_dm_daemon.py`, which polls Zernio, replies in CC's
+voice via the local Claude CLI, extracts lead facts, and hands warm/blocked
+threads to CC. There is no operator step in the reply loop.
+
+1. "Is it working?" → `pm2 logs bravo-ig-dm --lines 20 --nostream` (ticks log
+   only when work happened; silence between = healthy quiet inbox) and
+   `python scripts/integrations/ig_dm_daemon.py --check-conflict`.
+2. "Pause it / resume it" → `pm2 stop bravo-ig-dm` / `pm2 start bravo-ig-dm`.
+   NEVER arm the `Instagram DM Closer` cron row — the daemon reads that row at
+   boot and REFUSES TO START while it is armed (two live runners double-message
+   prospects; shipped 2026-08-20). The row is a config anchor, nothing more.
+3. "Why did a prospect get no reply?" → read the conversation row in
+   `instagram_dm_conversations` (stage, budgets, handoff_pending, last_error)
+   before touching anything; a budget refusal or terminal stage is a decision,
+   not a fault.
+4. Booking stays `--book` OFF until CC supervises one real `--apply` against
+   his own conversation and email.
 
 ## How to extend this file
 

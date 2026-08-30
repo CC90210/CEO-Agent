@@ -1,0 +1,504 @@
+{
+  "secrets": [
+    {
+      "key": "ACCELERATED_ENROLL_LIVE",
+      "source": "OASIS_COMMAND_CENTER__ACCELERATED_ENROLL_LIVE",
+      "scope": "runtime"
+    },
+    {
+      "key": "ANTHROPIC_API_KEY",
+      "source": "OASIS_COMMAND_CENTER__ANTHROPIC_API_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "APEX_PG_BRIDGE_TOKEN",
+      "source": "OASIS_COMMAND_CENTER__APEX_PG_BRIDGE_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "APP_SECRET",
+      "source": "OASIS_COMMAND_CENTER__APP_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "AUTH_SESSION_SECRET",
+      "source": "OASIS_COMMAND_CENTER__AUTH_SESSION_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "BRAVO_FIELD_ENCRYPTION_KEY",
+      "source": "OASIS_COMMAND_CENTER__BRAVO_FIELD_ENCRYPTION_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "BRAVO_FORCE_DRY_RUN",
+      "source": "OASIS_COMMAND_CENTER__BRAVO_FORCE_DRY_RUN",
+      "scope": "runtime"
+    },
+    {
+      "key": "CHAT_RESUME_HMAC_KEY",
+      "source": "OASIS_COMMAND_CENTER__CHAT_RESUME_HMAC_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "CLOUDFLARE_ACCOUNT_ID",
+      "source": "OASIS_COMMAND_CENTER__CLOUDFLARE_ACCOUNT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "CONVERSATIONS_SPINE",
+      "source": "OASIS_COMMAND_CENTER__CONVERSATIONS_SPINE",
+      "scope": "runtime"
+    },
+    {
+      "key": "CRON_ALLOW_LOCAL",
+      "source": "OASIS_COMMAND_CENTER__CRON_ALLOW_LOCAL",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_EMAIL_DAILY_CAP_BLUERISE",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_EMAIL_DAILY_CAP_BLUERISE",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_EMAIL_DAILY_CAP_SUNBIZ",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_EMAIL_DAILY_CAP_SUNBIZ",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_EMAIL_HOURLY_CAP_BLUERISE",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_EMAIL_HOURLY_CAP_BLUERISE",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_ENROLL_DAILY_CAP",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_ENROLL_DAILY_CAP",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_ENROLL_LIMIT",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_ENROLL_LIMIT",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_ENROLL_STAGES",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_ENROLL_STAGES",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_LIVE",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_LIVE",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_OPTOUT_COOLOFF_DAYS",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_OPTOUT_COOLOFF_DAYS",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_SMS_DAILY_CAP",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_SMS_DAILY_CAP",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_SMS_HOURLY_CAP",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_SMS_HOURLY_CAP",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_SMS_VERIFIED_ONLY",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_SMS_VERIFIED_ONLY",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIPS_SMS_WINDOW_START_UTC",
+      "source": "OASIS_COMMAND_CENTER__DRIPS_SMS_WINDOW_START_UTC",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIP_AI_WIRE_STAGES",
+      "source": "OASIS_COMMAND_CENTER__DRIP_AI_WIRE_STAGES",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIP_HANDOFF_EMAILS",
+      "source": "OASIS_COMMAND_CENTER__DRIP_HANDOFF_EMAILS",
+      "scope": "runtime"
+    },
+    {
+      "key": "DRIP_SMS_ONLY_STAGES",
+      "source": "OASIS_COMMAND_CENTER__DRIP_SMS_ONLY_STAGES",
+      "scope": "runtime"
+    },
+    {
+      "key": "EMPIRE_AUTH_BACKEND",
+      "source": "OASIS_COMMAND_CENTER__EMPIRE_AUTH_BACKEND",
+      "scope": "runtime"
+    },
+    {
+      "key": "EMPIRE_DATA_BACKEND",
+      "source": "OASIS_COMMAND_CENTER__EMPIRE_DATA_BACKEND",
+      "scope": "runtime"
+    },
+    {
+      "key": "ESIGN_FROM_APP_PASSWORD",
+      "source": "OASIS_COMMAND_CENTER__ESIGN_FROM_APP_PASSWORD",
+      "scope": "runtime"
+    },
+    {
+      "key": "ESIGN_FROM_EMAIL",
+      "source": "OASIS_COMMAND_CENTER__ESIGN_FROM_EMAIL",
+      "scope": "runtime"
+    },
+    {
+      "key": "ESIGN_FROM_NAME",
+      "source": "OASIS_COMMAND_CENTER__ESIGN_FROM_NAME",
+      "scope": "runtime"
+    },
+    {
+      "key": "FORM_LINK_HMAC_KEY",
+      "source": "OASIS_COMMAND_CENTER__FORM_LINK_HMAC_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "FOUNDERS_TENANT_IDS",
+      "source": "OASIS_COMMAND_CENTER__FOUNDERS_TENANT_IDS",
+      "scope": "runtime"
+    },
+    {
+      "key": "GOOGLE_SYSTEM_CALENDAR_CLIENT_ID",
+      "source": "OASIS_COMMAND_CENTER__GOOGLE_SYSTEM_CALENDAR_CLIENT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "GOOGLE_SYSTEM_CALENDAR_CLIENT_SECRET",
+      "source": "OASIS_COMMAND_CENTER__GOOGLE_SYSTEM_CALENDAR_CLIENT_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "KIXIE_API_KEY",
+      "source": "OASIS_COMMAND_CENTER__KIXIE_API_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "KIXIE_BUSINESS_ID",
+      "source": "OASIS_COMMAND_CENTER__KIXIE_BUSINESS_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "KIXIE_WEBHOOK_SECRET",
+      "source": "OASIS_COMMAND_CENTER__KIXIE_WEBHOOK_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "LEAD_SCOPING_ENABLED",
+      "source": "OASIS_COMMAND_CENTER__LEAD_SCOPING_ENABLED",
+      "scope": "runtime"
+    },
+    {
+      "key": "LEAD_SCOPING_MODE",
+      "source": "OASIS_COMMAND_CENTER__LEAD_SCOPING_MODE",
+      "scope": "runtime"
+    },
+    {
+      "key": "LIVE_SEND_CONSTANT_CONTACT",
+      "source": "OASIS_COMMAND_CENTER__LIVE_SEND_CONSTANT_CONTACT",
+      "scope": "runtime"
+    },
+    {
+      "key": "LIVE_SEND_KIXIE",
+      "source": "OASIS_COMMAND_CENTER__LIVE_SEND_KIXIE",
+      "scope": "runtime"
+    },
+    {
+      "key": "LIVE_SEND_TEXTTORRENT",
+      "source": "OASIS_COMMAND_CENTER__LIVE_SEND_TEXTTORRENT",
+      "scope": "runtime"
+    },
+    {
+      "key": "N8N_INGEST_SECRET",
+      "source": "OASIS_COMMAND_CENTER__N8N_INGEST_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_OPTINVAULT_DISCLOSURE_BLUERISE",
+      "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_OPTINVAULT_DISCLOSURE_BLUERISE",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_OPTINVAULT_DISCLOSURE_SUNBIZ",
+      "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_OPTINVAULT_DISCLOSURE_SUNBIZ",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_OPTINVAULT_SITE_KEY_BLUERISE",
+      "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_OPTINVAULT_SITE_KEY_BLUERISE",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_OPTINVAULT_SITE_KEY_SUNBIZ",
+      "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_OPTINVAULT_SITE_KEY_SUNBIZ",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_OPTINVAULT_URL",
+      "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_OPTINVAULT_URL",
+      "scope": "both"
+    },
+    {
+      "key": "OASIS_TELEGRAM_BOT_TOKEN",
+      "source": "OASIS_COMMAND_CENTER__OASIS_TELEGRAM_BOT_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "OASIS_TELEGRAM_CHAT_ID",
+      "source": "OASIS_COMMAND_CENTER__OASIS_TELEGRAM_CHAT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "OASIS_TURSO_AUTH_TOKEN",
+      "source": "OASIS_COMMAND_CENTER__OASIS_TURSO_AUTH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "OASIS_TURSO_DATABASE_URL",
+      "source": "OASIS_COMMAND_CENTER__OASIS_TURSO_DATABASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_ACCESS_KEY_ID",
+      "source": "OASIS_COMMAND_CENTER__R2_ACCESS_KEY_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_BUCKET",
+      "source": "OASIS_COMMAND_CENTER__R2_BUCKET",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_PUBLIC_BASE_URL",
+      "source": "OASIS_COMMAND_CENTER__R2_PUBLIC_BASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "R2_SECRET_ACCESS_KEY",
+      "source": "OASIS_COMMAND_CENTER__R2_SECRET_ACCESS_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "SCAN_TRIGGER_SECRET",
+      "source": "OASIS_COMMAND_CENTER__SCAN_TRIGGER_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "SUNBIZ_OPS_TELEGRAM_BOT_TOKEN",
+      "source": "OASIS_COMMAND_CENTER__SUNBIZ_OPS_TELEGRAM_BOT_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "SUNBIZ_OPS_TELEGRAM_CHAT_ID",
+      "source": "OASIS_COMMAND_CENTER__SUNBIZ_OPS_TELEGRAM_CHAT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "SUNBIZ_OPS_TELEGRAM_FALLBACK_CHAT_ID",
+      "source": "OASIS_COMMAND_CENTER__SUNBIZ_OPS_TELEGRAM_FALLBACK_CHAT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "SUNBIZ_PUBLIC_FORM_ORIGIN",
+      "source": "OASIS_COMMAND_CENTER__SUNBIZ_PUBLIC_FORM_ORIGIN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TEXTTORRENT_ACT_AS_EMAIL",
+      "source": "OASIS_COMMAND_CENTER__TEXTTORRENT_ACT_AS_EMAIL",
+      "scope": "runtime"
+    },
+    {
+      "key": "TEXTTORRENT_API_SID",
+      "source": "OASIS_COMMAND_CENTER__TEXTTORRENT_API_SID",
+      "scope": "runtime"
+    },
+    {
+      "key": "TEXTTORRENT_FOLLOWUP_ACT_AS_EMAIL",
+      "source": "OASIS_COMMAND_CENTER__TEXTTORRENT_FOLLOWUP_ACT_AS_EMAIL",
+      "scope": "runtime"
+    },
+    {
+      "key": "TEXTTORRENT_FOLLOWUP_API_SID",
+      "source": "OASIS_COMMAND_CENTER__TEXTTORRENT_FOLLOWUP_API_SID",
+      "scope": "runtime"
+    },
+    {
+      "key": "TEXTTORRENT_FOLLOWUP_PUBLIC_KEY",
+      "source": "OASIS_COMMAND_CENTER__TEXTTORRENT_FOLLOWUP_PUBLIC_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "TEXTTORRENT_FROM_NUMBER",
+      "source": "OASIS_COMMAND_CENTER__TEXTTORRENT_FROM_NUMBER",
+      "scope": "runtime"
+    },
+    {
+      "key": "TEXTTORRENT_PUBLIC_KEY",
+      "source": "OASIS_COMMAND_CENTER__TEXTTORRENT_PUBLIC_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "TEXTTORRENT_TENANT_ID",
+      "source": "OASIS_COMMAND_CENTER__TEXTTORRENT_TENANT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "TPS_AUTO_ENROLL_SINCE",
+      "source": "OASIS_COMMAND_CENTER__TPS_AUTO_ENROLL_SINCE",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_AUTH_TOKEN",
+      "source": "OASIS_COMMAND_CENTER__TURSO_AUTH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_DATABASE_URL",
+      "source": "OASIS_COMMAND_CENTER__TURSO_DATABASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "api_key_Constant_Contact",
+      "source": "OASIS_COMMAND_CENTER__api_key_Constant_Contact",
+      "scope": "runtime"
+    },
+    {
+      "key": "BOOKING_LINK",
+      "source": "OASIS_COMMAND_CENTER__BOOKING_LINK",
+      "scope": "runtime"
+    },
+    {
+      "key": "BRAVO_ANTHROPIC_API_KEY",
+      "source": "OASIS_COMMAND_CENTER__BRAVO_ANTHROPIC_API_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "BRAVO_SUPABASE_SERVICE_ROLE_KEY",
+      "source": "OASIS_COMMAND_CENTER__BRAVO_SUPABASE_SERVICE_ROLE_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "BRAVO_SUPABASE_URL",
+      "source": "OASIS_COMMAND_CENTER__BRAVO_SUPABASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "BRIDGE_BEARER_TOKEN",
+      "source": "OASIS_COMMAND_CENTER__BRIDGE_BEARER_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "BRIDGE_BEARER_TOKEN_OASIS_AI_CC",
+      "source": "OASIS_COMMAND_CENTER__BRIDGE_BEARER_TOKEN_OASIS_AI_CC",
+      "scope": "runtime"
+    },
+    {
+      "key": "BRIDGE_VPS_URL",
+      "source": "OASIS_COMMAND_CENTER__BRIDGE_VPS_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "CLI_SIGNUP_SECRET",
+      "source": "OASIS_COMMAND_CENTER__CLI_SIGNUP_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "CRON_SECRET",
+      "source": "OASIS_COMMAND_CENTER__CRON_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "FUNMATE_APP_PASSWORD",
+      "source": "OASIS_COMMAND_CENTER__FUNMATE_APP_PASSWORD",
+      "scope": "runtime"
+    },
+    {
+      "key": "FUNMATE_EMAIL",
+      "source": "OASIS_COMMAND_CENTER__FUNMATE_EMAIL",
+      "scope": "runtime"
+    },
+    {
+      "key": "GMAIL_APP_PASSWORD",
+      "source": "OASIS_COMMAND_CENTER__GMAIL_APP_PASSWORD",
+      "scope": "runtime"
+    },
+    {
+      "key": "GMAIL_USER",
+      "source": "OASIS_COMMAND_CENTER__GMAIL_USER",
+      "scope": "runtime"
+    },
+    {
+      "key": "GOOGLE_CALENDAR_ID",
+      "source": "OASIS_COMMAND_CENTER__GOOGLE_CALENDAR_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "GOOGLE_CLIENT_ID",
+      "source": "OASIS_COMMAND_CENTER__GOOGLE_CLIENT_ID",
+      "scope": "runtime"
+    },
+    {
+      "key": "GOOGLE_CLIENT_SECRET",
+      "source": "OASIS_COMMAND_CENTER__GOOGLE_CLIENT_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "GOOGLE_SYSTEM_CALENDAR_ADDRESS",
+      "source": "OASIS_COMMAND_CENTER__GOOGLE_SYSTEM_CALENDAR_ADDRESS",
+      "scope": "runtime"
+    },
+    {
+      "key": "GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN",
+      "source": "OASIS_COMMAND_CENTER__GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_BOOKING_URL",
+      "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_BOOKING_URL",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_BRIDGE_CHAT_BASE",
+      "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_BRIDGE_CHAT_BASE",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_SUPABASE_URL",
+      "scope": "both"
+    },
+    {
+      "key": "OASIS_OUTBOUND_HMAC_SECRET",
+      "source": "OASIS_COMMAND_CENTER__OASIS_OUTBOUND_HMAC_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "OPERATOR_EMAIL",
+      "source": "OASIS_COMMAND_CENTER__OPERATOR_EMAIL",
+      "scope": "runtime"
+    },
+    {
+      "key": "PUBLIC_APP_URL",
+      "source": "OASIS_COMMAND_CENTER__PUBLIC_APP_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "TT_PG_BRIDGE_TOKEN",
+      "source": "OASIS_COMMAND_CENTER__TT_PG_BRIDGE_TOKEN",
+      "scope": "runtime"
+    }
+  ]
+}

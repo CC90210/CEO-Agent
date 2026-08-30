@@ -3,7 +3,7 @@ name: AGENT ROUTER
 description: Runtime-agnostic routing-by-intent table, loaded after the active entry point for operational requests.
 mutability: SEMI-MUTABLE
 tags: [brain, router, rag-entry, agent-only]
-last_updated: 2026-07-19
+last_updated: 2026-08-19
 freshness_threshold_days: 30
 verified: 2026-07-19
 ---
@@ -59,6 +59,11 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | If the operator asks about... | Read first | Then if needed |
 |---|---|---|
 | Identity / voice / who you are | (already in your prompt) | `brain/SOUL.md` |
+| **Editing a file APEX may also touch** | `skills/cross-agent-coordination/SKILL.md` | `brain/OWNERSHIP_MAP.yaml` |
+| **A coord_guard block appeared** | the refusal names the peer, task, branch, machine | `coord_claim.py status --all-agents` |
+| **Reviewing APEX's PR / it touches my surface** | `cross_agent_review.py scan` | `cross_agent_review.py review --pr <O/R#N>` |
+| **CodeRabbit / Vercel / CI flagged something** | `review_harvest.py --pr <O/R#N>` | `review_fix.py` (applies, tests, pushes) |
+| **Taking a migration number** | `check_migration_collision.py reserve <n>` | `database/turso_migrations/` |
 | Operator's profile | `brain/USER.md` | — |
 | What CLI tools you have | `brain/CAPABILITIES.md` | `brain/QUICK_REFERENCE.md` |
 | Which sub-agent owns a task | `brain/WHEN_TO_USE_AGENTS.md` | run `python scripts/capability_query.py resolve "<intent>" --kind agent` |
@@ -83,6 +88,8 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Dashboard structure | `oasis-command-center:lib/agent-roots.ts` | the relevant `oasis-command-center:app/<route>/page.tsx` |
 | **Audit the system / health check** | (run `python scripts/core/self_audit.py`) | `brain/ORCHESTRATION.md` |
 | **Clean up the repo / delete junk** | (run `python scripts/core/system_cleanup.py` — dry-run by default) | `brain/EXECUTION_RULES.md` Rule 9 |
+| **How long is X kept / adding a new store or log** | `brain/DATA_LIFECYCLE.md` | (schedule the sweep in the SAME commit — a retention tool nobody runs is not a policy) |
+| **What automations run / is X scheduled / why did Y fire** | [[AUTOMATIONS]] — every job, daemon, hook and OS task with what it does and whether it is healthy | (regenerate with `python scripts/core/generate_automations.py`; it is auto-generated, never hand-edit) |
 | **Current date / day-of-week / time** | (run the date snippet in `brain/EXECUTION_RULES.md` Rule 11 — never quote from prompt) | `brain/STATE.md` |
 | **Create a new skill / agent / workflow** | `skills/agent-forge/SKILL.md` | use the matching `python scripts/register.py skill|agent|workflow ...` contract |
 | **Diagnose why you made a mistake** | `memory/MISTAKES.md` | `brain/BRAIN_LOOP.md` (Reflexion section) |
@@ -100,7 +107,7 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Get current MRR | ATLAS-OWNED — do not self-serve; defer to Atlas (read Atlas cfo_pulse/STATE.md READ-ONLY if CC insists) | `brain/C_SUITE_ARCHITECTURE.md` |
 | CEO daily briefing | `ceo_dashboard` (legacy fail-closed; currently needs `confirm: true`) | — |
 | Read a Supabase table | `supabase_select` (args: table, --eq, --limit) | `brain/CAPABILITIES.md` |
-| Write to Supabase | `supabase_insert` / `supabase_update` (mutating; needs `confirm: true`) | `brain/CAPABILITIES.md` |
+| Write to Database (legacy-ok Supabase) | `supabase_insert` / `supabase_update` (mutating; needs `confirm: true`) | `brain/CAPABILITIES.md` |
 | List leads | `lead_engine_list` (args: --status, --limit; legacy fail-closed confirmation) | `brain/STATE.md` |
 | Score a lead | `lead_engine_score` (positional lead UUID; legacy fail-closed confirmation) | — |
 | Add a lead | `lead_engine_add` (mutating; needs `confirm: true`) | `skills/outreach-send/SKILL.md` |

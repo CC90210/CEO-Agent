@@ -272,6 +272,26 @@ _RUN_FAILED_RE = re.compile(
     r"^\[(?P<repo>[\w.-]+/[\w.-]+)\]\s*Run failed:\s*(?P<workflow>.+?)\s+-\s+"
     r"(?P<branch>\S+)", re.IGNORECASE)
 
+# "[owner/repo] PR run failed: <workflow> - <PR TITLE> (<sha>)".
+#
+# The pull_request-triggered sibling of the above: GitHub sends BOTH when a
+# branch with an open PR goes red, so a single failing push produces two
+# emails. This variant went unmatched from the day the detector shipped
+# (2026-07-29) until 2026-08-08 — 20 of the 22 undetected notifications in a
+# 53-message, two-day sample. Every one fell through to the LLM classifier and
+# then to email_brain, which Telegrammed CC about his own red CI on repeat.
+#
+# It needs its own pattern rather than an optional "PR " group, because the
+# tail means something different: `Run failed:` ends in a branch token, this
+# one ends in the PR title — free text with spaces, colons, parens and
+# em-dashes. Sharing the `(?P<branch>\S+)` capture would set branch="V7.6:"
+# and send review_loop hunting `gh pr list --head V7.6:` forever. So the
+# workflow is captured (it stops at the first " - ") and branch stays None;
+# review_loop resolves the PR from the repo instead.
+_PR_RUN_FAILED_RE = re.compile(
+    r"^\[(?P<repo>[\w.-]+/[\w.-]+)\]\s*PR run failed:\s*(?P<workflow>.+?)\s+-\s+",
+    re.IGNORECASE)
+
 
 def detect_review_notification(from_addr: str, subject: str) -> Optional[dict]:
     """Return {repo, pr, kind, branch?} when this email is an automated-review ping.
@@ -292,6 +312,15 @@ def detect_review_notification(from_addr: str, subject: str) -> Optional[dict]:
         return {"repo": run_fail.group("repo"), "pr": None, "kind": "run_failed",
                 "branch": branch or None,
                 "workflow": (run_fail.group("workflow") or "").strip() or None}
+
+    # Checked after the plain form: "PR run failed:" cannot match the pattern
+    # above (which requires "Run failed:" immediately after the "]"), so the
+    # order is for readability, not correctness.
+    pr_run_fail = _PR_RUN_FAILED_RE.match(subj)
+    if pr_run_fail:
+        return {"repo": pr_run_fail.group("repo"), "pr": None,
+                "kind": "run_failed", "branch": None,
+                "workflow": (pr_run_fail.group("workflow") or "").strip() or None}
 
     m = _PR_SUBJECT_RE.search(subj)
     if m:
@@ -432,13 +461,41 @@ def voice_rules() -> str:
     )
 
 
+def _banned_phrase_re(phrase: str) -> "re.Pattern[str]":
+    """Word-boundaried matcher for one banned phrase.
+
+    A bare substring scan matched INSIDE other words, and the fleet is
+    bilingual: "as per" fires inside the Spanish "Las personas" and the French
+    "pas personnel" / "pas perdre". On the Instagram channel that is not a
+    cosmetic false positive — two consecutive guardrail rejects is
+    MAX_CONSECUTIVE_GUARDRAIL_REJECTS, which retires a live conversation to
+    handed_off + automation_paused until a human runs `resume`, and the retry
+    cannot save it because the rejection names an English phrase the model
+    cannot find in its French text.
+
+    A single word keeps a trailing \\w* so inflections still trip it
+    ("unlock" -> "unlocking", "leverage" -> "leveraging"); a multi-word phrase
+    is bounded on both ends, because that is where the cross-language collisions
+    live. Neither end of the match may start mid-word.
+    """
+    if " " in phrase.strip():
+        return re.compile(r"\b" + re.escape(phrase) + r"\b", re.IGNORECASE)
+    return re.compile(r"\b" + re.escape(phrase) + r"\w*", re.IGNORECASE)
+
+
+_BANNED_PHRASE_RES: tuple[tuple[str, "re.Pattern[str]"], ...] = tuple(
+    (phrase, _banned_phrase_re(phrase))
+    for phrase in BANNED_OPENERS + BANNED_CLOSERS + BANNED_FILLER
+)
+
+
 def lint_draft(body: str) -> list[str]:
     """Cheap deterministic check that a generated reply obeys the copy rules.
     Returns a list of violations (empty == clean)."""
     b = _lc(body)
     out: list[str] = []
-    for phrase in BANNED_OPENERS + BANNED_CLOSERS + BANNED_FILLER:
-        if phrase in b:
+    for phrase, pattern in _BANNED_PHRASE_RES:
+        if pattern.search(b):
             out.append(f"banned phrase: {phrase}")
     if b.count(BOOKING_LINK.lower()) > 1:
         out.append("booking link appears more than once")

@@ -169,15 +169,16 @@ Maven wants to run $500 Meta campaign
 
 ## Shared Database (All 3 Agents)
 
-All three C-Suite agents share a single **Supabase project** (`phctllmtsogkovoilwos`) as their long-term memory and cross-agent analytics layer. See [`../CMO-Agent/brain/SHARED_DB.md`](../../CMO-Agent/brain/SHARED_DB.md) for the full schema + conventions.
+All three C-Suite agents share a **Turso/libSQL database** as their primary long-term memory and cross-agent analytics layer (191 tables, 132 tenant-scoped). Legacy **Supabase Postgres** (`phctllmtsogkovoilwos`) is retained only for the event bus (Postgres LISTEN/NOTIFY has no libSQL equivalent). See [`../CMO-Agent/brain/SHARED_DB.md`](../../CMO-Agent/brain/SHARED_DB.md) for the full schema + conventions.
 
 | Layer | Where | Purpose |
 |-------|-------|---------|
 | **Now-state (pulse)** | Each agent's `data/pulse/*.json` | Fast, local, survives DB outages |
-| **Long-term memory** | Shared Supabase `phctllmtsogkovoilwos` | Traces, patterns, session logs, skill activation |
-| **App-specific data** | Each app's own DB (Turso for PULSE, etc.) | App sovereignty |
+| **Long-term memory** | Shared Turso DB (primary) | Traces, patterns, session logs, skill activation |
+| **Event bus** | Legacy Supabase `phctllmtsogkovoilwos` | Postgres LISTEN/NOTIFY for real-time agent events |
+| **App-specific data** | Each app's own DB (Turso for most, Supabase legacy for Breeze/Command Center) | App sovereignty |
 
-Every Supabase row written by any agent MUST include `agent: 'bravo' | 'atlas' | 'maven'` for filtering and audit. RLS enforces that an agent can only write rows with its own name.
+Every Turso row written by any agent MUST include `agent: 'bravo' | 'atlas' | 'maven'` for filtering and audit. Tenant-scoped tables enforce this via the `db_turso.py` guard (Turso has no built-in RLS — the guard is the substitute).
 
 ## Cross-Agent Read Access (Delegation & Orchestration)
 

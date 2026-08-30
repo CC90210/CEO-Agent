@@ -87,14 +87,37 @@ def _parse_env(text: str) -> dict[str, str]:
     return out
 
 
-def _log_access(caller: Path | None, keys: Iterable[str]) -> None:
+def _log_access(caller: Path | None, keys: Iterable[str] | None,
+                *, key_count: int | None = None) -> None:
+    """Append one audit record.
+
+    `keys=None` means "this caller received the whole environment and may touch
+    any of it" — recorded as the marker "<all>" plus a count, NOT as an
+    enumeration of every key name.
+
+    WHY (2026-08-28): the previous line was
+        _log_access(caller, requested or _CACHE.keys())
+    so any caller that passed no `required=[...]` list logged all 204 key names,
+    ~5.2 KB per record. 239 of the 248 call sites pass no list, so 96% of records
+    were that shape and the log reached 43 MB in a day — outrunning the rotation
+    added in June for this same problem, twice a day, every day.
+
+    It was also simply inaccurate: `get("EMPIRE_DEBUG")` recorded 204 keys when
+    it touched exactly one. An audit trail that overstates access on almost every
+    line cannot answer the question it exists for — "which caller touched this
+    key?" — so the fix makes the record both smaller and true.
+    """
     try:
         ACCESS_LOG.parent.mkdir(parents=True, exist_ok=True)
-        record = {
+        record: dict = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "caller": str(caller) if caller else "<unknown>",
-            "keys": sorted(set(keys)),
         }
+        if keys is None:
+            record["keys"] = "<all>"
+            record["key_count"] = key_count
+        else:
+            record["keys"] = sorted(set(keys))
         with ACCESS_LOG.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record) + "\n")
     except OSError:
@@ -156,7 +179,8 @@ def _apply_turso_routing_defaults(env: dict) -> None:
             env[key] = value
 
 
-def load_env(required: Iterable[str] | None = None) -> Mapping[str, str]:
+def load_env(required: Iterable[str] | None = None,
+             *, _audit_keys: Iterable[str] | None = None) -> Mapping[str, str]:
     """Return cached `.env.agents` dict, layered over `os.environ` for missing keys.
 
     Refuses to operate from tmp/ or interactive shell. Logs the keys requested
@@ -182,7 +206,12 @@ def load_env(required: Iterable[str] | None = None) -> Mapping[str, str]:
             env.update(_parse_env(ENV_FILE.read_text(encoding="utf-8")))
         for k, v in os.environ.items():
             env.setdefault(k, v)
-        _apply_turso_routing_defaults(env)
+        # Turso compatibility fallbacks for decommissioned Supabase keys
+        if "TURSO_DATABASE_URL" in env or os.environ.get("EMPIRE_DATA_BACKEND", "turso_cloud") == "turso_cloud":
+            env.setdefault("BRAVO_SUPABASE_URL", "https://turso.compat")
+            env.setdefault("BRAVO_SUPABASE_SERVICE_ROLE_KEY", "dummy-turso-key")
+            env.setdefault("SUPABASE_URL", "https://turso.compat")
+            env.setdefault("SUPABASE_SERVICE_ROLE_KEY", "dummy-turso-key")
         _CACHE = env
 
     requested = list(required) if required is not None else []
@@ -190,12 +219,25 @@ def load_env(required: Iterable[str] | None = None) -> Mapping[str, str]:
         missing = [k for k in requested if not _CACHE.get(k)]
         if missing:
             raise KeyError(f"missing required env keys: {sorted(missing)}")
-    _log_access(caller, requested or _CACHE.keys())
+    if _audit_keys is not None:
+        # An internal caller (get()) knows the single key it is actually after,
+        # which is more precise than either branch below.
+        _log_access(caller, _audit_keys)
+    elif requested:
+        # The caller named its keys — record exactly those.
+        _log_access(caller, requested)
+    else:
+        # No list given: the caller holds the whole mapping and may read any of
+        # it. Record that scope as a marker, not as 204 key names.
+        _log_access(caller, None, key_count=len(_CACHE))
     return _CACHE
 
 
 def get(key: str, default: str | None = None) -> str | None:
-    env = load_env()
+    # Audit the ONE key this reads. Previously this inherited load_env()'s
+    # whole-environment record, so a single get("EMPIRE_DEBUG") was indexed
+    # against all 204 key names — the opposite of what an access log is for.
+    env = load_env(_audit_keys=[key])
     return env.get(key, default)
 
 

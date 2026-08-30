@@ -164,11 +164,12 @@ def _valid_email(v) -> str:
 
 
 def _ask(business, address, owner, blob) -> dict | None:
-    from lib.claude_cli import run_claude_cli
+    from lib.model_fallback import run_smart_cli
     prompt = PROMPT.format(
         business=business, address=address or "(unknown)",
         owner=owner or "(unknown)") + "\n\nFETCHED CONTENT\n===============\n" + blob[:14000]
-    text = run_claude_cli(prompt, model="haiku", timeout=90)
+    text = run_smart_cli(prompt, model="haiku", timeout=90,
+                         task_type="fast", agent_name="enrich_sheet_inplace")
     if text is None:
         return None
     m = re.search(r"\{.*\}", text, re.DOTALL)
@@ -346,8 +347,9 @@ def main() -> int:
     # otherwise every enrich() returns {} -> write_row blanks columns I:M for each
     # row AND checkpoints it done, silently wiping real phone/email across the whole
     # sheet on a model outage, with no retry (the --resume default skips done rows).
-    from lib.claude_cli import run_claude_cli
-    if run_claude_cli("Reply with: ok", model="haiku", timeout=60) is None:
+    from lib.model_fallback import run_smart_cli
+    if run_smart_cli("Reply with: ok", model="haiku", timeout=60,
+                     task_type="fast", agent_name="enrich_sheet_preflight") is None:
         print("ABORT: claude subscription CLI unavailable — refusing to run so rows "
               "are not blanked (run `claude setup-token`).", file=sys.stderr)
         return 1

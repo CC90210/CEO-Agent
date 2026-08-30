@@ -521,9 +521,11 @@ def test_canonical_nested_bridge_keys_are_backed_by_real_subcommands():
     manifest = bbm.build_manifest()
     entries = {entry["key"]: entry for entry in manifest["entries"]}
     expected = {
-        "supabase_select": ("scripts/integrations/supabase_tool.py", "select", False),
-        "supabase_insert": ("scripts/integrations/supabase_tool.py", "insert", True),
-        "supabase_sql": ("scripts/integrations/supabase_tool.py", "query", True),
+        # turso_* replaced supabase_* at the 2026-08-09 Turso cutover: the
+        # supabase compat shim sets bridge visible: False, which excludes ALL
+        # of its subcommand keys from the manifest (asserted absent below).
+        "turso_status": ("scripts/integrations/turso_tool.py", "status", False),
+        "turso_tables": ("scripts/integrations/turso_tool.py", "tables", False),
         "send_gateway_send": ("scripts/integrations/send_gateway.py", "send", True),
         "cloak_browser_scrape": ("scripts/browser/cloak_browser_tool.py", "scrape", False),
         "cloak_browser_check_stealth": (
@@ -547,7 +549,10 @@ def test_canonical_nested_bridge_keys_are_backed_by_real_subcommands():
     for nonexistent in ("send_gateway_queue", "send_gateway_list", "send_gateway_pending"):
         assert nonexistent not in entries
 
-    assert "supabase_delete" not in entries
+    # The deprecated supabase compat shim is bridge-hidden wholesale.
+    for retired in ("supabase_select", "supabase_insert", "supabase_sql",
+                    "supabase_update", "supabase_delete"):
+        assert retired not in entries
     assert "cloak_browser_clear_cache" not in entries
 
 

@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-08T16:49:33.351347+00:00",
+  "generated_at": "2026-08-29T04:05:44.555089+00:00",
   "totals": {
-    "skills": 156,
-    "scripts": 133,
+    "skills": 163,
+    "scripts": 188,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 380,
-    "edges_total": 155,
+    "nodes_total": 442,
+    "edges_total": 212,
     "drift_count": 0
   },
   "nodes": [
@@ -269,6 +269,50 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:architecture-migration-gate",
+      "kind": "skill",
+      "name": "architecture-migration-gate",
+      "path": "skills/architecture-migration-gate/SKILL.md",
+      "description": "Fires during any architectural migration (DB, hosting, framework swap). Generates a documentation impact manifest pre-migration and enforces a doc sweep post-migration so no brain/memory file is left with stale references.",
+      "tier": "core",
+      "owner": "bravo",
+      "risk": "normal",
+      "triggers": [
+        "migrate",
+        "migration",
+        "cut over",
+        "cutover",
+        "switch backend",
+        "replace database",
+        "decommission",
+        "deprecate component",
+        "swap framework",
+        "change hosting",
+        "doc sweep",
+        "documentation drift",
+        "stale references",
+        "architecture change"
+      ],
+      "tags": [
+        "architecture",
+        "migration",
+        "documentation",
+        "integrity",
+        "gate"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:auto-generated",
       "kind": "skill",
       "name": "auto-generated",
@@ -333,7 +377,7 @@
       "kind": "skill",
       "name": "booking-management",
       "path": "skills/booking-management/SKILL.md",
-      "description": "Manage discovery call scheduling using booking_engine.py \u2014 a self-hosted Cal.com replacement backed by Supabase. Covers opening slots, booking leads, sending reminders, and completing meetings.",
+      "description": "Manage discovery call scheduling using booking_engine.py \u2014 a self-hosted Cal.com replacement backed by Turso (via supabase-compat shim). Covers opening slots, booking leads, sending reminders, and completing meetings.",
       "tier": "standard",
       "owner": "bravo",
       "risk": "low",
@@ -834,6 +878,59 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:cross-agent-coordination",
+      "kind": "skill",
+      "name": "cross-agent-coordination",
+      "path": "skills/cross-agent-coordination/SKILL.md",
+      "description": "Use when editing any file in a repo Adon/APEX also touches, or when reviewing APEX's pull requests on surfaces Bravo owns (oasis-command-center above all), when starting work on a shared surface, when a coord_guard block appears, when handing work to or from APEX, or when a peer ",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "claim file",
+        "file lease",
+        "coord guard",
+        "coord_guard blocked",
+        "APEX",
+        "Adon agent",
+        "cross-agent collision",
+        "peer claim",
+        "peer lease",
+        "shared repo edit",
+        "agent overlap",
+        "release claim",
+        "who owns this file",
+        "coordinate with APEX",
+        "peer blocked",
+        "agent handoff",
+        "migration collision",
+        "review APEX PR",
+        "APEX changed my file",
+        "cross agent review",
+        "APEX pull request",
+        "ownership map"
+      ],
+      "tags": [
+        "skill",
+        "coordination",
+        "apex",
+        "bravo",
+        "multi-agent",
+        "leases"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:currency-audit",
       "kind": "skill",
       "name": "currency-audit",
@@ -890,6 +987,40 @@
       ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:decisions",
+      "kind": "skill",
+      "name": "decisions",
+      "path": "skills/decisions/SKILL.md",
+      "description": "Surface the choices made during the current work that the agent is genuinely NOT confident about, with the alternatives that were not considered. Use before shipping, before a review, or when CC asks \"what did you decide\", \"what are you unsure about\", \"/decisions\". Retrospective ",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "decisions",
+        "what did you decide",
+        "what are you unsure about",
+        "low confidence choices",
+        "second guess this"
+      ],
+      "tags": [
+        "skill",
+        "decisions",
+        "review",
+        "self-audit"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -2596,6 +2727,42 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:handoff",
+      "kind": "skill",
+      "name": "handoff",
+      "path": "skills/handoff/SKILL.md",
+      "description": "Compact the current session into one paste-ready block a fresh agent can resume from \u2014 what happened, why, what is left, and what NOT to redo. Use when hitting context limits, ending a work session, switching runtimes (Claude to Gemini/Codex/OpenCode), or partitioning a task acro",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "handoff",
+        "hand off",
+        "fresh session",
+        "context limit",
+        "switch runtime",
+        "resume elsewhere",
+        "pass this on"
+      ],
+      "tags": [
+        "skill",
+        "handoff",
+        "session",
+        "continuity"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:harness-refinement",
       "kind": "skill",
       "name": "harness-refinement",
@@ -4035,7 +4202,7 @@
       "kind": "skill",
       "name": "security-protocol",
       "path": "skills/security-protocol/SKILL.md",
-      "description": "Secrets and authentication management. Ensures API keys, tokens, and credentials are NEVER exposed in plain text. Use when handling any credential, API key, or sensitive configuration.",
+      "description": "Application security protocol. Credential handling plus the 20-Point Vibe-Security Matrix \u2014 the mechanical audit for the twenty defects that recur in AI-generated code (RLS off, IDOR, unverified webhooks, client-side authz, injection, XSS, unvalidated uploads). Use when handling ",
       "tier": "core",
       "owner": "bravo",
       "risk": "low",
@@ -4049,7 +4216,25 @@
         "token",
         "password",
         "leak",
-        "gitguardian"
+        "gitguardian",
+        "security audit",
+        "vulnerability",
+        "vulnerabilities",
+        "audit codebase",
+        "harden",
+        "RLS",
+        "row level security",
+        "IDOR",
+        "XSS",
+        "CORS",
+        "SQL injection",
+        "webhook signature",
+        "rate limit",
+        "input validation",
+        "file upload",
+        "OWASP",
+        "pentest",
+        "vibe-code security"
       ],
       "tags": [
         "skill",
@@ -4264,6 +4449,42 @@
       ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:setup-help",
+      "kind": "skill",
+      "name": "setup-help",
+      "path": "skills/setup-help/SKILL.md",
+      "description": "Walk CC through an operator-blocked setup ONE atomic step at a time, always listing what remains. Use when CC must do something the agent cannot \u2014 a dashboard signup, a DNS record, a bank or Plaid approval, an OAuth consent, a VPS action, an entity or counsel step. Triggers on \"h",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "help me set up",
+        "walk me through",
+        "how do I set up",
+        "setup help",
+        "configure this",
+        "get this working",
+        "what do I do next"
+      ],
+      "tags": [
+        "skill",
+        "setup-help",
+        "operator",
+        "onboarding"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": true,
       "argument_hint": null,
       "requires": {
         "env": [],
@@ -4804,6 +5025,45 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:turso-patterns",
+      "kind": "skill",
+      "name": "turso-patterns",
+      "path": "skills/turso-patterns/SKILL.md",
+      "description": "Use when working on the Supabase \u2192 Turso (libSQL) migration \u2014 transpiling schema, porting RPCs/views, flipping an app's backend, or verifying a migrated database. Encodes the failures this migration actually hit.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "turso",
+        "libsql",
+        "turso migration",
+        "supabase to turso",
+        "transpile schema",
+        "port rpc",
+        "turso verify",
+        "sqlite migration"
+      ],
+      "tags": [
+        "turso",
+        "libsql",
+        "migration",
+        "database",
+        "sqlite",
+        "supabase"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:using-git-worktrees",
       "kind": "skill",
       "name": "using-git-worktrees",
@@ -4937,7 +5197,7 @@
       "kind": "skill",
       "name": "vibe-to-execution",
       "path": "skills/vibe-to-execution/SKILL.md",
-      "description": "Translate an informal brain dump or voice transcript into a turnkey, production-grade execution blueprint \u2014 resolved domain vocabulary, DB/API contracts, UI interaction design, and the exact CLI/tool routing. Use when CC describes what he wants in loose prose rather than a spec, ",
+      "description": "Translate an informal brain dump, voice transcript, or screenshot into a turnkey, production-grade execution blueprint \u2014 an interactive clarification pass that asks CC every high-leverage question (up to 4) before building, Opus 5 execution contract, resolved domain vocabulary, v",
       "tier": "strategic",
       "owner": "bravo",
       "risk": "low",
@@ -4948,6 +5208,7 @@
         "turn this into a spec",
         "translate this into a build",
         "make this a system message",
+        "write me a system prompt",
         "what i mean is",
         "here is the vibe"
       ],
@@ -4957,7 +5218,8 @@
         "architecture",
         "blueprint",
         "prompt-engineering",
-        "anti-slop"
+        "anti-slop",
+        "opus5"
       ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
@@ -5060,6 +5322,55 @@
         "webapp-testing"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:webgl-product-render",
+      "kind": "skill",
+      "name": "webgl-product-render",
+      "path": "skills/webgl-product-render/SKILL.md",
+      "description": "Build and debug photoreal procedural 3D product visualisers in three.js \u2014 environment lighting, PBR materials, camera choreography, and the specific defects that survive code review but ruin the render. Use when a 3D model reads as rudimentary or cheap, when camera focus lands on",
+      "tier": "tool",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "3d model looks rudimentary",
+        "car looks cheap",
+        "three.js",
+        "threejs",
+        "webgl scene",
+        "product visualiser",
+        "3d hero",
+        "camera focus wrong",
+        "camera framing 3d",
+        "orbit controls",
+        "hotspot camera",
+        "geometry clipping",
+        "parts floating",
+        "photoreal render",
+        "env map",
+        "pbr materials",
+        "make the 3d look real"
+      ],
+      "tags": [
+        "tool",
+        "3d",
+        "threejs",
+        "webgl",
+        "render",
+        "frontend",
+        "camera"
+      ],
+      "status": "[NEW]",
       "disable_model_invocation": false,
       "argument_hint": null,
       "requires": {
@@ -5193,7 +5504,27 @@
       "kind": "script",
       "name": "apply_migration",
       "path": "scripts/apply_migration.py",
-      "description": "Apply SQL migration files to the Bravo Supabase project.",
+      "description": "Apply SQL migration files to the Bravo legacy Supabase project.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:apply_missing_tables",
+      "kind": "script",
+      "name": "apply_missing_tables",
+      "path": "scripts/apply_missing_tables.py",
+      "description": "Create tables that exist in Postgres but not yet in Turso.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:apply_turso_migration",
+      "kind": "script",
+      "name": "apply_turso_migration",
+      "path": "scripts/apply_turso_migration.py",
+      "description": "Apply transpiled libSQL DDL to a Turso database (or a local libSQL file).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5259,11 +5590,21 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:backfill_financial_labels",
+      "kind": "script",
+      "name": "backfill_financial_labels",
+      "path": "scripts/backfill_financial_labels.py",
+      "description": "Backfill Gmail labels onto financial mail that was never filed.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:booking_engine",
       "kind": "script",
       "name": "booking_engine",
       "path": "scripts/booking_engine.py",
-      "description": "Booking Engine - Self-hosted scheduling system replacing Cal.com. Zero paid services. Backed by Supabase (bravo project). All credentials loaded from .env.agents (never hardcoded).",
+      "description": "Booking Engine - Self-hosted scheduling system replacing Cal.com. Zero paid services. Backed by Turso/libSQL (bravo DB, via supabase-compat shim; pre-2026-08: Supabase). All credentials loaded from .env.agents (never hardcoded).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5469,11 +5810,31 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:check_migration_collision",
+      "kind": "script",
+      "name": "check_migration_collision",
+      "path": "scripts/check_migration_collision.py",
+      "description": "check_migration_collision \u2014 reserve a migration number before you take it.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:check_vercel_deployments",
+      "kind": "script",
+      "name": "check_vercel_deployments",
+      "path": "scripts/check_vercel_deployments.py",
+      "description": "Check vercel deployments.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:client_health",
       "kind": "script",
       "name": "client_health",
       "path": "scripts/client_health.py",
-      "description": "Client health \u2014 provides load env.",
+      "description": "Client Health Scoring Engine \u2014 CEO Dashboard Component.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5561,6 +5922,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:create_turso_indexes",
+      "kind": "script",
+      "name": "create_turso_indexes",
+      "path": "scripts/create_turso_indexes.py",
+      "description": "Create turso indexes \u2014 provides main.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:critic_template_check",
       "kind": "script",
       "name": "critic_template_check",
@@ -5575,7 +5946,17 @@
       "kind": "script",
       "name": "crm_reset",
       "path": "scripts/crm_reset.py",
-      "description": "crm_reset.py \u2014 archive cold/dead leads from the bravo Supabase CRM.",
+      "description": "crm_reset.py \u2014 archive cold/dead leads from the bravo CRM (Turso via supabase-compat shim).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:cross_agent_review",
+      "kind": "script",
+      "name": "cross_agent_review",
+      "path": "scripts/cross_agent_review.py",
+      "description": "cross_agent_review \u2014 Bravo reviews APEX's PRs on surfaces Bravo owns.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5611,6 +5992,42 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:db_snapshot",
+      "kind": "script",
+      "name": "db_snapshot",
+      "path": "scripts/db_snapshot.py",
+      "description": "Database restore-point tool \u2014 the enforcer behind V9.0 Defense #5.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "database snapshot",
+        "restore point before migration",
+        "verify database backup",
+        "schema baseline"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": false,
+        "subcommands": {
+          "create": {
+            "key": "db_snapshot_create",
+            "visible": true,
+            "confirm": false
+          },
+          "verify": {
+            "key": "db_snapshot_verify",
+            "visible": true,
+            "confirm": false
+          }
+        }
+      }
+    },
+    {
       "id": "script:deploy_refinement",
       "kind": "script",
       "name": "deploy_refinement",
@@ -5632,6 +6049,16 @@
         "visible": false,
         "confirm": true
       }
+    },
+    {
+      "id": "script:detect_shared_repos",
+      "kind": "script",
+      "name": "detect_shared_repos",
+      "path": "scripts/detect_shared_repos.py",
+      "description": "detect_shared_repos \u2014 find app repos that BOTH agents commit to, and are unmapped.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:dns_reputation",
@@ -5746,6 +6173,46 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:etl_auth_to_turso",
+      "kind": "script",
+      "name": "etl_auth_to_turso",
+      "path": "scripts/etl_auth_to_turso.py",
+      "description": "Preserve Supabase auth.users + auth.identities into each Turso database.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:etl_storage_archive",
+      "kind": "script",
+      "name": "etl_storage_archive",
+      "path": "scripts/etl_storage_archive.py",
+      "description": "Archive Supabase Storage buckets to local disk, with a verifiable manifest.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:etl_storage_to_r2",
+      "kind": "script",
+      "name": "etl_storage_to_r2",
+      "path": "scripts/etl_storage_to_r2.py",
+      "description": "Publish the archived Supabase Storage objects to Cloudflare R2, then repoint every database row that references them.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:etl_supabase_to_turso",
+      "kind": "script",
+      "name": "etl_supabase_to_turso",
+      "path": "scripts/etl_supabase_to_turso.py",
+      "description": "Supabase \u2192 Turso row ETL, with primary-key parity verification.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:financial_model",
       "kind": "script",
       "name": "financial_model",
@@ -5756,11 +6223,41 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:fix_cc_leads_records",
+      "kind": "script",
+      "name": "fix_cc_leads_records",
+      "path": "scripts/fix_cc_leads_records.py",
+      "description": "Fix and update existing tenant_records for CC Trade Leads.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:fix_trade_leads_enrichment",
+      "kind": "script",
+      "name": "fix_trade_leads_enrichment",
+      "path": "scripts/fix_trade_leads_enrichment.py",
+      "description": "fix_trade_leads_enrichment.py \u2014 Enrich and clean up all CC Trade Leads in Turso.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:fleet_health",
       "kind": "script",
       "name": "fleet_health",
       "path": "scripts/fleet_health.py",
       "description": "fleet_health.py \u2014 Cross-agent health rollup.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:fleet_health_check",
+      "kind": "script",
+      "name": "fleet_health_check",
+      "path": "scripts/fleet_health_check.py",
+      "description": "Fleet health \u2014 is every app serving, on every hostname it actually answers on?",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5816,6 +6313,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:generate_contractor_agreement",
+      "kind": "script",
+      "name": "generate_contractor_agreement",
+      "path": "scripts/generate_contractor_agreement.py",
+      "description": "generate_contractor_agreement \u2014 render an OASIS contractor agreement.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:generate_covers",
       "kind": "script",
       "name": "generate_covers",
@@ -5826,11 +6333,31 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:generate_sales_doc",
+      "kind": "script",
+      "name": "generate_sales_doc",
+      "path": "scripts/generate_sales_doc.py",
+      "description": "Generate sales doc \u2014 provides build html content.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:genome_sync",
       "kind": "script",
       "name": "genome_sync",
       "path": "scripts/genome_sync.py",
       "description": "genome_sync.py \u2014 stamp the germline seed (PERSONAL.md) into every runtime entry point.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:git_push_tool",
+      "kind": "script",
+      "name": "git_push_tool",
+      "path": "scripts/git_push_tool.py",
+      "description": "git_push_tool \u2014 push a branch using the PAT from `.env.agents`, without the token ever reaching the agent's context, the shell history, or the repo.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5866,6 +6393,26 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:ingest_training_link",
+      "kind": "script",
+      "name": "ingest_training_link",
+      "path": "scripts/ingest_training_link.py",
+      "description": "ingest_training_link \u2014 turn a dropped link into something Maven can learn from.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:install_python_switch",
+      "kind": "script",
+      "name": "install_python_switch",
+      "path": "scripts/install_python_switch.py",
+      "description": "Install the Turso data-backend switch into the active venv.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:integration_health",
       "kind": "script",
       "name": "integration_health",
@@ -5880,7 +6427,17 @@
       "kind": "script",
       "name": "lead_engine",
       "path": "scripts/lead_engine.py",
-      "description": "Lead Engine - OASIS AI CRM CLI Zero-paid-service lead management backed by Supabase (project: bravo). Replaces ManyChat, HubSpot, and every other CRM CC doesn't need to pay for.",
+      "description": "Lead Engine - OASIS AI CRM CLI Zero-paid-service lead management backed by Turso/libSQL (bravo DB, via supabase-compat shim; pre-2026-08: Supabase project bravo). Replaces ManyChat, HubSpot, and every other CRM CC doesn't need to pay for.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:link_library_to_posts",
+      "kind": "script",
+      "name": "link_library_to_posts",
+      "path": "scripts/link_library_to_posts.py",
+      "description": "link_library_to_posts \u2014 join the Library to the posts that actually went out.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5916,11 +6473,41 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:marketing_publish_drain",
+      "kind": "script",
+      "name": "marketing_publish_drain",
+      "path": "scripts/marketing_publish_drain.py",
+      "description": "marketing_publish_drain \u2014 turn queued publish intents into published posts.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:md_to_gdoc",
       "kind": "script",
       "name": "md_to_gdoc",
       "path": "scripts/md_to_gdoc.py",
       "description": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:merge_assets_to_carousel",
+      "kind": "script",
+      "name": "merge_assets_to_carousel",
+      "path": "scripts/merge_assets_to_carousel.py",
+      "description": "merge_assets_to_carousel \u2014 collapse N single images into one swipeable deck.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:migrate_carousels",
+      "kind": "script",
+      "name": "migrate_carousels",
+      "path": "scripts/migrate_carousels.py",
+      "description": "migrate_carousels \u2014 register the carousel slides that were never uploaded.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5953,6 +6540,16 @@
       "name": "migrate_subprocess_calls",
       "path": "scripts/migrate_subprocess_calls.py",
       "description": "One-shot codemod: migrate raw subprocess.{Popen,run,...} calls to safe_run/safe_popen from _subprocess_helpers, OR add creationflags where the migration would be too invasive.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:migration_completeness_audit",
+      "kind": "script",
+      "name": "migration_completeness_audit",
+      "path": "scripts/migration_completeness_audit.py",
+      "description": "THE answer to \"is every single piece of data migrated off Supabase?\"",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6062,7 +6659,7 @@
       "kind": "script",
       "name": "outreach_engine",
       "path": "scripts/outreach_engine.py",
-      "description": "Outreach Engine - Personalized email outreach with Google Meet + .ics invite. Zero n8n dependency. Gmail SMTP directly. Supabase for logging and history. All credentials loaded from .env.agents (never hardcoded).",
+      "description": "Outreach Engine - Personalized email outreach with Google Meet + .ics invite. Zero n8n dependency. Gmail SMTP directly. Turso (via supabase-compat shim) for logging and history. All credentials loaded from .env.agents (never hardcoded).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6178,7 +6775,17 @@
       "kind": "script",
       "name": "provision_client_tenant",
       "path": "scripts/provision_client_tenant.py",
-      "description": "Provision a client tenant in Supabase: create the auth user with email pre-confirmed, then create/patch a tenant + user_profile using the same brand-hint provisioning logic as the dashboard's /api/auth/provision route (lib/client-provisioning.ts).",
+      "description": "Provision a client tenant: create the auth user with email pre-confirmed, then create/patch a tenant + user_profile using the same brand-hint provisioning logic as the dashboard's /api/auth/provision route (lib/client-provisioning.ts). Backend: Turso via supabase-compat shim (pre",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:provision_maven_telegram",
+      "kind": "script",
+      "name": "provision_maven_telegram",
+      "path": "scripts/provision_maven_telegram.py",
+      "description": "provision_maven_telegram.py -- give Maven the Telegram recipient it has never had.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6194,6 +6801,26 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:prune_merged_branches",
+      "kind": "script",
+      "name": "prune_merged_branches",
+      "path": "scripts/prune_merged_branches.py",
+      "description": "prune_merged_branches \u2014 delete remote branches whose commits are already in main.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:publish_ownership_map",
+      "kind": "script",
+      "name": "publish_ownership_map",
+      "path": "scripts/publish_ownership_map.py",
+      "description": "publish_ownership_map \u2014 keep the shared copy of OWNERSHIP_MAP.yaml honest.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:pulse_publish",
       "kind": "script",
       "name": "pulse_publish",
@@ -6204,11 +6831,43 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:purge_junk_leads",
+      "kind": "script",
+      "name": "purge_junk_leads",
+      "path": "scripts/purge_junk_leads.py",
+      "description": "Retire CRM rows that were never leads.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "lead.data_operations",
+      "lifecycle": "one_off",
+      "risk": "external_write",
+      "triggers": [
+        "purge junk leads",
+        "retire junk leads",
+        "clean the crm"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
       "id": "script:quest_publisher",
       "kind": "script",
       "name": "quest_publisher",
       "path": "scripts/quest_publisher.py",
-      "description": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table.",
+      "description": "Publish memory/ACTIVE_TASKS.md tasks to the `oasis_quests` table (Turso via supabase-compat shim).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:r2_split_public_bucket",
+      "kind": "script",
+      "name": "r2_split_public_bucket",
+      "path": "scripts/r2_split_public_bucket.py",
+      "description": "Split the migrated objects into a private and a public R2 bucket.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6222,6 +6881,29 @@
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:receipts_audit",
+      "kind": "script",
+      "name": "receipts_audit",
+      "path": "scripts/receipts_audit.py",
+      "description": "Receipts audit \u2014 reconcile the mailbox against the financial pipeline.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "governance.finance",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "audit the mailbox for missed receipts",
+        "reconcile financial emails against the receipts ledger",
+        "backfill missed expense emails to atlas"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": true
+      }
     },
     {
       "id": "script:region_inference",
@@ -6249,6 +6931,16 @@
       "name": "register_skill",
       "path": "scripts/register_skill.py",
       "description": "Register Skill \u2014 the skill-onboarding tool.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:repair_turso_fk_actions",
+      "kind": "script",
+      "name": "repair_turso_fk_actions",
+      "path": "scripts/repair_turso_fk_actions.py",
+      "description": "Restore the ON DELETE / ON UPDATE actions the transpiler dropped.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6288,7 +6980,7 @@
       "kind": "script",
       "name": "revenue_engine",
       "path": "scripts/revenue_engine.py",
-      "description": "Revenue Engine - OASIS Business Operations CLI Combines Stripe subscription data with Supabase manual tracking. All credentials loaded from .env.agents (never hardcoded).",
+      "description": "Revenue Engine - OASIS Business Operations CLI Combines Stripe subscription data with Turso-backed manual tracking (via supabase-compat shim). All credentials loaded from .env.agents (never hardcoded).",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6324,6 +7016,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:rewrite_image_pointers",
+      "kind": "script",
+      "name": "rewrite_image_pointers",
+      "path": "scripts/rewrite_image_pointers.py",
+      "description": "Point image columns at the app's media route instead of an r2.dev host.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:rlhf_outreach",
       "kind": "script",
       "name": "rlhf_outreach",
@@ -6332,6 +7034,28 @@
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:run_dashboard_script",
+      "kind": "script",
+      "name": "run_dashboard_script",
+      "path": "scripts/run_dashboard_script.py",
+      "description": "run_dashboard_script.py \u2014 run any oasis-command-center TS script with creds.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.oasis",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "run a dashboard script",
+        "execute oasis-command-center tsx script",
+        "probe the dashboard database path"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
     },
     {
       "id": "script:run_reseed_sunbiz_forms",
@@ -6356,11 +7080,44 @@
       }
     },
     {
+      "id": "script:run_seed_oasis_forms",
+      "kind": "script",
+      "name": "run_seed_oasis_forms",
+      "path": "scripts/run_seed_oasis_forms.py",
+      "description": "run_seed_oasis_forms.py \u2014 inject service-role creds and re-seed the LIVE OASIS funnel forms (the /start funnel and the AI-audit funnel).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.oasis",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "reseed oasis forms",
+        "deploy oasis funnel form",
+        "refresh live oasis forms",
+        "push form field changes live"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
       "id": "script:run_sql_via_mgmt_api",
       "kind": "script",
       "name": "run_sql_via_mgmt_api",
       "path": "scripts/run_sql_via_mgmt_api.py",
       "description": "One-shot: run a SQL file against oasis via the Supabase Management API.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:run_tests",
+      "kind": "script",
+      "name": "run_tests",
+      "path": "scripts/run_tests.py",
+      "description": "Run pytest on the repo's own interpreter, over the repo's own testpaths.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6406,6 +7163,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:scrape_cc_trade_leads",
+      "kind": "script",
+      "name": "scrape_cc_trade_leads",
+      "path": "scripts/scrape_cc_trade_leads.py",
+      "description": "Scrape, enrich, and import 100 local trade business leads for CC.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:scrape_firecrawl_leads",
       "kind": "script",
       "name": "scrape_firecrawl_leads",
@@ -6416,11 +7183,31 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:scrape_website_sales_leads",
+      "kind": "script",
+      "name": "scrape_website_sales_leads",
+      "path": "scripts/scrape_website_sales_leads.py",
+      "description": "Website-sales lead scraper \u2014 fills the oasis-webdev pipeline at stage 'researched'.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:security_audit",
       "kind": "script",
       "name": "security_audit",
       "path": "scripts/security_audit.py",
       "description": "Empire-wide security audit. Seven independent scans, one report.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:seed_cc_leads_turso",
+      "kind": "script",
+      "name": "seed_cc_leads_turso",
+      "path": "scripts/seed_cc_leads_turso.py",
+      "description": "Seed CC Leads into leadgen_territories and tenant_records with REAL WEBDEV_TENANT_ID contract.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6473,6 +7260,16 @@
       "name": "set_secret",
       "path": "scripts/set_secret.py",
       "description": "set_secret.py \u2014 safely set keys in .env.agents without an editor.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:set_vercel_calendar_env",
+      "kind": "script",
+      "name": "set_vercel_calendar_env",
+      "path": "scripts/set_vercel_calendar_env.py",
+      "description": "Push the OASIS workspace Google Calendar credentials to Vercel Production.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6565,11 +7362,41 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:supabase_cancellation_gate",
+      "kind": "script",
+      "name": "supabase_cancellation_gate",
+      "path": "scripts/supabase_cancellation_gate.py",
+      "description": "Can Supabase be cancelled? One command, one answer, no judgement calls.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:sync_post_analytics",
+      "kind": "script",
+      "name": "sync_post_analytics",
+      "path": "scripts/sync_post_analytics.py",
+      "description": "sync_post_analytics \u2014 pull what the work actually did into post_analytics.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:system_health",
       "kind": "script",
       "name": "system_health",
       "path": "scripts/system_health.py",
       "description": "system_health \u2014 the Loud-Failures probe (V7 EPIC 7).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:telegram_identity_audit",
+      "kind": "script",
+      "name": "telegram_identity_audit",
+      "path": "scripts/telegram_identity_audit.py",
+      "description": "Resolve every Telegram alert lane to its ACTUAL destination.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6595,6 +7422,36 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:turso_cred_fingerprint",
+      "kind": "script",
+      "name": "turso_cred_fingerprint",
+      "path": "scripts/turso_cred_fingerprint.py",
+      "description": "Fingerprint the Turso credentials so two machines can be compared safely.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:turso_lossy_audit",
+      "kind": "script",
+      "name": "turso_lossy_audit",
+      "path": "scripts/turso_lossy_audit.py",
+      "description": "Check that everything the transpiler could not port has actually been dealt with.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:turso_vps_bundle",
+      "kind": "script",
+      "name": "turso_vps_bundle",
+      "path": "scripts/turso_vps_bundle.py",
+      "description": "Write the VPS's Turso credentials to a file for scp, and fingerprint them.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:update_readme_stats",
       "kind": "script",
       "name": "update_readme_stats",
@@ -6603,6 +7460,39 @@
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:vercel_turso_cutover",
+      "kind": "script",
+      "name": "vercel_turso_cutover",
+      "path": "scripts/vercel_turso_cutover.py",
+      "description": "Put the Turso / R2 cutover variables on the Vercel projects.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:weekly_truth_digest",
+      "kind": "script",
+      "name": "weekly_truth_digest",
+      "path": "scripts/weekly_truth_digest.py",
+      "description": "Weekly full-truth harness digest, always delivered to CC's private Telegram.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "governance.health",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "run the weekly full truth health digest",
+        "report complete harness health",
+        "check self audit fleet health and all tests"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": true
+      }
     },
     {
       "id": "script:wiki_link_auditor",
@@ -6830,6 +7720,117 @@
       }
     },
     {
+      "id": "script:ig_closer",
+      "kind": "script",
+      "name": "ig_closer",
+      "path": "scripts/integrations/ig_closer.py",
+      "description": "ig_closer.py \u2014 the Instagram DM close loop: slot -> Google Meet -> email -> Telegram.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "sales.booking",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "close an instagram dm lead",
+        "book the instagram prospect",
+        "ig dm close loop",
+        "instagram dm booking"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:ig_conversation_brain",
+      "kind": "script",
+      "name": "ig_conversation_brain",
+      "path": "scripts/integrations/ig_conversation_brain.py",
+      "description": "ig_conversation_brain.py \u2014 the conversational brain behind the OASIS Instagram DMs.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "instagram dm brain",
+        "ig conversation brain",
+        "dm reply decision"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:ig_dm_daemon",
+      "kind": "script",
+      "name": "ig_dm_daemon",
+      "path": "scripts/integrations/ig_dm_daemon.py",
+      "description": "ig_dm_daemon.py \u2014 a dedicated loop for the Instagram DM setter.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "instagram dm daemon",
+        "run the dm setter",
+        "ig setter loop"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": true
+      }
+    },
+    {
+      "id": "script:ig_dm_state",
+      "kind": "script",
+      "name": "ig_dm_state",
+      "path": "scripts/integrations/ig_dm_state.py",
+      "description": "ig_dm_state.py \u2014 the Instagram DM closer's memory. The ONLY module here that writes SQL.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "instagram dm state",
+        "dm conversation state",
+        "ig handoffs"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:instagram_dm_poller",
+      "kind": "script",
+      "name": "instagram_dm_poller",
+      "path": "scripts/integrations/instagram_dm_poller.py",
+      "description": "instagram_dm_poller.py \u2014 run OASIS Instagram DMs like a human closer.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "instagram dm automation",
+        "poll instagram dms",
+        "answer instagram dms"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": true
+      }
+    },
+    {
       "id": "script:send_gateway",
       "kind": "script",
       "name": "send_gateway",
@@ -6881,22 +7882,20 @@
       "kind": "script",
       "name": "supabase_tool",
       "path": "scripts/integrations/supabase_tool.py",
-      "description": "Supabase SDK Integration \u2014 Universal Agent Tool Replaces the broken Supabase MCP server with direct Python SDK access. All credentials loaded from .env.agents (never hardcoded).",
+      "description": "Deprecated filename-compatible database CLI.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-capability-meta",
-      "category": "data.supabase",
-      "lifecycle": "active",
+      "category": "data.turso_compat",
+      "lifecycle": "deprecated",
       "risk": "destructive",
       "triggers": [
-        "query Supabase",
-        "select database rows",
-        "insert database row",
-        "update database rows"
+        "run the deprecated supabase_tool compatibility CLI",
+        "diagnose the Turso Supabase SDK shim"
       ],
       "project": "empire",
       "bridge": {
-        "visible": true,
+        "visible": false,
         "confirm": true,
         "subcommands": {
           "list-projects": {
@@ -6926,6 +7925,57 @@
             "key": "supabase_sql",
             "visible": true,
             "confirm": true
+          }
+        }
+      }
+    },
+    {
+      "id": "script:turso_tool",
+      "kind": "script",
+      "name": "turso_tool",
+      "path": "scripts/integrations/turso_tool.py",
+      "description": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "data.turso",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "query the empire database",
+        "select database rows",
+        "inspect Turso tables",
+        "check the live database status"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": false,
+        "subcommands": {
+          "status": {
+            "key": "turso_status",
+            "visible": true,
+            "confirm": false
+          },
+          "tables": {
+            "key": "turso_tables",
+            "visible": true,
+            "confirm": false
+          },
+          "schema": {
+            "key": "turso_schema",
+            "visible": true,
+            "confirm": false
+          },
+          "select": {
+            "key": "turso_select",
+            "visible": true,
+            "confirm": false
+          },
+          "sql": {
+            "key": "turso_sql_read",
+            "visible": true,
+            "confirm": false
           }
         }
       }
@@ -8339,7 +9389,42 @@
     },
     {
       "from": "runtime:cron_engine",
+      "to": "script:cross_agent_review",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
       "to": "script:harness_eval",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:ingest_training_link",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:instagram_dm_poller",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:link_library_to_posts",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:marketing_publish_drain",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:pulse_publish",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:receipts_audit",
       "kind": "schedules"
     },
     {
@@ -8354,7 +9439,22 @@
     },
     {
       "from": "runtime:cron_engine",
+      "to": "script:sibling_repos",
+      "kind": "calls"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:sync_post_analytics",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
       "to": "script:system_health",
+      "kind": "schedules"
+    },
+    {
+      "from": "runtime:cron_engine",
+      "to": "script:weekly_truth_digest",
       "kind": "schedules"
     },
     {
@@ -8380,6 +9480,11 @@
     {
       "from": "script:agent_inbox",
       "to": "script:sibling_repos",
+      "kind": "calls"
+    },
+    {
+      "from": "script:apply_missing_tables",
+      "to": "script:apply_turso_migration",
       "kind": "calls"
     },
     {
@@ -8439,16 +9544,6 @@
     },
     {
       "from": "script:ceo_dashboard",
-      "to": "script:client_health",
-      "kind": "calls"
-    },
-    {
-      "from": "script:ceo_dashboard",
-      "to": "script:lead_engine",
-      "kind": "calls"
-    },
-    {
-      "from": "script:ceo_dashboard",
       "to": "script:revenue_engine",
       "kind": "calls"
     },
@@ -8498,6 +9593,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:cross_agent_review",
+      "to": "script:review_harvest",
+      "kind": "calls"
+    },
+    {
       "from": "script:daily_brief",
       "to": "script:notify",
       "kind": "calls"
@@ -8510,6 +9610,16 @@
     {
       "from": "script:dashboard_email_consumer",
       "to": "script:email_template",
+      "kind": "calls"
+    },
+    {
+      "from": "script:db_snapshot",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:db_snapshot",
+      "to": "script:supabase_tool",
       "kind": "calls"
     },
     {
@@ -8568,6 +9678,21 @@
       "kind": "calls"
     },
     {
+      "from": "script:etl_storage_archive",
+      "to": "script:etl_supabase_to_turso",
+      "kind": "calls"
+    },
+    {
+      "from": "script:etl_supabase_to_turso",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:fix_cc_leads_records",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
       "from": "script:funnel_nurture",
       "to": "script:name_utils",
       "kind": "calls"
@@ -8588,8 +9713,113 @@
       "kind": "calls"
     },
     {
+      "from": "script:ig_closer",
+      "to": "script:book_discovery_call",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_closer",
+      "to": "script:email_playbook",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_closer",
+      "to": "script:ig_conversation_brain",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_closer",
+      "to": "script:ig_dm_state",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_closer",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_closer",
+      "to": "script:send_gateway",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_conversation_brain",
+      "to": "script:draft_critic",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_conversation_brain",
+      "to": "script:email_playbook",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_conversation_brain",
+      "to": "script:inbound_classifier",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ig_dm_daemon",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:ig_dm_state",
+      "to": "script:ig_conversation_brain",
+      "kind": "calls"
+    },
+    {
       "from": "script:inbound_classifier",
       "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ingest_training_link",
+      "to": "script:research_fetch",
+      "kind": "calls"
+    },
+    {
+      "from": "script:ingest_training_link",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:instagram_dm_poller",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:instagram_dm_poller",
+      "to": "script:email_playbook",
+      "kind": "calls"
+    },
+    {
+      "from": "script:instagram_dm_poller",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:instagram_dm_poller",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:link_library_to_posts",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:marketing_publish_drain",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:merge_assets_to_carousel",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:migrate_carousels",
+      "to": "script:supabase_tool",
       "kind": "calls"
     },
     {
@@ -8631,6 +9861,36 @@
       "from": "script:pii_sweep",
       "to": "runtime:bridge_chat_server",
       "kind": "exposed_via"
+    },
+    {
+      "from": "script:provision_maven_telegram",
+      "to": "script:sibling_repos",
+      "kind": "calls"
+    },
+    {
+      "from": "script:purge_junk_leads",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:receipts_audit",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:receipts_audit",
+      "to": "script:email_brain",
+      "kind": "calls"
+    },
+    {
+      "from": "script:receipts_audit",
+      "to": "script:inbound_classifier",
+      "kind": "calls"
+    },
+    {
+      "from": "script:receipts_audit",
+      "to": "script:notify",
+      "kind": "calls"
     },
     {
       "from": "script:refine",
@@ -8678,6 +9938,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:run_seed_oasis_forms",
+      "to": "script:run_dashboard_script",
+      "kind": "calls"
+    },
+    {
       "from": "script:scheduler",
       "to": "script:notify",
       "kind": "calls"
@@ -8685,6 +9950,11 @@
     {
       "from": "script:scheduler",
       "to": "script:schedule_helpers",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_cc_trade_leads",
+      "to": "script:supabase_tool",
       "kind": "calls"
     },
     {
@@ -8699,6 +9969,31 @@
     },
     {
       "from": "script:scrape_firecrawl_leads",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_website_sales_leads",
+      "to": "script:name_utils",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_website_sales_leads",
+      "to": "script:research_fetch",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_website_sales_leads",
+      "to": "script:scrape_firecrawl_leads",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_website_sales_leads",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:seed_cc_leads_turso",
       "to": "script:supabase_tool",
       "kind": "calls"
     },
@@ -8753,13 +10048,48 @@
       "kind": "calls"
     },
     {
-      "from": "script:supabase_tool",
-      "to": "runtime:bridge_chat_server",
-      "kind": "exposed_via"
+      "from": "script:supabase_cancellation_gate",
+      "to": "script:etl_storage_to_r2",
+      "kind": "calls"
     },
     {
       "from": "script:supabase_tool",
       "to": "script:integration_health",
+      "kind": "calls"
+    },
+    {
+      "from": "script:sync_post_analytics",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:system_health",
+      "to": "script:notify",
+      "kind": "calls"
+    },
+    {
+      "from": "script:turso_tool",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:turso_vps_bundle",
+      "to": "script:turso_cred_fingerprint",
+      "kind": "calls"
+    },
+    {
+      "from": "script:vercel_turso_cutover",
+      "to": "script:etl_storage_to_r2",
+      "kind": "calls"
+    },
+    {
+      "from": "script:weekly_truth_digest",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:weekly_truth_digest",
+      "to": "script:notify",
       "kind": "calls"
     },
     {
@@ -9048,11 +10378,6 @@
       "kind": "uses"
     },
     {
-      "from": "skill:security-protocol",
-      "to": "script:scan_secrets",
-      "kind": "uses"
-    },
-    {
       "from": "skill:self-evolution",
       "to": "script:bravo_sleep",
       "kind": "uses"
@@ -9060,6 +10385,11 @@
     {
       "from": "skill:send-gateway",
       "to": "script:send_gateway",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:setup-help",
+      "to": "script:capability_probe",
       "kind": "uses"
     },
     {
@@ -9083,9 +10413,14 @@
       "kind": "requires"
     },
     {
-      "from": "skill:vibe-to-execution",
-      "to": "script:apply_migration",
+      "from": "skill:turso-patterns",
+      "to": "script:apply_turso_migration",
       "kind": "uses"
+    },
+    {
+      "from": "skill:turso-patterns",
+      "to": "skill:supabase-patterns",
+      "kind": "requires"
     },
     {
       "from": "skill:web-scraping",

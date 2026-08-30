@@ -44,6 +44,74 @@ For client deployments (deploying Hermes / a sibling agent for someone else), co
 | `BRAVO_SUPABASE_SERVICE_ROLE_KEY` | Bravo project service_role |
 | `SUPABASE_SERVICE_ROLE_KEY_BRAVO` | Same (legacy alias) |
 
+## Turso / libSQL (PRIMARY since 2026-08-09 — 5 databases, one per former Supabase project)
+
+**Two different credentials, and confusing them is the #1 setup failure.** A
+*database* token connects to exactly one database; a *Platform API* token
+creates and manages databases. Only `turso auth api-tokens mint` produces the
+second kind. `TURSO_API_KEY` below is the first kind and 401s against the
+Platform API.
+
+| Variable | Notes |
+|----------|-------|
+| `TURSO_PLATFORM_TOKEN` | **Org-scoped.** Creates/deletes databases, mints db tokens. `turso auth login && turso auth api-tokens mint <name>` |
+| `TURSO_ORG` | Organization slug — `turso org list` |
+| `TURSO_DATABASE_URL` | **Canonical.** Bravo empire db, `libsql://<host>` |
+| `TURSO_AUTH_TOKEN` | Database token for the above (full-access) |
+| `TURSO_DB_PATH` | Local libSQL file — offline/test mode, no token needed |
+| `BREEZE_TURSO_DATABASE_URL` / `BREEZE_TURSO_AUTH_TOKEN` | breeze-portal (separate trust boundary — merchant bank data) |
+| `NOSTALGIC_TURSO_DATABASE_URL` / `NOSTALGIC_TURSO_AUTH_TOKEN` | nostalgic-requests |
+| `PROPFLOW_TURSO_DATABASE_URL` / `PROPFLOW_TURSO_AUTH_TOKEN` | propflow |
+| `OASIS_TURSO_DATABASE_URL` / `OASIS_TURSO_AUTH_TOKEN` | oasis-platform |
+| `TURSO_DB_URL` | Legacy alias read by oasis-command-center `lib/turso.ts` |
+| `TURSO_API_KEY` | **Pre-existing, unrelated.** Database token for ig-setter-pro. Deliberately NOT a fallback in `scripts/lib/db_turso.py` — using it would point the harness at another product's data. |
+| `GRITLY_TURSO_DATABASE_URL` / `GRITLY_TURSO_AUTH_TOKEN` | Gritly's own database (pre-existing, not part of this migration) |
+
+Provision with `python scripts/integrations/turso_admin.py create --all --write-env`
+— it writes URLs and tokens straight into this file and never prints their values.
+
+### Cutover flags — THREE, and each gates a DIFFERENT layer
+
+Setting only the first is the trap: you get a deployment with the Turso data
+plane, **Supabase auth**, and no browser bridge at all. It looks healthy until
+someone logs in.
+
+| Variable | What it actually switches |
+|----------|---------------------------|
+| `EMPIRE_DATA_BACKEND=turso_cloud` | Server data plane only (`.from()` / `.rpc()` routing) |
+| `EMPIRE_AUTH_BACKEND=turso` | Auth **and** the `/api/data/bridge` + `/api/data/rpc` routes |
+| `AUTH_SESSION_SECRET` | HMAC key for the session cookie. Required *alongside* the above — both routes **404** without it, which reads as "not deployed" rather than "misconfigured" |
+
+Any of them unset → the app falls back to Supabase. During the migration that fallback
+was the rollback path; now it is a **silent misconfiguration** (CONTEXT.md §"Turso mode
+flags") — the legacy project is retained only for the event bus / coordination tables.
+
+**For the Bravo PYTHON harness, `EMPIRE_DATA_BACKEND` must go in the PM2 `env:`
+block — NOT in this file.** `.venv/Lib/site-packages/sitecustomize.py` tests
+`os.environ` at interpreter start, and `.env.agents` values only arrive later via
+`secret_loader.bootstrap()`'s `setdefault`. Put it here and the variable is
+present in `os.environ` afterwards while `supabase.create_client` is never
+patched — the flag reads as set, the harness still talks to Supabase, and nothing
+reports a problem. Verify the patch actually took, rather than trusting the flag:
+
+```bash
+python -c "import supabase; print(supabase.create_client.__module__)"
+# lib.turso_supabase_compat  -> patched
+# supabase._sync.client      -> NOT patched
+```
+
+Edit `ecosystem.config.js`, then `EMPIRE_TURSO_CUTOVER=1 pm2 restart <app> --update-env && pm2 save`. The flag is opt-in so a plain `pm2 start` (outage recovery) leaves the harness on Supabase. A
+plain `pm2 restart` re-uses the environment captured at spawn and will not pick
+it up. (Also note `bravo_cli/wizard.py` writes `turso_local` / `supabase_cloud`;
+neither matches the `turso_cloud` string the shim tests for.) Push the per-app credential pair with
+`python scripts/integrations/vercel_turso_sync.py --project <slug> --db <key>`;
+if a Vercel project already carries a `TURSO_DATABASE_URL` that tool never wrote,
+treat its target as unknown and re-push rather than assuming.
+
+Before flipping an app that queries from the browser, prove the tenant boundary:
+`realestate-App/scripts/verify_tenant_isolation.py`. See
+`skills/turso-patterns/SKILL.md`.
+
 ## Payments — Stripe (3 brand accounts)
 
 | Variable | Brand |
@@ -103,9 +171,18 @@ For client deployments (deploying Hermes / a sibling agent for someone else), co
 |----------|-------|
 | `VERCEL_TOKEN` | Vercel CLI / API |
 | `VERCEL_API_TOKEN` | Same (legacy alias) |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare ops |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare ops — ⚠ bound to ONE account; run `wrangler_tool.py whoami` before trusting it |
 | `CLOUDFLARE_TOKEN` | Same (legacy alias) |
+| `CLOUDFLARE_WORKERS_API_TOKEN` | Preferred by `wrangler_tool.py` when present — mint on the account that owns oasisai.work (Workers Scripts:Edit, R2:Edit, Tunnel:Read, Zone/DNS:Read) |
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | `ghp_...` for `gh` CLI |
+
+**`<SLUG>__<KEY>` namespace (cf-migration):** blocks between
+`# >>> cf-migration:<slug>` markers are auto-generated by
+`scripts/integrations/vercel_secret_sync.py` — per-app Vercel production values
+namespaced as e.g. `BREEZE_PORTAL__CRON_SECRET` (same key name carries different
+values per app). Do not hand-edit inside the markers except to complete
+`# FILL <NAME>=` placeholder lines (sensitive-type vars the Vercel API cannot
+return). Consumed via `config/cloudflare/manifests/<slug>.json` source mappings.
 
 ## CRM / outreach
 

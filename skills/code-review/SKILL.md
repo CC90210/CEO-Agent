@@ -66,6 +66,14 @@ These require judgment — wrong call breaks production.
 
 Run every review. No exceptions.
 
+> **This list is the fast pass.** The authoritative one is the **20-Point Vibe-Security Matrix**
+> in [[skills/security-protocol/SKILL]] — it carries a mechanical check per row and covers eight
+> classes this section does not (rate-limiter keying, CORS, mass assignment, upload validation,
+> email verification, password policy, dependency hygiene, token storage). Use the fast pass on
+> an ordinary diff; run the full matrix before a public flip, a first production deploy, or any
+> diff adding an unauthenticated surface, an upload, a webhook, or a tenant-scoped table
+> ([[brain/EXECUTION_RULES]] § 21).
+
 ```
 [ ] Hardcoded secrets — grep for API keys, tokens, passwords inline
     Pattern: /sk_live_|Bearer |password\s*=|api_key\s*=/i

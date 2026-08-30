@@ -1,6 +1,6 @@
 """
 Booking Engine - Self-hosted scheduling system replacing Cal.com.
-Zero paid services. Backed by Supabase (bravo project).
+Zero paid services. Backed by Turso/libSQL (bravo DB, via supabase-compat shim; pre-2026-08: Supabase).
 All credentials loaded from .env.agents (never hardcoded).
 
 Tables required (bravo Supabase project):
@@ -78,9 +78,8 @@ def get_client(env_vars: dict[str, str]):
     """Create a Supabase client using BRAVO_SUPABASE_* credentials."""
     from supabase import create_client  # type: ignore[import-untyped]
 
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key"
     if not url or not key:
         print(
             "ERROR: Missing BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY in .env.agents",
@@ -89,6 +88,36 @@ def get_client(env_vars: dict[str, str]):
         sys.exit(1)
 
     return create_client(url, key)
+
+
+def _join_slots(client, bookings: list[dict],
+                cols: str = "slot_date,start_time,end_time") -> list[dict]:
+    """Attach each booking's slot as ``booking_slots`` (PostgREST embedded shape).
+
+    The Supabase->Turso compat layer cannot transpile PostgREST's
+    embedded-resource select (``*, booking_slots(slot_date, start_time)``): it
+    quotes every comma token as an identifier, so the query fails at runtime
+    (found 2026-08-11 while smoke-testing the booking_reminder cron path).
+    Fetch the two tables separately and merge in Python instead — same final
+    shape, no JOIN dialect to keep in sync with the transpiler.
+    """
+    wanted = tuple(sorted(c.strip() for c in cols.split(",")))
+    slot_ids = sorted({b.get("slot_id") for b in bookings if b.get("slot_id")})
+    by_id: dict[str, dict] = {}
+    if slot_ids:
+        rows = (
+            client.table("booking_slots")
+            .select(",".join(("id",) + wanted))
+            .in_("id", slot_ids)
+            .execute()
+        ).data or []
+        by_id = {r["id"]: r for r in rows}
+    out: list[dict] = []
+    for b in bookings:
+        row = dict(b)
+        row["booking_slots"] = by_id.get(row.get("slot_id")) or {}
+        out.append(row)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -616,24 +645,20 @@ def cmd_cancel(client, args, json_mode: bool) -> None:
 
 def cmd_list_bookings(client, args, json_mode: bool) -> None:
     """List bookings with optional status and upcoming filters."""
-    query = client.table("bookings").select("*, booking_slots(slot_date, start_time, end_time)")
+    query = client.table("bookings").select("*")
 
     if hasattr(args, "status") and args.status:
         query = query.eq("status", args.status)
 
     query = query.order("created_at", desc=True)
-    result = query.execute()
-    bookings = result.data
+    bookings = _join_slots(client, query.execute().data or [])
 
     # Client-side filter for --upcoming (PostgREST dot-notation on embedded resources is unreliable)
     if hasattr(args, "upcoming") and args.upcoming:
         today = date.today().isoformat()
         bookings = [
             b for b in bookings
-            if any(
-                slot.get("slot_date", "") >= today
-                for slot in (b.get("booking_slots") or [])
-            )
+            if (b.get("booking_slots") or {}).get("slot_date", "") >= today
         ]
 
     if json_mode:
@@ -659,14 +684,14 @@ def cmd_view(client, args, json_mode: bool) -> None:
     """View full details of a single booking."""
     result = (
         client.table("bookings")
-        .select("*, booking_slots(slot_date, start_time, end_time, meeting_type)")
+        .select("*")
         .eq("id", args.booking_id)
         .execute()
     )
     if not result.data:
         fail(f"Booking {args.booking_id} not found.", json_mode)
 
-    booking = result.data[0]
+    booking = _join_slots(client, result.data, cols="slot_date,start_time,end_time,meeting_type")[0]
 
     if json_mode:
         output(booking, json_mode=True)
@@ -741,7 +766,7 @@ def cmd_remind(client, args, json_mode: bool) -> None:
     # Join bookings -> booking_slots where slot_date = tomorrow
     result = (
         client.table("bookings")
-        .select("*, booking_slots(slot_date, start_time, end_time)")
+        .select("*")
         .eq("status", "confirmed")
         .eq("reminder_sent", False)
         .execute()
@@ -749,7 +774,7 @@ def cmd_remind(client, args, json_mode: bool) -> None:
 
     # Filter client-side on the joined slot_date (PostgREST embedded filter)
     pending = [
-        b for b in result.data
+        b for b in _join_slots(client, result.data or [])
         if (b.get("booking_slots") or {}).get("slot_date") == tomorrow
     ]
 
@@ -1100,14 +1125,14 @@ def cmd_send_reminders(client, args, json_mode: bool, env_vars: dict[str, str]) 
 
     result = (
         client.table("bookings")
-        .select("*, booking_slots(slot_date, start_time, end_time)")
+        .select("*")
         .eq("status", "confirmed")
         .eq("reminder_sent", False)
         .execute()
     )
 
     pending = [
-        b for b in result.data
+        b for b in _join_slots(client, result.data or [])
         if (b.get("booking_slots") or {}).get("slot_date") == tomorrow
     ]
 

@@ -17,7 +17,17 @@ Probes (each → green / yellow / red; red fails --strict):
   7. silent-except  — count `except …: pass|return None` without a breadcrumb (yellow if > threshold)
 
 Usage:
-  python scripts/admin/system_health.py [--json] [--strict]   # --strict: exit 1 on any red
+  python scripts/system_health.py [--json] [--strict] [--notify]
+
+  --strict  exit 1 on any red. For humans and CI — NOT for the cron.
+  --notify  Telegram on any red, deduped on WHICH checks are red.
+
+WHY THE CRON DOES NOT USE --strict (2026-08-03): a weekly probe that exits 1 on a
+finding is read by the scheduler as a BROKEN CRON, and cron_health_check then
+re-pages "1 cron(s) failing" every hour for as long as the condition holds. The
+finding was real; the delivery turned it into a metronome. Per EXECUTION_RULES
+§ 19, a blocking condition exits 0 and reports — so the cron runs `--json --notify`
+and the probe raises its own alarm, once, with backoff.
 """
 from __future__ import annotations
 
@@ -192,6 +202,15 @@ _SEGMENT_RE = re.compile(r'["\']scripts["\']\s*(?:/\s*["\'][A-Za-z0-9_.-]+["\']\
 _SEG_TOKEN = re.compile(r'["\']([A-Za-z0-9_.-]+)["\']')
 
 
+# Line-scoped opt-out. Some references are deliberately unresolvable HERE because
+# they name a sibling repo's filename — agent_genome.py's DEFAULTS are candidate
+# lists ("the gene is expressed if ANY candidate exists"), so Bravo carries
+# scripts/bravo_sleep.py while a sibling carries scripts/agent_sleep.py. Creating
+# the file to satisfy the checker would be inventing a dependency. The marker is
+# per-LINE, not per-file, so a genuine drift elsewhere in the same file still reds.
+_DRIFT_OK = "path-drift-ok"
+
+
 def _drift_refs(text):
     """Yield every repo-relative scripts/*.py path referenced in source (both shapes)."""
     for m in _LITERAL_RE.findall(text):
@@ -202,6 +221,21 @@ def _drift_refs(text):
             yield "/".join(segs)
 
 
+def _suppressed_refs(text):
+    """Refs the file explicitly marks as deliberate, scoped to THIS file.
+
+    Scanned separately from _drift_refs so the detector keeps scanning the whole
+    blob — a segmented Path build wrapped across lines must still be caught, which
+    a line-by-line detector would silently stop seeing.
+    """
+    out = set()
+    for line in text.splitlines():
+        if _DRIFT_OK not in line:
+            continue
+        out.update(_drift_refs(line))
+    return out
+
+
 def check_path_drift():
     drift = []
     for f in _py_files("scripts", "bravo_cli"):
@@ -209,9 +243,12 @@ def check_path_drift():
             text = f.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             continue
+        allowed = _suppressed_refs(text) if _DRIFT_OK in text else set()
         for ref in _drift_refs(text):
             if _is_example(ref):
                 continue  # docstring sample (scripts/foo.py etc.), not a real dependency
+            if ref in allowed:
+                continue  # deliberate cross-repo candidate, marked at the call site
             if not (PROJECT_ROOT / ref).exists():
                 drift.append(f"{f.relative_to(PROJECT_ROOT)} → {ref}")
     drift = sorted(set(drift))
@@ -276,14 +313,77 @@ def run():
     return {"reds": len(reds), "yellows": len(yellows), "checks": results}
 
 
+def red_dedup_key(rep) -> str:
+    """Identity for repeat-suppression: WHICH checks are red, not how they read.
+
+    The detail strings carry counts and file lists that drift between runs, so
+    keying on the rendered message defeats dedup entirely — the other half of how
+    an alert storm happens (FLEET_ALERT_DISCIPLINE, dedup property #2).
+    """
+    names = sorted(r["check"] for r in rep["checks"] if r["status"] == RED)
+    return f"system_health_red:{'|'.join(names)}"
+
+
+def notify_reds(rep) -> bool:
+    """Raise the alarm the cron used to raise by dying. Loud on failure."""
+    reds = [r for r in rep["checks"] if r["status"] == RED]
+    if not reds:
+        return False
+    lines = [f"🔴 system_health: {len(reds)} red"]
+    for r in reds:
+        lines.append(f"• {r['check']}: {r['detail']}")
+        for it in r["items"][:5]:
+            lines.append(f"   - {it}")
+    try:
+        import notify as _nf  # type: ignore
+        # Suppressed != failed. Treating a deduped alert as a delivery failure
+        # would make this probe exit 1 and present as a broken cron — the exact
+        # thing dropping --strict was for. cron_health_check learned this the
+        # hard way the same day.
+        _, reason = _nf.notify_result("\n".join(lines), category="system",
+                                      force=True, dedup_key=red_dedup_key(rep))
+        return reason in _nf.DELIVERED_REASONS
+    except Exception as exc:  # noqa: BLE001 — never silent: the probe IS the alarm
+        print(f"[system_health] notify failed: {type(exc).__name__}: {str(exc)[:200]}",
+              file=sys.stderr)
+        return False
+
+
 def main():
     ap = argparse.ArgumentParser(description="system_health — loud-failures probe")
     ap.add_argument("--json", action="store_true")
-    ap.add_argument("--strict", action="store_true", help="exit 1 if any check is red")
+    ap.add_argument("--strict", action="store_true",
+                    help="exit 1 if any check is red (humans + CI; NOT the cron)")
+    ap.add_argument("--notify", action="store_true",
+                    help="Telegram on any red, deduped on which checks are red")
     a = ap.parse_args()
     rep = run()
+
+    # If the probe owns the alarm, a FAILED alarm is itself a broken-cron
+    # condition and must exit non-zero — otherwise dropping --strict trades a
+    # noisy true alert for a silent one, which is the worse bug. EXECUTION_RULES
+    # § 19 meta-rule: the failure shape to fear is "everything looked fine
+    # because the mechanism that would have reported the problem was broken".
+    # cron_health_check.py:166 draws the same line for the same reason.
+    alert_failed = False
+    if a.notify:
+        alert_failed = bool(rep["reds"]) and not notify_reds(rep)
+
     if a.json:
-        print(json.dumps(rep, indent=2))
+        # ONE compact line, deliberately. scheduler.py USED TO store
+        # out[-1][:200] as last_result, so pretty JSON ended in a lone bracket
+        # and the run read as OPAQUE ("verdict unknowable"). That slice is gone
+        # (scheduler.summarize_stdout, 2026-08-29) and a pretty payload would
+        # now be summarized correctly — so this is no longer load-bearing for
+        # legibility. Keep it compact anyway: one line is what the downstream
+        # parsers expect and what a log is readable as. Do not "improve" this
+        # back to indent=2.
+        print(json.dumps(rep, separators=(",", ":")))
+    if alert_failed:
+        print("ERROR: red checks found but the Telegram alert did not send — "
+              "the probe's only reporting path is down.", file=sys.stderr)
+        return 1
+    if a.json:
         return 1 if (a.strict and rep["reds"]) else 0
     mark = {RED: "🔴", YELLOW: "⚠ ", GREEN: "✓ "}
     print(f"=== system_health: {rep['reds']} red, {rep['yellows']} yellow ===")

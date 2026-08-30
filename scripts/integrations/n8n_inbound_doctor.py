@@ -37,6 +37,10 @@ import urllib.error
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 ENV_AGENTS = REPO_ROOT / ".env.agents"
 
+# scripts/ on the path so lib.tls_trust resolves when run as a file
+if str(REPO_ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+
 INBOUND_TYPES = ("email_received", "email_reply", "dm_received")
 
 
@@ -67,24 +71,39 @@ def _hours_since(iso_ts: str | None) -> float | None:
         return None
 
 
-def _supabase_get(env: dict, table: str, query: str) -> list[dict]:
+def _client(env: dict):
+    """supabase-py-compatible client — Supabase today, Turso once the flag flips.
+
+    sitecustomize swaps supabase.create_client for the Turso compat client when
+    EMPIRE_DATA_BACKEND=turso_cloud, so this one call follows the backend switch
+    with no branch of our own. Returns None when no client can be built, which
+    makes every read below degrade to [] exactly as the old REST helper did.
+    """
     url = env.get("BRAVO_SUPABASE_URL", "")
     key = env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY", "")
-    if not url or not key:
-        return []
-    full = f"{url}/rest/v1/{table}?{query}"
-    req = urllib.request.Request(
-        full,
-        headers={
-            "apikey": key,
-            "authorization": f"Bearer {key}",
-            "accept": "application/json",
-        },
-    )
+    if os.environ.get("EMPIRE_DATA_BACKEND") != "turso_cloud" and (not url or not key):
+        return None
     try:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            return json.loads(r.read().decode("utf-8") or "[]")
-    except Exception:
+        # Windows' certifi bundle doesn't chain Supabase's issuer — OS trust store.
+        from lib.tls_trust import ensure_os_trust  # type: ignore
+        ensure_os_trust()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from supabase import create_client  # type: ignore
+        return create_client(url, key)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _rows(client, build) -> list[dict]:
+    """Run one builder query; [] on any failure. A doctor reports faults, it
+    doesn't die of them."""
+    if client is None:
+        return []
+    try:
+        return list(build(client).data or [])
+    except Exception:  # noqa: BLE001
         return []
 
 
@@ -107,30 +126,36 @@ def _check_webhook_route(env: dict) -> tuple[bool, str]:
 def diagnose() -> dict:
     env = _read_env()
 
-    last_inbound = _supabase_get(
-        env,
-        "lead_interactions",
-        "select=id,type,subject,created_at"
-        f"&type=in.({','.join(INBOUND_TYPES)})"
-        "&order=created_at.desc&limit=1",
-    )
+    client = _client(env)
+
+    last_inbound = _rows(client, lambda c: (
+        c.table("lead_interactions")
+        .select("id,type,subject,created_at")
+        .in_("type", list(INBOUND_TYPES))
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    ))
     last_inbound_row = last_inbound[0] if last_inbound else None
     inbound_age_h = _hours_since(last_inbound_row.get("created_at")) if last_inbound_row else None
 
-    health = _supabase_get(
-        env,
-        "integrations_health",
-        "select=service,status,last_ping_at,last_error,metadata"
-        "&service=eq.n8n_inbound&limit=1",
-    )
+    health = _rows(client, lambda c: (
+        c.table("integrations_health")
+        .select("service,status,last_ping_at,last_error,metadata")
+        .eq("service", "n8n_inbound")
+        .limit(1)
+        .execute()
+    ))
     health_row = health[0] if health else None
     health_age_h = _hours_since(health_row.get("last_ping_at")) if health_row else None
 
-    secrets = _supabase_get(
-        env,
-        "n8n_webhook_secrets",
-        "select=profile_id,secret_hash,created_at,revoked_at&order=created_at.desc&limit=3",
-    )
+    secrets = _rows(client, lambda c: (
+        c.table("n8n_webhook_secrets")
+        .select("profile_id,secret_hash,created_at,revoked_at")
+        .order("created_at", desc=True)
+        .limit(3)
+        .execute()
+    ))
     active_secrets = [s for s in secrets if not s.get("revoked_at")]
 
     route_ok, route_msg = _check_webhook_route(env)

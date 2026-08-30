@@ -1,7 +1,7 @@
 ---
 description: "Subagent registry mapping tasks to specialized agents (Coder/Reviewer/Architect/Researcher); includes routing rules, complexity tiers, and orchestration matrix"
 tags: [agents, orchestration]
-last_updated: 2026-07-18
+last_updated: 2026-08-18
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---

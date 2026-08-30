@@ -132,11 +132,13 @@ function buildClaudeSpawnEnv(opts = {}) {
 
 // Detect "subscription failed, try API key" signals from claude CLI
 // stderr/stdout. Includes auth errors AND quota/rate-limit errors.
-const _AUTH_FAIL_PATTERN = /authentication_error|OAuth token has expired|401|Invalid API key|Please obtain a new token|usage limit|rate limit|quota exceeded|reached your.*limit|429/i;
+const _AUTH_FAIL_PATTERN = /authentication_error|OAuth token has expired|401|Invalid API key|Please obtain a new token|usage limit|rate limit|quota exceeded|reached your.*limit|hit your.*limit|weekly limit|resets.*aug|resets.*jan|resets.*feb|resets.*mar|resets.*apr|resets.*may|resets.*jun|resets.*jul|resets.*sep|resets.*oct|resets.*nov|resets.*dec|429/i;
 
 function isClaudeAuthOrQuotaFailure(rawOutput, exitCode) {
-    if (exitCode === 0) return false;
-    return _AUTH_FAIL_PATTERN.test(rawOutput || '');
+    const text = rawOutput || '';
+    if (_AUTH_FAIL_PATTERN.test(text)) return true;
+    if (exitCode !== 0 && _AUTH_FAIL_PATTERN.test(text)) return true;
+    return false;
 }
 
 // Check the local machine for the Claude Code subscription OAuth token

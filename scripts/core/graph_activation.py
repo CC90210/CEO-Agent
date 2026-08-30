@@ -30,7 +30,10 @@ CLI:
 
 Integration: memory_retriever.query() calls boost_hits() behind the
 EMPIRE_GRAPH_BOOST env gate (default on), with hard try/except fallback —
-graph failures can never degrade baseline retrieval.
+graph failures can never degrade baseline retrieval. It passes `max_extras`
+to reserve slots for associative results INSIDE the caller's limit; this
+module stays schema-agnostic (it only ever reads h["source"]), so the
+retriever's `kind` predicate is applied by choosing max_extras, not here.
 """
 from __future__ import annotations
 
@@ -181,14 +184,26 @@ def _first_heading_or_desc(path: Path) -> str:
     return ""
 
 
-def boost_hits(hits: list[dict], limit: int = 5) -> list[dict]:
+def boost_hits(hits: list[dict], limit: int = 5,
+               max_extras: int = MAX_ASSOCIATIVE_EXTRAS) -> list[dict]:
     """Spread activation from retrieval hits through the wiki-link graph.
 
     In-place-safe: returns a new ranked list. Matched notes gain a graph term
-    (connectedness matters); up to MAX_ASSOCIATIVE_EXTRAS unmatched neighbors
-    are appended as associative results tagged kind='associative'."""
+    (connectedness matters); unmatched neighbors are appended as associative
+    results tagged kind='associative'.
+
+    Returns at most `limit` items TOTAL. Up to `max_extras` of those slots are
+    RESERVED for associative neighbors, which displace the graph-weakest real
+    hits — extras are not bonus results riding above the cap. A caller that
+    wants none (e.g. a kind-filtered query, whose chunk-level predicate an
+    extra derived from a whole FILE can never satisfy) passes max_extras=0.
+    """
     if not hits:
         return hits
+    # At least one REAL hit always survives: `limit - 1` means limit=1 can
+    # never return an associative extra and nothing else. MAX_ASSOCIATIVE_EXTRAS
+    # stays in the min() so no caller can raise this module's own ceiling.
+    room = max(0, min(int(max_extras), MAX_ASSOCIATIVE_EXTRAS, limit - 1))
     graph = build(force=False)
     fwd, back = graph.get("fwd", {}), graph.get("back", {})
 
@@ -218,6 +233,7 @@ def boost_hits(hits: list[dict], limit: int = 5) -> list[dict]:
         out.append(h)
 
     # Associative extras — activated neighbors that did NOT match the query.
+    # `room == 0` skips the sort AND every _first_heading_or_desc() file read.
     extras = []
     # V7 fix (Codex P3): rank on the DECAYED score, not raw activation. The old
     # loop sorted by raw activation and `break`-ed on the decayed threshold, so
@@ -227,7 +243,7 @@ def boost_hits(hits: list[dict], limit: int = 5) -> list[dict]:
         ((rel, act * _recency(graph, rel)) for rel, act in activation.items()
          if rel not in seeds),
         key=lambda kv: (-kv[1], kv[0]),
-    )
+    ) if room else []
     for rel, score in decayed:
         if score < 0.15:  # not activated enough to spend context on
             break
@@ -249,11 +265,14 @@ def boost_hits(hits: list[dict], limit: int = 5) -> list[dict]:
             "assoc_score": round(GRAPH_WEIGHT * score, 4),
             "why": f"linked from {sum(1 for s in seeds if rel in fwd.get(s, []) or rel in back.get(s, []))} matched note(s)",
         })
-        if len(extras) >= MAX_ASSOCIATIVE_EXTRAS:
+        if len(extras) >= room:
             break
 
-    merged = sorted(out, key=lambda h: -h["assoc_score"]) + extras
-    return merged[: limit + len(extras)]
+    # Extras take RESERVED slots, not extra ones: they displace the
+    # graph-weakest real hits so the total never exceeds what was asked for.
+    ranked = sorted(out, key=lambda h: -h["assoc_score"])
+    merged = ranked[: max(0, limit - len(extras))] + extras
+    return merged[:limit]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -286,8 +305,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "query":
         sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "core"))
         import memory_retriever  # type: ignore
-        base = memory_retriever.query(args.text, limit=args.limit)
-        boosted = boost_hits(base, limit=args.limit)
+        # query() ALREADY runs boost_hits() internally (via _graph_boost). The
+        # second pass this used to make turned first-generation extras into
+        # seeds — spreading activation outward from notes that never matched
+        # the query, the exact pathology memory_retriever's trim-then-boost
+        # ordering exists to prevent — and now that boost_hits honours `limit`
+        # it would also drop real hits to make room for those extras.
+        boosted = memory_retriever.query(args.text, limit=args.limit)
         for h in boosted:
             tag = "ASSOC" if h.get("kind") == "associative" else "match"
             print(f"[{tag}] ({h.get('assoc_score', h.get('score', 0))}) {h['source']}:{h.get('line_start', 1)}")

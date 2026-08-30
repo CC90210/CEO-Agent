@@ -34,6 +34,7 @@ last_updated: 2026-07-19
 - [[skills/test-driven-development/SKILL.md]] — TDD methodology
 - [[skills/verification-before-completion/SKILL.md]] — Pre-merge verification
 - [[skills/finishing-a-development-branch/SKILL.md]] — Branch completion protocol
+- [[skills/architecture-migration-gate/SKILL.md]] — Pre/post migration documentation impact gate
 
 ## Agent Infrastructure
 - [[skills/agent-forge/SKILL.md]] — Create new agents from template with identity, memory, safety, and a doctor command on day one. Bravo's moat extension.

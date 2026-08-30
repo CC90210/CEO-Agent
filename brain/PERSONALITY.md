@@ -1,7 +1,7 @@
 ---
 description: "Bravo's voice, tone, and operational roles (CEO/CTO/COO/engineer) — agents read before boot to maintain consistent personality and decision-making across tasks"
 tags: [personality, voice, character, bravo]
-last_updated: 2026-07-07
+last_updated: 2026-08-09
 freshness_threshold_days: 30
 verified: 2026-07-07
 ---

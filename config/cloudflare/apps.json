@@ -1,0 +1,113 @@
+{
+  "account_id": "d5e302344d575cf5f2a07c17bcf51367",
+  "r2_cache_bucket": "oasis-next-cache",
+  "apps": {
+    "tiktik": {
+      "dir": "C:\\Users\\User\\APPS\\tiktik",
+      "kind": "opennext",
+      "vercel_project": "tiktik",
+      "custom_domains": [],
+      "wave": 1
+    },
+    "ig-setter-pro": {
+      "dir": "C:\\Users\\User\\APPS\\ig-setter-pro",
+      "kind": "opennext",
+      "vercel_project": "ig-setter-pro",
+      "custom_domains": [],
+      "wave": 1
+    },
+    "sunbiz-funding": {
+      "dir": "C:\\Users\\User\\APPS\\sunbiz-funding",
+      "kind": "opennext",
+      "vercel_project": "sunbiz-funding",
+      "custom_domains": ["sunbizfunding.com"],
+      "wave": 2
+    },
+    "breezeadvance-website": {
+      "dir": "C:\\Users\\User\\APPS\\breezeadvance-website",
+      "kind": "opennext",
+      "vercel_project": "breezeadvance-website",
+      "custom_domains": ["breezeadvance.credit"],
+      "wave": 2
+    },
+    "blue-rise-website": {
+      "dir": "C:\\Users\\User\\APPS\\sunbiz-front-website",
+      "kind": "opennext",
+      "vercel_project": "blue-rise-website",
+      "custom_domains": ["bluerisebusinesscapital.com"],
+      "wave": 2,
+      "note": "local dir name differs from slug (sunbiz-front-website)"
+    },
+    "arthrisil-website": {
+      "dir": "C:\\Users\\User\\APPS\\arthrisil-website",
+      "kind": "opennext",
+      "vercel_project": "arthrisil-website",
+      "custom_domains": ["arthrisil.com"],
+      "wave": 2
+    },
+    "nostalgic-requests": {
+      "dir": "C:\\Users\\User\\APPS\\nostalgic-requests",
+      "kind": "opennext",
+      "vercel_project": "nostalgic-requests",
+      "custom_domains": ["nostalgicrequests.com"],
+      "wave": 2
+    },
+    "listing-studio": {
+      "dir": "C:\\Users\\User\\APPS\\real-estate-marketing-suite",
+      "kind": "opennext",
+      "vercel_project": "real-estate-marketing-suite",
+      "custom_domains": [],
+      "wave": 2,
+      "dropped": "2026-08-29 per CC — stays on Vercel; no secret fill required"
+    },
+    "oasis-ai-platform": {
+      "dir": "C:\\Users\\User\\APPS\\oasis-ai-platform",
+      "kind": "static-worker",
+      "vercel_project": "oasis-ai-platform",
+      "custom_domains": ["oasisai.work"],
+      "wave": 2,
+      "note": "Vite static + router worker; /app/* proxies to agent-dashboard until Wave 3"
+    },
+    "propflow": {
+      "dir": "C:\\Users\\User\\realestate-App",
+      "kind": "opennext",
+      "vercel_project": "real-estate-app",
+      "custom_domains": [],
+      "wave": 3,
+      "note": "three spellings: slug real-estate-app, repo real-estate-App, dir realestate-App"
+    },
+    "opt-in-vault": {
+      "dir": "C:\\Users\\User\\APPS\\opt-in-vault",
+      "kind": "opennext",
+      "vercel_project": "opt-in-vault",
+      "custom_domains": [],
+      "wave": 3,
+      "note": "trust-model decision required before adapting; SMTP/IMAP routes stay on Node workers"
+    },
+    "breeze-portal": {
+      "dir": "C:\\Users\\User\\APPS\\breeze-portal",
+      "kind": "opennext",
+      "vercel_project": "breeze-portal",
+      "custom_domains": [],
+      "wave": 3,
+      "note": "app.breezeadvance.com DNS is in the CLIENT's Cloudflare account — never touched by us"
+    },
+    "oasis-cc-cron": {
+      "dir": "C:\\Users\\User\\APPS\\oasis-command-center\\workers\\oasis-cc-cron",
+      "kind": "static-worker",
+      "vercel_project": "agent-dashboard",
+      "custom_domains": [],
+      "wave": 3,
+      "note": "companion cron worker (28 jobs) — deploys DRY until CRON_FORWARD=on; runbook: brain/WAVE3_OASIS_CC_RUNBOOK.md"
+    },
+    "oasis-command-center": {
+      "dir": "C:\\Users\\User\\APPS\\oasis-command-center",
+      "kind": "opennext",
+      "vercel_project": "agent-dashboard",
+      "custom_domains": ["oasisai.work"],
+      "wave": 3,
+      "build_env": { "NODE_OPTIONS": "--max-old-space-size=4096" },
+      "note": "APEX-shared repo — coord_claim before editing; 28 crons; native-dep refactors gated on CC decisions"
+    }
+  }
+}

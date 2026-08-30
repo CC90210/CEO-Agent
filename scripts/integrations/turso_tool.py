@@ -44,6 +44,31 @@ from lib.db_turso import (  # noqa: E402
     resolve_target,
 )
 
+CAPABILITY_META = {
+    "category": "data.turso",
+    "lifecycle": "active",
+    "risk": "read_only",
+    "triggers": [
+        "query the empire database",
+        "select database rows",
+        "inspect Turso tables",
+        "check the live database status",
+    ],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {
+        "visible": True,
+        "confirm": False,
+        "subcommands": {
+            "status": {"key": "turso_status", "visible": True, "confirm": False},
+            "tables": {"key": "turso_tables", "visible": True, "confirm": False},
+            "schema": {"key": "turso_schema", "visible": True, "confirm": False},
+            "select": {"key": "turso_select", "visible": True, "confirm": False},
+            "sql": {"key": "turso_sql_read", "visible": True, "confirm": False},
+        },
+    },
+}
+
 
 def _db(args) -> TursoDB:
     if args.db_path:

@@ -251,11 +251,12 @@ def classify_item(
     """Call Claude Haiku via the subscription `claude` CLI (lib.claude_cli) to
     score importance and classify one memory item — never the metered
     ANTHROPIC_API_KEY (out of credits + banned per CC's CLI-only rule)."""
-    from lib.claude_cli import run_claude_cli
+    from lib.model_fallback import run_smart_cli
 
-    raw = run_claude_cli(
+    raw = run_smart_cli(
         f"Section: {section}\n\nContent:\n{content[:1000]}",
         system=_CLASSIFY_SYSTEM, model="haiku", timeout=90,
+        task_type="classify", agent_name="memory_consolidation",
     )
     if raw is None:
         raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")

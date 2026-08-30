@@ -29,12 +29,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+
+from lib.timeutil import age_hours, parse_iso_utc  # noqa: E402 — needs sys.path above
 PULSE_PATH = REPO_ROOT / "data" / "pulse" / "ceo_pulse.json"
 SCHEMA_VERSION = "0.3.0"
 
@@ -78,14 +82,8 @@ def validate(payload: dict[str, Any]) -> list[str]:
             errors.append(f"missing strategy fields: {sorted(missing_strat)}")
     else:
         errors.append("strategy must be an object")
-    if "updated_at" in payload:
-        try:
-            ts = payload["updated_at"]
-            if isinstance(ts, str):
-                normalized = ts[:-1] + "+00:00" if ts.endswith("Z") else ts
-                datetime.fromisoformat(normalized)
-        except (ValueError, TypeError):
-            errors.append("updated_at must be ISO 8601")
+    if "updated_at" in payload and parse_iso_utc(payload["updated_at"]) is None:
+        errors.append("updated_at must be ISO 8601")
     return errors
 
 
@@ -139,6 +137,127 @@ def _v6_telemetry() -> dict[str, Any]:
     except Exception:
         out["fts5"] = {"unreachable": True}
     return out
+
+
+# ── mechanical refresh ───────────────────────────────────────────────────────
+# Split the pulse by WHO CAN HONESTLY AUTHOR EACH PART.
+#
+# Atlas pages CC when this file is >14d old, and on 2026-08-03 it was 15d old and
+# right: nothing had ever scheduled a producer. The obvious fix — cron `refresh`
+# nightly — is the wrong one. cmd_refresh() merges over the existing file and
+# stamps updated_at=now, so a bare scheduled refresh would present 15-day-old
+# strategy and directives as current. That converts a true "drifting" signal into
+# a false "fresh" one, which is strictly worse than the alert.
+#
+# So: a cron may write only what a machine can KNOW (sibling pulse ages, V6
+# telemetry, the commit log). Judgment — strategy, directives, blockers,
+# client_health — is written by Bravo at session end, and revenue belongs to Atlas
+# and is never written here at all. The mechanical pass records its own freshness
+# in `mechanical_as_of` and leaves `updated_at` exactly where judgment left it.
+
+SIBLING_PULSES = {
+    "atlas": Path("C:/Users/User/APPS/CFO-Agent/data/pulse/cfo_pulse.json"),
+    "maven": Path("C:/Users/User/CMO-Agent/data/pulse/cmo_pulse.json"),
+    "aura": Path("C:/Users/User/APPS/Aura-Home-Agent/data/pulse/aura_pulse.json"),
+}
+
+
+def _pulse_age_hours(path: Path) -> float | None:
+    """Hours since a sibling last published, or None if it never has / is unreadable.
+
+    None is DATA, not an error — a sibling being dark is exactly what a CEO pulse
+    should record. Only Bravo's own inputs failing is a reason to abort.
+    """
+    try:
+        if not path.exists():
+            return None
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    hours = age_hours(raw.get("updated_at"))
+    return None if hours is None else round(hours, 1)
+
+
+def _recent_commits(since_iso: str | None, limit: int = 15) -> list[str]:
+    """Commit subjects since the last judgment write. Raises on failure.
+
+    Deliberately NOT written into `recent_shipped`: that field holds hand-authored
+    prose about what actually shipped, and a commit subject is a different kind of
+    claim. Overwriting judgment prose with machine output would be the same lie in
+    a smaller box. This lands in its own key and leaves `recent_shipped` alone.
+    """
+    cmd = ["git", "log", f"--max-count={limit}", "--pretty=format:%h %s"]
+    if since_iso:
+        cmd.insert(2, f"--since={since_iso}")
+    try:
+        from _subprocess_helpers import WINDOWLESS_FLAGS  # type: ignore
+    except ImportError:
+        WINDOWLESS_FLAGS = 0
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30,
+                          cwd=str(REPO_ROOT), encoding="utf-8", errors="replace",
+                          creationflags=WINDOWLESS_FLAGS)
+    if proc.returncode != 0:
+        raise RuntimeError(f"git log failed (exit {proc.returncode}): "
+                           f"{(proc.stderr or '').strip()[:200]}")
+    return [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
+
+
+def cmd_autorefresh(args: argparse.Namespace) -> int:
+    """Refresh ONLY the mechanically-knowable sections. Never moves updated_at."""
+    existing = _read_pulse()
+    if existing is None:
+        print(f"ERROR: no pulse at {PULSE_PATH} — run `pulse_publish.py refresh` "
+              f"first; autorefresh updates an existing pulse, it does not seed one.",
+              file=sys.stderr)
+        return 2
+
+    try:
+        commits = _recent_commits(existing.get("updated_at"))
+    except Exception as exc:  # noqa: BLE001 — fail closed, never stamp a fake
+        print(f"ERROR: {exc}", file=sys.stderr)
+        print("Refusing to write: a mechanical refresh that silently skips its own "
+              "source is how a stale pulse starts looking fresh.", file=sys.stderr)
+        return 1
+
+    payload = dict(existing)
+    payload["v6"] = _v6_telemetry()
+
+    state = dict(existing.get("agent_system_state", {}))
+    atlas_age = _pulse_age_hours(SIBLING_PULSES["atlas"])
+    maven_age = _pulse_age_hours(SIBLING_PULSES["maven"])
+    state["atlas_last_known_pulse_age_hours"] = atlas_age
+    state["maven_last_known_pulse_age_hours"] = maven_age
+    state["aura_pulse_exists"] = SIBLING_PULSES["aura"].exists()
+    payload["agent_system_state"] = state
+
+    payload["recent_commits"] = commits
+    payload["mechanical_as_of"] = _now_iso()
+
+    errors = validate(payload)
+    if errors:
+        print("VALIDATION FAILED:", file=sys.stderr)
+        for e in errors:
+            print(f"  - {e}", file=sys.stderr)
+        return 2
+
+    if args.dry_run:
+        print(json.dumps(payload, indent=2, default=str))
+        print("\n(dry-run — pulse not written)", file=sys.stderr)
+        return 0
+
+    _atomic_write(PULSE_PATH, payload)
+
+    judgment_age = _pulse_age_hours(PULSE_PATH.parent / PULSE_PATH.name) or 0
+    print(f"OK — mechanical sections refreshed at {payload['mechanical_as_of']}")
+    print(f"  commits since last judgment: {len(commits)}")
+    print(f"  atlas pulse age: {atlas_age}h | maven: {maven_age}h | "
+          f"aura exists: {state['aura_pulse_exists']}")
+    print(f"  updated_at UNCHANGED: {payload.get('updated_at')}")
+    if judgment_age > 24 * 7:
+        print(f"  NOTE: judgment fields are {judgment_age / 24:.0f}d old. Strategy, "
+              f"directives and blockers need a session-end write — "
+              f"`pulse_publish.py refresh --priority ... --focus ...`.", file=sys.stderr)
+    return 0
 
 
 def cmd_refresh(args: argparse.Namespace) -> int:
@@ -215,8 +334,14 @@ def cmd_refresh(args: argparse.Namespace) -> int:
             source="bravo",
             target=None,  # broadcast
         )
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as exc:  # noqa: BLE001
+        # Stays non-fatal — the pulse itself is already written above and this
+        # event is only a wake-up for Atlas/Maven/Aura. But it must not be
+        # SILENT: swallowed entirely, a broken event bus means the siblings stop
+        # waking on pulse refresh and nothing anywhere says so. Log it; the
+        # scheduler captures stderr into cron_jobs.last_result.
+        print(f"[pulse_publish] event-bus publish failed (pulse still written): "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
     return 0
 
 
@@ -244,23 +369,14 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"ERROR — pulse not readable at {PULSE_PATH}", file=sys.stderr)
         return 2
     updated = payload.get("updated_at", "?")
-    age_hours: float | None = None
-    try:
-        ts = updated[:-1] + "+00:00" if isinstance(updated, str) and updated.endswith("Z") else updated
-        dt = datetime.fromisoformat(ts) if isinstance(ts, str) else None
-        if dt is not None:
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
-    except (ValueError, TypeError):
-        pass
+    age_h: float | None = age_hours(updated)
     summary = {
         "updated_at": updated,
-        "age_hours": round(age_hours, 1) if age_hours is not None else None,
+        "age_hours": round(age_h, 1) if age_h is not None else None,
         "freshness": (
-            "FRESH" if age_hours is not None and age_hours < 24
-            else "AGING" if age_hours is not None and age_hours < 168
-            else "STALE" if age_hours is not None
+            "FRESH" if age_h is not None and age_h < 24
+            else "AGING" if age_h is not None and age_h < 168
+            else "STALE" if age_h is not None
             else "UNKNOWN"
         ),
         "net_mrr_usd": payload.get("revenue", {}).get("net_mrr_usd"),
@@ -285,13 +401,25 @@ def main() -> None:
 
     pr = sub.add_parser("refresh", help="Update ceo_pulse with new values")
     pr.add_argument("--net-mrr", type=float, default=None, help="Current net MRR (USD)")
-    pr.add_argument("--top-client-pct", type=float, default=None, help="Top-client concentration % of MRR")
+    # '%%' not '%': argparse runs help strings through %-formatting, so a bare
+    # '% of' was read as the '%o' conversion and `refresh --help` died with
+    # "TypeError: %o format: an integer is required, not dict". The publisher
+    # was unusable via its own help, which is part of why the pulse went 13
+    # days without a refresh.
+    pr.add_argument("--top-client-pct", type=float, default=None, help="Top-client concentration %% of MRR")
     pr.add_argument("--active-clients", type=int, default=None)
     pr.add_argument("--priority", type=str, default=None, help="This week's #1 priority")
     pr.add_argument("--focus", type=str, default=None, help="Current strategic focus")
     pr.add_argument("--status", type=str, default=None, help="ACTIVE | PAUSED | ESCALATED")
     pr.add_argument("--session-note", type=str, default=None)
     pr.add_argument("--dry-run", action="store_true")
+
+    pa = sub.add_parser(
+        "autorefresh",
+        help="Refresh only machine-knowable sections (sibling pulse ages, V6 "
+             "telemetry, commit log). Never moves updated_at — judgment stays "
+             "as stale as it actually is.")
+    pa.add_argument("--dry-run", action="store_true")
 
     pv = sub.add_parser("validate", help="Validate current pulse against schema")
     pv.add_argument("--json", action="store_true")
@@ -300,7 +428,8 @@ def main() -> None:
     ps.add_argument("--json", action="store_true")
 
     args = p.parse_args()
-    handlers = {"refresh": cmd_refresh, "validate": cmd_validate, "status": cmd_status}
+    handlers = {"refresh": cmd_refresh, "autorefresh": cmd_autorefresh,
+                "validate": cmd_validate, "status": cmd_status}
     sys.exit(handlers[args.command](args))
 
 

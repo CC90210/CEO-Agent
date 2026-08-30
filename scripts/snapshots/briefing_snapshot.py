@@ -23,9 +23,30 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from concurrent.futures import ThreadPoolExecutor
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT_DIR = PROJECT_ROOT / "state" / "snapshots"
-TIMEOUT_SEC = 30
+# Must remain above ceo_dashboard.SUBENGINE_TIMEOUT_SEC and below
+# daily_brief.SNAPSHOT_REGEN_TIMEOUT_SEC. See the timeout-contract regression
+# test in test_harness_reporting_integrity.py.
+# RAISED 65 -> 90 (2026-08-28). Measured, not guessed: the generator's whole
+# wall came in at 64s, 68s and 70s across three runs, which means the slowest
+# engine was landing within a few seconds of the 65s per-engine cap. Engines
+# that cross it are recorded as {"_error": ...} and the brief then renders
+# "⚠️ unavailable" — which is exactly what CC saw for `Client health` and
+# `Follow-ups due` while the underlying data was fine (client_health_alerts read
+# "All clients are GREEN or YELLOW").
+#
+# This is the timeout-below-measured-duration trap: a cap at the measured
+# duration manufactures failures on ordinary variance. Caps go above p95, and on
+# this machine every subprocess pays AV-inflated spawn cost (a bare
+# `python -c pass` measures 3.7s), so seven parallel engines contend far harder
+# than the "wall-clock ≈ the slowest engine" note below assumes.
+#
+# Kept coherent with the callers, which were raised in the same commit:
+#   engines 90  ->  daily_brief regen cap 110  ->  scheduler daily_brief 200
+TIMEOUT_SEC = 90
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
@@ -45,7 +66,23 @@ def _call(args: list[str]) -> dict | list | None:
     except (subprocess.TimeoutExpired, OSError) as e:
         return {"_error": str(e)}
     if result.returncode != 0:
-        return {"_error": result.stderr.strip()[:500] or "non-zero exit"}
+        # RECORD THE CODE, NOT JUST "non-zero exit". An abnormal Windows
+        # termination arrives with empty stdout AND empty stderr AND no
+        # traceback, so the old string was the same for a crashed child, a
+        # killed child and a child that simply printed nothing. The brief's
+        # "Client health: unavailable" was re-diagnosed as a timeout three
+        # separate times because of it — the real cause was a 43-second
+        # per-connect schema walk, which the returncode would have ruled out
+        # in one reading.
+        rc = result.returncode
+        detail = result.stderr.strip()[:500]
+        if not detail:
+            # Windows NTSTATUS codes arrive as large unsigned values; anything
+            # above 0xC0000000 is a crash, not an exit status the child chose.
+            abnormal = (rc & 0xFFFFFFFF) > 0xC0000000
+            detail = (f"abnormal termination 0x{rc & 0xFFFFFFFF:08X}"
+                      if abnormal else f"exit {rc}, no output")
+        return {"_error": detail, "_returncode": rc}
     raw = result.stdout.strip()
     if not raw:
         return None
@@ -56,26 +93,42 @@ def _call(args: list[str]) -> dict | list | None:
 
 
 def build_snapshot() -> dict:
-    # argparse on these CLIs places --json on the top-level parser, not on
-    # subcommand parsers. The 2026-05-18 brief shipped 3 stale rows because
-    # the calls below had --json AFTER the verb (e.g. `pipeline --json`),
-    # which argparse rejects as "unrecognized arguments: --json". Order
-    # matters: --json must come FIRST, then the subcommand.
-    mrr = _call(["scripts/revenue_engine.py", "--json", "mrr"])
-    goal = _call(["scripts/revenue_engine.py", "--json", "goal"])
-    pipeline = _call(["scripts/lead_engine.py", "--json", "pipeline"])
-    followups = _call(["scripts/lead_engine.py", "--json", "followups"])
-    health_alerts = _call(["scripts/client_health.py", "--json", "alerts"])
-    # Full client list for the monitored-count signal (see below).
-    health_full = _call(["scripts/client_health.py", "--json", "report"])
-    briefing = _call(["scripts/ceo_dashboard.py", "--json", "briefing"])
+    calls = {
+        "mrr": ["scripts/revenue_engine.py", "--json", "mrr"],
+        "goal": ["scripts/revenue_engine.py", "--json", "goal"],
+        "pipeline": ["scripts/lead_engine.py", "--json", "pipeline"],
+        "followups": ["scripts/lead_engine.py", "--json", "followups"],
+        # Sibling agents (Maven, Atlas, APEX, Codex) post here when they need
+        # Bravo. Until now the ONLY things that read it were the session-start
+        # hook — which needs a human to open a session — and the Sunday digest.
+        # So a HIGH message from another agent reached CC weekly at best, and
+        # seven were sitting unread. An inbox nothing reads on a schedule is a
+        # channel that exists on paper.
+        "agent_inbox": ["scripts/core/agent_inbox.py", "--json", "list", "--to", "bravo"],
+        "health_alerts": ["scripts/client_health.py", "--json", "alerts"],
+        "health_full": ["scripts/client_health.py", "--json", "report"],
+        "briefing": ["scripts/ceo_dashboard.py", "--json", "briefing"],
+    }
 
-    # Disambiguate "all clients healthy" from "no clients monitored" — the
-    # second is a CRM data-hygiene gap, not a green light. On 2026-05-18 the
-    # brief told CC "All clients GREEN, no fires" while his real Stripe
-    # subscribers were sitting outside the health engine entirely (none
-    # tagged status='client' in leads). Surfacing the monitored_count lets
-    # the AI narrator (or any downstream consumer) tell the truth.
+    results: dict[str, dict | list | None] = {}
+    # One worker per call: with 7 tasks through 4 workers the run took two
+    # batches (~74s), which overran daily_brief's 60s regen budget and left CC
+    # reading a snapshot stamped `_stale: true`. These are subprocesses blocking
+    # on Turso/Stripe I/O, not CPU work, so widening costs nothing and makes
+    # wall-clock ≈ the single slowest engine (~40s).
+    with ThreadPoolExecutor(max_workers=len(calls)) as executor:
+        futures = {key: executor.submit(_call, cmd) for key, cmd in calls.items()}
+        for key, future in futures.items():
+            results[key] = future.result()
+
+    mrr = results["mrr"]
+    goal = results["goal"]
+    pipeline = results["pipeline"]
+    followups = results["followups"]
+    health_alerts = results["health_alerts"]
+    health_full = results["health_full"]
+    briefing = results["briefing"]
+
     monitored_count = 0
     if isinstance(health_full, list):
         monitored_count = len(health_full)
@@ -99,6 +152,11 @@ def build_snapshot() -> dict:
         "pipeline": pipeline,
         "followups_due": followups,
         "client_health_alerts": health_alerts,
+        # Listed explicitly, like every other key: this function returns a
+        # hand-built dict, so an engine added to `calls` and not added HERE runs
+        # on every snapshot and is thrown away. Caught by rendering the brief and
+        # finding the section absent, not by reading the code.
+        "agent_inbox": results["agent_inbox"],
         "briefing": briefing,
     }
 

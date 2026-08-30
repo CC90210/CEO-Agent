@@ -23,10 +23,15 @@ CONTRACT
     lengths, no hashes. A leak here would defeat the secret guard.
   * Exit 0 = capability available. Exit 1 = genuinely unavailable (the only
     case in which "I don't have access" is a true statement).
+  * Most services are proven by env-key presence. Some authenticate by a CLI
+    session rather than a key — those are probed LIVE (see LIVE_PROBES),
+    because asking "is the env var set?" about a tool that never reads one
+    reports a working capability as missing.
 
 USAGE
   python scripts/capability_probe.py list                    # every service + status
   python scripts/capability_probe.py check stripe            # one service
+  python scripts/capability_probe.py check codex             # alias -> openai
   python scripts/capability_probe.py check stripe --json
   python scripts/capability_probe.py have STRIPE_API_KEY     # one raw key
 """
@@ -36,11 +41,20 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO_ROOT / "docs" / "ENV_KEYS_TEMPLATE.md"
+
+# `codex login status` is what the codex plugin ITSELF calls to decide whether it
+# can run (~/.claude/codex-plugin/scripts/lib/codex.mjs:704), so it is the
+# authoritative liveness question, not a proxy for one. Measured at 2.9s cold on
+# this machine (2026-08-29); the cap is ~5x that so a slow disk or a cold npm
+# shim can never manufacture a "not authenticated" verdict.
+CODEX_STATUS_TIMEOUT = 15
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
@@ -59,24 +73,81 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 SERVICES: dict[str, tuple[list[list[str]], str]] = {
     "anthropic": ([["CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY"]],
                   "python scripts/lib/claude_cli.py  (subscription CLI — never the API key)"),
+    # The env-key group is kept because an API-key login IS a valid Codex auth
+    # path — but it is the MINORITY path here, and gating on it alone was the
+    # worst false negative this tool has produced. On this machine Codex
+    # authenticates by ChatGPT subscription (`codex login status` -> "Logged in
+    # using ChatGPT", creds in ~/.codex/auth.json); no OPENAI_* key exists in the
+    # agents env and none is needed. So `check openai` reported NOT CONFIGURED
+    # about a CLI that answers in under three seconds.
+    #
+    # That is not a cosmetic wrong answer. RULE 8 makes the Codex independent
+    # audit MANDATORY on any big task, and this file is the one an agent is told
+    # to trust over its own memory — so the probe was actively instructing agents
+    # that the required audit was impossible, and the skip looked justified.
+    # _codex_auth below asks the real question instead. See LIVE_PROBES.
     "openai": ([["OPENAI_API_KEY"]],
+               "python scripts/core/codex_review.py review --session '<task-slug>'   "
+               "(the RULE 8 audit — records the verdict to task_outcomes)  |  "
                "node ~/.claude/codex-plugin/scripts/codex-companion.mjs task --write '<ctx>'"),
     "openrouter": ([["OPENROUTER_API_KEY"]], "python scripts/model_router.py"),
-    "supabase": ([["SUPABASE_URL", "SUPABASE_URL_BRAVO", "BRAVO_SUPABASE_URL"],
-                  ["SUPABASE_SERVICE_ROLE_KEY", "BRAVO_SUPABASE_SERVICE_ROLE_KEY",
-                   "SUPABASE_SERVICE_ROLE_KEY_BRAVO"]],
-                 "python scripts/integrations/supabase_tool.py <verb> --json"),
+    # RETIRED 2026-08-09 — and this entry was the most dangerous kind of stale:
+    # it reported "supabase: AVAILABLE" long after the migration, because those
+    # SUPABASE_*/BRAVO_SUPABASE_* keys are the values the TURSO COMPAT SHIM reads.
+    # supabase_tool.py speaks Turso despite its name (it logs
+    # "turso_supabase_compat"), so key presence proved the shim was wired, never
+    # that a Supabase project answers. An agent following the "probe before you
+    # claim a service is missing" rule got AVAILABLE and reasonably concluded
+    # Supabase was live — the harness's own diagnostic teaching the wrong fact.
+    # The credential that actually distinguishes them is the management token
+    # SUPABASE_ACCESS_TOKEN, which IS gone; that absence is why
+    # migration_completeness_audit.py and etl_supabase_to_turso.py can no longer
+    # run. Probing it now routes the agent to Turso instead of lying by omission.
+    "supabase": ([["SUPABASE_ACCESS_TOKEN"]],
+                 "RETIRED — empire data is on Turso. Use "
+                 "`python scripts/integrations/turso_tool.py <verb> --json`. "
+                 "(scripts/integrations/supabase_tool.py still exists and still "
+                 "works, but it is the Turso compat shim, not Supabase.)"),
+    # Turso needs BOTH a database URL and a token, and the URL must be the
+    # canonical key. TURSO_API_KEY alone reads as access but is not: the token in
+    # the agents env is database-scoped (JWT claims a/id/rid) and belongs to the
+    # ig-setter-pro database, and TURSO_DATA_BASE_URL points at that same
+    # unrelated product. Accepting either would authorize the agent to connect to
+    # the wrong database — the precise false positive this table exists to kill.
+    # Provisioning the empire databases additionally needs a Platform API token
+    # (TURSO_PLATFORM_TOKEN), which is a separate credential minted by
+    # `turso auth api-tokens mint` — see turso_admin below.
+    "turso": ([["TURSO_DATABASE_URL", "TURSO_DB_URL", "TURSO_DB_PATH"],
+               ["TURSO_AUTH_TOKEN", "TURSO_DB_PATH"]],
+              "python scripts/integrations/turso_tool.py <verb> --json"),
     # An account id is not a credential — require an actual secret key.
     "stripe": ([["STRIPE_ORG_KEY", "STRIPE_SECRET_KEY", "STRIPE_API_KEY"]],
                "python scripts/integrations/stripe_tool.py <verb> --json"),
     "google": ([["GMAIL_USER", "GMAIL_ADDRESS"], ["GMAIL_APP_PASSWORD"]],
                "python scripts/integrations/google_tool.py <verb> --json"),
+    # Genuinely reachable, so OK is the honest status — but DEPRECATED, and a bare
+    # OK invites an agent to build new automation on a platform being retired. Only
+    # two client webhooks remain live (Oasis Voice Agent; GrapeVine Cottage, a
+    # churned client) and the replacement endpoint is already proven. Same lesson as
+    # the supabase entry above, one notch softer: the status was never wrong, the
+    # missing context was.
     "n8n": ([["N8N_API_KEY"], ["N8N_API_URL", "N8N_BASE_URL", "N8N_URL"]],
-            "python scripts/integrations/n8n_tool.py <verb> --json"),
+            "python scripts/integrations/n8n_tool.py <verb> --json  "
+            "(DEPRECATED — read/repair existing workflows only. Build nothing new "
+            "here; new inbound automation goes to POST /api/ingest/automation-log.)"),
+    # TWO wrappers on one token, and the probe has to name both or the half it
+    # omits reads as unavailable. env_tool covers environment variables;
+    # deploy_tool covers deployment state and build logs. Diagnosing the
+    # 2026-08-16 preview OOM needed the second one, and the probe pointing only
+    # at the first is exactly the "I don't have access to that" false negative
+    # this tool exists to kill.
     "vercel": ([["VERCEL_TOKEN"]],
-               "python scripts/integrations/vercel_env_tool.py <verb> --json"),
+               "python scripts/integrations/vercel_env_tool.py --json <verb>  (env vars)  |  "
+               "python scripts/integrations/vercel_deploy_tool.py {list,logs,inspect}  (deploys, read-only)"),
     "cloudflare": ([["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_TOKEN"]],
-                   "python scripts/integrations/cloudflare_admin.py <verb>"),
+                   "python scripts/integrations/cloudflare_admin.py <verb>  (DNS TXT/tunnels)  |  "
+                   "python scripts/integrations/wrangler_tool.py <verb>  (Workers deploys/secrets; "
+                   "run `whoami` first - key presence does not prove the right ACCOUNT)"),
     # notify.py gates on TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_USERS. It does NOT
     # read TELEGRAM_CHAT_ID — requiring that key here produced a false negative on
     # a service that works, which is the failure this whole tool exists to prevent.
@@ -92,8 +163,22 @@ SERVICES: dict[str, tuple[list[list[str]], str]] = {
              "python ../CMO-Agent/scripts/late_tool.py   (Maven's repo — route content to Maven)"),
     "lendsaas": ([["LENDSAAS_API_TOKEN", "LENDSAAS_"]],
                  "python scripts/integrations/lendsaas_tool.py"),
+    # NOT "gh <cmd> (or plain git)", which is what this said and was wrong in the
+    # one way that matters: the key IS present, so the probe reports AVAILABLE,
+    # and then the advice it gives fails. 2026-08-16: `gh auth status` reports
+    # the stored CLI token invalid and a plain `git push` dies with "could not
+    # read Username for https://github.com" — re-authenticating needs an
+    # interactive browser flow no agent can run.
+    #
+    # A probe that says AVAILABLE and hands over a command that cannot work is
+    # worse than one that says nothing: it sends the reader down a dead end while
+    # a working path (the PAT below, via the wrapper) sits unused. The wrapper
+    # feeds the token to git through GIT_ASKPASS and to gh through GH_TOKEN,
+    # so it works regardless of the CLI's own login state.
     "github": ([["GITHUB_TOKEN", "GITHUB_PERSONAL_ACCESS_TOKEN", "GH_TOKEN"]],
-               "gh <cmd>   (or plain git)"),
+               "python scripts/git_push_tool.py --repo <path> --branch <b> "
+               "[--set-upstream|--pr|--checks|--edit-body]   "
+               "(the gh CLI's own login is stale; plain `git push` cannot authenticate)"),
 }
 
 KEY_RE = re.compile(r"`([A-Z][A-Z0-9_]{2,})`")
@@ -134,6 +219,96 @@ def _satisfy(group: list[str], have: set[str]) -> list[str]:
     )
 
 
+def _codex_auth() -> tuple[bool, str]:
+    """Is the Codex CLI installed AND logged in? Presence only — never the token.
+
+    Returns (authenticated, one-line reason).
+
+    The reason NEVER carries the CLI's own stdout/stderr. `codex login status`
+    prints the auth MODE, and the API-key mode prints a description of the key
+    itself — piping that into a model's context is precisely the leak the
+    CONTRACT at the top of this file forbids. So the result is classified into a
+    fixed vocabulary here and the raw text is dropped on the floor.
+    """
+    exe = shutil.which("codex")
+    if exe is None:
+        # Not a credential problem, and saying "not configured" would send the
+        # reader hunting for a key that was never the issue.
+        return False, "codex CLI not on PATH — install it: npm install -g @openai/codex"
+    try:
+        proc = subprocess.run(
+            [exe, "login", "status"],
+            capture_output=True,
+            text=True,
+            timeout=CODEX_STATUS_TIMEOUT,
+            # A status question must never be able to consume — or block on —
+            # the caller's stdin. `codex` resolves to a .CMD shim on Windows, so
+            # this spawns cmd.exe, which will read stdin if it is handed one.
+            stdin=subprocess.DEVNULL,
+        )
+    except subprocess.TimeoutExpired:
+        # UNVERIFIED, not absent — and the wording is load-bearing. This tool
+        # exists to stop agents concluding "I don't have access"; a probe that
+        # let a transient stall harden into that claim would reintroduce the bug.
+        return False, (
+            f"codex CLI found but `codex login status` did not answer within "
+            f"{CODEX_STATUS_TIMEOUT}s — auth UNVERIFIED, not absent. Re-run the probe, "
+            f"or run `codex login status` yourself before concluding anything."
+        )
+    except OSError as exc:
+        return False, f"codex CLI at {exe} could not be executed — {type(exc).__name__}: {exc}"
+
+    if proc.returncode != 0:
+        # A crash is not a verdict. Exit codes are 0-255 by convention, so
+        # anything outside that is an abnormal termination — a Windows NTSTATUS
+        # or a POSIX signal — not the CLI answering "logged out".
+        #
+        # This is defensive, and measured: process creation on this box
+        # intermittently dies with 3221225480 (0xC0000008 STATUS_INVALID_HANDLE)
+        # printing nothing on either stream. It is NOT specific to the codex
+        # spawn — 2026-08-29 it hit 1 of 15 runs of `check stripe`, which spawns
+        # no subprocess at all, and 0 of 15 of `check openai`. But when it does
+        # land on this child, an NTSTATUS in returncode would otherwise be read
+        # as "not logged in" — a confident false negative on a transient, which
+        # is the whole failure mode this file exists to prevent.
+        if proc.returncode < 0 or proc.returncode > 0xFF:
+            return False, (
+                f"`codex login status` terminated abnormally (exit {proc.returncode}) — "
+                f"auth UNVERIFIED, not absent. Re-run the probe before concluding anything."
+            )
+        return False, (
+            f"codex CLI installed but not logged in (`codex login status` exit "
+            f"{proc.returncode}) — run: codex login"
+        )
+
+    # Both streams: `codex login status` prints its verdict to STDERR and leaves
+    # stdout empty (measured 2026-08-29 — stdout 0 bytes, stderr 24 bytes
+    # "Logged in using ChatGPT"). Classifying stdout alone reported an
+    # authenticated CLI as "mode not recognised".
+    said = proc.stdout + proc.stderr
+    if "ChatGPT" in said:
+        mode = "ChatGPT subscription"
+    elif "API key" in said:
+        mode = "API key"
+    else:
+        # Authenticated (exit 0 is the verdict), but do not invent a mode name —
+        # and do not print the line to find out what it says. See the docstring.
+        mode = "mode not recognised"
+    return True, f"codex CLI logged in ({mode}) — OPENAI_API_KEY is not required for this path"
+
+
+# Services whose credential is a CLI SESSION, not an env var. A live probe here
+# overrides the key check when it succeeds; when it fails, the key check still
+# stands (an API key remains a valid alternative). Keep this list tiny — every
+# entry costs a subprocess on `list`.
+LIVE_PROBES = {"openai": _codex_auth}
+
+# `check codex` used to exit 2 "unknown service" — the same false negative in a
+# different costume, since RULE 8 and every entry point call this capability
+# "Codex", never "openai". The name an agent will actually type has to resolve.
+ALIASES = {"codex": "openai", "codex-cli": "openai"}
+
+
 def probe(service: str, have: set[str]) -> dict:
     groups, invoke = SERVICES[service]
     matched: list[str] = []
@@ -145,7 +320,7 @@ def probe(service: str, have: set[str]) -> dict:
         else:
             # Name the canonical key so the operator knows what to add.
             unsatisfied.append(group[0])
-    return {
+    result = {
         "service": service,
         # EVERY required group must be satisfied — see the SERVICES comment.
         "available": not unsatisfied,
@@ -153,6 +328,17 @@ def probe(service: str, have: set[str]) -> dict:
         "keys_missing": unsatisfied,
         "invoke": invoke,
     }
+    live = LIVE_PROBES.get(service)
+    if live is not None:
+        authed, detail = live()
+        result["auth"] = detail
+        if authed:
+            # The CLI's own session IS the credential, so an absent env key is
+            # not an absent capability — and reporting it under "keys missing"
+            # would read as a defect to fix rather than a path not taken.
+            result["available"] = True
+            result["keys_missing"] = []
+    return result
 
 
 def main() -> int:
@@ -185,10 +371,10 @@ def main() -> int:
         return 0 if ok else 1
 
     if args.cmd == "check":
-        svc = args.service.lower()
+        svc = ALIASES.get(args.service.lower(), args.service.lower())
         if svc not in SERVICES:
-            print(f"unknown service '{svc}'. known: {', '.join(sorted(SERVICES))}",
-                  file=sys.stderr)
+            known = ", ".join(sorted(set(SERVICES) | set(ALIASES)))
+            print(f"unknown service '{svc}'. known: {known}", file=sys.stderr)
             return 2
         r = probe(svc, have)
         if args.json:
@@ -199,6 +385,8 @@ def main() -> int:
                 print(f"  keys present : {', '.join(r['keys_present'])}")
             if r["keys_missing"]:
                 print(f"  keys missing : {', '.join(r['keys_missing'])}")
+            if r.get("auth"):
+                print(f"  auth         : {r['auth']}")
             print(f"  invoke       : {r['invoke']}")
         return 0 if r["available"] else 1
 

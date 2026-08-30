@@ -53,7 +53,38 @@ from schedule_helpers import (
 CHECK_INTERVAL_SECONDS = 60  # How often to check for due jobs
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
-PYTHON = sys.executable  # Use same Python that's running this script
+def _console_python() -> str:
+    """The python.exe that pairs with whatever interpreter is running us.
+
+    WHY THIS IS NOT sys.executable (2026-08-28):
+    the scheduler is a background daemon launched with pythonw.exe — correct for
+    the daemon, which has no console. But `PYTHON = sys.executable` then handed
+    pythonw.exe to every child job, and children are spawned with captured
+    output. python.exe + CREATE_NO_WINDOW (already applied at every spawn site
+    below) is the supported way to get an invisible child WITH working pipes;
+    pythonw plus captured output is not, and it is a variable worth removing
+    from a path that has been failing undiagnosably.
+
+    HONEST SCOPE: this is hygiene, not a proven fix. Jobs have been dying with
+    exit 3221225480 (0xC0000008 STATUS_INVALID_HANDLE) and EMPTY stdout AND
+    stderr — Inbound Email Sweep on 2026-08-26 15:16/15:29, 08-27 04:06, 08-28
+    03:20/04:05/04:27, and Marketing Publish Drain. A direct A/B of pythonw.exe
+    vs python.exe with redirected pipes did NOT reproduce it: both exit 0 and
+    both deliver their output. So pythonw is not demonstrably the cause. The
+    likelier reading is that the parent tears the pipes down at the timeout and
+    the child then faults on the dead handle, which also explains why the
+    captured output arrives empty. See _log_sweep_progress in email_engine.py
+    for the change that actually makes the next occurrence diagnosable.
+    """
+    exe = Path(sys.executable)
+    if exe.name.lower() == "pythonw.exe":
+        console = exe.with_name("python.exe")
+        if console.is_file():
+            return str(console)
+    return sys.executable
+
+
+PYTHON = _console_python()
 
 # Scrub this process's own env, then hand a sanitized copy to every child.
 #
@@ -144,11 +175,8 @@ def load_env() -> dict[str, str]:
 
 def get_client(env_vars: dict[str, str]):
     from supabase import create_client
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
-        print("FATAL: BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY missing", flush=True)
-        sys.exit(1)
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "dummy-turso-key"
     return create_client(url, key)
 
 
@@ -159,6 +187,54 @@ def get_client(env_vars: dict[str, str]):
 # Anything slower (hourly, daily) fails once and then stays broken for a long
 # time — for those the first failure is the only useful moment to alert.
 FAST_JOB_PERIOD = timedelta(minutes=15)
+
+# --- consecutive-failure thresholds before CC is paged (2026-08-15) ----------
+# A fast job retries within minutes, so one — and now two — bad ticks are noise
+# it heals on its own. CC's 2026-08-15 Telegram log is the evidence: Inbound
+# Email Sweep, Marketing Publish Drain and the Hourly Cron Health Check all
+# paged and then self-recovered inside eight minutes, and every one of the
+# underlying failures was a transport fault (WinError 10054 / os error 10060).
+# A slow job is the opposite — a daily brief that fails at 06:00 does not try
+# again for 24h, so its second failure is already a real signal.
+ESCALATE_AFTER_FAST = 3
+ESCALATE_AFTER_SLOW = 2
+
+
+def escalation_threshold(period) -> int:
+    """Consecutive failures before CC is paged — and, identically, before a
+    recovery ping is worth sending.
+
+    ONE function so the two can never drift. The first version of this change
+    used a separate RECOVERY_MIN_FAILURES constant, and Codex's audit caught what
+    that produced: a slow job escalated at 2 but recovered at max(2, 3) = 3, so
+    every slow-job alert stayed unresolved forever. That is the same unpaired-
+    notification defect this whole change exists to remove, just inverted —
+    alert with no recovery instead of recovery with no alert. Both call sites now
+    read the threshold from here.
+    """
+    is_fast = period is not None and period <= FAST_JOB_PERIOD
+    return ESCALATE_AFTER_FAST if is_fast else ESCALATE_AFTER_SLOW
+
+
+# Floor on the post-cycle sleep. A cycle that overran its interval goes straight
+# round again, but never with zero delay: the loop opens with a cron_jobs query,
+# and a pathological cycle that keeps overrunning would otherwise busy-spin on
+# the database.
+MIN_SLEEP_SECONDS = 1.0
+
+
+def remaining_sleep_seconds(elapsed: float,
+                            interval: float = CHECK_INTERVAL_SECONDS) -> float:
+    """How long to sleep so the loop POLLS every `interval`, not interval-plus.
+
+    The loop used to sleep a flat CHECK_INTERVAL_SECONDS after running every due
+    job, which makes the period ADDITIVE: the real interval for any job is
+    (sum of every due job's runtime) + 60s. Measured live over 12 minutes, the
+    Instagram DM Closer — schedule '* * * * *' — actually ran at 291s, 255s and
+    166s intervals. The scheduler is single-threaded, so a slow job still delays
+    everything behind it; this at least stops the wait from being charged twice.
+    """
+    return max(MIN_SLEEP_SECONDS, float(interval) - max(0.0, float(elapsed)))
 
 
 def parse_cron_schedule(schedule: str) -> Optional[timedelta]:
@@ -171,6 +247,17 @@ def parse_cron_schedule(schedule: str) -> Optional[timedelta]:
         return None
 
     minute, hour, dom, month, dow = parts
+
+    # Every minute: * * * * *
+    # The BARE star had no branch of its own, so it fell through to the daily
+    # fallback at the bottom and every-minute jobs were treated as DAILY. Two
+    # error-path consequences, both live on the Instagram DM Closer row: the
+    # retry-delay cap `min(timedelta(minutes=5), job_period)` evaluated to five
+    # minutes — the exact punishment that cap exists to prevent — and
+    # `job_is_fast` was False, so one transient failure paged CC on attempt 1
+    # instead of being treated as the self-healing blip it is.
+    if minute == "*" and hour == "*" and dom == "*" and month == "*" and dow == "*":
+        return timedelta(minutes=1)
 
     # Every N minutes: */N * * * *
     if minute.startswith("*/") and hour == "*" and dom == "*" and month == "*" and dow == "*":
@@ -225,6 +312,46 @@ def calculate_next_run(schedule: str) -> str:
 
 
 # ── Job execution ─────────────────────────────────────────────────────────────
+
+TIMINGS_PATH = PROJECT_ROOT / "state" / "cron_timings.jsonl"
+TIMINGS_KEEP = 4000
+
+
+def _record_job_timing(name: str, action_type: str, seconds: float, result: str) -> None:
+    """Append one duration record. Never raises, never blocks a job.
+
+    Uses lib.json_ledger's atomic-write idiom in spirit but stays JSONL, because
+    this is an append-only time series rather than a keyed ledger — a dict keyed
+    by job name would keep only the LAST run and lose the distribution, which is
+    the whole point of measuring.
+
+    Trimmed to TIMINGS_KEEP so it cannot grow unbounded; state/*.log rotation
+    does not cover .jsonl. See brain/DATA_LIFECYCLE.md.
+    """
+    try:
+        rec = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "job": name,
+            "action_type": action_type,
+            "seconds": round(float(seconds), 1),
+            # Store the VERDICT, not the payload: last_result can carry an
+            # entire harness scoreboard, and this file is read for timing.
+            "ok": not str(result or "").upper().startswith(("ERROR", "FAILED")),
+        }
+        TIMINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(TIMINGS_PATH, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec) + "\n")
+            fh.flush()
+        # Cheap bounded trim: only when the file is comfortably over budget, so
+        # the common path is one append and nothing else.
+        if TIMINGS_PATH.stat().st_size > TIMINGS_KEEP * 220:
+            lines = TIMINGS_PATH.read_text(encoding="utf-8", errors="replace").splitlines()
+            tmp = TIMINGS_PATH.with_suffix(".jsonl.tmp")
+            tmp.write_text("\n".join(lines[-TIMINGS_KEEP:]) + "\n", encoding="utf-8")
+            os.replace(tmp, TIMINGS_PATH)
+    except Exception:  # noqa: BLE001 - telemetry must never break a cron run
+        pass
+
 
 def execute_job(job: dict, env_vars: dict[str, str]) -> str:
     """
@@ -413,6 +540,101 @@ def persist_failure(label: str, cmd: List[str], returncode: "int | str",
     except Exception as exc:  # noqa: BLE001
         log(f"  [warn] could not persist failure dump for {label}: {exc}")
         return None
+
+
+_NOISE_ONLY = re.compile(r"^[\s{}\[\](),;:'\"`~*=+_.\-|]*$")
+# How much of a script's stdout survives into cron_jobs.last_result. Same 200
+# the four hand-rolled copies used, so the stored size does not change.
+RESULT_LIMIT = 200
+
+
+def _clip_result(text: str, limit: int = RESULT_LIMIT) -> str:
+    """Truncate, and SAY SO. A silent cut at exactly `limit` is
+    indistinguishable from a complete short result — which is how three jobs'
+    escalation reasons were lost while their rows read as healthy."""
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    marker = " ...(+{} cut)"
+    keep = limit - len(marker.format(len(text)))
+    return text[:keep].rstrip() + marker.format(len(text) - keep)
+
+
+def _summarize_json(data: Any, limit: int = RESULT_LIMIT) -> str:
+    """A JSON payload rendered as a VERDICT, not as its first 200 bytes.
+
+    Scalars first, then containers by size, because the scalars are the counts
+    an operator reads ("reds=0 yellows=2") and the containers are the detail
+    that never fit anyway. Deliberately does not start with a brace: a clipped
+    raw dump does, and one that lands on a slice boundary is exactly what the
+    harness has to flag as truncated.
+    """
+    if isinstance(data, list):
+        head = _summarize_json(data[0], limit - 12) if data else ""
+        return _clip_result(f"{len(data)} item(s)" + (f": {head}" if head else ""), limit)
+    if not isinstance(data, dict):
+        return _clip_result(str(data), limit)
+    scalars, containers = [], []
+    for k, v in data.items():
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            scalars.append(f"{k}={v}")
+        elif isinstance(v, list):
+            containers.append(f"{k}=[{len(v)}]")
+        elif isinstance(v, dict):
+            containers.append(f"{k}={{{len(v)}}}")
+    out = ""
+    for part in scalars + containers:
+        candidate = f"{out} {part}".strip()
+        if len(candidate) > limit:
+            return f"{out} ...".strip() if out else _clip_result(part, limit)
+        out = candidate
+    return out or "ok"
+
+
+def summarize_stdout(stdout: str, limit: int = RESULT_LIMIT) -> str:
+    """One readable verdict line from a script's stdout.
+
+    Replaces four copies of `out[-1][:200] if out else "ok"`, which had two
+    failure modes the cron registry made permanent:
+
+      OPAQUE   — the last line of pretty-printed JSON is `}`. "Bravo —
+                 Cross-Agent Review Scan" stored `]` and "Daily Memory Index
+                 Rebuild" stored `}` as their entire recorded result. Total
+                 information loss, scored as healthy because it did not start
+                 with ERROR.
+      TRUNCATED — three rows sat on exactly the 200-char boundary with the cut
+                 landing inside the JSON, so the escalation reasons — the only
+                 part worth storing — were the part removed, silently.
+
+    Both are the same root cause: a slice is not a summary.
+    """
+    text = (stdout or "").strip()
+    if not text:
+        return "ok"
+
+    def _render(candidate: str) -> str | None:
+        """Summarize as JSON when it IS JSON, else None."""
+        if candidate[:1] not in "{[":
+            return None
+        try:
+            return _summarize_json(json.loads(candidate), limit)
+        except (ValueError, TypeError):
+            return None
+
+    # The whole output first, then the last meaningful LINE. Both paths have to
+    # try JSON: a script that logs a line before its payload leaves the payload
+    # as the last line, and clipping it there reproduces exactly the truncated
+    # JSON this function exists to stop. Observed live on "Bravo - Review
+    # Harvest", whose first post-fix result was still a 200-char JSON fragment
+    # because only the whole-output path was checking.
+    rendered = _render(text)
+    if rendered is not None:
+        return rendered
+    for line in reversed(text.splitlines()):
+        stripped = line.strip()
+        if stripped and not _NOISE_ONLY.match(stripped):
+            return _render(stripped) or _clip_result(stripped, limit)
+    return _clip_result(text.splitlines()[-1], limit)
 
 
 def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
@@ -704,11 +926,19 @@ def run_daily_brief(_env_vars: dict) -> str:
     that's Atlas's brief. The script self-ships; this handler just invokes it
     and returns stdout so cron_jobs.last_result captures whether it landed.
 
-    Timeout 150s > daily_brief's inner CLI-narration timeout (60s) + snapshot
-    regen (60s) so the script always reaches its own graceful fallback before
-    the scheduler force-kills it.
+    Timeout 200s > daily_brief's inner budgets (snapshot regen 110s + CLI
+    narration 60s = 170s) so the script always reaches its own graceful fallback
+    before the scheduler force-kills it. An outer cap BELOW the inner sum
+    destroys the diagnostic the inner layers were written to produce.
+
+    RAISED 150 -> 200 (2026-08-28). The docstring said "snapshot regen (60s)"
+    while the constant was 75 and the generator actually measured 64-70s, so the
+    stated arithmetic had not been true for some time. Sub-engines were timing
+    out and CC's brief rendered "⚠️ unavailable" for Client health and Follow-ups
+    while the underlying data was fine. Chain, all measured and all above p95:
+        engines 90 -> regen 110 -> +narration 60 = 170 -> outer 200 (< 300 cap).
     """
-    out = run_script("daily_brief.py", [], timeout=150)
+    out = run_script("daily_brief.py", [], timeout=200)
     if not out or not out.strip():
         return "ERROR: daily_brief returned empty output"
     first_line = out.strip().splitlines()[0]
@@ -765,8 +995,7 @@ def run_snapshot(config: dict) -> str:
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
         return f"ERROR: snapshot_run exit {result.returncode}: {err}"
-    out = (result.stdout or "").strip().splitlines()
-    return out[-1][:200] if out else "ok"
+    return summarize_stdout(result.stdout)
 
 
 def run_script_action(config: dict) -> str:
@@ -828,8 +1057,7 @@ def run_script_action(config: dict) -> str:
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
         return f"ERROR: script_run exit {result.returncode}: {err}"
-    out = (result.stdout or "").strip().splitlines()
-    return out[-1][:200] if out else "ok"
+    return summarize_stdout(result.stdout)
 
 
 def run_morning_powwow(_env_vars: dict) -> str:
@@ -877,8 +1105,7 @@ def run_morning_powwow(_env_vars: dict) -> str:
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
         return f"ERROR: morning_powwow exit {result.returncode}: {err}"
-    out = (result.stdout or "").strip().splitlines()
-    return out[-1][:200] if out else "ok"
+    return summarize_stdout(result.stdout)
 
 
 def run_auto_score_leads(_env_vars: dict) -> str:
@@ -894,9 +1121,11 @@ def run_auto_score_leads(_env_vars: dict) -> str:
     out = run_script("auto_score_leads.py", ["--limit", "25"], timeout=600)
     if not out or not out.strip():
         return "ERROR: auto_score_leads returned empty output"
-    # The script prints "Done. N scored, M failed." on its last line.
-    last_line = out.strip().splitlines()[-1]
-    return last_line[:200]
+    # The script prints "Done. N scored, M failed." on its last line — but the
+    # LAST line is only the right answer when nothing follows it, and a
+    # traceback or a trailing brace does. summarize_stdout picks the last line
+    # that carries information.
+    return summarize_stdout(out)
 
 
 def run_pipeline_review(env_vars: dict) -> str:
@@ -1485,8 +1714,30 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                     log(f"  [warn] failed to advance next_run_at for stale skip: {skip_exc}")
                 continue
 
-        # Execute the job
+        # Execute the job, and TIME it.
+        #
+        # Nothing measured how long any automation takes. cron_jobs has no
+        # duration column and the scheduler timed only its own loop, so "which
+        # automation is eating the machine" was unanswerable — and on this box
+        # that is the question most likely to matter, because every subprocess
+        # pays AV-inflated spawn cost (a bare `python -c pass` measures 3.7s).
+        # Three separate timeout bugs this week were diagnosed by hand-timing
+        # things that should already have been on record.
+        #
+        # Recorded to a local JSONL rather than a new cron_jobs column on
+        # purpose: a schema change means a migration number, and database/** is
+        # a contested surface shared with APEX. This needs no coordination and
+        # no migration.
+        _job_started = time.monotonic()
         result_msg = execute_job(job, env_vars)
+        # job.get(...) inline, NOT the `action_type` local: that name is first
+        # assigned at :1747, LATER in this same function, which makes it a local
+        # for the whole frame and therefore UNBOUND here on the first iteration
+        # of every call. pyflakes flagged it (F821) the moment the gate added in
+        # this session ran over the fleet — the gate catching its author's own
+        # bug, in the class it was built for.
+        _record_job_timing(job_name, job.get("action_type", ""),
+                           time.monotonic() - _job_started, result_msg)
 
         # V2.1 2026-04-11: Retry-on-error logic.
         # Old: next_run_at always advances to the normal schedule, so a daily
@@ -1505,6 +1756,12 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         new_count = (job.get("run_count") or 0) + 1
         fail_count = (job.get("fail_count") or 0) if hasattr(job, "get") else 0
 
+        # Computed once: both the retry-delay cap below and the escalation
+        # threshold further down need to know whether this job self-heals.
+        job_period = parse_cron_schedule(job.get("schedule", "") or "")
+        job_is_fast = job_period is not None and job_period <= FAST_JOB_PERIOD
+        escalate_at = escalation_threshold(job_period)
+
         if result_is_error:
             fail_count += 1
             if fail_count < 5:
@@ -1514,8 +1771,8 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
                 # stall pushed the 60-second funnel poll out to 5 minutes,
                 # stretching its cadence 5x at the exact moment it was already
                 # degraded. Cap the delay at the job's own period.
-                period = parse_cron_schedule(job.get("schedule", "") or "")
-                delay = min(timedelta(minutes=5), period) if period else timedelta(minutes=5)
+                delay = (min(timedelta(minutes=5), job_period) if job_period
+                         else timedelta(minutes=5))
                 retry_dt = datetime.now(timezone.utc) + delay
                 next_run = retry_dt.isoformat()
                 mins = delay.total_seconds() / 60
@@ -1537,8 +1794,9 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             # Fires at exactly 2 and at the give-up boundary, not on every tick;
             # notify.py's disk-persisted dedup then collapses repeats of the
             # same text to one per hour.
-            if fail_count == 2 or fail_count == 0:
-                stage = ("failing repeatedly" if fail_count == 2
+            if fail_count == escalate_at or fail_count == 0:
+                stage = (f"failing repeatedly ({fail_count} consecutive)"
+                         if fail_count == escalate_at
                          else "gave up after 5 attempts")
                 notify_error(
                     job_name,
@@ -1554,7 +1812,13 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             next_run = calculate_next_run(job.get("schedule", ""))
             # Recovery ping: if this job had been failing, say so. A silent
             # recovery leaves CC unsure whether the earlier alert still stands.
-            if fail_count >= 2:
+            # Was `>= 2`, which paged "recovered after 2 failed run(s)" for
+            # episodes whose failure alert had never been sent — the recovery
+            # spam in CC's 2026-08-15 log. Gate recovery on EXACTLY the threshold
+            # that gated the alert: `escalate_at`, not a separate constant and
+            # not max() of the two. A recovery that can fire below the alert
+            # threshold is noise; one that fires above it strands an open alert.
+            if fail_count >= escalate_at:
                 notify(f"{job_name}: recovered after {fail_count} failed run(s).",
                        category="system", silent=True, force=True)
             fail_count = 0  # successful run resets the counter
@@ -1693,11 +1957,9 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             # will not retry for a day, so its first failure IS the signal.
             # The cutoff is "will it try again before CC could reasonably
             # act", not an arbitrary severity call.
-            period = parse_cron_schedule(job.get("schedule", "") or "")
-            self_healing = period is not None and period <= FAST_JOB_PERIOD
-            if self_healing:
+            if job_is_fast:
                 log(f"  (transient failure on fast job {job_name} — "
-                    f"escalation at 2 consecutive owns this alert)")
+                    f"escalation at {ESCALATE_AFTER_FAST} consecutive owns this alert)")
             else:
                 # The failure path was the LAST place still shipping raw
                 # `[:200]` JSON. It is also the path where detail matters most —
@@ -1848,6 +2110,7 @@ def main():
     consecutive_errors = 0
     cycles = 0
     while True:
+        cycle_started = time.monotonic()
         try:
             jobs_run = check_and_run_due_jobs(client, env_vars)
             if jobs_run > 0:
@@ -1879,7 +2142,12 @@ def main():
             # Sleep here so the loop actually polls "every 60 seconds" as the
             # banner claims, and so the cycles%5 heartbeat lands ~every 5 min.
             # (Montreal turnkey reset, 2026-07-07.)
-            time.sleep(CHECK_INTERVAL_SECONDS)
+            #
+            # The sleep is the REMAINDER of the interval, not a flat minute
+            # (2026-08-21). A flat sleep made the period additive — the poll
+            # interval was (everything this cycle ran) + 60s — so a job
+            # scheduled '* * * * *' measured 291s, 255s and 166s between runs.
+            time.sleep(remaining_sleep_seconds(time.monotonic() - cycle_started))
         except KeyboardInterrupt:
             log("Shutdown requested. Goodbye.")
             break

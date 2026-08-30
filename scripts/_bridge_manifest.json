@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-10T04:14:11.450391+00:00",
-  "script_count": 128,
-  "entry_count": 299,
+  "generated_at_iso": "2026-08-28T23:02:01.291656+00:00",
+  "script_count": 163,
+  "entry_count": 341,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -26,7 +26,23 @@
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
-      "help": "Apply SQL migration files to the Bravo Supabase project."
+      "help": "Apply SQL migration files to the Bravo legacy Supabase project."
+    },
+    {
+      "key": "apply_missing_tables",
+      "path": "scripts/apply_missing_tables.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Create tables that exist in Postgres but not yet in Turso."
+    },
+    {
+      "key": "apply_turso_migration",
+      "path": "scripts/apply_turso_migration.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Apply transpiled libSQL DDL to a Turso database (or a local libSQL file)."
     },
     {
       "key": "audit_mcp_secrets",
@@ -91,6 +107,14 @@
       "subcmd": "decisions",
       "mutating": true,
       "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: decisions"
+    },
+    {
+      "key": "backfill_financial_labels",
+      "path": "scripts/backfill_financial_labels.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Backfill Gmail labels onto financial mail that was never filed."
     },
     {
       "key": "booking_engine_slots",
@@ -388,12 +412,36 @@
       "help": "Brain freshness checker (audit Phase 9)."
     },
     {
+      "key": "check_migration_collision_next",
+      "path": "scripts/check_migration_collision.py",
+      "root": "bravo",
+      "subcmd": "next",
+      "mutating": true,
+      "help": "check_migration_collision \u2014 reserve a migration number before you take it. \u2014 subcommand: next"
+    },
+    {
+      "key": "check_migration_collision_check",
+      "path": "scripts/check_migration_collision.py",
+      "root": "bravo",
+      "subcmd": "check",
+      "mutating": true,
+      "help": "check_migration_collision \u2014 reserve a migration number before you take it. \u2014 subcommand: check"
+    },
+    {
+      "key": "check_migration_collision_reserve",
+      "path": "scripts/check_migration_collision.py",
+      "root": "bravo",
+      "subcmd": "reserve",
+      "mutating": true,
+      "help": "check_migration_collision \u2014 reserve a migration number before you take it. \u2014 subcommand: reserve"
+    },
+    {
       "key": "client_health_report",
       "path": "scripts/client_health.py",
       "root": "bravo",
       "subcmd": "report",
       "mutating": true,
-      "help": "Client health \u2014 provides load env. \u2014 subcommand: report"
+      "help": "Client Health Scoring Engine \u2014 CEO Dashboard Component. \u2014 subcommand: report"
     },
     {
       "key": "client_health_score",
@@ -401,7 +449,7 @@
       "root": "bravo",
       "subcmd": "score",
       "mutating": true,
-      "help": "Client health \u2014 provides load env. \u2014 subcommand: score"
+      "help": "Client Health Scoring Engine \u2014 CEO Dashboard Component. \u2014 subcommand: score"
     },
     {
       "key": "client_health_alerts",
@@ -409,7 +457,7 @@
       "root": "bravo",
       "subcmd": "alerts",
       "mutating": true,
-      "help": "Client health \u2014 provides load env. \u2014 subcommand: alerts"
+      "help": "Client Health Scoring Engine \u2014 CEO Dashboard Component. \u2014 subcommand: alerts"
     },
     {
       "key": "client_health_trends",
@@ -417,7 +465,7 @@
       "root": "bravo",
       "subcmd": "trends",
       "mutating": true,
-      "help": "Client health \u2014 provides load env. \u2014 subcommand: trends"
+      "help": "Client Health Scoring Engine \u2014 CEO Dashboard Component. \u2014 subcommand: trends"
     },
     {
       "key": "competitive_intel_add",
@@ -609,7 +657,31 @@
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
-      "help": "crm_reset.py \u2014 archive cold/dead leads from the bravo Supabase CRM."
+      "help": "crm_reset.py \u2014 archive cold/dead leads from the bravo CRM (Turso via supabase-compat shim)."
+    },
+    {
+      "key": "cross_agent_review_scan",
+      "path": "scripts/cross_agent_review.py",
+      "root": "bravo",
+      "subcmd": "scan",
+      "mutating": true,
+      "help": "cross_agent_review \u2014 Bravo reviews APEX's PRs on surfaces Bravo owns. \u2014 subcommand: scan"
+    },
+    {
+      "key": "cross_agent_review_review",
+      "path": "scripts/cross_agent_review.py",
+      "root": "bravo",
+      "subcmd": "review",
+      "mutating": true,
+      "help": "cross_agent_review \u2014 Bravo reviews APEX's PRs on surfaces Bravo owns. \u2014 subcommand: review"
+    },
+    {
+      "key": "cross_agent_review_show",
+      "path": "scripts/cross_agent_review.py",
+      "root": "bravo",
+      "subcmd": "show",
+      "mutating": true,
+      "help": "cross_agent_review \u2014 Bravo reviews APEX's PRs on surfaces Bravo owns. \u2014 subcommand: show"
     },
     {
       "key": "daily_brief",
@@ -634,6 +706,38 @@
       "subcmd": null,
       "mutating": true,
       "help": "Dashboard-email queue monitor \u2014 catches a silent outbound stall."
+    },
+    {
+      "key": "db_snapshot_create",
+      "path": "scripts/db_snapshot.py",
+      "root": "bravo",
+      "subcmd": "create",
+      "mutating": false,
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "project": "empire",
+      "help": "Database restore-point tool \u2014 the enforcer behind V9.0 Defense #5. \u2014 subcommand: create"
+    },
+    {
+      "key": "db_snapshot_verify",
+      "path": "scripts/db_snapshot.py",
+      "root": "bravo",
+      "subcmd": "verify",
+      "mutating": false,
+      "category": "data.supabase",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "project": "empire",
+      "help": "Database restore-point tool \u2014 the enforcer behind V9.0 Defense #5. \u2014 subcommand: verify"
+    },
+    {
+      "key": "detect_shared_repos",
+      "path": "scripts/detect_shared_repos.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "detect_shared_repos \u2014 find app repos that BOTH agents commit to, and are unmapped."
     },
     {
       "key": "dns_reputation",
@@ -692,6 +796,38 @@
       "help": "enrich_oasis_leads.py \u2014 fill missing phone + first name on OASIS leads. \u2014 subcommand: run"
     },
     {
+      "key": "etl_auth_to_turso",
+      "path": "scripts/etl_auth_to_turso.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Preserve Supabase auth.users + auth.identities into each Turso database."
+    },
+    {
+      "key": "etl_storage_archive",
+      "path": "scripts/etl_storage_archive.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Archive Supabase Storage buckets to local disk, with a verifiable manifest."
+    },
+    {
+      "key": "etl_storage_to_r2",
+      "path": "scripts/etl_storage_to_r2.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Publish the archived Supabase Storage objects to Cloudflare R2, then repoint"
+    },
+    {
+      "key": "etl_supabase_to_turso",
+      "path": "scripts/etl_supabase_to_turso.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Supabase \u2192 Turso row ETL, with primary-key parity verification."
+    },
+    {
       "key": "financial_model_unit_economics",
       "path": "scripts/financial_model.py",
       "root": "bravo",
@@ -738,6 +874,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "fleet_health.py \u2014 Cross-agent health rollup."
+    },
+    {
+      "key": "fleet_health_check",
+      "path": "scripts/fleet_health_check.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Fleet health \u2014 is every app serving, on every hostname it actually answers on?"
     },
     {
       "key": "frontmatter_doctor",
@@ -820,12 +964,28 @@
       "help": "Generate a conventional-commits \u2192 CHANGELOG.md draft from `git log`."
     },
     {
+      "key": "generate_contractor_agreement",
+      "path": "scripts/generate_contractor_agreement.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "generate_contractor_agreement \u2014 render an OASIS contractor agreement."
+    },
+    {
       "key": "genome_sync",
       "path": "scripts/genome_sync.py",
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
       "help": "genome_sync.py \u2014 stamp the germline seed (PERSONAL.md) into every runtime entry point."
+    },
+    {
+      "key": "git_push_tool",
+      "path": "scripts/git_push_tool.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "git_push_tool \u2014 push a branch using the PAT from `.env.agents`, without the"
     },
     {
       "key": "gnn_skill_router_export_graph",
@@ -884,12 +1044,44 @@
       "help": "Inbound Classifier \u2014 the second half of V5.6's chokepoint. \u2014 subcommand: stats"
     },
     {
+      "key": "ingest_training_link",
+      "path": "scripts/ingest_training_link.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "ingest_training_link \u2014 turn a dropped link into something Maven can learn from."
+    },
+    {
       "key": "install_python_switch",
       "path": "scripts/install_python_switch.py",
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
       "help": "Install the Turso data-backend switch into the active venv."
+    },
+    {
+      "key": "ig_dm_daemon",
+      "path": "scripts/integrations/ig_dm_daemon.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "oasis",
+      "help": "ig_dm_daemon.py \u2014 a dedicated loop for the Instagram DM setter."
+    },
+    {
+      "key": "instagram_dm_poller",
+      "path": "scripts/integrations/instagram_dm_poller.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "category": "growth.inbound",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "oasis",
+      "help": "instagram_dm_poller.py \u2014 run OASIS Instagram DMs like a human closer."
     },
     {
       "key": "send_gateway_send",
@@ -952,76 +1144,64 @@
       "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: doctor"
     },
     {
-      "key": "supabase_tool_list_projects",
-      "path": "scripts/integrations/supabase_tool.py",
+      "key": "turso_status",
+      "path": "scripts/integrations/turso_tool.py",
       "root": "bravo",
-      "subcmd": "list-projects",
+      "subcmd": "status",
       "mutating": false,
-      "category": "data.supabase",
+      "category": "data.turso",
       "lifecycle": "active",
-      "risk": "destructive",
+      "risk": "read_only",
       "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: list-projects"
+      "help": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso. \u2014 subcommand: status"
     },
     {
-      "key": "supabase_tool_list_tables",
-      "path": "scripts/integrations/supabase_tool.py",
+      "key": "turso_tables",
+      "path": "scripts/integrations/turso_tool.py",
       "root": "bravo",
-      "subcmd": "list-tables",
+      "subcmd": "tables",
       "mutating": false,
-      "category": "data.supabase",
+      "category": "data.turso",
       "lifecycle": "active",
-      "risk": "destructive",
+      "risk": "read_only",
       "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: list-tables"
+      "help": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso. \u2014 subcommand: tables"
     },
     {
-      "key": "supabase_sql",
-      "path": "scripts/integrations/supabase_tool.py",
+      "key": "turso_schema",
+      "path": "scripts/integrations/turso_tool.py",
       "root": "bravo",
-      "subcmd": "query",
-      "mutating": true,
-      "category": "data.supabase",
+      "subcmd": "schema",
+      "mutating": false,
+      "category": "data.turso",
       "lifecycle": "active",
-      "risk": "destructive",
+      "risk": "read_only",
       "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: query"
+      "help": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso. \u2014 subcommand: schema"
     },
     {
-      "key": "supabase_select",
-      "path": "scripts/integrations/supabase_tool.py",
+      "key": "turso_select",
+      "path": "scripts/integrations/turso_tool.py",
       "root": "bravo",
       "subcmd": "select",
       "mutating": false,
-      "category": "data.supabase",
+      "category": "data.turso",
       "lifecycle": "active",
-      "risk": "destructive",
+      "risk": "read_only",
       "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: select"
+      "help": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso. \u2014 subcommand: select"
     },
     {
-      "key": "supabase_insert",
-      "path": "scripts/integrations/supabase_tool.py",
+      "key": "turso_sql_read",
+      "path": "scripts/integrations/turso_tool.py",
       "root": "bravo",
-      "subcmd": "insert",
-      "mutating": true,
-      "category": "data.supabase",
+      "subcmd": "sql",
+      "mutating": false,
+      "category": "data.turso",
       "lifecycle": "active",
-      "risk": "destructive",
+      "risk": "read_only",
       "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: insert"
-    },
-    {
-      "key": "supabase_update",
-      "path": "scripts/integrations/supabase_tool.py",
-      "root": "bravo",
-      "subcmd": "update",
-      "mutating": true,
-      "category": "data.supabase",
-      "lifecycle": "active",
-      "risk": "destructive",
-      "project": "empire",
-      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: update"
+      "help": "Turso / libSQL CLI tool \u2014 the sanctioned way for an agent to touch Turso. \u2014 subcommand: sql"
     },
     {
       "key": "lead_engine_list",
@@ -1112,6 +1292,14 @@
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: funnel"
     },
     {
+      "key": "link_library_to_posts",
+      "path": "scripts/link_library_to_posts.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "link_library_to_posts \u2014 join the Library to the posts that actually went out."
+    },
+    {
       "key": "machine_parity",
       "path": "scripts/machine_parity.py",
       "root": "bravo",
@@ -1160,6 +1348,14 @@
       "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: evaluate"
     },
     {
+      "key": "marketing_publish_drain",
+      "path": "scripts/marketing_publish_drain.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "marketing_publish_drain \u2014 turn queued publish intents into published posts."
+    },
+    {
       "key": "md_to_gdoc",
       "path": "scripts/md_to_gdoc.py",
       "root": "bravo",
@@ -1168,12 +1364,36 @@
       "help": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling."
     },
     {
+      "key": "merge_assets_to_carousel",
+      "path": "scripts/merge_assets_to_carousel.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "merge_assets_to_carousel \u2014 collapse N single images into one swipeable deck."
+    },
+    {
+      "key": "migrate_carousels",
+      "path": "scripts/migrate_carousels.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "migrate_carousels \u2014 register the carousel slides that were never uploaded."
+    },
+    {
       "key": "migrate_subprocess_calls",
       "path": "scripts/migrate_subprocess_calls.py",
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
       "help": "One-shot codemod: migrate raw subprocess.{Popen,run,...} calls to"
+    },
+    {
+      "key": "migration_completeness_audit",
+      "path": "scripts/migration_completeness_audit.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "THE answer to \"is every single piece of data migrated off Supabase?\""
     },
     {
       "key": "model_router_list_providers",
@@ -1487,6 +1707,14 @@
       "help": "Proposal Generator \u2014 OASIS AI Solutions \u2014 subcommand: templates"
     },
     {
+      "key": "provision_maven_telegram",
+      "path": "scripts/provision_maven_telegram.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "provision_maven_telegram.py -- give Maven the Telegram recipient it has never had."
+    },
+    {
       "key": "provision_secrets",
       "path": "scripts/provision_secrets.py",
       "root": "bravo",
@@ -1495,12 +1723,36 @@
       "help": "provision_secrets.py \u2014 materialize a tenant's integration secrets onto this host."
     },
     {
+      "key": "prune_merged_branches",
+      "path": "scripts/prune_merged_branches.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "prune_merged_branches \u2014 delete remote branches whose commits are already in main."
+    },
+    {
+      "key": "publish_ownership_map",
+      "path": "scripts/publish_ownership_map.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "publish_ownership_map \u2014 keep the shared copy of OWNERSHIP_MAP.yaml honest."
+    },
+    {
       "key": "pulse_publish_refresh",
       "path": "scripts/pulse_publish.py",
       "root": "bravo",
       "subcmd": "refresh",
       "mutating": true,
       "help": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json. \u2014 subcommand: refresh"
+    },
+    {
+      "key": "pulse_publish_autorefresh",
+      "path": "scripts/pulse_publish.py",
+      "root": "bravo",
+      "subcmd": "autorefresh",
+      "mutating": true,
+      "help": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json. \u2014 subcommand: autorefresh"
     },
     {
       "key": "pulse_publish_validate",
@@ -1524,7 +1776,7 @@
       "root": "bravo",
       "subcmd": "publish",
       "mutating": true,
-      "help": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table. \u2014 subcommand: publish"
+      "help": "Publish memory/ACTIVE_TASKS.md tasks to the `oasis_quests` table (Turso via supabase-compat shim). \u2014 subcommand: publish"
     },
     {
       "key": "quest_publisher_dry_run",
@@ -1532,7 +1784,7 @@
       "root": "bravo",
       "subcmd": "dry-run",
       "mutating": true,
-      "help": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table. \u2014 subcommand: dry-run"
+      "help": "Publish memory/ACTIVE_TASKS.md tasks to the `oasis_quests` table (Turso via supabase-compat shim). \u2014 subcommand: dry-run"
     },
     {
       "key": "quest_publisher_loop",
@@ -1540,7 +1792,15 @@
       "root": "bravo",
       "subcmd": "loop",
       "mutating": true,
-      "help": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table. \u2014 subcommand: loop"
+      "help": "Publish memory/ACTIVE_TASKS.md tasks to the `oasis_quests` table (Turso via supabase-compat shim). \u2014 subcommand: loop"
+    },
+    {
+      "key": "r2_split_public_bucket",
+      "path": "scripts/r2_split_public_bucket.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Split the migrated objects into a private and a public R2 bucket."
     },
     {
       "key": "reap_orphan_mcps",
@@ -1549,6 +1809,50 @@
       "subcmd": null,
       "mutating": true,
       "help": "Reap duplicate MCP server processes from leaked editor sessions."
+    },
+    {
+      "key": "receipts_audit_scan",
+      "path": "scripts/receipts_audit.py",
+      "root": "bravo",
+      "subcmd": "scan",
+      "mutating": true,
+      "category": "governance.finance",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Receipts audit \u2014 reconcile the mailbox against the financial pipeline. \u2014 subcommand: scan"
+    },
+    {
+      "key": "receipts_audit_apply",
+      "path": "scripts/receipts_audit.py",
+      "root": "bravo",
+      "subcmd": "apply",
+      "mutating": true,
+      "category": "governance.finance",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Receipts audit \u2014 reconcile the mailbox against the financial pipeline. \u2014 subcommand: apply"
+    },
+    {
+      "key": "receipts_audit_reconcile",
+      "path": "scripts/receipts_audit.py",
+      "root": "bravo",
+      "subcmd": "reconcile",
+      "mutating": true,
+      "category": "governance.finance",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Receipts audit \u2014 reconcile the mailbox against the financial pipeline. \u2014 subcommand: reconcile"
+    },
+    {
+      "key": "repair_turso_fk_actions",
+      "path": "scripts/repair_turso_fk_actions.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Restore the ON DELETE / ON UPDATE actions the transpiler dropped."
     },
     {
       "key": "repo_census",
@@ -1679,6 +1983,14 @@
       "help": "review_loop.py \u2014 drain the review queue: harvest \u2192 fix \u2192 push \u2192 report."
     },
     {
+      "key": "rewrite_image_pointers",
+      "path": "scripts/rewrite_image_pointers.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Point image columns at the app's media route instead of an r2.dev host."
+    },
+    {
       "key": "rlhf_outreach_build_dataset",
       "path": "scripts/rlhf_outreach.py",
       "root": "bravo",
@@ -1727,12 +2039,28 @@
       "help": "Secret scanner \u2014 hunt for leaked credentials before they hit GitHub."
     },
     {
+      "key": "scrape_cc_trade_leads",
+      "path": "scripts/scrape_cc_trade_leads.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Scrape, enrich, and import 100 local trade business leads for CC."
+    },
+    {
       "key": "scrape_firecrawl_leads",
       "path": "scripts/scrape_firecrawl_leads.py",
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
       "help": "Lead scraper using Firecrawl API (replaces slow Playwright + Google Maps flow)."
+    },
+    {
+      "key": "scrape_website_sales_leads",
+      "path": "scripts/scrape_website_sales_leads.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Website-sales lead scraper \u2014 fills the oasis-webdev pipeline at stage 'researched'."
     },
     {
       "key": "security_audit",
@@ -1891,12 +2219,28 @@
       "help": "Can Supabase be cancelled? One command, one answer, no judgement calls."
     },
     {
+      "key": "sync_post_analytics",
+      "path": "scripts/sync_post_analytics.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "sync_post_analytics \u2014 pull what the work actually did into post_analytics."
+    },
+    {
       "key": "system_health",
       "path": "scripts/system_health.py",
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
       "help": "system_health \u2014 the Loud-Failures probe (V7 EPIC 7)."
+    },
+    {
+      "key": "telegram_identity_audit",
+      "path": "scripts/telegram_identity_audit.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Resolve every Telegram alert lane to its ACTUAL destination."
     },
     {
       "key": "tft_forecast_build_dataset",
@@ -1977,6 +2321,26 @@
       "subcmd": null,
       "mutating": true,
       "help": "update_readme_stats.py \u2014 keep README.md (and any other doc) honest about"
+    },
+    {
+      "key": "vercel_turso_cutover",
+      "path": "scripts/vercel_turso_cutover.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Put the Turso / R2 cutover variables on the Vercel projects."
+    },
+    {
+      "key": "weekly_truth_digest",
+      "path": "scripts/weekly_truth_digest.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "category": "governance.health",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "Weekly full-truth harness digest, always delivered to CC's private Telegram."
     },
     {
       "key": "wire_all_templates",

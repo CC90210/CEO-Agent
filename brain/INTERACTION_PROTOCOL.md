@@ -1,5 +1,5 @@
 ---
-description: "Interaction protocol: tiered logging system (Supabase, sessions), observability standards, and action traceability requirements for all agent interfaces"
+description: "Interaction protocol: tiered logging system (Turso, sessions), observability standards, and action traceability requirements for all agent interfaces"
 tags: [protocol, governance]
 last_updated: 2026-06-09
 freshness_threshold_days: 90
@@ -22,9 +22,9 @@ This protocol governs **every interaction** across all agent interfaces (Claude 
 
 ## 2. TIERED LOGGING SYSTEM
 
-### Tier 1: ALWAYS ON — Structured Traces (Supabase)
+### Tier 1: ALWAYS ON — Structured Traces (Turso)
 **What:** Every meaningful action the agent takes
-**Where:** Supabase `agent_traces` table
+**Where:** Turso `agent_traces` table
 **Retention:** Indefinite
 **Size:** ~1KB per action
 
@@ -149,7 +149,7 @@ When the agent creates a new SOP, pattern, or routing rule:
 5. CC can override any probationary item at any time
 
 ### Self-Modification Audit Log
-Every self-modification is logged to Supabase `self_modification_log` table:
+Every self-modification is logged to Turso `self_modification_log` table:
 - What file was changed
 - What was the old content (summary)
 - What is the new content (summary)
@@ -200,12 +200,12 @@ On 2026-03-03, deleting 2 files without scanning created 15+ broken cross-refere
 
 ---
 
-## 6. SUPABASE PERSISTENCE STRATEGY
+## 6. TURSO PERSISTENCE STRATEGY
 
 ### Source of Truth
-**Files are ALWAYS the source of truth.** Supabase is the queryable index and analytics layer.
+**Files are ALWAYS the source of truth.** Turso is the queryable index and analytics layer.
 
-### What Goes to Supabase
+### What Goes to Turso
 
 | Data | Table | Sync Trigger | Purpose |
 |------|-------|-------------|---------|
@@ -229,7 +229,7 @@ On 2026-03-03, deleting 2 files without scanning created 15+ broken cross-refere
 
 ### Sync Protocol
 **At session start:**
-1. Read `agent_state` from Supabase → compare with `brain/STATE.md`
+1. Read `agent_state` from Turso → compare with `brain/STATE.md`
 2. If diverged, files win. Update DB.
 3. Query recent `agent_traces` for context on last session's actions
 
@@ -253,9 +253,9 @@ OBSERVE → REFLECT → LEARN → ADAPT → VALIDATE → COMPOUND
 1. **OBSERVE**: Track what happened this session (actions, outcomes, errors, surprises)
 2. **REFLECT**: Compare outcomes to expectations. What worked? What didn't? Why?
 3. **LEARN**: Extract learnable insights:
-   - New mistake → `memory/MISTAKES.md` + Supabase `memories`
-   - New pattern → `memory/PATTERNS.md` + Supabase `memories`
-   - New fact → `memory/LONG_TERM.md` + Supabase `memories`
+   - New mistake → `memory/MISTAKES.md` + `memories` table (Turso)
+   - New pattern → `memory/PATTERNS.md` + `memories` table (Turso)
+   - New fact → `memory/LONG_TERM.md` + `memories` table (Turso)
    - New reflection → `memory/SELF_REFLECTIONS.md`
 4. **ADAPT**: If a pattern emerges (3+ occurrences):
    - Promote to SOP candidate → `memory/SOP_LIBRARY.md`

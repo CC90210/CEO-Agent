@@ -61,7 +61,27 @@ from typing import Any
 # ─────────────────────────────────────────────────────────────────────
 
 
-def _parse_cron_field(field: str, lo: int, hi: int) -> set[int]:
+# Standard cron accepts three-letter names in the dow and mon fields,
+# case-insensitively. This parser used to accept only integers: `int("SUN")`
+# raised, the outer try in _cron_matches swallowed it, and the expression
+# silently never matched. That is how "Atlas — Wealthsimple Balance Nudge"
+# (`0 18 * * SUN`) accumulated ZERO runs in 96 days while showing enabled —
+# the worst state a schedule can be in, because it looks healthy and does
+# nothing, and no error ever surfaces to say why.
+_DOW_NAMES = {"sun": 0, "mon": 1, "tue": 2, "wed": 3, "thu": 4, "fri": 5, "sat": 6}
+_MON_NAMES = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+              "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
+
+
+def _cron_atom(token: str, names: dict[str, int] | None) -> int:
+    t = token.strip().lower()
+    if names and t in names:
+        return names[t]
+    return int(token)
+
+
+def _parse_cron_field(field: str, lo: int, hi: int,
+                      names: dict[str, int] | None = None) -> set[int]:
     """Expand a single cron field into the set of matching integer values."""
     if field == "*":
         return set(range(lo, hi + 1))
@@ -77,11 +97,11 @@ def _parse_cron_field(field: str, lo: int, hi: int) -> set[int]:
             base = part
         if "-" in base:
             a_s, b_s = base.split("-", 1)
-            a, b = int(a_s), int(b_s)
+            a, b = _cron_atom(a_s, names), _cron_atom(b_s, names)
             for v in range(a, b + 1, step):
                 out.add(v)
         else:
-            out.add(int(base))
+            out.add(_cron_atom(base, names))
     return out
 
 
@@ -95,10 +115,10 @@ def _cron_matches(expr: str, dt: datetime) -> bool:
         m_set = _parse_cron_field(parts[0], 0, 59)
         h_set = _parse_cron_field(parts[1], 0, 23)
         dom_set = _parse_cron_field(parts[2], 1, 31)
-        mon_set = _parse_cron_field(parts[3], 1, 12)
+        mon_set = _parse_cron_field(parts[3], 1, 12, names=_MON_NAMES)
         # cron dow is 0-6 with 0=Sunday; Python weekday() is 0-6 with 0=Monday.
         # Convert: cron_dow = (python_weekday + 1) % 7.
-        dow_set = _parse_cron_field(parts[4], 0, 7)
+        dow_set = _parse_cron_field(parts[4], 0, 7, names=_DOW_NAMES)
         # cron historically also accepts 7 for Sunday — normalize.
         if 7 in dow_set:
             dow_set.add(0)
@@ -120,7 +140,20 @@ def _cron_matches(expr: str, dt: datetime) -> bool:
             return cron_dow in dow_set
         return True
     except (ValueError, IndexError):
+        # An unparseable schedule must not be SILENT. Returning False forever is
+        # correct (never fire on garbage) but invisible — a job with a typo'd
+        # schedule shows enabled while never running, which is exactly how the
+        # SUN bug hid for 96 days. Warn once per distinct expression so the
+        # bridge log names the problem without spamming every tick.
+        if expr not in _WARNED_BAD_EXPRS:
+            _WARNED_BAD_EXPRS.add(expr)
+            print(f"[cron_runner] WARNING: unparseable cron expression {expr!r} "
+                  f"— this job will NEVER fire until the schedule is fixed",
+                  file=sys.stderr)
         return False
+
+
+_WARNED_BAD_EXPRS: set[str] = set()
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -480,6 +513,34 @@ def _minutes_to_evaluate(now_local: datetime) -> list[datetime]:
     return [this_minute - timedelta(minutes=offset) for offset in range(span - 1, -1, -1)]
 
 
+def _can_execute_here(job: dict) -> bool:
+    """Does THIS machine have the sibling repo a script_run job needs?
+
+    Only script_run/snapshot_run have machine affinity — webhook_post is
+    machine-independent and always executable. Root resolution mirrors
+    _exec_script_run exactly; keep them in sync.
+    """
+    action_type = str(job.get("action_type") or "")
+    if action_type not in ("script_run", "snapshot_run"):
+        return True
+    try:
+        payload = job.get("action_payload")
+        if isinstance(payload, str):
+            payload = json.loads(payload or "{}")
+        payload = payload or {}
+    except (ValueError, TypeError):
+        return True  # malformed payload should ERROR loudly in the executor, not skip
+    explicit_root = payload.get("root")
+    if explicit_root:
+        root_slug = str(explicit_root).strip().lower()
+    else:
+        agent_key = str(job.get("agent_key") or "").strip().lower()
+        root_slug = SIBLING_ROOT_BY_AGENT_KEY.get(agent_key, "bravo")
+    if root_slug == "bravo":
+        return True
+    return _resolve_agent_root(root_slug) is not None
+
+
 def poll_once(token: str, dashboard_url: str) -> int:
     """One pass: fetch jobs → check due → execute → report. Returns the
     number of jobs that actually fired. Called from local_bridge.run_loop()
@@ -518,6 +579,20 @@ def poll_once(token: str, dashboard_url: str) -> int:
                     continue
             except ValueError:
                 pass
+
+        # MULTI-MACHINE AFFINITY (2026-08-22). More than one bridge polls this
+        # endpoint — CC's PC, the Mac cold-standby, potentially a VPS — and
+        # whichever wins the minute writes last_run_*. A machine that does not
+        # HAVE a job's sibling repo used to claim the run anyway and report
+        # "unknown or unresolvable root", so the two Atlas jobs flapped between
+        # success (PC tick) and error (a machine without APPS/CFO-Agent) for a
+        # week, and every "fix" verified on the PC looked like it hadn't taken.
+        # A bridge that cannot resolve the root now DECLINES the job silently —
+        # leaves last_run_* untouched for a machine that can. If NO machine can,
+        # the job goes stale, and the watchdog's staleness scan reports exactly
+        # that (proved: it caught Wealthsimple's 96-day silence).
+        if not _can_execute_here(job):
+            continue
 
         action_type = str(job.get("action_type") or "")
         dispatcher = _DISPATCHERS.get(action_type)

@@ -47,8 +47,9 @@ PROMPT = (
 
 
 def _generate(name: str, head: str) -> str | None:
-    from lib.claude_cli import run_claude_cli  # noqa: E402
-    text = run_claude_cli(PROMPT.format(name=name, head=head), model="haiku", timeout=90)
+    from lib.model_fallback import run_smart_cli  # noqa: E402
+    text = run_smart_cli(PROMPT.format(name=name, head=head), model="haiku", timeout=90,
+                         task_type="fast", agent_name="abstract_backfill")
     if not text:
         return None
     line = text.strip().splitlines()[0].strip().strip('"').strip("'")

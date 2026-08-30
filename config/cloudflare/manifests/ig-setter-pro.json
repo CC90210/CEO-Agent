@@ -1,0 +1,49 @@
+{
+  "secrets": [
+    {
+      "key": "ANTHROPIC_API_KEY",
+      "source": "IG_SETTER_PRO__ANTHROPIC_API_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "AUTO_SEND_ENABLED",
+      "source": "IG_SETTER_PRO__AUTO_SEND_ENABLED",
+      "scope": "runtime"
+    },
+    {
+      "key": "CRON_SECRET",
+      "source": "IG_SETTER_PRO__CRON_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "N8N_BASE_URL",
+      "source": "IG_SETTER_PRO__N8N_BASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "N8N_OVERRIDE_WEBHOOK_URL",
+      "source": "IG_SETTER_PRO__N8N_OVERRIDE_WEBHOOK_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_AUTH_TOKEN",
+      "source": "IG_SETTER_PRO__TURSO_AUTH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_DATABASE_URL",
+      "source": "IG_SETTER_PRO__TURSO_DATABASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "WEBHOOK_SECRET",
+      "source": "IG_SETTER_PRO__WEBHOOK_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "WEBHOOK_VERIFY_TOKEN",
+      "source": "IG_SETTER_PRO__WEBHOOK_VERIFY_TOKEN",
+      "scope": "runtime"
+    }
+  ]
+}

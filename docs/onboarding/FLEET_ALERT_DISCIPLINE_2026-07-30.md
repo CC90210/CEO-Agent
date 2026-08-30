@@ -71,6 +71,14 @@ Three properties it must have:
    Bravo's code.
 3. **Fail open.** A corrupt or unreadable cache means SEND. Dedup must never be
    able to swallow a genuine alert.
+4. **Scope the identity to the DESTINATION** (added 2026-08-02, Bravo). Dedup
+   answers "has this audience already seen it?" — so the lane belongs in the key.
+   Bravo's private and group lanes shared one identity, and a private send
+   silently suppressed the team broadcast an operator explicitly asked for. If
+   your repo has more than one destination (a DM lane and a channel, per-client
+   chats), include it in the hash. Keep the default lane's key shape unchanged
+   when you add this, or every in-flight backoff ladder resets and a stuck alert
+   gets one free re-fire.
 
 **Do NOT over-dedup.** Bravo deliberately left its per-job completion notify
 un-keyed: "3 new leads" and "4 new leads" are different facts CC wants both of.

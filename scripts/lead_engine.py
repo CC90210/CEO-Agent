@@ -1,6 +1,6 @@
 """
 Lead Engine - OASIS AI CRM CLI
-Zero-paid-service lead management backed by Supabase (project: bravo).
+Zero-paid-service lead management backed by Turso/libSQL (bravo DB, via supabase-compat shim; pre-2026-08: Supabase project bravo).
 Replaces ManyChat, HubSpot, and every other CRM CC doesn't need to pay for.
 
 All credentials loaded from .env.agents (never hardcoded).
@@ -78,9 +78,8 @@ def get_client(env_vars):
         print("ERROR: supabase not installed. Run: pip install supabase", file=sys.stderr)
         sys.exit(1)
 
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key"
     if not url or not key:
         print("ERROR: Missing BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY in .env.agents", file=sys.stderr)
         sys.exit(1)

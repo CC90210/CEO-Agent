@@ -87,6 +87,96 @@ def has_hard_required(row: dict[str, Any]) -> bool:
     return all(_is_present(row.get(k)) for k in HARD_REQUIRED)
 
 
+# ── Who is even eligible to BE a lead ──────────────────────────────────────
+# has_hard_required() answers "is this row well-formed". It does not answer
+# "should this sender exist in the CRM at all", and nothing did — so every
+# inbound email and every outbound recipient auto-created a lead. On
+# 2026-08-04 that was 37 of 63 rows (59%): Google/Stripe/Vercel/LinkedIn
+# notifications, vendor newsletters, and one send-path probe to an RFC-2606
+# reserved domain. Lead counts and pipeline metrics were reading 2.4x reality.
+
+# RFC 2606 / RFC 6761 reserved TLDs — guaranteed undeliverable, so a message
+# to one is a test, never a prospect.
+_RESERVED_TLDS: tuple[str, ...] = (".invalid", ".test", ".example", ".localhost")
+_BARE_RESERVED: frozenset[str] = frozenset({"invalid", "test", "example", "localhost"})
+
+# Local-parts that are machines by definition. Deliberately CONSERVATIVE:
+# "hello@", "info@" and "team@" are NOT here, because on an inbound-first
+# funnel a real prospect can absolutely write from one. A junk row costs a
+# metric; a dropped prospect costs revenue.
+#
+# Matched against the local-part with separators stripped, because production
+# uses every arrangement: noreply@, no-reply@, payments-noreply@,
+# cloudplatform-noreply@, notifications-noreply@. A first draft only handled
+# the prefix form and let 3 of those through.
+_MACHINE_SUBSTRINGS: tuple[str, ...] = (
+    "noreply", "donotreply", "mailerdaemon",
+)
+# Whole-word only — "bounce" as a substring would catch a real "bouncer@".
+_MACHINE_EXACT: frozenset[str] = frozenset({"bounce", "bounces", "postmaster"})
+
+# Model-assigned intents that mean "not a person doing business with us".
+_NON_LEAD_INTENTS: frozenset[str] = frozenset({
+    "spam_bounce", "noise", "out_of_office", "unsubscribe",
+})
+
+
+def should_create_lead(email: str,
+                       classification: dict[str, Any] | None = None) -> tuple[bool, str]:
+    """Should this sender/recipient become a CRM lead? Returns (create, reason).
+
+    Two tiers, in this order, and the order is the point:
+
+    1. DETERMINISTIC veto — reserved TLDs and machine local-parts. Always
+       applied, never overridable by a model. [[pattern_degraded_classifier_must_not_book]]:
+       a degraded LLM read must not be the only thing standing between vendor
+       mail and the CRM.
+    2. CLASSIFIER veto — low_priority / spam_bounce / noise, but ONLY when the
+       classifier is healthy. A `fallback: True` read is the keyword degraded
+       path, and acting on it here would silently drop real prospects during a
+       model outage. When degraded we CREATE and let a human sort it out:
+       failing toward keeping the lead is the only safe bias for an
+       inbound-first funnel.
+    """
+    addr = (email or "").strip().lower()
+    if not addr or "@" not in addr:
+        return False, "not an email address"
+
+    domain = addr.rsplit("@", 1)[-1]
+    # `endswith` alone misses a BARE reserved name — "harness@localhost" has
+    # domain "localhost", which does not end with ".localhost".
+    if domain.endswith(_RESERVED_TLDS) or domain in _BARE_RESERVED:
+        return False, f"reserved/undeliverable domain ({domain})"
+
+    local = addr.split("@", 1)[0]
+    flat = "".join(ch for ch in local if ch.isalnum())
+    if any(machine in flat for machine in _MACHINE_SUBSTRINGS) or flat in _MACHINE_EXACT:
+        return False, f"automated sender ({local}@)"
+
+    if classification:
+        if classification.get("fallback") is True:
+            return True, "classifier degraded — creating rather than risk dropping a prospect"
+        if str(classification.get("category", "")).strip().lower() == "low_priority":
+            return False, "classified low_priority (newsletter/notification)"
+        if str(classification.get("intent", "")).strip().lower() in _NON_LEAD_INTENTS:
+            return False, f"intent={classification.get('intent')}"
+
+    return True, "eligible"
+
+
+import uuid as _uuid
+
+# Deterministic CC-Leads record ids: every importer (seed_cc_leads_turso,
+# scrape_cc_trade_leads) MUST mint ids through this one function so reruns of
+# any importer converge on the same rows instead of duplicating each other.
+CC_LEADS_NS = _uuid.uuid5(_uuid.NAMESPACE_DNS, "cc-leads.oasis-webdev")
+
+
+def lead_record_id(company: str, contact_hint: str) -> str:
+    """Same lead -> same tenant_records id, across scripts and reruns."""
+    return str(_uuid.uuid5(CC_LEADS_NS, f"{company.lower().strip()}|{contact_hint.lower().strip()}"))
+
+
 def enrich_lead_defaults(row: dict[str, Any]) -> dict[str, Any]:
     """Return a copy of row with soft defaults applied and missing_info[] set.
 

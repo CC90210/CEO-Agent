@@ -1,11 +1,22 @@
 {
+  "_note": "Floors, not aspirations. A suite failing here means routing/compliance behaviour REGRESSED, not that it is imperfect. routing_nl gained a baseline 2026-08-28: it had none because it scored 0.333 and was documented as deliberately red, which turned out to be three scoring bugs (stopwords deciding matches, no stemming, trigger count beating match quality) rather than a hard problem. It now scores 1.000, so it is gated like the rest.",
   "compliance": {
     "score": 1.0,
     "tolerance": 0.1
   },
+  "mistakes": {
+    "score": 1.0,
+    "tolerance": 0.1,
+    "_note": "Gained a baseline 2026-08-28 once it had real coverage: 4 of the 12 recorded incidents are now wired to executable guards (was 1). Tolerance 0.1, deliberately tighter than one-case-worth (0.25) — a SINGLE broken prevention must page, because a fix that has silently rotted is exactly what this suite exists to catch. The other 8 are process rules or live in oasis-command-center and stay needs-model rather than getting a check that would pass without proving anything."
+  },
   "routing": {
     "score": 1.0,
     "tolerance": 0.1
+  },
+  "routing_nl": {
+    "score": 1.0,
+    "tolerance": 0.17,
+    "_tolerance_note": "Looser than routing (0.17 vs 0.10) because these 6 cases are synthetic natural-language paraphrases, where one case is 16.7% — a single phrasing that drifts must not page CC, two must."
   },
   "send_policy": {
     "score": 1.0,

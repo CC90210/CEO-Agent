@@ -1,1 +1,1 @@
-{"scorer": "rubric", "field": "verdict", "expected": "prevention-honored", "note": "wire to a deterministic check that would have caught this mistake; until then = needs-model"}
+{"scorer": "exact", "field": "verdict", "expected": "prevention-honored", "note": "OPERATING tier. Reads oasis-command-center's actual git user.email and compares it to the canonical GitHub-noreply identity Vercel requires. A reset to a global identity blocks deploys again, silently."}

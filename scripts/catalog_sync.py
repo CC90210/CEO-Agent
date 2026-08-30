@@ -65,6 +65,19 @@ def _render_block(m: dict) -> str:
     return "\n".join(lines)
 
 
+# The block carries a "_Last synced: <iso timestamp>_" line that is different on
+# every render. Comparing it made `--check` report drift ALWAYS — including
+# immediately after a successful sync — so the gate could never exit 0 and
+# carried no signal at all: nobody could tell a real count change from the clock
+# ticking. Drift means THE COUNTS moved; when did we last look is metadata about
+# the check, not part of the state being checked.
+_TIMESTAMP_LINE = re.compile(r"^_Last synced: .*_$", re.MULTILINE)
+
+
+def _ignoring_timestamp(text: str) -> str:
+    return _TIMESTAMP_LINE.sub("_Last synced: <normalized>_", text)
+
+
 def _update_file(path: Path, block: str, check_only: bool) -> str:
     if not path.exists():
         return "skipped (missing)"
@@ -75,12 +88,23 @@ def _update_file(path: Path, block: str, check_only: bool) -> str:
             re.DOTALL,
         )
         new_text = pattern.sub(block, text)
+        counts_unchanged = _ignoring_timestamp(new_text) == _ignoring_timestamp(text)
+
+        # --check answers ONE question: did the counts move? The clock is not
+        # drift.
+        if check_only:
+            return "in sync" if counts_unchanged else "drift detected"
+
+        # Write mode answers a DIFFERENT question, so it must not reuse that
+        # answer. Skipping the write when only the timestamp differed avoided
+        # git churn but left "_Last synced_" claiming a date that got older
+        # every run while syncs kept succeeding — a field that states recency
+        # and then lies about it is worse than churn. Always persist; report
+        # which kind of change it was.
         if new_text == text:
             return "in sync"
-        if check_only:
-            return "drift detected"
         path.write_text(new_text, encoding="utf-8")
-        return "updated"
+        return "in sync (timestamp refreshed)" if counts_unchanged else "updated"
     # Append a new block with spacing
     if check_only:
         return "missing block"

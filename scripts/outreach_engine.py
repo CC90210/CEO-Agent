@@ -1,6 +1,6 @@
 """
 Outreach Engine - Personalized email outreach with Google Meet + .ics invite.
-Zero n8n dependency. Gmail SMTP directly. Supabase for logging and history.
+Zero n8n dependency. Gmail SMTP directly. Turso (via supabase-compat shim) for logging and history.
 All credentials loaded from .env.agents (never hardcoded).
 
 Usage:
@@ -61,9 +61,8 @@ def get_supabase(env_vars):
         print("ERROR: supabase package not installed. Run: pip install supabase", file=sys.stderr)
         sys.exit(1)
 
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key"
     if not url or not key:
         print("ERROR: Missing BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY in .env.agents", file=sys.stderr)
         sys.exit(1)

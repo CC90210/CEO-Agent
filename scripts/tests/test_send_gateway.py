@@ -26,6 +26,7 @@ codebase — regressions here fan out to every business engine.
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
@@ -37,7 +38,7 @@ from typing import Any
 from unittest import mock
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS_DIR = Path(__file__).resolve().parent
+SCRIPTS_DIR = PROJECT_ROOT  # scripts/ — needed for `import integrations.send_gateway` on direct runs
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
@@ -2066,10 +2067,147 @@ class TestContextBuilder(unittest.TestCase):
 
 # ---- Runner -----------------------------------------------------------------
 
+class TestAutonomousNurtureLane(unittest.TestCase):
+    """2026-08-01 policy (CC, operator-approved): autonomous inbound-nurture
+    replies skip ONLY the reply-since-last-outbound gate — an inbound
+    last-touch is their trigger, not a hand-off signal. Every other gate
+    still applies, and each successful send fires a Telegram log ping."""
+
+    def setUp(self):
+        self._env_patcher = mock.patch.dict(os.environ, _fresh_env({}), clear=False)
+        self._env_patcher.start()
+        self.addCleanup(self._env_patcher.stop)
+        self.sg = _import_gateway_fresh()
+        self.db = FakeSupabase()
+        self.sg._DAILY_CAP_ALERTS_SENT.clear()
+        self._critic_patcher = mock.patch.object(
+            self.sg,
+            "critique_draft",
+            return_value={"verdict": "ship", "reasons": [], "notes": ""},
+        )
+        self._critic_patcher.start()
+        self.addCleanup(self._critic_patcher.stop)
+        self.db.tables["leads"].rows.append({
+            "id": "lead-001",
+            "name": "Jane Test",
+            "email": "jane@acme.example",
+            "status": "new",
+            "tenant_id": "00000000-0000-0000-0000-000000000fix",
+        })
+
+    def _seed_inbound_last_touch(self):
+        # 7 days old: recent enough to be the lead's last touch (reply-since
+        # gate trigger), old enough to stay clear of the 72h implied cooldown
+        # and the 90-min inter-touch gap.
+        old = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        self.db.tables["lead_interactions"].rows.append({
+            "id": "in-1",
+            "lead_id": "lead-001",
+            "channel": "email",
+            "direction": "inbound",
+            "type": "email_received",
+            "created_at": old,
+        })
+
+    def test_nurture_allows_inbound_last_touch(self):
+        self._seed_inbound_last_touch()
+        r = self.sg.can_act(
+            lead_id="lead-001", channel="email",
+            to_email="jane@acme.example",
+            agent_source="inbound_nurture", db=self.db,
+        )
+        self.assertTrue(r["allowed"], r.get("reason"))
+
+    def test_cold_source_still_blocked_by_reply_gate(self):
+        self._seed_inbound_last_touch()
+        r = self.sg.can_act(
+            lead_id="lead-001", channel="email",
+            to_email="jane@acme.example",
+            agent_source="funnel_nurture", db=self.db,
+        )
+        self.assertFalse(r["allowed"])
+        self.assertIn("merchant replied", r["reason"])
+
+    def test_nurture_still_blocked_by_manual_pause(self):
+        self._seed_inbound_last_touch()
+        future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+        self.db.tables["leads"].rows[0]["data"] = {"paused_until": future}
+        r = self.sg.can_act(
+            lead_id="lead-001", channel="email",
+            to_email="jane@acme.example",
+            agent_source="inbound_nurture", db=self.db,
+        )
+        self.assertFalse(r["allowed"])
+
+    def test_nurture_send_fires_telegram_ping(self):
+        self._seed_inbound_last_touch()
+        with mock.patch.object(self.sg, "_send_email_smtp", return_value=(True, None)), \
+             mock.patch.object(self.sg, "should_suppress", return_value=False), \
+             mock.patch.object(self.sg, "_telegram_notify_result",
+                               return_value=(True, "sent")) as notify:
+            r = self.sg.send(
+                channel="email", agent_source="inbound_nurture",
+                to_email="jane@acme.example", subject="Re: hi",
+                body_text="reply", body_html="<p>reply</p>", db=self.db,
+            )
+        self.assertEqual(r["status"], "sent", r.get("reason"))
+        notify.assert_called_once()
+        self.assertIn("[SENT] Responded to Lead: jane@acme.example",
+                      notify.call_args[0][0])
+
+    def test_a_deduped_nurture_ping_is_not_logged_as_a_failure(self):
+        """notify() returns False for BOTH "deduped" and "failed". This line
+        used to print "Telegram ping failed" for a ping that was merely
+        suppressed — sending whoever read the log after a bug that wasn't there.
+        Two replies to the same recipient inside the window is exactly when it
+        fires (2026-08-03)."""
+        self._seed_inbound_last_touch()
+        with mock.patch.object(self.sg, "_send_email_smtp", return_value=(True, None)), \
+             mock.patch.object(self.sg, "should_suppress", return_value=False), \
+             mock.patch.object(self.sg, "_telegram_notify_result",
+                               return_value=(False, "suppressed")), \
+             mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            r = self.sg.send(
+                channel="email", agent_source="inbound_nurture",
+                to_email="jane@acme.example", subject="Re: hi",
+                body_text="reply", body_html="<p>reply</p>", db=self.db,
+            )
+        self.assertEqual(r["status"], "sent", r.get("reason"))
+        self.assertNotIn("Telegram ping failed", err.getvalue())
+
+    def test_a_genuinely_failed_nurture_ping_is_still_logged(self):
+        """Guard the guard: a real delivery failure must stay visible."""
+        self._seed_inbound_last_touch()
+        with mock.patch.object(self.sg, "_send_email_smtp", return_value=(True, None)), \
+             mock.patch.object(self.sg, "should_suppress", return_value=False), \
+             mock.patch.object(self.sg, "_telegram_notify_result",
+                               return_value=(False, "failed")), \
+             mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            self.sg.send(
+                channel="email", agent_source="inbound_nurture",
+                to_email="jane@acme.example", subject="Re: hi",
+                body_text="reply", body_html="<p>reply</p>", db=self.db,
+            )
+        self.assertIn("Telegram ping failed", err.getvalue())
+
+    def test_non_nurture_send_fires_no_ping(self):
+        with mock.patch.object(self.sg, "_send_email_smtp", return_value=(True, None)), \
+             mock.patch.object(self.sg, "should_suppress", return_value=False), \
+             mock.patch.object(self.sg, "_telegram_notify", return_value=True) as notify:
+            r = self.sg.send(
+                channel="email", agent_source="test_harness",
+                to_email="jane@acme.example", subject="hi",
+                body_text="hello", body_html="<p>hello</p>", db=self.db,
+            )
+        self.assertEqual(r["status"], "sent", r.get("reason"))
+        notify.assert_not_called()
+
+
 def _run_all(verbose: bool = False) -> bool:
     loader = unittest.TestLoader()
     suite = unittest.TestSuite([
         loader.loadTestsFromTestCase(TestSendGateway),
+        loader.loadTestsFromTestCase(TestAutonomousNurtureLane),
         loader.loadTestsFromTestCase(TestInboundClassifier),
         loader.loadTestsFromTestCase(TestDraftCritic),
         loader.loadTestsFromTestCase(TestAutonomousAgentPolicy),

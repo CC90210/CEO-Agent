@@ -20,13 +20,14 @@ Usage:
 import argparse
 import email
 import email.header
-import html as _html
 import imaplib
 import json
 import os
 import re
+import socket
+import time
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -59,6 +60,64 @@ from name_utils import sanitize_template_vars as _sanitize_template_vars
 # -- Credentials -------------------------------------------
 
 
+# --- transient-network retry (2026-08-15) ------------------------------------
+# The inbox sweep's two failure modes in tmp/cron_failures/ are both transport,
+# not logic: `ConnectionResetError [WinError 10054]` on the Gmail TLS handshake,
+# and `ValueError: Hrana: ... tcp connect error ... (os error 10060)` when the
+# Turso connect in get_supabase() cannot reach the host. Each one exits 1, which
+# pages CC. Retrying in-process turns a 2-second network blip into a no-op.
+CONNECT_ATTEMPTS = 3
+CONNECT_RETRY_SLEEP = 2
+
+# WHY NOT lib/retry.py: that module already exists, is used by 8 integration
+# tools, and is the right home for this — but its RetryConfig selects retries by
+# EXCEPTION TYPE (`retryable_exceptions`) and exposes only a decorator. Neither
+# fits here. The libSQL driver reports transport failures as a plain ValueError
+# whose text starts "Hrana:", so a type-based policy would have to list
+# ValueError — and that swallows lib/db_turso.quote_ident's guard, which raises
+# ValueError for an unsafe SQL identifier. Retrying THAT would burn three
+# attempts and then surface a security defect as a network complaint.
+#
+# So this matches on transport MARKERS, not on type. The clean consolidation is
+# an optional predicate on RetryConfig (`retryable_predicate`) with all three
+# call sites — here, breeze_live_watch.check_health, and the integration tools —
+# routed through it. That edits shared substrate and needs CC's go-ahead first.
+# Do NOT "simplify" this by adding ValueError to a type-based retry list.
+_TRANSIENT_MARKERS = (
+    "hrana", "tcp connect", "connection reset", "forcibly closed", "timed out",
+    "timeout", "temporarily unavailable", "os error 10054", "os error 10060",
+    "connection aborted", "broken pipe", "eof occurred",
+)
+
+
+def _is_transient(exc: BaseException) -> bool:
+    if isinstance(exc, (ConnectionResetError, ConnectionAbortedError,
+                        ConnectionRefusedError, TimeoutError, socket.timeout)):
+        return True
+    if isinstance(exc, OSError):
+        return True
+    return any(m in str(exc).lower() for m in _TRANSIENT_MARKERS)
+
+
+def _retry_transient(label: str, fn, attempts: int = CONNECT_ATTEMPTS,
+                     sleep_s: int = CONNECT_RETRY_SLEEP):
+    """Call fn(), retrying only faults that look like the network dropped.
+
+    A non-transient exception is re-raised on the FIRST attempt — this must not
+    become a blanket except that turns a real bug into a slow one.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - re-raised unless transient
+            if attempt == attempts or not _is_transient(exc):
+                raise
+            print(f"[email_engine] {label}: transient "
+                  f"{type(exc).__name__}: {exc} — retry {attempt}/{attempts - 1}",
+                  file=sys.stderr)
+            time.sleep(sleep_s)
+
+
 def load_env():
     """Load .env.agents from project root."""
     env_path = Path(__file__).resolve().parent.parent.parent / ".env.agents"
@@ -84,13 +143,8 @@ def get_supabase(env_vars):
         print("ERROR: supabase package not installed. Run: pip install supabase", file=sys.stderr)
         sys.exit(1)
 
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-
-    if not url or not key:
-        print("ERROR: Missing Supabase credentials in .env.agents", file=sys.stderr)
-        print("  Need: BRAVO_SUPABASE_URL and BRAVO_SUPABASE_SERVICE_ROLE_KEY", file=sys.stderr)
-        sys.exit(1)
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "dummy-turso-key"
 
     return create_client(url, key)
 
@@ -955,6 +1009,78 @@ def cmd_stats(env_vars, args, output_json=False):
 # than a reason to delete. Do not reintroduce a blanket drop here.
 IMAP_MAX_EMAILS = 20
 
+# Seconds of wall-clock this sweep will spend on the message loop before
+# stopping cleanly. MUST stay comfortably below the scheduler's per-job kill at
+# scheduler.py:1116 (300s) — the gap absorbs one in-flight classification plus
+# the backfill pass and IMAP teardown. Note the timeout is NOT settable from
+# cron_engine for this job: the override at scheduler.py:859-862 applies only to
+# action_type "script_run", and this job is "email_inbox_check". So the budget
+# has to live here, on this side of the wall.
+#
+# 210 -> 170 (2026-08-29). 210 + the backfill's 90s reserve is exactly 300 —
+# the wall itself, with nothing left for the IMAP teardown and ledger flush that
+# follow. Measured that day: backfill_done at 285.8s, process killed at 301.6s,
+# so teardown costs ~15s. The budget is now sized so the LAST thing the run can
+# legally start still finishes inside the wall with margin:
+#   170 budget + 90 worst message + 15 teardown = 275s, under the 300s kill.
+SWEEP_BUDGET_SEC = int(os.environ.get("EMPIRE_SWEEP_BUDGET_SEC", "170"))
+
+# Budget a single message must have available before the loop will START it.
+# Sized from the measured worst case: claude_cli timeout (90s) + one OpenCode
+# fallback (120s). A message admitted with less than this can push the run past
+# scheduler.py's 300s kill. Checked as a RESERVE rather than a deadline because
+# a deadline alone only says when the last message may begin, not when the run
+# will end — the distinction Codex's adversarial review caught.
+MESSAGE_RESERVE_SEC = int(os.environ.get("EMPIRE_MESSAGE_RESERVE_SEC", "60"))
+
+# The SAME reserve, for the backfill pass — which had a deadline but no reserve,
+# and that gap is what still blew the wall on 2026-08-29 (measured, not
+# inferred: the duration instrumentation added the same day recorded the sweep
+# at 301.6s against a 300s kill, and the breadcrumbs put 278.5s of it inside the
+# backfill). `if now > deadline: break` only decides when the last message may
+# BEGIN. One admitted at 209s ran to 285.8s — a classify plus a label plus a
+# handoff — and 285.8 + IMAP teardown + ledger flush is 301.
+#
+# 90s, not 60s: the same worst case the main loop sizes against (claude_cli 90s
+# + one OpenCode fallback 120s) applies here, and the one observed overrun cost
+# ~76s. Above the measured value, not at it.
+BACKFILL_RESERVE_SEC = int(os.environ.get("EMPIRE_BACKFILL_RESERVE_SEC", "90"))
+
+# Post-mortem breadcrumb trail for the sweep.
+#
+# WHY (2026-08-28): this job has been dying with exit 3221225480 and EMPTY
+# stdout AND stderr — six recorded failures across three days with not one line
+# of evidence between them, because the captured pipes are lost when the run is
+# killed. Six failures that could not be diagnosed at all is the actual defect;
+# the crash is secondary. Every stage below appends one flushed JSON line to
+# state/email_sweep.log, so the NEXT failure says exactly where it stopped, how
+# long it had been running, and on which message. Rotated by the existing
+# hooks/rotate_logs.py sweep over state/*.log.
+SWEEP_PROGRESS_LOG = (Path(__file__).resolve().parent.parent.parent
+                      / "state" / "email_sweep.log")
+
+
+def _log_sweep_progress(stage: str, started: float | None = None, **fields) -> None:
+    """One flushed line per stage. Never raises, never blocks the sweep."""
+    try:
+        # pid, because this log is shared and two overlapping sweeps interleave
+        # into it indistinguishably. On 2026-08-29 two `start` records landed
+        # 0.9s apart and there was no way to tell one process running the sweep
+        # twice from two processes running it once — which are different bugs
+        # with different fixes. One field makes that answerable forever.
+        rec = {"ts": datetime.now(timezone.utc).isoformat(),
+               "pid": os.getpid(), "stage": stage}
+        if started is not None:
+            rec["elapsed_s"] = round(time.monotonic() - started, 1)
+        rec.update(fields)
+        SWEEP_PROGRESS_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(SWEEP_PROGRESS_LOG, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec, default=str) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())  # a kill must not take the evidence with it
+    except Exception:  # noqa: BLE001
+        pass
+
 # V2.1 2026-04-11: Poison UID tracking. If an IMAP fetch fails repeatedly
 # on the same UID (e.g., corrupt message, encoding error), quarantine it
 # by marking it \Seen after 3 failed attempts. This prevents a bad message
@@ -998,6 +1124,252 @@ def _save_processed_msgids(seen: dict) -> None:
         os.replace(tmp, PROCESSED_MSGIDS_PATH)
     except Exception as exc:  # noqa: BLE001
         print(f"[email_inbox] could not persist processed-msgid ledger: {exc}", file=sys.stderr)
+
+
+# READ-BEFORE-SWEEP BACKFILL (2026-08-23) — closes the gap that lost the Kimi
+# receipt. The sweep searches UNSEEN only, so any message CC reads within the
+# 5-minute window between ticks becomes SEEN before the sweep ever fetches it
+# and escapes classification FOREVER: no ledger row, no financial hand-off, no
+# Gmail label, no booking. That is exactly what happened to the NOVASCENT/Kimi
+# Stripe receipt on 2026-08-23 — it sat read-and-unlabeled until backfilled by
+# hand.
+#
+# The fix sweeps SEEN mail too, but FINANCIAL-ONLY: a message CC already read
+# is a message a human is already handling, so replies/drafts/archives/Telegram
+# pings would be noise — the ONE thing that must still happen automatically is
+# the Atlas hand-off (label + booking), because reading a receipt is not the
+# same as booking it. Everything non-financial is just recorded in the msgid
+# ledger and left alone.
+#
+# Cost control: a persisted IMAP UID high-water mark means each tick examines
+# only messages that BECAME candidates since the last tick (usually zero), not
+# the whole mailbox. First run seeds from the last SEEN_BACKFILL_INIT_DAYS
+# days. All fetches are BODY.PEEK so read-state is never altered.
+SEEN_BACKFILL_STATE_PATH = (Path(__file__).resolve().parent.parent.parent
+                            / "tmp" / "seen_backfill_state.json")
+SEEN_BACKFILL_INIT_DAYS = 2
+SEEN_BACKFILL_MAX_PER_TICK = 40  # bound tick duration; leftovers roll to next tick
+
+
+def read_mail_financial_decision(cls: dict, fin_threshold: float = 0.65) -> str:
+    """Pure decision for a message CC already read: 'handoff' | 'notify' | 'skip'.
+
+    Same confidence gate as the UNSEEN path (decide_action): a low-confidence
+    financial read must NOT reach Atlas — the consumer would file a
+    non-financial legal notice under Receipts/, which is the mislabeling this
+    pipeline exists to prevent. Proven live 2026-08-23: a building quiet-hours
+    notice at conf 0.45 was handed off before this gate existed (event
+    cancelled same day). Degraded (keyword-fallback) financial reads notify
+    quietly — never auto-book from a guess, never be silent about money.
+    Unit-tested like stop_signal_decision; keep it pure."""
+    if cls.get("category") != "financial_legal":
+        return "skip"
+    if cls.get("fallback"):
+        return "notify"
+    confidence = float(cls.get("confidence", 0.0) or 0.0)
+    return "handoff" if confidence > fin_threshold else "skip"
+
+
+def _backfill_read_before_sweep(imap, db, processed_msgids: dict,
+                                deadline: float | None = None) -> int:
+    """Classify recently-SEEN mail the UNSEEN sweep never saw; hand financial
+    mail to Atlas. Returns the number of messages newly examined. Never raises
+    — a backfill failure must not take down the main sweep."""
+    handed = examined = labelled = 0
+    try:
+        state = {}
+        try:
+            if SEEN_BACKFILL_STATE_PATH.exists():
+                state = json.loads(SEEN_BACKFILL_STATE_PATH.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            state = {}
+        last_uid = int(state.get("last_uid") or 0)
+
+        if last_uid:
+            status, data = imap.uid("SEARCH", None, f"(SEEN UID {last_uid + 1}:*)")
+        else:
+            since = (datetime.now(timezone.utc)
+                     - timedelta(days=SEEN_BACKFILL_INIT_DAYS)).strftime("%d-%b-%Y")
+            status, data = imap.uid("SEARCH", None, f"(SEEN SINCE {since})")
+        if status != "OK":
+            return 0
+        # Gmail quirk: "N:*" always matches the highest-UID message even when
+        # its UID < N, so filter client-side rather than trusting the range.
+        uids = sorted(
+            u for u in (int(x) for x in (data[0].split() if data and data[0] else []))
+            if u > last_uid
+        )[:SEEN_BACKFILL_MAX_PER_TICK]
+
+        for uid_int in uids:
+            # The backfill runs AFTER the main loop and classifies up to
+            # SEEN_BACKFILL_MAX_PER_TICK messages, so before this it could blow
+            # the scheduler's 300s wall entirely on its own — the main loop's
+            # budget did not reach here. Both failures on 2026-08-28 (03:20:53
+            # and 04:05:42) were kills at exactly 300s after their tick started.
+            # Stopping here is free: last_uid is only advanced for messages
+            # actually examined, so the next tick resumes at the same place.
+            # RESERVE, not deadline (fixed 2026-08-29). `> deadline` admitted a
+            # message with one second left and then ran it to completion; the
+            # completion is what overruns, not the admission. See
+            # BACKFILL_RESERVE_SEC for the measurement.
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining < BACKFILL_RESERVE_SEC:
+                print(f"[seen_backfill] {remaining:.0f}s left, need "
+                      f"{BACKFILL_RESERVE_SEC}s to start a message — deferring "
+                      f"{len(uids) - uids.index(uid_int)} message(s) to the next tick",
+                      file=sys.stderr)
+                _log_sweep_progress("backfill_budget_reached",
+                                    remaining_s=round(remaining, 1),
+                                    deferred=len(uids) - uids.index(uid_int))
+                break
+            uid = str(uid_int)
+            # Cheap header peek first: most candidates are mail the UNSEEN sweep
+            # already processed (held mail CC later read), and the ledger skips
+            # them for the price of one header round-trip instead of a full body.
+            h_status, h_data = imap.uid(
+                "FETCH", uid, "(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])")
+            if h_status != "OK" or not h_data or h_data[0] is None:
+                # Do NOT advance the mark past a failed fetch — retry next tick.
+                break
+            raw_hdr = h_data[0][1] if isinstance(h_data[0], tuple) else b""
+            hdr_msg = email.message_from_bytes(raw_hdr if isinstance(raw_hdr, bytes) else b"")
+            rfc_message_id = (hdr_msg.get("Message-ID") or "").strip() or f"uid:{uid}"
+            examined += 1
+
+            if rfc_message_id in processed_msgids:
+                last_uid = uid_int
+                continue
+
+            f_status, f_data = imap.uid("FETCH", uid, "(BODY.PEEK[])")
+            if f_status != "OK" or not f_data or f_data[0] is None \
+                    or not isinstance(f_data[0], tuple):
+                break
+            msg = email.message_from_bytes(f_data[0][1])
+            from_addr = _decode_header_value(msg.get("From", ""))
+            subject = _decode_header_value(msg.get("Subject", "(no subject)"))
+            body_full = extract_body_full(msg)
+
+            try:
+                from inbound_classifier import classify_category
+                cls = classify_category(
+                    content=(body_full or "")[:6000],
+                    subject=subject,
+                    from_identity=_extract_email_address(from_addr),
+                    is_bulk=bool(msg.get("List-Unsubscribe")),
+                )
+            except Exception as cls_err:  # noqa: BLE001
+                print(f"[seen_backfill] classifier failed on {rfc_message_id}: "
+                      f"{cls_err} — will retry next tick", file=sys.stderr)
+                break  # don't advance the mark; don't ledger it
+
+            confidence = float(cls.get("confidence", 0.0) or 0.0)
+            try:
+                from email_brain import _resolve_config
+                fin_threshold = float(_resolve_config(None)["financial_threshold"])
+            except Exception:  # noqa: BLE001
+                fin_threshold = 0.65  # DEFAULT_FINANCIAL_THRESHOLD
+            # File it BEFORE deciding whether it can be booked. This path
+            # handles mail CC opened on his phone before the 5-minute sweep saw
+            # it — which is exactly what a forwarded receipt looks like — and it
+            # previously skipped anything the model called low_priority, so a
+            # forwarded invoice read on a phone was never labelled at all.
+            fin_label = None
+            try:
+                from lib.financial_labels import assess
+                from lib.gmail_labels import apply_label as _apply_gmail_label
+                _fin = assess({
+                    "from": from_addr,
+                    "subject": subject,
+                    "body": body_full,
+                    "attachments": _extract_attachment_meta(msg),
+                    "date": msg.get("Date"),
+                }, prefilter_route=cls.get("route_target"))
+                if _fin.get("is_financial") and _fin.get("label"):
+                    # UID addressing: this loop fetches with imap.uid(...).
+                    _apply_gmail_label(imap, uid, _fin["label"], use_uid=True)
+                    fin_label = _fin["label"]
+                    labelled += 1
+            except Exception as label_err:  # noqa: BLE001
+                print(f"[seen_backfill] LABEL FAILED on {rfc_message_id}: "
+                      f"{label_err}", file=sys.stderr)
+                try:
+                    notify(f"⚠️ FINANCIAL LABEL FAILED (read-before-sweep)\n"
+                           f"From: {from_addr}\nSubject: {subject}\n"
+                           f"Error: {label_err}", category="email")
+                except Exception:  # noqa: BLE001
+                    pass
+
+            if fin_label:
+                # Logged OUTSIDE the labelling try on purpose. This stream is
+                # cp1252 on Windows and real subjects carry non-ASCII (the
+                # Kraken statement subjects use a smart apostrophe), so a print
+                # inside that block could raise AFTER a successful STORE and
+                # report a filed receipt as LABEL FAILED — an inverted signal,
+                # which is the class of bug this whole change exists to remove.
+                _safe_subj = (subject or "")[:60].encode("ascii", "replace").decode()
+                print(f"[seen_backfill] filed -> {fin_label}: {_safe_subj}",
+                      file=sys.stderr)
+
+            decision = read_mail_financial_decision(cls, fin_threshold)
+            if decision == "handoff":
+                from email_brain import handoff_to_atlas
+                ok = handoff_to_atlas({
+                    "from": from_addr,
+                    "from_identity": _extract_email_address(from_addr),
+                    "subject": subject,
+                    "body": body_full,
+                    "rfc_message_id": rfc_message_id,
+                    "attachments": _extract_attachment_meta(msg),
+                    # Already filed by Bravo above; Atlas should reuse this
+                    # label rather than deriving a different one.
+                    "gmail_label": fin_label,
+                }, db=db)
+                if ok:
+                    handed += 1
+                    print(f"[seen_backfill] read-before-sweep financial mail handed "
+                          f"to Atlas: {subject[:70]} (conf {confidence:.2f})",
+                          file=sys.stderr)
+                else:
+                    # Refused hand-offs (no stable Message-ID / no sender) can
+                    # never be booked automatically — say so once, quietly.
+                    print(f"[seen_backfill] financial mail REFUSED hand-off "
+                          f"(unresolvable payload): {subject[:70]}", file=sys.stderr)
+            elif decision == "notify":
+                # Degraded (keyword-fallback) financial read on already-seen
+                # mail: never auto-book from a guess, but never be silent about
+                # money either. Low-confidence NON-degraded reads are skipped
+                # entirely — CC already read the mail, and the model itself
+                # judged it probably-not-financial.
+                try:
+                    notify(
+                        f"Possible financial email you read before the sweep — "
+                        f"NOT auto-booked (degraded classifier).\n"
+                        f"From: {from_addr}\nSubject: {subject}",
+                        category="email",
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+
+            processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
+            # Checkpoint per message: this pass runs AFTER the main loop, so on a
+            # 300s kill it was the most likely work to be discarded entirely.
+            _save_processed_msgids(processed_msgids)
+            last_uid = uid_int
+
+        state["last_uid"] = last_uid
+        SEEN_BACKFILL_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = SEEN_BACKFILL_STATE_PATH.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(state), encoding="utf-8")
+        os.replace(tmp, SEEN_BACKFILL_STATE_PATH)
+
+        if examined:
+            print(f"[seen_backfill] examined {examined} read message(s), "
+                  f"{labelled} filed by label, {handed} handed to Atlas",
+                  file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[seen_backfill] backfill error (main sweep unaffected): {exc}",
+              file=sys.stderr)
+    return examined
 
 
 REVIEW_QUEUE_PATH = (Path(__file__).resolve().parent.parent.parent
@@ -1273,6 +1645,13 @@ def _routing_contract(outcome: dict, classification: dict) -> dict:
         "archived": bool(outcome.get("archived")),
         "handed_off": bool(outcome.get("handed_off")),
         "notified": bool(outcome.get("notified")),
+        # Where this email was actually FILED, so the Command Center shows the
+        # outcome rather than the intent. `gmail_label: null` on a row whose
+        # financial_document is true is the signal that filing failed — the
+        # thing that was previously invisible.
+        "gmail_label": outcome.get("label"),
+        "financial_document": bool(outcome.get("financial_document")),
+        "label_error": outcome.get("label_error"),
         "routing_extracted": True,
         "source": "email_brain",
     }
@@ -1344,19 +1723,33 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             print(msg, file=sys.stderr)
         sys.exit(1)
 
-    db = get_supabase(env_vars)
+    # First breadcrumb, before ANY network call. Six failures on this job have
+    # produced empty stdout AND stderr, so the open question was whether the run
+    # even reached application code. From now on it says so.
+    _run_started = time.monotonic()
+    _log_sweep_progress("start")
+
+    # Both of these are network connects and both have failed transiently in
+    # production (tmp/cron_failures/): the Turso connect with os error 10060,
+    # the Gmail TLS handshake with WinError 10054.
+    db = _retry_transient("turso connect", lambda: get_supabase(env_vars))
+    _log_sweep_progress("db_connected", _run_started)
     imap = None
     found_emails = []
 
     try:
-        imap = imaplib.IMAP4_SSL("imap.gmail.com", 993)
+        imap = _retry_transient(
+            "imap connect", lambda: imaplib.IMAP4_SSL("imap.gmail.com", 993))
         imap.socket().settimeout(30)
         imap.login(address, password)
         imap.select("INBOX")
+        _log_sweep_progress("imap_ready", _run_started)
 
         status, data = imap.search(None, "UNSEEN")
         if status != "OK":
             raise RuntimeError(f"IMAP search failed: {status}")
+        _log_sweep_progress("searched", _run_started,
+                            unseen=len(data[0].split()) if data and data[0] else 0)
 
         message_ids = data[0].split() if data[0] else []
         # Cap to avoid long runs
@@ -1374,7 +1767,62 @@ def cmd_check_inbox(env_vars, args, output_json=False):
         # 2026-07-24: processed-message idempotency ledger (see the guard below).
         processed_msgids = _load_processed_msgids()
 
+        # WALL-CLOCK BUDGET (2026-08-28). scheduler.py:1116 kills this job at
+        # 300s, and that kill is a SIGKILL-equivalent: no cleanup, no summary,
+        # no IMAP logout. On quota-degraded days a single classification cost
+        # 172.5s, so the sweep reliably died part-way through the mailbox and
+        # the operator's only evidence was a truncated log in tmp/cron_failures.
+        #
+        # Stopping ourselves a minute early turns that into an ordinary partial
+        # run: remaining mail stays UNSEEN and the next 5-minute tick picks it
+        # up. This bounds the run WITHOUT capping how much mail we will ever
+        # process, which a smaller IMAP_MAX_EMAILS would have done.
+        sweep_started = time.monotonic()
+        # DEADLINE IS ANCHORED TO PROCESS START, NOT TO THIS POINT (2026-08-28).
+        # The first version anchored it here — after the Turso connect, the IMAP
+        # login and the UNSEEN search — so the budget silently excluded the
+        # startup it was meant to protect against. The breadcrumbs measured that
+        # startup at 38.5s on this machine (process spawn is AV-slowed to ~4s and
+        # the DB connect dominates the rest), so a 210s budget was really
+        # 39 + 210 + one in-flight message, and the job was still killed at the
+        # 300s wall — 21:18:57 start, FAILED (timeout) recorded at 21:22:58.
+        #
+        # Anchoring to _run_started makes SWEEP_BUDGET_SEC mean what it says:
+        # the whole run, startup included, leaving the remaining ~90s of the
+        # wall as headroom for the one message already in flight.
+        sweep_deadline = _run_started + SWEEP_BUDGET_SEC
+        _log_sweep_progress("budget_anchored", _run_started,
+                            budget_s=SWEEP_BUDGET_SEC,
+                            startup_cost_s=round(sweep_started - _run_started, 1))
+        deferred = 0
+        _log_sweep_progress("loop_start", _run_started,
+                            queued=len(message_ids), budget_s=SWEEP_BUDGET_SEC)
+
         for uid in message_ids:
+            # ADMISSION RESERVE, not just a deadline. Codex's adversarial review
+            # caught that checking `now > deadline` alone lets a message start
+            # with one second left and then run for the full model timeout plus
+            # fallback (~210s worst case) — so SWEEP_BUDGET_SEC was never a bound
+            # on the run, only on when the LAST message may BEGIN. Requiring a
+            # per-message reserve is what actually keeps the run inside the
+            # scheduler's 300s kill window.
+            #
+            # This is best-effort, and deliberately so: with per-message ledger
+            # checkpointing above, an overrun that does get killed no longer
+            # loses mail — it wastes one partial message. Bounding the frequency
+            # is worth doing; claiming a hard guarantee would not be true.
+            remaining = sweep_deadline - time.monotonic()
+            if remaining < MESSAGE_RESERVE_SEC:
+                deferred = len(message_ids) - message_ids.index(uid)
+                print(f"[email_inbox] only {remaining:.0f}s of the {SWEEP_BUDGET_SEC}s "
+                      f"budget left (need {MESSAGE_RESERVE_SEC}s to start a message) — "
+                      f"stopping cleanly with {deferred} message(s) left UNSEEN for the "
+                      f"next tick", file=sys.stderr)
+                _log_sweep_progress("budget_reached", _run_started,
+                                    deferred=deferred, remaining_s=round(remaining, 1))
+                break
+            _log_sweep_progress("message_start", _run_started,
+                                idx=message_ids.index(uid) + 1, of=len(message_ids))
             uid_str = uid.decode() if isinstance(uid, bytes) else str(uid)
             fetch_status, fetch_data = imap.fetch(uid, "(RFC822)")
 
@@ -1521,9 +1969,6 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             except Exception as rev_err:  # noqa: BLE001
                 print(f"[email_inbox] review-detect warning: {rev_err}", file=sys.stderr)
 
-            if review_ping:
-                _enqueue_review_harvest(review_ping, rfc_message_id)
-
             email_entry = {
                 "from": from_addr,
                 "subject": subject,
@@ -1531,6 +1976,64 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 "preview": preview,
             }
             found_emails.append(email_entry)
+
+            if review_ping:
+                _enqueue_review_harvest(review_ping, rfc_message_id)
+                # TERMINAL for machine mail. The comment above has promised
+                # "no LLM spend on machine mail" since 2026-07-29, but the code
+                # only ever enqueued and then fell through — every CI email
+                # still ran the classifier AND email_brain, and the brain
+                # Telegrams whatever it cannot auto-handle.
+                #
+                # So a red pipeline became a notification loop: on 2026-08-08
+                # CC had 53 CI/deploy emails in two days across five repos,
+                # each one an LLM call and a phone buzz about his own build.
+                # Fixing the builds stops today's flood; this stops the NEXT
+                # one, because a red pipeline is a normal state a tool should
+                # absorb rather than escalate.
+                #
+                # Suppressed here means "not classified and not Telegrammed",
+                # not "dropped": the queue entry above is the durable record,
+                # and the Review Harvest cron reports on it once per drain
+                # instead of once per email. Marking \\Seen + recording the
+                # Message-ID mirrors the other terminal paths so the next
+                # UNSEEN sweep does not reprocess it.
+                #
+                # Deliberately NOT suppressed: Vercel deployment-failure mail.
+                # It carries no repo, so it cannot be queued or harvested, and
+                # a broken production deploy is exactly the thing CC must still
+                # hear about. notify.py's 1h dedup keeps that to one ping.
+                print(f"[email_inbox] review notification suppressed "
+                      f"({review_ping['kind']} {review_ping['repo']}): {subject[:70]}",
+                      file=sys.stderr)
+                # Record "processed" ONLY if IMAP actually accepted the flag.
+                #
+                # Every other terminal path lets a store() failure propagate and
+                # abort the sweep. Catching it here (so one bad UID cannot kill a
+                # whole batch of suppressed mail) introduced a failure mode none
+                # of them have: the message stays UNSEEN in Gmail while the local
+                # ledger claims it is done, so the next UNSEEN sweep skips it and
+                # it is never retried — unread forever, silently.
+                #
+                # Leaving it unrecorded makes the path self-healing instead: the
+                # next sweep retries it, and re-enqueueing is free because
+                # _enqueue_review_harvest keys on repo#pr and de-dupes
+                # message_ids, so a retry updates a counter rather than creating
+                # work. If IMAP is broken badly enough for this to loop, that is
+                # an outage the hourly cron health check surfaces on its own.
+                #
+                # Caught in Codex's adversarial audit of this change.
+                try:
+                    imap.store(uid, "+FLAGS", "\\Seen")
+                except Exception as seen_err:  # noqa: BLE001
+                    print(f"[email_inbox] could not mark review mail read, will retry "
+                          f"next sweep: {seen_err}", file=sys.stderr)
+                else:
+                    processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
+                    # Checkpoint here too — this branch `continue`s, so it never
+                    # reached the end-of-run flush even before the 300s kill.
+                    _save_processed_msgids(processed_msgids)
+                continue
 
             # Log to Supabase email_log (legacy SMTP-layer visibility)
             try:
@@ -1581,8 +2084,12 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             sender_name = ("" if forwarded_from
                            else _extract_display_name(from_addr))
 
-            def _write_inbound_ledger(routing: dict | None = None) -> None:
+            def _write_inbound_ledger(routing: dict | None = None) -> bool:
                 """Write the unified inbound ledger row the Command Center reads.
+
+                Returns True on success, False if the row could not be written.
+                The caller MUST NOT mark a message \\Seen or record it as
+                processed when this returns False — see the except clause below.
 
                 DEFERRED until after the brain runs so the row carries the
                 brain's routing decision. The retired n8n workflow achieved this
@@ -1621,9 +2128,24 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                         "p_message_id": rfc_message_id,
                         "p_received_at": datetime.now(timezone.utc).isoformat(),
                     }).execute()
+                    return True
                 except Exception as rpc_err:
-                    # Never block the inbox flow — email_log still captures it.
-                    print(f"[email_inbox] ledger write warning: {rpc_err}", file=sys.stderr)
+                    # DO NOT swallow into a success. Codex's adversarial review
+                    # caught that this used to print a warning and return None,
+                    # after which the caller marked the message \Seen and wrote
+                    # it to the processed-msgid ledger anyway. Under a DB/RPC
+                    # outage that reproduces the EXACT failure this commit set
+                    # out to remove — mail vanishes from the UNSEEN sweep, is
+                    # skipped by every future run, and no Command Center row was
+                    # ever created — just through the swallowed-RPC path instead
+                    # of the end-of-run-flush path.
+                    #
+                    # Returning False makes the caller leave the message UNSEEN
+                    # and unrecorded, so the next tick retries it. A retry costs
+                    # a re-classification; a silent drop costs the lead.
+                    print(f"[email_inbox] LEDGER WRITE FAILED: {rpc_err} — leaving "
+                          f"message UNSEEN for retry", file=sys.stderr)
+                    return False
 
             # V1.0 — bump the OASIS Command Center integrations_health row so
             # the dashboard's green dot lights up. Best-effort.
@@ -1648,13 +2170,14 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 classification, preview, subject
             )
             if needs_manual_review and sender_addr:
-                # html.escape: notify() sends parse_mode=HTML — a raw <...> in
-                # the subject would make Telegram reject the alert, silently
-                # losing the one surface this opt-out gets (Codex P2).
+                # A raw <...> in the subject would make Telegram reject the
+                # alert, silently losing the one surface this opt-out gets
+                # (Codex P2). notify() now escapes for every caller (2026-08-04);
+                # escaping here too would double-encode the subject.
                 notify(
-                    f"POSSIBLE opt-out from {_html.escape(sender_addr)} — flagged by the "
+                    f"POSSIBLE opt-out from {sender_addr} — flagged by the "
                     "degraded keyword classifier (model outage), no literal "
-                    f"STOP/UNSUBSCRIBE opener.\nSubject: {_html.escape(subject or '')}\n"
+                    f"STOP/UNSUBSCRIBE opener.\nSubject: {subject or ''}\n"
                     "NOT auto-suppressed — review and suppress manually if genuine.",
                     category="email",
                     force=True,
@@ -1691,11 +2214,11 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     except Exception as lead_err:
                         print(f"[email_inbox] lead update on STOP failed: {lead_err}", file=sys.stderr)
                     # Loud Telegram ping so CC knows someone opted out.
-                    # html.escape: notify() sends parse_mode=HTML — raw <...>
-                    # in a subject would make Telegram reject the ping.
+                    # Escaping is notify()'s job as of 2026-08-04 — doing it
+                    # here as well would double-encode the subject.
                     notify(
-                        f"STOP received from {_html.escape(sender_addr)}\n"
-                        f"Subject: {_html.escape(subject or '')}\n"
+                        f"STOP received from {sender_addr}\n"
+                        f"Subject: {subject or ''}\n"
                         f"Auto-suppressed — they will not receive further emails.",
                         category="email",
                         force=True,
@@ -1707,8 +2230,8 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     print(f"[email_inbox] CRITICAL: STOP auto-suppress FAILED for "
                           f"{sender_addr}: {sup_err}", file=sys.stderr)
                     notify(
-                        f"CRITICAL: STOP received from {_html.escape(sender_addr)} but auto-suppress "
-                        f"FAILED: {_html.escape(str(sup_err))}. Add them to suppression list MANUALLY now.",
+                        f"CRITICAL: STOP received from {sender_addr} but auto-suppress "
+                        f"FAILED: {sup_err}. Add them to suppression list MANUALLY now.",
                         category="email",
                         force=True,
                     )
@@ -1735,7 +2258,17 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     def _mark_read(_e, _u=uid):
                         imap.store(_u, "+FLAGS", "\\Seen")
 
-                    deps = build_default_deps(mark_read=_mark_read, db=db)
+                    def _apply_label(_e, _label, _u=uid):
+                        # Raises gmail_labels.LabelError on anything that is not
+                        # an OK STORE. process_email relies on that: a returned
+                        # False would be indistinguishable from success at the
+                        # call site, which is how 42 statement notices were lost
+                        # before the '&' encoding fix on 2026-08-24.
+                        from lib.gmail_labels import apply_label
+                        return apply_label(imap, _u, _label)
+
+                    deps = build_default_deps(mark_read=_mark_read, db=db,
+                                              apply_label=_apply_label)
                     brain_email = {
                         "from": from_addr,
                         "from_identity": sender_addr,
@@ -1769,7 +2302,8 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     # to the dashboard, now written straight into the ledger row
                     # so the Command Center shows WHICH brain handled the mail
                     # and WHAT it did — not just a bare intent.
-                    _write_inbound_ledger(_routing_contract(outcome, classification))
+                    ledger_ok = _write_inbound_ledger(
+                        _routing_contract(outcome, classification))
                     # auto_reply/archive already marked read by the brain. Financial
                     # hand-offs and holds/reviews stay UNREAD so CC still sees them:
                     # Atlas's consumer marks a financial email read only after it
@@ -1778,19 +2312,58 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 except Exception as brain_err:
                     print(f"[email_inbox] email_brain failed, legacy fallback: {brain_err}",
                           file=sys.stderr)
-                    _write_inbound_ledger()
+                    ledger_ok = _write_inbound_ledger()
                     notify(notify_msg)
-                    imap.store(uid, "+FLAGS", "\\Seen")
+                    if ledger_ok:
+                        imap.store(uid, "+FLAGS", "\\Seen")
             else:
-                _write_inbound_ledger()
+                ledger_ok = _write_inbound_ledger()
                 notify(notify_msg)
-                # Mark as read
-                imap.store(uid, "+FLAGS", "\\Seen")
+                if ledger_ok:
+                    # Mark as read
+                    imap.store(uid, "+FLAGS", "\\Seen")
+
+            # A message whose ledger row was never written must stay UNSEEN and
+            # unrecorded, so the next tick retries it. Recording it here would
+            # make the UNSEEN sweep skip it forever with no Command Center row —
+            # the precise silent-loss shape this run was meant to remove.
+            if not ledger_ok:
+                _log_sweep_progress("ledger_failed_message_deferred", _run_started)
+                print("[email_inbox] not marking processed — ledger row missing",
+                      file=sys.stderr)
+                continue
 
             # Record this Message-ID as processed so the next UNSEEN sweep
             # skips it (the guard at the top of the loop). Runs for every
             # terminal path — brain, legacy, and the brain-failure fallback.
             processed_msgids[rfc_message_id] = datetime.now(timezone.utc).isoformat()
+            # CHECKPOINT PER MESSAGE (2026-08-28). This used to be an in-memory
+            # mutation flushed once at the end of the run. The sweep is killed at
+            # scheduler.py's 300s wall on quota-degraded days, and the kill never
+            # reaches that flush — so every message already marked \Seen above
+            # was absent from the ledger, the next UNSEEN search skipped it, and
+            # non-financial mail was dropped silently and permanently. (Only
+            # _backfill_read_before_sweep would catch it, and that is
+            # financial-routing only.) The write is atomic (tmp + os.replace),
+            # so a kill mid-write cannot corrupt the ledger either.
+            #
+            # RESIDUAL WINDOW, stated rather than papered over: a kill BETWEEN
+            # the \Seen store above and this line still loses that ONE message.
+            # Closing it fully needs the ledger written before \Seen, but that
+            # inverts the failure into "ledgered, still unread, skipped by the
+            # guard forever" — an equally silent loss. Fixing that properly means
+            # making the guard UNSEEN-aware, which is a larger change than this
+            # one. One message at risk instead of a whole run is the win here.
+            _save_processed_msgids(processed_msgids)
+
+        # READ-BEFORE-SWEEP BACKFILL — catch mail CC read before this tick
+        # (financial-only routing; see _backfill_read_before_sweep). Shares
+        # this run's ledger dict so its entries persist in the save below.
+        _log_sweep_progress("loop_done", _run_started,
+                            processed=len(message_ids) - deferred, deferred=deferred)
+        _backfill_read_before_sweep(imap, db, processed_msgids,
+                                    deadline=sweep_deadline)
+        _log_sweep_progress("backfill_done", _run_started)
 
         # V2.1: Persist poison UID tracker so failure counts survive across runs
         try:

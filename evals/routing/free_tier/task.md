@@ -1,0 +1,1 @@
+check which free tier services we can use

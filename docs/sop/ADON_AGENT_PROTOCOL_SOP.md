@@ -1,6 +1,6 @@
 ---
 tags: [docs, sop, runbook, handover, apex, adon, coordination, obsidian, credentials]
-last_updated: 2026-07-28
+last_updated: 2026-08-27
 freshness_threshold_days: 90
 ---
 
@@ -318,21 +318,44 @@ rules:
 **Telegram bots cannot see each other's messages.** An agent that "replies" to a peer in the
 group is talking to nobody. All agent-to-agent signal goes through the table.
 
-### 4.2 Claim before you touch shared files
+### 4.2 Claim before you touch shared files - now a LEASE, not a convention
+
+**Updated 2026-08-27.** The free-text `--files` claim still exists for the narrative
+channel, but it is no longer the mechanism. It could never have worked: claims were
+compared by exact string, so `"pipeline"` never matched `app/(dash)/pipeline/page.tsx`.
+Measured over 90 days it detected **zero** collisions while 226 of 1,596 files in
+oasis-command-center were edited by both agents - 117 of them within 48h of each other.
+
+Claims are now **repo-scoped path leases with a TTL**, enforced by a pre-edit hook:
 
 ```bash
-python scripts/integrations/agent_activity.py claims     # what the peer has open
-python scripts/integrations/agent_activity.py peers      # peer's current work
-python scripts/integrations/agent_activity.py post \
-    --status working --task "Batch 5 — tenant nav" \
-    --files "app/(dash)/nav.tsx,lib/tenant.ts" --branch feat/nav --mirror
-python scripts/integrations/agent_activity.py recent      # newest rows
+python scripts/lib/ownership.py oasis-command-center lib/drips/executor.ts
+python scripts/integrations/coord_claim.py conflicts --repo oasis-command-center --paths "lib/drips/executor.ts"
+python scripts/integrations/coord_claim.py acquire --repo oasis-command-center --paths "lib/drips/executor.ts" --task "drip timezone fix" --branch cc/drip-tz
+python scripts/integrations/coord_claim.py release --task "drip timezone fix"
 ```
 
-Statuses are `start | working | done | blocked`. `--mirror` also posts the human-readable
-line to the group. **Before editing anything in a shared surface, run `claims` and do not
-touch files the other agent has open.** Two agents editing the same file is not a merge
-conflict — it is one agent silently reverting the other.
+A claim MUST be a repo-relative POSIX path or glob. `"pipeline"`, `"Turso"`,
+`"oasis:app/**"` and `"turso:leadgen_*"` are **refused at write time** - they are
+unmatchable, and an unmatchable claim reads as coverage while protecting nothing.
+
+`scripts/state/coord_guard.py` refuses any Edit/Write to a path a peer holds, naming
+them, their task, branch and machine. Two agents editing the same file is not a merge
+conflict - it is one agent silently reverting the other.
+
+The narrative channel is unchanged, for status and handoffs:
+
+```bash
+python scripts/integrations/agent_activity.py peers | claims | recent
+python scripts/integrations/agent_activity.py post --status working --task "..." --mirror
+```
+
+Statuses are `start | working | done | blocked | ack`. **A credential, quota or auth
+failure is `blocked`, never `working`** - the poller only wakes on `blocked`, and on
+2026-08-25 an APEX outage posted as `working` went unseen for two days.
+
+Full procedure: `skills/cross-agent-coordination/SKILL.md`. Ownership:
+`brain/OWNERSHIP_MAP.yaml`. APEX's side: [[docs/APEX_SYSTEM_MESSAGE]].
 
 ### 4.3 The autonomy gate
 

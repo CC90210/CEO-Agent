@@ -1,0 +1,485 @@
+"""The accuracy loop: evals/run_suites.py + scripts/core/accuracy_trend.py.
+
+Both were written 2026-08-28 because the suites had not run since 2026-06-10 and
+three time-series existed that nothing read. The first real run found `routing`
+had drifted from 100% to 77.8% over eleven weeks with nothing surfacing it.
+
+Every test here pins a trap that was live in the data:
+
+* `score` in harness_eval_history.jsonl is the STRING "12/14" and the
+  DENOMINATOR MOVED (10 -> 14 as checks were added), so comparing raw strings or
+  numerators shows a fake decline every time a check is added.
+* task_outcomes.created_at is bare UTC while the JSONL is ISO+offset.
+* A suite with nothing scoreable has score None. Treating that as 0.0 would
+  report a total regression for a suite that simply has no offline assertions.
+* Two suites (routing_nl, mistakes) have no usable baseline. Gating on them
+  would pin the alert permanently red, which is how a gate gets ignored.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "scripts"))
+sys.path.insert(0, str(REPO / "evals"))
+
+import run_suites  # noqa: E402
+from core import accuracy_trend as trend  # noqa: E402
+
+
+# --- run_suites: scoring contract --------------------------------------------
+
+def test_rubric_cases_are_unscored_not_failed(tmp_path, monkeypatch):
+    """A mistake awaiting a deterministic check is honest-pending. Counting it
+    as a failure would make the suite permanently red; counting it as a pass
+    would be a lie."""
+    case = tmp_path / "c1"
+    case.mkdir()
+    (case / "expected.json").write_text(
+        json.dumps({"scorer": "rubric", "field": "verdict", "expected": "x"}),
+        encoding="utf-8")
+    r = run_suites._score_case(case)
+    assert r["status"] == "unscored"
+
+
+def test_a_suite_with_nothing_scoreable_has_no_score_not_zero(monkeypatch):
+    monkeypatch.setattr(run_suites, "_case_dirs", lambda s: [])
+    rep = run_suites.run_suite("mistakes")
+    assert rep["score"] is None, "no scoreable cases must be None, never 0.0"
+    assert rep["n_scored"] == 0
+
+
+def test_case_error_is_reported_not_swallowed(tmp_path, monkeypatch):
+    case = tmp_path / "boom"
+    case.mkdir()
+    (case / "expected.json").write_text(
+        json.dumps({"scorer": "exact", "field": "f", "expected": 1}), encoding="utf-8")
+
+    def explode(_):
+        raise RuntimeError("adapter blew up")
+    monkeypatch.setattr(run_suites.adapter, "run_case", explode)
+    r = run_suites._score_case(case)
+    assert r["status"] == "error"
+    assert "adapter blew up" in r["error"]
+
+
+# --- run_suites: gating contract ---------------------------------------------
+
+def test_only_a_baselined_suite_can_regress():
+    """routing_nl scores 0.333 by design. Gating on it makes the weekly alert
+    permanently red, and a permanently red gate is an ignored gate."""
+    v = run_suites.verdict({"suite": "routing_nl", "score": 0.333}, {})
+    assert v["state"] == "unbaselined"
+
+
+def test_a_baselined_suite_below_tolerance_regresses():
+    base = {"routing": {"score": 1.0, "tolerance": 0.1}}
+    v = run_suites.verdict({"suite": "routing", "score": 0.778}, base)
+    assert v["state"] == "regressed"
+
+
+def test_a_baselined_suite_inside_tolerance_is_ok():
+    base = {"routing": {"score": 1.0, "tolerance": 0.1}}
+    assert run_suites.verdict({"suite": "routing", "score": 0.95}, base)["state"] == "ok"
+
+
+def test_tolerance_boundary_is_not_a_regression():
+    """Exactly at the floor must pass, or tolerance means one less than it says."""
+    base = {"routing": {"score": 1.0, "tolerance": 0.1}}
+    assert run_suites.verdict({"suite": "routing", "score": 0.9}, base)["state"] == "ok"
+
+
+def test_discovery_includes_suites_absent_from_the_adapter_dispatch():
+    """routing_nl's cases carry `suite: routing` in meta.yaml, so keying
+    discovery on adapter.DISPATCH silently skipped the whole directory — a suite
+    stops being measured without anyone deciding to stop measuring it."""
+    found = run_suites.discover_suites()
+    assert "routing_nl" in found
+    assert "reports" not in found
+
+
+# --- accuracy_trend: the three incompatible formats ---------------------------
+
+@pytest.mark.parametrize("raw,expected", [
+    ("12/14", 12 / 14),
+    ("10/10", 1.0),
+    ("7/10", 0.7),
+    (0.85, 0.85),
+    ("nonsense", None),
+    ("5/0", None),
+    (None, None),
+])
+def test_score_string_parses_to_a_ratio(raw, expected):
+    got = trend._ratio(raw)
+    if expected is None:
+        assert got is None
+    else:
+        assert got == pytest.approx(expected)
+
+
+def test_moving_denominator_does_not_fake_a_decline():
+    """THE trap. 10/10 then 13/14 is a real DROP in ratio, but 12/14 after 10/10
+    must not read as an improvement just because the numerator grew."""
+    assert trend._ratio("12/14") < trend._ratio("10/10")
+    assert trend._ratio("14/14") == trend._ratio("10/10")
+
+
+@pytest.mark.parametrize("raw", [
+    "2026-08-28T04:07:44.017Z",          # ISO + Z
+    "2026-08-28T04:07:44+00:00",         # ISO + offset (harness jsonl)
+    "2026-08-28 04:07:44",               # bare UTC (task_outcomes.created_at)
+    "2026-08-28",                        # date only (eval reports)
+])
+def test_every_timestamp_format_in_play_parses(raw):
+    assert trend._as_date(raw) is not None
+
+
+def test_unparseable_timestamp_is_dropped_not_guessed():
+    assert trend._as_date("not a date") is None
+    assert trend._as_date(None) is None
+
+
+def test_week_label_is_iso_and_sortable():
+    import datetime as dt
+    labels = [trend._week(dt.date(2026, 8, d)) for d in (3, 10, 28)]
+    assert labels == sorted(labels), "week labels must sort chronologically"
+    assert all(w.startswith("2026-W") for w in labels)
+
+
+def test_eval_reports_with_null_score_are_skipped_not_zeroed(tmp_path, monkeypatch):
+    monkeypatch.setattr(trend, "EVAL_REPORTS", tmp_path)
+    (tmp_path / "2026-08-28_mistakes.json").write_text(
+        json.dumps({"suite": "mistakes", "date": "2026-08-28", "score": None}),
+        encoding="utf-8")
+    (tmp_path / "2026-08-28_routing.json").write_text(
+        json.dumps({"suite": "routing", "date": "2026-08-28", "score": 0.778}),
+        encoding="utf-8")
+    weeks = trend.evals_by_week(8)
+    scores = next(iter(weeks.values()))
+    assert "mistakes" not in scores, "a null score must not be charted as 0%"
+    assert scores["routing"] == pytest.approx(0.778)
+
+
+def test_render_states_what_it_cannot_measure():
+    """The brief asked for a hallucination rate. validator_pending.jsonl has no
+    verdict and no timestamp, so it is not computable — the report must say so
+    rather than invent a denominator."""
+    out = trend.render(trend.build(2))
+    assert "NOT MEASURED" in out
+    assert "validator_pending" in out
+
+
+# --- trailing windows: current state vs lagging average ----------------------
+
+class TestTrailingWindow:
+    """The weekly mean is lagging and, on its own, misleading.
+
+    On 2026-08-28 — the day six substantial defects were fixed — the weekly
+    figure read 91.3% because it averaged 110 runs most of which were taken
+    while the fleet was genuinely broken. The trailing 20 read 95.7% and the
+    last seven runs were all perfect. Reporting only the weekly number tells an
+    operator a fix has not landed when it has, which is the opposite of what a
+    health report is for.
+    """
+
+    def _hist(self, tmp_path, monkeypatch, scores):
+        p = tmp_path / "h.jsonl"
+        p.write_text("\n".join(
+            json.dumps({"timestamp": f"2026-08-28T{i:02d}:00:00+00:00",
+                        "score": s, "pass": s.split("/")[0] == s.split("/")[1]})
+            for i, s in enumerate(scores)), encoding="utf-8")
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", p)
+
+    def test_trailing_window_reflects_recent_runs_only(self, tmp_path, monkeypatch):
+        """Ten bad runs then five perfect ones: the last-5 window must be 100%
+        even though the overall mean is far lower."""
+        self._hist(tmp_path, monkeypatch, ["7/14"] * 10 + ["14/14"] * 5)
+        out = trend.harness_trailing(windows=(5, 15))
+        assert out[5]["mean"] == pytest.approx(1.0)
+        assert out[5]["perfect"] == 5
+        assert out[15]["mean"] < 0.8, "the wide window must still show the history"
+
+    def test_a_fix_moves_the_trailing_window_before_the_weekly_mean(self, tmp_path, monkeypatch):
+        """The property the whole split exists for."""
+        self._hist(tmp_path, monkeypatch, ["7/14"] * 40 + ["14/14"] * 5)
+        out = trend.harness_trailing(windows=(5, 50))
+        assert out[5]["mean"] > out[50]["mean"]
+
+    def test_runs_are_ordered_by_time_not_file_order(self, tmp_path, monkeypatch):
+        """A trailing window keyed on file order would be wrong the moment two
+        processes append out of sequence."""
+        p = tmp_path / "h.jsonl"
+        p.write_text("\n".join([
+            json.dumps({"timestamp": "2026-08-28T23:00:00+00:00", "score": "14/14", "pass": True}),
+            json.dumps({"timestamp": "2026-08-28T01:00:00+00:00", "score": "7/14", "pass": False}),
+        ]), encoding="utf-8")
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", p)
+        out = trend.harness_trailing(windows=(1,))
+        assert out[1]["mean"] == pytest.approx(1.0), "newest run is the 23:00 one"
+
+    def test_missing_history_is_empty_not_an_error(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", tmp_path / "nope.jsonl")
+        assert trend.harness_trailing() == {}
+
+    def test_render_leads_with_current_state(self, tmp_path, monkeypatch):
+        self._hist(tmp_path, monkeypatch, ["14/14"] * 5)
+        out = trend.render(trend.build(2))
+        assert "HARNESS NOW" in out
+        assert out.index("HARNESS NOW") < out.index("HARNESS BY WEEK"), (
+            "the lagging weekly figure must not be the first number CC sees")
+
+
+# --- mistakes suite: preventions as executable gates -------------------------
+
+class TestMistakePreventions:
+    """The 12 mistake cases were a flat "n/a" — mined from MISTAKES.md and
+    scored by nobody, so a prevention silently rotting looked identical to a
+    prevention working.
+
+    A case that declares `check:` in meta.yaml now RUNS it: exit 0 means the
+    prevention still holds, non-zero means the regression is back. Cases with no
+    check stay needs-model, so the suite reports "1 of 12 scored" — a visible,
+    shrinking backlog rather than a number that reads as "nothing to do".
+    """
+
+    def _case(self, tmp_path, meta: str):
+        d = tmp_path / "case"
+        d.mkdir(exist_ok=True)
+        (d / "task.md").write_text("x", encoding="utf-8")
+        (d / "meta.yaml").write_text(meta, encoding="utf-8")
+        return d
+
+    def test_a_holding_prevention_scores_honored(self, tmp_path):
+        import adapter
+        d = self._case(tmp_path, 'suite: mistakes\ncheck: python -c "import sys; sys.exit(0)"\n')
+        assert adapter._mistakes(d)["verdict"] == "prevention-honored"
+
+    def test_a_broken_prevention_scores_broken(self, tmp_path):
+        """The whole point: if the gate that caught a mistake stops working, the
+        suite must go red rather than quietly keep saying n/a."""
+        import adapter
+        d = self._case(tmp_path, 'suite: mistakes\ncheck: python -c "import sys; sys.exit(1)"\n')
+        assert adapter._mistakes(d)["verdict"] == "prevention-broken"
+
+    def test_an_unwired_case_stays_honest_pending(self, tmp_path):
+        """Never a fake pass. A mistake with no deterministic check yet is
+        pending, and must not be counted as guarded."""
+        import adapter
+        d = self._case(tmp_path, "suite: mistakes\n")
+        assert adapter._mistakes(d)["verdict"] == "needs-model"
+
+    def test_unwired_cases_are_unscored_not_failures(self, tmp_path, monkeypatch):
+        """An unguarded case must not drag the suite's score down — that would
+        make the backlog look like a regression and pin the gate red.
+
+        Asserted against a FIXTURE, not live state. The first version asserted
+        `n_cases > n_scored` on the real suite, which encoded "some cases are
+        still unwired" as a permanent expectation — so finishing the backlog
+        broke the test that existed to protect the backlog.
+        """
+        d = tmp_path / "mixed"
+        d.mkdir()
+        wired = d / "wired"
+        wired.mkdir()
+        (wired / "meta.yaml").write_text(
+            'suite: mistakes\ncheck: python -c "pass"\n', encoding="utf-8")
+        (wired / "expected.json").write_text(json.dumps(
+            {"scorer": "exact", "field": "verdict",
+             "expected": "prevention-honored"}), encoding="utf-8")
+        pending = d / "pending"
+        pending.mkdir()
+        (pending / "meta.yaml").write_text("suite: mistakes\n", encoding="utf-8")
+        (pending / "expected.json").write_text(json.dumps(
+            {"scorer": "rubric", "field": "verdict", "expected": "x"}),
+            encoding="utf-8")
+
+        monkeypatch.setattr(run_suites, "_case_dirs", lambda s: [wired, pending])
+        rep = run_suites.run_suite("mistakes")
+        assert rep["n_cases"] == 2
+        assert rep["n_scored"] == 1, "the unguarded case must not be scored"
+        assert rep["score"] == pytest.approx(1.0), (
+            "an unguarded case dragged the score down")
+
+    def test_the_live_wired_case_passes(self):
+        """audit_mcp_secrets.py is the prevention for the 2-month plaintext
+        Stripe-key leak. If a live key reappears in any IDE MCP config, this
+        goes red — which is exactly what nobody noticed for two months."""
+        rep = run_suites.run_suite("mistakes")
+        wired = [r for r in rep["results"] if r["status"] in ("pass", "fail")]
+        assert wired, "no mistake case is wired to a check any more"
+        assert all(r["status"] == "pass" for r in wired), (
+            f"a prevention has broken: {[r['name'] for r in wired if r['status'] != 'pass']}")
+
+
+class TestIncidentGuardCoverage:
+    """How many recorded incidents have an executable guard.
+
+    The metric that says whether the system is getting SAFER, as opposed to
+    whether it happened to be healthy this week. Went 1/12 -> 4/12 on
+    2026-08-28, when four incidents turned out to have real enforcement already
+    in the codebase that nothing was verifying.
+    """
+
+    def _tree(self, tmp_path, specs):
+        d = tmp_path / "evals" / "mistakes"
+        d.mkdir(parents=True)
+        for name, wired in specs:
+            c = d / name
+            c.mkdir()
+            meta = "suite: mistakes\n" + ('check: python -c "pass"\n' if wired else "")
+            (c / "meta.yaml").write_text(meta, encoding="utf-8")
+        return d
+
+    def test_counts_only_cases_with_an_executable_check(self, tmp_path, monkeypatch):
+        self._tree(tmp_path, [("a", True), ("b", False), ("c", True), ("d", False)])
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        cov = trend.incident_guard_coverage()
+        # Asserted field-by-field, not by whole-dict equality: the first version
+        # compared the entire dict, so ADDING the operating/design tier split —
+        # a deliberate improvement — broke a test about counting.
+        assert cov["incidents"] == 4
+        assert cov["guarded"] == 2
+        assert cov["pct"] == pytest.approx(0.5)
+
+    def test_a_case_without_meta_is_not_counted(self, tmp_path, monkeypatch):
+        d = self._tree(tmp_path, [("a", True)])
+        (d / "stray").mkdir()
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        assert trend.incident_guard_coverage()["incidents"] == 1
+
+    def test_missing_directory_is_empty_not_an_error(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        assert trend.incident_guard_coverage() == {}
+
+    def test_live_coverage_is_reported_and_non_zero(self):
+        """Guards the metric silently reading zero, which would look like
+        'nothing to do' rather than 'the check broke'."""
+        cov = trend.incident_guard_coverage()
+        assert cov["incidents"] >= 12, "recorded incidents disappeared"
+        assert cov["guarded"] >= 4, (
+            f"incident guard coverage dropped to {cov['guarded']} - a `check:` "
+            "was removed from a mistakes case")
+
+    def test_render_shows_the_backlog_not_just_the_score(self):
+        """A suite reporting 100% on 4 of 12 cases must not read as 'done'."""
+        out = trend.render(trend.build(2))
+        assert "INCIDENT GUARD COVERAGE" in out
+        assert "/12" in out
+
+
+class TestHistoryIsParsedOnce:
+    """The by-week, trailing-window and scheduled-only views each grew their own
+    copy of the history-parsing loop — same read, same json.loads, same
+    skip-bad-line handling, three times. That is three chances to disagree about
+    what counts as a valid row, and three full reads of the file per report on a
+    machine where IO is already the bottleneck.
+    """
+
+    def test_build_reads_the_history_file_exactly_once(self, monkeypatch, tmp_path):
+        hist = tmp_path / "h.jsonl"
+        hist.write_text("\n".join(
+            json.dumps({"timestamp": f"2026-08-28T{i:02d}:00:00+00:00",
+                        "score": "14/14", "pass": True, "source": "cron"})
+            for i in range(3)), encoding="utf-8")
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", hist)
+
+        reads = {"n": 0}
+        real = type(hist).read_text
+
+        def counting(self, *a, **k):
+            if self == hist:
+                reads["n"] += 1
+            return real(self, *a, **k)
+
+        monkeypatch.setattr(type(hist), "read_text", counting)
+        trend.build(2)
+        assert reads["n"] == 1, (
+            f"history parsed {reads['n']} times per report — the per-view copies "
+            "of the parse loop have come back")
+
+    def test_each_view_still_works_standalone(self, monkeypatch, tmp_path):
+        """Sharing a parser must not make the views uncallable on their own —
+        they are used individually by the weekly digest and by tests."""
+        hist = tmp_path / "h.jsonl"
+        hist.write_text(json.dumps(
+            {"timestamp": "2026-08-28T01:00:00+00:00", "score": "14/14",
+             "pass": True, "source": "cron"}), encoding="utf-8")
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", hist)
+        assert trend.harness_by_week(2)
+        assert trend.harness_trailing(windows=(1,))
+        assert trend.harness_scheduled()
+
+    def test_all_views_agree_on_what_a_valid_row_is(self, monkeypatch, tmp_path):
+        """The reason to share the parser: a row with an unparseable score must
+        be invisible to every view, not just to the one that happened to check."""
+        hist = tmp_path / "h.jsonl"
+        hist.write_text("\n".join([
+            json.dumps({"timestamp": "2026-08-28T01:00:00+00:00", "score": "14/14",
+                        "pass": True, "source": "cron"}),
+            json.dumps({"timestamp": "2026-08-28T02:00:00+00:00", "score": "garbage",
+                        "source": "cron"}),
+            "{not json at all",
+        ]), encoding="utf-8")
+        monkeypatch.setattr(trend, "HARNESS_HISTORY", hist)
+        assert len(trend.history_rows()) == 1
+        assert trend.harness_scheduled()["runs"] == 1
+        assert trend.harness_trailing(windows=(10,))[10]["runs"] == 1
+
+
+class TestGuardTiering:
+    """SOC2/ISO27001 separate design effectiveness (does a control exist?) from
+    operating effectiveness (does it work when exercised?). Reporting one number
+    for both is how a compliance programme becomes theatre — 12/12 guarded reads
+    as complete when half of those guards only prove a rule file still exists.
+    """
+
+    def _case(self, tmp_path, name, *, check=True, tier=None):
+        d = tmp_path / "evals" / "mistakes" / name
+        d.mkdir(parents=True)
+        lines = ["suite: mistakes"]
+        if tier:
+            lines.append(f"tier: {tier}")
+        if check:
+            lines.append('check: python -c "pass"')
+        (d / "meta.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def test_tiers_are_counted_separately(self, tmp_path, monkeypatch):
+        self._case(tmp_path, "a", tier="operating")
+        self._case(tmp_path, "b", tier="operating")
+        self._case(tmp_path, "c", tier="design")
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        cov = trend.incident_guard_coverage()
+        assert cov["operating"] == 2 and cov["design"] == 1
+        assert cov["guarded"] == 3
+
+    def test_an_untagged_guard_defaults_to_the_WEAKER_claim(self, tmp_path, monkeypatch):
+        """Assuming the stronger tier is precisely the failure this split exists
+        to prevent — an unlabelled guard must not be counted as operating."""
+        self._case(tmp_path, "a")  # check, no tier
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        cov = trend.incident_guard_coverage()
+        assert cov["design"] == 1 and cov["operating"] == 0
+
+    def test_an_unguarded_case_counts_in_neither_tier(self, tmp_path, monkeypatch):
+        self._case(tmp_path, "a", check=False)
+        monkeypatch.setattr(trend, "PROJECT_ROOT", tmp_path)
+        cov = trend.incident_guard_coverage()
+        assert cov["guarded"] == 0 and cov["incidents"] == 1
+
+    def test_live_operating_coverage_does_not_silently_drop(self):
+        """The number that would quietly fall if someone downgraded a real
+        behaviour guard to a rule-exists check."""
+        cov = trend.incident_guard_coverage()
+        assert cov["operating"] >= 6, (
+            f"operating-tested guards fell to {cov['operating']} — a behaviour "
+            "test was downgraded to design tier")
+
+    def test_render_never_shows_coverage_without_the_split(self):
+        """100% guarded is misleading on its own when half are design-only."""
+        out = trend.render(trend.build(2))
+        assert "operating-tested" in out and "design-tested" in out

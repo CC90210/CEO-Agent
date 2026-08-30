@@ -107,10 +107,14 @@ def _sync_client_class():
     if "supabase" not in sys.modules:
         return None
     try:
-        from supabase._sync.client import Client
-        return Client
+        from supabase._sync.client import SyncClient
+        return SyncClient
     except Exception:  # noqa: BLE001
-        return None
+        try:
+            from supabase._sync.client import Client
+            return Client
+        except Exception:  # noqa: BLE001
+            return None
 
 
 def install(
@@ -131,9 +135,12 @@ def install(
     if "supabase" not in sys.modules:
         return False
     try:
-        from supabase._sync.client import Client as SyncClient
+        from supabase._sync.client import SyncClient
     except Exception:  # noqa: BLE001
-        return False
+        try:
+            from supabase._sync.client import Client as SyncClient
+        except Exception:  # noqa: BLE001
+            return False
 
     original_init = SyncClient.__init__
     if getattr(original_init, "_empire_hardened", False):

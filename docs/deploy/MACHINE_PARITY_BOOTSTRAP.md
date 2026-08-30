@@ -59,7 +59,7 @@ upstream). You won't have to remember this again.
 ## Daemon takeover (only when the usual daemon host is OFF)
 
 `brain/CROSS_MACHINE_SYNC.md` is law: exactly ONE machine runs the state-mutating daemons
-(single Telegram poll token; one scheduler vs the shared Supabase `cron_jobs` table). Normally
+(single Telegram poll token; one scheduler vs the shared Turso `cron_jobs` table). Normally
 that's the Windows box. **A second machine may take over only while the primary is OFF** (e.g. CC
 travelling, PC powered down) — there is no concurrency then.
 

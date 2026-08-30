@@ -1,8 +1,9 @@
 r"""
-Provision a client tenant in Supabase: create the auth user with email
+Provision a client tenant: create the auth user with email
 pre-confirmed, then create/patch a tenant + user_profile using the same
 brand-hint provisioning logic as the dashboard's /api/auth/provision route
-(lib/client-provisioning.ts).
+(lib/client-provisioning.ts). Backend: Turso via supabase-compat shim
+(pre-2026-08: Supabase).
 
 Usage:
     CLIENT_EMAIL=ops@example.com \

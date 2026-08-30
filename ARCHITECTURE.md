@@ -5,6 +5,8 @@ last_updated: 2026-07-09
 
 # ARCHITECTURE — Business-Empire-Agent V6.0
 
+> ⚠️ **BACKEND CUTOVER (2026-08-09):** This document predates the Turso/libSQL cutover. The empire DB primary is now **Turso** (see CONTEXT.md §"Empire DB"); Supabase below is legacy except where still genuinely in use (event bus `agent_events` LISTEN/NOTIFY, `agent_activity` coordination, state-health Vercel mirror, Breeze / CC Funnel / Lafreniere apps). Canonical architecture version: `architecture_version` in `brain/STATE.md` frontmatter (currently V9.x) — this document's "V6.0" title refers to the substrate generation, not the current version.
+
 > This document explains the engineering design of Bravo — not just what it is, but why every decision was made this way.
 > Written for engineers who need to understand the system deeply enough to extend, debug, or rebuild any part of it.
 
@@ -220,7 +222,7 @@ memory/SESSION_LOG.md    — full audit trail of all actions by all agents (appe
 
 This is intentionally file-based. The alternative — a central API server that all interfaces call — was rejected because it introduces a single point of failure. If the API server is down, all three AI interfaces go blind. Files, by contrast, work offline, are trivially version-controlled with git, and are directly human-readable without any query layer.
 
-Supabase provides a queryable analytics layer on top of the file-based truth, but files always win on conflict (see Section 6 for the full persistence strategy).
+Turso (libSQL) provides a queryable analytics layer on top of the file-based truth, but files always win on conflict (see Section 6 for the full persistence strategy).
 
 ---
 
@@ -326,15 +328,15 @@ Facts that aren't re-verified decay automatically:
 
 Decay prevents the memory from calcifying around outdated facts. A business fact verified six months ago might no longer be true. Decay forces periodic re-verification rather than blind trust.
 
-### Why Dual-Write (Files + Supabase)?
+### Why Dual-Write (Files + Turso)?
 
-Files are the source of truth. Supabase is the queryable analytics layer. They serve different purposes:
+Files are the source of truth. Turso (libSQL) is the queryable analytics layer. They serve different purposes:
 
 **Files** give you: instant access without network calls, full git history, offline availability, human-readable state, zero query syntax.
 
-**Supabase** gives you: cross-session analytics, activation scoring across all memories, structured search across thousands of entries, historical trends, multi-agent sync without file merge conflicts.
+**Turso** gives you: cross-session analytics, activation scoring across all memories, structured search across thousands of entries, historical trends, multi-agent sync without file merge conflicts.
 
-The rule is explicit: on conflict, files win. Supabase is updated from files, never the other way around. This prevents a scenario where a DB write from an old session overwrites a more recent file-based state update.
+The rule is explicit: on conflict, files win. The DB is updated from files, never the other way around. This prevents a scenario where a DB write from an old session overwrites a more recent file-based state update.
 
 ### Activation Scoring
 
@@ -346,7 +348,7 @@ activation_score = (recency × 0.3) + (frequency × 0.4) + (confidence × 0.3)
 
 Frequency is weighted highest (0.4) because frequently-used patterns are the ones most likely to be relevant again. Recency (0.3) captures temporal relevance. Confidence (0.3) ensures unreliable memories aren't surfaced at high priority.
 
-This scoring means a highly-validated pattern used regularly is surfaced faster than a recent but speculative observation. The Supabase `skill_activation` table tracks access counts per pattern and SOP, feeding these weights.
+This scoring means a highly-validated pattern used regularly is surfaced faster than a recent but speculative observation. The `skill_activation` table (Turso) tracks access counts per pattern and SOP, feeding these weights.
 
 ### V6.0 Retrieval Layer (replaces whole-file context loads)
 
@@ -476,7 +478,7 @@ Step 7 implements structured Reflexion (Shinn et al., 2023). On any task failure
 4. What should be done differently?
 5. Confidence in this reflection (0.0-1.0)?
 
-This reflection is stored in `memory/SELF_REFLECTIONS.md` and Supabase. The next time a similar task is attempted, Step 2 (RECALL) surfaces the reflection, and the agent starts with the knowledge of what already failed and why.
+This reflection is stored in `memory/SELF_REFLECTIONS.md` and the empire DB (Turso). The next time a similar task is attempted, Step 2 (RECALL) surfaces the reflection, and the agent starts with the knowledge of what already failed and why.
 
 Without this mechanism, the agent can repeat the same mistake across sessions. With it, failure is converted to future capability.
 
@@ -560,11 +562,11 @@ The interaction protocol explicitly lists what is sanitized before any logging:
 - Personal financial account numbers (amounts are fine)
 - Full file contents in traces (log filename and line count only)
 
-This is not just policy — it is protocol. Supabase traces contain `input_summary` and `output_summary` fields that are truncated summaries, not full content.
+This is not just policy — it is protocol. Trace rows contain `input_summary` and `output_summary` fields that are truncated summaries, not full content.
 
-### Supabase Row-Level Security
+### Legacy Supabase Row-Level Security
 
-Every table in the Bravo Supabase project has RLS policies. No table is publicly accessible. This matters because the Supabase anon key is used by the SDK tools — if a table lacks RLS and the anon key is somehow exposed, that table's data is publicly readable. RLS means a leaked anon key exposes nothing without proper authentication.
+Every table in the legacy Bravo Supabase project has RLS policies. No table is publicly accessible. This matters because the Supabase anon key is used by the legacy SDK tools — if a table lacks RLS and the anon key is somehow exposed, that table's data is publicly readable. RLS means a leaked anon key exposes nothing without proper authentication. On the primary Turso backend there is no RLS — tenant scope is enforced in the data-bridge layer (`scripts/lib/db_turso.py`; see CONTEXT.md §"Data bridge").
 
 ### Credential Rotation Protocol
 
@@ -708,7 +710,7 @@ The self-healing system monitors and repairs five categories of degradation:
 
 **2. Context Self-Healing**: Flags APPS_CONTEXT files not updated in 30+ days, cross-references USER.md against recent CC statements, ensures STATE.md reflects actual system state. Triggered monthly and after CC corrects agent behavior.
 
-**3. Skill Self-Healing**: Tracks skill success rates via Supabase `skill_activation`. Flags skills with below 70% success rate for review. Identifies skill gaps when tasks repeatedly fail because no skill covers that domain.
+**3. Skill Self-Healing**: Tracks skill success rates via the `skill_activation` table (Turso). Flags skills with below 70% success rate for review. Identifies skill gaps when tasks repeatedly fail because no skill covers that domain.
 
 **4. Infrastructure Self-Healing**: Tests MCP connectivity, validates `.env.agents` has required keys by name (never value), checks git status for unexpected state, flags package dependency issues.
 
@@ -761,7 +763,7 @@ Bravo can write code, commit code, and push code — but it does not automatical
 
 ### No Vector Database for Semantic Search
 
-The Supabase `memories` table uses full-text search, not vector embeddings. Vector search would enable more powerful semantic retrieval — finding conceptually similar memories even without keyword overlap. It was not included because the current activation scoring system (recency + frequency + confidence) performs well enough for the actual use patterns, and vector embeddings would require a separate embedding pipeline, additional API costs, and infrastructure complexity. If memory retrieval quality becomes a bottleneck, this is the first upgrade to consider.
+The `memories` table (Turso) uses full-text search, not vector embeddings. Vector search would enable more powerful semantic retrieval — finding conceptually similar memories even without keyword overlap. It was not included because the current activation scoring system (recency + frequency + confidence) performs well enough for the actual use patterns, and vector embeddings would require a separate embedding pipeline, additional API costs, and infrastructure complexity. If memory retrieval quality becomes a bottleneck, this is the first upgrade to consider.
 
 ---
 

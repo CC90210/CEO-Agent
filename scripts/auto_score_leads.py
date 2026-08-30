@@ -56,7 +56,7 @@ try:
 except Exception:
     pass
 
-from lib.claude_cli import run_claude_cli  # noqa: E402
+from lib.model_fallback import run_smart_cli  # noqa: E402
 
 # Model calls run through the LOCAL claude CLI on CC's subscription OAuth
 # (lib.claude_cli) — the metered ANTHROPIC_API_KEY is out of credits and
@@ -103,8 +103,8 @@ SCORABLE_STAGES = {"new", "contacted", "qualified", "proposal", "negotiation"}
 def _client():
     from lib.secret_loader import load_env  # noqa: E402
     env = load_env()
-    url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
-    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+    url = (env.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat").strip()
+    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key").strip()
     if not url or not key:
         sys.stderr.write("ERROR: missing Supabase credentials\n")
         sys.exit(2)
@@ -132,9 +132,10 @@ def _score_one(lead_data: dict) -> tuple[int, str] | None:
         "[none recorded — score from lead data only, note 'limited signal' in reasoning if so]"
     )
 
-    text = run_claude_cli(
+    text = run_smart_cli(
         user_prompt, system=SYSTEM_PROMPT,
         model=MODEL_CLI, timeout=CLI_TIMEOUT_SEC,
+        task_type="reasoning", agent_name="auto_score_leads",
     )
     if not text:
         sys.stderr.write("  claude CLI call failed (see [claude_cli] stderr)\n")

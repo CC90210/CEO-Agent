@@ -774,35 +774,93 @@ def query(text: str, limit: int = 5, kind: str | None = None,
         # Boosting the wide pre-trim set turns weak tail-matches into seeds,
         # which both hides them from the associative layer and gets them
         # clipped anyway — the extras must derive from what the caller will
-        # actually SEE. Extras (≤3, tiny snippets) ride above the limit;
-        # they're bounded by MAX_ASSOCIATIVE_EXTRAS, not the token budget.
+        # actually SEE.
+        #
+        # Extras then take RESERVED slots inside `limit` (they displace the
+        # graph-weakest of these hits), so `len(result) <= limit` always. We
+        # still seed from the full top-`limit` rather than pre-shrinking: a
+        # reserved slot is a reservation, not a guarantee — when no neighbor
+        # clears graph_activation's 0.15 threshold, seeding wide still returns
+        # a full `limit` results instead of silently under-filling.
+        #
+        # Extras are NOT charged against the token budget, and don't need to
+        # be: _first_heading_or_desc caps their snippet at 220 chars and their
+        # heading is "", so worst case is 6000 + 3×~300 = 6900 = 1.15× budget,
+        # under the 1.5× ceiling test_token_budget_caps_total_snippet_size
+        # asserts. Raising MAX_ASSOCIATIVE_EXTRAS or that 220 → re-check this.
         final = _trim_to_budget(merged, limit, kind_field="score")
-        return _graph_boost(final, limit)
+        return _graph_boost(final, limit, kind=kind, explain=explain)
     finally:
         conn.close()
 
 
-def _graph_boost(hits: list[dict], limit: int) -> list[dict]:
+def _graph_boost(hits: list[dict], limit: int, kind: str | None = None,
+                 explain: bool = False) -> list[dict]:
     """Associative layer (2026-07-10): spread activation over the vault's
     wiki-link graph so well-connected notes rank up and 1-hop neighbors of
     strong matches surface as `kind='associative'` extras. Opt-out with
     EMPIRE_GRAPH_BOOST=0. HARD fallback — any graph failure returns the
-    hits untouched; the graph can only ever add signal, never break recall."""
+    hits untouched; the graph can only ever add signal, never break recall.
+
+    Owns the POLICY (how many extras, and whether any are allowed at all);
+    graph_activation.boost_hits owns the mechanism and enforces the cap.
+
+    Guarantees on every path — success, opt-out, ImportError, exception —
+    that the result is <= `limit` and that every hit carries `rrf_score`
+    (and `explain`, when asked). The fallthrough paths get this for free:
+    `hits` arrives already trimmed and already decorated by the merge loop.
+    """
     import os as _os
     if (_os.environ.get("EMPIRE_GRAPH_BOOST", "1").strip() == "0"):
         return hits
     try:
         try:
-            from graph_activation import boost_hits  # same dir (scripts/core on sys.path)
+            from graph_activation import (  # same dir (scripts/core on sys.path)
+                GRAPH_WEIGHT, MAX_ASSOCIATIVE_EXTRAS, boost_hits,
+            )
         except ImportError:
             # V7.3.3+2 (Codex finding): programmatic callers import this module
             # as core.memory_retriever — there the bare name doesn't resolve and
             # the associative layer was silently disabled.
-            from core.graph_activation import boost_hits  # type: ignore
-        boosted = boost_hits(hits, limit=limit)
+            from core.graph_activation import (  # type: ignore
+                GRAPH_WEIGHT, MAX_ASSOCIATIVE_EXTRAS, boost_hits,
+            )
+        # Reserved slots, not bonus slots: 3→1, 5→1, 10→3, 1|2→0. Keeps
+        # associative guesses a minority of any result set. A `kind` filter
+        # kills them outright — an extra is derived from a whole FILE via the
+        # wiki-link graph, never from an indexed chunk, so it cannot satisfy a
+        # chunk-level predicate and must not be smuggled past one.
+        extras_room = 0 if kind else min(MAX_ASSOCIATIVE_EXTRAS, limit // 3)
+        boosted = boost_hits(hits, limit=limit, max_extras=extras_room)
         if boosted:
             for h in boosted:
+                # An extra appears in NEITHER ranking, so the RRF sum over its
+                # appearances is the empty sum. 0.0 is the value, not a
+                # sentinel — and it sorts extras last under any -rrf_score.
+                h.setdefault("rrf_score", 0.0)
+                # NOTE: an extra's `score` is its assoc_score (~0.1-0.6) while a
+                # real hit's is rrf × freshness (~0.03) — different scales. Left
+                # as-is deliberately: `score` is a display promotion (see
+                # _trim_to_budget), no consumer sorts by it, list order is
+                # authoritative, and 0.0 would fall through _cmd_query's or-chain
+                # and print score=None.
                 h.setdefault("score", h.get("assoc_score", 0.0))
+                # setdefault above is load-bearing: real hits keep the values the
+                # merge loop computed; only extras take these defaults.
+                if explain and "explain" not in h:
+                    h["lex_rank"] = None
+                    h["sem_rank"] = None
+                    # No `freshness` key on purpose: an extra's recency is
+                    # already folded into graph_score by graph_activation's
+                    # _recency (exponential, 180d half-life), which is a
+                    # DIFFERENT model from _freshness_factor (linear, 0.3%/day).
+                    # Publishing both under one name would be a lie.
+                    h["explain"] = (
+                        f"lex_rank=∞ sem_rank=∞ → rrf=0.0000 · assoc: "
+                        f"graph={h.get('graph_score', 0.0):.4f} "
+                        f"× w={GRAPH_WEIGHT:.2f} → {h.get('assoc_score', 0.0):.4f} "
+                        f"({h.get('why', 'graph neighbor')})"
+                    )
             return boosted
     except Exception:  # noqa: BLE001 — associative layer is best-effort by design
         pass

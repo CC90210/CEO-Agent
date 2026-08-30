@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **163 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## [[skills/agent-forge/SKILL|agent-forge]]
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -44,6 +44,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Eac
 - **Triggers:** anti drift, use anti drift, run anti drift
 - **Path:** `skills/anti-drift/SKILL.md` · tier `standard` · risk `low`
 
+## [[skills/architecture-migration-gate/SKILL|architecture-migration-gate]]
+- **Use when:** Fires during any architectural migration (DB, hosting, framework swap). Generates a documentation impact manifest pre-migration and enforces a doc sweep post-migration so no brain/memory file is left with stale references.
+- **Triggers:** migrate, migration, cut over, cutover, switch backend, replace database, decommission, deprecate component, swap framework, change hosting, doc sweep, documentation drift, stale references, architecture change
+- **Path:** `skills/architecture-migration-gate/SKILL.md` · tier `core` · risk `normal`
+
 ## [[skills/auto-generated/SKILL|auto-generated]] — _explicit `/command` only_
 - **Use when:** Container for skills synthesized at runtime by skill_synthesizer.py. Each child directory is a [NEW] skill with its own SKILL.md + metrics.json. Promoted to skills/<slug>/ after 3 successful uses (skill_metrics.py promote).
 - **Triggers:** synthesize, new auto-generated skill
@@ -55,7 +60,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Eac
 - **Path:** `skills/background-workers/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/booking-management/SKILL|booking-management]]
-- **Use when:** Manage discovery call scheduling using booking_engine.py — a self-hosted Cal.com replacement backed by Supabase. Covers opening slots, booking leads, sending reminders, and completing meetings.
+- **Use when:** Manage discovery call scheduling using booking_engine.py — a self-hosted Cal.com replacement backed by Turso (via supabase-compat shim). Covers opening slots, booking leads, sending reminders, and completing meetings.
 - **Triggers:** booking, calendar, schedule, discovery call, slot, reminder, appointment, meeting
 - **Path:** `skills/booking-management/SKILL.md` · tier `standard` · risk `low`
 
@@ -129,6 +134,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Eac
 - **Triggers:** crisis response, use crisis response, run crisis response
 - **Path:** `skills/crisis-response/SKILL.md` · tier `standard` · risk `low`
 
+## [[skills/cross-agent-coordination/SKILL|cross-agent-coordination]]
+- **Use when:** Use when editing any file in a repo Adon/APEX also touches, or when reviewing APEX's pull requests on surfaces Bravo owns (oasis-command-center above all), when starting work on a shared surface, when a coord_guard block appears, when handing work to or from APEX, or when a peer
+- **Triggers:** claim file, file lease, coord guard, coord_guard blocked, APEX, Adon agent, cross-agent collision, peer claim, peer lease, shared repo edit, agent overlap, release claim, who owns this file, coordinate with APEX, peer blocked, agent handoff, migration collision, review APEX PR, APEX changed my file, cross agent review, APEX pull request, ownership map
+- **Path:** `skills/cross-agent-coordination/SKILL.md` · tier `standard` · risk `low`
+
 ## [[skills/currency-audit/SKILL|currency-audit]]
 - **Use when:** System currency sweep — find prose that contradicts live reality (retired products, stale counts, old versions/locations/domains) that freshness gates cannot see; 3-lens audit + fix + verify
 - **Triggers:** currency audit, staleness sweep, out of date, stale docs, semantic staleness
@@ -138,6 +148,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Eac
 - **Use when:** Structured daily plan for CC — content creation priorities, scheduled tasks, and revenue-moving actions. Generated each morning.
 - **Triggers:** daily planner, use daily planner, run daily planner, structured daily plan for cc \u2014 content creation priorities
 - **Path:** `skills/daily-planner/SKILL.md` · tier `core` · risk `low`
+
+## [[skills/decisions/SKILL|decisions]] — _explicit `/command` only_
+- **Use when:** Surface the choices made during the current work that the agent is genuinely NOT confident about, with the alternatives that were not considered. Use before shipping, before a review, or when CC asks "what did you decide", "what are you unsure about", "/decisions". Retrospective
+- **Triggers:** decisions, what did you decide, what are you unsure about, low confidence choices, second guess this
+- **Path:** `skills/decisions/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/dispatching-parallel-agents/SKILL|dispatching-parallel-agents]]
 - **Use when:** Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies
@@ -409,6 +424,16 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Eac
 - **Triggers:** gws workflow weekly digest, use gws workflow weekly digest, run gws workflow weekly digest
 - **Path:** `skills/gws-workflow-weekly-digest/SKILL.md` · tier `specialized` · risk `low`
 
+## [[skills/handoff/SKILL|handoff]] — _explicit `/command` only_
+- **Use when:** Compact the current session into one paste-ready block a fresh agent can resume from — what happened, why, what is left, and what NOT to redo. Use when hitting context limits, ending a work session, switching runtimes (Claude to Gemini/Codex/OpenCode), or partitioning a task acro
+- **Triggers:** handoff, hand off, fresh session, context limit, switch runtime, resume elsewhere, pass this on
+- **Path:** `skills/handoff/SKILL.md` · tier `standard` · risk `low`
+
+## [[skills/harness-refinement/SKILL|harness-refinement]]
+- **Use when:** Propose, measure, apply and roll back changes to Bravo's own prompts, memory, skills and subagent specs — with an executed command as the evidence gate. A refinement that cannot show a before/after delta on a real command is auto-reverted, never merged. Use when a lesson should b
+- **Triggers:** refine the harness, propose a change to my own rules, change an agent rule, queue a proposed change for CC, roll back a harness refinement, apply a refinement, show the refinement ledger, make this lesson permanent, prove this change helped
+- **Path:** `skills/harness-refinement/SKILL.md` · tier `T2` · risk `medium`
+
 ## [[skills/heartbeat/SKILL|heartbeat]]
 - **Use when:** Proactive autonomous monitoring and session management. Runs at session start and end. Checks memory consistency, infrastructure health, pending tasks, and workspace cleanliness. Enables Bravo to act without prompting.
 - **Triggers:** heartbeat, health check, session start, monitoring, proactive, autonomous
@@ -610,8 +635,8 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Eac
 - **Path:** `skills/score-b2b-lead-quality/SKILL.md` · tier `specialized` · risk `low`
 
 ## [[skills/security-protocol/SKILL|security-protocol]]
-- **Use when:** Secrets and authentication management. Ensures API keys, tokens, and credentials are NEVER exposed in plain text. Use when handling any credential, API key, or sensitive configuration.
-- **Triggers:** secret, credential, API key, exposed, rotation, security, token, password, leak, gitguardian
+- **Use when:** Application security protocol. Credential handling plus the 20-Point Vibe-Security Matrix — the mechanical audit for the twenty defects that recur in AI-generated code (RLS off, IDOR, unverified webhooks, client-side authz, injection, XSS, unvalidated uploads). Use when handling
+- **Triggers:** secret, credential, API key, exposed, rotation, security, token, password, leak, gitguardian, security audit, vulnerability, vulnerabilities, audit codebase, harden, RLS, row level security, IDOR, XSS, CORS, SQL injection, webhook signature, rate limit, input validation, file upload, OWASP, pentest, vibe-code security
 - **Path:** `skills/security-protocol/SKILL.md` · tier `core` · risk `low`
 
 ## [[skills/self-evolution/SKILL|self-evolution]]
@@ -643,6 +668,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Eac
 - **Use when:** Enhanced multi-step reasoning protocol for complex problems. Combines Sequential Thinking MCP with structured analysis frameworks. Use for architecture decisions, root cause analysis, strategic planning, and multi-variable optimization.
 - **Triggers:** complex reasoning, multi-step analysis, architecture decision, strategic planning
 - **Path:** `skills/sequential-reasoning/SKILL.md` · tier `standard` · risk `low`
+
+## [[skills/setup-help/SKILL|setup-help]] — _explicit `/command` only_
+- **Use when:** Walk CC through an operator-blocked setup ONE atomic step at a time, always listing what remains. Use when CC must do something the agent cannot — a dashboard signup, a DNS record, a bank or Plaid approval, an OAuth consent, a VPS action, an entity or counsel step. Triggers on "h
+- **Triggers:** help me set up, walk me through, how do I set up, setup help, configure this, get this working, what do I do next
+- **Path:** `skills/setup-help/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/ship/SKILL|ship]] — _explicit `/command` only_
 - **Use when:** Full deployment pipeline for any app in the registry. Use when CC says "ship it", "deploy", "push this live", or "/ship". Handles sync, tests, code review, changelog, PR, and post-ship verification in sequence.
@@ -724,6 +754,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Eac
 - **Triggers:** theme, styling, brand colors, fonts, visual format, artifact styling
 - **Path:** `skills/theme-factory/SKILL.md` · tier `specialized` · risk `low`
 
+## [[skills/turso-patterns/SKILL|turso-patterns]]
+- **Use when:** Use when working on the Supabase → Turso (libSQL) migration — transpiling schema, porting RPCs/views, flipping an app's backend, or verifying a migrated database. Encodes the failures this migration actually hit.
+- **Triggers:** turso, libsql, turso migration, supabase to turso, transpile schema, port rpc, turso verify, sqlite migration
+- **Path:** `skills/turso-patterns/SKILL.md` · tier `specialized` · risk `low`
+
 ## [[skills/using-git-worktrees/SKILL|using-git-worktrees]]
 - **Use when:** Use when starting feature work that needs isolation from current workspace or before executing implementation plans - creates isolated git worktrees with smart directory selection and safety verification
 - **Triggers:** worktree, git worktree, isolation, feature branch, workspace
@@ -745,8 +780,8 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Eac
 - **Path:** `skills/verticals/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/vibe-to-execution/SKILL|vibe-to-execution]]
-- **Use when:** Translate an informal brain dump or voice transcript into a turnkey, production-grade execution blueprint — resolved domain vocabulary, DB/API contracts, UI interaction design, and the exact CLI/tool routing. Use when CC describes what he wants in loose prose rather than a spec,
-- **Triggers:** vibe to execution, brain dump, voice note, turn this into a spec, translate this into a build, make this a system message, what i mean is, here is the vibe
+- **Use when:** Translate an informal brain dump, voice transcript, or screenshot into a turnkey, production-grade execution blueprint — an interactive clarification pass that asks CC every high-leverage question (up to 4) before building, Opus 5 execution contract, resolved domain vocabulary, v
+- **Triggers:** vibe to execution, brain dump, voice note, turn this into a spec, translate this into a build, make this a system message, write me a system prompt, what i mean is, here is the vibe
 - **Path:** `skills/vibe-to-execution/SKILL.md` · tier `strategic` · risk `low`
 
 ## [[skills/web-artifacts-builder/SKILL|web-artifacts-builder]]
@@ -763,6 +798,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **155 active skills**. Eac
 - **Use when:** Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.
 - **Triggers:** webapp test, local app test, frontend test, browser test, UI test
 - **Path:** `skills/webapp-testing/SKILL.md` · tier `standard` · risk `low`
+
+## [[skills/webgl-product-render/SKILL|webgl-product-render]]
+- **Use when:** Build and debug photoreal procedural 3D product visualisers in three.js — environment lighting, PBR materials, camera choreography, and the specific defects that survive code review but ruin the render. Use when a 3D model reads as rudimentary or cheap, when camera focus lands on
+- **Triggers:** 3d model looks rudimentary, car looks cheap, three.js, threejs, webgl scene, product visualiser, 3d hero, camera focus wrong, camera framing 3d, orbit controls, hotspot camera, geometry clipping, parts floating, photoreal render, env map, pbr materials, make the 3d look real
+- **Path:** `skills/webgl-product-render/SKILL.md` · tier `tool` · risk `low`
 
 ## [[skills/writing-plans/SKILL|writing-plans]]
 - **Use when:** Use when you have a spec or requirements for a multi-step task, before touching code

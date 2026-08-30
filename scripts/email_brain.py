@@ -50,6 +50,14 @@ DEFAULT_ARCHIVE_THRESHOLD = 0.6
 # number attached to it.
 DEFAULT_FINANCIAL_THRESHOLD = 0.65
 
+# Operator tenant for stamped rows — mirrors lead_engine.py. Rows written
+# without tenant_id land NULL and are invisible to tenant-scoped reads.
+OASIS_TENANT_ID = (
+    os.environ.get("OASIS_TENANT_ID")
+    or os.environ.get("EMPIRE_TENANT_ID")
+    or "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+)
+
 
 # ---- Pure policy ------------------------------------------------------------
 
@@ -65,12 +73,21 @@ def decide_action(
     may_reply: bool = True,
     red_flags: Optional[list] = None,
     degraded: bool = False,
+    financial_document: bool = False,
 ) -> dict:
     """Decide the single action for a classified email. Pure — no I/O.
 
     Returns {brain, action, should_send, should_archive, hold_for_review, reason}.
-    action ∈ {auto_reply, draft_hold, archive, handoff_atlas, review}.
+    action ∈ {auto_reply, draft_hold, archive, handoff_atlas, label_filed, review}.
     should_send and should_archive are never both True.
+
+    `financial_document` is the HIGH-RECALL filing gate
+    (lib.financial_labels.is_financial_document), and is deliberately NOT the
+    same question as `category == "financial_legal"`, which is the
+    high-precision BOOKING gate. Keeping them separate is the entire fix for
+    2026-08-28: a real Google Cloud invoice read as low_priority at 0.95 and
+    took the "archive silently" path below, so no hand-off was published and it
+    was never labelled — while Telegram reported "Route: financial".
 
     `degraded` is the classifier's own `fallback` flag — True when the model was
     unreachable and a keyword rubric produced the category. A degraded read may
@@ -110,6 +127,29 @@ def decide_action(
                  reason=("classifier was in degraded keyword mode (model "
                          "unavailable) — held for review; no auto-reply, no "
                          "ledger hand-off, no silent archive."))
+        return d
+
+    # A financial document is NEVER discarded on a low_priority read.
+    #
+    # This is the line that ate CC's Google Cloud invoice on 2026-08-28. The
+    # model is asked "did money move?" and answers correctly — an invoice
+    # -availability notice names no amount in the body (it is in the attached
+    # PDF), so it is not a bookable transaction and comes back low_priority at
+    # 0.95. The old code then read "low_priority + automated sender" and
+    # archived it silently, which is the right call for a newsletter and
+    # catastrophic for a receipt.
+    #
+    # Filing and booking have opposite error costs: a mislabelled email costs
+    # seconds, a missing one costs a deduction. So a document that the recall
+    # gate recognises is filed by label and kept, and only the BOOKING decision
+    # stays gated on transaction evidence.
+    if financial_document and category == "low_priority":
+        d.update(action="label_filed", should_archive=False,
+                 hold_for_review=False,
+                 reason=("financial document — filed by Gmail label; a "
+                         "low_priority read is not grounds to discard a receipt "
+                         "(no ledger entry: booking still needs transaction "
+                         "evidence)."))
         return d
 
     if not may_reply:
@@ -321,12 +361,74 @@ def process_email(
         except Exception:  # noqa: BLE001 — never let the guard layer break the sweep
             red_flags = []
 
-        # Hard override: an unresolvable forward (or any caller-forced review)
-        # bypasses all automated routing and goes straight to human review.
-        if email.get("force_review"):
+        # ---- Filing (Gmail label) ------------------------------------------
+        # Runs BEFORE any routing decision and independently of the model's
+        # category, because filing is a recall problem and routing is not. A
+        # receipt gets its label even when the email is also held for review or
+        # is an unresolvable forward — the label is what CC opens at tax time.
+        fin = {"is_financial": False, "subtype": None, "label": None}
+        assess_failed = False
+        try:
+            from lib.financial_labels import assess
+            fin = assess(email, prefilter_route=cls.get("route_target"))
+        except Exception as fin_err:  # noqa: BLE001 — never break the sweep
+            # FAIL CLOSED. Leaving fin as non-financial here would send the
+            # email straight back down the "low_priority + automated sender ->
+            # archive silently" path — the precise loss this module exists to
+            # stop, re-created by an import or regex error. We do not know
+            # whether this was a receipt, so it must stay visible.
+            assess_failed = True
+            print(f"[email_brain] financial assessment failed: {fin_err}",
+                  file=sys.stderr)
+        out["financial_document"] = bool(fin.get("is_financial"))
+        out["financial_subtype"] = fin.get("subtype")
+        out["label"] = None
+        out["label_error"] = None
+
+        if fin.get("is_financial") and fin.get("label"):
+            try:
+                get("apply_label")(email, fin["label"])
+                out["label"] = fin["label"]
+                # Carried into the Atlas hand-off payload so the consumer files
+                # under the SAME label Bravo already applied instead of
+                # recomputing it from a different rubric (Atlas treats a
+                # missing amount as a statement notice, which would file this
+                # invoice under the wrong bucket).
+                email["gmail_label"] = fin["label"]
+            except Exception as label_err:  # noqa: BLE001
+                # Loud on purpose. The whole point of this rewrite is that a
+                # failed label must never be mistaken for a filed receipt —
+                # the CFO-Agent path discarded a False here and carried on to
+                # booking and a success notification.
+                out["label_error"] = str(label_err)
+                print(f"[email_brain] LABEL FAILED for {fin['label']!r}: {label_err}",
+                      file=sys.stderr)
+                # A failing notifier must not abort the review path: the whole
+                # point of this branch is that the email stays visible, and an
+                # exception escaping here would skip that.
+                try:
+                    get("notify")(
+                        f"⚠️ FINANCIAL LABEL FAILED - {fin['label']}\n"
+                        f"From: {sender}\nSubject: {subj}\n"
+                        f"Error: {label_err}\n"
+                        f"This email is NOT filed. It stays unread for you."
+                    )
+                    out["notified"] = True
+                except Exception as notify_err:  # noqa: BLE001
+                    print(f"[email_brain] label-failure alert also failed: "
+                          f"{notify_err}", file=sys.stderr)
+
+        # Hard override: an unresolvable forward, a caller-forced review, or a
+        # financial assessment that could not run at all. In the last case we
+        # do not know whether this is a receipt, and "don't know" must never
+        # resolve to "archive silently".
+        if email.get("force_review") or assess_failed:
             out["category"] = category
             out["action"] = "review"
-            out["reason"] = "forced review (e.g. unresolvable forward); no automated routing."
+            out["reason"] = (
+                "financial assessment failed — cannot rule out a receipt; held."
+                if assess_failed else
+                "forced review (e.g. unresolvable forward); no automated routing.")
             get("notify")(f"Needs your review - {category} from {sender}: {subj}")
             out["notified"] = True
             return out
@@ -344,6 +446,7 @@ def process_email(
             may_reply=bool(email.get("may_reply", True)),
             red_flags=red_flags,
             degraded=degraded,
+            financial_document=bool(fin.get("is_financial")),
         )
         out["red_flags"] = decision.get("red_flags") or []
         out["action"] = decision["action"]
@@ -389,6 +492,23 @@ def process_email(
             get("mark_read")(email)
             get("archive")(email)
             out["archived"] = True
+        elif action == "label_filed":
+            # A receipt that is filed but not bookable. Mark read ONLY if the
+            # label actually landed — otherwise the email would be both
+            # unlabelled and hidden, which is strictly worse than doing nothing.
+            if out.get("label"):
+                get("mark_read")(email)
+                out["archived"] = True
+                get("notify")(f"📌 Filed → {out['label']}\n{sender}: {subj}")
+                out["notified"] = True
+            else:
+                out["action"] = "review"
+                out["reason"] = ("financial document could not be labelled; "
+                                 "left unread for review rather than filed.")
+                if not out.get("notified"):
+                    get("notify")(
+                        f"Needs your review - unfiled financial email from {sender}: {subj}")
+                    out["notified"] = True
         elif action == "handoff_atlas":
             handed = get("handoff_atlas")(email)
             if handed is False:
@@ -403,7 +523,16 @@ def process_email(
                 out["handed_off"] = True
                 # Ping CC so a financial/legal email is never silently swallowed.
                 # The email is left UNREAD until Atlas actually processes it.
-                get("notify")(f"Financial/legal email routed to Atlas - {sender}: {subj}")
+                #
+                # Report the LABEL, not the routing intent. The old alert said
+                # "Route: financial" and was emitted by the platform prefilter
+                # BEFORE the real decision, so it read as success on an email
+                # that was about to be archived unlabelled. What CC needs to
+                # know is where the message was actually filed.
+                filed = f"\n📌 Filed → {out['label']}" if out.get("label") else \
+                        "\n⚠️ NOT filed — no label applied"
+                get("notify")(
+                    f"Financial/legal email routed to Atlas - {sender}: {subj}{filed}")
                 out["notified"] = True
         else:  # review
             # Tag the alert by the red flag that caused the hold, so an outage
@@ -450,8 +579,11 @@ _REPLY_GOALS = {
 
 
 def _draft_runner(prompt, system=None, model="sonnet", timeout=90):
-    from lib.claude_cli import run_claude_cli
-    return run_claude_cli(prompt, system=system, model=model, timeout=timeout)
+    from lib.model_fallback import run_smart_cli
+    return run_smart_cli(
+        prompt, system=system, model=model, timeout=timeout,
+        task_type="reasoning", agent_name="email_brain",
+    )
 
 
 def _default_critic(subject, body):
@@ -532,8 +664,11 @@ def draft_reply_via_cli(email: dict, category: str, *, runner=None, critic=None)
 
 def send_reply_via_gateway(email: dict, draft: dict) -> dict:
     """Send the reply through the single outbound chokepoint. agent_source is
-    NON-operator so the gateway's compliance/hygiene gates apply (defense in
-    depth on top of the drafter's own critic)."""
+    "inbound_nurture" — the 2026-08-01 autonomous-nurture category: the
+    reply-since-last-outbound gate is inverted for it (an inbound last-touch
+    is the trigger), but every other compliance/hygiene gate still applies
+    (defense in depth on top of the drafter's own critic) and CC gets a
+    Telegram log ping on every successful send."""
     sender = email.get("from") or email.get("from_identity")
     if not sender or not draft or not draft.get("body"):
         return {"status": "error", "reason": "missing sender or draft body"}
@@ -541,7 +676,7 @@ def send_reply_via_gateway(email: dict, draft: dict) -> dict:
         from integrations.send_gateway import send
         return send(
             channel="email",
-            agent_source="email_brain_autoreply",
+            agent_source="inbound_nurture",
             to_email=sender,
             subject=draft.get("subject"),
             body_text=draft.get("body"),
@@ -568,6 +703,10 @@ def store_draft_row(email: dict, draft: dict, category: str, *, db=None) -> Opti
             "subject": (draft.get("subject") or "")[:500] or None,
             "content": (draft.get("body") or "")[:4000],
             "agent_source": "email_brain",
+            # Same tenant the inbound email carried (see send() call above);
+            # fall back to the operator tenant so the draft row is visible to
+            # tenant-scoped pipeline reads.
+            "tenant_id": email.get("tenant_id") or OASIS_TENANT_ID,
             "metadata": {
                 "category": category,
                 "from_identity": email.get("from") or email.get("from_identity"),
@@ -622,6 +761,11 @@ def handoff_to_atlas(email: dict, *, db=None) -> bool:
             "rfc_message_id": email.get("rfc_message_id"),
             "attachments": email.get("attachments") or [],
             "reason": "Financial & Legal — routed to Atlas (CFO) for analysis + ledger.",
+            # Bravo has already applied this label. Atlas should file under the
+            # SAME one rather than deriving its own — its `_resolve_category`
+            # treats a missing amount as a statement notice, which would put a
+            # vendor invoice (amount inside the PDF) in the wrong bucket.
+            "gmail_label": email.get("gmail_label"),
         }
         _db.table("agent_events").insert({
             "event_type": "email.financial_handoff",
@@ -668,12 +812,27 @@ def tagged_alert(tag_key: str, sender: str, subject: str, extra: str = "") -> bo
     return notify_cc(line, force=loud)
 
 
-def build_default_deps(mark_read=None, db=None) -> dict:
+def build_default_deps(mark_read=None, db=None, apply_label=None) -> dict:
     """Wire the live deps for process_email. `mark_read` is supplied by the
     caller (email_engine closes over its IMAP connection); archive == mark-read
-    for inbox-zero (Gmail auto-keeps a copy in All Mail)."""
+    for inbox-zero (Gmail auto-keeps a copy in All Mail).
+
+    `apply_label` likewise closes over the caller's IMAP connection + UID. It
+    MUST raise on failure rather than return False — process_email treats any
+    exception as "not filed" and keeps the email visible, which is only correct
+    if failure is actually signalled. A caller that omits it gets a dep that
+    raises, not a silent no-op: no-op'ing this one would recreate the exact bug
+    this module was rewritten to kill (a receipt reported as filed, with no
+    label anywhere)."""
     _mark_read = mark_read or _noop
+
+    def _no_labeller(_email, _label):
+        raise RuntimeError(
+            "apply_label dep not wired — refusing to report an email as filed "
+            "when nothing can apply a Gmail label")
+
     return {
+        "apply_label": apply_label or _no_labeller,
         "draft_reply": lambda email, category: draft_reply_via_cli(email, category),
         "send_reply": send_reply_via_gateway,
         "store_draft": lambda email, draft, category: store_draft_row(email, draft, category, db=db),

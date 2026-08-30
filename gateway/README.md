@@ -94,8 +94,14 @@ python scripts/gateway_admin.py stop
 
 ## Telegram Backward Compatibility
 
-`gateway/adapters/telegram.js` wraps the full `telegram_agent.js` V15.8 logic
-as a class. Every command is preserved verbatim:
+`gateway/adapters/telegram.js` wraps a V15.8-era snapshot of `telegram_agent.js`
+as a class. ⚠️ **2026-08-03 review: "preserved verbatim" is no longer true** — the
+adapter has drifted from the live bridge: `/ping` and the `/sb` SunBiz panic
+controls are missing, `polling_error` has no 401 handling, and the adapter never
+calls `scripts/bridge_lock.py` (starting it while `bravo-telegram` runs anywhere
+causes 409 poll conflicts + message loss). It also `process.exit(0)`s mid-boot if
+the live bridge's PID lock exists, which would silently kill the whole gateway.
+Commands it does carry:
 - All `/` slash commands (`/start`, `/help`, `/ship`, `/retro`, `/review`, `/plan`, `/costs`, `/memhealth`, `/compact`, `/stale`, `/clear`, `/whoami`)
 - Model selection (`!opus`, `!sonnet`, `!haiku`)
 - Gemini fallback (`!gemini`)
@@ -106,7 +112,7 @@ as a class. Every command is preserved verbatim:
 - Rate limiting and security firewall
 - Conversation history persistence
 
-`telegram_agent.js` (PM2 app `bravo-telegram`) is the ACTIVE Telegram path; this gateway is a dormant multi-platform wrapper (not in PM2).
+`telegram_agent.js` (PM2 app `bravo-telegram`) is the ACTIVE Telegram path; this gateway is a dormant multi-platform wrapper (not in PM2). **Do not start it** without first adding bridge_lock arbitration to the adapter and reconciling the drift above.
 
 ## Environment overrides (gateway/adapters/telegram.js)
 

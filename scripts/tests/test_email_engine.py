@@ -251,5 +251,153 @@ class TestAttachmentMeta(unittest.TestCase):
         self.assertEqual(_extract_attachment_meta(MIMEText("plain email")), [])
 
 
+class TestReviewMailIsTerminal(unittest.TestCase):
+    """The `if review_ping:` branch in cmd_check_inbox must END the iteration.
+
+    Structural, not string-counting: this walks the AST of the real function
+    and asserts the branch's last statement is a `continue`, and that it
+    contains no notify/classifier call.
+
+    Why a test at all — from 2026-07-29 to 2026-08-08 the code above that
+    branch CLAIMED "no LLM spend on machine mail", while the branch only
+    enqueued and fell through. Every CI-failure email still hit the classifier
+    and email_brain, and the brain Telegrammed CC. Five repos went red at once
+    and CC got 53 notifications in two days. The comment was not the bug; the
+    missing `continue` was, and a comment cannot fail a build.
+    """
+
+    def _review_branch(self):
+        import ast
+        import pathlib
+
+        src = (pathlib.Path(__file__).resolve().parent.parent
+               / "integrations" / "email_engine.py").read_text(encoding="utf-8")
+        for fn in ast.walk(ast.parse(src)):
+            if isinstance(fn, ast.FunctionDef) and fn.name == "cmd_check_inbox":
+                for node in ast.walk(fn):
+                    if (isinstance(node, ast.If)
+                            and isinstance(node.test, ast.Name)
+                            and node.test.id == "review_ping"):
+                        return node
+        self.fail("no `if review_ping:` branch found in cmd_check_inbox")
+
+    def test_branch_ends_in_continue(self):
+        import ast
+
+        branch = self._review_branch()
+        self.assertIsInstance(
+            branch.body[-1], ast.Continue,
+            "review-notification mail must not fall through to the classifier "
+            "and email_brain — that is the notification loop this prevents")
+
+    def test_branch_never_notifies(self):
+        import ast
+
+        branch = self._review_branch()
+        called = {
+            node.func.id for node in ast.walk(branch)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        for banned in ("notify", "notify_cc", "notify_error", "process_email"):
+            self.assertNotIn(
+                banned, called,
+                f"{banned}() inside the review branch re-opens the spam loop")
+
+    def test_branch_still_queues_and_marks_read(self):
+        """Suppressed must mean 'absorbed', never 'silently dropped'."""
+        import ast
+
+        branch = self._review_branch()
+        dumped = ast.dump(branch)
+        self.assertIn("_enqueue_review_harvest", dumped,
+                      "the queue entry is the durable record the harvest cron drains")
+        self.assertIn("processed_msgids", dumped,
+                      "without the ledger write the next UNSEEN sweep reprocesses it")
+
+    def test_processed_ledger_write_is_guarded_by_imap_success(self):
+        """`processed` may only be recorded if IMAP accepted the \\Seen flag.
+
+        Raised by Codex's adversarial audit. Catching store() here (so one bad
+        UID cannot kill a batch) is right, but recording the Message-ID anyway
+        would leave the mail UNSEEN in Gmail while the local ledger calls it
+        done — the next sweep skips it and it is never retried. Unread forever,
+        silently. Putting the write in the try's `else` makes the path
+        self-healing: a failed store means a retry next sweep, and re-enqueue is
+        idempotent (keyed repo#pr).
+        """
+        import ast
+
+        branch = self._review_branch()
+        tries = [n for n in ast.walk(branch) if isinstance(n, ast.Try)]
+        self.assertTrue(tries, "the imap.store call must be guarded by a try")
+
+        guarded = [
+            t for t in tries
+            if "imap" in ast.dump(t) and "processed_msgids" in ast.dump(t)
+        ]
+        self.assertTrue(
+            guarded, "processed_msgids must be written near the guarded store call")
+
+        for t in guarded:
+            self.assertIn("processed_msgids", ast.dump(ast.Module(body=t.orelse,
+                                                                  type_ignores=[])),
+                          "the ledger write belongs in the try's `else` — reached "
+                          "only when imap.store did NOT raise")
+            for handler in t.handlers:
+                self.assertNotIn(
+                    "processed_msgids",
+                    ast.dump(ast.Module(body=handler.body, type_ignores=[])),
+                    "recording the Message-ID in the except branch is the exact "
+                    "unread-forever bug this test exists to prevent")
+
+
+class TestReadMailFinancialDecision(unittest.TestCase):
+    """Pin the SEEN-backfill gate (read_mail_financial_decision) both ways.
+
+    The gate exists because the first live backfill (2026-08-23) handed a
+    conf-0.45 building quiet-hours notice to Atlas — the consumer would have
+    filed a non-financial legal notice under Receipts/, the exact mislabeling
+    the pipeline exists to prevent."""
+
+    def _import(self):
+        from integrations.email_engine import read_mail_financial_decision
+        return read_mail_financial_decision
+
+    def test_confident_financial_hands_off(self):
+        decide = self._import()
+        self.assertEqual(
+            decide({"category": "financial_legal", "confidence": 0.9}), "handoff")
+
+    def test_low_confidence_financial_is_skipped_not_handed_off(self):
+        decide = self._import()
+        # The live tranquility-notice case: financial_legal at 0.45.
+        self.assertEqual(
+            decide({"category": "financial_legal", "confidence": 0.45}), "skip")
+
+    def test_threshold_is_exclusive_like_decide_action(self):
+        decide = self._import()
+        # decide_action uses `confidence > financial_threshold` — exactly at
+        # the threshold must NOT hand off.
+        self.assertEqual(
+            decide({"category": "financial_legal", "confidence": 0.65}), "skip")
+
+    def test_degraded_financial_notifies_never_books(self):
+        decide = self._import()
+        self.assertEqual(
+            decide({"category": "financial_legal", "confidence": 0.9,
+                    "fallback": True}), "notify")
+
+    def test_non_financial_is_left_alone(self):
+        decide = self._import()
+        self.assertEqual(
+            decide({"category": "business_opportunity", "confidence": 0.99}), "skip")
+
+    def test_custom_threshold_is_respected(self):
+        decide = self._import()
+        self.assertEqual(
+            decide({"category": "financial_legal", "confidence": 0.7},
+                   fin_threshold=0.8), "skip")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

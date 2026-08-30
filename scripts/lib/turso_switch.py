@@ -24,6 +24,8 @@ from pathlib import Path
 
 #: What `supabase.create_client.__module__` reads as once the swap has happened.
 COMPAT_MODULE = "lib.turso_supabase_compat"
+TURSO_BACKEND = "turso_cloud"
+LEGACY_SUPABASE_ROLLBACK_BACKEND = "legacy_supabase_rollback"
 
 #: Dropped by sitecustomize when it tried to patch and could not. stderr is
 #: discarded under PM2, so this file is the only durable trace.
@@ -37,6 +39,7 @@ class SwitchStatus:
     active: bool
     module: str
     error: str = ""
+    returncode: int = 0
 
     @property
     def detail(self) -> str:
@@ -47,29 +50,46 @@ class SwitchStatus:
         return f"create_client -> {self.module or 'no output'} (Supabase, not Turso)"
 
 
-def probe(interpreter: str | None = None, timeout: int = 60) -> SwitchStatus:
-    """Run the probe under EMPIRE_DATA_BACKEND=turso_cloud and report.
+def probe(
+    interpreter: str | None = None,
+    timeout: int = 60,
+    backend: str | None = TURSO_BACKEND,
+) -> SwitchStatus:
+    """Ask an interpreter which client factory a startup mode activates.
 
-    The env var is forced on purpose: the caller wants to know whether the
-    switch WOULD engage, not whether this shell happens to have it set.
+    Existing callers retain the explicit-Turso probe. Passing ``backend=None``
+    removes the variable and verifies the post-migration default rather than
+    inheriting whatever happens to be in the caller's shell.
     """
     interp = interpreter or sys.executable
     if not interp:
         return SwitchStatus(False, "", "no python interpreter available")
+    env = dict(os.environ)
+    env.pop("EMPIRE_TURSO_PATCH_REQUIRED", None)
+    env["EMPIRE_TURSO_SWITCH_PROBE"] = "1"
+    if backend is None:
+        env.pop("EMPIRE_DATA_BACKEND", None)
+    else:
+        env["EMPIRE_DATA_BACKEND"] = backend
     try:
         proc = subprocess.run(
             [interp, "-c", _PROBE],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=timeout,
-            env={**os.environ, "EMPIRE_DATA_BACKEND": "turso_cloud"},
+            env=env,
         )
     except Exception as exc:  # noqa: BLE001 — a probe must not raise on callers
         return SwitchStatus(False, "", str(exc))
     module = (proc.stdout or "").strip().splitlines()[-1] if proc.stdout else ""
-    if module == COMPAT_MODULE:
-        return SwitchStatus(True, module)
+    if proc.returncode == 0 and module == COMPAT_MODULE:
+        return SwitchStatus(True, module, returncode=proc.returncode)
     err = (proc.stderr or "").strip().splitlines()[-1:] or [""]
-    return SwitchStatus(False, module, err[0] if not module else "")
+    return SwitchStatus(
+        False,
+        module,
+        err[0] if proc.returncode != 0 or not module else "",
+        proc.returncode,
+    )
 
 
 def failure_record() -> dict | None:

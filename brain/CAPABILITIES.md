@@ -1,9 +1,9 @@
 ---
 description: "Registry of Bravo's MCP servers, integrations, and CLI tools auto-synced by catalog_sync.py; agents use it to route tasks to capabilities"
 tags: [capabilities, tools]
-last_updated: 2026-07-22
+last_updated: 2026-08-19
 freshness_threshold_days: 30
-verified: 2026-07-22
+verified: 2026-08-19
 ---
 # CAPABILITIES — Tool & Integration Registry
 
@@ -50,12 +50,13 @@ Workflows: `.agents/workflows/` (35 active workflows: post, status, health, prim
 | **Knowledge Graph** | Vault graph — PageRank, communities, semantic search | npx tsx C:\Users\User\tools\knowledge-graph\src\mcp\index.ts |
 
 **SDK INTEGRATIONS (Universal — replaces broken MCPs):**
-| **Supabase** | Database CRUD, queries, RPC | `python scripts/integrations/supabase_tool.py select <table> --project bravo --limit 10` |
+| **Turso (PRIMARY)** | Database CRUD, tenant-scoped queries | `python scripts/integrations/turso_tool.py select <table> --tenant <id>` |
+| **Supabase (DEPRECATED — legacy apps only)** | Legacy CRUD for apps not yet cut over | `python scripts/integrations/supabase_tool.py select <table> --project bravo --limit 10` |
 | **Stripe** | Balance, customers, products, invoices, subscriptions, payment links | `python scripts/integrations/stripe_tool.py balance` |
 
-**Supabase tool commands:** `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `upsert`, `rpc`, `query`
+**Turso tool commands:** `status`, `tables`, `schema <t>`, `select <t> --tenant <id>`, `sql "<read-only>"`. `--db-path <file>` for local libSQL. **Tenant-scoped tables REQUIRE `--tenant`** — Turso has no RLS, the guard in `lib/db_turso.py` is the substitute.
+**Supabase tool commands (legacy):** `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `upsert`, `rpc`, `query`
 **Stripe tool commands:** `balance`, `customers`, `products`, `prices`, `invoices`, `subscriptions`, `charges`, `payment-links`, `create-payment-link`, `create-customer`, `create-invoice`, `refund`, `events`
-**Projects (Supabase):** `--project bravo` (default), `--project oasis`, `--project nostalgic`
 
 ### Gemini CLI (Diagnostic & Inference — 4th Tier)
 - Tool: `@google/gemini-cli`
@@ -66,15 +67,16 @@ Workflows: `.agents/workflows/` (35 active workflows: post, status, health, prim
 - CLI Tools: `python scripts/integrations/supabase_tool.py`, `python scripts/integrations/stripe_tool.py`, `python scripts/integrations/n8n_tool.py`, `python ../CMO-Agent/scripts/late_tool.py` (Maven)
 - Note: Config synced with `.vscode/mcp.json`. Credential-dependent services use CLI tools — not MCP.
 
-## Supabase Projects
+## Database Backend — Turso / libSQL (PRIMARY)
 
-| Project | Region | Purpose |
-|---------|--------|---------|
-| **Bravo** | us-west-2 | Agent intelligence (14 tables) + business ops (14 tables) = 28 tables |
-| **nostalgic-requests** | us-west-2 | Nostalgic Requests platform |
-| **oasis-ai-platform** | us-west-2 | OASIS AI platform |
+> **Migration complete (2026-08).** Turso is the primary backend: 191 tables, 132 tenant-scoped. Verified live via `turso_tool.py status`. Supabase projects are deprecated — some legacy apps (Command Center, Breeze, Event Bus LISTEN/NOTIFY) still reference Supabase Postgres and will be cut over incrementally.
 
-**Organizations:** CC (oktipozhyojufxsytrse), oasis-ai-platform (sajanpiqysuwviucycjh)
+| Backend | Status | Tables | CLI Tool |
+|---------|--------|--------|----------|
+| **Turso (libSQL)** | PRIMARY | 191 (132 tenant-scoped) | `turso_tool.py` (CRUD) · `turso_admin.py` (provisioning) |
+| **Supabase (Postgres)** | DEPRECATED — legacy | ~28 (being decommissioned) | `supabase_tool.py` (legacy reads only) |
+
+**Remaining Supabase dependencies (pending cutover):** Event Bus (`agent_events` table uses Postgres LISTEN/NOTIFY — no libSQL equivalent), Command Center dashboard (Supabase SSR), Breeze portal (own Supabase project `xugwrhvaoihyidtdgwkq`). Cancel-readiness gate: `python scripts/migration_completeness_audit.py`.
 
 ## App Registry (12 External Repos)
 
@@ -82,14 +84,14 @@ Full routing table with local paths, GitHub URLs, tech stacks: `brain/APP_REGIST
 
 | App | Local Path | Stack | CLAUDE.md |
 |-----|-----------|-------|-----------|
-| OASIS AI Platform | `APPS/oasis-ai-platform` | React 18, Vite, Supabase | Yes |
-| PropFlow | `realestate-App` | Next.js 14, Supabase, Stripe | Yes |
-| Nostalgic Requests | `APPS/nostalgic-requests` | Next.js 16, Supabase, Stripe Connect | Yes |
+| OASIS AI Platform | `APPS/oasis-ai-platform` | React 18, Vite, Turso | Yes |
+| PropFlow | `realestate-App` | Next.js 14, Turso, Stripe | Yes |
+| Nostalgic Requests | `APPS/nostalgic-requests` | Next.js 16, Turso, Stripe Connect | Yes |
 | Grape Vine Cottage | `APPS/Grape-Vine-Cottage` | Vite, React 18 | No |
 | Mindset Companion | `APPS/MINDSET COMPANION APP/cc-mindset` | Next.js 16, React 19 | No |
 | On The Hill | `APPS/ON-THE-HILL-WEBSITE` | Vite, React 19 | No |
 | Atlas (CFO) | `APPS/CFO-Agent` | Python 3.11+, CCXT, Claude API | Yes |
-| TIKTIK | `APPS/tiktik` | Next.js 14, Supabase, Tailwind | Yes |
+| TIKTIK | `APPS/tiktik` | Next.js 14, Turso, Tailwind | Yes |
 | CC Funnel | `APPS/cc-funnel` | Next.js 14, Supabase, Tailwind | Yes |
 | Shopify Ad Engine | `APPS/shopify-ad-engine` | Remotion 4, React 19, Three.js | Yes |
 | Lafreniere PM | `APPS/lafreniere-pm` | Next.js 16, Supabase, Stripe | Yes |
@@ -359,7 +361,7 @@ docker compose -f infra/docker-compose.cloud.yml up -d --build
 | **Financial Model** | `scripts/financial_model.py` | Unit economics, scenario modeling, concentration risk | `unit-economics`, `forecast`, `scenario`, `concentration`, `runway` |
 | **Cron** | `scripts/core/cron_engine.py` + `scripts/core/cron_dispatcher.py` | Automated job registry plus allowlisted script-backed execution for Atlas/Maven jobs | `cron_engine.py list/add/toggle/due/seed`; `cron_dispatcher.py due --execute`, `run <job_id>` |
 
-All engines: `--json` flag for agent consumption, credentials from `.env.agents`, Supabase backend.
+All engines: `--json` flag for agent consumption, credentials from `.env.agents`, Turso/libSQL backend (Supabase legacy for apps not yet cut over).
 
 ## Semantic Memory (1 CLI tool — added 2026-04-06)
 
@@ -538,6 +540,8 @@ Four entry files at the repo root — one per AI tooling surface. Every agent th
 | Migrations | `scripts/apply_migration.py` | Applies `database/*.sql` via Supabase Management API. |
 | Supabase Mgmt API | `scripts/integrations/supabase_admin.py` | Shared client for Supabase Management API (auth provider config, etc.). Handles Cloudflare-friendly UA. CLI: `python scripts/integrations/supabase_admin.py get /v1/projects/<ref>/config/auth` · `enable-google-oauth --project-ref X --client-id Y --client-secret Z`. |
 | Cloudflare DNS | `scripts/integrations/cloudflare_admin.py` | Shared client for Cloudflare DNS. CLI: `list-zone --domain X` · `upsert-txt --domain X --name _vercel --value Y` · `sync-vercel-txt --domain X --vercel-project Y` (recovers a Vercel domain that needs new TXT verification). Built after the 2026-04-30 oasisai.work outage. |
+| **Cloudflare Workers (PRIMARY deploy engine)** | `scripts/integrations/wrangler_tool.py` | The fleet's deployment, secret-push, and log-tail engine (2026-08-29 Vercel→Workers migration). Registry: `config/cloudflare/apps.json`; secret manifests (key NAMES only): `config/cloudflare/manifests/`. Verbs: `whoami`/`accounts` (run FIRST — key presence ≠ right account) · `zones`/`list-workers`/`subdomain`/`registrar-status` · `secrets-plan` (gap diff vs env store) · `secrets-push` (values via stdin, never argv) · `scaffold` (stamps wrangler.jsonc + open-next.config.ts) · `workflow` (generates the repo's `.github/workflows/deploy-cloudflare.yml` from registry + manifest) · `build`/`preview`/`deploy` (deploy-first ordering; full env at build) · `tail --seconds N` (bounded sampler, tree-kill). Secrets flow store→child env only — the LLM never sees values. |
+| Vercel secret recovery | `scripts/integrations/vercel_secret_sync.py` | Recovers Vercel prod env values into the agents env store, namespaced `<SLUG>__<KEY>`, via the per-id decrypt endpoint (the LIST endpoint returns ciphertext — see memory pattern). `plan`/`apply`; sensitive-type vars become `# FILL` lines for CC. |
 | Ledger | `lead_interactions` table (+ migration 003: `cooldown_until`, `agent_source`, `metadata`) | Unified cross-engine action log. |
 | CASL | `scripts/casl_compliance.py` | Suppression + footer + RFC 2369/8058 headers. Composed by the gateway. |
 | Templates | `scripts/wire_all_templates.py` | Keeps OASIS Welcome / Value Add / CTA congruent across sessions. Verifies `https://oasisai.work` + `https://calendar.app.google/tpfvJYBGircnGu8G8`. |
@@ -560,7 +564,7 @@ Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-pr
 | `scripts/build_maven_env.py` | One-time setup: seeds Maven's `.env.agents` from Bravo's shared infra credentials. | Run once per Maven bootstrap |
 | `scripts/core/agent_heartbeat.py` | Write heartbeat to `agent_state_snapshot` so Command Center detects live agents within 15 min. | `python scripts/core/agent_heartbeat.py --agent bravo` |
 | `scripts/crm_reset.py` | Archive cold/dead leads from bravo Supabase CRM. CC directive: remove noise, keep warm leads only. | `python scripts/crm_reset.py --dry-run` |
-| `scripts/deploy_command_center.py` _(moved 2026-05-18)_ | One-shot production deploy for OASIS AI Agent Command Center. Migrated to the standalone `oasis-command-center` repo when the dashboard was extracted; deploys now run there via `vercel deploy --prod`. | `cd ~/APPS/oasis-command-center && vercel deploy --prod` |
+| ~~`scripts/deploy_command_center.py`~~ _(removed here 2026-05-18 — lives in `~/APPS/oasis-command-center`)_ | One-shot production deploy for OASIS AI Agent Command Center. Migrated to the standalone `oasis-command-center` repo when the dashboard was extracted; deploys now run there via `vercel deploy --prod`. | `cd ~/APPS/oasis-command-center && vercel deploy --prod` |
 | `scripts/integration_health.py` | Bump `integrations_health` row from any background worker. Supports Command Center Settings → Integrations page. | `python scripts/integration_health.py --integration stripe --status ok` |
 | `scripts/fleet_health.py` | Cross-agent health rollup: pulse freshness (Bravo/Atlas/Maven), inbox unread per agent, cron job state, bridge lock status, memory staleness summary. | `python scripts/fleet_health.py`, `--json`, `--agent <name>` |
 | `scripts/core/cron_dispatcher.py` | Executes allowlisted script-backed cron jobs from the shared registry (Atlas pulse publish, Maven token check, Maven backlog audit) and writes run status back to Supabase. | `python scripts/core/cron_dispatcher.py due --execute`, `run <job_id>`, `--dry-run` |
@@ -576,7 +580,7 @@ Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-pr
 | `scripts/critic_template_check.py` | **Regression test for OASIS templates vs `draft_critic`.** Renders every OASIS email template against a synthetic lead and runs the critic at the live gateway threshold (6.5). Exits 1 if any template fails. Run before merging any template OR critic config change. Originated from the 2026-05-04 template-drift mistake. | `python scripts/critic_template_check.py [--json]` |
 | `scripts/integrations/n8n_inbound_doctor.py` | **Diagnostic for the OASIS Inbound Qualifier (Bravo Aware) n8n workflow.** Verifies workflow `1cGIN32alM8sf8OV` is active, the Supabase `record_inbound_from_n8n` RPC exists and accepts payloads, and the email_engine IMAP poll path can write to `lead_interactions`. Use when inbound classification appears broken. | `python scripts/integrations/n8n_inbound_doctor.py [--json]` |
 
-## Business Ops Database Schema (14 tables — Supabase Bravo)
+## Business Ops Database Schema (14 tables — Turso Bravo)
 
 | Domain | Tables | Purpose |
 |--------|--------|---------|
@@ -666,9 +670,9 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 | /ingest | On-demand | Compile raw document into knowledge wiki |
 | /query-knowledge | On-demand | Sourced answer from compiled knowledge wiki |
 
-## Skills (151 active — Supabase-routed runtime catalog)
+## Skills (151 active — Turso-backed runtime catalog)
 
-> **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. Supabase `skills_registry` is the runtime cache: `register_skill.py sync-all` syncs trigger/tier/owner/risk/source-hash metadata, and `register_skill.py route "<task>"` picks the right skills to load.
+> **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. Turso `skills_registry` is the runtime cache (migrated from Supabase): `register_skill.py sync-all` syncs trigger/tier/owner/risk/source-hash metadata, and `register_skill.py route "<task>"` picks the right skills to load.
 
 ### Runtime Shape
 
@@ -717,7 +721,7 @@ Centralized configuration for agent behavior, routing, security, and performance
 | `[workers]` | Background workers — audit, memory, sync, optimize (intervals + tasks) |
 | `[hooks]` | Enhanced hook lifecycle — pre/post operation automation + learning triggers |
 | `[security]` | Input validation, secret scanning, blocked patterns |
-| `[logging]` | 3-tier logging config (Supabase traces, session files, diagnostics) |
+| `[logging]` | 3-tier logging config (Turso traces, session files, diagnostics) |
 
 ## Safety & Automation Hooks (`.claude/settings.local.json`)
 
@@ -758,7 +762,7 @@ These are registered in Claude Code's native skill system with proper frontmatte
 - **OS:** Windows 11 (Desktop), macOS (MacBook)
 - **Languages:** TypeScript (primary), Python (video pipeline, MCP servers)
 - **Frameworks:** Next.js 14 (App Router), Tailwind CSS
-- **Database:** Supabase (PostgreSQL) — 3 projects, 28-table schema (14 agent + 14 business ops)
+- **Database:** Turso (libSQL) — 191 tables (132 tenant-scoped), primary backend. Supabase (PostgreSQL) deprecated, legacy apps only.
 - **Hosting:** Vercel (auto-deploy from git)
 - **Payments:** Stripe (3 brand accounts)
 - **Automation:** n8n (Hostinger VPS: https://n8n.srv993801.hstgr.cloud)
@@ -817,23 +821,23 @@ Top-level `scripts/` entries that aren't surfaced under a major capability above
 
 <!-- MANIFEST:BEGIN -->
 _Auto-generated by `scripts/catalog_sync.py` — do not edit this block manually._
-_Last synced: 2026-07-28T15:15:04.526117+00:00_
+_Last synced: 2026-08-28T08:01:10.603977+00:00_
 
 | Type | Count |
 |---|---:|
-| Python scripts | 117 |
+| Python scripts | 174 |
 | PowerShell scripts | 10 |
 | Shell scripts | 4 |
-| **Total scripts** | **131** |
-| Skills | 152 (45 destructive) |
+| **Total scripts** | **188** |
+| Skills | 163 (48 destructive) |
 | Agents | 27 |
 | Workflows | 34 |
 
 **Scripts by category:**
 
-- Other: 90
-- Communication: 13
-- Data & Memory: 9
+- Other: 136
+- Data & Memory: 17
+- Communication: 16
 - System: 6
 - Content: 5
 - Governance: 4

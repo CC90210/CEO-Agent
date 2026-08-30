@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **60 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **64 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -29,10 +29,11 @@ Auto-generated index of tracked `brain/*.md` — **60 files**. Each file's first
 - [VPS_SUNBIZ_TASK2_PROMPT.md](VPS_SUNBIZ_TASK2_PROMPT.md) — VPS Agent — Task 2 (close the self-test gap + fix the SMS-step defect)
 
 ## Prompts & playbooks
-- [CLIENT_PLAYBOOK.md](CLIENT_PLAYBOOK.md) — 🎯 CLIENT PLAYBOOK — What CC Does, How He's Different, How to Run a Meeting
+- [CLIENT_PLAYBOOK.md](CLIENT_PLAYBOOK.md) — OASIS WEBSITE APPOINTMENT-SETTING PLAYBOOK V5
 
 ## Reference & architecture
 - [APP_REGISTRY.md](APP_REGISTRY.md) — APP REGISTRY — External Codebase Routing
+- [AUTOMATIONS.md](AUTOMATIONS.md) — AUTOMATIONS.md — What Actually Runs (auto-generated)
 - [BENCHMARK.md](BENCHMARK.md) — 🧠 BRAVO BENCHMARK — Agentic Maturity Assessment
 - [BRAIN_LOOP.md](BRAIN_LOOP.md) — BRAIN LOOP — 10-Step Reasoning Protocol (V5.5 Enhanced)
 - [CANONICAL_ROLES.md](CANONICAL_ROLES.md) — CANONICAL ROLES -- C-Suite Function Reference
@@ -44,11 +45,13 @@ Auto-generated index of tracked `brain/*.md` — **60 files**. Each file's first
 - [C_SUITE_ARCHITECTURE.md](C_SUITE_ARCHITECTURE.md) — AGENT ARCHITECTURE — Four-Agent Operating Model
 - [DAILY_SCHEDULE.md](DAILY_SCHEDULE.md) — CC'S DAILY SCHEDULE
 - [DASHBOARD.md](DASHBOARD.md) — Command Center
+- [DATA_LIFECYCLE.md](DATA_LIFECYCLE.md) — Data Lifecycle
 - [DATA_TAXONOMY.md](DATA_TAXONOMY.md) — Data Taxonomy
-- [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS AI (V1.0, 2026-04-30)
+- [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS Website Sales Engine V5
 - [EMAIL_PIPELINE.md](EMAIL_PIPELINE.md) — Inbound Email Pipeline — Runbook
 - [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) — EVENT BUS CONTRACT — V6 BUILD 3
 - [EXTERNAL_REVIEW_INTEGRATION.md](EXTERNAL_REVIEW_INTEGRATION.md) — EXTERNAL REVIEW INTEGRATION — Fold the Bots Into the Loop
+- [INVENTORY.md](INVENTORY.md) — INVENTORY.md — Live Repo Inventory (auto-generated)
 - [METRIC_AUDIT.md](METRIC_AUDIT.md) — Dashboard Metric Audit
 - [MODEL_CONFIG.md](MODEL_CONFIG.md) — (no H1 heading)
 - [OKRs.md](OKRs.md) — OKRs — Q2 2026 (April - June)
@@ -63,6 +66,7 @@ Auto-generated index of tracked `brain/*.md` — **60 files**. Each file's first
 - [SUBCONSCIOUS_LAYER.md](SUBCONSCIOUS_LAYER.md) — THE SUBCONSCIOUS LAYER — What Runs Beneath the Conscious Brain
 - [TOOL_SHED.md](TOOL_SHED.md) — 🧰 TOOL SHED — CC's GitHub Repository Catalog
 - [V6_ARCHITECTURE.md](V6_ARCHITECTURE.md) — Substrate Architecture — current: **V7.3.3** (foundation history V6.0 → V6.8 below)
+- [VERCEL_TO_CLOUDFLARE_MIGRATION.md](VERCEL_TO_CLOUDFLARE_MIGRATION.md) — Vercel to Cloudflare Migration: Master Handover Plan
 
 ## Routing & capability map
 - [AGENT_INDEX.md](AGENT_INDEX.md) — Agent Index — The 4-Agent Graph Hub

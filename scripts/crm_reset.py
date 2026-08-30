@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""crm_reset.py — archive cold/dead leads from the bravo Supabase CRM.
+"""crm_reset.py — archive cold/dead leads from the bravo CRM (Turso via supabase-compat shim).
 
 CC's directive (2026-04-30 PM): the CRM has accumulated cold-outreach noise.
 Only keep ACTUAL warm leads + ACTUAL clients. Everything else gets archived
@@ -120,10 +120,8 @@ def operator_tenant_id(client: "Client") -> str:
 
 
 def db() -> "Client":
-    url = os.environ.get("BRAVO_SUPABASE_URL")
-    key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
-        raise RuntimeError("Missing BRAVO_SUPABASE_URL / BRAVO_SUPABASE_SERVICE_ROLE_KEY in environment")
+    url = os.environ.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
+    key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key"
     return create_client(url, key)
 
 

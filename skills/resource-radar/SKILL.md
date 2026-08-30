@@ -8,7 +8,7 @@ triggers: ["free tier", "free API", "what service for", "replace paid tool", "do
 tags: [free-tier, radar, catalog, cost-reduction, integrations]
 status: '[NEW]'
 created_at: 2026-07-17T21:35:26.083403+00:00
-last_updated: 2026-07-17
+last_updated: 2026-08-30
 ---
 
 # Resource Radar
@@ -24,7 +24,7 @@ last_updated: 2026-07-17
 ## How it works
 
 1. **Consult the catalog:** read `brain/TOOL_SHED.md` § "Section 9: Free-Tier Radar" (or query it: `python scripts/capability_query.py resolve "<need>" --kind resource`). A matching row gives you the service, free-tier limit, auth model, status, and any conflict — answer from it, don't re-research.
-2. **Enforce the closed slots (hard rules, from the 2026-07-17 services audit):** DNS=Cloudflare · hosting=Vercel+Hostinger · DB=Supabase · payments=Stripe · SMS=TextTorrent/Twilio/Kixie (never a 4th) · email=send_gateway→Gmail ONLY (Resend/SendGrid/SES/Mailgun banned) · scraping=Firecrawl/Playwright/bs4 · TTS=ElevenLabs · vector=LanceDB · CI=GitHub Actions. Consolidation beats addition — never propose a new provider for a covered slot.
+2. **Enforce the closed slots (hard rules, from the 2026-07-17 services audit; hosting slot updated 2026-08-30):** DNS=Cloudflare · **hosting=Cloudflare Workers (PRIMARY as of the 2026-08 migration — deploys/secrets/log-tails via `scripts/integrations/wrangler_tool.py`; Vercel is the migration source being retired, Hostinger for VPS)** · DB=Turso (Supabase retired 2026-08-09) · payments=Stripe · SMS=TextTorrent/Twilio/Kixie (never a 4th) · email=send_gateway→Gmail ONLY (Resend/SendGrid/SES/Mailgun banned) · scraping=Firecrawl/Playwright/bs4 · TTS=ElevenLabs · vector=LanceDB · CI=GitHub Actions. Consolidation beats addition — never propose a new provider for a covered slot.
 3. **Not cataloged? Fetch upstream on demand** (never mirror): `python scripts/research_fetch.py "https://raw.githubusercontent.com/ripienaar/free-for-dev/master/README.md"` (jump to the relevant `##` category) or the public-apis raw README. Spot-check any row live before trusting it (upstream curation has slowed; api.publicapis.org is dead).
 4. **Present the candidate** with: free-tier limit, auth model, what it replaces/conflicts with, and the adoption path. Then add/update its Radar row (status `candidate`) so the next lookup starts warmer.
 5. **Adoption path for keyed services (operator-gated):** Radar row → `docs/ENV_KEYS_TEMPLATE.md` entry → **CC signs up and hand-adds the key to `.env.agents`** (agents never handle keys) → `scripts/integrations/<name>_tool.py` wrapper via `lib.secret_loader` (copy `stripe_tool.py` shape: subcommand verbs, shared `--json` parent parser, `@retry`) → `integration_health.ping('<service>')` → SEED_JOBS health row if it's a live dependency. No-auth APIs skip the key steps but still get the wrapper + Radar row (see `scripts/integrations/email_validate_tool.py`).
@@ -37,6 +37,7 @@ last_updated: 2026-07-17
 
 ## Tools used
 
+- `scripts/integrations/wrangler_tool.py` — the deployment/secret-sync/log-tail engine for the hosting slot (Cloudflare Workers); registry `config/cloudflare/apps.json`
 - `scripts/capability_query.py` — `resolve "<need>" --kind resource` against the graph's `resource:` nodes
 - `scripts/research_fetch.py` — on-demand upstream fetch (auto-escalating ladder)
 - `scripts/integrations/email_validate_tool.py` — the reference no-auth adoption (Disify)

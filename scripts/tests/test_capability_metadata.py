@@ -118,7 +118,9 @@ def test_nested_scripts_are_opt_in_via_literal_metadata(tmp_path, monkeypatch):
 def test_canonical_nested_operator_scripts_are_graph_registered():
     nodes = {node["name"]: node for node in bcg.discover_scripts()}
     expected = {
-        "supabase_tool": ("scripts/integrations/supabase_tool.py", "data.supabase"),
+        # data.turso_compat since the 2026-08-09 Turso cutover (6036b6a6):
+        # supabase_tool is the deprecated compat shim, not the live DB path.
+        "supabase_tool": ("scripts/integrations/supabase_tool.py", "data.turso_compat"),
         "send_gateway": ("scripts/integrations/send_gateway.py", "outbound.gateway"),
         "cloak_browser_tool": ("scripts/browser/cloak_browser_tool.py", "browser.research"),
         "agent_inbox": ("scripts/core/agent_inbox.py", "orchestration.messaging"),
@@ -184,8 +186,12 @@ def test_runtime_edges_cover_cron_telegram_and_bridge_exposure():
     edges = {(edge["from"], edge["to"], edge["kind"]) for edge in bcg.infer_edges(nodes)}
     assert ("runtime:cron_engine", "script:break_glass_drill", "schedules") in edges
     assert ("runtime:telegram_agent", "script:pause_controller", "exposes") in edges
-    for stem in ("supabase_tool", "send_gateway", "cloak_browser_tool", "agent_inbox"):
+    # turso_tool replaced supabase_tool here at the 2026-08-09 cutover: the
+    # compat shim is bridge-hidden (visible: False) by design, so it must NOT
+    # carry an exposed_via edge — pinned both directions.
+    for stem in ("turso_tool", "send_gateway", "cloak_browser_tool", "agent_inbox"):
         assert (f"script:{stem}", "runtime:bridge_chat_server", "exposed_via") in edges
+    assert ("script:supabase_tool", "runtime:bridge_chat_server", "exposed_via") not in edges
 
 
 def test_security_pattern_literals_are_not_misclassified_as_script_calls():

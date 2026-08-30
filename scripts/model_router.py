@@ -92,6 +92,20 @@ PROVIDER_SPECS: dict[str, dict[str, Any]] = {
         "models": ["glm-5.2", "glm-5.2-turbo"],
         "pricing": {"glm-5.2": (2.0, 8.0), "glm-5.2-turbo": (0.5, 2.0)},
     },
+    "opencode": {
+        "env_var": "OPENCODE_AVAILABLE",  # presence check — free models need no key
+        "models": [
+            "opencode/big-pickle",
+            "opencode/deepseek-v4-flash",
+            "opencode/deepseek-v4-pro",
+            "opencode/nemotron-3.5-lightning-free",
+            "opencode/nemotron-3-ultra-free",
+            "opencode/hy3-free",
+            "opencode/mimo-v2.5-free",
+            "opencode/muse-spark-1.2-contributor-free",
+        ],
+        "pricing": {},  # free tier — $0
+    },
 }
 
 TASK_TYPE_PREFERENCES: dict[str, list[tuple[str, str]]] = {
@@ -100,20 +114,25 @@ TASK_TYPE_PREFERENCES: dict[str, list[tuple[str, str]]] = {
         ("claude", "claude-opus-4-8"),
         ("deepseek", "deepseek-reasoner"),
         ("groq", "llama-3.3-70b"),
+        ("opencode", "opencode/big-pickle"),
     ],
     "analysis": [
         ("claude", "claude-fable-5"),
         ("openai", "gpt-5.5"),
         ("glm", "glm-5.2"),
         ("deepseek", "deepseek-reasoner"),
+        ("opencode", "opencode/big-pickle"),
     ],
     "fast": [
         ("claude", "claude-haiku-4-5"),
         ("openai", "gpt-5.4-mini"),
         ("groq", "mixtral-8x7b"),
+        ("opencode", "opencode/nemotron-3.5-lightning-free"),
         ("local", "ollama/*"),
     ],
     "cheap": [
+        ("opencode", "opencode/nemotron-3.5-lightning-free"),
+        ("opencode", "opencode/hy3-free"),
         ("local", "ollama/*"),
         ("groq", "mixtral-8x7b"),
         ("openrouter", "nous/hermes-3"),
@@ -397,16 +416,20 @@ def call(messages: list[dict], agent: str | None = None, model: str | None = Non
         use_metered = bool(api_key) and os.environ.get(
             "MODEL_ROUTER_ALLOW_METERED_API", "").strip().lower() in ("1", "true", "yes")
         if not use_metered:
-            from lib.claude_cli import run_claude_cli  # lazy — no import cost on the metered path
+            from lib.model_fallback import run_smart_cli  # lazy — no import cost on the metered path
             cli_prompt = (
                 "\n\n".join(f"{m['role']}: {m['content']}" for m in chat)
                 if len(chat) > 1 else (chat[0]["content"] if chat else "")
             )
-            text = run_claude_cli(cli_prompt, system=system_prompt or None, model=_cli_alias(chosen_model))
+            text = run_smart_cli(
+                cli_prompt, system=system_prompt or None,
+                model=_cli_alias(chosen_model), timeout=120, fallback_timeout=120,
+                task_type="reasoning", agent_name="model_router",
+            )
             if text is None:
                 raise RuntimeError(
-                    f"claude subscription CLI failed for '{chosen_model}' "
-                    "(claude CLI missing/timed out/unauthenticated — run `claude setup-token`)"
+                    f"claude subscription CLI + opencode fallback both failed for '{chosen_model}' "
+                    "(claude CLI missing/timed out/unauthenticated AND opencode unavailable)"
                 )
             tokens_in = tokens_out = 0
         else:

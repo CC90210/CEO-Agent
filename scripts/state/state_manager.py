@@ -56,6 +56,19 @@ ACTIVE_TASKS_MD = PROJECT_ROOT / "memory" / "ACTIVE_TASKS.md"
 SESSION_LOG_AUTO_BEGIN = "<!-- AUTO-GENERATED-BEGIN: state_manager.py — do not edit between markers -->"
 SESSION_LOG_AUTO_END = "<!-- AUTO-GENERATED-END -->"
 
+_FRONTMATTER_RE = re.compile(
+    r"\A(?:\ufeff)?---[ \t]*\r?\n.*?^---[ \t]*(?:\r?\n|\Z)",
+    re.DOTALL | re.MULTILINE,
+)
+_AUTO_SECTION_RE = re.compile(
+    rf"^{re.escape(SESSION_LOG_AUTO_BEGIN)}[ \t]*\r?\n.*?"
+    rf"^{re.escape(SESSION_LOG_AUTO_END)}[ \t]*(?:\r?\n|\Z)",
+    re.DOTALL | re.MULTILINE,
+)
+_DATED_ENTRY_HEADER_RE = re.compile(
+    r"^###\s+(\d{4}-\d{2}-\d{2})\s*[—–-]\s*(.*?)\s*$",
+)
+
 VALID_AGENTS = {"bravo", "codex", "atlas", "maven", "hermes", "aura", "lex", "cc", "sunbiz", "suga_sean"}
 VALID_BUCKETS = {"TODAY", "P0", "P1", "P2", "WARM_LEADS", "ARCHIVE"}
 VALID_STATUSES = {"open", "done", "blocked", "archived"}
@@ -357,6 +370,78 @@ def _render_heartbeat_block(agent: str, last_iso: str, focus: str | None,
     )
 
 
+def _auto_marker_counts(text: str) -> tuple[int, int]:
+    begin = len(re.findall(
+        rf"(?m)^{re.escape(SESSION_LOG_AUTO_BEGIN)}[ \t]*\r?$", text,
+    ))
+    end = len(re.findall(
+        rf"(?m)^{re.escape(SESSION_LOG_AUTO_END)}[ \t]*\r?$", text,
+    ))
+    return begin, end
+
+
+def _without_auto_sections(text: str) -> tuple[str, int]:
+    """Remove DB-owned mirror sections before considering Markdown imports.
+
+    Returns the human-authored remainder plus the number of rendered entry
+    headings ignored. Unbalanced/nested markers fail closed: guessing which
+    side is human-authored is how a mirror becomes a source of truth by accident.
+    """
+    begin, end = _auto_marker_counts(text)
+    sections = list(_AUTO_SECTION_RE.finditer(text))
+    if begin != end or len(sections) != begin:
+        raise RuntimeError(
+            "SESSION_LOG auto-generated markers are unbalanced or nested; "
+            "refusing reconciliation"
+        )
+    ignored = sum(len(_ENTRY_RE.findall(match.group(0))) for match in sections)
+    return _AUTO_SECTION_RE.sub("", text), ignored
+
+
+def _markerless_legacy_body(text: str) -> str:
+    """Human-authored body that would be replaced by the first DB export."""
+    begin, end = _auto_marker_counts(text)
+    if begin != end:
+        raise RuntimeError(
+            "SESSION_LOG auto-generated markers are unbalanced; refusing reconciliation"
+        )
+    if begin:
+        # Validate nesting/order even though a marked file is not "legacy".
+        _without_auto_sections(text)
+        return ""
+    fm = _FRONTMATTER_RE.match(text)
+    return text[fm.end() if fm else 0:]
+
+
+def _legacy_archive_path(text: str) -> Path | None:
+    if not _markerless_legacy_body(text).strip():
+        return None
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    return SESSION_LOG_MD.parent / "ARCHIVES" / f"session-log-legacy-{digest}.md"
+
+
+def _archive_markerless_session_log(text: str) -> Path | None:
+    """Preserve a markerless SESSION_LOG snapshot before DB-owned replacement.
+
+    The content hash makes retries idempotent. An existing path with different
+    content is treated as a collision/corruption and blocks the export.
+    """
+    archive_path = _legacy_archive_path(text)
+    if archive_path is None:
+        return None
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with archive_path.open("x", encoding="utf-8", newline="") as handle:
+            handle.write(text)
+    except FileExistsError:
+        existing = archive_path.read_text(encoding="utf-8")
+        if existing != text:
+            raise RuntimeError(
+                f"legacy SESSION_LOG archive hash collision at {archive_path}"
+            )
+    return archive_path
+
+
 def _compute_targets(conn: sqlite3.Connection,
                      limit: int = 200) -> dict:
     """Single source of truth for export rendering.
@@ -397,7 +482,14 @@ def _compute_targets(conn: sqlite3.Connection,
         f"{SESSION_LOG_AUTO_END}"
     )
     log_before = SESSION_LOG_MD.read_text(encoding="utf-8") if SESSION_LOG_MD.exists() else ""
-    if SESSION_LOG_AUTO_BEGIN in log_before and SESSION_LOG_AUTO_END in log_before:
+    begin_markers, end_markers = _auto_marker_counts(log_before)
+    _without_auto_sections(log_before)  # marker-integrity validation
+    if begin_markers > 1:
+        raise RuntimeError(
+            "SESSION_LOG contains multiple auto-generated sections; refusing export"
+        )
+    legacy_archive = _legacy_archive_path(log_before)
+    if begin_markers == 1 and end_markers == 1:
         log_after = re.sub(
             re.escape(SESSION_LOG_AUTO_BEGIN) + r".*?" + re.escape(SESSION_LOG_AUTO_END),
             lambda _m: log_body,
@@ -406,17 +498,22 @@ def _compute_targets(conn: sqlite3.Connection,
             flags=re.DOTALL,
         )
     else:
-        fm_match = re.match(r"^(---\n.*?\n---\n+)", log_before, re.DOTALL)
-        frontmatter = fm_match.group(1) if fm_match else "---\ntags: [daily]\n---\n\n"
-        # If the file is brand new, frontmatter is the empty default + body.
-        if log_before:
-            log_after = frontmatter + log_body + "\n"
-        else:
-            log_after = "---\ntags: [daily]\n---\n\n" + log_body + "\n"
+        fm_match = _FRONTMATTER_RE.match(log_before)
+        frontmatter = (
+            fm_match.group(0).rstrip("\r\n") + "\n\n"
+            if fm_match else "---\ntags: [daily]\n---\n\n"
+        )
+        log_after = frontmatter + log_body + "\n"
 
     return {
         "state_md": {"before": state_before, "after": state_after, "block": state_block},
-        "session_log_md": {"before": log_before, "after": log_after, "rows": len(log_rows)},
+        "session_log_md": {
+            "before": log_before,
+            "after": log_after,
+            "rows": len(log_rows),
+            "markerless_legacy": legacy_archive is not None,
+            "legacy_archive_path": str(legacy_archive) if legacy_archive else None,
+        },
     }
 
 
@@ -451,13 +548,19 @@ def export_state_md(conn: sqlite3.Connection | None = None) -> str:
 
 def export_session_log_md(conn: sqlite3.Connection | None = None,
                           limit: int = 200) -> bool:
-    """Rebuild the auto-generated section of memory/SESSION_LOG.md."""
+    """Rebuild the DB-owned section without discarding markerless history."""
     own = conn is None
     conn = conn or connect(read_only=True)
     try:
         targets = _compute_targets(conn, limit=limit)
         log = targets["session_log_md"]
         if log["after"] != log["before"]:
+            current = SESSION_LOG_MD.read_text(encoding="utf-8") if SESSION_LOG_MD.exists() else ""
+            if current != log["before"]:
+                raise RuntimeError(
+                    "SESSION_LOG changed during reconciliation; refusing to overwrite it"
+                )
+            _archive_markerless_session_log(log["before"])
             SESSION_LOG_MD.parent.mkdir(parents=True, exist_ok=True)
             SESSION_LOG_MD.write_text(log["after"], encoding="utf-8")
             return True
@@ -482,12 +585,15 @@ def export_markdown(conn: sqlite3.Connection | None = None,
         imported = 0
         if not skip_import:
             imported = import_from_files(conn).get("imported_session_entries", 0)
+        log_before = SESSION_LOG_MD.read_text(encoding="utf-8") if SESSION_LOG_MD.exists() else ""
+        legacy_archive = _legacy_archive_path(log_before)
         block = export_state_md(conn)
         log_changed = export_session_log_md(conn)
         return {
             "absorbed_flat_file_entries": imported,
             "state_heartbeat_block_chars": len(block),
             "session_log_changed": log_changed,
+            "legacy_session_log_archive": str(legacy_archive) if legacy_archive else None,
         }
     finally:
         if own:
@@ -499,30 +605,93 @@ def export_markdown(conn: sqlite3.Connection | None = None,
 _ENTRY_RE = re.compile(r"^### (.+?)$", re.MULTILINE)
 
 
+def _session_import_record(block: str) -> dict[str, str | bool]:
+    """Normalize a Markdown entry for semantic import/deduplication."""
+    first_line = block.split("\n", 1)[0]
+    header = _DATED_ENTRY_HEADER_RE.match(first_line)
+    date_str = header.group(1) if header else _today()
+    label = header.group(2).strip().lower() if header else ""
+
+    agent_match = re.search(
+        r"(?m)^\*\*Agent:\*\*[ \t]*([A-Za-z0-9_-]+)", block,
+    )
+    agent = agent_match.group(1).lower() if agent_match else "bravo"
+    if agent not in VALID_AGENTS:
+        agent = "bravo"
+
+    standard = label == "auto-sync" or label.endswith(" state_manager")
+    note = block.strip()
+    if standard:
+        note_match = re.search(r"(?ms)^\*\*Note:\*\*[ \t]*(.*)\Z", block)
+        if note_match and note_match.group(1).strip():
+            note = note_match.group(1).strip()
+        else:
+            standard = False
+
+    return {
+        "date": date_str,
+        "agent": agent,
+        "note": note,
+        "standard": standard,
+    }
+
+
+def _session_semantic_exists(conn: sqlite3.Connection, record: dict[str, str | bool],
+                             original_block: str) -> bool:
+    """Whether the date/agent/note meaning is already represented in the DB."""
+    date_str = str(record["date"])
+    agent = str(record["agent"])
+    note = str(record["note"]).strip()
+    original = original_block.strip()
+    rows = conn.execute(
+        "SELECT agent, note FROM session_log WHERE substr(ts,1,10)=?",
+        (date_str,),
+    ).fetchall()
+    for row in rows:
+        existing_note = (row["note"] or "").strip()
+        if existing_note == original:
+            return True
+        if (row["agent"] or "").lower() == agent and existing_note == note:
+            return True
+    return False
+
+
+def _empty_import_result() -> dict[str, int]:
+    return {
+        "candidate_session_entries": 0,
+        "imported_session_entries": 0,
+        "semantic_duplicates_skipped": 0,
+        "standard_entries_normalized": 0,
+        "auto_generated_entries_ignored": 0,
+    }
+
+
 def import_from_files(conn: sqlite3.Connection | None = None) -> dict:
     """Idempotent import of existing SESSION_LOG.md entries into the DB.
 
-    Each `### …` block becomes one session_log row, preserving the original
-    text verbatim. UNIQUE(session_id, note) makes re-runs no-ops.
+    Human-authored `### …` blocks become session_log rows. Content inside the
+    DB-owned AUTO markers is never imported. Standard state_sync/state_manager
+    blocks normalize to their underlying note so a shadow-mode raw DB row and
+    its Markdown rendering do not become two semantic sessions.
     """
     own = conn is None
     conn = conn or connect()
     try:
         if not SESSION_LOG_MD.exists():
-            return {"imported_session_entries": 0}
+            return _empty_import_result()
 
         text = SESSION_LOG_MD.read_text(encoding="utf-8")
-        # Strip frontmatter only — KEEP the auto-generated section so we
-        # absorb any V5.5 path writes that landed inside the markers.
-        # UNIQUE(session_id, note) gives idempotent dedup.
-        stripped = re.sub(r"^---\n.*?\n---\n+", "", text, flags=re.DOTALL)
-        # Drop just the marker lines themselves; their `### ...` children stay.
-        stripped = stripped.replace(SESSION_LOG_AUTO_BEGIN, "").replace(SESSION_LOG_AUTO_END, "")
+        stripped, auto_ignored = _without_auto_sections(text)
+        fm_match = _FRONTMATTER_RE.match(stripped)
+        if fm_match:
+            stripped = stripped[fm_match.end():]
 
         # Split into blocks, each starting with `### `.
         positions = [m.start() for m in _ENTRY_RE.finditer(stripped)]
         if not positions:
-            return {"imported_session_entries": 0}
+            result = _empty_import_result()
+            result["auto_generated_entries_ignored"] = auto_ignored
+            return result
         blocks: list[str] = []
         for i, pos in enumerate(positions):
             end = positions[i + 1] if i + 1 < len(positions) else len(stripped)
@@ -531,26 +700,40 @@ def import_from_files(conn: sqlite3.Connection | None = None) -> dict:
                 blocks.append(block)
 
         imported = 0
+        semantic_duplicates = 0
+        normalized = 0
         with transaction(conn, actor="cc", op="import_from_files"):
             for block in blocks:
-                first_line = block.split("\n", 1)[0]
-                # Try to extract date for ts; fallback to today
-                date_match = re.match(r"^### (\d{4}-\d{2}-\d{2})", first_line)
-                date_str = date_match.group(1) if date_match else _today()
+                record = _session_import_record(block)
+                if _session_semantic_exists(conn, record, block):
+                    semantic_duplicates += 1
+                    continue
+                date_str = str(record["date"])
+                agent = str(record["agent"])
+                note = str(record["note"])
+                if bool(record["standard"]):
+                    normalized += 1
                 ts = f"{date_str}T12:00:00+00:00"
-                # Stable session_id derived from content hash for idempotency
-                content_hash = hashlib.sha256(block.encode("utf-8")).hexdigest()[:16]
+                # Stable semantic identity keeps retries/races idempotent.
+                identity = f"{date_str}\0{agent}\0{note}"
+                content_hash = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
                 session_id = f"import-{content_hash}"
                 try:
                     conn.execute(
                         "INSERT INTO session_log(ts, agent, session_id, note, artifacts_json) "
                         "VALUES (?,?,?,?,?)",
-                        (ts, "bravo", session_id, block, None),
+                        (ts, agent, session_id, note, None),
                     )
                     imported += 1
                 except sqlite3.IntegrityError:
-                    pass
-        return {"imported_session_entries": imported}
+                    semantic_duplicates += 1
+        return {
+            "candidate_session_entries": len(blocks),
+            "imported_session_entries": imported,
+            "semantic_duplicates_skipped": semantic_duplicates,
+            "standard_entries_normalized": normalized,
+            "auto_generated_entries_ignored": auto_ignored,
+        }
     finally:
         if own:
             conn.close()
@@ -617,6 +800,8 @@ def export_check() -> dict:
             "state_md_drift": targets["state_md"]["before"] != targets["state_md"]["after"],
             "session_log_md_drift": targets["session_log_md"]["before"] != targets["session_log_md"]["after"],
             "session_log_db_rows": targets["session_log_md"]["rows"],
+            "session_log_markerless_legacy": targets["session_log_md"]["markerless_legacy"],
+            "session_log_legacy_archive": targets["session_log_md"]["legacy_archive_path"],
         }
     finally:
         conn.close()

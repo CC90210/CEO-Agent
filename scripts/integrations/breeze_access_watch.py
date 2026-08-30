@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 import urllib.error
@@ -36,9 +35,10 @@ REPO = "CC90210/breeze-portal"
 SUPABASE_ORG = "oktipozhyojufxsytrse"
 # Commit authors that are legitimately OASIS. Anything else is flagged.
 KNOWN_AUTHORS = {"cc90210", "cc", "claude (vps)"}
-GH_EXE = r"C:\Program Files\GitHub CLI\gh.exe"
 
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "integrations"))
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+from lib.gh_auth import gh_env, gh_exe  # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -47,10 +47,19 @@ except Exception:
 
 
 def gh(path: str):
-    """Call the GitHub API via the gh CLI (uses its stored auth)."""
-    exe = GH_EXE if os.path.exists(GH_EXE) else "gh"
+    """Call the GitHub API via the gh CLI, authenticated.
+
+    Was "uses its stored auth" — but this box's stored gh login is invalid
+    ("X Failed to log in to github.com account CC90210 (default)"), so every
+    call here ran ANONYMOUS at 60 req/hr. That matters more in an access WATCH
+    than anywhere else: a rate-limited security check returns {"_err": ...},
+    the caller reports nothing unusual, and unknown-committer detection goes
+    quiet without ever saying it stopped looking. lib.gh_auth injects the token
+    the capability probe already reports AVAILABLE. (2026-08-13)
+    """
     try:
-        r = subprocess.run([exe, "api", path], capture_output=True, text=True, timeout=60)
+        r = subprocess.run([gh_exe(), "api", path], capture_output=True, text=True,
+                           timeout=60, env=gh_env())
         if r.returncode != 0:
             return {"_err": (r.stderr or "").strip()[:200]}
         return json.loads(r.stdout or "null")

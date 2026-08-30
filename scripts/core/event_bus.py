@@ -1,27 +1,21 @@
-"""
-Bravo V6.0 — Event Bus (publisher + subscriber)
-
-Replaces the file-based pulse JSON coordination (cfo_pulse.json,
-cmo_pulse.json, ceo_pulse.json) with a Postgres-backed durable pub/sub.
+"""Bravo Event Bus — Turso-backed durable publisher and polling subscriber.
 
 WHY
 ----
 - Three agents (Bravo, Atlas, Maven) wrote to shared JSON files. Concurrent
   writes could corrupt state (documented in brain/ORCHESTRATION.md and
   docs/V6_ARCHITECTURE.md).
-- Migration 015 adds LISTEN/NOTIFY + claim_events() for concurrent-safe
-  dequeue via FOR UPDATE SKIP LOCKED.
+- The Turso compatibility layer implements claim_events() as an atomic
+  compare-and-set claim loop, preventing duplicate handling.
 - This module is the Python-side API every agent uses to publish/consume.
 
 DESIGN
 ------
 - Publishers call `publish(event_type, payload, target=None, source="bravo")`.
-  INSERT fires a trigger that NOTIFYs the subscriber's channel.
 - Subscribers run `async for event in subscribe("bravo", handlers={...}):`
-  - LISTENs on its channel + 'broadcast' for push notifications
-  - Calls `claim_events()` RPC to atomically grab pending rows
+  - Polls Turso and calls `claim_events()` to atomically grab pending rows
   - Runs handler; acks on success, fails on exception (retries up to 3)
-- Offline durability: if Supabase is unreachable, publisher falls back to
+- Offline durability: if Turso is unreachable, publisher falls back to
   appending to tmp/events_offline.jsonl. A separate drain job replays these.
 
 USAGE
@@ -91,12 +85,15 @@ def _load_env() -> dict[str, str]:
     return env
 
 
-def _get_supabase(env: Optional[dict[str, str]] = None):
+def _get_database(env: Optional[dict[str, str]] = None):
     env = env or _load_env()
-    url = env.get("BRAVO_SUPABASE_URL") or env.get("SUPABASE_URL")
-    key = env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or env.get("SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
-        raise RuntimeError("BRAVO_SUPABASE_URL/KEY missing in .env.agents")
+    # These legacy-named keys are compatibility aliases only. The sentinel is
+    # resolved by lib.turso_supabase_compat to the real Bravo Turso database;
+    # TURSO_* are the credentials that actually authenticate.
+    url = (env.get("BRAVO_SUPABASE_URL") or env.get("SUPABASE_URL")
+           or "https://bravo.turso.compat")
+    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or env.get("SUPABASE_SERVICE_ROLE_KEY")
+           or "turso-compat-key")
     try:
         from supabase import create_client  # type: ignore
     except ImportError as e:
@@ -114,6 +111,41 @@ def _append_offline(record: dict[str, Any]) -> None:
 
 # ---- Publisher --------------------------------------------------------------
 
+def _validated_target(target):
+    """A NAMED target must be a real agent; None means broadcast and is fine.
+
+    Same shared roster as coord_claim and agent_activity — a fourth copy would
+    be the duplicate-definition class again. A roster read failure must NOT drop
+    the event: the bus is durable by design and losing an event to enforce a
+    config check is the worse trade, so it warns and passes the value through.
+    """
+    if target is None:
+        return None
+    try:
+        import sys as _s
+        from pathlib import Path as _P
+        _s.path.insert(0, str(_P(__file__).resolve().parent.parent))
+        from lib import ownership  # noqa: PLC0415
+        return ownership.validate_agent_key(target, field="target_agent")
+    except ValueError as e:
+        # publish() documents "NEVER raises", and long-lived subscriber daemons
+        # depend on that. Raising here would turn a routing typo into a crashed
+        # daemon — a worse failure than the one being prevented.
+        #
+        # So: WARN LOUDLY and keep the value. The row is still written, so the
+        # bad target is visible in `agent_events` and greppable, rather than
+        # silently rewritten to None (which would look like a broadcast and be
+        # its own silent failure — the exact class this check exists for).
+        print(f"[event_bus] INVALID target_agent {target!r} — {str(e).splitlines()[0]}\n"
+              f"[event_bus] publishing anyway (publish() must not raise); this event "
+              f"will reach NO consumer. Fix the caller.", file=sys.stderr)
+        return target
+    except Exception as e:  # noqa: BLE001
+        print(f"[event_bus] WARN could not verify target_agent {target!r} "
+              f"({type(e).__name__}) — publishing unvalidated", file=sys.stderr)
+        return target
+
+
 def publish(
     event_type: str,
     payload: dict[str, Any],
@@ -129,7 +161,7 @@ def publish(
     """
     Durable publish. Returns {"status": "published"|"duplicate"|"offline",
                               "id": <uuid>|None, "reason": str}.
-    NEVER raises. On Supabase outage, writes to tmp/events_offline.jsonl.
+    NEVER raises. On Turso outage, writes to tmp/events_offline.jsonl.
     """
     if severity not in {"info", "warn", "error", "critical"}:
         severity = "info"
@@ -139,7 +171,17 @@ def publish(
         "event_type": event_type,
         "source_agent": source,
         "publisher_agent": source,   # migration 006 compat
-        "target_agent": target,
+        # `target_agent` is the routing key the consumer dequeues on, so an
+        # unknown value publishes an event nobody claims — silent by
+        # construction, exactly like the coord_claims repo/agent bugs. None is
+        # legitimate here (broadcast) and stays unvalidated; a NAMED target must
+        # be a real agent.
+        #
+        # Validated through the same shared roster as coord_claim and
+        # agent_activity rather than a fourth copy. A read failure never blocks
+        # a publish: the bus is durable-by-design and dropping an event to
+        # enforce a config check would be the worse trade.
+        "target_agent": _validated_target(target),
         "severity": severity,
         "payload": payload or {},
         "correlation_id": correlation_id,
@@ -153,7 +195,7 @@ def publish(
                              + timedelta(seconds=expires_in_seconds)).isoformat()
 
     try:
-        client = db or _get_supabase()
+        client = db or _get_database()
         res = client.table("agent_events").insert(row).execute()
         inserted_id = res.data[0]["id"] if res.data else row["id"]
         return {"status": "published", "id": inserted_id, "reason": ""}
@@ -193,27 +235,6 @@ def publish(
 HandlerFn = Callable[[dict[str, Any]], Awaitable[bool]]
 
 
-def _get_pg_dsn(env: Optional[dict[str, str]] = None) -> Optional[str]:
-    """Compose a direct-Postgres DSN for LISTEN/NOTIFY.
-
-    Supabase pgbouncer (port 6543) is transaction-pooled and does NOT
-    support LISTEN — it bounces session-scoped state on every transaction.
-    For LISTEN we connect to the session-pool port (5432) on the same host.
-
-    Returns None if env vars are absent — caller falls back to polling.
-    """
-    env = env or _load_env()
-    host = env.get("PGBOUNCER_DB_HOST") or env.get("BRAVO_PG_HOST")
-    user = env.get("PGBOUNCER_DB_USER") or env.get("BRAVO_PG_USER") or "postgres"
-    password = env.get("PGBOUNCER_DB_PASSWORD") or env.get("BRAVO_PG_PASSWORD")
-    dbname = env.get("PGBOUNCER_DB_NAME") or env.get("BRAVO_PG_DBNAME") or "postgres"
-    if not host or not password:
-        return None
-    # urllib-quote the password (Supabase passwords often contain @/:/etc.)
-    from urllib.parse import quote
-    return f"postgresql://{quote(user)}:{quote(password)}@{host}:5432/{dbname}?sslmode=require"
-
-
 async def _consume_claimed_rows(client, agent: str, rows: list, handlers: dict[str, "HandlerFn"]) -> None:
     """Shared dispatch logic — runs the handler for each claimed row, acks/fails."""
     for event in rows:
@@ -243,72 +264,6 @@ async def _consume_claimed_rows(client, agent: str, rows: list, handlers: dict[s
                 print(f"[event_bus] fail_event RPC failed for {event.get('id')} (will reprocess on timeout): {exc2}", file=sys.stderr)
 
 
-async def _subscribe_via_listen(
-    agent: str,
-    handlers: dict[str, "HandlerFn"],
-    *,
-    batch_size: int,
-    visibility_seconds: int,
-    client,
-    dsn: str,
-) -> None:
-    """LISTEN/NOTIFY consumer. Wakes on pg_notify; otherwise idle.
-
-    Race-free: every wake-up calls `claim_events()` which uses
-    `FOR UPDATE SKIP LOCKED`, so multiple subscribers on the same agent
-    name never claim the same row. The trigger emits per-INSERT, so a
-    single notification is enough to drain the queue.
-    """
-    import psycopg2  # type: ignore
-    import psycopg2.extensions  # type: ignore
-
-    conn = psycopg2.connect(dsn)
-    conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-    cur = conn.cursor()
-    # Channel names from migration 015's trigger: target_agent OR 'broadcast'
-    cur.execute(f"LISTEN {psycopg2.extensions.AsIs(agent)}; LISTEN broadcast;")
-
-    loop = asyncio.get_running_loop()
-    notify_event = asyncio.Event()
-    loop.add_reader(conn.fileno(), notify_event.set)
-
-    try:
-        # Drain anything already pending at startup BEFORE blocking on notify.
-        rpc = client.rpc("claim_events",
-                         {"p_agent": agent, "p_max": batch_size,
-                          "p_visibility_seconds": visibility_seconds}).execute()
-        if rpc.data:
-            await _consume_claimed_rows(client, agent, rpc.data, handlers)
-
-        while True:
-            await notify_event.wait()
-            notify_event.clear()
-            conn.poll()
-            # Drop the queued notifies (we don't need their payloads — claim_events
-            # is the source of truth for what to dequeue).
-            del conn.notifies[:]
-            try:
-                rpc = client.rpc("claim_events",
-                                 {"p_agent": agent, "p_max": batch_size,
-                                  "p_visibility_seconds": visibility_seconds}).execute()
-                rows = rpc.data or []
-            except Exception as exc:
-                print(f"[event_bus] claim_events failed during LISTEN: {exc}", file=sys.stderr)
-                continue
-            if rows:
-                await _consume_claimed_rows(client, agent, rows, handlers)
-    finally:
-        try:
-            loop.remove_reader(conn.fileno())
-        except Exception:
-            pass
-        try:
-            cur.close()
-            conn.close()
-        except Exception:
-            pass
-
-
 async def _subscribe_via_polling(
     agent: str,
     handlers: dict[str, "HandlerFn"],
@@ -318,8 +273,7 @@ async def _subscribe_via_polling(
     visibility_seconds: int,
     client,
 ) -> None:
-    """Original polling consumer. Used as fallback when the LISTEN connection
-    isn't available (no PGBOUNCER_DB_PASSWORD in env, no psycopg2, etc.)."""
+    """Poll Turso and atomically claim pending rows."""
     while True:
         try:
             rpc = client.rpc(
@@ -345,42 +299,19 @@ async def subscribe(
     batch_size: int = 10,
     visibility_seconds: int = 30,
     db: Any = None,
-    force_polling: bool = False,
 ) -> None:
-    """
-    Long-running consumer loop. Claims pending events targeted at `agent`
+    """Long-running Turso polling loop.
+
+    Claims pending events targeted at `agent`
     (or broadcast), runs the matching handler, acks/fails appropriately.
 
     `handlers` maps event_type → async handler. Handler returns True=ack,
     False=retry, raises=fail-with-error.
 
-    V6 BUILD 3 — primary path is raw psycopg2 LISTEN/NOTIFY (low-latency,
-    no WebSocket, no Supabase Realtime quotas). Race-free because
-    `claim_events()` uses `FOR UPDATE SKIP LOCKED` regardless of which
-    transport delivers the wake-up.
-
-    Fallback: if `PGBOUNCER_DB_PASSWORD` isn't in env, or psycopg2 isn't
-    importable, or the LISTEN connection fails to open, the function
-    silently degrades to the original 5-second polling loop.
+    Polling is the only supported post-cutover transport. The Turso RPC port
+    implements an atomic claim, so multiple consumers cannot win the same row.
     """
-    client = db or _get_supabase()
-    if not force_polling:
-        dsn = _get_pg_dsn()
-        if dsn:
-            try:
-                await _subscribe_via_listen(
-                    agent, handlers,
-                    batch_size=batch_size,
-                    visibility_seconds=visibility_seconds,
-                    client=client,
-                    dsn=dsn,
-                )
-                return  # only reached if listen path exits cleanly
-            except (ImportError, Exception) as exc:
-                # ImportError → psycopg2 missing; Exception → connect/LISTEN failed.
-                # Fall through to polling. Production logs the downgrade once.
-                print(f"[event_bus] LISTEN unavailable, falling back to polling: {exc}",
-                      file=sys.stderr)
+    client = db or _get_database()
     await _subscribe_via_polling(
         agent, handlers,
         poll_interval_seconds=poll_interval_seconds,
@@ -395,7 +326,7 @@ async def subscribe(
 def reap_stuck() -> int:
     """Move visibility-expired rows back to pending. Run on a 60s cron."""
     try:
-        client = _get_supabase()
+        client = _get_database()
         res = client.rpc("reap_stuck_events", {}).execute()
         return int(res.data) if res.data is not None else 0
     except Exception as exc:
@@ -410,7 +341,7 @@ def drain_offline_queue() -> dict[str, int]:
     lines = OFFLINE_QUEUE_PATH.read_text(encoding="utf-8").splitlines()
     replayed = 0
     failed: list[str] = []
-    client = _get_supabase()
+    client = _get_database()
     for line in lines:
         if not line.strip():
             continue
@@ -429,7 +360,7 @@ def drain_offline_queue() -> dict[str, int]:
 def stats() -> dict[str, Any]:
     """Quick counts by status for dashboards."""
     try:
-        client = _get_supabase()
+        client = _get_database()
         out: dict[str, Any] = {"as_of": datetime.now(timezone.utc).isoformat()}
         for status in ("pending", "processing", "done", "failed", "dead"):
             r = (client.table("agent_events")
@@ -500,7 +431,12 @@ def _cli() -> int:
         return 0 if n >= 0 else 1
 
     if args.cmd == "drain":
-        print(json.dumps(drain_offline_queue(), indent=2))
+        # Compact, NOT indent=2: the scheduler records the last stdout line as
+        # last_result, so an indented block made the cron report a bare "}" —
+        # the same trap Daily MRR Auto-Sync hit on 2026-06-06. One line parses
+        # identically for any json.loads consumer and reads as a real result.
+        # (`reap` above already prints compact, which is why it never had this.)
+        print(json.dumps(drain_offline_queue()))
         return 0
 
     if args.cmd == "tail":
@@ -514,7 +450,7 @@ def _cli() -> int:
         )
         if wildcard:
             async def _run():
-                client = _get_supabase()
+                client = _get_database()
                 while True:
                     try:
                         rpc = client.rpc("claim_events", {

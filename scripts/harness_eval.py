@@ -27,11 +27,13 @@ state/harness_eval_history.jsonl for drift tracking across sessions.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
+import os
 import re
-import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -58,6 +60,46 @@ REQUIRED_PM2 = {"bravo-scheduler", "bravo-telegram", "claude-bridge", "event-rou
 # ran and self-scored (vs. failing to launch at all).
 _SELF_CRON_NAME = "Bravo — Nightly Harness Eval"
 _SELF_SCORE_MARKER = "HARNESS EVAL"
+SESSION_LOG_PATH = PROJECT_ROOT / "memory" / "SESSION_LOG.md"
+
+# A daily brief that contains one of these strings has already admitted that a
+# source failed. Treating it as a green live-health check is false assurance.
+_DEGRADED_BRIEF_MARKERS = ("timed out", "broken", "needs a fix", "unavailable")
+
+
+def _normalize_dash(s: str) -> str:
+    """Fold em/en/non-breaking/minus dashes to ASCII '-' and squash whitespace.
+
+    Defensive, NOT a bug fix: verified 2026-08-13 that the constant above and
+    the live cron_jobs row are both U+2014 byte-for-byte
+    (hex 427261766F20E28094...), so today they match exactly. The hazard is
+    future re-registration — SEED_JOBS is edited by hand across five runtimes,
+    and a job renamed with a plain '-' would silently stop matching, which
+    turns the self-score suppression below off with no error anywhere. Cheap
+    insurance against a failure mode that is invisible when it happens.
+    """
+    if not s:
+        return ""
+    for dash in ("—", "–", "‒", "−", "‐", "‑", "­"):
+        s = s.replace(dash, "-")
+    return " ".join(s.split())
+
+
+def _same_cron_name(a: str, b: str) -> bool:
+    """Case-insensitive, dash-normalized cron-name equality."""
+    return _normalize_dash(a).casefold() == _normalize_dash(b).casefold()
+
+
+def is_self_scored_failure(job: dict) -> bool:
+    """True only for THIS eval's own cron row failing because it scored itself.
+
+    Public so the alerting path (core/cron_health_check.py) applies the exact
+    same rule instead of keeping a second copy that can drift — the drift is
+    what pages CC hourly about a job that is actually healthy.
+    """
+    if not _same_cron_name(str(job.get("name") or ""), _SELF_CRON_NAME):
+        return False
+    return _SELF_SCORE_MARKER in str(job.get("last_result") or "").upper()
 
 
 def _run(cmd: list[str], timeout: int = 60, env_extra: dict | None = None) -> tuple[int, str, str]:
@@ -95,7 +137,33 @@ def check_entry_point_lockstep():
             drifted.append(f)
     if drifted:
         return False, f".gemini/rules mirrors differ from roots: {', '.join(drifted)}"
-    return True, "6 entry points carry the lockstep line; mirrors byte-identical"
+
+    # Anti-hallucination clause must be present AND byte-identical everywhere.
+    # Every runtime (Claude Code, Codex CLI, OpenCode, Gemini CLI, Antigravity)
+    # reads its own entry point, so a rule that drifts in one file is a rule
+    # that one chassis does not have. The recurring failure it prevents: an
+    # agent claiming a credential is missing, or telling CC to install a plugin
+    # / paste an env var, without running capability_probe first.
+    clause_lines = {}
+    for f in ENTRY_POINTS:
+        for line in _read(f).splitlines():
+            if line.startswith("**Credentials before"):
+                clause_lines.setdefault(line.strip(), []).append(f)
+                break
+    covered = sum(len(v) for v in clause_lines.values())
+    if covered != len(ENTRY_POINTS):
+        have = {f for fs in clause_lines.values() for f in fs}
+        return False, ("anti-hallucination credentials clause missing from: "
+                       f"{', '.join(sorted(set(ENTRY_POINTS) - have))}")
+    if len(clause_lines) != 1:
+        return False, (f"credentials clause has drifted into {len(clause_lines)} variants — "
+                       "edit PERSONAL.md then run scripts/genome_sync.py")
+    clause = next(iter(clause_lines))
+    for token in ("capability_probe.py", "AVAILABLE means you are authorized"):
+        if token not in clause:
+            return False, f"credentials clause no longer states {token!r}"
+    return True, ("6 entry points carry the lockstep line + identical "
+                  "anti-hallucination clause; mirrors byte-identical")
 
 
 def check_capability_graph():
@@ -165,18 +233,121 @@ def check_no_dead_api_key_in_active():
 
 
 def check_brief_renders():
-    rc, out, err = _run([sys.executable, "scripts/daily_brief.py", "--dry-run"],
-                        timeout=90, env_extra={"BRAVO_BRIEF_NARRATE": "0"})
-    if rc != 0:
-        return False, f"daily_brief --dry-run exit {rc}: {err[:120]}"
-    if "AI narration unavailable" in out or "MRR" in out:
-        return False, "brief contains a banned marker (MRR / narration-unavailable)"
-    if "Pipeline" not in out or ": —" in out:
-        return False, f"brief looks degraded: {out[:160]!r}"
-    return True, "deterministic brief renders with real data, no MRR"
+    """Does the deterministic brief render REAL data, or a degraded placeholder?
+
+    CONFIRMED ON FAILURE (2026-08-28), for the same reason as
+    check_fleet_compiles. This check failed 10 times in a week, and the failures
+    were single runs where one sub-engine (client health) reported "unavailable"
+    — a transient DB/network blip, not a broken brief. Three consecutive manual
+    runs immediately after a failure all rendered fine.
+
+    The check is not softened: a brief that is degraded on BOTH reads still
+    fails, and "0 clients monitored" — the honest CRM-gap message — was never a
+    failure and still is not. This only stops one blip in a dependency from
+    reporting the brief as broken, which is the difference between a gate an
+    operator trusts and one they learn to re-run.
+    """
+    def _attempt():
+        # 150s, NOT 90s. daily_brief regenerates the snapshot when it is >5min
+        # stale, and that regen budget is 110s (SNAPSHOT_REGEN_TIMEOUT_SEC). At
+        # 90s this check would kill daily_brief mid-regen and report the brief
+        # as broken when the only thing wrong was this timeout — the same
+        # outer-cap-below-inner-sum mistake found in the daily_brief chain
+        # itself. Narration is disabled here, so 110 + render is the real need.
+        rc, out, err = _run([sys.executable, "scripts/daily_brief.py", "--dry-run"],
+                            timeout=150, env_extra={"BRAVO_BRIEF_NARRATE": "0"})
+        if rc != 0:
+            return f"daily_brief --dry-run exit {rc}: {err[:120]}"
+        lowered = out.lower()
+        degraded = next((m for m in _DEGRADED_BRIEF_MARKERS if m in lowered), None)
+        if degraded:
+            return f"brief contains degraded marker {degraded!r}: {out[:160]!r}"
+        if "MRR" in out:
+            return "brief contains a banned marker (MRR / narration-unavailable)"
+        if "Pipeline" not in out or ": —" in out:
+            return f"brief looks degraded: {out[:160]!r}"
+        return None
+
+    problem = _attempt()
+    if problem is None:
+        return True, "deterministic brief renders with real data, no MRR"
+
+    # One retry. A genuinely broken brief fails twice; a blip does not.
+    confirmed = _attempt()
+    if confirmed is None:
+        return True, ("deterministic brief renders with real data, no MRR "
+                      "(first read degraded, re-read clean — transient dependency)")
+    return False, f"{confirmed} [confirmed on re-read]"
+
+
+def check_self_audit_mandatory_gates():
+    """Require the broad self-audit's mandatory gates, not its advisory score."""
+    _rc, out, err = _run(
+        [sys.executable, "scripts/core/self_audit.py", "--json"], timeout=180
+    )
+    try:
+        payload = json.loads(out)
+    except json.JSONDecodeError:
+        return False, f"self-audit returned invalid JSON: {(err or out)[:160]}"
+    failures = payload.get("mandatory_gate_failures") or []
+    score = payload.get("health_score", "?")
+    if not payload.get("mandatory_gate_passed"):
+        detail = "; ".join(map(str, failures or ["unspecified failure"]))
+        return False, f"self-audit mandatory drift: {detail}"
+    return True, f"self-audit mandatory gates pass (health {score}/100)"
+
+
+def check_migration_docs_classified():
+    """Block unclassified Supabase claims in the brain/memory scanner scope."""
+    _rc, out, err = _run(
+        [sys.executable, "scripts/core/doc_sweep.py", "--term", "supabase",
+         "--brain", "--memory", "--json"],
+        timeout=180,
+    )
+    try:
+        payload = json.loads(out)
+    except json.JSONDecodeError:
+        return False, f"migration doc sweep returned invalid JSON: {(err or out)[:160]}"
+    counts = payload.get("unannotated_tier_counts") or {}
+    tier1 = int(counts.get("1", counts.get(1, 0)) or 0)
+    tier2 = int(counts.get("2", counts.get(2, 0)) or 0)
+    if tier1 or tier2:
+        return False, (
+            f"migration docs unclassified: {tier1} Tier-1, "
+            f"{tier2} Tier-2 Supabase hit(s)"
+        )
+    return True, "brain/memory Tier-1 and Tier-2 Supabase references are classified"
+
+
+def check_session_log_integrity():
+    """Reject the archive bug's repeated YAML-frontmatter signature."""
+    try:
+        content = SESSION_LOG_PATH.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return False, f"SESSION_LOG unreadable: {exc}"
+    count = len(re.findall(r"(?mi)^tags:\s*\[daily\]\s*$", content))
+    if count != 1:
+        return False, f"SESSION_LOG has {count} frontmatter block(s); expected exactly 1"
+    return True, "SESSION_LOG has one frontmatter block"
 
 
 def check_tenant_scoping():
+    """Regression guard on lead_engine.py's tenant contract — NOT a fleet-wide
+    tenant-isolation audit, and not a data check.
+
+    Scope correction 2026-08-04: this greps ONE file for three substrings. It
+    was labelled "CRM tenant scoping intact", which reads as a guarantee about
+    the whole CRM. It is not. A live audit that day found 14 INSERT sites into
+    tenant-scoped tables (inbound_classifier, send_gateway, funnel_sync,
+    email_brain, contract_tool, scrape_firecrawl_leads, lead_engine) that do not
+    stamp tenant_id, and 37 of 63 sampled `leads` rows with a NULL tenant_id —
+    all while this check was green. A gate that overstates its coverage is worse
+    than no gate: no gate keeps you cautious, a green one makes you confident.
+
+    The label now says what it actually proves. Widening it to the other 13 call
+    sites is CC's call, because making it honest AND broad turns harness_eval
+    red until those sites are fixed, and harness_eval pages on non-zero exit.
+    """
     src = _read("scripts/lead_engine.py")
     if "OASIS_TENANT_ID" not in src:
         return False, "lead_engine.py lost OASIS_TENANT_ID"
@@ -185,7 +356,63 @@ def check_tenant_scoping():
     if '"tenant_id": getattr(args, "tenant", None) or OASIS_TENANT_ID' not in src \
             and '"tenant_id": OASIS_TENANT_ID' not in src:
         return False, "insert paths no longer tenant-stamped"
-    return True, "reads scoped + writes stamped to OASIS_TENANT_ID"
+    return True, ("lead_engine.py only — reads scoped + writes stamped"
+                  + _unstamped_insert_advisory())
+
+
+# Tables that carry a tenant_id column (verified live 2026-08-04).
+_TENANT_SCOPED_TABLES = ("leads", "lead_interactions", "contracts")
+_TENANT_WRITE_RE = re.compile(
+    r'\.table\(\s*["\'](?P<t>' + "|".join(_TENANT_SCOPED_TABLES) + r')["\']\s*\)'
+    r'\s*(?:\.[a-z_]+\([^\n]*\)\s*)*?\.insert\(', re.S)
+
+
+def _unstamped_insert_advisory() -> str:
+    """Count INSERTs into tenant-scoped tables that never stamp tenant_id.
+
+    ADVISORY ONLY — appended to the message, never flips pass/fail. The audit
+    that found this gap also found that making it blocking turns harness_eval
+    red, and harness_eval pages CC on non-zero exit; whether to accept that is
+    his call. But the count belongs in the output either way: a gap that lives
+    only in a commit message is a gap nobody sees again.
+
+    Never raises — an advisory that can break the check it decorates is worse
+    than no advisory. But it also never makes an AFFIRMATIVE safety claim: this
+    is a regex over a narrow fluent-call shape with a 16-line proximity window,
+    so it can miss a payload built further away and can be fooled by an
+    unrelated nearby `tenant_id`. It is good enough to say "look here", never
+    good enough to say "all clear" (Codex audit 2026-08-04 — a zero from a
+    heuristic reading as a guarantee is the same false-confidence bug this
+    whole check was relabelled for).
+
+    VERIFIED 2026-08-08: all 13 then-flagged sites were traced to the payload.
+    5 were real gaps and are now stamped (funnel_sync, inbound_classifier x2,
+    email_brain, scrape_firecrawl_leads); the rest stamp upstream of the
+    16-line window or are deliberately tenantless (send_gateway legacy branch
+    :906, reservations stamped at finalize :2186). The residual count is
+    expected non-zero — it only re-earns attention if it GROWS.
+    """
+    try:
+        scripts_dir = Path(__file__).resolve().parent
+        candidates = 0
+        for path in scripts_dir.rglob("*.py"):
+            parts = path.parts
+            if "_archive" in parts or "__pycache__" in parts or "tests" in parts:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            if ".table(" not in text:
+                continue
+            lines = text.splitlines()
+            for m in _TENANT_WRITE_RE.finditer(text):
+                ln = text[:m.start()].count("\n")
+                if "tenant_id" not in "\n".join(lines[ln:ln + 16]):
+                    candidates += 1
+        if candidates:
+            return (f" | ADVISORY: {candidates} candidate unstamped tenant-table "
+                    f"INSERTs (heuristic, verify before trusting)")
+        return " | (no unstamped INSERT candidates matched — heuristic, not a guarantee)"
+    except Exception as exc:  # noqa: BLE001
+        return f" | (fleet advisory failed: {type(exc).__name__}: {str(exc)[:60]})"
 
 
 _REQUIRED_GUARDS = {"EMPIRE_HOOK_SECRET_GUARD", "EMPIRE_HOOK_EXEC_GUARD", "EMPIRE_HOOK_STATE_GUARD"}
@@ -213,36 +440,56 @@ def check_guards_enforce():
     return True, f"{len(_REQUIRED_GUARDS)} required guards enforce ({', '.join(seen_files)})"
 
 
-def check_cron_health():
+_CRON_ROWS_CACHE: tuple[list | None, str] | None = None
+
+
+def _load_cron_rows() -> tuple[list | None, str]:
+    """(rows, error) from the live cron registry, fetched at most once per run.
+
+    Memoized because two checks now read the same registry and the fetch is a
+    ~5s subprocess against Turso. This eval runs nightly on a cron; paying for
+    the same query twice is exactly the kind of cost that gets a gate disabled.
+    On error, rows is None and the string names the cause — never an empty list,
+    which a caller would read as "no crons exist" (a failed query and a zero
+    result must not look identical).
+    """
+    global _CRON_ROWS_CACHE
+    if _CRON_ROWS_CACHE is not None:
+        return _CRON_ROWS_CACHE
     rc, out, _ = _run([sys.executable, "scripts/core/cron_engine.py", "--json", "list"], timeout=60)
     if rc != 0 or not out.strip():
-        return False, "cron_engine list failed (Supabase unreachable?)"
-    try:
-        jobs = json.loads(out)
-    except json.JSONDecodeError:
-        return False, "cron_engine returned non-JSON"
-    def _is_self_scored_failure(job: dict) -> bool:
-        """True only for this eval's own row failing because it scored ITSELF.
+        _CRON_ROWS_CACHE = (None, "cron_engine list failed (Supabase unreachable?)")
+    else:
+        try:
+            _CRON_ROWS_CACHE = (json.loads(out), "")
+        except json.JSONDecodeError:
+            _CRON_ROWS_CACHE = (None, "cron_engine returned non-JSON")
+    return _CRON_ROWS_CACHE
 
-        The deadlock (2026-07-28): a transient failure stamps
-        last_result="ERROR: script_run exit 1: HARNESS EVAL — 9/10 ..." on this
-        eval's row; the check below then sees that row, fails, and re-stamps
-        ERROR — forever, no matter how healthy the fleet actually is.
 
-        Narrow, not blanket: only a failure whose text is this eval's own
-        scoreboard is skipped. If the row fails for any OTHER reason — script
-        path broken, timeout, interpreter missing — the text won't carry the
-        scoreboard marker and the job is still reported, so "the scheduled
-        harness cron is broken" remains detectable.
-        """
-        if job.get("name") != _SELF_CRON_NAME:
-            return False
-        return _SELF_SCORE_MARKER in str(job.get("last_result") or "").upper()
-
+def check_cron_health():
+    jobs, err = _load_cron_rows()
+    if jobs is None:
+        return False, err
+    # Self-scored suppression lives at module level as is_self_scored_failure()
+    # so core/cron_health_check.py enforces the identical rule. Rationale kept
+    # here because this is where it bites:
+    #
+    # The deadlock (2026-07-28): a transient failure stamps
+    # last_result="ERROR: script_run exit 1: HARNESS EVAL — 9/10 ..." on this
+    # eval's row; the check below then sees that row, fails, and re-stamps
+    # ERROR — forever, no matter how healthy the fleet actually is.
+    #
+    # Narrow, not blanket: only a failure whose text is this eval's own
+    # scoreboard is skipped. If the row fails for any OTHER reason — script
+    # path broken, timeout, interpreter missing — the text won't carry the
+    # scoreboard marker and the job is still reported, so "the scheduled
+    # harness cron is broken" remains detectable.
     bad = [j["name"] for j in jobs if j.get("is_active")
-           and not _is_self_scored_failure(j)
+           and not is_self_scored_failure(j)
            and str(j.get("last_result") or "").upper().startswith(("ERROR", "FAILED"))]
-    mrr_on = [j["name"] for j in jobs if j.get("is_active") and j.get("name") == "Weekly MRR Report"]
+    mrr_on = [j["name"] for j in jobs if j.get("is_active")
+              and _same_cron_name(str(j.get("name") or ""), "Weekly MRR Report")]
     if bad:
         return False, f"active crons in ERROR: {bad}"
     if mrr_on:
@@ -250,30 +497,426 @@ def check_cron_health():
     return True, f"{sum(1 for j in jobs if j.get('is_active'))} active crons, none in ERROR, no Bravo MRR digest"
 
 
-def check_pm2_fleet():
-    pm2 = shutil.which("pm2") or shutil.which("pm2.cmd")
-    if not pm2:
-        return False, "pm2 not on PATH"
-    rc, out, err = _run([pm2, "jlist"], timeout=30)
-    if rc != 0:
-        return False, f"pm2 jlist failed: {err[:80]}"
+FAILURE_DUMP_DIR = PROJECT_ROOT / "tmp" / "cron_failures"
+# scheduler.persist_failure names dumps "<slug>-<YYYYMMDDTHHMMSSZ>.log".
+_DUMP_NAME_RE = re.compile(r"^(?P<slug>.+)-(?P<ts>\d{8}T\d{6}Z)\.log$")
+_DUMP_FRESH_SECONDS = 24 * 3600
+
+
+def check_no_recent_cron_failure_dumps():
+    """Has any cron crashed hard in the last 24h?
+
+    WHY (2026-08-29): scheduler.persist_failure writes a full stderr/stdout dump
+    to tmp/cron_failures/ on every non-zero child exit, precisely because
+    everything upstream truncates. 47 dumps were sitting there and NOTHING in
+    this eval read them — the newest was 17 hours old
+    (integrations-email-engine-py-20260829T001311Z.log, exit code 3221225480 =
+    0xC0000005, an access violation, with both streams empty) and the run was
+    still ALL GREEN. email_engine has been crashing this way most days since
+    2026-08-15.
+
+    A dump is the ONLY surviving evidence of that class of failure: an access
+    violation produces no traceback for last_result to carry, so the cron row
+    reports whatever the previous run left behind and check_cron_health sees
+    nothing wrong. The directory is a ring buffer (FAILURE_DUMP_KEEP), so old
+    dumps are history, not news — only a dump newer than 24h is an open wound.
+
+    Cost: one scandir over <=N filenames, no stat call in the common path (the
+    UTC stamp is IN the name). Cheap enough to run nightly.
+    """
     try:
-        procs = json.loads(out[out.index("["):])
-    except (ValueError, json.JSONDecodeError):
-        return False, "pm2 jlist returned unparseable output"
-    online = {p["name"] for p in procs if p.get("pm2_env", {}).get("status") == "online"}
-    down = REQUIRED_PM2 - online
+        entries = list(os.scandir(FAILURE_DUMP_DIR))
+    except FileNotFoundError:
+        # Never written to on this machine — no crashes recorded, not a gap.
+        return True, "tmp/cron_failures/ absent — no cron has crashed hard here"
+    except OSError as exc:
+        # An unreadable directory is NOT an empty one. Fail closed: reading
+        # "cannot list" as "nothing to report" is how a dead check reads green.
+        return False, f"tmp/cron_failures/ unreadable: {type(exc).__name__}: {exc}"
+
+    now = datetime.now(timezone.utc)
+    fresh: dict[str, int] = {}
+    newest: tuple[datetime, str] | None = None
+    for e in entries:
+        if not e.name.endswith(".log"):
+            continue
+        m = _DUMP_NAME_RE.match(e.name)
+        if m:
+            slug = m.group("slug")
+            when = datetime.strptime(m.group("ts"), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+        else:
+            # Unrecognized name — fall back to mtime rather than skipping it.
+            # tmp/ is gitignored, so no checkout can restamp these.
+            slug = e.name
+            try:
+                when = datetime.fromtimestamp(e.stat().st_mtime, timezone.utc)
+            except OSError:
+                continue
+        if (now - when).total_seconds() > _DUMP_FRESH_SECONDS:
+            continue
+        fresh[slug] = fresh.get(slug, 0) + 1
+        if newest is None or when > newest[0]:
+            newest = (when, e.name)
+
+    total = len(entries)
+    if not fresh:
+        return True, f"no cron failure dumps in the last 24h ({total} older dumps retained)"
+    named = ", ".join(f"{slug} x{n}" for slug, n in sorted(fresh.items(), key=lambda kv: -kv[1]))
+    return False, (f"{sum(fresh.values())} cron failure dump(s) <24h old: {named} — "
+                   f"newest tmp/cron_failures/{newest[1]}")
+
+
+# scripts/scheduler.py stores `out[-1][:200]` (run_script_action / run_snapshot /
+# run_morning_powwow) and `result_msg[:500]` (the cron_jobs write). A JSON result
+# longer than the slice therefore lands in the registry cut mid-token.
+_SCHEDULER_RESULT_SLICES = (200, 500)
+
+
+def check_cron_results_legible():
+    """Can the cron registry's stored results actually be READ as a verdict?
+
+    A third state exists between pass and fail, and nothing scored it: OPAQUE.
+
+    WHY (verified live 2026-08-29 against the 33 active rows):
+      * "Bravo — Cross-Agent Review Scan" stores `]` and "Daily Memory Index
+        Rebuild" stores `}` — the last line of pretty-printed JSON. Total
+        information loss. core/cron_health_check._is_opaque already classifies
+        these correctly and never pages on them, which is right; but THIS eval's
+        check_cron_health only tests `startswith(("ERROR","FAILED"))`, so both
+        rows count toward "N active crons, none in ERROR". They are scored as
+        healthy, and the operator reads the green tick as coverage.
+      * Worse, three rows sit at EXACTLY the 200-char slice boundary with
+        unparseable JSON: "Loud Failures Weekly Probe"
+        (`{"reds":0,"yellows":2,"checks":[...` — cut before the two yellow
+        findings), "Bravo — Review Harvest" (cut inside `report[0]`, which is
+        where escalation reasons live) and "Weekly tmp/ Hygiene". Confirmed
+        against the live rule: classify_last_result on that truncated text
+        returns (False, '') and _is_opaque returns False, so this class is
+        invisible to the alerting path TOO, not just to this eval.
+
+    Root cause was scripts/scheduler.py returning `out[-1][:200]` — the slice
+    that cuts away the only place escalation reasons are recorded. FIXED
+    2026-08-29: four copies of that expression are now one `summarize_stdout`,
+    which renders a JSON payload as a verdict ("reds=0 yellows=2 checks=[3]")
+    and marks any truncation instead of cutting silently.
+
+    This check stays, and stays failing until the stored rows turn over: a row
+    written before the fix is still unreadable today, and the operator reading
+    the registry cannot tell that from a live defect. Each clears on its job's
+    next run — minutes for a 5-minute job, up to a week for a weekly one.
+
+    The rules are IMPORTED from core/cron_health_check, never re-implemented:
+    two copies of "what counts as opaque" drifting apart is how the alert and
+    the eval ended up disagreeing before. Import is lazy and DB-free (~0.06s).
+    """
+    from core.cron_health_check import _is_opaque  # noqa: E402
+
+    jobs, err = _load_cron_rows()
+    if jobs is None:
+        return False, err
+
+    opaque: list[str] = []
+    truncated: list[str] = []
+    for j in jobs:
+        if not j.get("is_active"):
+            continue
+        last = j.get("last_result")
+        # The Turso compat layer decodes JSON-looking columns, so a dict/list
+        # here arrived intact — the slice never bit. Nothing lost, nothing to say.
+        if isinstance(last, (dict, list)):
+            continue
+        text = str(last or "").strip()
+        if not text:
+            continue  # never run yet — that is staleness, a different question
+        name = str(j.get("name") or "?")
+        if _is_opaque(text):
+            opaque.append(name)
+            continue
+        # Truncation signature: JSON-shaped, unparseable, and sitting exactly on
+        # one of scheduler.py's slice boundaries. Requiring the boundary keeps
+        # legible plain text that merely opens with a bracket — e.g. "Daily State
+        # DB Backup" stores "[OK] {'db': ...}" at 195 chars — out of the finding.
+        if text[:1] in "{[" and len(text) in _SCHEDULER_RESULT_SLICES:
+            try:
+                json.loads(text)
+            except (ValueError, TypeError):
+                truncated.append(f"{name}({len(text)}ch)")
+
+    active = sum(1 for j in jobs if j.get("is_active"))
+    if opaque or truncated:
+        bits = []
+        if opaque:
+            bits.append(f"{len(opaque)} OPAQUE (result is a bare closing brace): {opaque}")
+        if truncated:
+            bits.append(f"{len(truncated)} TRUNCATED on a slice boundary, "
+                        f"escalation reasons cut: {truncated}")
+        return False, ("; ".join(bits)
+                       + " — these are unknowable, not healthy; they are counted "
+                         "green by the ERROR-prefix check. The WRITER is fixed "
+                         "(scheduler.summarize_stdout, 2026-08-29); each row "
+                         "above is pre-fix residue and clears on its next run, "
+                         "so a weekly job can hold this red for up to 7 days")
+    return True, f"all {active} active cron results are legible (0 opaque, 0 truncated)"
+
+
+def check_cron_definitions_match_live():
+    """Is the cron the fleet RUNS the cron the repo DEFINES?
+
+    `cron_engine.py seed` skips any job whose name already exists, so SEED_JOBS
+    was the definition of record on a fresh machine and pure documentation on
+    this one. The two drifted silently for weeks.
+
+    What that cost, measured 2026-08-28 when the comparison was first run:
+      * "Bravo — Review Harvest" was missing `--seed-open`, the argument that
+        gives the whole review loop a trigger. Committed, documented, believed
+        shipped, never once executed.
+      * "Loud Failures Weekly Probe" still carried `--strict`, deliberately
+        REMOVED from the source on 2026-08-03 because it turned every finding
+        into an hourly re-page. The alert metronome ran for 25 more days.
+
+    Both are the same defect as a guard that exists but is not registered in a
+    hook chain: present in the source, absent from the running system. Nothing
+    else in this eval reads the live registry's CONFIG — check_cron_health only
+    asks whether rows are erroring.
+    """
+    rc, out, err = _run([sys.executable, "scripts/core/cron_engine.py", "--json", "drift"],
+                        timeout=90)
+    if not out.strip():
+        return False, f"cron drift check produced no output: {(err or '')[:160]}"
+    try:
+        drifted = json.loads(out).get("drifted", [])
+    except json.JSONDecodeError:
+        return False, "cron drift check returned non-JSON"
+    if drifted:
+        names = ", ".join(d.get("name", "?") for d in drifted[:4])
+        return False, (f"{len(drifted)} live cron(s) disagree with SEED_JOBS: {names}"
+                       + (" …" if len(drifted) > 4 else "")
+                       + " — realign with `cron_engine.py drift --fix`")
+    return True, "every live cron matches its SEED_JOBS definition"
+
+
+def check_pm2_fleet():
+    """Is the daemon fleet actually running? Answered from the OS process table,
+    never by invoking pm2.
+
+    WHY NOT pm2 (2026-08-28): pm2's named pipe returns EPERM on this machine, so
+    `pm2 jlist` failed on every run — and worse, each invocation against the
+    blocked pipe SPAWNS AN ORPHAN PM2 DAEMON. 42 had accumulated, a meaningful
+    share of them from this very check running nightly at 03:30. A health check
+    that degrades the system it measures is worse than no health check, and it
+    also conflated two different states: "supervisor unreachable" was reported
+    as "fleet down" while every daemon was in fact alive.
+
+    Supervision moved to scripts/ops/fleet_watchdog.py (Windows Task Scheduler,
+    every 5 min) in e7d0a50f. Its status() reads `wmic process get CommandLine`
+    and matches on the SCRIPT name rather than the interpreter — matching
+    `pythonw.exe` would report every unrelated python process as a live daemon.
+    Reusing it here keeps one definition of "up" for the watchdog and the gate.
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "ops"))
+        from ops.fleet_watchdog import classify, down_names  # noqa: E402
+        from ops.fleet_watchdog import status as fleet_status  # noqa: E402
+    except Exception as e:  # noqa: BLE001
+        return False, f"fleet_watchdog unavailable: {type(e).__name__}: {e}"
+
+    try:
+        rows = fleet_status()
+    except Exception as e:  # noqa: BLE001
+        return False, f"fleet status probe failed: {type(e).__name__}: {e}"
+
+    if not rows:
+        return False, "fleet manifest empty — nothing is being supervised"
+
+    # State meaning lives in fleet_watchdog.classify, not here. Re-deriving it
+    # from the raw flags is what left five consumers disagreeing about whether
+    # an operator-disabled daemon is an outage.
+    states = [classify(r) for r in rows]
+    down = down_names(rows)
+    disabled = sorted(r["name"] for r in rows if classify(r) == "disabled")
+    unrunnable = sorted(r["name"] for r in rows if classify(r) == "unrunnable")
+    up = states.count("running")
+
     if down:
-        return False, f"required PM2 processes not online: {sorted(down)}"
-    return True, f"{len(REQUIRED_PM2)} required processes online ({len(online)} total)"
+        return False, f"daemons DOWN: {down}"
+    notes = []
+    if unrunnable:
+        notes.append(f"{len(unrunnable)} unrunnable manifest entr{'y' if len(unrunnable) == 1 else 'ies'}: {unrunnable}")
+    if disabled:
+        notes.append(f"{len(disabled)} disabled by operator")
+    suffix = f" ({'; '.join(notes)})" if notes else ""
+    return True, f"{up}/{len(rows)} fleet daemons running{suffix}"
+
+
+# Undefined names that are NOT bugs. Keyed (relative_path, name) so a new
+# undefined name in the same file still fails — an allowlist that silences a
+# whole file is how the next one hides. These three are string annotations
+# (`-> "torch.nn.Module"`) on optional-ML-dependency helpers that import torch
+# inside the function body; pyflakes cannot see through the quoted form.
+_UNDEFINED_NAME_ALLOWLIST = {
+    ("scripts/maml_onboard.py", "torch"),
+    ("scripts/neural_memory.py", "torch"),
+    ("scripts/tft_forecast.py", "torch"),
+}
+
+# Redefinitions that are intentional. Every entry was read before it was added,
+# and the reason is recorded — an allowlist nobody can audit is a mute button.
+#
+# Fleet-wide this rule fires 6 times. Five are these; the sixth was a REAL bug
+# and is why the rule is now collected at all: lib/structured_log.py defined
+# doRollover twice, so the Windows sharing-violation fallback the class exists
+# for was dead and rollover still ended in `except OSError: pass`. That handler
+# had left state/logs/db_turso.log at 190 MB against a 5 MB cap with zero
+# backups on disk.
+_REDEFINITION_ALLOWLIST = {
+    # Callables bound by an if/else and REBOUND on the Management-API retry
+    # path — a deliberate reassignment, not a lost definition.
+    ("scripts/etl_supabase_to_turso.py", "src_count"),
+    ("scripts/etl_supabase_to_turso.py", "src_page"),
+    # `import torch.nn.functional as F` inside a nested function, shadowing the
+    # same import in the enclosing one. Both are needed; torch is lazy here.
+    ("scripts/neural_memory.py", "F"),
+    # Duplicated stdlib imports in the header. Redundant, harmless, and not
+    # this session's file to tidy.
+    ("scripts/integrations/google_tool.py", "os"),
+    ("scripts/integrations/google_tool.py", "sys"),
+}
+
+
+def check_fleet_compiles():
+    """ast.parse every production script under scripts/, then run pyflakes'
+    undefined-name analysis over the same tree. Either a SyntaxError or an
+    unbound name anywhere in the fleet must fail the eval NOW, not when the
+    cron that runs that script next hits it.
+
+    WHY (2026-08-11): a session cut off mid-batch-edit left 12 scripts with
+    truncated Supabase->Turso fallback edits — 10 with a SyntaxError (one of
+    them a live PM2 app), 2 with a collided line that compiled but skipped the
+    env-var fallback. Every existing gate stayed green because none of them
+    PARSES the fleet: harness_eval reported ALL GREEN over a codebase whose
+    next cron run would crash. A gate that cannot see a syntax error in the
+    files it claims to cover is not a gate.
+
+    WHY THE SECOND PASS (2026-08-28): ast.parse stops one notch short of the
+    defect that actually keeps happening. a71826a7 switched inbound_classifier
+    to run_smart_cli but left the import naming run_claude_cli — valid syntax,
+    NameError at runtime, swallowed by a broad except, and every inbound email
+    fell back to keyword classification for two days with the harness green.
+    The identical class had already hit the same function in July (TypeError on
+    a dead `_env` param). Four more unbound-name bugs were sitting in the fleet
+    when this pass was added.
+
+    pyproject.toml already selects ruff rule set "F", which includes F821 — the
+    exact rule. Ruff is not installed and nothing invoked it, so the rule had
+    never run. This uses the pyflakes already in .venv and reuses the AST the
+    loop above parses, so the pass costs no extra read and no subprocess.
+
+    WHY FAILURES ARE CONFIRMED BY A SECOND READ (2026-08-28, same day):
+    the first version flapped. Over 44 runs it failed in bursts of 4-8 and then
+    went green, and every burst lined up with an editing window — 17:09-17:47
+    UTC matched commits at 13:09-13:47 local, to the minute. It was reading
+    files mid-write: a partially written file is a SyntaxError, and a file saved
+    between its call site and its import is an undefined name. Neither is a
+    defect in the fleet; both are a snapshot taken during a save.
+
+    That cost ~3 percentage points of the weekly score and, worse, it is the
+    shape of gate that teaches an operator to ignore it. So a failure is now
+    RE-READ and RE-CHECKED before it counts. This is confirmation, not
+    suppression: a real SyntaxError or unbound name is still there on the second
+    read. Only a file that was being written is not.
+    """
+    from pyflakes.checker import Checker
+    from pyflakes.messages import RedefinedWhileUnused, UndefinedName
+
+    def _analyse(text: str, path: Path, rel: str):
+        """(syntax_error, problems) for one file's content."""
+        try:
+            tree = ast.parse(text)
+        except SyntaxError as e:
+            return f"{rel}:{e.lineno}", []
+        except (ValueError, UnicodeDecodeError) as e:
+            return f"{rel}:decode({type(e).__name__})", []
+        try:
+            messages = Checker(tree, filename=str(path)).messages
+        except Exception:  # noqa: BLE001 - analysis must never break the gate
+            return None, []
+        problems = []
+        for m in messages:
+            if isinstance(m, UndefinedName):
+                name = m.message_args[0] if m.message_args else "?"
+                if (rel, name) in _UNDEFINED_NAME_ALLOWLIST:
+                    continue
+                problems.append(f"{rel}:{m.lineno} undefined name {name!r}")
+            elif isinstance(m, RedefinedWhileUnused):
+                name = m.message_args[0] if m.message_args else "?"
+                if (rel, name) in _REDEFINITION_ALLOWLIST:
+                    continue
+                problems.append(f"{rel}:{m.lineno} {name!r} redefined, "
+                                f"first definition is dead")
+        return None, problems
+
+    root = Path(__file__).resolve().parent
+    broken: list[str] = []
+    undefined: list[str] = []
+    transient = 0
+    scanned = 0
+    for path in root.rglob("*.py"):
+        parts = path.parts
+        if "_archive" in parts or "__pycache__" in parts or "tests" in parts:
+            continue
+        scanned += 1
+        rel = path.relative_to(root.parent).as_posix()
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue  # vanished mid-scan: another agent's rename, not a defect
+        syntax_err, names = _analyse(text, path, rel)
+        if syntax_err is None and not names:
+            continue
+
+        # CONFIRM before failing. Re-read from disk: a genuine defect is still
+        # there, a mid-save snapshot is not. Cheap because it only runs on the
+        # handful of files that failed, never on the clean 350.
+        try:
+            text2 = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        syntax_err2, names2 = _analyse(text2, path, rel)
+        if syntax_err2 is None and not names2:
+            transient += 1
+            continue
+        if text2 != text:
+            # Still failing but the content moved under us — the file is being
+            # written right now, so we cannot judge it either way this run.
+            transient += 1
+            continue
+        if syntax_err2:
+            broken.append(syntax_err2)
+        undefined.extend(names2)
+
+    note = f" ({transient} transient mid-write, re-read clean)" if transient else ""
+    if broken:
+        return False, f"syntax errors in {len(broken)} scripts: {broken[:6]}{note}"
+    if undefined:
+        return False, (f"{len(undefined)} runtime-name defects "
+                       f"(NameError / silent shadowing): {undefined[:6]}{note}")
+    return True, (f"{scanned} production scripts parse clean, no undefined names "
+                  f"or dead redefinitions{note}")
 
 
 def check_model_call_path():
+    # Deliberately probes claude_cli DIRECTLY (not run_smart_cli): this check's
+    # job is substrate TRUTH — is the subscription CLI alive right now? Routing
+    # the probe through the fallback would mask a quota/auth outage with a
+    # fake green. The failure text reports fallback availability so the
+    # Telegram alert is actionable instead of alarming.
     from lib.claude_cli import run_claude_cli  # noqa: E402
+    from lib.model_fallback import is_fallback_available  # noqa: E402
     text = run_claude_cli("Reply with exactly one word: ready", model="haiku", timeout=90)
     if text and "ready" in text.lower():
         return True, "local claude CLI answered on subscription OAuth"
-    return False, f"claude CLI probe failed (got {text!r})"
+    fb = "available" if is_fallback_available() else "NOT installed"
+    return False, f"claude CLI probe failed (got {text!r}) — opencode fallback {fb}, automations degrade to it"
 
 
 # V7.1: each check belongs to a named SLICE (pattern: Made-With-ML slice-based
@@ -286,10 +929,17 @@ CHECKS = [
     ("Atlas boundary held (routers + brief)", check_atlas_boundary, False, "boundary"),
     ("no dead API key in active automations", check_no_dead_api_key_in_active, False, "model-call"),
     ("daily brief renders real data", check_brief_renders, False, "live-health"),
-    ("CRM tenant scoping intact", check_tenant_scoping, False, "boundary"),
+    ("self-audit mandatory gates pass", check_self_audit_mandatory_gates, False, "live-health"),
+    ("migration docs classified (brain/memory)", check_migration_docs_classified, False, "routing"),
+    ("session log structure intact", check_session_log_integrity, False, "lockstep"),
+    ("lead_engine tenant contract intact", check_tenant_scoping, False, "boundary"),
     ("safety guards in enforce", check_guards_enforce, False, "guards"),
     ("cron table healthy (no ERROR, no MRR digest)", check_cron_health, False, "live-health"),
+    ("no cron failure dumps <24h old", check_no_recent_cron_failure_dumps, False, "live-health"),
+    ("cron results legible (no opaque/truncated last_result)", check_cron_results_legible, False, "live-health"),
+    ("cron definitions match live registry", check_cron_definitions_match_live, False, "live-health"),
     ("PM2 fleet online", check_pm2_fleet, False, "live-health"),
+    ("fleet compiles (no SyntaxError anywhere)", check_fleet_compiles, False, "live-health"),
     ("model-call path live (claude CLI probe)", check_model_call_path, True, "model-call"),  # --with-model only
 ]
 
@@ -325,6 +975,22 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--json", action="store_true", help="machine-readable output")
     p.add_argument("--with-model", action="store_true",
                    help="include the live claude-CLI probe (~5-20s, spends one subscription call)")
+    # WHY A SOURCE LABEL (2026-08-28): the score conflated two different
+    # questions — "is the system healthy" and "was an agent mid-edit". A
+    # multi-step refactor leaves the working tree genuinely broken BETWEEN
+    # commits (on this day, `_SUFFIX_RULES` was referenced one edit before it
+    # was defined), and the fleet-compiles check correctly reported that. But
+    # dozens of ad-hoc runs fired during editing then drowned out the one
+    # SCHEDULED run that actually measures system health: 44 ad-hoc runs against
+    # a single nightly cron.
+    #
+    # The check is not wrong and must not be softened — a cron firing in that
+    # window really would have crashed. The MEASUREMENT is what needed fixing,
+    # so the run records how it was triggered and the trend can report scheduled
+    # runs separately.
+    p.add_argument("--source", default="adhoc",
+                   help="who triggered this run (cron|adhoc|ci) — recorded in history "
+                        "so scheduled health can be read apart from mid-edit noise")
     args = p.parse_args(argv)
 
     results = []
@@ -348,6 +1014,7 @@ def main(argv: list[str] | None = None) -> int:
     _append_history({"run_id": run_id, "timestamp": timestamp,
                      "score": f"{passed}/{total}", "pass": passed == total,
                      "with_model": bool(args.with_model),
+                     "source": str(args.source),
                      "slices": slices,
                      "failed": [r["check"] for r in results if not r["ok"]]})
 

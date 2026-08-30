@@ -10,6 +10,8 @@ last_updated: 2026-07-20
 
 # Bravo V6.0 — Principal Architect's Response
 
+> **Historical record** — V6.0 design document (2026-04-22). Superseded in part by the 2026-08 Turso/libSQL cutover (empire DB primary is Turso; see CONTEXT.md §"Empire DB"). Current architecture version: `architecture_version` in `brain/STATE.md`.
+
 > Answering the four V6.0 questions posed in the upgrade brief. This is a **design document**, not an implementation plan. Implementation phasing appears at the end of each section.
 
 ---

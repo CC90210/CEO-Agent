@@ -2,7 +2,7 @@
 Cron Engine - Business Automation Job Manager
 Defines and tracks all automated business workflows. Not a cron runner itself -
 n8n handles scheduling. This is the source of truth for what should be automated,
-seeded into Supabase so n8n and agents share a single registry.
+seeded into Turso so the scheduler and agents share a single registry.
 
 All credentials loaded from .env.agents (never hardcoded).
 
@@ -30,6 +30,11 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lib.tls_trust import ensure_os_trust  # noqa: E402
+# Canonical sibling-repo resolver (honors the MAVEN_REPO override) — used by the
+# one SEED_JOBS entry that runs a script outside this repo. Dependency-light
+# (os/platform/pathlib only), which matters because the always-on scheduler
+# imports this module.
+from sibling_repos import SIBLING_REPOS  # noqa: E402
 
 
 # -- Credential loading --------------------------------------------------------
@@ -52,7 +57,7 @@ def load_env() -> dict[str, str]:
 
 
 def get_client(env_vars: dict[str, str]):
-    """Create a Supabase client for the bravo project."""
+    """Create the Turso-backed compatibility client for the Bravo project."""
     configure_ca_bundle()
     try:
         from supabase import create_client
@@ -60,15 +65,8 @@ def get_client(env_vars: dict[str, str]):
         print("ERROR: 'supabase' package not installed. Run: pip install supabase", file=sys.stderr)
         sys.exit(1)
 
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-
-    if not url or not key:
-        print(
-            "ERROR: Missing BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY in .env.agents",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "dummy-turso-key"
 
     return create_client(url, key)
 
@@ -88,6 +86,11 @@ def configure_ca_bundle() -> None:
 
 
 # -- Seed definitions ----------------------------------------------------------
+
+# Keys in a SEED_JOBS definition that are metadata for OTHER readers, not
+# cron_jobs columns. cmd_seed strips these before INSERT. Add here when a seed
+# needs to carry information for the watchdog / dashboards / docs.
+SEED_METADATA_KEYS: frozenset[str] = frozenset({"daemon_backed"})
 
 SEED_JOBS: list[dict] = [
     # Marketing/social cron jobs (content_post × 3, content_planning,
@@ -127,6 +130,88 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # 2026-08-03 — the pulse producer that never existed. Atlas pages CC when
+        # data/pulse/ceo_pulse.json is >14d old, and on 2026-08-03 it was 15d old
+        # and correct: no cron had ever written it. Bravo's pulse was refreshed
+        # only when a session happened to remember.
+        #
+        # This job runs `autorefresh`, NOT `refresh`. autorefresh writes only what
+        # a machine can know — sibling pulse ages, V6 telemetry, the commit log —
+        # and deliberately does NOT move `updated_at`. A nightly bare `refresh`
+        # would have re-stamped the timestamp over 15-day-old strategy and
+        # directives, silencing Atlas by making the data worse. The judgment
+        # fields are written at session end (state_sync --pulse-*), because no
+        # cron can honestly invent a CEO's strategic priority.
+        #
+        # 07:45 local: ahead of Atlas's 08:00 threshold scan, so the sibling-age
+        # figures Atlas reads are same-morning. NOT seeded to Supabase until CC
+        # reviews (production-scheduling mutation).
+        "name": "Daily Pulse Mechanical Refresh",
+        "description": "pulse_publish.py autorefresh — refresh machine-knowable pulse sections (sibling ages, V6 telemetry, commits). Never moves updated_at; judgment stays as stale as it is.",
+        "schedule": "45 7 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/pulse_publish.py", "args": ["autorefresh"], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
+        "is_active": True,
+    },
+    {
+        # 2026-08-20 — the Instagram DM closer. Replaces the keyword
+        # autoresponder that read its own replies as prospect messages (it
+        # compared an outgoing IGSID against a Zernio ObjectId, a comparison
+        # that could never be true) and answered itself with the same template.
+        #
+        # */1 as of 2026-08-21 (was */5). A prospect waited 9 minutes for an answer
+        # at */5 — correct per the config and unacceptable for a setter. The
+        # per-run model budget drops to 2 so a run FINISHES inside its minute;
+        # the O_EXCL lock makes an overrun skip the next tick rather than
+        # double-send. Original sizing note follows.
+        # The "~11s per model turn" figure this entry was first
+        # written against is wrong: measured on this machine 2026-08-20,
+        # run_claude_cli takes 29.2 / 26.7 / 28.1 / 25.8s — median 27.4s, because
+        # the cost is `claude -p` process startup, not generation. decide() may
+        # spend two subprocesses per conversation (one retry), so 12 turns is
+        # ~330s worst case and would overrun a 120s tick on every run. The
+        # poller's O_EXCL _RunLock refuses an overlapping tick rather than
+        # doubling it, so the failure mode is a permanently-skipped automation
+        # rather than a double-send — but it is still an automation that never
+        # completes. 5 turns at */5 fits. timeout 600 overrides
+        # SCRIPT_RUN_DEFAULT_TIMEOUT = 300.
+        #
+        # The duplicate is RESOLVED (2026-08-21). The legacy row "Instagram DM
+        # Auto-Reply" was renamed in place to this entry's name and given these
+        # args, so exactly ONE row now points at this script and `seed` skips it
+        # by normalized name instead of creating a second. Two live crons on one
+        # script is what answered CC twice; do not add a second row here.
+        #
+        # --book IS DELIBERATELY ABSENT. Without it the closer never runs and a
+        # prospect who is ready to book becomes a Telegram handoff to CC instead
+        # of a real calendar event and a Google invite to a stranger. Arming it
+        # is CC's decision, not a seed default.
+        #
+        # NOT seeded until CC reviews: `cron_engine.py seed` is a
+        # production-scheduling mutation.
+        "name": "Instagram DM Closer",
+        "description": "instagram_dm_poller.py — read each @oasisaisolutions DM thread in full, reply in CC's voice via the local Claude CLI, extract contact details, hand warm/blocked threads to CC. Booking stays disarmed.",
+        "schedule": "* * * * *",
+        "action_type": "script_run",
+        "action_config": {
+            "script": "scripts/integrations/instagram_dm_poller.py",
+            "args": ["--live", "--json", "--limit", "25", "--max-model-calls", "2"],
+            "timeout": 600,
+            "notify_channel": "telegram",
+            "notify_on": "nonzero_exit",
+        },
+        # DAEMON-BACKED — must stay False FOREVER. Execution moved to the PM2
+        # process `bravo-ig-dm` (2026-08-21) because the shared scheduler queued
+        # DM replies behind an 84s email sweep. The daemon reads this row at boot
+        # and REFUSES TO START while it is armed (two runners answered every
+        # prospect twice on 2026-08-20). Arming this row therefore takes the
+        # setter OFFLINE — the exact inverse of what flipping a toggle ON should
+        # do. The row exists as the config anchor the daemon checks, nothing
+        # more. Control the setter with: pm2 start|stop bravo-ig-dm.
+        "is_active": False,
+        "daemon_backed": "bravo-ig-dm",
+    },
+    {
         # Phase 6a — OASIS auto-score sweep. Scans tenant_records for
         # OASIS leads with no ai_score and scores them in batches of 25
         # so the operator's morning view already has scores on
@@ -151,19 +236,28 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 9 1 */3 *",
         "action_type": "break_glass_drill",
         "action_config": {"script": "scripts/break_glass_drill.py", "notify_channel": "telegram"},
-        "is_active": True,
+        # NEVER RUN. A restore drill's first execution should be supervised, not a
+        # 3am surprise — arm after one supervised run with CC.
+        "is_active": False,
     },
     {
-        # V7 EPIC 7F — Loud Failures Weekly Probe. system_health.py --strict --json detects
-        # silent failures (stale PM2 paths, missing cron/hook/MCP targets, scripts/*.py path
-        # drift) BEFORE someone trips over them. Mondays 08:30 local; Telegram on any red.
+        # V7 EPIC 7F — Loud Failures Weekly Probe. system_health.py detects silent failures
+        # (stale PM2 paths, missing cron/hook/MCP targets, scripts/*.py path drift) BEFORE
+        # someone trips over them. Mondays 08:30 local; the probe Telegrams its own reds.
         # n8n handler for action_type 'script_run' runs the script; NOT seeded to Supabase
         # until CC reviews (production-scheduling mutation).
+        #
+        # --strict REMOVED 2026-08-03. It made the probe exit 1 on a finding, the scheduler
+        # recorded "ERROR: script_run exit 1", and cron_health_check re-paged "1 cron(s)
+        # failing" HOURLY for as long as the finding stood — a true signal delivered as a
+        # metronome. EXECUTION_RULES § 19: a blocking condition exits 0 and reports. The
+        # probe now owns its own alert (--notify), deduped on which checks are red, so it
+        # fires once and decays. `--strict` still exits 1 for humans and CI.
         "name": "Loud Failures Weekly Probe",
-        "description": "system_health.py --strict — surface silent failures (path drift, stale PM2, missing cron/hook/MCP targets).",
+        "description": "system_health.py --notify — surface silent failures (path drift, stale PM2, missing cron/hook/MCP targets).",
         "schedule": "30 8 * * 1",
         "action_type": "script_run",
-        "action_config": {"script": "scripts/system_health.py", "args": ["--strict", "--json"], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
+        "action_config": {"script": "scripts/system_health.py", "args": ["--json", "--notify"], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
         "is_active": True,
     },
     {
@@ -206,10 +300,14 @@ SEED_JOBS: list[dict] = [
     {
         "name": "Stripe Revenue Sync",
         "description": "Sync latest Stripe events to revenue_events",
-        "schedule": "0 6 * * *",
+        # Moved off 06:00 so it stops contending with the brief's fan-out.
+        "schedule": "15 6 * * *",
         "action_type": "stripe_sync",
         "action_config": {"lookback_hours": 25},
-        "is_active": True,
+        # moved_to_atlas 2026-08-01 — Atlas (CFO-Agent) owns revenue sync; the live
+        # row is a tombstone. Seed corrected 2026-08-22 so the watchdog stops
+        # paging about a deliberate migration.
+        "is_active": False,
     },
     {
         # Added 2026-05-18 — closes the manual-edit gap on user_profiles.mrr_current_usd
@@ -278,7 +376,8 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 9 1 * *",
         "action_type": "monthly_snapshot",
         "action_config": {"tables": ["revenue_events", "leads", "content_calendar"]},
-        "is_active": True,
+        # moved_to_atlas 2026-08-01 — same migration as Stripe Revenue Sync.
+        "is_active": False,
     },
     {
         # Genome fitness loop (2026-07-09) — the verifiable-reward wire. Runs
@@ -295,14 +394,33 @@ SEED_JOBS: list[dict] = [
         # 2026-06-06 Daily-MRR-Auto-Sync lesson). Plain mode ends with
         # "ALL GREEN — harness is turnkey for any runtime." on success and
         # exits 1 on any red check → notify_on nonzero_exit fires.
-        "action_config": {"script": "scripts/harness_eval.py", "args": [], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
+        # --source cron so the trend can separate scheduled health from the
+        # ad-hoc runs an agent fires while mid-refactor. On 2026-08-28 there
+        # were 44 ad-hoc runs against ONE nightly run, and the ad-hoc ones —
+        # correctly red, because the tree was genuinely broken between two
+        # edits — set the reported score.
+        "action_config": {"script": "scripts/harness_eval.py", "args": ["--source", "cron"], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
         "is_active": True,
     },
     {
-        # In the live DB since 2026-06 (row bb0d5f2b) but was never seeded —
-        # a fresh-machine reseed would silently lose it. Added 2026-07-09.
-        # Runs the cross-agent self-improvement sweep (Bravo + Atlas + Maven
-        # digest via scripts/core/agent_self_improvement.py).
+        # Broad weekly truth surface. Unlike the narrow nightly harness, this
+        # also consumes fleet/pulse/inbox state and the complete Python suite.
+        "name": "Weekly Full-Truth Health Digest",
+        "description": "Sunday 07:00 ET — run self-audit, fleet health, and the complete Python suite; always send one private Telegram truth report.",
+        "schedule": "0 7 * * SUN",
+        "action_type": "script_run",
+        # The child pytest gate has a 1200s hard stop. The scheduler must expire
+        # after the child so its timeout diagnostic can be delivered and saved.
+        "action_config": {
+            "script": "scripts/weekly_truth_digest.py",
+            "args": [],
+            "timeout": 1500,
+        },
+        "is_active": True,
+    },
+    {
+        # In the live DB since 2026-06 but was never seeded; a fresh-machine
+        # reseed would silently lose it. Runs the Bravo/Atlas/Maven sweep.
         "name": "Cross-Agent Self-Improvement Sweep",
         "description": "Nightly cross-agent self-improvement sweep — mistakes/patterns digest across Bravo, Atlas, Maven",
         "schedule": "0 4 * * *",
@@ -346,7 +464,14 @@ SEED_JOBS: list[dict] = [
     {
         "name": "Daily Briefing Snapshot",
         "description": "Prep Table layer (brain/AGENTIC_OS_REFERENCE.md §3). Aggregates revenue/pipeline/health into state/snapshots/latest_briefing.json so ceo-briefing skill reads one JSON instead of running 4 engines live. Runnable manually until n8n handler exists.",
-        "schedule": "0 6 * * *",
+        # 05:57, not 06:00. All three of these fired at exactly 06:00 and the brief
+        # regenerates the snapshot itself whenever it is more than
+        # SNAPSHOT_STALENESS_SEC (5 min) old — so a concurrent snapshot cron ran
+        # the SAME ten-process fan-out at the same moment, doubling contention
+        # and then having its work thrown away. Finishing at ~05:58 (the run
+        # measures ~31s) puts the snapshot ~2 min old when the brief reads it,
+        # inside the window, so the brief uses it and does not regenerate.
+        "schedule": "57 5 * * *",
         "action_type": "snapshot_run",
         "action_config": {"script": "scripts/snapshots/briefing_snapshot.py", "args": []},
         "is_active": True,
@@ -357,7 +482,9 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 22 * * SAT",
         "action_type": "snapshot_run",
         "action_config": {"script": "scripts/snapshots/leads_snapshot.py", "args": ["--min-score", "60"]},
-        "is_active": True,
+        # dormant since 2026-05-16 (last: qualified 0/0) — superseded by the OASIS
+        # auto-score sweep + Pipeline board. Reversible: flip the live row.
+        "is_active": False,
     },
     {
         "name": "Daily Client Alerts Snapshot",
@@ -436,14 +563,149 @@ SEED_JOBS: list[dict] = [
         # test suite. The 300s script_run default would SIGKILL it mid-fix and
         # could leave uncommitted edits in a client repo. review_loop drains ONE
         # PR per pass, so 1500s is a ceiling, not an expectation.
+        # --seed-open added 2026-08-28. The queue was fed ONLY by notification
+        # mail, so the whole loop depended on a message arriving, being unread,
+        # and being classified. Live evidence: 2098 runs, 0 failures, and
+        # {"drained": 0} every single time, while 14 PRs sat open with
+        # unresolved CodeRabbit findings. A healthy-looking loop doing nothing,
+        # because its only trigger never fired. Email stays the fast path;
+        # polling GitHub is the floor under it.
         "action_config": {"script": "scripts/review_loop.py",
-                          "args": ["--once", "--json"], "timeout": 1500},
+                          "args": ["--seed-open", "--once", "--json"], "timeout": 1500},
+        # Retired 2026-08-16 (CC). It only pays off on repos with active PR
+        # review and there were no open PRs, so it was draining a slot every 15
+        # minutes to do nothing. It also depends on a `gh` login that had
+        # expired, which meant it was failing silently rather than idling.
+        # Re-enable with `cron_engine.py toggle` if PR review becomes a habit.
+        #
+        # 2026-08-27 — BOTH RETIREMENT REASONS HAVE NOW REVERSED. Recorded here
+        # rather than acted on, because re-enabling is CC's call:
+        #   * "there were no open PRs" — there are now 21 open peer PRs in
+        #     oasis-command-center touching Bravo-owned or contested surfaces.
+        #   * "a `gh` login that had expired" — verified working 2026-08-27:
+        #     review_harvest.py against PR #340 returned live thread state and
+        #     correctly reported the one unresolved finding.
+        # PR review has become a habit. Recommend toggling this back on.
+        #
+        # 2026-08-28 — REACTIVATED by CC. He described this loop verbatim as the
+        # functionality he wants: "every time Apex or Adon pushes something to
+        # GitHub... CodeRabbit verifies it, and our inbound email automation
+        # verifies it and uses CLI powers to verify what CodeRabbit said and what
+        # the Vercel bot said. It should then make the necessary changes
+        # accordingly, deploy it autonomously, and notify us via Telegram."
+        #
+        # Both 2026-08-16 retirement reasons are now false, verified rather than
+        # assumed: there are 20+ open peer PRs (there were none), and the gh
+        # login works (harvest against PR #340 returned live thread state).
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-27. The peer-review half of the coordination contract:
+        # APEX opens PRs against surfaces the ownership map assigns to Bravo,
+        # and until now nothing looked at them on a schedule.
+        #
+        # SCANS ONLY — it never publishes a verdict unattended. A verdict posted
+        # under Bravo's name is an outward effect the peer acts on, and a wrong
+        # one spends the credibility of the whole channel. The scan says what is
+        # waiting; the review itself is run deliberately.
+        "name": "Bravo — Cross-Agent Review Scan",
+        "description": "Twice daily: list APEX PRs touching Bravo-owned or contested "
+                       "surfaces (scripts/cross_agent_review.py scan). Read-only. "
+                       "Verdicts are published deliberately with `review --pr`, never on a timer.",
+        "schedule": "0 9,17 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/cross_agent_review.py",
+                          "args": ["scan", "--json"], "timeout": 600},
+        # Reviewed and approved by CC 2026-08-28. Still SCAN-ONLY — it lists
+        # what is waiting and never publishes a verdict unattended, because a
+        # verdict posted under Bravo's name is an outward effect the peer acts
+        # on and a wrong one spends the channel's credibility.
         "is_active": True,
     },
     # 'Bravo — Override Queue Cleanup' removed 2026-05-22 along with the
     # entire exec_override approval-request system. exec_guard still blocks
     # destructive commands; it just doesn't create DB rows asking for human
     # approval. The block itself IS the protection.
+    {
+        # Added 2026-08-28. The eval suites had not run since 2026-06-10 —
+        # accuracy was unmeasured for eleven weeks, and the first run after
+        # building a runner found `routing` had drifted 100% -> 77.8%. Nothing
+        # surfaced that, because nothing was looking.
+        #
+        # Only BASELINED suites can fail this job. routing_nl is deliberately
+        # red (0.333) and `mistakes` is entirely rubric-scored, so gating on
+        # them would make the alert permanently red and therefore ignored.
+        #
+        # Paging contract: scheduler.py ignores notify_on. A job pages CC by
+        # exiting non-zero AND printing a line starting "ERROR:" — run_suites.py
+        # does both. --json keeps the LAST stdout line a single compact object.
+        # Mandatory until 2026-08-29, when scheduler.summarize_stdout replaced
+        # the out[-1][:200] slice; preference since.
+        "name": "Weekly Eval Suites",
+        "description": "Sunday 05:00 ET — score the eval suites against baselines.json and write evals/reports/. Pages only on a baselined suite regressing or a suite erroring; un-baselined suites are reported, not gated.",
+        "schedule": "0 5 * * SUN",
+        "action_type": "script_run",
+        "action_config": {"script": "evals/run_suites.py", "args": ["--json"],
+                          "timeout": 600},
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-29. Nothing answered "what is running?" in one place:
+        # INVENTORY.md carried counts and drifted (it read 37 cron jobs while the
+        # live registry held 41), fleet_health covered agent pulses, and the rest
+        # was spread across SEED_JOBS, a PM2 manifest, a hooks config and Task
+        # Scheduler. An operator asking a simple question got a research project.
+        #
+        # Daily because the answer changes daily — a register that is a week old
+        # is the drift it was written to remove. It exits non-zero and prints
+        # ERROR if any source was unreadable, so an INCOMPLETE register pages
+        # rather than quietly omitting a third of the automations.
+        "name": "Daily Automation Register",
+        "description": "Daily 05:30 ET — regenerate brain/AUTOMATIONS.md from the live cron table, fleet manifest, hook config and Task Scheduler so any session can answer what runs, when, and whether it is healthy without running anything.",
+        "schedule": "30 5 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/core/generate_automations.py",
+                          "args": [], "timeout": 300},
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-28. Nothing in the fleet moves an event to a terminal
+        # state, so agent_events is append-only in practice: 9,533 rows older
+        # than 30 days were still 'pending' when this was written, waiting on a
+        # consumer that was never coming.
+        #
+        # SCHEDULED, not just built. The whole reason the eval suites went
+        # eleven weeks unmeasured is that the tooling existed and nothing ran
+        # it; a retention tool nobody invokes is the same defect with a
+        # different name. 40 rows crossed the cutoff within two hours of the
+        # first manual sweep, which is the drift rate this exists to absorb.
+        #
+        # Marks 'dead' (a schema-valid terminal state), never deletes —
+        # agent_events is the Bravo<->APEX coordination channel and a shared
+        # audit trail.
+        "name": "Weekly Event Bus Retention",
+        "description": "Sunday 03:30 ET — age agent_events rows still 'pending' after 30 days to 'dead' so the bus stays bounded. Marks, never deletes; the live 30-day window is untouched.",
+        "schedule": "30 3 * * SUN",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/core/event_retention.py",
+                          "args": ["--apply", "--days", "30", "--json"],
+                          "timeout": 900},
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-28. RULE -1 makes FTS retrieval the preferred path over
+        # whole-file reads, so the whole retrieval-first design rests on this
+        # index — and nothing rebuilt it. memory_index.db appeared in this file
+        # only for BACKUP, so the index was only ever as fresh as the last
+        # manual run (2026-08-24 when found). build() is incremental by default.
+        "name": "Daily Memory Index Rebuild",
+        "description": "Daily 04:30 ET — incremental FTS/semantic reindex of the vault so memory_retriever queries reflect the current state of memory/ and brain/.",
+        "schedule": "30 4 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/core/memory_retriever.py", "args": ["build"],
+                          "timeout": 900},
+        "is_active": True,
+    },
     {
         # Added 2026-06-06 (Phase 4 of system re-engineering). After the
         # one-shot tmp/ purge that recovered 6.0 GB, this keeps tmp/ bounded.
@@ -480,6 +742,173 @@ SEED_JOBS: list[dict] = [
         "schedule": "*/10 * * * *",
         "action_type": "script_run",
         "action_config": {"script": "scripts/core/event_bus.py", "args": ["drain"]},
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-01 — closes the inventory-drift gap found in the
+        # entry-point audit: the six root files quote hard counts (skills,
+        # scripts, cron jobs, workflows, subagents, MCP servers) that went
+        # stale between hand-syncs. generate_inventory.py rewrites
+        # brain/INVENTORY.md with live counts; entry points now treat their
+        # hard numbers as a snapshot and point at INVENTORY.md.
+        "name": "Monthly Inventory Sync",
+        "description": "Monthly 03:00 on the 1st — regenerate brain/INVENTORY.md with live repo counts (skills, scripts, SEED_JOBS, workflows, subagents, MCP servers) so entry-point inventory sections have a current source of truth.",
+        "schedule": "0 3 1 * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/core/generate_inventory.py", "args": []},
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-24 — the standing safety net the Kimi-receipt gap
+        # proved was missing. receipts_audit.py reconcile re-scans the mailbox
+        # on a rolling 45-day window and reconciles it against the Receipts/*
+        # label tree. Only sender-identity-confident tiers auto-hand-off to
+        # Atlas (billing-local: / vendor+subject: / forward:); subject-money
+        # matches land in one Telegram review list instead, so a newsletter
+        # quoting "$2,000" can never auto-book. Exit contract mirrors
+        # weekly_truth_digest: nonzero only when the reconciliation itself
+        # could not run or deliver its summary — findings are content.
+        # 2026-08-28: monthly -> WEEKLY, per CC. A monthly backstop can hide a
+        # filing outage for 30 days, and one just did: the financial hand-off
+        # bus published nothing between 2026-08-24 and 2026-08-28 while a real
+        # Google Cloud invoice was archived unlabelled, and nothing noticed.
+        # Monday (not the weekend — quiet days) so any gap opens CC's week.
+        "name": "Weekly Receipts Reconciliation",
+        "description": "Weekly Monday 04:23 local — reconcile the mailbox against Receipts/* labels (rolling 45d), auto-hand confident financial gaps to Atlas, one Telegram summary for anything held for review.",
+        "schedule": "23 4 * * 1",
+        "action_type": "script_run",
+        # notify_on added when two concurrent sessions each wrote this seed
+        # (2026-08-24) and the definitions were merged: the scheduler pages on
+        # a nonzero exit, which under the delivery-based contract means THE
+        # RECONCILER broke — findings never exit nonzero.
+        "action_config": {"script": "scripts/receipts_audit.py", "args": ["reconcile"], "timeout": 900,
+                          "notify_channel": "telegram", "notify_on": "nonzero_exit"},
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-14. CC: "I should be able to click on one of these videos
+        # and then manually post it to all the social media channels via our API
+        # key that we have connected."
+        #
+        # The Command Center runs on Vercel and cannot call the only sanctioned
+        # publisher — CMO-Agent/publishers/base.publish() is Python, runs
+        # send_gateway first (killswitch, daily caps, audit trail) and needs
+        # credentials that live on this machine. So the app records intent in
+        # marketing_publish_intent and this drains it, here, where the gateway is.
+        #
+        # Every minute because a click should feel like a click. The drain claims
+        # each intent with a compare-and-set, so an overlapping run cannot publish
+        # the same reel twice — there is no unsending.
+        # Added 2026-08-16. CC, looking at a Library that showed 41 assets "in
+        # review" while five of them were live on Instagram: "we already have
+        # posted the unpaved mile... some of it's not taken account for
+        # correctly... it should automatically update itself."
+        #
+        # marketing_asset and post_analytics are filled by two different roads —
+        # produced creative arrives via library_sync, live numbers arrive from
+        # Zernio — and the id-based join between them only fires for posts Zernio
+        # itself created. Everything Maven produced had no Zernio id, so the
+        # Library could not tell posted from unposted and defaulted to "needs a
+        # verdict" for all of it. The one-off backfill linked 14 assets across 54
+        # analytics rows; this keeps it true without anyone remembering to run it.
+        #
+        # Hourly, because post_analytics itself is polled rather than pushed —
+        # linking more often than the numbers arrive buys nothing. Idempotent and
+        # a no-op once everything is linked, so a missed run costs nothing but a
+        # later refresh.
+        "name": "Library Post Linker",
+        "description": "Hourly — link founders Library assets to the posts that actually went out (hook-to-caption match), stamping published_at and the real platform list. Precision-first: an ambiguous or multi-day match is reported, never guessed.",
+        "schedule": "17 * * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/link_library_to_posts.py", "args": ["--execute"], "timeout": 600},
+        "is_active": True,
+    },
+    {
+        "name": "Marketing Publish Drain",
+        "description": "Every minute — publish assets the founders Library queued in marketing_publish_intent, through CMO-Agent's send_gateway (killswitch, daily caps, audit trail). No-ops when the queue is empty.",
+        "schedule": "* * * * *",
+        "action_type": "script_run",
+        # 900s, not the 300s default: publishing a 10 MB reel to five networks
+        # legitimately takes minutes, and a kill mid-publish is what strands an
+        # intent in  — the state the reaper then has to rescue.
+        "action_config": {"script": "scripts/marketing_publish_drain.py", "args": [], "timeout": 900},
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-14. The Train Maven drop-zone enqueued links into
+        # marketing_corpus and NOTHING consumed the queue — every link CC or
+        # Adon dropped would have sat at "Waiting" forever, which is worse than
+        # a disabled button because it looks like it worked.
+        #
+        # Five minutes, not one: each link is a real fetch (Firecrawl, escalating
+        # to CloakBrowser) plus a model call. There is no hurry, and a tighter
+        # loop would just collide with itself on a slow scrape.
+        "name": "Training Corpus Ingest",
+        "description": "Every 5 minutes — fetch and analyse links dropped in Train Maven, write style exemplars to CMO-Agent/brain/exemplars/. No-ops when the queue is empty.",
+        "schedule": "*/5 * * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/ingest_training_link.py", "args": [], "timeout": 900},
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-14. The Performance tab was a greyed chip captioned
+        # "Phase 5" while Zernio had been collecting the numbers the whole time —
+        # 68 of 79 published posts carry non-zero metrics nobody could see.
+        #
+        # A POLLER, not a webhook: Zernio's /v1/webhooks path returns the
+        # dashboard HTML rather than an API, so there is no event schema to parse
+        # and no way to register an endpoint. Hourly because these are vanity
+        # metrics on a slow clock — the networks refresh every few hours, so a
+        # tighter loop would spend rate limit re-reading the same numbers.
+        "name": "Post Analytics Sync",
+        "description": "Hourly — pull per-post, per-platform metrics from Zernio into post_analytics so the founders Performance tab has real numbers.",
+        "schedule": "17 * * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/sync_post_analytics.py", "args": [], "timeout": 600},
+        "is_active": True,
+    },
+    {
+        # Added 2026-08-21 — the V8.6 carousel pivot. Until now, the job that
+        # decides WHAT posts and HOW OFTEN was a Windows Task Scheduler task on
+        # CC's box (MavenSchedulePosts) and appeared in NO cron table. That is
+        # why the Automations tab could not tell CC the feed had been posting
+        # 3x/day since 08-02 while he believed it was 1x. Registering it here is
+        # what makes the tab honest about the feed.
+        #
+        # DAILY ON PURPOSE — do NOT "correct" this to "0 8 */2 * *". The run
+        # happens every day; the every-2-days CADENCE is derived from the posted
+        # ledger by _is_posting_day() in CMO-Agent/scripts/schedule_posts.py.
+        # Encoding the cadence in the trigger as well would give one rule two
+        # definitions, and they drift the first time a run is missed.
+        #
+        # FIRST CROSS-REPO SEED_JOB. scheduler.py's run_script_action() does
+        # PROJECT_ROOT / script, which pathlib resolves to an absolute path
+        # unchanged, then forces cwd to Bravo's root and IGNORES any "cwd" key.
+        # That is safe *for this script specifically*: run_posting_cron.py
+        # absolutizes every step path against its own ROOT and passes cwd=ROOT
+        # to each subprocess, so it never reads the inherited cwd. Do not copy
+        # this pattern for a cwd-dependent script — add a Bravo-side wrapper
+        # instead, like the four Maven jobs above.
+        #
+        # 3600s is the scheduler's ceiling (SCRIPT_RUN_MAX_TIMEOUT) and it is
+        # needed: a --dry-run measured 197s while SKIPPING the authoring and
+        # render steps, so a real run has no chance under the 300s default —
+        # it would be killed mid-render, which is exactly the state that
+        # strands a half-written deck.
+        "name": "Maven — Carousel Post",
+        "description": (
+            "Daily 08:00 — authors carousel specs, renders and queues them, then books ONE "
+            "post every SECOND day at 17:00 UTC to Instagram, LinkedIn and Threads. The "
+            "cadence decides whether a given day books, not this schedule. Also delivers "
+            "finished renders to CC's Telegram and mirrors pieces into the founders Library."
+        ),
+        "schedule": "0 8 * * *",
+        "action_type": "script_run",
+        "action_config": {
+            "script": str(SIBLING_REPOS["maven"] / "scripts" / "run_posting_cron.py"),  # path-drift-ok: CMO-Agent sibling path
+            "args": [],
+            "timeout": 3600,
+        },
         "is_active": True,
     },
 ]
@@ -639,7 +1068,7 @@ def cmd_add(client, args, output_json: bool) -> None:
     print(f"  Schedule:    {job.get('schedule')}")
     print(f"  Type:        {job.get('action_type')}")
     print(f"  Next run:    {fmt_date(job.get('next_run_at'))}")
-    print(f"  Active:      yes")
+    print("  Active:      yes")
 
 
 def cmd_toggle(client, args, output_json: bool) -> None:
@@ -704,6 +1133,31 @@ def cmd_run(client, args, output_json: bool) -> None:
     print(f"  Result:     {updates['last_result']}")
 
 
+def _machine_name() -> str:
+    import os
+    import socket
+    return os.environ.get("COORD_MACHINE") or socket.gethostname()
+
+
+def filter_by_machine(jobs: list) -> tuple[list, list]:
+    """Split jobs into (mine, someone-elses) by `owner_machine`.
+
+    `cron_jobs` is a SHARED Turso registry. Once APEX's machine polls it too,
+    an unfiltered `due` means BOTH engines fire the same job — two digests, or
+    worse, two sends. Double-sending is not recoverable by retry logic, so the
+    filter lives here, at the one place that decides what runs.
+
+    owner_machine IS NULL means unpinned: any engine may run it. That keeps
+    every pre-existing row behaving exactly as before.
+    """
+    me = _machine_name()
+    mine, theirs = [], []
+    for j in jobs:
+        owner = (j.get("owner_machine") or "").strip()
+        (mine if not owner or owner == me else theirs).append(j)
+    return mine, theirs
+
+
 def cmd_due(client, args, output_json: bool) -> None:
     """Show active jobs whose next_run_at is now or overdue."""
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -717,7 +1171,27 @@ def cmd_due(client, args, output_json: bool) -> None:
         .order("next_run_at", desc=False)
         .execute()
     )
-    jobs = result.data or []
+    jobs, other_machine = filter_by_machine(result.data or [])
+    if other_machine:
+        # Say it out loud on BOTH output paths. A silently-skipped job looks
+        # identical to a job that was never due. The JSON path is the one
+        # automation reads, so hiding it there is where a job pinned to a stale
+        # or offline hostname disappears from the fleet entirely — nobody is
+        # running it and nothing reports that (Codex adversarial review,
+        # 2026-08-27). JSON consumers get the skipped set explicitly.
+        if output_json:
+            print(json.dumps({
+                "machine": _machine_name(),
+                "due": jobs,
+                "skipped_other_machine": [
+                    {"name": j.get("name"), "owner_machine": j.get("owner_machine"),
+                     "next_run_at": j.get("next_run_at")} for j in other_machine],
+            }, indent=2, default=str))
+            return
+        print(f"[cron] skipping {len(other_machine)} job(s) pinned to another machine "
+              f"(this machine is {_machine_name()}): "
+              + ", ".join(f"{j.get('name','?')}->{j.get('owner_machine')}"
+                          for j in other_machine[:5]))
 
     if output_json:
         print(json.dumps(jobs, indent=2, default=str))
@@ -744,22 +1218,59 @@ def cmd_due(client, args, output_json: bool) -> None:
 CC_EMPIRE_TENANT_ID = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
 
 
+def _normalize_dash(s: str) -> str:
+    """Fold em/en/minus dashes to ASCII '-' and squash whitespace.
+
+    Keep in lockstep with harness_eval._normalize_dash — that copy is what
+    decides whether the nightly eval recognises its OWN cron row.
+    """
+    if not s:
+        return ""
+    for dash in ("—", "–", "‒", "−", "‐", "‑", "­"):
+        s = s.replace(dash, "-")
+    return " ".join(s.split())
+
+
 def cmd_seed(client, args, output_json: bool) -> None:
-    """Seed the initial set of business automation cron jobs (skips existing by name).
+    """Seed registered automation jobs (skips existing by normalized name).
 
     Migration 084 made cron_jobs.tenant_id NOT NULL. Every seed row written
     here is empire-scoped to CC's tenant by construction — SunBiz / Atlas
-    / other-tenant crons live in tenant_cron_jobs."""
+    / other-tenant crons live in tenant_cron_jobs. ``--only`` is the safe path
+    for adding one newly approved production schedule without inserting other
+    definitions that happen to be absent on that machine.
+    """
     existing_result = client.table("cron_jobs").select("name").execute()
-    existing_names: set[str] = {r["name"] for r in (existing_result.data or [])}
+    # Dash-normalized so a row registered as "Bravo - X" is recognised as the
+    # same job as SEED_JOBS' "Bravo — X". Exact matching here would not error —
+    # it would INSERT A DUPLICATE cron, and the fleet would then run that job
+    # twice a night with two rows to keep green. Mirrors
+    # harness_eval._normalize_dash (kept as a local 5-liner rather than an
+    # import: cron_engine is loaded by the always-on scheduler and should not
+    # pull in the eval to compare two strings).
+    existing_names: set[str] = {
+        _normalize_dash(r["name"]) for r in (existing_result.data or [])
+    }
+
+    only = getattr(args, "only", None)
+    definitions = SEED_JOBS
+    if only:
+        wanted = _normalize_dash(only).casefold()
+        definitions = [
+            definition for definition in SEED_JOBS
+            if _normalize_dash(definition["name"]).casefold() == wanted
+        ]
+        if not definitions:
+            print(f"ERROR: no SEED_JOBS definition named {only!r}", file=sys.stderr)
+            raise SystemExit(2)
 
     inserted: list[dict] = []
     skipped: list[str] = []
 
     now = datetime.now(timezone.utc).isoformat()
 
-    for definition in SEED_JOBS:
-        if definition["name"] in existing_names:
+    for definition in definitions:
+        if _normalize_dash(definition["name"]) in existing_names:
             skipped.append(definition["name"])
             continue
 
@@ -770,6 +1281,16 @@ def cmd_seed(client, args, output_json: bool) -> None:
             "run_count": 0,
             "created_at": now,
         }
+        # Seed definitions may carry METADATA keys that are not cron_jobs
+        # columns — `daemon_backed` (read by cron_health_check to watch the
+        # PM2 process behind a deliberately-disarmed row) was the first. The
+        # `**definition` spread would hand them to INSERT as columns and a
+        # FRESH seed would die with "no such column" — latent today only
+        # because every current row already exists and is skipped by name.
+        # Strip metadata here, at the single point where seeds become rows,
+        # so the next metadata key someone adds cannot re-create the trap.
+        for meta_key in SEED_METADATA_KEYS:
+            payload.pop(meta_key, None)
         if next_run:
             payload["next_run_at"] = next_run
 
@@ -797,12 +1318,106 @@ def cmd_seed(client, args, output_json: bool) -> None:
             print(f"  - {name}")
 
 
+def _seed_by_normalized_name() -> dict:
+    return {_normalize_dash(d["name"]).casefold(): d for d in SEED_JOBS}
+
+
+# Fields where a live row disagreeing with its SEED_JOBS definition changes what
+# actually runs. `description` is deliberately excluded — prose drift is noise.
+DRIFT_FIELDS = ("schedule", "action_type", "action_config")
+
+
+def _drift_rows(client, only=None) -> list:
+    """Live rows whose behaviour-bearing fields disagree with SEED_JOBS.
+
+    WHY THIS EXISTS: `seed` skips any job whose name already exists, and there
+    was no update path at all. So SEED_JOBS was the definition of record for
+    NEW machines and pure documentation for this one — the two could disagree
+    forever with nothing to notice.
+
+    Found live on 2026-08-28: SEED_JOBS had given "Bravo — Review Harvest" the
+    `--seed-open` argument that gives the whole review loop a trigger, with a
+    long comment explaining why. The live row was still running the old args.
+    The feature was committed, documented, believed shipped, and never once
+    executed. Same shape as a guard that is written but not registered in a hook
+    chain: present in the source, absent from the running system.
+    """
+    by_name = _seed_by_normalized_name()
+    if only:
+        wanted = _normalize_dash(only).casefold()
+        by_name = {k: v for k, v in by_name.items() if k == wanted}
+        if not by_name:
+            print(f"ERROR: no SEED_JOBS definition named {only!r}", file=sys.stderr)
+            raise SystemExit(2)
+
+    live = client.table("cron_jobs").select("*").execute().data or []
+    out = []
+    for row in live:
+        definition = by_name.get(_normalize_dash(row.get("name", "")).casefold())
+        if not definition:
+            continue
+        diffs = {}
+        for field in DRIFT_FIELDS:
+            want, got = definition.get(field), row.get(field)
+            if field == "action_config":
+                # Stored as TEXT by some writers and dict by others; compare
+                # meaning, not encoding, or every row reads as drifted.
+                want = json.loads(want) if isinstance(want, str) else want
+                try:
+                    got = json.loads(got) if isinstance(got, str) else got
+                except (TypeError, ValueError):
+                    pass
+            if want is not None and want != got:
+                diffs[field] = {"seed": want, "live": got}
+        if diffs:
+            out.append({"id": row.get("id"), "name": row.get("name"),
+                        "is_active": row.get("is_active"), "diffs": diffs})
+    return out
+
+
+def cmd_drift(client, args, output_json: bool) -> None:
+    """Report SEED_JOBS vs the live registry. Exits 1 when they disagree.
+
+    Reports by default and mutates only with --fix, because rewriting a live
+    production schedule is exactly the change CLAUDE.md says CC reviews first.
+    """
+    rows = _drift_rows(client, getattr(args, "only", None))
+
+    if getattr(args, "fix", False) and rows:
+        for row in rows:
+            patch = {f: d["seed"] for f, d in row["diffs"].items()}
+            if "action_config" in patch and not isinstance(patch["action_config"], str):
+                patch["action_config"] = json.dumps(patch["action_config"])
+            client.table("cron_jobs").update(patch).eq("id", row["id"]).execute()
+            row["fixed"] = True
+
+    if output_json:
+        print(json.dumps({"drifted": rows}, indent=2, default=str))
+    elif not rows:
+        print("No drift: every live cron matches its SEED_JOBS definition.")
+    else:
+        verb = "Realigned" if getattr(args, "fix", False) else "DRIFTED"
+        print(f"{verb} {len(rows)} cron job(s):\n")
+        for row in rows:
+            print(f"  {row['name']}  (active={row['is_active']})")
+            for field, d in row["diffs"].items():
+                print(f"    {field}:")
+                print(f"      seed: {d['seed']}")
+                print(f"      live: {d['live']}")
+            print()
+        if not getattr(args, "fix", False):
+            print('Re-align with:  cron_engine.py drift --fix --only "<name>"')
+
+    if rows and not getattr(args, "fix", False):
+        raise SystemExit(1)
+
+
 # -- Argument parser -----------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cron_engine.py",
-        description="Cron Engine - Business Automation Job Manager (Supabase-backed)",
+        description="Cron Engine - Business Automation Job Manager (Turso-backed)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -814,6 +1429,7 @@ Examples:
   %(prog)s run <job_id> --result "error: timeout"
   %(prog)s due
   %(prog)s seed
+  %(prog)s seed --only "Weekly Full-Truth Health Digest"
   %(prog)s --json list
   %(prog)s --json due
         """,
@@ -858,7 +1474,18 @@ Examples:
     subparsers.add_parser("due", help="Show active jobs that are due or overdue right now")
 
     # -- seed ------------------------------------------------------------------
-    subparsers.add_parser("seed", help="Seed the initial 12 business automation cron jobs")
+    p_seed = subparsers.add_parser("seed", help="Seed registered business automation jobs")
+    p_seed.add_argument(
+        "--only",
+        help="Seed exactly one definition by name (recommended for production changes)",
+    )
+
+    p_drift = subparsers.add_parser(
+        "drift", help="Report live crons that disagree with their SEED_JOBS definition")
+    p_drift.add_argument("--only", help="Check exactly one definition by name")
+    p_drift.add_argument("--fix", action="store_true",
+                         help="Rewrite the live row to match SEED_JOBS "
+                              "(a production-schedule mutation — CC reviews first)")
 
     return parser
 
@@ -885,12 +1512,16 @@ def main() -> None:
         "run":    cmd_run,
         "due":    cmd_due,
         "seed":   cmd_seed,
+        "drift":  cmd_drift,
     }
 
     handler = dispatch.get(args.command)
     if handler:
         try:
             handler(client, args, output_json)
+        except SystemExit:
+            raise            # `drift` exits 1 to signal disagreement; that is a
+                             # verdict, not an error to be reported as one
         except Exception as e:
             if output_json:
                 print(json.dumps({"error": str(e)}, indent=2))

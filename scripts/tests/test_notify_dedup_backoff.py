@@ -84,6 +84,62 @@ def test_same_text_different_category_is_independent(nf, monkeypatch):
     assert nf._dedup_should_send("lead", "same text") is True
 
 
+# ── lane isolation: dedup answers "has THIS audience seen it?" ───────────────
+# Codex [P2], 2026-08-02. `notify.py "msg"` then `notify.py --group "msg"`
+# suppressed the broadcast the operator explicitly asked for, because the two
+# lanes shared one dedup identity. Same shape as the shared-credential lane bug:
+# one identity serving two audiences.
+
+def test_group_broadcast_is_not_suppressed_by_a_prior_private_send(nf, monkeypatch):
+    """The reported bug, reproduced. The group has NOT seen the private message."""
+    msg = "Sprint 1 shipped — portal is live"
+    at(nf, monkeypatch, 0.0)
+    assert nf._dedup_should_send("system", msg, lane="private") is True
+    at(nf, monkeypatch, 60.0)                       # well inside the 1h window
+    assert nf._dedup_should_send("system", msg, lane="group") is True, \
+        "group broadcast suppressed by a prior private send"
+
+
+def test_each_lane_still_dedups_within_itself(nf, monkeypatch):
+    """Lane scoping must not become a dedup bypass — repeats inside one lane
+    are still collapsed, or the storm defence is gone."""
+    msg = "same sentence"
+    at(nf, monkeypatch, 0.0)
+    assert nf._dedup_should_send("system", msg, lane="group") is True
+    at(nf, monkeypatch, 60.0)
+    assert nf._dedup_should_send("system", msg, lane="group") is False
+    at(nf, monkeypatch, 120.0)
+    assert nf._dedup_should_send("system", msg, lane="private") is True   # first here
+    at(nf, monkeypatch, 180.0)
+    assert nf._dedup_should_send("system", msg, lane="private") is False
+
+
+def test_private_lane_keeps_the_legacy_key_shape(nf, monkeypatch):
+    """The default lane must hash exactly as it did before this change, so an
+    in-flight backoff ladder is not reset (a stuck alert must not get a free
+    re-fire just because the identity moved)."""
+    import hashlib
+    msg = "legacy identity"
+    at(nf, monkeypatch, 0.0)
+    assert nf._dedup_should_send("system", msg) is True
+    legacy = hashlib.sha256(f"system\x00{msg}".encode("utf-8")).hexdigest()[:32]
+    import json
+    seen = json.loads(nf._DEDUP_PATH.read_text(encoding="utf-8"))
+    assert legacy in seen, f"private key shape changed; cache holds {list(seen)}"
+
+
+def test_notify_passes_the_lane_through(nf, monkeypatch):
+    """Wiring guard: the bug was that notify() never told dedup which lane it
+    was routing to. Assert the argument actually arrives."""
+    seen = []
+    monkeypatch.setattr(nf, "_dedup_should_send",
+                        lambda *a, **kw: seen.append(kw.get("lane")) or False)
+    monkeypatch.setattr(nf, "_notify_disabled", lambda: False)
+    nf.notify("x", category="system", force=True, group=True)
+    nf.notify("x", category="system", force=True)
+    assert seen == ["group", "private"], seen
+
+
 # ── dedup_key: the other half of how a storm happens ─────────────────────────
 
 def test_varying_detail_defeats_dedup_without_a_key(nf, monkeypatch):
@@ -205,6 +261,99 @@ def test_notify_error_dedups_on_the_engine_not_the_message(nf, monkeypatch):
     nf.notify_error("Inbound Email Sweep", "FAILED: 3 of 7")
     nf.notify_error("Inbound Email Sweep", "FAILED: 4 of 9")
     assert seen_keys == ["engine_error:Inbound Email Sweep"] * 2
+
+
+# ── suppressed is not the same as delivered ──────────────────────────────────
+# Codex [P2], 2026-08-03. _dedup_should_send writes its record BEFORE the send,
+# because it has to decide first. So a window can exist for a message that never
+# landed. Health monitors read "suppressed" as "CC already knows" — which would
+# buy silence for the whole backoff window during the exact alerting outage they
+# exist to surface.
+
+def test_a_window_opened_by_a_failed_send_does_not_count_as_delivered(nf, monkeypatch):
+    at(nf, monkeypatch, 0.0)
+    assert nf._dedup_should_send("system", "boom", dedup_key="k") is True   # window opens
+    # …send fails, so nothing marks it delivered.
+    assert nf._dedup_was_delivered("system", "boom", dedup_key="k") is False
+
+
+def test_a_landed_send_marks_the_window_delivered(nf, monkeypatch):
+    at(nf, monkeypatch, 0.0)
+    nf._dedup_should_send("system", "boom", dedup_key="k")
+    nf._dedup_mark_delivered("system", "boom", dedup_key="k")
+    assert nf._dedup_was_delivered("system", "boom", dedup_key="k") is True
+
+
+def test_delivery_state_is_per_lane(nf, monkeypatch):
+    at(nf, monkeypatch, 0.0)
+    nf._dedup_should_send("system", "m", dedup_key="k", lane="private")
+    nf._dedup_mark_delivered("system", "m", dedup_key="k", lane="private")
+    nf._dedup_should_send("system", "m", dedup_key="k", lane="group")
+    assert nf._dedup_was_delivered("system", "m", dedup_key="k", lane="private") is True
+    assert nf._dedup_was_delivered("system", "m", dedup_key="k", lane="group") is False
+
+
+def test_legacy_records_without_the_flag_read_as_delivered(nf, monkeypatch, tmp_path):
+    """Windows opened by the pre-fix build have no `d` key. Assuming failure
+    would re-page CC for every one of them on the next tick."""
+    import json
+    key = nf._dedup_identity("system", "old", None, "private")
+    (tmp_path / "dedup.json").write_text(json.dumps({key: {"last": 100.0, "n": 1}}),
+                                         encoding="utf-8")
+    assert nf._dedup_was_delivered("system", "old") is True
+
+
+def test_an_unknown_condition_is_not_delivered(nf):
+    assert nf._dedup_was_delivered("system", "never seen") is False
+
+
+def test_the_self_test_ping_says_it_is_a_self_test(nf):
+    """CC got "System / Routing check (private lane) — <timestamp>" twice in an
+    afternoon and had no way to tell it from a real alert. It was an agent
+    verifying its own plumbing. Assert the text explains itself — and assert it
+    HERE rather than by firing a live Telegram, which is how the first version
+    of this shipped unverified."""
+    msg = nf.self_test_message(group=False)
+    assert "SELF-TEST" in msg
+    assert "ignore" in msg.lower()
+    assert "never by an automation" in msg
+    assert "private" in msg
+
+    grp = nf.self_test_message(group=True)
+    assert "group broadcast" in grp
+
+    # Unique per run, or dedup swallows the check the operator just asked for.
+    assert nf.self_test_message() != "" and any(c.isdigit() for c in msg)
+
+
+def test_the_self_test_ping_survives_a_cp1252_console(nf):
+    """It carries an emoji and goes out over UTF-8 to Telegram, but the CLI also
+    prints around it on a cp1252 Windows console. Encodable-to-UTF-8 is the real
+    contract; assert it explicitly so a future edit can't wedge in a character
+    the transport chokes on."""
+    nf.self_test_message().encode("utf-8")
+
+
+def test_notify_result_names_the_reason(nf, monkeypatch):
+    """The public API the monitors use. A bare bool cannot express the
+    difference that caused the 2026-08-03 loop, so the reason is the contract."""
+    monkeypatch.setattr(nf, "notify", lambda *a, **kw: True)
+    assert nf.notify_result("x") == (True, "sent")
+
+    monkeypatch.setattr(nf, "notify", lambda *a, **kw: False)
+    monkeypatch.setattr(nf, "LAST_SUPPRESSED", True)
+    assert nf.notify_result("x") == (False, "suppressed")
+
+    monkeypatch.setattr(nf, "LAST_SUPPRESSED", False)
+    assert nf.notify_result("x") == (False, "failed")
+
+
+def test_delivered_reasons_excludes_failure(nf):
+    """Guard the contract: if 'failed' ever joined this tuple, every monitor
+    would silently stop reporting alerting outages."""
+    assert "sent" in nf.DELIVERED_REASONS
+    assert "suppressed" in nf.DELIVERED_REASONS
+    assert "failed" not in nf.DELIVERED_REASONS
 
 
 def test_tests_never_touch_the_real_dedup_cache(nf):

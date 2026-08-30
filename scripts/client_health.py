@@ -1,12 +1,6 @@
-"""Client health — provides load env."""
+"""Client Health Scoring Engine — CEO Dashboard Component.
 
-from __future__ import annotations
-
-import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-"""
-Client Health Scoring Engine — CEO Dashboard Component
-Reads client data from the Supabase 'leads' table (project: bravo) and
+Reads client data from the Turso-backed ``leads`` table and
 computes weighted health scores using the algorithm defined in
 skills/client-success/SKILL.md.
 
@@ -20,11 +14,19 @@ Usage:
     python scripts/client_health.py --json <command>    # JSON output for agent consumption
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -79,16 +81,15 @@ def load_env() -> dict[str, str]:
 
 
 def get_client(env_vars: dict[str, str]):
-    """Return a Supabase client for the bravo project."""
+    """Return the Turso-backed SDK compatibility client for Bravo."""
     try:
         from supabase import create_client
     except ImportError:
         print("ERROR: 'supabase' package not installed. Run: pip install supabase", file=sys.stderr)
         sys.exit(1)
 
-    url = env_vars.get("BRAVO_SUPABASE_URL")
-    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-
+    url = env_vars.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key"
     if not url or not key:
         print("ERROR: Missing BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY in .env.agents", file=sys.stderr)
         sys.exit(1)
@@ -283,10 +284,11 @@ def calculate_health_score(lead: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def fetch_clients(db_client) -> list[dict]:
-    """
-    Pull all active clients from the Supabase leads table.
-    Falls back to a mock dataset when the table is empty or unavailable,
-    so the tool is useful even before the CRM is fully populated.
+    """Pull all active clients from the live Turso-backed leads table.
+
+    Empty is valid data. A query failure is not: fail closed so dashboards and
+    briefs render an explicit unavailable diagnostic instead of plausible demo
+    clients that look like business truth.
     """
     try:
         result = db_client.table("leads").select("*").eq("status", "client").execute()
@@ -297,62 +299,10 @@ def fetch_clients(db_client) -> list[dict]:
         # Client RED, your biggest account!" in CC's daily brief on 2026-05-18
         # when his real paying customers are tracked via revenue_events, not
         # leads-with-status-client. The fix here is structural — don't fake
-        # data; the seed-data path below stays available only for hard query
-        # failures (exception path), not empty results.
+        # data.
         return result.data or []
     except Exception as exc:
-        print(f"  NOTE: Supabase query failed ({exc}). Using demo data.", file=sys.stderr)
-
-    # Demo data — reflects real client structure without real credentials
-    today = datetime.now(timezone.utc).isoformat()
-    thirty_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-    five_ago   = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
-    twenty_ago = (datetime.now(timezone.utc) - timedelta(days=20)).isoformat()
-
-    return [
-        {
-            "id": "demo-001",
-            "name": "Demo Community Client",
-            "company": "Demo Community",
-            "status": "client",
-            "monthly_value": 2500,
-            "payment_days_late": 0,
-            "consecutive_late_payments": 0,
-            "monthly_touchpoints": 4,
-            "last_contact_date": five_ago,
-            "deliverables_delayed": 0,
-            "revenue_trajectory": "growing",
-            "cancellation_discussion": False,
-            "gave_referral": True,
-            "mentions_pause": False,
-            "avg_response_hours": 12,
-            "active_scope_dispute": False,
-            "nps_score": 10,
-            "lifecycle_stage": "growth",
-            "updated_at": today,
-        },
-        {
-            "id": "demo-002",
-            "name": "Sample HVAC Client (Demo)",
-            "company": "Sample HVAC Co.",
-            "status": "client",
-            "monthly_value": 191,
-            "payment_days_late": 9,
-            "consecutive_late_payments": 1,
-            "monthly_touchpoints": 1,
-            "last_contact_date": twenty_ago,
-            "deliverables_delayed": 1,
-            "revenue_trajectory": "stable",
-            "cancellation_discussion": False,
-            "gave_referral": False,
-            "mentions_pause": False,
-            "avg_response_hours": 48,
-            "active_scope_dispute": False,
-            "nps_score": 7,
-            "lifecycle_stage": "steady_state",
-            "updated_at": thirty_ago,
-        },
-    ]
+        raise RuntimeError(f"Turso client data query failed: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------

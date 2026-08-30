@@ -1,0 +1,104 @@
+{
+  "secrets": [
+    {
+      "key": "API_KEY_PEPPER",
+      "source": "OPT_IN_VAULT__API_KEY_PEPPER",
+      "scope": "runtime"
+    },
+    {
+      "key": "API_KEY_PEPPER_VERSION",
+      "source": "OPT_IN_VAULT__API_KEY_PEPPER_VERSION",
+      "scope": "runtime"
+    },
+    {
+      "key": "CAPTURE_SITE_KEY_PEPPER",
+      "source": "OPT_IN_VAULT__CAPTURE_SITE_KEY_PEPPER",
+      "scope": "runtime"
+    },
+    {
+      "key": "CERTIFICATE_SHARE_TOKEN_PEPPER",
+      "source": "OPT_IN_VAULT__CERTIFICATE_SHARE_TOKEN_PEPPER",
+      "scope": "runtime"
+    },
+    {
+      "key": "CONSENT_ENCRYPTION_KEY",
+      "source": "OPT_IN_VAULT__CONSENT_ENCRYPTION_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "CONSENT_PAYLOAD_KEY_VERSION",
+      "source": "OPT_IN_VAULT__CONSENT_PAYLOAD_KEY_VERSION",
+      "scope": "runtime"
+    },
+    {
+      "key": "CONSENT_RETENTION_DAYS",
+      "source": "OPT_IN_VAULT__CONSENT_RETENTION_DAYS",
+      "scope": "runtime"
+    },
+    {
+      "key": "CONSENT_SIGNATURE_KEY",
+      "source": "OPT_IN_VAULT__CONSENT_SIGNATURE_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "CONSENT_SIGNATURE_KEY_VERSION",
+      "source": "OPT_IN_VAULT__CONSENT_SIGNATURE_KEY_VERSION",
+      "scope": "runtime"
+    },
+    {
+      "key": "CONSENT_SUBJECT_HASH_KEY",
+      "source": "OPT_IN_VAULT__CONSENT_SUBJECT_HASH_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "CONSENT_TRUSTED_EDGE_PROVIDER",
+      "source": "OPT_IN_VAULT__CONSENT_TRUSTED_EDGE_PROVIDER",
+      "scope": "runtime"
+    },
+    {
+      "key": "CRON_SECRET",
+      "source": "OPT_IN_VAULT__CRON_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "DISPATCH_LEASE_PEPPER",
+      "source": "OPT_IN_VAULT__DISPATCH_LEASE_PEPPER",
+      "scope": "runtime"
+    },
+    {
+      "key": "LIVE_SENDS_ENABLED",
+      "source": "OPT_IN_VAULT__LIVE_SENDS_ENABLED",
+      "scope": "runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_APP_URL",
+      "source": "OPT_IN_VAULT__NEXT_PUBLIC_APP_URL",
+      "scope": "both"
+    },
+    {
+      "key": "SESSION_SECRET",
+      "source": "OPT_IN_VAULT__SESSION_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "SUPPRESSION_HASH_KEY",
+      "source": "OPT_IN_VAULT__SUPPRESSION_HASH_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_AUTH_TOKEN",
+      "source": "OPT_IN_VAULT__TURSO_AUTH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_DATABASE_URL",
+      "source": "OPT_IN_VAULT__TURSO_DATABASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "UNSUBSCRIBE_TOKEN_SECRET",
+      "source": "OPT_IN_VAULT__UNSUBSCRIBE_TOKEN_SECRET",
+      "scope": "runtime"
+    }
+  ]
+}

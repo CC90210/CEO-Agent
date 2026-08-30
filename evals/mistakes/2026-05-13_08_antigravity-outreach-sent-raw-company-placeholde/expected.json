@@ -1,1 +1,1 @@
-{"scorer": "rubric", "field": "verdict", "expected": "prevention-honored", "note": "wire to a deterministic check that would have caught this mistake; until then = needs-model"}
+{"scorer": "exact", "field": "verdict", "expected": "prevention-honored", "note": "WIRED 2026-08-28. The fix made render_template strict by default; these tests assert the BEHAVIOUR (missing and blank variables both raise, strict is the default, valid input still renders) rather than the presence of the exception class."}

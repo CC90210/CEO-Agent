@@ -1,0 +1,49 @@
+{
+  "secrets": [
+    {
+      "key": "N8N_API_KEY",
+      "source": "OASIS_AI_PLATFORM__N8N_API_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_APP_URL",
+      "source": "OASIS_AI_PLATFORM__NEXT_PUBLIC_APP_URL",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "source": "OASIS_AI_PLATFORM__NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "source": "OASIS_AI_PLATFORM__NEXT_PUBLIC_SUPABASE_URL",
+      "scope": "both"
+    },
+    {
+      "key": "STRIPE_SECRET_KEY",
+      "source": "OASIS_AI_PLATFORM__STRIPE_SECRET_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "STRIPE_WEBHOOK_SECRET",
+      "source": "OASIS_AI_PLATFORM__STRIPE_WEBHOOK_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "SUPABASE_ANON_KEY",
+      "source": "OASIS_AI_PLATFORM__SUPABASE_ANON_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "source": "OASIS_AI_PLATFORM__SUPABASE_SERVICE_ROLE_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "VITE_SUPABASE_URL",
+      "source": "OASIS_AI_PLATFORM__VITE_SUPABASE_URL",
+      "scope": "build"
+    }
+  ]
+}

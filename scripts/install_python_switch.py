@@ -134,46 +134,79 @@ def main() -> int:
              and pth.read_text(encoding="utf-8").strip() == pth_line.strip())
     if fresh:
         print("status      : up to date")
-        return 0
-    if target.exists():
-        print(f"status      : STALE (installed {_sha(target)[:12]}, "
-              f"source {want[:12]})")
+        ok = True
     else:
-        print("status      : NOT INSTALLED — this interpreter has no switch, so "
-              "EMPIRE_DATA_BACKEND=turso_cloud would be silently ignored")
-
-    if args.check:
-        return 1
-
-    # A previous install wrote site-packages/sitecustomize.py. On Debian that
-    # file was never imported; on Windows it was. Retire ours so the .pth is the
-    # single mechanism everywhere — two live copies is how they drift.
-    legacy = sp / "sitecustomize.py"
-    if legacy.exists():
-        head = legacy.read_text(encoding="utf-8", errors="replace")[:400]
-        if "Empire data-backend switch" in head:
-            legacy.rename(legacy.with_suffix(".py.superseded"))
-            print("note        : retired our old sitecustomize.py "
-                  "(superseded by the .pth)")
+        if target.exists():
+            print(f"status      : STALE (installed {_sha(target)[:12]}, "
+                  f"source {want[:12]})")
         else:
-            print("note        : left a foreign sitecustomize.py in place")
+            print("status      : NOT INSTALLED — this interpreter has no switch, "
+                  "so the Turso startup policy would be silently ignored")
 
-    shutil.copy2(SOURCE, target)
-    pth.write_text(pth_line, encoding="utf-8")
-    installed = _sha(target)
-    ok = installed == want
-    print(f"installed   : {'OK' if ok else 'MISMATCH'} ({installed[:12]}) "
-          f"as {target.name} + {pth.name}")
+        if args.check:
+            return 1
+
+        # A previous install wrote site-packages/sitecustomize.py. On Debian
+        # that file was never imported; on Windows it was. Retire ours so the
+        # .pth is the single mechanism everywhere — two live copies is how
+        # they drift.
+        legacy = sp / "sitecustomize.py"
+        if legacy.exists():
+            head = legacy.read_text(encoding="utf-8", errors="replace")[:400]
+            if "Empire data-backend switch" in head:
+                legacy.rename(legacy.with_suffix(".py.superseded"))
+                print("note        : retired our old sitecustomize.py "
+                      "(superseded by the .pth)")
+            else:
+                print("note        : left a foreign sitecustomize.py in place")
+
+        shutil.copy2(SOURCE, target)
+        pth.write_text(pth_line, encoding="utf-8")
+        installed = _sha(target)
+        ok = installed == want
+        print(f"installed   : {'OK' if ok else 'MISMATCH'} ({installed[:12]}) "
+              f"as {target.name} + {pth.name}")
 
     # Proving the file landed is not the same as proving the swap works: a
     # sitecustomize can be present and still be stale, shadowed, or unable to
     # import what it needs.
-    status = turso_switch.probe()
-    print(f"live check  : create_client -> {status.module or '(no output)'} "
-          f"{'OK' if status.active else 'FAILED'}")
-    if not status.active and status.error:
-        print(f"              {status.error[:160]}")
-    return 0 if (ok and status.active) else 1
+    default_status = turso_switch.probe(backend=None)
+    print(f"default     : create_client -> "
+          f"{default_status.module or '(no output)'} "
+          f"{'OK' if default_status.active else 'FAILED'}")
+    if not default_status.active and default_status.error:
+        print(f"              {default_status.error[:160]}")
+
+    explicit_status = turso_switch.probe()
+    print(f"explicit    : create_client -> "
+          f"{explicit_status.module or '(no output)'} "
+          f"{'OK' if explicit_status.active else 'FAILED'}")
+    if not explicit_status.active and explicit_status.error:
+        print(f"              {explicit_status.error[:160]}")
+
+    rollback_status = turso_switch.probe(
+        backend=turso_switch.LEGACY_SUPABASE_ROLLBACK_BACKEND)
+    rollback_ok = (
+        rollback_status.returncode == 0
+        and not rollback_status.active
+        and rollback_status.module.startswith("supabase")
+    )
+    print(f"rollback    : create_client -> "
+          f"{rollback_status.module or '(no output)'} "
+          f"{'OK' if rollback_ok else 'FAILED'}")
+    if not rollback_ok and rollback_status.error:
+        print(f"              {rollback_status.error[:160]}")
+
+    rejected_status = turso_switch.probe(backend="supabase")
+    rejected_ok = rejected_status.returncode != 0
+    print(f"old mode    : EMPIRE_DATA_BACKEND=supabase "
+          f"{'REJECTED (OK)' if rejected_ok else 'WAS ACCEPTED (FAILED)'}")
+    if not rejected_ok and rejected_status.error:
+        print(f"              {rejected_status.error[:160]}")
+
+    live_ok = (default_status.active and explicit_status.active
+               and rollback_ok and rejected_ok)
+    return 0 if (ok and live_ok) else 1
 
 
 if __name__ == "__main__":

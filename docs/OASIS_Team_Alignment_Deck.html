@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OASIS AI — Team Alignment & Master Vision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --oasis-teal: #00D4AA;
+    --oasis-dark: #070B14;
+    --oasis-navy: #0F172A;
+    --oasis-accent: #06B6D4;
+    --oasis-cyan: #38BDF8;
+    --oasis-gold: #F59E0B;
+    --oasis-purple: #8B5CF6;
+    --oasis-red: #EF4444;
+    --oasis-white: #F8FAFC;
+    --oasis-muted: #94A3B8;
+    --oasis-gradient-1: linear-gradient(135deg, #00D4AA 0%, #06B6D4 50%, #3B82F6 100%);
+    --oasis-gradient-vision: linear-gradient(135deg, #38BDF8 0%, #8B5CF6 50%, #EC4899 100%);
+    --oasis-gradient-gold: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);
+    --glass: rgba(255, 255, 255, 0.035);
+    --glass-hover: rgba(255, 255, 255, 0.07);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glow-teal: 0 0 30px rgba(0, 212, 170, 0.25);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--oasis-dark);
+    color: var(--oasis-white);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── SLIDE DECK WRAPPER ─── */
+  .deck {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 5vh 7vw;
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+    transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: auto;
+    z-index: 10;
+  }
+
+  /* ─── AMBIENT BACKGROUND ─── */
+  .bg-mesh {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .bg-mesh::before,
+  .bg-mesh::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(140px);
+    opacity: 0.22;
+    animation: float 14s ease-in-out infinite alternate;
+  }
+
+  .bg-mesh::before {
+    width: 55vw; height: 55vw;
+    background: radial-gradient(circle, var(--oasis-teal), transparent 70%);
+    top: -15%; left: -10%;
+  }
+
+  .bg-mesh::after {
+    width: 50vw; height: 50vw;
+    background: radial-gradient(circle, var(--oasis-purple), transparent 70%);
+    bottom: -15%; right: -10%;
+    animation-delay: -7s;
+  }
+
+  @keyframes float {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(35px, -25px) scale(1.08); }
+  }
+
+  /* ─── TYPOGRAPHY & HEADINGS ─── */
+  .slide-tag {
+    font-family: 'Space Grotesk', monospace;
+    font-size: clamp(0.7rem, 1.1vw, 0.85rem);
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: var(--oasis-teal);
+    margin-bottom: 1.2rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .slide-tag::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--oasis-teal);
+    box-shadow: 0 0 10px var(--oasis-teal);
+  }
+
+  .slide-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(2.2rem, 4.8vw, 4rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    text-align: center;
+    margin-bottom: 1.2rem;
+  }
+
+  .slide-title .accent {
+    background: var(--oasis-gradient-1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide-title .accent-vision {
+    background: var(--oasis-gradient-vision);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide-title .accent-gold {
+    background: var(--oasis-gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide-subtitle {
+    font-size: clamp(0.95rem, 1.6vw, 1.25rem);
+    font-weight: 300;
+    color: var(--oasis-muted);
+    text-align: center;
+    max-width: 60ch;
+    line-height: 1.6;
+  }
+
+  /* ─── CARDS & GRID ─── */
+  .card-grid {
+    display: grid;
+    gap: 1.25rem;
+    margin-top: 1.8rem;
+    width: 100%;
+    max-width: 1180px;
+  }
+
+  .card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .card-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.8rem;
+    backdrop-filter: blur(20px);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: var(--oasis-teal);
+    background: var(--glass-hover);
+    box-shadow: var(--glow-teal);
+  }
+
+  .card-icon {
+    font-size: 2rem;
+    margin-bottom: 0.8rem;
+    display: block;
+  }
+
+  .card h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(1rem, 1.4vw, 1.25rem);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--oasis-white);
+  }
+
+  .card p {
+    font-size: clamp(0.8rem, 1.05vw, 0.92rem);
+    color: var(--oasis-muted);
+    line-height: 1.55;
+  }
+
+  /* ─── LOGO HEADER & EMBEDDED LOGO ─── */
+  .header-logo-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .header-logo-img {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    object-fit: cover;
+    border: 1px solid var(--oasis-teal);
+    box-shadow: 0 0 20px rgba(0, 212, 170, 0.4);
+  }
+
+  .header-logo-text {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: var(--oasis-white);
+  }
+
+  .hero-logo-img {
+    width: 140px;
+    height: 140px;
+    border-radius: 28px;
+    object-fit: cover;
+    border: 2px solid var(--oasis-teal);
+    box-shadow: 0 0 45px rgba(0, 212, 170, 0.5), 0 0 90px rgba(6, 182, 212, 0.2);
+    margin-bottom: 1.8rem;
+    animation: pulseGlow 4s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulseGlow {
+    0% { box-shadow: 0 0 30px rgba(0, 212, 170, 0.4); }
+    100% { box-shadow: 0 0 60px rgba(0, 212, 170, 0.8), 0 0 100px rgba(56, 189, 248, 0.4); }
+  }
+
+  /* ─── PIPELINE ─── */
+  .pipeline {
+    display: flex;
+    gap: 0;
+    margin-top: 1.8rem;
+    width: 100%;
+    max-width: 1180px;
+    position: relative;
+  }
+
+  .pipeline-stage {
+    flex: 1;
+    text-align: center;
+    padding: 1rem 0.4rem;
+    position: relative;
+    border-bottom: 3px solid rgba(255,255,255,0.06);
+    transition: border-color 0.3s;
+  }
+
+  .pipeline-stage.active-stage {
+    border-bottom-color: var(--oasis-teal);
+  }
+
+  .pipeline-stage .stage-num {
+    font-family: 'Space Grotesk', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--oasis-teal);
+    margin-bottom: 0.25rem;
+    opacity: 0.8;
+  }
+
+  .pipeline-stage .stage-name {
+    font-size: clamp(0.65rem, 0.95vw, 0.82rem);
+    font-weight: 600;
+    color: var(--oasis-white);
+  }
+
+  .pipeline-stage .stage-owner {
+    font-size: 0.65rem;
+    color: var(--oasis-muted);
+    margin-top: 0.2rem;
+  }
+
+  /* ─── COMP TABLE ─── */
+  .comp-table {
+    width: 100%;
+    max-width: 950px;
+    margin-top: 1.8rem;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid var(--glass-border);
+  }
+
+  .comp-table th,
+  .comp-table td {
+    padding: 1.1rem 1.4rem;
+    text-align: left;
+  }
+
+  .comp-table thead {
+    background: rgba(0, 212, 170, 0.08);
+  }
+
+  .comp-table th {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--oasis-teal);
+    font-weight: 600;
+  }
+
+  .comp-table td {
+    font-size: clamp(0.85rem, 1.05vw, 0.95rem);
+    color: var(--oasis-white);
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .comp-table tr:nth-child(even) td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .comp-rate {
+    font-family: 'Space Grotesk', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    background: var(--oasis-gradient-1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* ─── BULLET LISTS ─── */
+  .bullet-list {
+    list-style: none;
+    margin-top: 1.2rem;
+    max-width: 850px;
+    width: 100%;
+  }
+
+  .bullet-list li {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+    font-size: clamp(0.88rem, 1.2vw, 1.05rem);
+    color: var(--oasis-white);
+    line-height: 1.5;
+  }
+
+  .bullet-list li::before {
+    content: '⚡';
+    color: var(--oasis-teal);
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+
+  .bullet-list li:last-child { border-bottom: none; }
+
+  /* ─── SPLIT LAYOUT ─── */
+  .split-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    width: 100%;
+    max-width: 1180px;
+    align-items: center;
+  }
+
+  /* ─── FLOW STEPS ─── */
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    width: 100%;
+    max-width: 1150px;
+    margin-top: 1.8rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .flow-step {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 0.75rem 1.1rem;
+    font-size: clamp(0.7rem, 0.9vw, 0.82rem);
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .flow-step.highlight {
+    border-color: var(--oasis-teal);
+    background: rgba(0, 212, 170, 0.08);
+    color: var(--oasis-teal);
+    font-weight: 600;
+  }
+
+  .flow-arrow {
+    color: var(--oasis-muted);
+    font-size: 0.9rem;
+    opacity: 0.5;
+  }
+
+  .divider {
+    width: 70px;
+    height: 3px;
+    background: var(--oasis-gradient-1);
+    border-radius: 2px;
+    margin: 1.2rem 0;
+  }
+
+  /* ─── FOOTER NAV & CONTROLS ─── */
+  .slide-nav {
+    position: fixed;
+    bottom: 2.2vh;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.4rem;
+    z-index: 100;
+    align-items: center;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .dot.active {
+    background: var(--oasis-teal);
+    width: 24px;
+    border-radius: 4px;
+  }
+
+  .slide-counter {
+    position: fixed;
+    bottom: 2.2vh;
+    right: 3.5vw;
+    font-family: 'Space Grotesk', monospace;
+    font-size: 0.8rem;
+    color: var(--oasis-muted);
+    z-index: 100;
+  }
+
+  .logo-watermark {
+    position: fixed;
+    bottom: 2vh;
+    left: 3.5vw;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 100;
+  }
+
+  .watermark-img {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    object-fit: cover;
+    opacity: 0.6;
+  }
+
+  .watermark-text {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.25);
+    text-transform: uppercase;
+  }
+
+  .key-hint {
+    position: fixed;
+    top: 2vh;
+    right: 3vw;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.2);
+    z-index: 100;
+    font-family: 'Space Grotesk', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .card-grid.cols-3, .card-grid.cols-4 { grid-template-columns: 1fr 1fr; }
+    .split-layout { grid-template-columns: 1fr; gap: 1.5rem; }
+    .pipeline { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- ═══════════ SLIDE 1 — TITLE (CYBERNETIC TREE LOGO) ═══════════ -->
+  <div class="slide active" data-slide="0">
+    <div class="bg-mesh"></div>
+    <img src="oasis_logo_tree.jpg" alt="OASIS AI Tree Logo" class="hero-logo-img">
+    <div class="slide-tag">OASIS AI SOLUTIONS &nbsp;·&nbsp; MASTER ALIGNMENT</div>
+    <div class="slide-title">
+      Fulfill Your <span class="accent">True Potential</span><br>& Build The Future
+    </div>
+    <div class="divider"></div>
+    <div class="slide-subtitle">
+      Why We Exist. How AI Reshapes Reality. The Master Strategy Beyond Websites.
+    </div>
+    <p style="margin-top:1.8rem; font-size:0.8rem; color:var(--oasis-muted); font-family:'Space Grotesk',monospace; letter-spacing:0.12em;">
+      AUGUST 2026 &nbsp;·&nbsp; FOUNDERS &amp; SALES ENGINE ALIGNMENT
+    </p>
+  </div>
+
+  <!-- ═══════════ SLIDE 2 — THE MACRO LANDSCAPE & FEAR ═══════════ -->
+  <div class="slide" data-slide="1">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">The Macro Reality</div>
+    <div class="slide-title" style="font-size:clamp(1.9rem,4vw,3.2rem);">
+      The AI Shift <span class="accent-gold">Is Unforgiving</span>
+    </div>
+    <div class="slide-subtitle">
+      Whether people like it or not, AI platforms (Palantir, sovereign data engines, autonomous agents) are transforming global business forever.
+    </div>
+    <div class="card-grid cols-3">
+      <div class="card" style="border-color: rgba(239, 68, 68, 0.3);">
+        <span class="card-icon">👁️</span>
+        <h3>Enterprise Surveillance & Scale</h3>
+        <p>Giants like Palantir prove that real power belongs to those who control structured data, predictive intelligence, and autonomous workflows.</p>
+      </div>
+      <div class="card" style="border-color: rgba(245, 158, 11, 0.3);">
+        <span class="card-icon">⚠️</span>
+        <h3>The Extinction of Legacy Ops</h3>
+        <p>Local businesses relying on manual follow-up, static websites, and human call-centers will be eaten alive by autonomous systems.</p>
+      </div>
+      <div class="card" style="border-color: rgba(0, 212, 170, 0.3);">
+        <span class="card-icon">🛡️</span>
+        <h3>OASIS Is The Shield</h3>
+        <p>We bring hyper-advanced AI agent infrastructure down from elite tech monopolies and hand it to real-world businesses to ensure their survival.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 3 — THE EMBEDDED TRUTH ═══════════ -->
+  <div class="slide" data-slide="2">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">The Embedded Truth</div>
+    <div class="slide-title" style="font-size:clamp(1.9rem,4.2vw,3.3rem);">
+      Building Something For Yourself<br><span class="accent-vision">Is Mandatory In 2026</span>
+    </div>
+    <div class="split-layout" style="margin-top:1.5rem;">
+      <div class="left">
+        <ul class="bullet-list">
+          <li><strong>Everyone around you will doubt you.</strong> Mediocrity is comfortable; ambition scares people.</li>
+          <li>In an automated era, taking ownership of your career and mastering AI is the only true security.</li>
+          <li>At OASIS, you aren't just selling — you are growing your own personal equity, skill, and mindset.</li>
+          <li>We are here to fulfill your true potential and scale with you long-term.</li>
+        </ul>
+      </div>
+      <div class="right">
+        <div class="card" style="background: rgba(139, 92, 246, 0.05); border-color: rgba(139, 92, 246, 0.25); padding:2rem;">
+          <h3 style="color:var(--oasis-purple); font-size:1.3rem;">🔥 Bigger Than Sales</h3>
+          <p style="font-size:1rem; line-height:1.6; margin-top:0.8rem; color:var(--oasis-white);">
+            "This goal is bigger than us. It's bigger than sales. You are here because we operate some of the most cutting-edge AI agent harnesses in existence. Embrace it with open arms."
+          </p>
+          <p style="font-size:0.8rem; color:var(--oasis-teal); margin-top:1rem; font-family:'Space Grotesk',monospace;">
+            — CONAUGH & ADON
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 4 — OUR CUTTING-EDGE HARNESSES ═══════════ -->
+  <div class="slide" data-slide="3">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">The Technology</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,3.8vw,3rem);">
+      Our Weapon: <span class="accent">AI Agent Harnesses</span>
+    </div>
+    <div class="slide-subtitle">
+      Why you have an unfair advantage over every standard agency or tech sales team out there.
+    </div>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <span class="card-icon">🧠</span>
+        <h3>Autonomous Multi-Agent Fleet</h3>
+        <p>Bravo, Helios, Solara, and specialized scraping engines run 24/7. We don't just talk about AI — we live inside it.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">⚡</span>
+        <h3>Pre-Researched Lead Intelligence</h3>
+        <p>Every lead in your queue is audited, enriched, and scored before you pick up the phone. The heavy research is already done.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">⚙️</span>
+        <h3>Tailored Client AI OS</h3>
+        <p>When a client buys from us, they aren't getting a template — they are getting a custom operational AI engine designed to scale them.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 5 — THE VISION BEYOND WEBSITES ═══════════ -->
+  <div class="slide" data-slide="4">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Master Strategy</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,4vw,3.2rem);">
+      Websites Are <span class="accent">The Foot In The Door</span>
+    </div>
+    <div class="slide-subtitle">
+      Websites are easy for owners to understand and buy. But OASIS is built to build their entire AI OS.
+    </div>
+    <div class="flow-row" style="margin-top:2rem;">
+      <div class="flow-step highlight">1. Foot in Door: Website ($2K - $5K)</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">2. Immediate Lead Recovery & Automations</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step highlight">3. Custom AI OS & Operational Software</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">4. Retainers & Enterprise Scale</div>
+    </div>
+    <ul class="bullet-list" style="margin-top:2rem; max-width:850px;">
+      <li>We start with websites because every business owner knows their current site is broken.</li>
+      <li>Once trust is established, we diagnose deeper operational friction and build custom AI software.</li>
+      <li>Our ultimate goal: Build each client their own <strong>AI Operating System</strong> to maximize efficiency and profit.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ SLIDE 6 — MARKET ADAPTABILITY & HIGH-VALUE DEALS ═══════════ -->
+  <div class="slide" data-slide="5">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Agility & Revenue</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,4vw,3.2rem);">
+      Market Adaptability: <span class="accent-gold">We Close What Pays</span>
+    </div>
+    <div class="split-layout" style="margin-top:1.5rem;">
+      <div class="left">
+        <div class="card" style="border-color:var(--oasis-gold); background:rgba(245,158,11,0.04);">
+          <h3 style="color:var(--oasis-gold); font-size:1.2rem;">💰 High-Value Custom Deals</h3>
+          <p style="font-size:0.95rem; line-height:1.6; margin-top:0.5rem; color:var(--oasis-white);">
+            If a client is willing to pay <strong>$4,000, $8,000, or $15,000+</strong> for custom software, automations, or specialized digital infrastructure — we will fulfill it. <strong>It would be illogical to refuse revenue.</strong>
+          </p>
+        </div>
+      </div>
+      <div class="right">
+        <ul class="bullet-list">
+          <li><strong>Scalability First:</strong> Standard packages keep the machine running predictably.</li>
+          <li><strong>Opportunistic Fulfillment:</strong> When a big fish has custom pain, we assess it together with the founders.</li>
+          <li><strong>We Adapt To The Market:</strong> We listen to what the client actually needs and monetize their pain.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 7 — NAVIGATING GREY AREAS & PRICING ═══════════ -->
+  <div class="slide" data-slide="6">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Sales Nuance</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,3.8vw,3rem);">
+      Navigating <span class="accent">The Grey Areas</span>
+    </div>
+    <div class="slide-subtitle">
+      How to handle pricing flexibility, tariffs, enterprise security, and complex client questions.
+    </div>
+    <div class="card-grid cols-2" style="max-width:1050px;">
+      <div class="card">
+        <h3>🔒 Security & Infrastructure</h3>
+        <p>When clients ask about data privacy, security, or compliance — assure them our architecture is built with isolated environments, encrypted keys, and strict access controls.</p>
+      </div>
+      <div class="card">
+        <h3>🌐 Currencies & Regional Tariffs</h3>
+        <p>Prices are local: <strong>CAD in Canada, USD in the US</strong>. No auto-conversion. Tariffs and custom integration fees are factored into enterprise quotes by founders.</p>
+      </div>
+      <div class="card">
+        <h3>⚖️ Pricing Flexibility & Discounts</h3>
+        <p>Listed floors ($2K / $3.5K / $5K) are strict for reps. Only CC & Adon approve below-floor quotes, custom scoping, or payment terms. Never guess on a call!</p>
+      </div>
+      <div class="card">
+        <h3>🤝 The Founder Assist</h3>
+        <p>If a lead has complex scope, high budget, or unique security demands — qualify them and bring them straight to CC or Adon. That's why we operate as a team.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 8 — CONSULTATIVE SELLING ═══════════ -->
+  <div class="slide" data-slide="7">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Sales Methodology</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,4vw,3.1rem);">
+      Listen First. <span class="accent">Diagnose Pain.</span>
+    </div>
+    <div class="slide-subtitle">
+      Every great salesperson is a doctor. You ask questions, listen closely, and prescribe from our solution menu.
+    </div>
+    <div class="card-grid cols-3" style="max-width:1100px;">
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">👂</span>
+        <h3>1. Ask &amp; Listen</h3>
+        <p>"How much of your new business comes from the site today?" "What happens when someone calls after hours?"</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">🔎</span>
+        <h3>2. Uncover The Leak</h3>
+        <p>Identify whether their real loss is trust, missed calls, slow quotes, zero reviews, or manual admin waste.</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">💉</span>
+        <h3>3. Prescribe Solution</h3>
+        <p>Match their admitted leak directly to our website package + specific approved automation.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 9 — CORE FOOT-IN-DOOR PACKAGES ═══════════ -->
+  <div class="slide" data-slide="8">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Standard Offer</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,3.8vw,3rem);">
+      The Website <span class="accent">Offer Ladder</span>
+    </div>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <span class="card-icon">🌐</span>
+        <h3>Essential &nbsp;·&nbsp; $2,000</h3>
+        <p style="color:var(--oasis-teal); font-weight:600; margin-bottom:0.5rem;">+ $250/mo maintenance</p>
+        <p>Conversion website, mobile optimized, lead form, hosting, analytics, basic SEO.</p>
+      </div>
+      <div class="card" style="border-color: var(--oasis-teal); background:rgba(0,212,170,0.04);">
+        <span class="card-icon">🚀</span>
+        <h3>Growth &nbsp;·&nbsp; $3,500</h3>
+        <p style="color:var(--oasis-teal); font-weight:600; margin-bottom:0.5rem;">+ $350/mo maintenance</p>
+        <p>Essential + extra pages, copy support, booking/review integration, <strong>1 standard automation</strong>.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">👑</span>
+        <h3>Authority &nbsp;·&nbsp; $5,000+</h3>
+        <p style="color:var(--oasis-teal); font-weight:600; margin-bottom:0.5rem;">+ $500+/mo maintenance</p>
+        <p>Growth + advanced SEO, custom integrations, <strong>2 standard automations</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 10 — THE EXTENSIVE SOLUTION MENU ═══════════ -->
+  <div class="slide" data-slide="9">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Solution Matrix</div>
+    <div class="slide-title" style="font-size:clamp(1.6rem,3.5vw,2.6rem);">
+      Our Approved <span class="accent">Automation & Software Suite</span>
+    </div>
+    <div class="card-grid cols-3" style="max-width:1100px;">
+      <div class="card"><h3>1. Google Review Engine</h3><p>Automated SMS/email review requests & recovery</p></div>
+      <div class="card"><h3>2. Lead Capture & CRM Routing</h3><p>Instant notification & routing for website leads</p></div>
+      <div class="card"><h3>3. Inbound Gmail Classification</h3><p>AI triage of customer emails to proper staff</p></div>
+      <div class="card"><h3>4. Missed-Call Recovery</h3><p>Instant text-back when an after-hours call is missed</p></div>
+      <div class="card"><h3>5. Quote & Estimate Follow-Up</h3><p>Automated reminders on open quotes</p></div>
+      <div class="card"><h3>6. Appointment Reminders</h3><p>SMS reminders + no-show recovery sequence</p></div>
+      <div class="card"><h3>7. Dormant Lead Reactivation</h3><p>Revive old customer databases with targeted campaigns</p></div>
+      <div class="card"><h3>8. Invoice & Document Gen</h3><p>Auto-generate estimates, invoices & agreements</p></div>
+      <div class="card"><h3>9. Custom AI Software</h3><p>High-ticket custom agent harnesses (Quoted after discovery)</p></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 11 — ICP TARGETING ═══════════ -->
+  <div class="slide" data-slide="10">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Ideal Client Profile</div>
+    <div class="slide-title" style="font-size:clamp(1.6rem,3.5vw,2.6rem);">
+      Who We <span class="accent">Target & Help</span>
+    </div>
+    <div class="card-grid cols-2" style="max-width:1000px;">
+      <div class="card">
+        <span class="card-icon">🔧</span>
+        <h3>Trades & Contracting</h3>
+        <p>Plumbers, electricians, HVAC, roofers — mobile click-to-call, emergency routing, quote follow-up.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">⚖️</span>
+        <h3>Professional Services</h3>
+        <p>Lawyers, accountants, consultants — authority, intake friction reduction, document routing.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">💆</span>
+        <h3>Wellness & Beauty</h3>
+        <p>Spas, salons, cosmetic clinics — mobile booking, service presentation, review automation.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🏠</span>
+        <h3>Home & Property Services</h3>
+        <p>Landscaping, cleaning, pest control — before/after proof, local SEO, missed-call recovery.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 12 — TEAM & OPERATIONS ═══════════ -->
+  <div class="slide" data-slide="11">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Operations Structure</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,3.8vw,3rem);">
+      How We Execute <span class="accent">As One Unit</span>
+    </div>
+    <div class="card-grid cols-4" style="max-width:1150px;">
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">🏝️</span>
+        <h3>Founders</h3>
+        <p>CC & Adon — Vision, enterprise sales, closing, custom quotes</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">📋</span>
+        <h3>Sales Manager</h3>
+        <p>Pipeline oversight, coaching, lead distribution, team comp tracking</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">📞</span>
+        <h3>Sales Reps</h3>
+        <p>Openers & Closers — Diagnose pain, qualify budget, book & close deals</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <span class="card-icon">🤖</span>
+        <h3>AI Engine</h3>
+        <p>Bravo + APEX — Automated lead research, CRM sync, fulfillment back-end</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 13 — PIPELINE & ATTRIBUTION LOCK ═══════════ -->
+  <div class="slide" data-slide="12">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Pipeline Rules</div>
+    <div class="slide-title" style="font-size:clamp(1.6rem,3.5vw,2.8rem);">
+      The 10-Stage Pipeline &amp; <span class="accent">Attribution Lock</span>
+    </div>
+    <div class="pipeline">
+      <div class="pipeline-stage active-stage">
+        <div class="stage-num">01</div>
+        <div class="stage-name">Researched</div>
+        <div class="stage-owner">AI / APEX</div>
+      </div>
+      <div class="pipeline-stage active-stage">
+        <div class="stage-num">02</div>
+        <div class="stage-name">Assigned</div>
+        <div class="stage-owner">Manager</div>
+      </div>
+      <div class="pipeline-stage active-stage">
+        <div class="stage-num">03</div>
+        <div class="stage-name">Attempting</div>
+        <div class="stage-owner">Rep</div>
+      </div>
+      <div class="pipeline-stage active-stage">
+        <div class="stage-num">04</div>
+        <div class="stage-name">Connected</div>
+        <div class="stage-owner">Rep</div>
+      </div>
+      <div class="pipeline-stage active-stage">
+        <div class="stage-num">05</div>
+        <div class="stage-name">Qualified</div>
+        <div class="stage-owner">Rep</div>
+      </div>
+      <div class="pipeline-stage" style="border-bottom-color: var(--oasis-gold);">
+        <div class="stage-num" style="color:var(--oasis-gold);">06</div>
+        <div class="stage-name">Meeting Booked</div>
+        <div class="stage-owner">🔒 LOCK</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="stage-num">07</div>
+        <div class="stage-name">Demo</div>
+        <div class="stage-owner">Founder/Closer</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="stage-num">08</div>
+        <div class="stage-name">Proposal</div>
+        <div class="stage-owner">Founder/Closer</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="stage-num">09</div>
+        <div class="stage-name">Won</div>
+        <div class="stage-owner">Deposit</div>
+      </div>
+      <div class="pipeline-stage">
+        <div class="stage-num">10</div>
+        <div class="stage-name">Launched</div>
+        <div class="stage-owner">Fulfillment</div>
+      </div>
+    </div>
+    <p style="margin-top:1.5rem; font-size:0.85rem; color:var(--oasis-muted); text-align:center; max-width:750px;">
+      <strong style="color:var(--oasis-gold);">Attribution Lock:</strong> When Stage 06 is marked, your rep attribution is permanently locked in the Command Centre ledger. Reassignment never strips your earned commission.
+    </p>
+  </div>
+
+  <!-- ═══════════ SLIDE 14 — COMPENSATION SCENARIOS ═══════════ -->
+  <div class="slide" data-slide="13">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Compensation Engine</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,3.8vw,3rem);">
+      Simple, Transparent <span class="accent">Payout Structure</span>
+    </div>
+    <table class="comp-table">
+      <thead>
+        <tr>
+          <th>Track</th>
+          <th>Responsibility</th>
+          <th>Commission</th>
+          <th>Growth ($3.5K)</th>
+          <th>Authority ($5K)</th>
+          <th>Custom ($10K)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Opener</strong></td>
+          <td>Qualify &amp; book founder meeting</td>
+          <td><span class="comp-rate">20%</span></td>
+          <td style="color:var(--oasis-teal); font-weight:600;">$700</td>
+          <td style="color:var(--oasis-teal); font-weight:600;">$1,000</td>
+          <td style="color:var(--oasis-teal); font-weight:600;">$2,000</td>
+        </tr>
+        <tr>
+          <td><strong>Opener-Closer</strong></td>
+          <td>+ Run demo, proposal &amp; close</td>
+          <td><span class="comp-rate">30%</span></td>
+          <td style="color:var(--oasis-teal); font-weight:600;">$1,050</td>
+          <td style="color:var(--oasis-teal); font-weight:600;">$1,500</td>
+          <td style="color:var(--oasis-teal); font-weight:600;">$3,000</td>
+        </tr>
+      </tbody>
+    </table>
+    <ul class="bullet-list" style="max-width:950px; margin-top:1.2rem;">
+      <li>Commission applies to collected website &amp; setup revenue (paid upon cleared funds).</li>
+      <li>Flat rates across all deal sizes — zero commission caps!</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ SLIDE 15 — REP BOUNDARY & DISCIPLINE ═══════════ -->
+  <div class="slide" data-slide="14">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Rep Guardrails</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,3.8vw,3rem);">
+      Clarity Over Confusion
+    </div>
+    <div class="split-layout">
+      <div class="left">
+        <div class="card" style="border-color:var(--oasis-teal);">
+          <h3 style="color:var(--oasis-teal);">✅ What You Focus On</h3>
+          <ul class="bullet-list" style="margin-top:0.5rem;">
+            <li>Working your assigned lead queue</li>
+            <li>Making calls &amp; diagnosing one clear website problem</li>
+            <li>Qualifying Authority, Need, Timing &amp; $2K+ Budget</li>
+            <li>Locking in the founder meeting</li>
+          </ul>
+        </div>
+      </div>
+      <div class="right">
+        <div class="card" style="border-color:rgba(239,68,68,0.3); background:rgba(239,68,68,0.03);">
+          <h3 style="color:var(--oasis-red);">⛔ What You Don't Worry About</h3>
+          <ul class="bullet-list" style="margin-top:0.5rem;">
+            <li>Custom engineering feasibility (Founders scope it)</li>
+            <li>Discounts or unapproved quotes</li>
+            <li>Lecturing clients on AI technicalities</li>
+            <li>Handling technical backend setup</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 16 — THE ANCHORING COLD CALL SCRIPT ═══════════ -->
+  <div class="slide" data-slide="15">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">The Grounding Script</div>
+    <div class="slide-title" style="font-size:clamp(1.6rem,3.5vw,2.6rem);">
+      The Cold Call <span class="accent">Pattern Interrupt</span>
+    </div>
+    <div class="card" style="max-width:900px; background:rgba(0,212,170,0.03); border-color:rgba(0,212,170,0.2); padding:2.2rem;">
+      <p style="font-size:clamp(0.95rem, 1.4vw, 1.2rem); line-height:1.7; color:var(--oasis-white);">
+        <span style="color:var(--oasis-teal); font-weight:600;">"Hey [Name],</span> it's [Rep] with OASIS. We haven't spoken before — this is a cold call.<br>
+        I was looking at [Company] and noticed <span style="color:var(--oasis-gold);">[specific website issue from audit]</span>.<br>
+        Can I take 30 seconds to explain why I called, then you can tell me if it's irrelevant?"
+      </p>
+    </div>
+    <div class="card-grid cols-3" style="max-width:900px; margin-top:1rem;">
+      <div class="card"><h3 style="font-size:0.9rem;">1. Own The Cold Call</h3><p style="font-size:0.8rem;">Builds instant honesty and respects their time.</p></div>
+      <div class="card"><h3 style="font-size:0.9rem;">2. Cite Specific Audit</h3><p style="font-size:0.8rem;">Proves you aren't a generic mass-spammer.</p></div>
+      <div class="card"><h3 style="font-size:0.9rem;">3. Ask Permission</h3><p style="font-size:0.8rem;">Gives them control while opening the door.</p></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 17 — OBJECTION MASTERY ═══════════ -->
+  <div class="slide" data-slide="16">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Objection Playbook</div>
+    <div class="slide-title" style="font-size:clamp(1.6rem,3.5vw,2.6rem);">
+      Mastering <span class="accent">Pushback</span>
+    </div>
+    <div class="card-grid cols-2" style="max-width:1050px;">
+      <div class="card">
+        <h3>"Send me an email first"</h3>
+        <p style="color:var(--oasis-teal); margin-top:0.4rem;">"I will. Should I focus on the mobile conversion gap, the missed-call textback, or both?" → Then lock meeting time.</p>
+      </div>
+      <div class="card">
+        <h3>"We already have a web designer"</h3>
+        <p style="color:var(--oasis-teal); margin-top:0.4rem;">"Awesome. Are they focused on routine maintenance, or measurable calls and bookings? We complement them where gaps exist."</p>
+      </div>
+      <div class="card">
+        <h3>"Sounds too expensive"</h3>
+        <p style="color:var(--oasis-teal); margin-top:0.4rem;">"I haven't priced your scope yet. Starting floor is $2K — CC &amp; Adon will only recommend it if the math makes sense for your business."</p>
+      </div>
+      <div class="card">
+        <h3>"Not a priority right now"</h3>
+        <p style="color:var(--oasis-teal); margin-top:0.4rem;">"Understood. When prospective customers search for you and see [observed flaw], how many bookings is that costing you a month?"</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 18 — ALIGNMENT QUESTIONS FOR TOMORROW ═══════════ -->
+  <div class="slide" data-slide="17">
+    <div class="bg-mesh"></div>
+    <div class="slide-tag">Team Discussion</div>
+    <div class="slide-title" style="font-size:clamp(1.8rem,4vw,3.2rem);">
+      Open <span class="accent-vision">Alignment Questions</span>
+    </div>
+    <div class="card-grid cols-2" style="max-width:1050px;">
+      <div class="card">
+        <h3>🗣️ 1. What excites you most about our vision?</h3>
+        <p>Where do you see your biggest opportunity for growth and income within OASIS?</p>
+      </div>
+      <div class="card">
+        <h3>🎯 2. Where do you need more clarity?</h3>
+        <p>What tools, scripts, or systems do you need us to sharpen to make your workflow seamless?</p>
+      </div>
+      <div class="card">
+        <h3>⚡ 3. How do we stay relentless?</h3>
+        <p>What does a championship-level week look like for you in terms of activity and output?</p>
+      </div>
+      <div class="card">
+        <h3>🤝 4. How do we hold each other accountable?</h3>
+        <p>What commitment are we making to each other today as founders, managers, and reps?</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE 19 — CLOSING RALLY ═══════════ -->
+  <div class="slide" data-slide="18">
+    <div class="bg-mesh"></div>
+    <img src="oasis_logo_tree.jpg" alt="OASIS Logo" class="hero-logo-img" style="width:100px; height:100px; margin-bottom:1.2rem;">
+    <div class="slide-tag">OASIS AI SOLUTIONS</div>
+    <div class="slide-title" style="font-size:clamp(2rem,4.5vw,3.5rem); max-width:25ch;">
+      "Bigger Than Sales.<br><span class="accent">Building The Future.</span>"
+    </div>
+    <div class="divider" style="margin:1.5rem 0;"></div>
+    <p style="font-size:clamp(1rem,1.5vw,1.25rem); color:var(--oasis-muted); text-align:center; max-width:48ch; line-height:1.6;">
+      Every local business deserves a system that works. We have the technology, the team, and the vision. Let's fulfill our true potential together.
+    </p>
+    <p style="margin-top:2rem; font-size:0.9rem; color:var(--oasis-teal); font-family:'Space Grotesk',monospace; letter-spacing:0.15em;">
+      CC &amp; ADON &nbsp;·&nbsp; OASIS AI COMMAND CENTRE &nbsp;·&nbsp; 2026
+    </p>
+  </div>
+
+</div>
+
+<!-- FOOTER CONTROLS -->
+<div class="slide-nav" id="slideNav"></div>
+<div class="slide-counter" id="counter">1 / 19</div>
+<div class="logo-watermark">
+  <img src="oasis_logo_tree.jpg" class="watermark-img" alt="OASIS">
+  <span class="watermark-text">OASIS AI</span>
+</div>
+<div class="key-hint">← → / Space / Click / Touch to navigate &nbsp;|&nbsp; Press 'F' for Fullscreen</div>
+
+<script>
+(function () {
+  const slides = document.querySelectorAll('.slide');
+  const nav = document.getElementById('slideNav');
+  const counter = document.getElementById('counter');
+  let current = 0;
+  const total = slides.length;
+
+  // Build nav dots
+  for (let i = 0; i < total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.addEventListener('click', () => goTo(i));
+    nav.appendChild(dot);
+  }
+
+  function goTo(n) {
+    if (n < 0 || n >= total) return;
+    slides[current].classList.remove('active');
+    nav.children[current].classList.remove('active');
+    current = n;
+    slides[current].classList.add('active');
+    nav.children[current].classList.add('active');
+    counter.textContent = (current + 1) + ' / ' + total;
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      goTo(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      goTo(current - 1);
+    } else if (e.key === 'Home') {
+      goTo(0);
+    } else if (e.key === 'End') {
+      goTo(total - 1);
+    } else if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+  });
+
+  // Click navigation
+  document.querySelector('.deck').addEventListener('click', (e) => {
+    if (e.target.closest('.slide-nav, .card, .comp-table, a, button')) return;
+    const x = e.clientX / window.innerWidth;
+    if (x > 0.5) goTo(current + 1);
+    else goTo(current - 1);
+  });
+
+  // Touch swipe
+  let touchStartX = 0;
+  document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 40) {
+      if (dx < 0) goTo(current + 1);
+      else goTo(current - 1);
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

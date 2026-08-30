@@ -23,7 +23,7 @@ External integrations and on-disk raw data. Agents should NOT read these directl
 
 | Domain | Source | Access | Owner |
 |--------|--------|--------|-------|
-| Sales / CRM | Supabase `leads`, `lead_interactions`, `revenue_events` | `scripts/integrations/supabase_tool.py`, `scripts/lead_engine.py` | Bravo |
+| Sales / CRM | Turso `leads`, `lead_interactions`, `revenue_events` | `scripts/integrations/turso_tool.py`, `scripts/lead_engine.py` | Bravo |
 | Revenue | Stripe (subs, charges, balance) | `scripts/integrations/stripe_tool.py`, `scripts/revenue_engine.py sync-stripe` | Bravo |
 | Comms | Gmail, Google Calendar, GWS | `scripts/integrations/google_tool.py` | Bravo |
 | Inbound funnel | JotForm webhooks, n8n triggers, funnel_leads table | `scripts/core/cron_engine.py` (Funnel Fast-Poll), `scripts/inbound_classifier.py` | Bravo |
@@ -46,8 +46,8 @@ Python-only. No LLM. Runs on a schedule (cron) and writes a JSON artifact agents
 | Weekly qualified leads | `scripts/snapshots/leads_snapshot.py` | `0 22 * * SAT` | `state/snapshots/latest_leads.json` + ISO-week | `agents/revenue-hunter.md`, `agents/chief-of-staff.md` |
 | Daily client alerts | `scripts/snapshots/client_alerts_snapshot.py` | `0 7 * * *` | `state/snapshots/latest_client_alerts.json` + dated | `agents/chief-of-staff.md`, `skills/client-success/` |
 | FTS5 + vector index | `scripts/core/memory_retriever.py update` (incremental on PostToolUse Edit/Write) | event-driven | `state/memory_index.db` + `state/memory_index.lance/` | All hooks + agents via `memory_retriever.py query` |
-| Stripe → revenue_events | `scripts/revenue_engine.py sync-stripe` | `0 6 * * *` (existing) | Supabase `revenue_events` rows | `revenue_engine.py mrr`, downstream snapshots |
-| Funnel lead sync | `scripts/core/cron_engine.py` action_type `funnel_sync` | `*/5 * * * *` | Supabase `leads` (welcome email backstop) | `lead_engine.py`, downstream snapshots |
+| Stripe → revenue_events | `scripts/revenue_engine.py sync-stripe` | `0 6 * * *` (existing) | Turso `revenue_events` rows | `revenue_engine.py mrr`, downstream snapshots |
+| Funnel lead sync | `scripts/core/cron_engine.py` action_type `funnel_sync` | `*/5 * * * *` | Turso `leads` (welcome email backstop) | `lead_engine.py`, downstream snapshots |
 
 **Refresh cadence rule:** Read-path checks `ts` field. If > 24h old (or > 8 days for weekly), trigger a manual rebuild or fall back to live engines.
 

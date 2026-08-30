@@ -69,6 +69,7 @@ import json
 import os
 import re
 import sys
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -89,6 +90,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
+
+# Operator tenant for stamped rows — mirrors lead_engine.py. Rows written
+# without tenant_id land NULL and are invisible to tenant-scoped reads.
+OASIS_TENANT_ID = (
+    os.environ.get("OASIS_TENANT_ID")
+    or os.environ.get("EMPIRE_TENANT_ID")
+    or "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+)
 
 
 # Notify import. Fixes a latent bug: _notify_platform_alert() called
@@ -189,6 +198,57 @@ VALID_ACTIONS = {
 # vs. financial. This table catches known platform senders BEFORE Haiku and
 # routes them by content-aware subcategory.
 
+# Money TOPICS, for ROUTING only — deliberately NOT the same question as
+# _has_transaction_evidence(), which asks "did money actually move?" and gates
+# expense BOOKING. An "invoice is available" or "billing account past due"
+# notice must reach Atlas/CC as financial, but nothing has been charged yet, so
+# booking it would invent a ledger row. Keep the two predicates separate:
+# widening this one is safe, widening that one costs real money.
+#
+# DO NOT merge this with email_playbook.MONEY_SIGNALS. That tuple answers a
+# third question — "is this thread commercially sensitive, so never auto-reply?"
+# — and is over-broad on purpose ("price", "pricing", "cost", "monthly",
+# "how much"), because its false positives cost nothing but a withheld
+# auto-reply. Routing on it would send every pricing newsletter to finance:
+# measured 2026-08-01, MONEY_SIGNALS matches the Lindy price-cut blast, a
+# "$49/mo" pricing page, and a monthly usage report, none of which this regex
+# matches. That blast being filed as a business expense IS the 2026-07-29
+# incident this module's tests exist for.
+_BILLING_TOPIC_RE = re.compile(
+    r"\b(?:"
+    r"invoice|billing\s+account|past\s+due|overdue|unpaid"
+    r"|payment\s+(?:method|info(?:rmation)?|declined|failed|issue|problem)"
+    r"|invalid\s+payment|update\s+your\s+payment|card\s+(?:declined|expired)"
+    r"|subscription\s+(?:cancell?ed|expir|renew)|receipt|statement"
+    r"|charged|refund|credit\s+card"
+    r")",
+    re.IGNORECASE,
+)
+
+# The integration itself is broken — outranks _BILLING_TOPIC_RE.
+#
+# Added 2026-08-01 after a Codex adversarial review caught a regression the
+# billing override introduced: a real Stripe webhook-failure email NAMES the
+# events it could not deliver, and those names are billing events
+# ("invoice.payment_failed", "charge.refunded"). So an outage notification
+# matched the billing regex and was routed to finance instead of paging ops —
+# strictly worse than the misrouting it was meant to fix, and the exact class
+# of failure _platform_prefilter was built for in 2026-05.
+#
+# Every term here names INFRASTRUCTURE, never a bare failure verb. "failed"
+# alone would match "payment failed" and re-break the case above; the failure
+# words are anchored to build/deploy/pipeline nouns for the same reason.
+_INTEGRATION_FAILURE_RE = re.compile(
+    r"\b(?:"
+    r"webhook|endpoint|delivery\s+attempt|api\s+error|error\s+rate"
+    r"|quota|rate\s*limit|throttl"
+    r"|(?:build|deploy(?:ment)?|pipeline)\s+(?:has\s+)?fail"
+    r"|outage|incident|degraded\s+performance|downtime|unreachable"
+    r"|ssl|certificate\s+expir|dns\s+(?:record|config)"
+    r")",
+    re.IGNORECASE,
+)
+
 PLATFORM_SENDERS: dict[str, dict[str, Any]] = {
     # domain-suffix -> default routing metadata
     "stripe.com": {
@@ -224,7 +284,14 @@ PLATFORM_SENDERS: dict[str, dict[str, Any]] = {
     "google.com": {
         "platform": "google",
         "default_route": "technical",
-        "tech_keywords": ["cloud", "api", "quota", "billing", "alert", "workspace"],
+        # "billing" was removed 2026-08-01: it is a MONEY word, and because a
+        # tech-keyword hit hard-routes to ops_technical without ever consulting
+        # the model, listing it here guaranteed that every Google invoice and
+        # past-due notice was classified technical_support and withheld from
+        # Atlas. "workspace" stays, but is now overridable by _BILLING_TOPIC_RE
+        # (see _platform_prefilter) — "Google Workspace: your invoice is
+        # available" matched on "workspace" and was misrouted the same way.
+        "tech_keywords": ["cloud", "api", "quota", "alert", "workspace"],
     },
     "googlecloud.com": {
         "platform": "google_cloud",
@@ -279,8 +346,37 @@ def _platform_prefilter(
     tech_kws = matched_config.get("tech_keywords", [])
     is_technical = any(kw in haystack for kw in tech_kws)
 
+    # Precedence: a broken integration > a bill > platform tech keywords >
+    # default_route. The first two are the ones that must not swap: an outage
+    # held for finance review pages nobody, which is worse than a bill filed
+    # as ops.
+    is_failure = bool(_INTEGRATION_FAILURE_RE.search(haystack))
+    is_billing = bool(_BILLING_TOPIC_RE.search(haystack)) and not is_failure
+    # A detected failure routes to ops on its own authority, without needing a
+    # hit in the platform's own tech_keywords list. Those lists are per-vendor
+    # and incomplete — google's has no "webhook" — and stripe.com's
+    # default_route is "financial", so a failure that fell through to the
+    # default would land in finance. Belt and braces on the worse direction.
+    is_technical = is_technical or is_failure
+
     platform = matched_config["platform"]
-    if is_technical:
+    if is_billing:
+        # A money topic outranks BOTH the tech keywords and a "technical"
+        # default_route. Platform mail routinely says "cloud"/"workspace"/"api"
+        # in the boilerplate of a genuine invoice, and any tech-keyword hit
+        # skips the model entirely (see classify_category), so without this
+        # branch an unpaid bill is filed as a tech alert and never reaches
+        # Atlas. Routing "financial" here does NOT assert this is a booked
+        # transaction — that route is the one the prefilter deliberately hands
+        # to the model, because WHO sent it can't tell you whether THIS message
+        # is a receipt. Booking stays gated on _has_transaction_evidence().
+        intent = "platform_alert"
+        priority = "hot" if is_technical else "warm"
+        route_target = "financial"
+        notes = (f"Billing/invoice notification from {platform} — money topic "
+                 f"overrides technical routing. Model decides if it is a "
+                 f"transaction; Atlas may process.")
+    elif is_technical:
         intent = "tech_alert"
         priority = "hot"
         route_target = "ops_technical"
@@ -405,14 +501,22 @@ Categories:
    emailing in outreach. Usually needs a reply toward booking a call.
 3. Financial & Legal — a TRANSACTION that already happened or is formally due,
    or a binding legal document. Concretely: invoices, receipts, bank/card
-   statements, Stripe payment notifications (payouts, charges, refunds,
-   successful payments), subscription renewal CONFIRMATIONS, CRA / Revenu
-   Québec / tax documents, signed contracts, legal notices.
+   statements THAT SHOW ACTUAL TRANSACTION DETAIL, Stripe payment notifications
+   (payouts, charges, refunds, successful payments), subscription renewal
+   CONFIRMATIONS, CRA / Revenu Québec / tax documents, signed contracts, legal
+   notices.
 
    THE TEST: has money actually moved, or is a specific amount formally owed?
    If yes -> Financial & Legal. If the email merely TALKS about money -> not.
 
    NOT Financial & Legal:
+     - a STATEMENT-AVAILABILITY NOTICE — "Here's your July statement from
+       Kraken", "your monthly statement is ready", "view your statement". These
+       announce that a document exists on a portal; they name no amount and
+       book nothing. A statement notice is only Financial & Legal if the email
+       itself states a concrete charge or payout;
+     - a renewal REMINDER ("your subscription will renew soon") — the money has
+       not moved yet. Only the renewal CONFIRMATION is a transaction;
      - a vendor announcing new or lower pricing ("Lindy is cutting prices by 4x
        on average") — that is marketing, no matter how much money it mentions;
      - plan/tier comparisons, upsells, upgrade nudges, discount promos;
@@ -432,15 +536,25 @@ deductible expense, and a marketing blast misfiled as Financial books a fake
 expense in the operator's ledger. When money is discussed but no transaction
 occurred, choose Low Priority & Archive.
 
+This is not hypothetical. On 2026-08-03 the operator's ledger held 16 rows out
+of 52 with no dollar amount at all — Kraken statement notices, a Lindy price
+blast, GitHub code-review mail, and a renewal reminder filed as INCOME. Every
+one of them reached the ledger because this step called it Financial & Legal.
+If you cannot name the amount and say who paid whom, it is not #3.
+
 Output ONLY a JSON object, no prose, no markdown:
 {"category": "<one of: Client Technical Support | Business Opportunities | Financial & Legal | Low Priority & Archive>", "confidence": <0.0-1.0>}"""
 
 
 def _default_category_runner(prompt: str, system: Optional[str] = None,
                              model: str = "haiku", timeout: int = 60) -> Optional[str]:
-    """Subscription Claude CLI — never the metered ANTHROPIC_API_KEY."""
-    from lib.claude_cli import run_claude_cli
-    return run_claude_cli(prompt, system=system, model=model, timeout=timeout)
+    """Subscription Claude CLI first, OpenCode fallback — never the metered ANTHROPIC_API_KEY."""
+    from lib.model_fallback import run_smart_cli
+    return run_smart_cli(
+        prompt, system=system, model=model, timeout=timeout,
+        task_type="classify" if model == "haiku" else "reasoning",
+        agent_name="inbound_classifier",
+    )
 
 
 def _build_category_user_msg(content: str, subject: Optional[str],
@@ -512,8 +626,17 @@ def _parse_category_response(raw: str, evidence_text: str = "",
     marketing = bool(_MARKETING_RE.search(evidence_text))
     note = ""
 
-    if category == "financial_legal" and not has_txn and (is_bulk or marketing):
-        why = "bulk/List-Unsubscribe" if is_bulk else "pricing-announcement language"
+    statement_notice = bool(_STATEMENT_NOTICE_RE.search(evidence_text))
+    usage_notice = bool(_USAGE_NOTICE_RE.search(evidence_text))
+
+    if category == "financial_legal" and not has_txn and (is_bulk or marketing
+                                                          or statement_notice
+                                                          or usage_notice):
+        why = ("bulk/List-Unsubscribe" if is_bulk
+               else "pricing-announcement language" if marketing
+               else "statement-availability notice, not a transaction"
+               if statement_notice
+               else "usage/quota notice — consuming prepaid credit is not a purchase")
         category = "low_priority"
         note = (f"model said Financial & Legal, overridden: {why} and no "
                 f"transaction evidence (no amount, invoice #, or payment phrase)")
@@ -561,7 +684,12 @@ def _parse_category_response(raw: str, evidence_text: str = "",
 
 _MONEY_AMOUNT_RE = re.compile(
     r"(?:[$£€]\s?\d[\d,]*(?:\.\d{2})?)"          # $1,234.56
-    r"|(?:\b\d[\d,]*\.\d{2}\s?(?:usd|cad|eur|gbp)\b)",  # 1234.56 USD
+    r"|(?:\b\d[\d,]*\.\d{2}\s?(?:usd|cad|eur|gbp)\b)"  # 1234.56 USD
+    # Currency-PREFIX notation: "CAD 10.00". Wise, Revolut and most European
+    # invoices write it this way, and only the suffix form was matched — so a
+    # Wise statement fee carried no detectable amount at all. Found 2026-08-03
+    # by a test written for the statement-fee case above.
+    r"|(?:\b(?:usd|cad|eur|gbp)\s?\d[\d,]*(?:\.\d{2})?\b)",  # CAD 10.00
     re.IGNORECASE,
 )
 
@@ -576,7 +704,16 @@ _TXN_PHRASE_RE = re.compile(
     r"|(?:auto[- ]?)?renewal\s+(?:notice|confirmation)"
     r"|thanks?\s+for\s+your\s+(?:payment|purchase|order)"
     r"|charged\s+to\s+your|we(?:'ve| have)\s+charged"
-    r"|statement\s+is\s+(?:ready|available)|account\s+statement"
+    # REMOVED 2026-08-03: "statement is ready" / "account statement".
+    # They were in this list — the set of phrases that "only occur when money
+    # actually moved" — but a statement-availability notice is precisely the
+    # case where it did NOT. The consequence was not theoretical: because
+    # has_txn came back True, the bulk/marketing veto (which requires
+    # `not has_txn`) could never fire, AND confidence was derived as 0.85,
+    # clearing the Atlas hand-off threshold. Four Kraken "Here's your <month>
+    # statement" emails rode that path into the ledger as None-CAD expense
+    # rows. A statement that names a real charge is unaffected: the amount +
+    # receipt-vocabulary rule below still supplies the evidence.
     r"|refund\s+(?:of|issued|processed)"
     r"|amount\s+(?:due|paid)|balance\s+due|remittance"
     r"|t4a?\b|\bcra\b|revenu\s+qu[ée]bec|notice\s+of\s+assessment"
@@ -588,7 +725,69 @@ _TXN_PHRASE_RE = re.compile(
 # Receipt vocabulary — weak alone, but promotes a bare currency amount.
 _RECEIPT_WORD_RE = re.compile(
     r"\b(?:invoice|receipt|billed|charged|payment|payout|remittance|"
-    r"transaction|order\s+confirmation)\b",
+    r"transaction|order\s+confirmation|"
+    # Statement-detail FEE vocabulary, added 2026-08-03 after a Codex audit of
+    # the statement-notice fix. Removing "account statement" from
+    # _TXN_PHRASE_RE was right — availability is not a transaction — but it
+    # left a real deductible stranded: "Your bank statement for July: monthly
+    # account fee $16.95" had an amount and no promoting vocabulary, so it
+    # scored no evidence and would have been dropped to low_priority. Losing a
+    # genuine deduction is as expensive as inventing a fake one.
+    #
+    # Each term is qualified (account/service/card/monthly/annual/transaction)
+    # rather than a bare "fee", so a pricing blast that merely says "our fees
+    # are changing, plans from $49" still supplies no evidence.
+    r"account\s+fee|service\s+(?:charge|fee)|interest\s+charge|card\s+fee|"
+    r"monthly\s+fee|annual\s+fee|transaction\s+fee|overdraft\s+fee)\b",
+    re.IGNORECASE,
+)
+
+# Statement-AVAILABILITY notices: "your statement is ready", "here's your April
+# statement from Kraken". These announce that a document exists somewhere else;
+# they are not themselves a charge. Like marketing, they VETO a financial read
+# when no transaction evidence is present.
+#
+# Why this is its own regex and not a _MARKETING_RE entry (2026-08-03): the
+# existing veto at classify_category() only fires for bulk OR marketing mail,
+# and an account statement notice is neither — it is transactional-looking mail
+# from a real financial relationship with no List-Unsubscribe. So it passed the
+# veto, routed to financial_legal, handed off to Atlas, and Atlas booked it. The
+# live ledger held four such Kraken rows, each with amount_cad = None.
+#
+# Deliberately narrow: it matches the ANNOUNCEMENT shape only. "Your statement
+# shows a $412.00 charge" still carries transaction evidence and is unaffected,
+# because has_txn is checked alongside this.
+_STATEMENT_NOTICE_RE = re.compile(
+    r"\b(?:"
+    r"(?:here'?s|here\s+is)\s+your\s+\w+\s+statement"
+    r"|your\s+\w*\s*statement\s+(?:is\s+)?(?:ready|available|is\s+here)"
+    r"|statement\s+(?:is\s+)?(?:now\s+)?(?:ready|available)"
+    r"|(?:monthly|annual|quarterly)\s+statement\s+(?:is\s+)?(?:ready|available)"
+    r"|view\s+your\s+statement|download\s+your\s+statement"
+    r"|account\s+statement\s+(?:is\s+)?(?:ready|available)"
+    r")",
+    re.IGNORECASE,
+)
+
+# Usage / quota notices: "CC has used $15 of $20 in monthly Pro plan credit".
+# Consuming prepaid allowance is not a purchase — the money moved when the plan
+# was bought, and booking the usage figure again double-counts it.
+#
+# Live evidence 2026-08-03: a Vercel credit-usage email was booked as a $20
+# hosting_cloud expense. It survived every other guard because it is not
+# marketing, not a statement, and DOES carry a dollar amount — so the
+# amount-gate and the statement veto both pass it through. This is the third
+# distinct shape of non-transaction that carries a number.
+_USAGE_NOTICE_RE = re.compile(
+    r"\b(?:"
+    r"(?:has\s+)?used\s+[$£€]?\d[\d,]*(?:\.\d{2})?\s+of\b"
+    r"|of\s+[$£€]?\d[\d,]*(?:\.\d{2})?\s+in\s+(?:monthly|included|plan)\b"
+    r"|credit(?:s)?\s+remaining|remaining\s+credit(?:s)?"
+    r"|quota\s+(?:used|remaining|exceeded)"
+    r"|usage\s+(?:summary|alert|report|notification)"
+    r"|you(?:'ve| have)\s+used\s+\d+%"
+    r"|approaching\s+your\s+(?:limit|quota)"
+    r")",
     re.IGNORECASE,
 )
 
@@ -791,6 +990,60 @@ Rules:
 - Output ONLY the JSON object. No code fences, no preamble."""
 
 
+# Errors that mean the classifier CODE is broken rather than the model being
+# unavailable. Both silent outages this module has suffered were of this class:
+# TypeError (2026-07-28, dead `_env` param) and NameError (2026-08-26, import
+# named run_claude_cli while the call named run_smart_cli). A bare
+# `except Exception` cannot tell them apart from a genuine CLI outage, which is
+# why each one degraded classification for days without a single alert.
+_BUG_ERRORS = (NameError, AttributeError, TypeError, ImportError)
+
+# One alert per process. The failure mode is per-message, so an unguarded
+# publish would emit one event per inbound email and get muted as noise.
+_degraded_alerted = False
+
+
+def _alert_degraded(exc: Exception, *, kind: str) -> None:
+    """Report a classifier degradation loudly, then let the caller fall back.
+
+    Always prints the full traceback — the previous handler printed only
+    `str(exc)`, which for a NameError is a single line with no frame and reads
+    like a transient blip. Publishes BRAVO_CLASSIFIER_DEGRADED once per process
+    so the outage is visible in the event bus rather than only in a stderr
+    stream nobody tails.
+    """
+    global _degraded_alerted
+
+    label = "CODE BUG" if kind == "bug" else "operational failure"
+    print(f"[inbound_classifier] {label}: {type(exc).__name__}: {exc} — "
+          "falling back to keyword classifier.", file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
+
+    if _degraded_alerted:
+        return
+    _degraded_alerted = True
+
+    try:
+        from core.event_bus import publish
+        publish(
+            "BRAVO_CLASSIFIER_DEGRADED",
+            {
+                "kind": kind,
+                "error_type": type(exc).__name__,
+                "error": str(exc)[:500],
+                "traceback": traceback.format_exc()[-2000:],
+                "impact": "inbound email classified by keyword fallback, not the LLM",
+            },
+            source="inbound_classifier",
+            severity="critical" if kind == "bug" else "warn",
+            # Collapses repeats within a run while still firing per process.
+            idempotency_key=f"classifier-degraded-{kind}-{type(exc).__name__}-"
+                            f"{datetime.now(timezone.utc):%Y%m%dT%H}",
+        )
+    except Exception:  # noqa: BLE001 - alerting must never break the sweep
+        traceback.print_exc(file=sys.stderr)
+
+
 def _classify_via_haiku(content: str, channel: str,
                          subject: Optional[str], from_identity: Optional[str]) -> dict:
     """Call Claude Haiku via the subscription `claude` CLI (lib.claude_cli) —
@@ -802,8 +1055,14 @@ def _classify_via_haiku(content: str, channel: str,
     swallowed by the except below — the classifier had silently degraded to the
     keyword fallback on every inbound email. The CLI path needs no env (it
     shells out to the subscription `claude` binary), so the parameter is gone
-    rather than renamed."""
-    from lib.claude_cli import run_claude_cli
+    rather than renamed.
+
+    2026-08-28: the SAME defect, third form. a71826a7 (2026-08-26) switched the
+    call below to run_smart_cli but left this import naming run_claude_cli, so
+    every call raised NameError and was swallowed by the same except — two days
+    of keyword-only inbound triage. Import and call must name the same symbol;
+    `pyflakes` reports both halves and now runs as a harness gate."""
+    from lib.model_fallback import run_smart_cli
 
     user_parts = [f"Channel: {channel}"]
     if from_identity:
@@ -815,7 +1074,8 @@ def _classify_via_haiku(content: str, channel: str,
     user_parts.append((content or "")[:4000])
     user_msg = "\n".join(user_parts)
 
-    text = run_claude_cli(user_msg, system=CLASSIFY_SYSTEM_PROMPT, model="haiku", timeout=90)
+    text = run_smart_cli(user_msg, system=CLASSIFY_SYSTEM_PROMPT, model="haiku", timeout=90,
+                         task_type="classify", agent_name="inbound_classifier")
     if text is None:
         raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")
     parsed = json.loads(strip_code_fence(text))
@@ -887,10 +1147,18 @@ def classify(
             from_identity=from_identity,
         )
         return _validate_and_normalize(raw)
+    except _BUG_ERRORS as exc:
+        # The classifier CODE is broken — not the model. This exact shape has
+        # now caused two silent multi-day outages (TypeError 2026-07-28,
+        # NameError 2026-08-26), both because a bare `except Exception` turned a
+        # code bug into a plausible-looking keyword result that nobody queried.
+        # Mail still flows, but the signal is unmissable this time.
+        _alert_degraded(exc, kind="bug")
+        return _keyword_fallback(content or "")
     except Exception as exc:  # noqa: BLE001
-        print(f"[inbound_classifier] Haiku failed ({exc}); "
-              "falling back to keyword classifier.",
-              file=sys.stderr)
+        # Genuine operational failure (CLI down, quota, bad JSON, timeout).
+        # Degrading is correct here — but it is still reported, not swallowed.
+        _alert_degraded(exc, kind="operational")
         return _keyword_fallback(content or "")
 
 
@@ -946,23 +1214,35 @@ def record_inbound(
     # Resolve lead by email if not provided. For IG/skool channels the
     # from_identity is a @username, so we store it in metadata but don't
     # auto-create a lead row without an email.
+    lead_tenant: Optional[str] = None
     if not lead_id and from_identity and "@" in from_identity and "." in from_identity:
         try:
-            r = (db.table("leads").select("id")
+            r = (db.table("leads").select("id, tenant_id")
                  .eq("email", from_identity.strip().lower())
                  .limit(1).execute().data)
             if r:
                 lead_id = r[0]["id"]
+                lead_tenant = r[0].get("tenant_id")
             else:
                 # Create a minimal inbound-only lead record. Source='inbound'
                 # distinguishes from outbound gateway auto-creates.
-                from lib.lead_contract import has_hard_required
+                from lib.lead_contract import has_hard_required, should_create_lead
+
+                # The pipeline already decided this sender is a newsletter or a
+                # no-reply notification — but until 2026-08-04 this write never
+                # asked, so every vendor email became a CRM lead (35 of them).
+                # `classification` has been sitting in scope as the first
+                # parameter of this function the whole time.
+                eligible, why = should_create_lead(from_identity, classification)
                 raw_lead = {
                     "name": from_identity.split("@")[0],
                     "email": from_identity.strip().lower(),
                     "source": "inbound_" + channel,
                 }
-                if not has_hard_required(raw_lead):
+                if not eligible:
+                    print(f"[inbound_classifier] no lead created for "
+                          f"{from_identity}: {why}", file=sys.stderr)
+                elif not has_hard_required(raw_lead):
                     print(
                         f"[inbound_classifier] lead_contract rejected lead creation for {from_identity}",
                         file=sys.stderr,
@@ -971,11 +1251,13 @@ def record_inbound(
                     ins = db.table("leads").insert({
                         **raw_lead,
                         "status": "new",
+                        "tenant_id": OASIS_TENANT_ID,
                         "created_at": now.isoformat(),
                         "updated_at": now.isoformat(),
                     }).execute().data
                     if ins:
                         lead_id = ins[0]["id"]
+                        lead_tenant = OASIS_TENANT_ID
         except Exception as exc:  # noqa: BLE001
             print(f"[inbound_classifier] lead resolve warning: {exc}", file=sys.stderr)
 
@@ -1001,6 +1283,12 @@ def record_inbound(
         "subject": (subject or "")[:500] or None,
         "content": (content or "")[:2000],
         "agent_source": "inbound_classifier",
+        # Tenant comes from the lead row resolved/created above (no extra
+        # query — the select now fetches tenant_id). When lead_id was passed
+        # in by the caller we skip that lookup on this hot path and fall back
+        # to the operator tenant; a non-OASIS caller-supplied lead would be
+        # mis-stamped, but no such caller exists today.
+        "tenant_id": lead_tenant or OASIS_TENANT_ID,
         "metadata": full_metadata,
         "created_at": now.isoformat(),
     }

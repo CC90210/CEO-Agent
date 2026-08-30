@@ -1,1 +1,1 @@
-{"scorer": "rubric", "field": "verdict", "expected": "prevention-honored", "note": "wire to a deterministic check that would have caught this mistake; until then = needs-model"}
+{"scorer": "exact", "field": "verdict", "expected": "prevention-honored", "note": "OPERATING tier. Asserts the periodically-run health check still spawns children windowless. Dropping creationflags brings the 8-second console popups back."}

@@ -47,6 +47,21 @@ def sync(operator_email: str, *, dry_run: bool, as_json: bool) -> dict:
     total = float(mrr["total_mrr"])
     today = dt.date.today().isoformat()
 
+    # Refuse to launder a degraded read into the system of record. The manual
+    # component is ~99% of total MRR, so when revenue_engine could only carry
+    # it forward from a snapshot, writing that figure to
+    # user_profiles.mrr_current_usd would make a stale number indistinguishable
+    # from a live one for Atlas and every dashboard downstream. Nothing is lost
+    # by skipping — the cached value is what is already on file — and failing
+    # here surfaces via the hourly cron health check instead of going quiet.
+    manual_stale = mrr.get("manual_stale")
+    if manual_stale:
+        result = {"ok": False, "error": f"refusing to write degraded MRR — {manual_stale}",
+                  "total_mrr": total, "manual_stale": manual_stale}
+        print(json.dumps(result) if as_json
+              else f"ERROR: {result['error']}", file=sys.stderr)
+        return result
+
     profile_q = (
         db.table("user_profiles")
         .select("id,tenant_id,mrr_current_usd,mrr_target_usd")

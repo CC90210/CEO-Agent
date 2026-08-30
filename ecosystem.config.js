@@ -128,6 +128,32 @@ const NODE = 'node';
 // and scheduler.py scrubs it from every child env it spawns.
 const V6_ENV = { EMPIRE_V6_MODE: "shadow", SSLKEYLOGFILE: "" };
 
+// Turso is the post-migration default for every daemon and every Python child
+// spawned by a Node daemon. A bare `pm2 start ecosystem.config.js` must never
+// resurrect the retired Supabase data plane. Direct Supabase exists only as a
+// deliberately named emergency rollback mode; stale/unknown names fail while
+// PM2 is loading this config instead of becoming an implicit fallback.
+const TURSO_BACKEND = "turso_cloud";
+const LEGACY_SUPABASE_ROLLBACK_BACKEND = "legacy_supabase_rollback";
+const REQUESTED_DATA_BACKEND = (process.env.EMPIRE_DATA_BACKEND || TURSO_BACKEND)
+    .trim()
+    .toLowerCase();
+if (![TURSO_BACKEND, LEGACY_SUPABASE_ROLLBACK_BACKEND].includes(REQUESTED_DATA_BACKEND)) {
+    throw new Error(
+        `Invalid EMPIRE_DATA_BACKEND=${JSON.stringify(REQUESTED_DATA_BACKEND)}. ` +
+        `Use ${TURSO_BACKEND}, or ${LEGACY_SUPABASE_ROLLBACK_BACKEND} only for ` +
+        "an operator-approved emergency rollback."
+    );
+}
+const DATA_BACKEND_ENV = {
+    EMPIRE_DATA_BACKEND: REQUESTED_DATA_BACKEND,
+    // Defense in depth for an older installed switch: its .pth bootstrap only
+    // stops startup on patch failure when this flag is 1. The tracked switch
+    // now always fails closed in Turso mode, but daemon safety must not depend
+    // on the installed copy already being current.
+    EMPIRE_TURSO_PATCH_REQUIRED: REQUESTED_DATA_BACKEND === TURSO_BACKEND ? "1" : "0",
+};
+
 // Presence check for a non-empty key in .env.agents WITHOUT echoing its value.
 // Used to gate the coordination bridge so it isn't crash-looped by PM2 before
 // CC has provisioned the dedicated bot token.
@@ -184,6 +210,47 @@ if (IS_WIN) {
 }
 
 // ============================================================================
+// bravo-ig-dm — WINDOWS ONLY. The Instagram DM setter's own loop.
+// ============================================================================
+//
+// WHY IT IS NOT A CRON ROW. It was one, and that was the bug. scheduler.py runs
+// every due job SEQUENTIALLY and only then sleeps, so a DM reply waited behind
+// whatever else was due — measured 2026-08-21, the Inbound Email Sweep alone took
+// 84s and the observed gap between DM polls was ~291s with the row set to
+// `* * * * *`. A prospect who typed "Yo Wsp" waited 3m46s. Batch jobs tolerate a
+// queue; a person watching for a reply does not.
+//
+// EXACTLY ONE RUNNER. The `Instagram DM Closer` cron row MUST stay is_active=0
+// while this is online — two live runners on one script answer every prospect
+// twice, which happened on 2026-08-20. The daemon reads that row at startup and
+// REFUSES to boot if it is armed; the poller's O_EXCL lock is the second guard.
+// Check with: python scripts/integrations/ig_dm_daemon.py --check-conflict
+//
+// KILL SWITCH: pm2 stop bravo-ig-dm   (the setter goes silent; nothing else does)
+if (IS_WIN) {
+    apps.push({
+        name: "bravo-ig-dm",
+        script: "scripts/integrations/ig_dm_daemon.py",
+        interpreter: PYTHONW,
+        cwd: PROJECT_ROOT,
+        watch: false,
+        autorestart: true,
+        max_restarts: 10,
+        restart_delay: 30000,
+        windowsHide: true,
+        env: {
+            PYTHONIOENCODING: "utf-8",
+            PYTHONUNBUFFERED: "1",
+        },
+        log_date_format: "YYYY-MM-DD HH:mm:ss",
+        error_file: "tmp/pm2-ig-dm-error.log",
+        out_file: "tmp/pm2-ig-dm-out.log",
+        merge_logs: true,
+        max_size: "10M",
+    });
+}
+
+// ============================================================================
 // bravo-telegram — BOTH PLATFORMS, but Mac runs cold-standby
 // ============================================================================
 //
@@ -204,6 +271,7 @@ apps.push({
     windowsHide: true,
     env: {
         NODE_ENV: "production",
+        // DATA_BACKEND_ENV is applied uniformly below; Python children inherit it.
     },
     log_date_format: "YYYY-MM-DD HH:mm:ss",
     error_file: "tmp/pm2-telegram-error.log",
@@ -242,7 +310,9 @@ if (envKeyPresent('CC_AGENT_BOT_TOKEN') || envKeyPresent('COORD_ENABLE')) {
         restart_delay: 45000,   // exceed Telegram's 30s long-poll to avoid 409 loops
         kill_timeout: 10000,
         windowsHide: true,
-        env: { NODE_ENV: "production" },
+        env: {
+            NODE_ENV: "production",
+        },
         log_date_format: "YYYY-MM-DD HH:mm:ss",
         error_file: "tmp/pm2-coord-error.log",
         out_file: "tmp/pm2-coord-out.log",
@@ -498,12 +568,53 @@ if (IS_LINUX) {
     });
 }
 
-// Uniformly stamp the V6 cutover mode onto every daemon's env (base layer, so
-// any app-specific env key still wins). Applied here rather than in each block
-// so a future daemon can't accidentally ship without it — non-uniform
-// inheritance across state-writers is the drift hazard we're avoiding.
+// ============================================================================
+// breeze-live-watch — go-live watch for the Breeze Advance portal
+// ============================================================================
+//
+// RESTORING A DAEMON THAT WENT SILENT WITHOUT ANYONE NOTICING. dump.pm2 records
+// this app's args (["loop","--interval","300"]) but NO script, so when PM2 was
+// retired on 2026-08-28 and fleet_watchdog took over, the entry became
+// UNRUNNABLE: the watchdog could see it was supposed to exist and could not
+// reconstruct the command. It has been reporting "1 unrunnable manifest entry"
+// ever since, which reads as a manifest wart rather than what it is — a live
+// client portal with nobody watching it.
+//
+// The committed spec wins over the dump (see fleet_watchdog.manifest), so
+// naming the script here is the whole fix.
+//
+// Safe to arm: the script is read-only against Breeze (its own docstring), it
+// polls a health endpoint plus failed interaction rows, and it Telegrams on
+// STATE CHANGE only — one ping when something breaks, one when it recovers,
+// hourly while still broken. Verified by running `once` on 2026-08-29:
+// {"ok": true, "problems": [], "alerted": false}.
+apps.push({
+    name: "breeze-live-watch",
+    script: "scripts/breeze_live_watch.py",
+    args: ["loop", "--interval", "300"],
+    interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
+    cwd: PROJECT_ROOT,
+    watch: false,
+    autorestart: true,
+    max_restarts: 20,
+    restart_delay: 10000,
+    windowsHide: true,
+    env: {
+        PYTHONIOENCODING: "utf-8",
+        PYTHONUNBUFFERED: "1",
+    },
+    log_date_format: "YYYY-MM-DD HH:mm:ss",
+    error_file: "tmp/pm2-breeze-live-watch-error.log",
+    out_file: "tmp/pm2-breeze-live-watch-out.log",
+    merge_logs: true,
+    max_size: "10M",
+});
+
+// Uniformly stamp shared safety policy onto every daemon. DATA_BACKEND_ENV is
+// applied last so a future app cannot accidentally override the fleet-wide
+// database mode in its local env block.
 for (const app of apps) {
-    app.env = { ...V6_ENV, ...(app.env || {}) };
+    app.env = { ...V6_ENV, ...(app.env || {}), ...DATA_BACKEND_ENV };
 }
 
 module.exports = { apps };

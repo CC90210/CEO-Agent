@@ -37,7 +37,7 @@ The canonical profile lives at `brain/operator.profile.json`:
       "personal_brand":  "Conaugh McKenna",
       "primary_brand":   "OASIS AI Solutions",
       "role":            "Founder",
-      "location":        "Collingwood, Ontario",
+      "location":        "Montreal, Quebec",
       "primary_email":   "conaugh@oasisai.work",
       "website":         "https://oasisai.work",
       "booking_link":    "https://calendar.app.google/...",
@@ -56,6 +56,8 @@ import json
 import sys
 from pathlib import Path
 from typing import Any, Optional
+
+from lib.secret_loader import load_env as _load_env  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROFILE_PATH = PROJECT_ROOT / "brain" / "operator.profile.json"

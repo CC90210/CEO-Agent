@@ -140,7 +140,7 @@ Organized by the question, not the tool. The tool names are in italics so you ca
 
 | Question | Answer |
 |---|---|
-| "Query my Supabase" | *`supabase_tool.py select <table>`* |
+| "Query the empire DB" | *`turso_tool.py select <table>`* (Supabase legacy projects: `supabase_tool.py select <table> --project <name>`) |
 | "Run a SQL migration" | *`apply_migration.py database/NNN_...sql`* |
 | "List all my n8n workflows" | *`n8n_tool.py list`* |
 | "Scrape this URL" | Firecrawl MCP (ask in IDE) |
@@ -291,7 +291,7 @@ Hard boundaries. Bravo will push back if you ask for any of these — good. Know
 | **Sign / accept legal documents** | Your signature is your signature. | Bravo can *draft* contracts and proposals. You sign. |
 | **Email a specific person without relationship context** | Without running `context_builder`, tone will miss the relationship stage. | Ask: "check context for X first, then draft." |
 | **Push to `main` without review** | Breaks production. | Bravo pushes to feature branches. You merge. |
-| **Run `DROP TABLE` / `TRUNCATE` / `git reset --hard` on production** | The exec_sql RPC server-side guard already refuses this, but the principle applies to any destructive op. | Use Supabase Dashboard / manual git for anything destructive. |
+| **Run `DROP TABLE` / `TRUNCATE` / `git reset --hard` on production** | The exec_sql RPC server-side guard already refuses this, but the principle applies to any destructive op. | Use the Turso dashboard / manual git for anything destructive. |
 | **Log in as you** to a service (bank, tax, brokerage) | Your session cookies are your session cookies. Never share. | Bravo can automate *after* you're logged in (Playwright against an open session). |
 
 ---
@@ -315,7 +315,7 @@ In alphabetical order. Skip this unless you're unsure about a specific word.
 - **Policy** — rules for when the AI can auto-act vs when it must ask you. Currently hard-coded; Build #5+ will move to a YAML policy file.
 - **Pulse** — `.json` files in `data/pulse/` where Atlas/Bravo/Maven write their current status. How agents see each other.
 - **Relationship stage** — where a lead sits in the pipeline from the AI's view: cold → contacted → warm → engaged → active_client → dormant → lost. Computed automatically by `context_builder`.
-- **RPC** — a function running on Supabase (Postgres) that your code can call. The `exec_sql` RPC is how you run migrations without a Supabase token.
+- **RPC** — a Postgres-era stored procedure. On Turso these are ported shims in `RPC_REGISTRY` / `TURSO_RPC_SHIM` (source SQL in `database/rpc_sources/`); migrations run via `scripts/apply_migration.py`.
 - **Shadow mode** — run the agent, log what it WOULD have done, don't actually do it. Safety net for new behavior.
 - **Skill** — a reusable capability at `skills/<name>/SKILL.md`. Example: `skills/send-gateway/SKILL.md` documents the gateway's contract.
 - **State** — "what's true right now." Lives in `brain/STATE.md`. Every agent reads it on session start.

@@ -1,4 +1,4 @@
-"""Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table.
+"""Publish memory/ACTIVE_TASKS.md tasks to the `oasis_quests` table (Turso via supabase-compat shim).
 
 Used by OASIS Town's Quest Log panel — the game polls /api/quests every minute
 and visualizes the live state of CC's actual TODO list.
@@ -87,8 +87,8 @@ def _supabase_client():
         print(f"[quest_publisher] cannot load env: {e}", file=sys.stderr)
         return None
     env = load_env()
-    url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
-    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+    url = (env.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat").strip()
+    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key").strip()
     if not url or not key:
         print("[quest_publisher] missing BRAVO_SUPABASE_URL/SERVICE_ROLE_KEY",
               file=sys.stderr)

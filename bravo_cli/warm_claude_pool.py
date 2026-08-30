@@ -277,7 +277,7 @@ class WarmClaudeProcess:
         # responded to "yo wsp." Instead we send EVERY prompt
         # (including the first) via stdin in send_turn() — same
         # codepath, no special-case for the first turn.
-        # See scratch/test_warm_pool.py for the smoking-gun test.
+         # See tests/test_warm_pool.py for the smoking-gun test.
         # --output-format stream-json puts claude in non-interactive
         # JSON mode (no TUI). --input-format stream-json keeps stdin
         # open across turns.

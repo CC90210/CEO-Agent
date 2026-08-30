@@ -42,11 +42,8 @@ ensure_os_trust()
 
 
 def get_supabase():
-    url = os.environ.get("BRAVO_SUPABASE_URL", "")
-    key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY", "")
-    if not url or not key:
-        print("Missing BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY")
-        sys.exit(1)
+    url = os.environ.get("BRAVO_SUPABASE_URL", "") or "https://bravo.turso.compat"
+    key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY", "") or "turso-compat-key"
     try:
         from supabase import create_client
         return create_client(url, key)
@@ -115,10 +112,15 @@ def send_telegram(message: str):
         return
 
     import urllib.request
+    # NO parse_mode. This is the safety net for when notify() itself is
+    # unavailable, so it must be the most robust path, not the prettiest: plain
+    # text can never be rejected for unparseable entities. With parse_mode=HTML
+    # a lead who typed "<" into the funnel form would have made Telegram answer
+    # 400 and lost the lead alert entirely — on the fallback whose whole job is
+    # getting the message out when everything else is broken.
     data = json.dumps({
         "chat_id": chat_id,
         "text": message[:4096],
-        "parse_mode": "HTML",
     }).encode()
     req = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/sendMessage",
@@ -162,7 +164,7 @@ def _email_wrapper(content: str) -> str:
       <!-- Footer -->
       <div style="background:#111;padding:20px 24px;text-align:center;border-top:1px solid #222">
         <p style="color:#888;font-size:13px;margin:0 0 4px"><strong>Conaugh McKenna</strong> | Founder, OASIS AI Solutions</p>
-        <p style="color:#555;font-size:11px;margin:0">Collingwood, ON &middot; <a href="https://www.instagram.com/konamakana" style="color:#e8c547;text-decoration:none">@konamakana</a></p>
+        <p style="color:#555;font-size:11px;margin:0">International &middot; <a href="https://www.instagram.com/oasisaisolutions/" style="color:#e8c547;text-decoration:none">@oasisaisolutions</a></p>
       </div>
     </div>"""
 

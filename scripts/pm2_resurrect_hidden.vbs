@@ -1,22 +1,13 @@
 ' PM2 Resurrect - hidden Windows logon launcher
 '
 ' Task Scheduler should call this file with wscript.exe. The script invokes
-' pm2.cmd through cmd.exe with windowStyle=0, so Windows never allocates a
-' visible console window while PM2 restores the saved daemon list.
+' pm2_resurrect_hidden.cmd through cmd.exe with windowStyle=0, so Windows
+' never allocates a visible console window while PM2 restores the saved
+' daemon list. All logic (PM2_HOME pinning, stale-daemon kill, resurrect,
+' save) lives in the .cmd file - keep it there, not inline here.
 Option Explicit
 
-Dim Shell, Fso, LogDir, Command
+Dim Shell
 Set Shell = CreateObject("WScript.Shell")
-Set Fso = CreateObject("Scripting.FileSystemObject")
 
-LogDir = Shell.ExpandEnvironmentStrings("%USERPROFILE%") & "\.pm2\startup-log"
-If Not Fso.FolderExists(LogDir) Then
-    Fso.CreateFolder(LogDir)
-End If
-
-Command = "cmd.exe /d /s /c " & _
-    """" & """C:\Users\User\AppData\Roaming\npm\pm2.cmd""" & " resurrect" & _
-    " >> """ & LogDir & "\resurrect-out.log""" & _
-    " 2>> """ & LogDir & "\resurrect-err.log""" & """"
-
-Shell.Run Command, 0, False
+Shell.Run "cmd.exe /d /s /c ""C:\Users\User\Business-Empire-Agent\scripts\pm2_resurrect_hidden.cmd""", 0, False
