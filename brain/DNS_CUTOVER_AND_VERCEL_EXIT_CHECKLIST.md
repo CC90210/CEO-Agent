@@ -47,6 +47,15 @@ the raster sidecar / CanvasKit spike. **Shop-out of encrypted statements
 refuses until this is decided — do not cut #10 over without CC signing off on
 that behavior.**
 
+## 1b. OASIS CC branch-merge gate (BEFORE the cloudflare-workers branch merges)
+- [ ] Push the branch → **Vercel PREVIEW deploy** → exercise `watermark-variant`
+      (an encrypted statement) + `apply-extraction` (a PDF signature crop) on the
+      preview URL. Proves the native-raster tracing includes ship the packages
+      in Vercel packaging — codex finding 2026-08-30: the bundler-opaque import
+      hides the edge from tracing, the includes mirror the production-proven
+      pdfjs glob shape, and directory-glob includes are only observable in the
+      PACKAGED artifact, not local .nft.json manifests.
+
 ## 2. Vercel cancellation gates (the account CANNOT be closed until…)
 - [ ] All 11 rows above cut over + soak passed (7d/14d) + per-project retirement approved by CC one at a time.
 - [ ] **Out-of-scope projects still living on Vercel are migrated, retired, or explicitly re-homed:** listing-studio (**deliberately staying** — per CC 2026-08-29), revline, oasis-vanguard, aura-home-agent, on-the-bay-painting, kli-hub-dashboard, showroom, gritly, oasis-command-center-arthrisil-deploy. An account cancellation kills ALL of them at once.
