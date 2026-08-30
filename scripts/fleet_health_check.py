@@ -84,6 +84,16 @@ PROBES = {
     "nostalgic-requests": {"paths": ["/"], "api": []},
     "real-estate-app": {"paths": ["/"], "api": []},
     "oasis-ai-platform": {"paths": ["/"], "api": []},
+    # Added 2026-08-30. These were absent while their hostnames were being cut
+    # over to Workers, so bluerisebusinesscapital.com — a live customer domain
+    # that had already moved — was not checked by the tool reporting the fleet
+    # healthy. An app missing from this table is invisible, not passing.
+    "blue-rise-website": {"paths": ["/"], "api": []},
+    "sunbiz-funding": {"paths": ["/"], "api": []},
+    "arthrisil-website": {"paths": ["/"], "api": []},
+    "breezeadvance-website": {"paths": ["/"], "api": []},
+    "tiktik": {"paths": ["/"], "api": []},
+    "ig-setter-pro": {"paths": ["/"], "api": []},
 }
 
 
@@ -146,6 +156,84 @@ def check_host(host: str, probes: dict) -> dict:
     return {"host": host, "ips": ips, "checks": checks}
 
 
+def _cf_state() -> dict:
+    """Ask Cloudflare what is ACTUALLY deployed and bound. Cached per run.
+
+    Both halves must come from Cloudflare, not from the registry:
+
+      * DEPLOYED WORKERS — workers.dev is a wildcard, so an undeployed worker's
+        URL still resolves and answers 404. classify() reads 404 as "ok", so
+        probing an app that was never deployed produced a false GREEN.
+      * BOUND HOSTNAMES — the registry's custom_domains is regenerated from
+        VERCEL, i.e. "domains this app has", which is not "domains bound to its
+        Worker". Probing the difference reported apply.sunbizfunding.com (a
+        Vercel-only host) as a broken Cloudflare worker.
+
+    Returns {} when no token is configured, so the check still runs Vercel-only
+    in a checkout without migration credentials.
+    """
+    reg = Path(__file__).resolve().parent.parent / "config" / "cloudflare" / "apps.json"
+    if not reg.exists():
+        return {}
+    try:
+        data = json.loads(reg.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    env = load_env()
+    tok = next((str(env.get(k)).strip() for k in
+                ("CLOUDFLARE_WORKERS_API_TOKEN", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_TOKEN")
+                if str(env.get(k) or "").strip()), "")
+    # REGISTRY WINS. The env store's CLOUDFLARE_ACCOUNT_ID still names the old
+    # account (it is correct there for R2), so letting it take precedence made
+    # this list the wrong fleet — it reported the three most recently migrated
+    # workers as absent. Same trap already fixed in wrangler_tool.py; the fix
+    # belongs anywhere the deploy target is resolved.
+    acct = str(data.get("account_id") or "").strip() or str(env.get("CLOUDFLARE_ACCOUNT_ID") or "").strip()
+    if not (tok and acct):
+        return {}
+
+    def cf(path):
+        req = urllib.request.Request(
+            f"https://api.cloudflare.com/client/v4/accounts/{acct}{path}",
+            headers={"Authorization": f"Bearer {tok}", "User-Agent": "Mozilla/5.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=30, context=CTX) as r:
+                return json.load(r).get("result") or []
+        except Exception:
+            return []
+
+    deployed = {s.get("id") for s in cf("/workers/scripts")}
+    bound: dict[str, list[str]] = {}
+    for d in cf("/workers/domains"):
+        bound.setdefault(d.get("service"), []).append(d.get("hostname"))
+    return {"registry": data, "deployed": deployed, "bound": bound}
+
+
+_CF_CACHE: dict | None = None
+
+
+def cloudflare_hosts(vercel_project: str) -> list[str]:
+    """Hostnames this project actually serves from Workers — deployed only."""
+    global _CF_CACHE
+    if _CF_CACHE is None:
+        _CF_CACHE = _cf_state()
+    if not _CF_CACHE:
+        return []
+    data = _CF_CACHE["registry"]
+    subdomain = data.get("workers_subdomain", "oasisaisolutions")
+    hosts: list[str] = []
+    for slug, app in (data.get("apps") or {}).items():
+        if app.get("dropped") or app.get("vercel_project") != vercel_project:
+            continue
+        worker = app.get("worker_name", slug)
+        if worker not in _CF_CACHE["deployed"]:
+            continue  # not migrated yet — silence is correct, not a failure
+        if slug != "oasis-cc-cron":  # cron companion has no "/" surface
+            hosts.append(f"{worker}.{subdomain}.workers.dev")
+        hosts.extend(_CF_CACHE["bound"].get(worker) or [])
+    return sorted(set(hosts))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--project", help="one project instead of all")
@@ -176,20 +264,35 @@ def main() -> int:
         custom = [n for n in names if not n.endswith(".vercel.app")]
         vercel = [n for n in names if n.endswith(".vercel.app")]
 
-        entry = {"app": project, "custom": [], "vercel": []}
+        # Cloudflare Workers hosts, merged in from the migration registry.
+        # WHY: during the migration a hostname can move to Workers while Vercel
+        # still lists it, and the Vercel API is then no longer the authority on
+        # where production actually is. Without this the check probed only the
+        # OLD stack and reported the fleet healthy while saying nothing at all
+        # about the seven hostnames that had already moved (found 2026-08-30).
+        cf_hosts = cloudflare_hosts(project)
+        entry = {"app": project, "custom": [], "vercel": [], "cloudflare": []}
         for host in custom:
             entry["custom"].append(check_host(host, probes))
         for host in vercel[:1]:  # the stable project alias is enough
             entry["vercel"].append(check_host(host, probes))
+        for host in cf_hosts:
+            entry["cloudflare"].append(check_host(host, probes))
 
         def bad(blocks):
             return [c for b in blocks for c in b["checks"] if c["verdict"] != "ok"]
 
         cust_bad, verc_bad = bad(entry["custom"]), bad(entry["vercel"])
-        mig = [c for c in cust_bad + verc_bad if c["verdict"] == "MIGRATION-ERROR"]
+        cf_bad = bad(entry["cloudflare"])
+        mig = [c for c in cust_bad + verc_bad + cf_bad if c["verdict"] == "MIGRATION-ERROR"]
 
         if mig:
             entry["verdict"] = "MIGRATION REGRESSION"
+        elif cf_bad:
+            # Named separately from DOMAIN/APP BROKEN: during the migration the
+            # Workers side can fail while Vercel still serves fine, and calling
+            # that "ok" is how a half-migrated app looks healthy.
+            entry["verdict"] = "CLOUDFLARE WORKER BROKEN"
         elif cust_bad and entry["vercel"] and not verc_bad:
             entry["verdict"] = "DOMAIN BROKEN — app is healthy"
         elif verc_bad:
@@ -206,7 +309,7 @@ def main() -> int:
 
     for r in report:
         print(f"\n=== {r['app']}   ->  {r['verdict']}")
-        for kind in ("custom", "vercel"):
+        for kind in ("custom", "vercel", "cloudflare"):
             for blk in r.get(kind, []):
                 print(f"  {kind:6} {blk['host']}   {blk['ips']}")
                 for c in blk["checks"]:

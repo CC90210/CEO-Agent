@@ -1,5 +1,6 @@
 {
   "account_id": "e371c0f2dfde76e329b351a54bc738fe",
+  "workers_subdomain": "oasisaisolutions",
   "r2_cache_bucket": "oasis-next-cache",
   "apps": {
     "tiktik": {
