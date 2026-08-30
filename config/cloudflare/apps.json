@@ -57,7 +57,8 @@
       "kind": "opennext",
       "vercel_project": "real-estate-marketing-suite",
       "custom_domains": [],
-      "wave": 2
+      "wave": 2,
+      "dropped": "2026-08-29 per CC — stays on Vercel; no secret fill required"
     },
     "oasis-ai-platform": {
       "dir": "C:\\Users\\User\\APPS\\oasis-ai-platform",
@@ -90,6 +91,14 @@
       "custom_domains": [],
       "wave": 3,
       "note": "app.breezeadvance.com DNS is in the CLIENT's Cloudflare account — never touched by us"
+    },
+    "oasis-cc-cron": {
+      "dir": "C:\\Users\\User\\APPS\\oasis-command-center\\workers\\oasis-cc-cron",
+      "kind": "static-worker",
+      "vercel_project": "agent-dashboard",
+      "custom_domains": [],
+      "wave": 3,
+      "note": "companion cron worker (28 jobs) — deploys DRY until CRON_FORWARD=on; runbook: brain/WAVE3_OASIS_CC_RUNBOOK.md"
     },
     "oasis-command-center": {
       "dir": "C:\\Users\\User\\APPS\\oasis-command-center",

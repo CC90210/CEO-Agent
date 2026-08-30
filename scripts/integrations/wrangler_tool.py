@@ -95,14 +95,19 @@ def _account_id(registry: dict, loaded: dict) -> str:
 
 
 def _wrangler_env(registry: dict, extra: dict | None = None) -> dict[str, str]:
-    """Child env for wrangler/opennextjs invocations. Values never printed."""
+    """Child env for wrangler/opennextjs invocations. Values never printed.
+
+    Wrangler's identity vars are applied AFTER `extra`: an app's own env can
+    legitimately carry CLOUDFLARE_ACCOUNT_ID for its R2 API calls (nostalgic
+    does, pointing at the R2-owning account) and must never redirect the
+    DEPLOY to that account."""
     loaded = _secrets()
     env = dict(os.environ)
+    if extra:
+        env.update(extra)
     env["CLOUDFLARE_API_TOKEN"] = _cf_token(loaded)
     env["CLOUDFLARE_ACCOUNT_ID"] = _account_id(registry, loaded)
     env.setdefault("WRANGLER_SEND_METRICS", "false")
-    if extra:
-        env.update(extra)
     return env
 
 
@@ -361,14 +366,17 @@ def cmd_secrets_list(registry: dict, args: argparse.Namespace) -> int:
 
 
 def _build_env(registry: dict, slug: str) -> dict[str, str]:
+    """Vercel injects the FULL env at build (module-scope code like
+    `new Stripe(process.env.KEY)` runs during page-data collection), so the
+    build env gets every manifest key. `scope` only governs which keys are
+    pushed as worker secrets at deploy."""
     app = _app(registry, slug)
     loaded = _secrets()
     extra = dict(app.get("build_env") or {})
     for m in _manifest(slug):
-        if m.get("scope") in ("build", "both"):
-            v = (loaded.get(m.get("source") or m["key"]) or "").strip()
-            if v:
-                extra[m["key"]] = v
+        v = (loaded.get(m.get("source") or m["key"]) or "").strip()
+        if v:
+            extra[m["key"]] = v
     return _wrangler_env(registry, extra)
 
 
@@ -427,6 +435,59 @@ def cmd_deploy(registry: dict, args: argparse.Namespace) -> int:
     return 0
 
 
+WRANGLER_JSONC_TEMPLATE = """{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "%(name)s",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "%(name)s" }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
+"""
+
+OPEN_NEXT_CONFIG = """import { defineCloudflareConfig } from "@opennextjs/cloudflare";
+
+// Fleet default: no R2 incremental cache (pages are static or dynamic;
+// add r2IncrementalCache only if ISR behavior is observed to need it).
+export default defineCloudflareConfig({});
+"""
+
+
+def cmd_scaffold(registry: dict, args: argparse.Namespace) -> int:
+    """Write wrangler.jsonc + open-next.config.ts + .gitignore entries for an
+    opennext-kind app. Refuses to overwrite an existing wrangler.jsonc unless
+    --force (a hand-tuned config must not be silently regenerated)."""
+    app = _app(registry, args.app)
+    if app["kind"] != "opennext":
+        print(f"{args.app} is kind={app['kind']} — scaffold only handles opennext")
+        return 2
+    wj = app["path"] / "wrangler.jsonc"
+    if wj.exists() and not args.force:
+        print(f"REFUSED: {wj} exists (use --force to overwrite)")
+        return 1
+    wj.write_text(WRANGLER_JSONC_TEMPLATE % {"name": app["worker_name"]},
+                  encoding="utf-8", newline="\n")
+    onc = app["path"] / "open-next.config.ts"
+    if not onc.exists() or args.force:
+        onc.write_text(OPEN_NEXT_CONFIG, encoding="utf-8", newline="\n")
+    gi = app["path"] / ".gitignore"
+    text = gi.read_text(encoding="utf-8") if gi.exists() else ""
+    if ".open-next" not in text:
+        text += "\n# Cloudflare/OpenNext build output\n.open-next/\n.wrangler/\n"
+        gi.write_text(text, encoding="utf-8", newline="\n")
+    print(f"scaffolded {args.app}: wrangler.jsonc + open-next.config.ts + .gitignore")
+    return 0
+
+
 def cmd_tail(registry: dict, args: argparse.Namespace) -> int:
     app = _app(registry, args.app)
     proc = _run([_npx(), "wrangler", "tail", "--format", "pretty", app["worker_name"]],
@@ -467,6 +528,8 @@ def main() -> int:
         **{"--skip-build": {"action": "store_true", "dest": "skip_build"},
            "--skip-secrets": {"action": "store_true", "dest": "skip_secrets"}})
     add("tail", cmd_tail, needs_app=True)
+    add("scaffold", cmd_scaffold, needs_app=True,
+        **{"--force": {"action": "store_true", "dest": "force"}})
 
     args = ap.parse_args()
     try:
