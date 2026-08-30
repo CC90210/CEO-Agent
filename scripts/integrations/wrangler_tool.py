@@ -208,6 +208,29 @@ def cmd_accounts(registry: dict, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_subdomain(registry: dict, args: argparse.Namespace) -> int:
+    """Show (or register) the account's workers.dev subdomain."""
+    loaded = _secrets()
+    acct = _account_id(registry, loaded)
+    token = _cf_token(loaded)
+    if args.register:
+        body = json.dumps({"subdomain": args.register}).encode()
+        req = urllib.request.Request(
+            f"{CF_BASE}/accounts/{acct}/workers/subdomain", data=body, method="PUT",
+            headers={"Authorization": f"Bearer {token}",
+                     "Content-Type": "application/json", "User-Agent": UA})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                out = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            print(f"register failed: {e.code} {e.read().decode()[:300]}")
+            return 1
+    else:
+        out = _cf_get(f"/accounts/{acct}/workers/subdomain", token)
+    print(json.dumps(out.get("result") or out, indent=2))
+    return 0 if out.get("success") else 1
+
+
 def cmd_registrar_status(registry: dict, args: argparse.Namespace) -> int:
     loaded = _secrets()
     acct = _account_id(registry, loaded)
@@ -421,6 +444,7 @@ def main() -> int:
     add("accounts", cmd_accounts)
     add("zones", cmd_zones)
     add("registrar-status", cmd_registrar_status, **{"--domain": {"required": True}})
+    add("subdomain", cmd_subdomain, **{"--register": {"default": None}})
     add("list-workers", cmd_list_workers)
     add("secrets-plan", cmd_secrets_plan, needs_app=True,
         **{"--vercel-diff": {"action": "store_true", "dest": "vercel_diff"}})
