@@ -10,7 +10,42 @@ tags: [cloudflare, migration, vercel-exit, readiness]
 > [[brain/WAVE3_OASIS_CC_RUNBOOK]] · baselines in
 > `state/cloudflare_baselines/2026-08-30/`.
 
-## VERDICT: **NOT READY.** One production hostname has moved. Three blockers remain, all operator-side.
+## VERDICT: **NOT READY.** Three production hostnames have moved. Blockers below.
+
+### 2026-08-30 late — 6 zones baselined, Blue Rise cut over, and a near-miss
+
+All six zones are now in the account and baselined to
+`state/cloudflare_baselines/2026-08-30/` (`wrangler_tool.py zone-baseline`).
+Active: `oasisai.work`, `bluerisebusinesscapital.com`, `breezeadvance.credit`.
+Pending (nameservers not yet repointed): `sunbizfunding.com`, `propflow.pro`,
+`nostalgicrequests.com`.
+
+**Cut over and verified:** `bluerisebusinesscapital.com` + `www` →
+`blue-rise-website` Worker. Both 200, correct title, **MX preserved**.
+Rollback: apex `A 216.150.1.129` + `A 216.150.1.193`; www `A 216.150.1.1` +
+`A 216.150.16.129`, all proxied.
+
+**NEAR-MISS — `breezeadvance.credit` was NOT attached, deliberately.** The
+instruction was to bind it to `breezeadvance-website`. Vercel says the domain
+belongs to **`breeze-portal`**, and the live site serves *"Breeze Advance —
+Client Portal"* while that Worker serves *"Same-Day Business Funding"*.
+Attaching would have replaced David's live client portal with a marketing page.
+**The registry's domain map was wrong in 4 places** and has been regenerated
+from Vercel; never attach from the registry without checking the live title and
+the owning project first.
+
+**Two pre-existing breakages found:** `arthrisil.com` currently serves an error
+page (its zone is not in Cloudflare, so it cannot be fixed here), and
+`nostalgicrequests.com` is ACTIVE with **no MX records** — it shows no SPF/DMARC
+either, so it likely never had mail, but confirm before assuming.
+
+**Open question for CC:** `www.oasisai.work` now serves the *marketing platform*
+Worker while apex serves *agent-dashboard* — two different sites. Before the
+cutover www was returning 000/SSL-failure, so this is strictly an improvement,
+but Vercel had www registered to `agent-dashboard`, i.e. the original intent was
+for both to serve the Command Center. Either repoint www once OASIS CC is on
+Workers, or accept the split. Rollback to the previous (broken) state is
+`CNAME www → cname.vercel-dns.com`, unproxied.
 
 Vercel still serves ~all production traffic. Cancelling today would take down
 every brand. The migration is, however, materially unblocked: the account split
