@@ -492,14 +492,29 @@ def cmd_secrets_plan(registry: dict, args: argparse.Namespace) -> int:
 def cmd_secrets_push(registry: dict, args: argparse.Namespace) -> int:
     app = _app(registry, args.app)
     plan = _plan(registry, args.app, vercel_diff=False)
-    if plan["missing_from_env_agents"]:
-        print(f"REFUSED: gaps in .env.agents: {', '.join(plan['missing_from_env_agents'])}")
+    missing = plan["missing_from_env_agents"]
+    if missing and not getattr(args, "allow_missing", False):
+        print(f"REFUSED: gaps in the agents env store: {', '.join(missing)}")
+        print("Deploying a half-configured Worker is how a secret becomes a runtime 500.\n"
+              "If every missing key is genuinely optional AND fails CLOSED when unset,\n"
+              "re-run with --allow-missing; the skipped names are printed either way.")
         return 1
+    if missing:
+        # Loud on purpose: an override that prints nothing becomes the default.
+        print(f"WARNING --allow-missing: deploying WITHOUT {len(missing)} secret(s): "
+              f"{', '.join(missing)}")
     loaded = _secrets()
     values: dict[str, str] = {}
     for m in _manifest(args.app):
         if m.get("scope", "runtime") in ("runtime", "both"):
-            values[m["key"]] = (loaded.get(m.get("source") or m["key"]) or "").strip()
+            v = (loaded.get(m.get("source") or m["key"]) or "").strip()
+            # Skip empties: setting a secret to "" is NOT the same as leaving it
+            # unset. Code that branches on `=== undefined`, or that treats ""
+            # as a configured-but-blank value, behaves differently between the
+            # two — and the fail-closed reasoning that justified --allow-missing
+            # was about the key being ABSENT.
+            if v:
+                values[m["key"]] = v
     if not values:
         print(f"no runtime-scope secrets in manifest for {args.app}; nothing to push")
         return 0
@@ -858,7 +873,8 @@ def main() -> int:
     add("list-workers", cmd_list_workers)
     add("secrets-plan", cmd_secrets_plan, needs_app=True,
         **{"--vercel-diff": {"action": "store_true", "dest": "vercel_diff"}})
-    add("secrets-push", cmd_secrets_push, needs_app=True)
+    add("secrets-push", cmd_secrets_push, needs_app=True,
+        **{"--allow-missing": {"action": "store_true", "dest": "allow_missing"}})
     add("secrets-list", cmd_secrets_list, needs_app=True)
     add("build", cmd_build, needs_app=True)
     add("preview", cmd_preview, needs_app=True)
