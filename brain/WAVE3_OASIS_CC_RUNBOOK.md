@@ -15,7 +15,10 @@ tags: [cloudflare, migration, cron, oasis-command-center, wave-3]
 ## Entry criteria (all required before Phase A)
 1. Waves 1–2 gates passed (soak + zone-diff clean).
 2. oasisai.work **auto-renew confirmed ON** (blocked on zone-account token or CC dashboard check).
-3. The 26 `OASIS_COMMAND_CENTER__*` FILL lines completed in the agents env store — includes `CRON_SECRET`.
+3. The `OASIS_COMMAND_CENTER__*` FILL lines completed in the agents env store.
+   **26 -> 16 outstanding as of 2026-08-30** (disk hunt + derivation; see
+   `secret_disk_hunt.py`). ⚠ `CRON_SECRET` is FILLED BUT ROTATED — see the
+   alignment step in Phase C, which is now mandatory.
 4. **APEX coordination:** `coord_claim.py acquire --repo oasis-command-center --paths "vercel.json,next.config.js,package.json,.github/workflows/**,app/api/**,lib/cron-auth.ts" --task "CF Workers migration"` + `agent_activity.py post` announce ("Vercel production deploys on oasisai.work" is a declared shared domain).
 5. App worker (`oasis-command-center`) verified green on workers.dev (parity e2e), BEFORE any cron work — crons fan out to the app, so the app moves first.
 
@@ -97,6 +100,39 @@ written):**
 
 Both platforms run cron in **UTC** — expressions carry over verbatim, no
 timezone drift. (`:17` and `:40` offsets exist deliberately; keep them.)
+
+## ⚠ MANDATORY AT CUTOVER — align the rotated CRON_SECRET
+
+`CRON_SECRET` could not be recovered (sensitive-type in Vercel, absent from
+disk, write-only in GitHub), so on 2026-08-30 a fresh value was minted and set
+**on the Cloudflare Worker only**. That was safe precisely because
+`.github/workflows/cron-driver.yml` still targets the VERCEL deployment, so the
+two sides are independent today.
+
+**The moment the driver is repointed at the Worker, they stop being
+independent.** The GitHub secret `OASIS_CRON_SECRET` still holds the OLD Vercel
+value. Repointing without aligning them means every one of the 28 routes
+answers 401 and the fleet goes quiet — no error, no alert, exactly the shape of
+the 2026-08-06 outage this runbook exists to prevent.
+
+So, in the SAME change that repoints the driver:
+
+```bash
+# push the rotated value from the agents store into the GitHub secret
+# (value flows store -> gh stdin; it is never printed or placed on argv)
+python - <<'EOF'
+import subprocess, sys
+sys.path.insert(0, "scripts")
+from lib.secret_loader import load_env
+v = load_env()["OASIS_COMMAND_CENTER__CRON_SECRET"]
+subprocess.run(["gh", "secret", "set", "OASIS_CRON_SECRET",
+                "--repo", "CC90210/oasis-command-center"],
+               input=v, text=True, check=True)
+EOF
+```
+
+Then prove it rather than assume: one `workflow_dispatch` run of cron-driver
+must come back 2xx, not 401, before the Vercel deployment is retired.
 
 ## Architecture — `oasis-cc-cron` companion worker
 

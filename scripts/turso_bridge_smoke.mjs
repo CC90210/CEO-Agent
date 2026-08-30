@@ -86,6 +86,12 @@ const TARGETS = {
       // the route can.
       { path: "/api/cron/health-check", tier: "boot", expectStatus: [401],
         why: "500 here = CRON_SECRET unset = all 28 cron routes fail closed" },
+      // HONEST LIMIT OF THE ABOVE: 401 proves the secret is CONFIGURED, not that
+      // the crons WORK. The Worker's CRON_SECRET was rotated 2026-08-30 and the
+      // GitHub driver still holds the old Vercel value, so nothing can currently
+      // authenticate to these routes. A green run here is NOT evidence the cron
+      // fleet is live — that is proven by a workflow_dispatch returning 2xx
+      // after the alignment step in brain/WAVE3_OASIS_CC_RUNBOOK.md.
     ],
   },
 };
