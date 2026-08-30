@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import subprocess
+import socket
 import sys
 from pathlib import Path
 
@@ -87,7 +87,7 @@ def gate_migrated() -> dict:
 
 def gate_secrets() -> dict:
     reg = json.loads(REGISTRY.read_text(encoding="utf-8"))
-    gaps = {}
+    gaps, unreadable = {}, []
     for slug, app in (reg.get("apps") or {}).items():
         if app.get("dropped"):
             continue
@@ -96,29 +96,55 @@ def gate_secrets() -> dict:
         try:
             missing = json.loads(out).get("missing_from_env_agents", [])
         except json.JSONDecodeError:
-            missing = []
+            # FAIL CLOSED. Treating an unparseable answer as "no gaps" would
+            # turn a broken check into a PASS on the gate that authorises
+            # deleting production deployments.
+            unreadable.append(slug)
+            continue
         if missing:
             gaps[slug] = len(missing)
-    return {"gate": "no outstanding secret gaps", "pass": not gaps,
-            "detail": "all filled" if not gaps
-                      else "; ".join(f"{k}: {v} missing" for k, v in sorted(gaps.items()))}
+    bits = [f"{k}: {v} missing" for k, v in sorted(gaps.items())]
+    if unreadable:
+        bits.append(f"COULD NOT CHECK: {', '.join(sorted(unreadable))}")
+    return {"gate": "no outstanding secret gaps", "pass": not gaps and not unreadable,
+            "detail": "; ".join(bits) if bits else "all filled"}
+
+
+# Vercel's anycast prefixes. Cloudflare's proxy answers from 104./172./162.,
+# so a hostname resolving into these ranges is still being served by Vercel.
+VERCEL_PREFIXES = ("216.198.", "216.150.", "76.76.", "64.29.")
 
 
 def gate_traffic() -> dict:
-    """Vercel may only be retired once nothing customer-facing still points at it."""
+    """Vercel may only be retired once nothing customer-facing still points at it.
+
+    Resolves in-process. The first version shelled out to `python -c` with the
+    hostname interpolated into the source string — an injection shape, one
+    subprocess per host, and a resolution failure printed a traceback that the
+    substring test then read as "not on Vercel". A hostname that cannot resolve
+    is reported as its own state, never silently as a pass.
+    """
     reg = json.loads(REGISTRY.read_text(encoding="utf-8"))
-    still = []
+    still, unresolved = [], []
     for slug, app in (reg.get("apps") or {}).items():
         if app.get("dropped"):
             continue
         for host in app.get("custom_domains") or []:
-            rc, out = _run(["python", "-c",
-                            f"import socket;print(sorted({{a[4][0] for a in socket.getaddrinfo('{host}',443)}}))"])
-            # Vercel's anycast ranges; Cloudflare proxies answer from 104./172.
-            if "216.198." in out or "76.76." in out or "64.29." in out:
+            try:
+                ips = {a[4][0] for a in socket.getaddrinfo(host, 443)}
+            except OSError:
+                unresolved.append(host)
+                continue
+            if any(ip.startswith(VERCEL_PREFIXES) for ip in ips):
                 still.append(host)
-    return {"gate": "no customer hostname still resolves to Vercel", "pass": not still,
-            "detail": "none" if not still else f"still on Vercel: {', '.join(sorted(set(still)))}"}
+    ok = not still and not unresolved
+    bits = []
+    if still:
+        bits.append(f"still on Vercel: {', '.join(sorted(set(still)))}")
+    if unresolved:
+        bits.append(f"does not resolve: {', '.join(sorted(set(unresolved)))}")
+    return {"gate": "no customer hostname still resolves to Vercel", "pass": ok,
+            "detail": "; ".join(bits) if bits else "none"}
 
 
 GATES = [gate_soak, gate_fleet, gate_dataplane, gate_migrated, gate_secrets, gate_traffic]
