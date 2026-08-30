@@ -14,7 +14,8 @@ last_updated: 2026-08-29
 > `vercel_secret_sync.py`); (3) 32 Vercel crons (28 in OASIS CC) need companion cron Workers — unmentioned
 > below; (4) app list: −Mindset Companion (phantom), −Showroom/−Gritly (0 deployments), +Listing Studio;
 > (5) tunnels `bridge`/`breeze-bridge`.oasisai.work are proxied CNAMEs this doc's Phase 2 would destroy —
-> a protected-fence list now gates every DNS touch.
+> a protected-fence list now gates every DNS touch. Wave 3's cron cutover has its own runbook:
+> [[brain/WAVE3_OASIS_CC_RUNBOOK]].
 > **ORIGINAL (2026-08-11, historical):** Pending Execution (Rainy Day Project)
 > **PURPOSE**: Handover document for the AI agent tasked with executing the massive migration of 14 empire projects from Vercel to Cloudflare hosting to eliminate Vercel costs and unify infrastructure.
 

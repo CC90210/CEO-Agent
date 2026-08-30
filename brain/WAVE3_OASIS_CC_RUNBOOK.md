@@ -65,7 +65,8 @@ timezone drift. (`:17` and `:40` offsets exist deliberately; keep them.)
   expression above). Rationale: Workers caps cron triggers per worker (the
   28 entries hold 14 distinct expressions — over the cap); a minute tick +
   matcher keeps the table verbatim, one worker, exact Vercel fidelity.
-  1,440 invocations/day is noise.
+  1,440 invocations/day is noise. (Verify the current per-worker trigger cap
+  at execution — the minute-tick design is cap-independent either way.)
 - **Fan-out:** for each due entry, `fetch` the app's production URL with
   `Authorization: Bearer ${CRON_SECRET}` + `x-oasis-cron-attest: ${CRON_ATTEST_SECRET}`.
   `ctx.waitUntil` per call; per-call timeout generous (Workers has no
