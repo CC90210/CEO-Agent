@@ -372,7 +372,9 @@ def _build_env(registry: dict, slug: str) -> dict[str, str]:
     return _wrangler_env(registry, extra)
 
 
-def _opennext(registry: dict, slug: str, verb: str, capture: bool = False) -> int:
+def _opennext(registry: dict, slug: str, verb: str, capture: bool = True) -> int:
+    """capture defaults True: the .cmd shim + windowless flags swallow child
+    stdout otherwise, which turns real failures into silent ones."""
     app = _app(registry, slug)
     if app["kind"] == "static-worker":
         cmd = {"build": ["npm", "run", "build"], "preview": [_npx(), "wrangler", "dev"],
@@ -382,11 +384,13 @@ def _opennext(registry: dict, slug: str, verb: str, capture: bool = False) -> in
             cmd[0] = shutil.which("npm") or "npm"
     else:
         cmd = [_npx(), "opennextjs-cloudflare", verb]
+    if verb == "preview":
+        capture = False  # interactive local server — stream it
     proc = _run(cmd, cwd=app["path"], env=_build_env(registry, slug), capture=capture)
     if capture:
-        print(proc.stdout[-4000:] if proc.stdout else "", end="")
-        if proc.returncode != 0:
-            print((proc.stderr or "")[-4000:], file=sys.stderr)
+        print(proc.stdout[-6000:] if proc.stdout else "", end="")
+        if proc.returncode != 0 and proc.stderr:
+            print(proc.stderr[-6000:], file=sys.stderr)
     return proc.returncode
 
 
@@ -403,18 +407,24 @@ def cmd_upload(registry: dict, args: argparse.Namespace) -> int:
 
 
 def cmd_deploy(registry: dict, args: argparse.Namespace) -> int:
-    """build -> bootstrap upload (worker must exist before secrets) -> secrets -> deploy."""
+    """build -> deploy (creates the worker on first run) -> secrets push.
+
+    A worker must exist before `versions upload` or `secret put` can target it,
+    so deploy comes first; pushing secrets afterwards binds them to the live
+    worker immediately (each push creates a new version). The seconds-long
+    window where the fresh worker lacks secrets serves zero traffic — nothing
+    routes to a brand-new workers.dev URL."""
     slug = args.app
     if not args.skip_build and _opennext(registry, slug, "build"):
         print("build failed; aborting deploy")
         return 1
-    if _opennext(registry, slug, "upload"):
-        print("bootstrap upload failed; aborting deploy")
+    if _opennext(registry, slug, "deploy"):
+        print("deploy failed")
         return 1
     if not args.skip_secrets and cmd_secrets_push(registry, args):
-        print("secrets push failed; aborting deploy")
+        print("deploy is live but secrets push FAILED — worker may error until pushed")
         return 1
-    return _opennext(registry, slug, "deploy")
+    return 0
 
 
 def cmd_tail(registry: dict, args: argparse.Namespace) -> int:

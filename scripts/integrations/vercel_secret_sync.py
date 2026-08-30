@@ -80,7 +80,12 @@ def _scope(key: str) -> str:
 
 
 def _fetch(mod, vercel_project: str) -> tuple[list[tuple[str, str]], list[str], list[str]]:
-    """Returns (recoverable [(key, value)], sensitive_keys, skipped_keys)."""
+    """Returns (recoverable [(key, value)], sensitive_keys, skipped_keys).
+
+    The LIST endpoint returns ~1KB ciphertext blobs for `encrypted` vars even
+    with decrypt=true (discovered 2026-08-29 when a "URL" came back 1088 chars).
+    Only the per-id GET /v1/projects/{p}/env/{envId}?decrypt=true yields
+    plaintext — so list for ids, then fetch each var individually."""
     res = mod._request("GET", f"/v10/projects/{vercel_project}/env",
                        params={"decrypt": "true"})
     envs = res.get("envs") if isinstance(res, dict) else res
@@ -96,12 +101,17 @@ def _fetch(mod, vercel_project: str) -> tuple[list[tuple[str, str]], list[str], 
         if e.get("type") == "sensitive":
             sensitive.append(key)
             continue
-        value = e.get("value")
+        one = mod._request("GET", f"/v1/projects/{vercel_project}/env/{e['id']}",
+                           params={"decrypt": "true"})
+        value = one.get("value") if isinstance(one, dict) else None
         if value is None:
             sensitive.append(key)
             continue
-        v = str(value)
-        if "\n" in v or "\r" in v or v != v.strip() or (
+        # Surrounding whitespace/newlines are paste artifacts — strip them.
+        # Interior newlines or quote-edged values would be mangled by the flat
+        # key=value parser, so those stay manual.
+        v = str(value).strip()
+        if not v or "\n" in v or "\r" in v or (
                 v[:1] in {'"', "'"} or v[-1:] in {'"', "'"}):
             skipped.append(key)  # shape the flat parser would mangle — CC fills by hand
             continue
