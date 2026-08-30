@@ -69,7 +69,12 @@ migration step.
    and have their nameservers repointed at the registrar before any binding is
    possible. Registrar access is CC's.
 3. **The 26 `OASIS_COMMAND_CENTER__*` secrets are still unfilled**, so even with
-   Paid, `deploy_oasis_cc_phase2.py` will refuse (by design).
+   Paid, `deploy_oasis_cc_phase2.py` will refuse (by design). **These are not a
+   copy-paste job** — proven 2026-08-30 that Vercel's `sensitive` type is
+   unreadable by the API, by `vercel env pull`, and by the dashboard itself.
+   Each needs recovery from its issuer or rotation on both sides; per-key routes
+   in [[brain/OASIS_CC_SECRET_FILL_GUIDE]]. PropFlow's 2 remaining keys are the
+   same class. Budget real time for this, not fifteen minutes.
 
 **Not executable as specified:** Gate Zero — `turso_bridge_smoke.mjs` does not
 exist in either repo (searched both, excluding node_modules), and OASIS CC is

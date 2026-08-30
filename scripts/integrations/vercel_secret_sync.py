@@ -9,6 +9,12 @@ Values flow API -> file ONLY. Nothing secret is ever printed; the LLM operating
 this never sees a value. Sensitive-type keys are emitted as commented FILL
 placeholders for CC.
 
+A FILL line is NOT a "fetch it another way" marker: sensitive values are
+unreadable by the API, by `vercel env pull` (proven — see
+vercel_env_pull_sync.py's header) and by the Vercel dashboard itself. Each one
+has to be recovered from its issuer or rotated on both sides;
+brain/OASIS_CC_SECRET_FILL_GUIDE.md has the per-key routes.
+
     python scripts/integrations/vercel_secret_sync.py plan  [--app slug]
     python scripts/integrations/vercel_secret_sync.py apply [--app slug]
 

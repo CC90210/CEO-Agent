@@ -1,9 +1,25 @@
 """vercel_env_pull_sync.py — recover Vercel PRODUCTION values via the Vercel CLI.
 
-Why this exists: the Vercel REST API never returns `sensitive`-type variables,
-so `vercel_secret_sync.py` leaves them as `# FILL` lines. The CLI's
-`vercel env pull` can retrieve values the API withholds, which is the only
-remaining automated path to those keys.
+⚠ READ THIS BEFORE RE-RUNNING IT FOR SENSITIVE VARS: **it cannot recover them,
+and neither can anything else.** This tool was built on the theory that the CLI
+might return what the REST API withholds. It does not. Measured 2026-08-30:
+
+  * control run, `listing-studio`  -> 17 of 18 values returned; the ONE
+    `sensitive`-type var came back EMPTY. So the mechanism itself works.
+  * `agent-dashboard`              -> all 26 sensitive vars EMPTY.
+  * Vercel docs: sensitive values are "non-readable once created"; the edit
+    dialog shows "The current value is hidden". The DASHBOARD cannot reveal
+    them either, so there is no human fallback to fall back to.
+
+Recovering a sensitive var is therefore not an extraction problem — it is
+recovery-from-the-issuer or rotation-on-both-sides, per key. That work is
+scoped in brain/OASIS_CC_SECRET_FILL_GUIDE.md. Do not re-run this hoping for a
+different answer.
+
+WHAT IT IS STILL GOOD FOR: pulling `encrypted`/`plain` production values from a
+LINKED repo. It overlaps `vercel_secret_sync.py` (the API path, which needs no
+link and namespaces everything); prefer that one for bulk recovery and use this
+when a repo is already linked or you want to compare the two sources.
 
 SAFETY CONTRACT (this file is the reason the operation is allowed at all):
   * VERCEL_TOKEN is injected into the child's ENV, never onto argv.
