@@ -145,7 +145,9 @@ SERVICES: dict[str, tuple[list[list[str]], str]] = {
                "python scripts/integrations/vercel_env_tool.py --json <verb>  (env vars)  |  "
                "python scripts/integrations/vercel_deploy_tool.py {list,logs,inspect}  (deploys, read-only)"),
     "cloudflare": ([["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_TOKEN"]],
-                   "python scripts/integrations/cloudflare_admin.py <verb>"),
+                   "python scripts/integrations/cloudflare_admin.py <verb>  (DNS TXT/tunnels)  |  "
+                   "python scripts/integrations/wrangler_tool.py <verb>  (Workers deploys/secrets; "
+                   "run `whoami` first — key presence does not prove the right ACCOUNT)"),
     # notify.py gates on TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_USERS. It does NOT
     # read TELEGRAM_CHAT_ID — requiring that key here produced a false negative on
     # a service that works, which is the failure this whole tool exists to prevent.

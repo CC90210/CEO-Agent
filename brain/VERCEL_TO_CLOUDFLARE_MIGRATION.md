@@ -1,10 +1,21 @@
 ---
-last_updated: 2026-08-11
+last_updated: 2026-08-29
 ---
 
 # Vercel to Cloudflare Migration: Master Handover Plan
 
-> **STATUS**: Pending Execution (Rainy Day Project)
+> **STATUS**: EXECUTING as of 2026-08-29 — Phase 0/0.5 complete (commit `ce0cdba6`), paused for CC unblocks.
+> **⚠ SUPERSEDED IN PART.** Live verification (2026-08-29) invalidated key steps below; the approved
+> execution plan + corrections live in `state/cloudflare_baselines/2026-08-29/secret_gaps.md` and
+> `config/cloudflare/apps.json`. Deltas: (1) `@cloudflare/next-on-pages` is deprecated and cannot build
+> the fleet's Next 16 apps — use OpenNext `@opennextjs/cloudflare` on **Workers**, no
+> `wrangler pages project create`; (2) Vercel's API never returns `sensitive`-type prod values — secrets
+> flow from the agents env store via `scripts/integrations/wrangler_tool.py` (192/237 auto-recovered by
+> `vercel_secret_sync.py`); (3) 32 Vercel crons (28 in OASIS CC) need companion cron Workers — unmentioned
+> below; (4) app list: −Mindset Companion (phantom), −Showroom/−Gritly (0 deployments), +Listing Studio;
+> (5) tunnels `bridge`/`breeze-bridge`.oasisai.work are proxied CNAMEs this doc's Phase 2 would destroy —
+> a protected-fence list now gates every DNS touch.
+> **ORIGINAL (2026-08-11, historical):** Pending Execution (Rainy Day Project)
 > **PURPOSE**: Handover document for the AI agent tasked with executing the massive migration of 14 empire projects from Vercel to Cloudflare hosting to eliminate Vercel costs and unify infrastructure.
 
 ## 🎯 The Objective
