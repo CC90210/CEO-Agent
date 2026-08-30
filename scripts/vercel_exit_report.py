@@ -55,11 +55,36 @@ def gate_soak() -> dict:
                       f"{'complete' if done else f'closes {end:%Y-%m-%d %H:%M} UTC'}"}
 
 
+# Failures that predate the migration and are NOT regressions. A health gate
+# that can never pass is not a gate — it is a permanently-red light that
+# teaches its reader to skip the whole report. Each entry needs a reason and a
+# removal condition, or this list becomes a place to hide real breakage.
+KNOWN_BROKEN = {
+    # Vercel lists apply.sunbizfunding.com on agent-dashboard, but the record
+    # has never existed in DNS. Predates the migration; unrelated to Workers.
+    # REMOVE WHEN: the subdomain is either created or detached from the project.
+    "agent-dashboard": "apply.sunbizfunding.com has no DNS record (pre-existing)",
+}
+
+
 def gate_fleet() -> dict:
-    rc, out = _run([sys.executable, str(ROOT / "scripts" / "fleet_health_check.py")])
-    last = [l for l in out.splitlines() if "fully healthy" in l]
-    return {"gate": "fleet health (every hostname, both stacks)", "pass": rc == 0,
-            "detail": last[-1].strip() if last else out.strip()[-120:]}
+    """Alarms on a NEW unhealthy app, not on the known-broken baseline."""
+    rc, out = _run([sys.executable, str(ROOT / "scripts" / "fleet_health_check.py"), "--json"])
+    try:
+        report = json.loads(out[out.index("["):out.rindex("]") + 1])
+    except (ValueError, json.JSONDecodeError):
+        return {"gate": "fleet health (every hostname, both stacks)", "pass": False,
+                "detail": f"COULD NOT PARSE fleet_health_check output (rc={rc})"}
+    unhealthy = {r["app"]: r.get("verdict", "?") for r in report if r.get("verdict") != "ok"}
+    new = {a: v for a, v in unhealthy.items() if a not in KNOWN_BROKEN}
+    total = len(report)
+    if new:
+        detail = "NEW: " + "; ".join(f"{a}: {v}" for a, v in sorted(new.items()))
+    else:
+        baseline = ", ".join(sorted(unhealthy)) or "none"
+        detail = f"{total - len(unhealthy)}/{total} ok; known-broken only ({baseline})"
+    return {"gate": "fleet health (every hostname, both stacks)", "pass": not new,
+            "detail": detail}
 
 
 def gate_dataplane() -> dict:
@@ -147,6 +172,19 @@ def gate_traffic() -> dict:
             "detail": "; ".join(bits) if bits else "none"}
 
 
+# Two kinds of "not ready", and conflating them makes this unschedulable.
+#
+#   HEALTH  things that are TRUE TODAY and must stay true. A failure here is a
+#           REGRESSION — something that was working broke. Worth waking someone.
+#   WORK    things known to be outstanding (the soak has not elapsed, apps are
+#           not migrated yet, secrets are unfilled). These are false right now
+#           BY DESIGN and will stay false for days.
+#
+# Exiting non-zero on WORK would page the operator on every scheduled run until
+# the migration finishes, which is precisely how a monitor teaches its reader to
+# ignore it. Exit codes: 0 = green light, 1 = REGRESSION, 2 = work outstanding.
+HEALTH_GATES = [gate_fleet, gate_dataplane]
+WORK_GATES = [gate_soak, gate_migrated, gate_secrets, gate_traffic]
 GATES = [gate_soak, gate_fleet, gate_dataplane, gate_migrated, gate_secrets, gate_traffic]
 
 
@@ -155,25 +193,42 @@ def main() -> int:
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    results = [g() for g in GATES]
+    health = {g.__name__ for g in HEALTH_GATES}
+    results = []
+    for g in GATES:
+        r = g()
+        r["kind"] = "health" if g.__name__ in health else "work"
+        results.append(r)
     ready = all(r["pass"] for r in results)
+    regressed = [r for r in results if r["kind"] == "health" and not r["pass"]]
+    # 0 green light · 1 REGRESSION (page someone) · 2 work still outstanding (quiet)
+    code = 0 if ready else (1 if regressed else 2)
     stamp = dt.datetime.now(dt.timezone.utc)
 
     if args.json:
-        print(json.dumps({"generated": stamp.isoformat(), "ready": ready, "gates": results}, indent=2))
-        return 0 if ready else 1
+        print(json.dumps({"generated": stamp.isoformat(), "ready": ready,
+                          "regressed": [r["gate"] for r in regressed],
+                          "exit": code, "gates": results}, indent=2))
+        return code
 
     print(f"# Vercel Decommissioning Report — generated {stamp:%Y-%m-%d %H:%M} UTC\n")
     print(f"## VERDICT: {'READY TO DECOMMISSION' if ready else 'NOT READY — Vercel must stay'}\n")
     for r in results:
-        print(f"  [{'PASS' if r['pass'] else 'FAIL'}] {r['gate']}")
-        print(f"         {r['detail']}")
-    if not ready:
-        print("\nEvery FAIL above is a reason a brand goes dark if Vercel is cancelled today.")
+        mark = "PASS" if r["pass"] else ("REGRESSED" if r["kind"] == "health" else "pending")
+        print(f"  [{mark:9}] ({r['kind']}) {r['gate']}")
+        print(f"              {r['detail']}")
+    if regressed:
+        print("\n*** REGRESSION: something that was working has broken. This is not")
+        print("    'the migration is unfinished' — investigate before doing anything else.")
+    elif not ready:
+        print("\nNothing has regressed. The outstanding items are known work, not faults —")
+        print("but each is still a reason a brand goes dark if Vercel is cancelled today.")
     print("\nNote: passing gates authorise PER-PROJECT retirement, not account closure —")
     print("out-of-scope projects and Vercel-registered domains are a separate decision")
     print("(see brain/DNS_CUTOVER_AND_VERCEL_EXIT_CHECKLIST.md §2).")
-    return 0 if ready else 1
+    print(f"\nexit {code}: "
+          f"{'GREEN LIGHT' if code == 0 else 'REGRESSION — investigate' if code == 1 else 'work outstanding (expected)'}")
+    return code
 
 
 if __name__ == "__main__":
