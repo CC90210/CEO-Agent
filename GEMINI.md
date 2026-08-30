@@ -130,6 +130,7 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 |---|---|---|
 | n8n workflows, automations | `python scripts/integrations/n8n_tool.py` | `list`, `get <id>`, `execute <id>`, `activate <id>`, `deactivate <id>` |
 | Social posts, scheduling | `python ../CMO-Agent/scripts/late_tool.py` (Maven) | `accounts`, `posts`, `create`, `cross-post` |
+| Deploy an app, push worker secrets, tail worker logs | `python scripts/integrations/wrangler_tool.py` (**primary deploy engine**) | `build --app <slug>`, `deploy --app <slug>`, `secrets-push --app <slug>`, `tail --app <slug>`; run `whoami` first |
 | Query database, tables, SQL | `python scripts/integrations/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "<query>"` |
 | Stripe payments, balance | `python scripts/integrations/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` |
 | Gmail, Calendar, Drive, Sheets, Docs (GWS) | `python scripts/integrations/google_tool.py` | `gmail list`, `calendar events`, `drive list`, `sheets read <id>` |

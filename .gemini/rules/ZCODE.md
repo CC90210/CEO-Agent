@@ -91,6 +91,7 @@ ZCode's tool surface is **leaner than Claude Code's**. It can read/write files a
 | Stripe MCP | `python scripts/integrations/stripe_tool.py <verb> --json` |
 | n8n MCP | `python scripts/integrations/n8n_tool.py <verb> --json` |
 | Late / Zernio MCP | `python scripts/integrations/late_tool.py <verb> --json` |
+| Cloudflare MCP (blocked) | `python scripts/integrations/wrangler_tool.py {build\|deploy\|secrets-push\|tail} --app <slug>` — **primary deploy engine** (registry `config/cloudflare/apps.json`; run `whoami` first). DNS: `cloudflare_admin.py` |
 | GitHub MCP | `git` directly (no GitHub MCP anywhere in this empire) |
 | Playwright MCP (unprotected) | `python scripts/browser/cloak_browser_tool.py scrape <url> --json` |
 | Memory / Knowledge-Graph MCP | the `memory/*.md` files + `python scripts/core/memory_retriever.py query "<q>"` |

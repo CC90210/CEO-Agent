@@ -106,6 +106,8 @@ OpenCode is the move when speed beats breadth:
 4. claude.ai MCP connectors   ← NEVER (Gmail/Calendar/Square/Cloudflare blocked — see ORCHESTRATION.md)
 ```
 
+**Deployments (PRIMARY engine, 2026-08-29):** `python scripts/integrations/wrangler_tool.py {build|preview|deploy|secrets-push|secrets-plan|tail} --app <slug>` — Cloudflare Workers deploys, secret pushes and log tails for the whole fleet. Registry `config/cloudflare/apps.json`; secret manifests (key NAMES only) `config/cloudflare/manifests/`. Run `whoami` FIRST — a present key does not prove the right account. DNS stays in `cloudflare_admin.py` (TXT-only write fence).
+
 **Research-fetch ladder (V6.7+, 2026-05-16):**
 1. **DEFAULT for any URL** → `python scripts/research_fetch.py <url> --json` (auto-escalates Firecrawl→Cloak, remembers per-domain in `state/site_reputation.db`; skill: `skills/research-fetch/SKILL.md`)
 2. Need Firecrawl-specific features (crawl/extract/map/search) → `python scripts/integrations/firecrawl_tool.py {crawl|extract|map|search} ...`
