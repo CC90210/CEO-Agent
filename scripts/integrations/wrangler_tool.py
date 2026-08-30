@@ -387,12 +387,26 @@ def _build_env(registry: dict, slug: str) -> dict[str, str]:
     return _wrangler_env(registry, extra)
 
 
+# Single source of truth for "how does this kind of app build/deploy" — shared
+# by the local runner (_opennext) and the CI generator (cmd_workflow) so a new
+# kind can't be added to one and forgotten in the other.
+BUILD_COMMAND = {
+    "opennext": "npx opennextjs-cloudflare build",
+    "static-worker": "npm run build",
+}
+BUILD_LABEL = {
+    "opennext": "OpenNext -> Cloudflare Worker",
+    "static-worker": "Vite static assets",
+}
+
+
 def _opennext(registry: dict, slug: str, verb: str, capture: bool = True) -> int:
     """capture defaults True: the .cmd shim + windowless flags swallow child
     stdout otherwise, which turns real failures into silent ones."""
     app = _app(registry, slug)
     if app["kind"] == "static-worker":
-        cmd = {"build": ["npm", "run", "build"], "preview": [_npx(), "wrangler", "dev"],
+        cmd = {"build": BUILD_COMMAND["static-worker"].split(),
+               "preview": [_npx(), "wrangler", "dev"],
                "upload": [_npx(), "wrangler", "versions", "upload"],
                "deploy": [_npx(), "wrangler", "deploy"]}[verb]
         if cmd[0] == "npm":
@@ -570,11 +584,11 @@ def cmd_workflow(registry: dict, args: argparse.Namespace) -> int:
     GitHub repo secrets that CC adds)."""
     app = _app(registry, args.app)
     slug = app["slug"]
-    static = app["kind"] == "static-worker"
-    build_cmd = "npm run build" if static else "npx opennextjs-cloudflare build"
-    deploy_cmd = "deploy" if static else "deploy"
-    build_label = "Vite static assets" if static else "OpenNext -> Cloudflare Worker"
-    build_desc = " (static assets + router worker)" if static else " with @opennextjs/cloudflare"
+    kind = app["kind"]
+    build_cmd = BUILD_COMMAND[kind]
+    build_label = BUILD_LABEL[kind]
+    build_desc = (" (static assets + router worker)" if kind == "static-worker"
+                  else " with @opennextjs/cloudflare")
 
     lines: list[str] = []
     docs: list[str] = []
@@ -592,7 +606,7 @@ def cmd_workflow(registry: dict, args: argparse.Namespace) -> int:
         "slug": slug,
         "account_id": registry.get("account_id", "<account id>"),
         "build_cmd": build_cmd,
-        "deploy_cmd": deploy_cmd,
+        "deploy_cmd": "deploy",  # wrangler-action reads the repo's wrangler.jsonc
         "build_label": build_label,
         "build_desc": build_desc,
         "build_env": "\n".join(lines) + "\n",

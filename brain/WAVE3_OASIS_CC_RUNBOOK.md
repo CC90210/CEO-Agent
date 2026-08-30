@@ -19,6 +19,37 @@ tags: [cloudflare, migration, cron, oasis-command-center, wave-3]
 4. **APEX coordination:** `coord_claim.py acquire --repo oasis-command-center --paths "vercel.json,next.config.js,package.json,.github/workflows/**,app/api/**,lib/cron-auth.ts" --task "CF Workers migration"` + `agent_activity.py post` announce ("Vercel production deploys on oasisai.work" is a declared shared domain).
 5. App worker (`oasis-command-center`) verified green on workers.dev (parity e2e), BEFORE any cron work — crons fan out to the app, so the app moves first.
 
+## ⚠ CORRECTION 2026-08-30 — the thing being replaced is NOT Vercel's scheduler
+
+**Vercel's cron scheduler stopped executing for this project on 2026-08-06**
+(documented in `.github/workflows/cron-driver.yml`: crons registered, enabled,
+pinned, reachable, Pro plan — the scheduler alone was at fault; the dispatcher
+had not claimed a row in four days and 230 steps sat overdue while everything
+reported healthy). Since then the REAL firer is a **GitHub Actions
+`cron-driver.yml`**: one workflow schedule per distinct vercel.json expression,
+routes selected by `github.event.schedule` (not wall clock — a late run still
+knows which tick it is), with `tests/cron-driver-coverage.test.ts` asserting it
+cannot drift from vercel.json.
+
+**Consequences for this runbook (supersedes Phase C step 3 as originally
+written):**
+1. Removing `crons` from vercel.json disables **nothing** — it is already inert.
+   The cutover must disable **`.github/workflows/cron-driver.yml`** instead
+   (delete the `schedule:` triggers, keep `workflow_dispatch` as the manual
+   fallback). Doing the vercel.json edit alone would leave the GH driver and
+   the Worker BOTH firing indefinitely.
+2. The Phase A dry-tick comparison baseline is the **GH Actions run history**,
+   not the Vercel cron log (which has been empty since 08-06).
+3. Production runs with **`CRON_ALLOW_LOCAL=1`**, so today's second auth leg is
+   effectively bypassed and the routes are bearer-only. The `CRON_ATTEST_SECRET`
+   leg added to `lib/cron-auth.ts` restores a real second factor; **unset
+   `CRON_ALLOW_LOCAL` at cutover** once the Worker sends the attest header.
+4. Schedule fidelity is unaffected: vercel.json remains the schedule source of
+   truth for BOTH the GH driver (by test) and the Worker's `CRON_TABLE`
+   (verified 2026-08-30 against 4 live dry ticks by an independent matcher).
+5. Keep `cron-driver.yml` in the repo, triggers removed — it is the proven
+   fallback if the Worker path ever needs to be rolled back after Vercel exit.
+
 ## The 28 crons (verbatim from vercel.json — the mapping table the worker ships)
 
 | # | Path | Schedule (UTC) | Class |
@@ -117,9 +148,13 @@ harmless by Phase B).**
 1. Flip `CRON_FORWARD=on` (instant). Both platforms now fire every job.
 2. Watch one full cycle of the densest schedule (5 min) — claims arbitrate,
    telemetry shows both firers, sends stay single (drip/send counts flat).
-3. Merge the PR that deletes `crons` from vercel.json (prepared in advance,
-   inside the claim) → Vercel redeploys without crons; its firing stops at
-   deploy completion.
+3. Merge the PR that removes the `schedule:` triggers from
+   `.github/workflows/cron-driver.yml` (prepared in advance, inside the claim;
+   keep `workflow_dispatch` + the file itself as the rollback path). **This —
+   not the vercel.json edit — is what stops the current firer**; see the
+   2026-08-30 correction above. Clean up vercel.json's inert `crons` in the
+   same PR for hygiene. Unset `CRON_ALLOW_LOCAL` once the Worker's attest
+   header is confirmed accepted.
 4. Overlap window = minutes; gap = **zero** by construction.
 
 **Phase D — 24h dual verification.** Vercel cron log shows zero fires after
@@ -131,11 +166,12 @@ Mail-flow test on @oasisai.work unaffected.
 APEX claim; runbook + register updated.
 
 ## Rollback (any phase)
-`CRON_FORWARD=off` (seconds) → if vercel.json crons were already removed,
-`git revert` the vercel.json PR and redeploy Vercel (crons resume on next
-matching minute; bounded gap = one Vercel deploy, ~2-4 min). Both levers are
-independent; there is no state to unwind because every route is
-overlap-safe by Phase B.
+`CRON_FORWARD=off` (seconds) → if the GH driver's triggers were already
+removed, either dispatch it manually (`workflow_dispatch`, retained for exactly
+this) or `git revert` the trigger PR (schedules resume on the next matching
+tick). Both levers are independent; there is no state to unwind because every
+route is overlap-safe by Phase B. Note Vercel's scheduler is NOT a rollback
+option — it has been dead since 2026-08-06.
 
 ## Exit criteria
 28/28 firing from the worker over 24h · zero Vercel fires · send counts at
