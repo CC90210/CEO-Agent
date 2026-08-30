@@ -88,9 +88,19 @@ def _cf_token(loaded: dict) -> str:
 
 
 def _account_id(registry: dict, loaded: dict) -> str:
-    v = (loaded.get("CLOUDFLARE_ACCOUNT_ID") or "").strip() or registry.get("account_id", "")
+    """The REGISTRY wins for deploy targeting.
+
+    It used to be the other way round, and that made the registry's
+    `account_id` decorative: on 2026-08-30 the fleet was re-pointed at the
+    zone-owning account by editing the registry, and every command silently
+    kept hitting the old account because the env store still held the previous
+    id. A migration would have been reported as done against an account it
+    never touched. The registry is the explicit, version-controlled, per-fleet
+    declaration of WHERE the fleet lives; the env var remains the fallback (and
+    is still what other tools use for R2, which lives elsewhere)."""
+    v = (registry.get("account_id") or "").strip() or (loaded.get("CLOUDFLARE_ACCOUNT_ID") or "").strip()
     if not v:
-        raise RuntimeError("No account id: set CLOUDFLARE_ACCOUNT_ID or registry account_id")
+        raise RuntimeError("No account id: set registry account_id or CLOUDFLARE_ACCOUNT_ID")
     return v
 
 
@@ -444,6 +454,9 @@ def cmd_deploy(registry: dict, args: argparse.Namespace) -> int:
     window where the fresh worker lacks secrets serves zero traffic — nothing
     routes to a brand-new workers.dev URL."""
     slug = args.app
+    # Name the destination on every deploy. An account switch that is invisible
+    # is an account switch that gets reported as having happened when it did not.
+    print(f"[target] account={_account_id(registry, _secrets())} app={slug}")
     if not args.skip_build and _opennext(registry, slug, "build"):
         print("build failed; aborting deploy")
         return 1
