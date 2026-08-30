@@ -65,6 +65,38 @@ placeholders for exactly these because they only satisfy a startup check.
 `NEXT_PUBLIC_BRIDGE_CHAT_BASE`, `NEXT_PUBLIC_SUPABASE_URL`, `OPERATOR_EMAIL`,
 `PUBLIC_APP_URL`.
 
+## ⛔ breeze-portal's 16 — and the ONE that must never be rotated
+
+Verified 2026-08-30: all 16 are `sensitive`-type in Vercel, same as OASIS CC's
+26. Classification:
+
+- **CONFIG / URL (6)** — state them: `BREEZE_APP_URL`,
+  `NEXT_PUBLIC_BREEZE_APP_URL`, `BREEZE_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
+  `PLAID_ENV`, `VPS_BRIDGE_URL`.
+- **RE-FETCH FROM PROVIDER (5)** — still readable at the source: the three
+  Supabase keys (project API settings) and `PLAID_CLIENT_ID` / `PLAID_SECRET`
+  (Plaid dashboard).
+- **ROTATE ON BOTH SIDES (4)** — `BREEZE_DEFAULT_WEBHOOK_SECRET`,
+  `BREEZE_UNSUBSCRIBE_HMAC_SECRET`, `BRIDGE_SECRET`, `VPS_BRIDGE_SECRET`.
+
+### ⛔ `BREEZE_ENCRYPTION_KEY` — RECOVER, DO NOT ROTATE
+
+It encrypts **Plaid access tokens at rest** (`lib/plaid/client.ts:123`:
+*"without it, access tokens can't be encrypted at rest"*;
+`lib/plaid/encryption-core.ts:4` reads it directly). `lib/email/send.ts:64`
+already carries a decrypt-failure branch blaming *"likely BREEZE_ENCRYPTION_KEY
+rotation or corrupt ciphertext"* — the failure mode is known and has been seen.
+
+**Rotating it makes every stored Plaid token undecryptable**, so every merchant
+in David's client portal would have to re-link their bank account. On a client's
+live funder portal that is a customer-facing incident, not a migration step.
+
+It must be **recovered** from wherever it was originally generated (password
+manager / the original setup / David). If it genuinely cannot be recovered, the
+re-link cost is a business decision for CC and David — not something to discover
+after a deploy. **Until it is in hand, breeze-portal cannot be migrated**, which
+is also why `breezeadvance.credit` stays on Vercel.
+
 ## ⚠ CORRECTION 2026-08-30 — these values cannot be read back by ANYONE
 
 An earlier version of this page said to reveal the 26 in the Vercel dashboard.
