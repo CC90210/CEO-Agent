@@ -185,7 +185,19 @@ def gate_traffic() -> dict:
 # ignore it. Exit codes: 0 = green light, 1 = REGRESSION, 2 = work outstanding.
 HEALTH_GATES = [gate_fleet, gate_dataplane]
 WORK_GATES = [gate_soak, gate_migrated, gate_secrets, gate_traffic]
+# Display order (soak first reads best); membership comes from the typed lists
+# above so there is only one place to classify a gate.
 GATES = [gate_soak, gate_fleet, gate_dataplane, gate_migrated, gate_secrets, gate_traffic]
+
+_UNCLASSIFIED = [g.__name__ for g in GATES if g not in HEALTH_GATES and g not in WORK_GATES]
+if _UNCLASSIFIED:
+    # Fail at import, loudly. An unclassified gate would silently be treated as
+    # "work" — so a new HEALTH check would never raise the regression alarm it
+    # was written to raise, and nobody would notice until it mattered.
+    raise RuntimeError(
+        f"gate(s) not classified as health or work: {', '.join(_UNCLASSIFIED)}. "
+        "Add each to HEALTH_GATES (must stay true) or WORK_GATES (known outstanding)."
+    )
 
 
 def main() -> int:

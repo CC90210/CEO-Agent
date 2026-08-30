@@ -27,6 +27,15 @@ mistaken for a DNS problem or vice versa.
     python scripts/fleet_health_check.py
     python scripts/fleet_health_check.py --json
     python scripts/fleet_health_check.py --project agent-dashboard
+
+DO NOT SCHEDULE THIS AS AN ALARM. It reports the truth, which today includes a
+pre-existing failure (apply.sunbizfunding.com has never had a DNS record), so
+its exit code is non-zero on a healthy fleet and a cron wired to it would page
+on every run until that domain is fixed or detached. Deliberate: a health check
+that hides a broken hostname because someone wrote it down is worse than a noisy
+one. The alarm belongs one level up, where policy lives — schedule
+`scripts/vercel_exit_report.py`, which holds the documented known-broken
+baseline and exits 1 ONLY on a new regression.
 """
 from __future__ import annotations
 
