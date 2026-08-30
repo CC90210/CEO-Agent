@@ -284,7 +284,10 @@ After the host deploys (Vercel: usually 1-3 minutes after push; Cloudflare:
 
 ```
 [ ] Visit the production URL and verify the feature works end-to-end
-[ ] Check Vercel dashboard for build/runtime errors
+[ ] Vercel-hosted: check the Vercel dashboard for build/runtime errors
+[ ] Cloudflare-hosted: `wrangler_tool.py tail --app <slug> --seconds 120` while
+    exercising the change — zero uncaught exceptions; check Workers
+    observability for an error-rate step change
 [ ] If Stripe or Supabase were touched: trigger one real test event
 [ ] If content changed: verify it renders correctly on mobile
 [ ] Check browser console for runtime errors on the affected page
@@ -318,6 +321,7 @@ The table is not marketing — it is an honest record of leverage. Log it so the
 | Code review blocks | Fix issues, re-run code review phase only |
 | PR creation fails (no GH_TOKEN) | Check `.env.agents` for GITHUB_PERSONAL_ACCESS_TOKEN |
 | Vercel deploy fails | Check Vercel dashboard logs, treat as CRITICAL |
+| Workers deploy fails | Re-run `wrangler_tool.py deploy --app <slug>` and READ the output — the common causes are named: error 10027 = bundle over the plan's script-size cap; a `secrets-plan` gap = unfilled key in the env store; `Could not resolve` = a dependency the tracer dropped (add an `outputFileTracingIncludes` entry) |
 | Post-ship check fails | Hotfix branch immediately, do not continue shipping |
 
 ---
@@ -415,6 +419,16 @@ Use when: Schema was changed. Define the down migration BEFORE shipping the up m
 vercel rollback [deployment-url]
 ```
 Use when: Vercel deployment is broken. Rolls back to previous deployment in <30 seconds.
+
+**Option E — Cloudflare Workers rollback** (apps in `config/cloudflare/apps.json`)
+```bash
+cd <app dir> && npx wrangler rollback          # previous version, seconds
+npx wrangler versions list                     # pick a specific version id
+```
+Use when: a Workers deploy is broken. Worker secrets survive a rollback (a
+deploy never clears them), so no secret re-push is needed. If the app is still
+pre-cutover its production traffic is on Vercel anyway — a broken worker
+affects only the `*.workers.dev` URL.
 
 ### Rollback Triggers (when to actually execute)
 - [ ] Error rate spikes above 5% within 10 minutes of deploy
