@@ -65,20 +65,58 @@ placeholders for exactly these because they only satisfy a startup check.
 `NEXT_PUBLIC_BRIDGE_CHAT_BASE`, `NEXT_PUBLIC_SUPABASE_URL`, `OPERATOR_EMAIL`,
 `PUBLIC_APP_URL`.
 
-## The fastest correct path
+## ⚠ CORRECTION 2026-08-30 — these values cannot be read back by ANYONE
 
-**All 26 already exist, correct and in production, on the Vercel project
-`agent-dashboard`** — they are `sensitive`-type there, which is precisely why
-the API will not return them and why this list exists. So:
+An earlier version of this page said to reveal the 26 in the Vercel dashboard.
+**That is impossible**, and the correction matters because it changes the work.
 
-1. Vercel dashboard → project `agent-dashboard` → Settings → Environment
-   Variables → Production. Reveal each of the 26.
-2. Paste into `.env.agents` on the `# FILL OASIS_COMMAND_CENTER__<KEY>=` lines
-   that `vercel_secret_sync.py` already wrote there.
-3. `python scripts/integrations/wrangler_tool.py secrets-plan --app oasis-command-center`
-   → expect `missing: 0`.
-4. `python scripts/deploy_oasis_cc_phase2.py --execute` (still needs Workers
-   Paid on `e371c0f2…`).
+Proven three ways:
+1. REST API with `decrypt=true` → sensitive vars return no value.
+2. **`vercel env pull` via the CLI** (built for this: `vercel_env_pull_sync.py`)
+   → authenticated, linked, pulled the file successfully, and **all 26 came back
+   EMPTY**. A control run on `listing-studio` returned 17 of 18 values and
+   withheld only its single sensitive var — so the mechanism works and the
+   sensitivity flag is what withholds.
+3. Vercel's own docs: *"values are non-readable once created … Vercel stores the
+   variable in an unreadable format"*, and the edit dialog states *"The current
+   value is hidden."*
 
-Roughly 15 minutes of copy-paste, and every value is right by construction —
-which no amount of inference can promise.
+So the dashboard cannot show them either. **There is no extraction path — the
+question is recovery or rotation, per key.**
+
+## The actual path, per class
+
+**Just state it** (config, not secret — CC knows these):
+`PUBLIC_APP_URL`, `NEXT_PUBLIC_BOOKING_URL`, `BOOKING_LINK`, `OPERATOR_EMAIL`,
+`GOOGLE_CALENDAR_ID`, `GOOGLE_SYSTEM_CALENDAR_ADDRESS`, `FUNMATE_EMAIL`,
+`GMAIL_USER`, `NEXT_PUBLIC_BRIDGE_CHAT_BASE`, `BRIDGE_VPS_URL`,
+`NEXT_PUBLIC_SUPABASE_URL`.
+
+**Re-fetch from the issuing provider** (still readable at the source):
+`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` → Google Cloud Console → the OAuth
+client. `BRAVO_ANTHROPIC_API_KEY` → Anthropic console (or mint a new one).
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` → the Supabase project's API settings.
+⚠ `GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN` is **not** re-fetchable — a refresh
+token is shown once and is bound to the client that minted it. If it is lost,
+re-run the OAuth consent for that client and take all three together.
+
+**Rotate — set the new value on BOTH sides in one change:**
+`CRON_SECRET` (Worker secret **and** the GitHub secret `OASIS_CRON_SECRET`),
+`BRIDGE_BEARER_TOKEN` + `BRIDGE_BEARER_TOKEN_OASIS_AI_CC` (Worker **and** the
+VPS bridge config), `TT_PG_BRIDGE_TOKEN` (Worker **and** the TextTorrent
+bridge), `CLI_SIGNUP_SECRET` (Worker **and** the CLI flow),
+`GMAIL_APP_PASSWORD` / `FUNMATE_APP_PASSWORD` (Google account → App passwords →
+revoke and re-issue).
+
+**Rotate only with eyes open:** `OASIS_OUTBOUND_HMAC_SECRET` — rotating it
+**invalidates every outbound link already issued**. Decide deliberately whether
+that is acceptable, or recover it from wherever it was originally generated.
+
+**Free, if Supabase stays retired:** `BRAVO_SUPABASE_URL` and
+`BRAVO_SUPABASE_SERVICE_ROLE_KEY` only satisfy a startup check —
+`scripts/run_dashboard_script.py` already ships documented compat placeholders
+for exactly these two.
+
+Then: `wrangler_tool.py secrets-plan --app oasis-command-center` → expect
+`missing: 0`, and `deploy_oasis_cc_phase2.py --execute` (still needs Workers
+Paid on `e371c0f2…`).
