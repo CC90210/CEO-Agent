@@ -56,12 +56,29 @@ The protected-record list in §0 and the migration log was compiled from
 `docs/OASISAI_WORK_DOMAIN_RESTORE.md` (what *should* exist). Live DNS says
 otherwise — queried against BOTH 1.1.1.1 and 8.8.8.8:
 
+Zone `oasisai.work` = `9bc95545d99eb45f3291a59be518cd0b` in account `e371c0f2…`.
+Full snapshot: `state/cloudflare_baselines/2026-08-30/` (local only — `state/`
+is gitignored, so the **exact rollback values live in this table**, which is
+tracked, rather than depending on one machine's disk).
+
 | Hostname | Live DNS | Note |
 |---|---|---|
-| `bridge.oasisai.work` | **EXISTS**, proxied (172.64.80.1) — `/health` returns 401 (bearer-gated, i.e. tunnel up and routing to the VPS) | genuinely protected; do not touch |
-| `breeze-bridge.oasisai.work` | **NXDOMAIN** | Mac Mini tunnel record absent |
-| `ops.oasisai.work` | **NXDOMAIN** | VPS/Caddy A record absent |
-| `media.oasisai.work` | **NXDOMAIN** | R2 public base absent |
+| `bridge.oasisai.work` | **EXISTS** — proxied CNAME → `769f1fae-ed2a-4c3b-9d78-e15951afa874.cfargotunnel.com` (tunnel **sunbiz-bridge**, healthy, 4 conns). `/health` returns 401 = bearer-gated, tunnel up and routing to the VPS | PROTECTED |
+| `oasisai.oasisai.work` | **EXISTS** — proxied CNAME → `06f8430c-b7a3-4719-aaff-20afa7e01c7c.cfargotunnel.com` (tunnel **oasisai**, healthy, 4 conns — this Windows box) | PROTECTED; was NOT on the original fence list |
+| `breeze-bridge.oasisai.work` | **DOES NOT EXIST** (no record in zone; NXDOMAIN on 1.1.1.1 + 8.8.8.8) | Mac Mini tunnel hostname absent |
+| `ops.oasisai.work` | **DOES NOT EXIST** | VPS/Caddy A record absent |
+| `media.oasisai.work` | **DOES NOT EXIST** | R2 public base absent |
+
+**Mail — PROTECTED, verified present in-zone:** 5× MX (`aspmx.l.google.com`,
+`alt1`–`alt4`), SPF TXT `v=spf1 include:_spf.google.com ~all`, DKIM TXT at
+`google._domainkey`, DMARC TXT `v=DMARC1; p=quarantine`, and 2×
+`google-site-verification`.
+
+**Cutover targets (the only records that should change), with rollback values:**
+- apex `oasisai.work` — **A → `216.198.79.1`, NOT proxied** (Vercel)
+- `www.oasisai.work` — **CNAME → `cname.vercel-dns.com`, NOT proxied** (Vercel;
+  currently returns 000/SSL failure while apex returns 200 — www is broken TODAY)
+- `_vercel` TXT — leave in place until retirement; it is the rollback anchor
 
 **What this changes:** only ONE tunnel record actually needs preserving, not
 four. **What it means:** these three were either never restored after the
