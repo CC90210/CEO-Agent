@@ -25,6 +25,7 @@ secret pushes and deploys, always for a registry-listed app, always explicit.
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
 import os
 import shutil
@@ -247,6 +248,51 @@ def cmd_subdomain(registry: dict, args: argparse.Namespace) -> int:
         out = _cf_get(f"/accounts/{acct}/workers/subdomain", token)
     print(json.dumps(out.get("result") or out, indent=2))
     return 0 if out.get("success") else 1
+
+
+def cmd_zone_baseline(registry: dict, args: argparse.Namespace) -> int:
+    """Snapshot every visible zone's DNS records to state/cloudflare_baselines/<date>/.
+
+    This is the rollback reference for every cutover, and the integrity check
+    after one. It also flags the failure that actually bites when a zone is
+    onboarded: Cloudflare's record scan is best-effort, so a zone can go
+    ACTIVE with its MX records missing — mail stops, silently, and DNS looks
+    fine. Any active zone with no MX is called out loudly here.
+    """
+    token = _cf_token(_secrets())
+    out = REPO_ROOT / "state" / "cloudflare_baselines" / (args.date or _dt.date.today().isoformat())
+    out.mkdir(parents=True, exist_ok=True)
+    zres = _cf_get("/zones?per_page=50", token)
+    if not zres.get("success"):
+        print(json.dumps(zres, indent=2))
+        return 1
+    problems = 0
+    for z in sorted(zres.get("result") or [], key=lambda x: x["name"]):
+        recs = _cf_get(f"/zones/{z['id']}/dns_records?per_page=200", token)
+        rows = recs.get("result") or []
+        (out / f"{z['name']}.dns_records.json").write_text(
+            json.dumps(rows, indent=2), encoding="utf-8")
+        counts: dict[str, int] = {}
+        for r in rows:
+            counts[r["type"]] = counts.get(r["type"], 0) + 1
+        mx = counts.get("MX", 0)
+        print(f"\n=== {z['name']}  [{z['status']}]  {len(rows)} records  {counts}")
+        print(f"    NS: {', '.join((z.get('name_servers') or [])[:2])}")
+        if mx:
+            print(f"    mail: {mx} MX record(s)")
+        elif z["status"] == "active":
+            problems += 1
+            print("    *** NO MX RECORDS AND THE ZONE IS ACTIVE — inbound mail for this "
+                  "domain is going nowhere. Verify against the previous DNS host. ***")
+        else:
+            print("    mail: no MX (zone still pending — add before repointing nameservers)")
+        for r in rows:
+            if r["type"] in ("A", "AAAA", "CNAME") and r["name"] in (z["name"], f"www.{z['name']}"):
+                print(f"    {r['type']:6} {r['name']:32} -> {r['content'][:44]} proxied={r.get('proxied')}")
+    print(f"\nbaselines written to {out}")
+    if problems:
+        print(f"WARNING: {problems} ACTIVE zone(s) have no MX records.")
+    return 0
 
 
 def cmd_registrar_status(registry: dict, args: argparse.Namespace) -> int:
@@ -684,6 +730,7 @@ def main() -> int:
     add("whoami", cmd_whoami)
     add("accounts", cmd_accounts)
     add("zones", cmd_zones)
+    add("zone-baseline", cmd_zone_baseline, **{"--date": {"default": None}})
     add("registrar-status", cmd_registrar_status, **{"--domain": {"required": True}})
     add("subdomain", cmd_subdomain, **{"--register": {"default": None}})
     add("list-workers", cmd_list_workers)

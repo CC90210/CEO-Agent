@@ -20,21 +20,26 @@
       "dir": "C:\\Users\\User\\APPS\\sunbiz-funding",
       "kind": "opennext",
       "vercel_project": "sunbiz-funding",
-      "custom_domains": ["sunbizfunding.com"],
+      "custom_domains": [
+        "sunbizfunding.com",
+        "www.sunbizfunding.com"
+      ],
       "wave": 2
     },
     "breezeadvance-website": {
       "dir": "C:\\Users\\User\\APPS\\breezeadvance-website",
       "kind": "opennext",
       "vercel_project": "breezeadvance-website",
-      "custom_domains": ["breezeadvance.credit"],
+      "custom_domains": [],
       "wave": 2
     },
     "blue-rise-website": {
       "dir": "C:\\Users\\User\\APPS\\sunbiz-front-website",
       "kind": "opennext",
       "vercel_project": "blue-rise-website",
-      "custom_domains": ["bluerisebusinesscapital.com"],
+      "custom_domains": [
+        "bluerisebusinesscapital.com"
+      ],
       "wave": 2,
       "note": "local dir name differs from slug (sunbiz-front-website)"
     },
@@ -42,14 +47,16 @@
       "dir": "C:\\Users\\User\\APPS\\arthrisil-website",
       "kind": "opennext",
       "vercel_project": "arthrisil-website",
-      "custom_domains": ["arthrisil.com"],
+      "custom_domains": [],
       "wave": 2
     },
     "nostalgic-requests": {
       "dir": "C:\\Users\\User\\APPS\\nostalgic-requests",
       "kind": "opennext",
       "vercel_project": "nostalgic-requests",
-      "custom_domains": ["nostalgicrequests.com"],
+      "custom_domains": [
+        "nostalgicrequests.com"
+      ],
       "wave": 2
     },
     "listing-studio": {
@@ -58,13 +65,13 @@
       "vercel_project": "real-estate-marketing-suite",
       "custom_domains": [],
       "wave": 2,
-      "dropped": "2026-08-29 per CC — stays on Vercel; no secret fill required"
+      "dropped": "2026-08-29 per CC \u2014 stays on Vercel; no secret fill required"
     },
     "oasis-ai-platform": {
       "dir": "C:\\Users\\User\\APPS\\oasis-ai-platform",
       "kind": "static-worker",
       "vercel_project": "oasis-ai-platform",
-      "custom_domains": ["oasisai.work"],
+      "custom_domains": [],
       "wave": 2,
       "note": "Vite static + router worker; /app/* proxies to agent-dashboard until Wave 3"
     },
@@ -72,7 +79,9 @@
       "dir": "C:\\Users\\User\\realestate-App",
       "kind": "opennext",
       "vercel_project": "real-estate-app",
-      "custom_domains": [],
+      "custom_domains": [
+        "propflow.pro"
+      ],
       "wave": 3,
       "note": "three spellings: slug real-estate-app, repo real-estate-App, dir realestate-App"
     },
@@ -88,9 +97,11 @@
       "dir": "C:\\Users\\User\\APPS\\breeze-portal",
       "kind": "opennext",
       "vercel_project": "breeze-portal",
-      "custom_domains": [],
+      "custom_domains": [
+        "breezeadvance.credit"
+      ],
       "wave": 3,
-      "note": "app.breezeadvance.com DNS is in the CLIENT's Cloudflare account — never touched by us"
+      "note": "app.breezeadvance.com DNS is in the CLIENT's Cloudflare account \u2014 never touched by us"
     },
     "oasis-cc-cron": {
       "dir": "C:\\Users\\User\\APPS\\oasis-command-center\\workers\\oasis-cc-cron",
@@ -98,16 +109,22 @@
       "vercel_project": "agent-dashboard",
       "custom_domains": [],
       "wave": 3,
-      "note": "companion cron worker (28 jobs) — deploys DRY until CRON_FORWARD=on; runbook: brain/WAVE3_OASIS_CC_RUNBOOK.md"
+      "note": "companion cron worker (28 jobs) \u2014 DRY until CRON_FORWARD=on; NEVER attach a custom domain (it shares agent-dashboard's vercel_project only for secret lookup)"
     },
     "oasis-command-center": {
       "dir": "C:\\Users\\User\\APPS\\oasis-command-center",
       "kind": "opennext",
       "vercel_project": "agent-dashboard",
-      "custom_domains": ["oasisai.work"],
+      "custom_domains": [
+        "apply.sunbizfunding.com",
+        "oasisai.work",
+        "www.oasisai.work"
+      ],
       "wave": 3,
-      "build_env": { "NODE_OPTIONS": "--max-old-space-size=4096" },
-      "note": "APEX-shared repo — coord_claim before editing; 28 crons; native-dep refactors gated on CC decisions"
+      "build_env": {
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+      },
+      "note": "APEX-shared repo \u2014 coord_claim before editing; 28 crons; native-dep refactors gated on CC decisions"
     }
   }
 }
