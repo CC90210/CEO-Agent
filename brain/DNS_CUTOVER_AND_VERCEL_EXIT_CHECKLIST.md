@@ -162,8 +162,8 @@ escalate only if it persists beyond a few hours.
 
 | # | App / worker | Domain(s) | NS today | Zone action (CC) | Notes |
 |---|---|---|---|---|---|
-| 1 | tiktik | none (vercel.app) | — | none | "Cutover" = flip external links/webhooks to `tiktik.oasis-cc.workers.dev`, CC login click-through first |
-| 2 | ig-setter-pro | none (vercel.app) | — | none | Same; IG/Meta webhook URLs re-point manually |
+| 1 | tiktik | none (vercel.app) | — | none | "Cutover" = flip external links/webhooks to **`tiktik.oasisaisolutions.workers.dev`**, CC login click-through first. ⚠ Corrected 2026-08-30: this said `…oasis-cc.workers.dev`, the OLD account's subdomain — pointing a webhook there hits the pre-migration fleet, which still answers, so the mistake would look like success |
+| 2 | ig-setter-pro | none (vercel.app) | — | none | Same, at **`ig-setter-pro.oasisaisolutions.workers.dev`**; IG/Meta webhook URLs re-point manually |
 | 3 | sunbiz-funding | sunbizfunding.com | Google Domains | Add zone to CF, change NS at Google | Static site; zero env |
 | 4 | arthrisil-website | arthrisil.com | GoDaddy | Add zone to CF, change NS at GoDaddy | ⚠ Vercel has NO custom domain for this project, and **arthrisil.com currently serves an error page** — the Worker serves the real site, so onboarding the zone repairs it |
 | 5 | **breeze-portal** (NOT breezeadvance-website) | breezeadvance.credit | Cloudflare (zone active) | already in CF | ⚠ **CORRECTED 2026-08-30.** This row previously said `breezeadvance-website`. The domain belongs to **breeze-portal** and serves David's live *Client Portal*; the marketing Worker serves a brochure. Attaching per the old row would have taken the portal down. `attach-domain` now aborts on exactly this. breeze-portal is not yet deployed to Workers, so this row is BLOCKED on that, not on DNS |
@@ -198,10 +198,19 @@ Every app repo carries `.github/workflows/deploy-cloudflare.yml`
 Push to `main` → `npm ci` → OpenNext/Vite build → deploy. **Not yet active** —
 three operator gates, per repo:
 - [ ] **Repo secrets** `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`
-      (`d5e302…`), plus the `NEXT_PUBLIC_*`/`VITE_*` build values each workflow
-      header lists (tiktik 3, nostalgic 6, oasis-ai-platform 5, propflow 6,
-      OASIS CC 10; the four marketing sites need none). Until the token exists
-      the job BUILDS and SKIPS deploy with a warning — deliberately no red CI.
+      (**`e371c0f2…`** — the zone-owning account the fleet moved to), plus
+      **every key in that app's manifest**, not just the public ones:
+      tiktik 3 · ig-setter-pro 9 · oasis-ai-platform 9 · nostalgic-requests 19 ·
+      opt-in-vault 20 · breeze-portal 29 · propflow 30 · OASIS CC 100. The four
+      marketing sites need none.
+      ⚠ **Corrected 2026-08-30 — the earlier counts here were the
+      `NEXT_PUBLIC_*` subset and were wrong.** Next executes module-scope SDK
+      init during page-data collection, so runtime secrets are needed at BUILD
+      time: nostalgic-requests' first real CI run failed on exactly this
+      (`Neither apiKey nor config.authenticator provided`). Provisioning from
+      the old counts reproduces that failure.
+      Until `CLOUDFLARE_API_TOKEN` exists the job BUILDS and SKIPS deploy with a
+      notice — deliberately no red CI.
 - [ ] **Merge `cloudflare-workers` → `main`** in each repo (the workflow only
       fires on main; OASIS CC also needs its §1b preview-deploy proof first).
 - [ ] **Unarchive** tiktik · ig-setter-pro · oasis-ai-platform — GitHub Actions
