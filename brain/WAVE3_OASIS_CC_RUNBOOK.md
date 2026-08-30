@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-29
+last_updated: 2026-08-30
 tags: [cloudflare, migration, cron, oasis-command-center, wave-3]
 ---
 
@@ -33,7 +33,7 @@ cannot drift from vercel.json.
 
 **Consequences for this runbook (supersedes Phase C step 3 as originally
 written):**
-1. Removing `crons` from vercel.json disables **nothing** — it is already inert.
+1. Removing `crons` from vercel.json disables **nothing** — it is already inert. (Done in PR #347; the list now lives in `config/cron-registry.json`.)
    The cutover must disable **`.github/workflows/cron-driver.yml`** instead
    (delete the `schedule:` triggers, keep `workflow_dispatch` as the manual
    fallback). Doing the vercel.json edit alone would leave the GH driver and
@@ -44,13 +44,25 @@ written):**
    effectively bypassed and the routes are bearer-only. The `CRON_ATTEST_SECRET`
    leg added to `lib/cron-auth.ts` restores a real second factor; **unset
    `CRON_ALLOW_LOCAL` at cutover** once the Worker sends the attest header.
-4. Schedule fidelity is unaffected: vercel.json remains the schedule source of
-   truth for BOTH the GH driver (by test) and the Worker's `CRON_TABLE`
-   (verified 2026-08-30 against 4 live dry ticks by an independent matcher).
+4. **Schedule source of truth moved (PR #347, 2026-08-30):** it is now
+   `config/cron-registry.json`, NOT vercel.json — whose `crons` key is deleted
+   and must never come back (a second registry is a silently-wrong one). Both
+   firers are pinned to the registry: the GH driver by
+   `tests/cron-driver-coverage.test.ts`, and the Worker's `CRON_TABLE` by
+   transcription (verified 2026-08-30 against 4 live dry ticks by an
+   independent matcher — 28/28 exact).
 5. Keep `cron-driver.yml` in the repo, triggers removed — it is the proven
    fallback if the Worker path ever needs to be rolled back after Vercel exit.
 
-## The 28 crons (verbatim from vercel.json — the mapping table the worker ships)
+## The 28 crons — classification table (NOT a source of truth)
+
+> **`config/cron-registry.json` is the schedule of record.** The paths and
+> schedules below are reproduced for reading convenience only; if they ever
+> disagree with the registry, **the registry wins and this table is stale**.
+> Nothing tests this copy, which is exactly how the original vercel.json/driver
+> split drifted. The one column that is NOT derivable from the registry — and
+> so the only reason this table exists — is **Class**, which drives the Phase B
+> overlap-safety audit.
 
 | # | Path | Schedule (UTC) | Class |
 |---|---|---|---|
@@ -154,8 +166,7 @@ harmless by Phase B).**
    `.github/workflows/cron-driver.yml` (prepared in advance, inside the claim;
    keep `workflow_dispatch` + the file itself as the rollback path). **This —
    not the vercel.json edit — is what stops the current firer**; see the
-   2026-08-30 correction above. Clean up vercel.json's inert `crons` in the
-   same PR for hygiene. Unset `CRON_ALLOW_LOCAL` once the Worker's attest
+   2026-08-30 correction above. vercel.json's inert `crons` were already removed by PR #347. Unset `CRON_ALLOW_LOCAL` once the Worker's attest
    header is confirmed accepted.
 4. Overlap window = minutes; gap = **zero** by construction.
 
