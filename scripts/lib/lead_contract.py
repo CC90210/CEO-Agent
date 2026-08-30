@@ -164,6 +164,19 @@ def should_create_lead(email: str,
     return True, "eligible"
 
 
+import uuid as _uuid
+
+# Deterministic CC-Leads record ids: every importer (seed_cc_leads_turso,
+# scrape_cc_trade_leads) MUST mint ids through this one function so reruns of
+# any importer converge on the same rows instead of duplicating each other.
+CC_LEADS_NS = _uuid.uuid5(_uuid.NAMESPACE_DNS, "cc-leads.oasis-webdev")
+
+
+def lead_record_id(company: str, contact_hint: str) -> str:
+    """Same lead -> same tenant_records id, across scripts and reruns."""
+    return str(_uuid.uuid5(CC_LEADS_NS, f"{company.lower().strip()}|{contact_hint.lower().strip()}"))
+
+
 def enrich_lead_defaults(row: dict[str, Any]) -> dict[str, Any]:
     """Return a copy of row with soft defaults applied and missing_info[] set.
 

@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -27,13 +26,9 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "integrations"))
 
 from supabase_tool import get_client, load_env  # noqa: E402
-from lib.lead_contract import enrich_lead_defaults  # noqa: E402
+from lib.lead_contract import enrich_lead_defaults, lead_record_id  # noqa: E402
 
 WEBDEV_TENANT_ID = "42423fde-be8b-454f-932a-750e8c9b743d"
-# Same namespace as seed_cc_leads_turso.lead_record_id — the two importers
-# converge on identical row ids for identical leads, so neither can duplicate
-# the other's work on a rerun.
-CC_LEADS_NS = uuid.uuid5(uuid.NAMESPACE_DNS, "cc-leads.oasis-webdev")
 OUT_JSON = PROJECT_ROOT / "tmp" / "cc_trade_leads_100.json"
 PREV_JSON = PROJECT_ROOT / "tmp" / "website_sales_leads.json"
 
@@ -132,7 +127,7 @@ def _upsert_cc_territory_sheet(db: Any, city: str, province: str, count: int, dr
 def _insert_lead_record(db: Any, data: dict[str, Any], dry_run: bool = False) -> bool:
     company = data.get("company") or data.get("business_name") or data.get("name") or "Trade Business"
     contact_hint = str(data.get("phone") or data.get("website") or data.get("email") or "")
-    rec_id = str(uuid.uuid5(CC_LEADS_NS, f"{company.lower().strip()}|{contact_hint.lower().strip()}"))
+    rec_id = lead_record_id(company, contact_hint)
     row = {
         "id": rec_id,
         "tenant_id": WEBDEV_TENANT_ID,

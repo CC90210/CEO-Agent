@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import sys
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -24,16 +23,10 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "integrations"))
 
 from supabase_tool import get_client, load_env
+from lib.lead_contract import lead_record_id
 
 WEBDEV_TENANT_ID = "42423fde-be8b-454f-932a-750e8c9b743d"  # Oasis Web Studio
-CC_LEADS_NS = uuid.uuid5(uuid.NAMESPACE_DNS, "cc-leads.oasis-webdev")
 PREV_JSON = PROJECT_ROOT / "tmp" / "website_sales_leads.json"
-
-
-def lead_record_id(company: str, contact_hint: str) -> str:
-    """Deterministic id: same lead -> same row across reruns (and across the
-    scrape_cc_trade_leads resurface path, which uses the same scheme)."""
-    return str(uuid.uuid5(CC_LEADS_NS, f"{company.lower().strip()}|{contact_hint.lower().strip()}"))
 
 
 def _now_iso() -> str:
