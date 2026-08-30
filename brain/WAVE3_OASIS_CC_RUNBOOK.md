@@ -103,9 +103,11 @@ timezone drift. (`:17` and `:40` offsets exist deliberately; keep them.)
   `ctx.waitUntil` per call; per-call timeout generous (Workers has no
   maxDuration knob to inherit; the routes already self-budget — see
   dispatch-scheduled-sends' soft time budget).
-- **Kill switch:** `CRON_FORWARD` env var checked first. `"off"` → log the due
-  list, call nothing ("dry tick"). Flipping it is a secret update — seconds,
-  no rebuild.
+- **Kill switch:** `CRON_FORWARD` secret checked first. Accepts
+  `on|true|1|yes` (case/whitespace-insensitive); **anything else — including
+  unset, `off`, `false`, or a typo — is a DRY tick**: log the due list, call
+  nothing. Unit-tested both directions. Flipping it is a secret update —
+  seconds, no rebuild.
 - **Telemetry:** every tick logs `{minute, due:[paths], forwarded, status[]}`
   to Workers observability; non-2xx forwards also POST to the existing
   alerting lane (same one the Vercel crons' failures surface in — audience

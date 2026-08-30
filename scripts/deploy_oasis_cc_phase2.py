@@ -38,7 +38,11 @@ CAPABILITY_META = {
 }
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+from lib.subprocess_helpers import safe_run  # noqa: E402
+
 TOOL = ROOT / "scripts" / "integrations" / "wrangler_tool.py"
+REGISTRY = ROOT / "config" / "cloudflare" / "apps.json"
 APP = "oasis-command-center"
 # Measured 2026-08-30: 8.13MiB gzip. Free plan caps at 3MiB, paid at 10MiB.
 FREE_CAP_MIB = 3
@@ -46,8 +50,13 @@ PAID_CAP_MIB = 10
 
 
 def run(args: list[str], **kw) -> subprocess.CompletedProcess:
-    return subprocess.run([sys.executable, str(TOOL), *args], capture_output=True,
-                          text=True, encoding="utf-8", errors="replace", cwd=str(ROOT), **kw)
+    return safe_run([sys.executable, str(TOOL), *args], capture_output=True,
+                    text=True, encoding="utf-8", errors="replace", cwd=str(ROOT), **kw)
+
+
+def app_dir() -> Path:
+    """From the registry — never a second hardcoded copy of the app's path."""
+    return Path(json.loads(REGISTRY.read_text(encoding="utf-8"))["apps"][APP]["dir"])
 
 
 def preflight() -> tuple[bool, list[str]]:
@@ -73,7 +82,7 @@ def preflight() -> tuple[bool, list[str]]:
 
     # Note: CRON_SECRET / CRON_ATTEST_SECRET readiness is already covered by
     # secrets-plan above; they gate the CRON FLIP, not this deploy.
-    worker = Path(r"C:\Users\User\APPS\oasis-command-center\.open-next\worker.js")
+    worker = app_dir() / ".open-next" / "worker.js"
     if not worker.exists():
         blockers.append("no .open-next/worker.js — run: wrangler_tool.py build --app " + APP)
     else:

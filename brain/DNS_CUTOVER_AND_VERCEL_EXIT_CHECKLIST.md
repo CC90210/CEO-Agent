@@ -74,7 +74,11 @@ three operator gates, per repo:
 - [ ] Workers Paid before CI can succeed for oasis-command-center / propflow /
       nostalgic-requests (3MiB free cap fails the deploy step, not the build).
 CI deploys the app Worker only. `oasis-cc-cron` stays manual/gated by design —
-it must not flip to forwarding via a push.
+it must not flip to forwarding via a push. Its kill switch `CRON_FORWARD`
+accepts `on|true|1|yes`; anything else (incl. unset) is a dry tick. **Setting
+it MUST be paired in one PR with removing `cron-driver.yml`'s `schedule:`
+triggers — that workflow, not vercel.json, is the active firer** (verified
+2026-08-30: scheduled runs succeeding; Vercel's scheduler dead since 08-06).
 
 ## 2. Vercel cancellation gates (the account CANNOT be closed until…)
 - [ ] All 11 rows above cut over + soak passed (7d/14d) + per-project retirement approved by CC one at a time.
