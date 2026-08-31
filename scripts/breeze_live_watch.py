@@ -51,8 +51,22 @@ from secret_loader import load_env  # noqa: E402
 
 HEALTH_URL = "https://breezeadvance.credit/api/health"
 STATE_FILE = ROOT / "state" / "breeze_live_watch.json"
-# Checks allowed to be false without an alert (documented in GO_LIVE_CHECKLIST):
-BASELINE_FALSE = {"resend_configured", "vps_bridge_health_ok"}
+# Checks allowed to be false without an alert (documented in GO_LIVE_CHECKLIST).
+#
+# Each entry needs a REASON and a REMOVAL CONDITION, or this becomes the place
+# real breakage hides. An accepted state is not an alert — it is a decision, and
+# re-paging CC hourly about a decision he already made is how a monitor teaches
+# its reader to ignore it. `plaid_configured` had fired 334 consecutive times.
+BASELINE_FALSE = {
+    "resend_configured",
+    "vps_bridge_health_ok",
+    # CC accepted a degraded breeze-portal deploy on 2026-08-31: PLAID_CLIENT_ID,
+    # PLAID_SECRET and PLAID_ENV are not in the store under any name, so bank
+    # linking 401s by design until he adds them.
+    # REMOVE WHEN: `wrangler_tool.py secrets-plan --app breeze-portal` reports 0
+    # missing — at that point a false plaid_configured IS a real fault again.
+    "plaid_configured",
+}
 REALERT_SECONDS = 3600
 
 # --- alert damping (2026-08-15) ---------------------------------------------
