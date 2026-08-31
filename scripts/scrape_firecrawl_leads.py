@@ -1,8 +1,8 @@
-"""Lead scraper using Firecrawl API (replaces slow Playwright + Google Maps flow).
+"""Lead scraper using ScrapeGraphAI primary with Firecrawl fallback.
 
 Pipeline:
-  1. Search Firecrawl for "{niche} {city} Ontario" -> list of business URLs
-  2. For each URL, run Firecrawl extract with a structured schema:
+  1. Search ScrapeGraphAI for "{niche} {city} Ontario" -> list of business URLs
+  2. For each URL, run ScrapeGraphAI extract with a structured schema:
        {owner_first_name, owner_full_name, business_name, email, phone, role}
   3. Filter for valid email + real first name (drops business-only contacts)
   4. Dedup against existing Supabase leads
@@ -83,20 +83,19 @@ DEFAULT_NICHES = [
 OUT_JSON = PROJECT_ROOT / "tmp" / "scraped_leads_firecrawl.json"
 
 
-def _run_firecrawl(args: list[str]) -> dict | None:
+def _run_tool(tool: str, args: list[str]) -> dict | None:
     try:
         r = subprocess.run(
-            ["python", "scripts/integrations/firecrawl_tool.py", *args, "--json"],
-            capture_output=True, text=True, timeout=60,
-            cwd=str(PROJECT_ROOT),
-         creationflags=WINDOWLESS_FLAGS)
+            [sys.executable, f"scripts/integrations/{tool}_tool.py", *args, "--json"],
+            capture_output=True, text=True, timeout=120,
+            cwd=str(PROJECT_ROOT), creationflags=WINDOWLESS_FLAGS,
+        )
         if r.returncode != 0:
-            print(f"  [firecrawl error rc={r.returncode}] {r.stderr.strip()[:200]}",
-                  file=sys.stderr)
+            print(f"  [{tool} error rc={r.returncode}] {r.stderr.strip()[:200]}", file=sys.stderr)
             return None
         return json.loads(r.stdout) if r.stdout.strip() else None
     except (subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
-        print(f"  [firecrawl exception] {exc}", file=sys.stderr)
+        print(f"  [{tool} exception] {exc}", file=sys.stderr)
         return None
 
 
@@ -123,12 +122,21 @@ def _search_one(niche: str, city: str) -> list[str]:
     """Return up to ~6 small-business URLs for a niche+city query."""
     query = f"{niche} {city} Ontario small business"
     print(f"  search: {query!r}")
-    result = _run_firecrawl(["search", query])
+    result = _run_tool("scrapegraph", ["search", query])
+    if not result:
+        result = _run_tool("firecrawl", ["search", query])
     if not result:
         return []
     # Firecrawl search returns {web: [...], data: [...], or results: [...]}
-    items = (result.get("web") or result.get("data") or
-             result.get("results") or [])
+    data = result.get("data") or {}
+    items = (
+        result.get("web")
+        or result.get("results")
+        or (data.get("results") if isinstance(data, dict) else data)
+        or []
+    )
+    if isinstance(items, dict):
+        items = items.get("results") or items.get("web") or []
     urls = []
     for item in items[:12]:  # check more results, then filter directories
         u = item.get("url") if isinstance(item, dict) else None
@@ -145,11 +153,19 @@ def _search_one(niche: str, city: str) -> list[str]:
 
 def _extract_one(url: str) -> dict[str, Any] | None:
     print(f"  extract: {url}")
-    result = _run_firecrawl(["extract", url, "--schema", json.dumps(EXTRACT_SCHEMA)])
+    result = _run_tool("scrapegraph", [
+        "extract", url,
+        "--prompt", "Extract the business and its owner or primary contact details. Never invent missing values.",
+        "--schema", json.dumps(EXTRACT_SCHEMA),
+    ])
+    if not result:
+        result = _run_tool("firecrawl", ["extract", url, "--schema", json.dumps(EXTRACT_SCHEMA)])
     if not result:
         return None
     # Firecrawl extract returns {data: {...schema fields...}, ...}
-    data = result.get("data") or result.get("extract") or result
+    data = result.get("json") or result.get("result") or result.get("data") or result.get("extract") or result
+    if isinstance(data, dict):
+        data = data.get("json") or data.get("json_data") or data
     if isinstance(data, dict):
         return data
     return None
@@ -275,7 +291,7 @@ def main() -> None:
             notes_parts = [
                 f"City: {L['city']}", f"Niche: {L['niche']}",
                 f"Website: {L['website']}",
-                f"Source: Firecrawl scrape on {now[:10]}",
+                f"Source: ScrapeGraphAI-first scrape on {now[:10]}",
             ]
             if L.get("role"):
                 notes_parts.append(f"Role: {L['role']}")

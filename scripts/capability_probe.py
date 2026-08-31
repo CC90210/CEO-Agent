@@ -155,7 +155,10 @@ SERVICES: dict[str, tuple[list[list[str]], str]] = {
     "telegram": ([["TELEGRAM_BOT_TOKEN", "CC_AGENT_BOT_TOKEN"], ["TELEGRAM_ALLOWED_USERS"]],
                  "python scripts/notify.py '<message>'"),
     "firecrawl": ([["FIRECRAWL_API_KEY"]],
-                  "python scripts/research_fetch.py <url>   (auto-escalates)"),
+                  "python scripts/integrations/firecrawl_tool.py <verb>   (fallback scraper)"),
+    "scrapegraphai": ([["SCRAPE_GRAPH_AI_API", "SGAI_API_KEY"]],
+                      "python scripts/integrations/scrapegraph_tool.py <verb>   "
+                      "(primary public-site and lead-data scraper)"),
     # late_tool.py lives in Maven's repo, not here. Naming the local path would
     # authorize the service and then hand the agent a No-such-file — the exact
     # false positive this tool exists to prevent.

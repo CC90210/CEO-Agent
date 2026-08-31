@@ -5,12 +5,13 @@ The single entry point all research-heavy skills should call instead of choosing
 themselves. Escalates through tiers based on actual response + remembers which tier
 worked per domain so the next call skips straight to the right one.
 
-TIERS (escalation order, cheapest → most stealthy)
+TIERS (escalation order)
 --------------------------------------------------
-  1. Firecrawl     — scripts/integrations/firecrawl_tool.py scrape (cloud-side, clean markdown)
-  2. CloakBrowser  — scripts/browser/cloak_browser_tool.py scrape (stealth Chromium 146)
-  3. Plain         — zero-dep urllib + UA spoof + naive HTML strip (always available)
-  4. Fail          — return ok=False with last-tier error
+  1. ScrapeGraphAI — primary public-site and lead-data scraper (clean markdown)
+  2. Firecrawl     — cloud fallback when ScrapeGraphAI fails or exhausts credits
+  3. CloakBrowser  — separate anti-bot escalation tier (stealth Chromium 146)
+  4. Plain         — zero-dep urllib + UA spoof + naive HTML strip (always available)
+  5. Fail          — return ok=False with last-tier error
 
 Escalation triggers (auto, no agent decision needed):
   - Firecrawl returns 403 / 429 / 5xx → escalate to CloakBrowser
@@ -21,19 +22,19 @@ SITE-REPUTATION MEMORY
 ----------------------
 SQLite at state/site_reputation.db keyed by registered domain (e.g. www.cloudflare.com
 collapses to cloudflare.com). Records:
-  - last_tier_succeeded (firecrawl | cloak)
+  - last_tier_succeeded (scrapegraph | firecrawl | cloak)
   - firecrawl_success_count / firecrawl_fail_count
   - cloak_success_count / cloak_fail_count
   - last_seen_at, first_seen_at
 
-On fetch: start at `last_tier_succeeded` if reputation exists, else start at Firecrawl.
+On fetch: start at `last_tier_succeeded` if useful, else start at ScrapeGraphAI.
 Saves the 200MB Chromium fire on domains where Firecrawl always works (singlekey.com,
 example.com, most marketing sites). Burns straight through to Cloak on domains we
 already know need it (truepeoplesearch.com, g2.com, indeed.com).
 
 CLI USAGE
 ---------
-    python scripts/research_fetch.py <url> [--json] [--force-tier {firecrawl,cloak,plain}] [--min-chars N]
+    python scripts/research_fetch.py <url> [--json] [--force-tier {scrapegraph,firecrawl,cloak,plain}] [--min-chars N]
     python scripts/research_fetch.py reputation [domain]              # show one or all
     python scripts/research_fetch.py reputation-clear <domain>        # forget what we learned
     python scripts/research_fetch.py reputation-top [--limit N]       # most-seen domains
@@ -55,7 +56,7 @@ RETURNS
         "title": str | None,
         "text": str,
         "text_chars": int,
-        "tier_used": "firecrawl" | "cloak" | None,
+        "tier_used": "scrapegraph" | "firecrawl" | "cloak" | "plain" | None,
         "tiers_tried": [str, ...],
         "errors": {tier: str, ...},   # only present if any tier failed
         "reputation": {"hit": bool, "start_tier": str},
@@ -126,20 +127,26 @@ def _db() -> sqlite3.Connection:
             last_tier_succeeded TEXT,
             firecrawl_success INTEGER NOT NULL DEFAULT 0,
             firecrawl_fail INTEGER NOT NULL DEFAULT 0,
+            scrapegraph_success INTEGER NOT NULL DEFAULT 0,
+            scrapegraph_fail INTEGER NOT NULL DEFAULT 0,
             cloak_success INTEGER NOT NULL DEFAULT 0,
             cloak_fail INTEGER NOT NULL DEFAULT 0,
             last_seen_at TEXT NOT NULL,
             first_seen_at TEXT NOT NULL
         )
     """)
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(site_reputation)")}
+    for name in ("scrapegraph_success", "scrapegraph_fail"):
+        if name not in columns:
+            conn.execute(f"ALTER TABLE site_reputation ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0")
     return conn
 
 
 def _reputation_lookup(domain: str) -> dict | None:
     with _db() as conn:
         row = conn.execute(
-            "SELECT domain, last_tier_succeeded, firecrawl_success, firecrawl_fail, "
-            "cloak_success, cloak_fail, last_seen_at, first_seen_at "
+            "SELECT domain, last_tier_succeeded, scrapegraph_success, scrapegraph_fail, "
+            "firecrawl_success, firecrawl_fail, cloak_success, cloak_fail, last_seen_at, first_seen_at "
             "FROM site_reputation WHERE domain = ?",
             (domain,),
         ).fetchone()
@@ -148,12 +155,14 @@ def _reputation_lookup(domain: str) -> dict | None:
     return {
         "domain": row[0],
         "last_tier_succeeded": row[1],
-        "firecrawl_success": row[2],
-        "firecrawl_fail": row[3],
-        "cloak_success": row[4],
-        "cloak_fail": row[5],
-        "last_seen_at": row[6],
-        "first_seen_at": row[7],
+        "scrapegraph_success": row[2],
+        "scrapegraph_fail": row[3],
+        "firecrawl_success": row[4],
+        "firecrawl_fail": row[5],
+        "cloak_success": row[6],
+        "cloak_fail": row[7],
+        "last_seen_at": row[8],
+        "first_seen_at": row[9],
     }
 
 
@@ -184,8 +193,8 @@ def _reputation_record(domain: str, tier: str, succeeded: bool) -> None:
                     (now, domain),
                 )
         else:
-            col_succ = "firecrawl_success" if tier == "firecrawl" else "cloak_success"
-            col_fail = "firecrawl_fail" if tier == "firecrawl" else "cloak_fail"
+            col_succ = f"{tier}_success"
+            col_fail = f"{tier}_fail"
             conn.execute(
                 f"INSERT INTO site_reputation (domain, last_tier_succeeded, "
                 f"{col_succ}, {col_fail}, last_seen_at, first_seen_at) "
@@ -244,6 +253,33 @@ def _call_firecrawl(url: str) -> dict:
         "title": metadata.get("title") or metadata.get("ogTitle"),
         "final_url": metadata.get("url") or metadata.get("sourceURL") or url,
         "raw_metadata": metadata,
+    }
+
+
+def _call_scrapegraph(url: str) -> dict:
+    """Invoke the primary ScrapeGraphAI wrapper and normalize markdown output."""
+    argv = [
+        sys.executable,
+        str(SCRIPTS_DIR / "integrations" / "scrapegraph_tool.py"),
+        "scrape",
+        url,
+        "--json",
+    ]
+    out = _run_tier_subprocess("scrapegraph", argv, TIER_TIMEOUT_SECONDS)
+    raw = out.pop("_parsed", None)
+    if raw is None:
+        return out
+    results = raw.get("results") or {}
+    markdown = (results.get("markdown") or {}).get("data") or []
+    text = markdown[0] if isinstance(markdown, list) and markdown else ""
+    metadata = raw.get("metadata") or {}
+    return {
+        "ok": bool(raw.get("ok", True)),
+        "status": metadata.get("statusCode") or 200,
+        "text": text,
+        "title": metadata.get("title"),
+        "final_url": metadata.get("url") or url,
+        "error": raw.get("error"),
     }
 
 
@@ -313,8 +349,8 @@ def _call_plain(url: str, timeout: int) -> dict:
 
 # ── Escalation logic ─────────────────────────────────────────────────────────
 
-def _firecrawl_signals_block(result: dict, min_chars: int) -> bool:
-    """Heuristics: should we escalate from Firecrawl to Cloak?
+def _provider_signals_block(result: dict, min_chars: int) -> bool:
+    """Heuristics: should we escalate from a public scraping provider?
 
     Escalate when:
       - call errored (network/timeout/non-json)
@@ -356,12 +392,12 @@ def fetch(
     # Tier ordering — reputation-aware. "plain" is always the last-ditch
     # tier (zero-dep urllib fallback) so we never bail with nothing when
     # Firecrawl is over quota AND Cloak isn't installed.
-    if force_tier in ("firecrawl", "cloak", "plain"):
+    if force_tier in ("scrapegraph", "firecrawl", "cloak", "plain"):
         tiers = [force_tier]
     elif rep and rep["last_tier_succeeded"] == "cloak":
         tiers = ["cloak", "plain"]
     else:
-        tiers = ["firecrawl", "cloak", "plain"]
+        tiers = ["scrapegraph", "firecrawl", "cloak", "plain"]
 
     result: dict[str, Any] = {
         "ok": False,
@@ -383,9 +419,27 @@ def fetch(
 
     for tier in tiers:
         result["tiers_tried"].append(tier)
-        if tier == "firecrawl":
+        if tier == "scrapegraph":
+            r = _call_scrapegraph(url)
+            if r.get("ok") and not _provider_signals_block(r, min_chars):
+                if record_reputation:
+                    _reputation_record(domain, "scrapegraph", True)
+                result.update({
+                    "ok": True,
+                    "tier_used": "scrapegraph",
+                    "status": r.get("status"),
+                    "title": r.get("title"),
+                    "final_url": r.get("final_url"),
+                    "text": r.get("text", ""),
+                    "text_chars": len(r.get("text", "")),
+                })
+                return result
+            if record_reputation:
+                _reputation_record(domain, "scrapegraph", False)
+            result["errors"]["scrapegraph"] = r.get("error") or f"signals_block status={r.get('status')} chars={len(r.get('text',''))}"
+        elif tier == "firecrawl":
             r = _call_firecrawl(url)
-            if r.get("ok") and not _firecrawl_signals_block(r, min_chars):
+            if r.get("ok") and not _provider_signals_block(r, min_chars):
                 if record_reputation:
                     _reputation_record(domain, "firecrawl", True)
                 result.update({
@@ -529,7 +583,7 @@ def _cmd_reputation_clear(args) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(
-        description="Unified research-tier fetcher (Firecrawl → CloakBrowser auto-escalation)",
+        description="Unified research fetcher (ScrapeGraphAI primary; Firecrawl fallback; Cloak anti-bot escalation)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -548,7 +602,7 @@ Skill: skills/research-fetch/SKILL.md
     # Default subcommand is implicit if first arg is a URL
     pf = sub.add_parser("fetch", help="Fetch a URL with auto-escalation")
     pf.add_argument("url")
-    pf.add_argument("--force-tier", choices=["firecrawl", "cloak", "plain"], default=None)
+    pf.add_argument("--force-tier", choices=["scrapegraph", "firecrawl", "cloak", "plain"], default=None)
     pf.add_argument("--min-chars", type=int, default=DEFAULT_MIN_CHARS)
     pf.add_argument("--cloak-timeout", type=int, default=45)
     pf.add_argument("--json", dest="output_json", action="store_true")
