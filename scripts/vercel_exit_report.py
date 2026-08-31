@@ -220,6 +220,20 @@ VERCEL_PREFIXES = ("216.198.", "216.150.", "76.76.", "64.29.")
 # until it is, cancelling could take a client offline.
 EXTERNAL_VERCEL_WATCH = ("breezeadvance.com", "www.breezeadvance.com")
 
+# Hostnames CC has explicitly accepted as outstanding. Same contract as
+# KNOWN_BROKEN: a reason and a removal condition, or this becomes a place to
+# hide things. These are still REPORTED — the gate keeps measuring the truth and
+# says so — they just no longer hold Gate 1 closed, because the operator has
+# made that call and owns it.
+#
+# The distinction that matters: accepting a hostname here authorises PER-PROJECT
+# retirement of everything else. It does not authorise deleting the Vercel
+# ACCOUNT, which would also take these hostnames down.
+OPERATOR_ACCEPTED = {
+    "sunbizfunding.com": "CC 2026-08-31: registrar change submitted; watcher will cut over on propagation",
+    "www.sunbizfunding.com": "CC 2026-08-31: same as apex",
+}
+
 
 def _vercel_origin(host: str) -> tuple[bool, str]:
     """Is this hostname's ORIGIN Vercel, regardless of what fronts it?
@@ -281,10 +295,17 @@ def gate_traffic() -> dict:
         is_vercel, why = _vercel_origin(host)
         if is_vercel:
             still.append(f"{host} (proxied; {why})")
-    ok = not still and not unresolved
+    # Split what the operator has accepted from what nobody has looked at. The
+    # first is a decision; the second is a surprise, and only the second should
+    # hold the gate closed.
+    accepted = [h for h in still if h.split(" ")[0] in OPERATOR_ACCEPTED]
+    blocking = [h for h in still if h.split(" ")[0] not in OPERATOR_ACCEPTED]
+    ok = not blocking and not unresolved
     bits = []
-    if still:
-        bits.append(f"still on Vercel: {', '.join(sorted(set(still)))}")
+    if blocking:
+        bits.append(f"still on Vercel: {', '.join(sorted(set(blocking)))}")
+    if accepted:
+        bits.append(f"operator-accepted: {', '.join(sorted(set(accepted)))}")
     if unresolved:
         bits.append(f"does not resolve: {', '.join(sorted(set(unresolved)))}")
     return {"gate": "no customer hostname still resolves to Vercel", "pass": ok,

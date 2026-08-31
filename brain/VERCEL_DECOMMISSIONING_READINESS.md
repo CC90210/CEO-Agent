@@ -5,6 +5,77 @@ tags: [cloudflare, migration, vercel-exit, readiness]
 
 # Vercel Decommissioning Readiness Report
 
+## 2026-08-31 14:20Z — GATE 1 CLEARED BY OPERATOR DECISION · GATE 2 SOAK RUNNING
+
+**CC cleared Gate 1 on 2026-08-31,** accepting two items as outstanding rather
+than blocking:
+
+1. **Google sign-in** — explicitly descoped. The button is not needed. The
+   diagnosis stands in [[brain/MORNING_BRIEFING_2026-08-31]] if it is ever
+   wanted; nothing else depends on it.
+2. **`sunbizfunding.com`** — registrar change submitted; the watcher cuts it over
+   automatically on propagation. Recorded in `vercel_exit_report.py`
+   `OPERATOR_ACCEPTED` with its removal condition, so the gate keeps *measuring*
+   it and reporting it — it simply no longer holds Gate 1 closed.
+
+### Before the ACCOUNT can be deleted — three things, all fixable in the window
+
+These are separate from the two items CC descoped, and were surfaced 2026-08-31
+after that decision. Each one means deleting the account takes something live
+down on the day.
+
+1. **`www.oasisai.work/api/*` is still served by Vercel.** The router proxies it
+   to `oasis-ai-platform.vercel.app`, which hosts the marketing site's seven Node
+   functions — **including all five Stripe flow rewrites**. Deleting the account
+   kills checkout. This is stage 1 of the platform migration working exactly as
+   designed; stage 2 (porting those handlers into the Worker) was never done.
+   **This is the one real engineering task left, and it is Bravo's to do.**
+2. **`www.breezeadvance.credit` still points at Vercel IPs**, as does a `*`
+   wildcard on that zone. The apex is on Workers; www is not. Deliberately not
+   fixed unattended — attaching www would serve the portal instead of
+   redirecting, and splitting an authenticated client financial portal across two
+   hostnames risks cookie-domain session breakage. Five minutes with CC awake, or
+   a Cloudflare redirect rule that preserves current behaviour exactly.
+3. **`breezeadvance.com` + `www` serve a client's live site from Vercel**, and it
+   is not a zone in our Cloudflare account. **Which Vercel account owns it is
+   unresolved** — the project-domains API returns 403 for our token. If it is
+   ours, deleting the account takes a client offline. One check settles it and
+   nothing else should be pressed until it is.
+
+Also still true and unchanged: account deletion removes **nine out-of-scope
+projects** — including `listing-studio`, which CC deliberately keeps, and its
+Vercel Blob store — plus any Vercel-registered domain that has not been
+transferred out first.
+
+### Gate 2 — the 7-day soak, and the date it ends
+
+A soak measures how long the **currently deployed** state has run clean, so each
+app's clock starts at its own last production deploy. The fleet clears when the
+last one finishes.
+
+| App | Soak ends (UTC) |
+|---|---|
+| opt-in-vault, sunbiz-funding, propflow | 2026-09-07 03:02 |
+| nostalgic-requests, breeze-portal, oasis-command-center | 2026-09-07 03:03 |
+| oasis-ai-platform | 2026-09-07 04:56 |
+| **blue-rise-website** (last to finish) | **2026-09-07 05:37** |
+
+**Fleet clears: Monday 7 September 2026, 05:37 UTC — 01:37 EDT Montreal.**
+Practical slot: **Monday 7 September, 09:00 EDT (13:00 UTC).**
+
+Any redeploy of an app restarts *that app's* clock. `sunbizfunding.com` has no
+clock yet — its 7 days begin when the watcher cuts it over.
+
+### What that date does and does not authorise
+
+Passing the soak authorises **per-project retirement** — deleting the Vercel
+projects for the migrated apps, one at a time. It does **not** authorise deleting
+the Vercel **account**, and the difference is not pedantry: three live
+dependencies still terminate on that account.
+
+See "Before the account can be deleted" below. Everything there is fixable
+inside the soak window.
+
 > Generated 2026-08-30 ~07:45 UTC after the overnight execution run.
 > Companions: [[brain/DNS_CUTOVER_AND_VERCEL_EXIT_CHECKLIST]] ·
 > [[brain/WAVE3_OASIS_CC_RUNBOOK]] · baselines in
@@ -227,7 +298,12 @@ can begin ~7 days after each cutover — that is the lever worth pulling first.
 Run `python scripts/vercel_exit_report.py` for the live verdict; it is the
 authority and this section is a snapshot.
 
-## VERDICT: **NOT READY** (`vercel_exit_report.py` exit 2 — work outstanding, 0 regressions)
+## VERDICT: **GATE 1 CLEARED (operator decision 2026-08-31) · GATE 2 SOAK RUNNING**
+
+`vercel_exit_report.py` still exits 2 and that is correct — it keeps measuring
+what is outstanding rather than being told the answer. Two items are recorded
+as operator-accepted; three (the breezeadvance hostnames) are still reported as
+blocking because they gate ACCOUNT deletion and CC has not ruled on them.
 
 > The verdict is no longer maintained by hand. Run
 > `python scripts/vercel_exit_report.py` — it measures all six gates live and
