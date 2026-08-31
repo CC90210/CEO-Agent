@@ -92,7 +92,26 @@ PROBES = {
     "breeze-portal": {"paths": ["/login"], "api": []},
     "nostalgic-requests": {"paths": ["/"], "api": []},
     "real-estate-app": {"paths": ["/"], "api": []},
-    "oasis-ai-platform": {"paths": ["/"], "api": []},
+    # Probing only "/" here was a hole that cost a real outage. On 2026-08-31 a
+    # router change made every /api/* request throw (Cloudflare 1101), taking
+    # down all five Stripe flow rewrites while the Vercel origin behind them was
+    # healthy — and this check reported the fleet 10/11 OK throughout, because
+    # the static landing page it probed was served by the assets binding and
+    # never touched the failing code path.
+    #
+    # The three surfaces here are served by three DIFFERENT mechanisms in the
+    # router (assets binding, service binding to the dashboard, proxy to
+    # Vercel), so one of them being healthy says nothing about the other two.
+    # All GETs, no mutation: the Stripe rewrites return session/portal state.
+    "oasis-ai-platform": {
+        "paths": ["/",                       # assets binding
+                  "/app", "/app/login",      # service binding -> dashboard Worker
+                  "/api/health",             # proxy -> Vercel functions
+                  "/api/stripe/session",     # the five flow rewrites, which are
+                  "/api/stripe/portal",      # the revenue path and were the ones
+                  "/api/stripe/checkout"],   # that silently broke
+        "api": [],
+    },
     # Added 2026-08-30. These were absent while their hostnames were being cut
     # over to Workers, so bluerisebusinesscapital.com — a live customer domain
     # that had already moved — was not checked by the tool reporting the fleet
