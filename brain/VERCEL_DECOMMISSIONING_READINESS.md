@@ -93,6 +93,56 @@ domain, which means the registrar record was never changed.
 `wrangler_tool.py zones` now prints both lines for any zone stuck at `pending`,
 so "still pending" is never reported again without the values needed to fix it.
 
+### Adversarial parity sweep: Worker vs Vercel, route class by route class
+
+36 differences found, adversarially verified: **1 confirmed blocking, 2 real but
+non-blocking, 33 informational.** Two of these were invisible to code review and
+only a live probe of both stacks could have surfaced them.
+
+**1 — CLEARTEXT HTTP ON EVERY MIGRATED ZONE (fixed).** Vercel answered plain HTTP
+with a 308 to HTTPS before app code ran; Cloudflare does not by default, and
+nothing in the migration turned it on. All six hostnames were serving their
+login page over http:// with a 200. Worse than it first looked:
+
+- the HSTS header the Worker sends rides on the **cleartext** response, where
+  RFC 6797 requires browsers to ignore it — it protects the second visit, not
+  the first;
+- `oasisai.work` is **not** on the HSTS preload list; `vercel.app` **is**. Vercel
+  had two independent protections, the Worker had zero;
+- `oasis_session` is `Secure`, so a successful cleartext login returns
+  `{ok:true}` and the browser then **discards the cookie** — an invisible login
+  loop with the password already sent unencrypted;
+- middleware's own bounce preserved the scheme (`http://…/dashboard` → 307 →
+  `http://…/login`), so nothing in the request path escaped cleartext.
+
+Fixed by enabling `always_use_https` on all six zones. Verified live: every
+`http://<host>/login` now 301s to https. `wrangler_tool.py zone-https` audits
+this and can only ever turn encryption on.
+
+**2 — CONTENT-HASHED ASSETS LOST IMMUTABLE CACHING (fixed).** Vercel served
+`/_next/static/*` as `public,max-age=31536000,immutable`; Workers defaulted to
+`max-age=0, must-revalidate`, so every repeat visitor re-validated every JS and
+CSS chunk on every page load. Fleet-wide. Fixed with a `public/_headers` file
+per app; verified `immutable` is now returned.
+
+**3 — public/ SKIPS MIDDLEWARE ON WORKERS (open, CC's call).** Cloudflare's asset
+handler answers before the Worker runs, so files in `public/` bypass the auth
+gate. Six Arthrisil marketing mp4s that returned **307 on Vercel return 200
+here**. Everything else in `public/` is unauthenticated on both stacks.
+
+⚠ **The obvious fix is worse than the problem, and this was measured, not
+assumed.** Adding `run_worker_first: ["/media/*"]` did gate the mp4s correctly —
+and simultaneously turned `end-card-preview.png`, a file middleware *allows*,
+into a **404**, because the Worker cannot serve a `public/` file handed to it.
+Reverted. Trading a live asset for a marketing video's privacy is the wrong way
+round. If CC wants these gated, the correct fix is to move them out of `public/`
+behind a route handler, not to reroute the asset path.
+
+**Refuted on inspection:** `/oasis-loop/index.html` looked like a broken public
+microsite (307 on the Worker, 200 on Vercel). It is a trailing-slash
+canonicalisation — it 307s to `/oasis-loop/`, which serves 200, and the path is
+in middleware's public allowlist deliberately. Not a regression.
+
 ### What is left before the 7-day soak can start
 
 | Item | Owner | Blocking Gate 1? |
