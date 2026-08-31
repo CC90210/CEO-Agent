@@ -219,7 +219,10 @@ def cmd_zone_https(registry: dict, args: argparse.Namespace) -> int:
         print(f"  {z['name']:38} CLEARTEXT ALLOWED (always_use_https={value})")
 
     if not offenders:
-        print("\nevery visible zone forces HTTPS.")
+        # Say what was actually checked. A --zone run reporting "every visible
+        # zone" claims a fleet-wide result from a sample of one.
+        scope = f"zone {args.zone}" if args.zone else f"all {len(zones)} visible zone(s)"
+        print(f"\n{scope}: HTTPS enforced.")
         return rc
     if not args.enable:
         print(f"\n{len(offenders)} zone(s) still serve cleartext. Re-run with --enable to fix.")

@@ -1,0 +1,25 @@
+# Cloudflare Workers static-asset headers.
+#
+# CANONICAL COPY. Every OpenNext app's public/_headers must match this file
+# byte for byte; scripts/tests/test_worker_asset_headers.py enforces it. Edit
+# here, then re-run that test with --fix to propagate.
+#
+# Restores immutable caching lost in the Vercel -> Workers migration. Vercel
+# served content-hashed build assets as
+#   public,max-age=31536000,immutable
+# while Cloudflare's asset handler defaults to
+#   public, max-age=0, must-revalidate
+# so every repeat visitor re-validated every JS and CSS chunk on every page
+# load. Measured on every migrated Next app, not inferred from one.
+#
+# These paths are safe to cache forever BECAUSE the filename contains a hash of
+# the contents: a change produces a new filename, so a stale copy can never be
+# served. Do not extend this pattern to anything without a content hash.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Next's optimised images are keyed by their query string, which the asset
+# handler does not include in the cache key — so these get a bounded TTL rather
+# than immutable.
+/_next/image*
+  Cache-Control: public, max-age=3600

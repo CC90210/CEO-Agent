@@ -24,7 +24,6 @@ run in a pre-deploy gate, not to be eyeballed.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import sys
 from pathlib import Path
 
@@ -42,13 +41,9 @@ CAPABILITY_META = {
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
-from lib.env_store import parse_text as _populated  # noqa: E402
+from lib.env_store import parse_text as _populated, digest as _digest  # noqa: E402
 
 STORE = ROOT / ".env.agents"
-
-
-def _digest(v: str) -> str:
-    return hashlib.sha256(v.encode("utf-8", "replace")).hexdigest()[:12]
 
 
 def _describe(v: str) -> str:

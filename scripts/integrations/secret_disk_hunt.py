@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
-import hashlib
 import json
 import os
 import shutil
@@ -104,7 +103,7 @@ def _shape(v: str) -> str:
 
 
 def _digest(v: str) -> str:
-    return hashlib.sha256(v.encode("utf-8", "replace")).hexdigest()[:8]
+    return env_store.digest(v)
 
 
 def _parse(path: Path) -> dict[str, str]:

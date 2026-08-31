@@ -19,9 +19,28 @@ silently rewrite every quoted value in the store.
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
-__all__ = ["parse_text", "parse_file", "key_names"]
+__all__ = ["parse_text", "parse_file", "key_names", "digest", "DIGEST_LEN"]
+
+# One truncation length, because a digest is only useful if two tools that print
+# it produce the SAME string for the same value. secret_identity_check used 12
+# and secret_disk_hunt used 8, so their outputs could not be compared against
+# each other at all — which defeats the entire point of reporting a digest
+# instead of a value. 12 hex chars is 48 bits: ample against accidental
+# collision across a few hundred keys, and short enough to scan by eye.
+DIGEST_LEN = 12
+
+
+def digest(value: str, length: int = DIGEST_LEN) -> str:
+    """A stable fingerprint of a secret, safe to print.
+
+    The whole reason these tools can talk about credentials in front of an agent
+    is that equality and difference are reportable without the value. Keep this
+    the only implementation.
+    """
+    return hashlib.sha256(value.encode("utf-8", "replace")).hexdigest()[:length]
 
 
 def parse_text(text: str) -> dict[str, str]:

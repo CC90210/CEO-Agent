@@ -31,7 +31,6 @@ token is only exchangeable by the client that minted it.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import sys
 import urllib.error
@@ -53,15 +52,11 @@ CAPABILITY_META = {
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
-from lib.env_store import parse_text as _populated  # noqa: E402
+from lib.env_store import parse_text as _populated, digest as _digest  # noqa: E402
 
 STORE = ROOT / ".env.agents"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 TIMEOUT = 30
-
-
-def _digest(v: str) -> str:
-    return hashlib.sha256(v.encode("utf-8", "replace")).hexdigest()[:12]
 
 
 def probe(client_id: str, secret: str) -> tuple[str, str]:
