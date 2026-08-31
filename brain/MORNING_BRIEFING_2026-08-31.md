@@ -231,6 +231,30 @@ nothing, for two independent reasons:
 
 ---
 
+## The exit gate itself was wrong, and that is now fixed
+
+Worth its own heading because of what it authorises. `vercel_exit_report.py` is
+the check you would run before cancelling. It reported **two** hostnames still on
+Vercel. There are **five** — I found the other three by hand, which means the
+gate could not have.
+
+Two independent blind spots:
+
+- **Enumeration.** It read hostnames from `apps.json` `custom_domains`. A
+  registry cannot reveal what it omits, and `www.breezeadvance.credit` /
+  `breezeadvance.com` were never listed. It now derives `www` for every apex it
+  sees — which is exactly where a half-finished cutover hides — plus a curated
+  list for hostnames outside our Cloudflare account, which no zone listing can
+  discover.
+- **Method.** It compared resolved IPs to Vercel's prefixes. Anything proxied
+  through Cloudflare resolves to `172.x` regardless of what sits behind it, so a
+  record whose *origin* is Vercel passed. It now also probes over HTTP for
+  `x-vercel-id` **with redirects disabled** — because a redirect is a response
+  somebody serves, and following the hop reports the destination instead.
+
+It now watches 15 hostnames and flags all five, labelling the proxied one
+explicitly. No migrated hostname is falsely flagged.
+
 ## Overnight state
 
 - **Cutover watcher:** running, 15-minute interval, 8-hour deadline. Log:
