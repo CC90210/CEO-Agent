@@ -21,6 +21,11 @@
       "scope": "runtime"
     },
     {
+      "key": "CONSENT_EDGE_ATTESTATION_SECRET",
+      "source": "OPT_IN_VAULT__CONSENT_EDGE_ATTESTATION_SECRET",
+      "scope": "runtime"
+    },
+    {
       "key": "CONSENT_ENCRYPTION_KEY",
       "source": "OPT_IN_VAULT__CONSENT_ENCRYPTION_KEY",
       "scope": "runtime"

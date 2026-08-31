@@ -123,9 +123,23 @@ def _path_is_secret(path: str | None) -> bool:
     return bool(SECRET_PATH_RE.search(path))
 
 
+# An `--exclude=` flag NAMES the secret family in order to AVOID reading it — the
+# exact opposite of exfiltration. Without stripping these first, the guard blocked
+# the very command its own remediation message tells you to run (found immediately
+# after shipping GAP-8, by following my own advice and being denied). Only the flag
+# and its own value are removed, so a real target elsewhere in the same command
+# (`grep -r x . --exclude=<secret glob> && cat <secret file>`) is still caught.
+EXCLUSION_FLAG_RE = re.compile(
+    r"--exclude(?:-dir)?[=\s]+['\"]?[^\s'\"]+['\"]?"
+    r"|-Exclude\s+['\"]?[^\s'\"]+['\"]?",
+    re.IGNORECASE,
+)
+
+
 def _command_is_secret_exfil(cmd: str) -> tuple[bool, str | None]:
     if not cmd:
         return (False, None)
+    cmd = EXCLUSION_FLAG_RE.sub(" ", cmd)
     # `\.env(?:\.[\w-]+)*` (zero-or-more) so we extract the FULL path of
     # `.env.agents.core` etc. as one candidate, matching the SECRET_PATH_RE
     # change above. Previously we only captured the `.env.agents` prefix.

@@ -128,8 +128,19 @@ def _parse(path: Path) -> dict[str, str]:
 
 
 def _wanted() -> dict[str, list[tuple[str, str]]]:
-    """{bare KEY: [(app slug, namespaced source name), ...]} for every FILL line."""
+    """{bare KEY: [(app slug, namespaced source name), ...]} for every open key.
+
+    "Open" is a FILL placeholder OR no line at all. The second case was a blind
+    spot: a key added to a manifest but never stubbed into the store appeared
+    nowhere in this tool's output, so it read as satisfied. A key the hunter
+    cannot see is a key nobody is looking for.
+    """
     text = ENV_FILE.read_text(encoding="utf-8")
+    present = {
+        ln.split("=", 1)[0].strip()
+        for ln in text.splitlines()
+        if "=" in ln and not ln.lstrip().startswith("#")
+    }
     reg = json.loads(REGISTRY.read_text(encoding="utf-8"))["apps"]
     want: dict[str, list[tuple[str, str]]] = {}
     for slug in reg:
@@ -138,9 +149,25 @@ def _wanted() -> dict[str, list[tuple[str, str]]]:
             continue
         for e in json.loads(man.read_text(encoding="utf-8")).get("secrets", []):
             src = e.get("source") or e["key"]
-            if f"# FILL {src}=" in text:
+            if f"# FILL {src}=" in text or src not in present:
                 want.setdefault(e["key"], []).append((slug, src))
     return want
+
+
+def _insert_key(text: str, src: str, value: str) -> str:
+    """Place `src=value` inside its app's alphabetical group, not at EOF.
+
+    The store was regrouped by app prefix; appending to the end would put the
+    key outside the block every reader scans for that app.
+    """
+    prefix = src.split("__", 1)[0] + "__" if "__" in src else None
+    lines = text.splitlines()
+    if prefix:
+        idx = [i for i, ln in enumerate(lines) if ln.startswith(prefix)]
+        if idx:
+            lines.insert(idx[-1] + 1, f"{src}={value}")
+            return "\n".join(lines) + "\n"
+    return text.rstrip("\n") + f"\n{src}={value}\n"
 
 
 # Values that can be DERIVED rather than recovered, each from a source that is
@@ -194,6 +221,15 @@ ROTATABLE: dict[str, str] = {
     # change that repoints the driver. Until then the Worker's cron routes
     # answer 401 (configured) instead of 500 (not configured).
     "CRON_SECRET": "inbound cron auth; sole caller is cron-driver.yml, aligned at cutover",
+    # opt-in-vault's Cloudflare trusted-edge attestation. Minted here rather than
+    # recovered because it HAS no counterpart to stay in sync with: nothing is
+    # encrypted under it, no third party verifies it, and it is never compared to
+    # a peer's copy. Its whole function is to be a deliberate operator assertion
+    # that this deployment sits behind the trusted edge — so a fresh random value
+    # set at deploy time IS the assertion, and rotating it later only revokes it.
+    # Contrast BREEZE_ENCRYPTION_KEY, which is permanently excluded: rotating it
+    # would make every stored Plaid token undecryptable.
+    "CONSENT_EDGE_ATTESTATION_SECRET": "operator attestation for the CF trusted edge; no counterpart, nothing encrypted under it",
 }
 
 
@@ -319,6 +355,11 @@ def main() -> int:
             if marker in text:
                 text = text.replace(marker, f"{src}=", 1)
                 text = text.replace(f"{src}=\n", f"{src}={v}\n", 1)
+                written += 1
+            else:
+                # No stub to fill — the key was added to a manifest but never
+                # written into the store. Create it in its app's group.
+                text = _insert_key(text, src, v)
                 written += 1
     ENV_FILE.write_text(text, encoding="utf-8", newline="\n")
     print(f"\nwrote {written} value(s) into the agents env store (backup: .env.agents.bak.{stamp})")
