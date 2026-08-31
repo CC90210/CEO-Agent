@@ -24,12 +24,26 @@ These are separate from the two items CC descoped, and were surfaced 2026-08-31
 after that decision. Each one means deleting the account takes something live
 down on the day.
 
-1. **`www.oasisai.work/api/*` is still served by Vercel.** The router proxies it
-   to `oasis-ai-platform.vercel.app`, which hosts the marketing site's seven Node
-   functions — **including all five Stripe flow rewrites**. Deleting the account
-   kills checkout. This is stage 1 of the platform migration working exactly as
-   designed; stage 2 (porting those handlers into the Worker) was never done.
-   **This is the one real engineering task left, and it is Bravo's to do.**
+1. ~~**`www.oasisai.work/api/*` is still served by Vercel.**~~ **DONE
+   2026-08-31.** All seven functions now run in the Worker (`worker/api/`), and
+   `/api/*` no longer needs Vercel. Verified live on www.oasisai.work: all five
+   Stripe flows, the webhook, chat, both n8n routes and signup return their exact
+   original contracts.
+
+   Two traps this port had to avoid, both of which would have been silent:
+   * `constructEvent` (sync) **throws** on workerd — stripe@20 resolves to its
+     `workerd` build whose SubtleCryptoProvider refuses synchronous use. Ported
+     verbatim, every webhook would answer 400 while Stripe kept charging cards.
+     Uses `constructEventAsync`; proven live by a bogus signature returning
+     400 "Invalid signature", which is only reachable if verification ran.
+   * The handlers read `NEXT_PUBLIC_SUPABASE_ANON_KEY`; the Worker's manifest
+     calls that key `SUPABASE_ANON_KEY`. A faithful port would have resolved it
+     to `''` and 401'd every authenticated billing request.
+
+   The proxy is **not deleted yet, deliberately.** `routeApi` returns null for
+   anything unported and falls through to Vercel, logging `[api-fallback]`. That
+   keeps the cutover staged and reversible for the soak; the proxy goes when the
+   log stays silent and the Vercel project is retired.
 2. **`www.breezeadvance.credit` still points at Vercel IPs**, as does a `*`
    wildcard on that zone. The apex is on Workers; www is not. Deliberately not
    fixed unattended — attaching www would serve the portal instead of
@@ -58,10 +72,15 @@ last one finishes.
 | opt-in-vault, sunbiz-funding, propflow | 2026-09-07 03:02 |
 | nostalgic-requests, breeze-portal, oasis-command-center | 2026-09-07 03:03 |
 | oasis-ai-platform | 2026-09-07 04:56 |
-| **blue-rise-website** (last to finish) | **2026-09-07 05:37** |
+| blue-rise-website | 2026-09-07 05:37 |
+| **oasis-ai-platform** (last to finish) | **2026-09-07 15:28** |
 
-**Fleet clears: Monday 7 September 2026, 05:37 UTC — 01:37 EDT Montreal.**
-Practical slot: **Monday 7 September, 09:00 EDT (13:00 UTC).**
+**Fleet clears: Monday 7 September 2026, 15:28 UTC — 11:28 EDT Montreal.**
+
+> Moved +9h on 2026-08-31 by the Stripe handler port. A soak measures how long
+> the CURRENTLY DEPLOYED state has run clean, so redeploying an app restarts that
+> app's clock — this date is a consequence of the last deploy, not a fixed
+> target. Any further deploy before Monday moves it again.
 
 Any redeploy of an app restarts *that app's* clock. `sunbizfunding.com` has no
 clock yet — its 7 days begin when the watcher cuts it over.
