@@ -19,8 +19,6 @@ import datetime as dt
 import json
 import socket
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 CAPABILITY_META = {
@@ -35,6 +33,7 @@ CAPABILITY_META = {
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
+from lib import http_probe  # noqa: E402
 from lib.subprocess_helpers import safe_run  # noqa: E402
 
 REGISTRY = ROOT / "config" / "cloudflare" / "apps.json"
@@ -79,22 +78,56 @@ KNOWN_BROKEN = {
 }
 
 
-def gate_fleet() -> dict:
-    """Alarms on a NEW unhealthy app, not on the known-broken baseline."""
+def _fleet_run() -> tuple[list | None, int]:
     rc, out = _run([sys.executable, str(ROOT / "scripts" / "fleet_health_check.py"), "--json"])
     try:
-        report = json.loads(out[out.index("["):out.rindex("]") + 1])
+        return json.loads(out[out.index("["):out.rindex("]") + 1]), rc
     except (ValueError, json.JSONDecodeError):
+        return None, rc
+
+
+def gate_fleet() -> dict:
+    """Alarms on a NEW unhealthy app, not on the known-broken baseline.
+
+    A would-be-NEW failure is CONFIRMED by a second run before it is reported.
+    Measured 2026-08-31: one pass reported oasis-ai-platform as
+    CLOUDFLARE WORKER BROKEN while two consecutive live runs, and direct probes
+    of every surface, all returned 200 — a network blip on the probing machine.
+    Reporting REGRESSED on a single transient is worse than useless: it pages
+    someone at 3am for nothing and teaches them to stop reading the gate.
+
+    This only ever DEMOTES a failure to a pass, never the reverse, and a real
+    failure persists across both runs — so nothing genuine is hidden.
+    """
+    report, rc = _fleet_run()
+    if report is None:
         return {"gate": "fleet health (every hostname, both stacks)", "pass": False,
                 "detail": f"COULD NOT PARSE fleet_health_check output (rc={rc})"}
     unhealthy = {r["app"]: r.get("verdict", "?") for r in report if r.get("verdict") != "ok"}
     new = {a: v for a, v in unhealthy.items() if a not in KNOWN_BROKEN}
+    if new:
+        confirm, _ = _fleet_run()
+        if confirm is not None:
+            still = {r["app"] for r in confirm if r.get("verdict") != "ok"}
+            cleared = [a for a in new if a not in still]
+            new = {a: v for a, v in new.items() if a in still}
+            for a in cleared:
+                unhealthy.pop(a, None)
+            if cleared and not new:
+                unhealthy_note = f" (transient, cleared on re-check: {', '.join(sorted(cleared))})"
+            else:
+                unhealthy_note = ""
+        else:
+            unhealthy_note = ""
+    else:
+        unhealthy_note = ""
     total = len(report)
     if new:
         detail = "NEW: " + "; ".join(f"{a}: {v}" for a, v in sorted(new.items()))
     else:
         baseline = ", ".join(sorted(unhealthy)) or "none"
-        detail = f"{total - len(unhealthy)}/{total} ok; known-broken only ({baseline})"
+        detail = (f"{total - len(unhealthy)}/{total} ok; known-broken only "
+                  f"({baseline}){unhealthy_note}")
     return {"gate": "fleet health (every hostname, both stacks)", "pass": not new,
             "detail": detail}
 
@@ -191,37 +224,15 @@ EXTERNAL_VERCEL_WATCH = ("breezeadvance.com", "www.breezeadvance.com")
 def _vercel_origin(host: str) -> tuple[bool, str]:
     """Is this hostname's ORIGIN Vercel, regardless of what fronts it?
 
-    Resolved IPs alone cannot answer this. A hostname proxied through Cloudflare
-    resolves to 172.x whatever sits behind it, so an IP check reads "not on
-    Vercel" for a record whose origin is a Vercel IP — measured on
-    www.breezeadvance.credit, which this gate passed while Vercel served it.
-
-    Redirects are NOT followed, because a redirect is a response somebody
-    serves: www.breezeadvance.credit 307s to an apex that IS migrated, and
-    following that hop reports the destination's host instead of the redirect's.
-    Cancel the account and the redirect dies with it.
+    Resolved IPs alone cannot answer this — a hostname proxied through
+    Cloudflare resolves to 172.x whatever sits behind it. The probe does not
+    follow redirects; see lib/http_probe for why that is the load-bearing part.
     """
-    req = urllib.request.Request(f"https://{host}/", method="GET",
-                                 headers={"User-Agent": "bravo-exit-report/1.0"})
-    opener = urllib.request.build_opener(_NoRedirect)
-    try:
-        with opener.open(req, timeout=20) as r:
-            hdr = r.headers
-    except urllib.error.HTTPError as e:
-        hdr = e.headers
-    except Exception as e:                       # noqa: BLE001
-        # Unknown is not a pass. Report it as its own state.
-        return (False, f"probe failed: {type(e).__name__}")
-    if hdr.get("x-vercel-id"):
-        return (True, "x-vercel-id present")
-    if (hdr.get("server") or "").lower() == "vercel":
-        return (True, "server: Vercel")
-    return (False, "")
-
-
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *a, **k):
-        return None
+    r = http_probe.probe(f"https://{host}/")
+    if r.error:
+        return (False, f"probe failed: {r.error}")
+    return (r.origin == http_probe.VERCEL,
+            "x-vercel-id present" if r.headers.get("x-vercel-id") else "server: Vercel")
 
 
 def _watched_hosts() -> list[str]:

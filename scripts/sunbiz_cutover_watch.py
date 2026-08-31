@@ -11,8 +11,9 @@ WHAT IT WILL NOT DO
     nameservers while the zone is still pending and the cutover would then
     point a live brand at a zone that cannot serve it.
   * It will not cut over to a Worker it has not just proven healthy. The
-    pre-check fetches the workers.dev origin and requires a 200 with real HTML,
-    not merely a reachable socket.
+    pre-check fetches the workers.dev origin and requires a 200 whose response
+    headers identify a Cloudflare Worker — not merely a reachable socket, and
+    not a 200 arrived at through somebody else's redirect.
   * It will not retry a cutover. One attempt, then it reports and stops
     attempting, because a half-applied DNS change re-tried in a loop is how a
     brand goes dark in a way nobody can reconstruct in the morning.
@@ -32,7 +33,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
-import json
+import os
 import re
 import subprocess
 import sys
@@ -41,6 +42,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+from lib import http_probe  # noqa: E402
 
 CAPABILITY_META = {
     "category": "release.cloudflare",
@@ -61,8 +63,46 @@ LOG = ROOT / "state" / "sunbiz_cutover_watch.log"
 PY = sys.executable
 
 
+LOCK = ROOT / "state" / "sunbiz_cutover_watch.lock"
+
+
 def _now() -> str:
     return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def acquire_lock(interval: int) -> bool:
+    """Refuse to start if another watcher is already live.
+
+    This daemon deletes DNS records on a production brand. Its "one attempt,
+    never retry" guarantee is per-PROCESS, so two of them is two attempts — and
+    launching it via nohup produced two processes on the first run, which is
+    exactly how a careful guarantee becomes worthless.
+
+    Liveness is a heartbeat, not a PID: os.kill(pid, 0) is not portable to
+    Windows, and a PID can be recycled. A lock whose heartbeat has gone stale
+    (no update in >3 intervals) is treated as abandoned and taken over, so a
+    crashed watcher cannot block its own replacement forever.
+    """
+    LOCK.parent.mkdir(parents=True, exist_ok=True)
+    if LOCK.exists():
+        try:
+            age = time.time() - LOCK.stat().st_mtime
+        except OSError:
+            age = 1e9
+        if age < interval * 3:
+            log(f"REFUSING TO START — another watcher is live "
+                f"(lock heartbeat {int(age)}s old, held by {LOCK.read_text(errors='replace').strip()})")
+            return False
+        log(f"taking over an abandoned lock (heartbeat {int(age)}s old)")
+    LOCK.write_text(f"pid={os.getpid()} started={_now()}\n", encoding="utf-8")
+    return True
+
+
+def heartbeat() -> None:
+    try:
+        LOCK.write_text(f"pid={os.getpid()} beat={_now()}\n", encoding="utf-8")
+    except OSError:
+        pass                                     # a failed heartbeat must not kill the watch
 
 
 def log(msg: str) -> None:
@@ -109,32 +149,29 @@ def zone_is_active() -> bool:
 
 
 def worker_healthy() -> tuple[bool, str]:
-    """A 200 with real HTML. A reachable socket is not a healthy deployment."""
-    import urllib.request
-    try:
-        req = urllib.request.Request(WORKER_ORIGIN, headers={"User-Agent": "bravo-cutover-watch/1.0"})
-        with urllib.request.urlopen(req, timeout=45) as r:
-            body = r.read(4000).decode("utf-8", "replace")
-            if r.status != 200:
-                return (False, f"worker returned HTTP {r.status}")
-            if "<html" not in body.lower() and "<!doctype" not in body.lower():
-                return (False, "worker returned 200 but the body is not HTML")
-            return (True, f"HTTP 200, {len(body)}+ bytes of HTML")
-    except Exception as e:                       # noqa: BLE001
-        return (False, f"worker unreachable: {e}")
+    """A 200 from the Worker. A reachable socket is not a healthy deployment."""
+    r = http_probe.probe(WORKER_ORIGIN, timeout=45)
+    if r.error:
+        return (False, f"worker unreachable: {r.error}")
+    if r.status != 200:
+        return (False, f"worker returned HTTP {r.status}")
+    if r.origin != http_probe.WORKERS:
+        return (False, f"worker origin reads {r.origin}, not a Cloudflare Worker")
+    return (True, f"HTTP 200 from {r.origin}")
 
 
 def live_check(host: str) -> tuple[bool, str]:
-    import urllib.request
-    try:
-        req = urllib.request.Request(f"https://{host}/", headers={"User-Agent": "bravo-cutover-watch/1.0"})
-        with urllib.request.urlopen(req, timeout=45) as r:
-            served_by = r.headers.get("server", "?")
-            ray = r.headers.get("cf-ray")
-            ok = r.status == 200 and bool(ray)
-            return (ok, f"HTTP {r.status} server={served_by} cf-ray={'yes' if ray else 'NO'}")
-    except Exception as e:                       # noqa: BLE001
-        return (False, f"unreachable: {e}")
+    """Post-cutover: the hostname must be answered BY THE WORKER.
+
+    Redirects stay unfollowed. A 200 reached through someone else's redirect is
+    not this hostname being migrated — that distinction is the whole reason the
+    exit gate under-reported before it was fixed.
+    """
+    r = http_probe.probe(f"https://{host}/", timeout=45)
+    if r.error:
+        return (False, f"unreachable: {r.error}")
+    ok = r.status == 200 and r.origin == http_probe.WORKERS
+    return (ok, f"HTTP {r.status} origin={r.origin}")
 
 
 def attempt_cutover() -> bool:
@@ -210,13 +247,18 @@ def main() -> int:
     if a.once:
         return 0 if check_once() else 1
 
+    if not acquire_lock(a.interval):
+        return 3
+
     deadline = time.time() + a.hours * 3600
     checks = 0
     while time.time() < deadline:
         checks += 1
+        heartbeat()
         try:
             if check_once():
                 log(f"=== cutover complete after {checks} check(s) ===")
+                LOCK.unlink(missing_ok=True)
                 return 0
         except Exception as e:                   # noqa: BLE001 — a watch must not die
             log(f"check raised (continuing): {e!r}")
@@ -226,6 +268,7 @@ def main() -> int:
     notify(f"🌅 Overnight watch finished: {DOMAIN} nameservers never moved "
            f"({checks} checks over {a.hours}h). Still at the old registrar NS. "
            f"Set damian.ns.cloudflare.com + sydney.ns.cloudflare.com to finish Gate 1.")
+    LOCK.unlink(missing_ok=True)
     return 2
 
 
