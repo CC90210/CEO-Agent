@@ -1,7 +1,7 @@
 ---
 tags: [state, ephemeral, fable-5]
-architecture_version: V9.2.0
-last_updated: 2026-08-11
+architecture_version: V9.2.2
+last_updated: 2026-08-31
 freshness_threshold_days: 30
 verified: 2026-07-26
 model_standard: fable-5

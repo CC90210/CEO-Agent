@@ -114,7 +114,7 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Pre-flight a send | `send_gateway_can_act` (args: --lead-id, --channel) | `skills/outreach-send/SKILL.md` |
 | Send an email | `send_gateway_send` (mutating; needs `confirm: true`; passes 8 safety gates) | `skills/outreach-send/SKILL.md` |
 | Send-gateway records / health | `send_gateway_history`, `send_gateway_stats`, or `send_gateway_doctor` | — |
-| **Fetch/search a URL (DEFAULT — auto-escalates Firecrawl→Cloak + records domain reputation)** | `research_fetch_fetch` (positional URL, optional `--json`; currently confirmation-gated because it writes local reputation state) | `skills/research-fetch/SKILL.md` |
+| **Fetch/search a URL (DEFAULT — ScrapeGraphAI→Firecrawl→Cloak→urllib)** | `research_fetch_fetch` (positional URL, optional `--json`; records domain reputation) | `skills/research-fetch/SKILL.md`, `skills/scrapegraph-ai/SKILL.md` |
 | Inspect or clear fetch reputation | `research_fetch_reputation` / `research_fetch_reputation_clear` (currently confirmation-gated pending metadata review) | `skills/research-fetch/SKILL.md` |
 | Scrape a bot-protected page directly | `cloak_browser_scrape` (read-only unless `--screenshot`, which requires confirmation); `cloak_browser_check_stealth`; `cloak_browser_download` (confirmation) | `skills/cloak-browser/SKILL.md` |
 | Read sibling-agent inbox | `agent_inbox_inbox` (args: --to bravo|atlas|maven|aura|hermes) | — |

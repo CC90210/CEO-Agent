@@ -13,7 +13,8 @@ last_updated: 2026-07-19
 > Last cluster-audit: 2026-05-16 (V6.7+). 9 archived persona-* skills moved to `skills/_archive/personas/` (orphaned 2026-05-07, never physically removed). Knowledge + memory clusters confirmed non-redundant. GWS cluster confirmed intentional auto-gen (OpenClaw). Routing-accuracy bug fixed: capability_query resolver now respects `disable-model-invocation: true` and `archived: <date>` per skill frontmatter.
 
 ## Research + Web (V6.7+, 2026-05-16 update)
-- [[skills/research-fetch/SKILL.md]] — **DEFAULT URL fetcher** (V6.7+). Auto-escalates Firecrawl → CloakBrowser + SQLite per-domain reputation memory. `python scripts/research_fetch.py <url>`
+- [[skills/research-fetch/SKILL.md]] — **DEFAULT URL fetcher**. ScrapeGraphAI primary → Firecrawl fallback → Cloak anti-bot escalation → urllib.
+- [[skills/scrapegraph-ai/SKILL.md]] — Primary provider for public-site scraping, structured lead extraction, search, crawls, and credit checks.
 - [[skills/cloak-browser/SKILL.md]] — Stealth Chromium 146 tier (drop-in Playwright with C++ fingerprint patches). Called by `research-fetch`; use directly for interactive goto / screenshot / check-stealth
 - [[skills/web-scraping/SKILL.md]] — Decision matrix: research-fetch / Firecrawl / CloakBrowser / Playwright / Browser Harness
 - [[skills/browser-harness/SKILL.md]] — Real-Chrome attach for CC-authenticated work

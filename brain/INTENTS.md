@@ -98,7 +98,7 @@ Allowed action types: `update_profile`, `toggle_agent_enabled`, `set_primary_age
 ## "Find / search / look up"
 
 1. **Code or files:** use the `read_file` tool you already have. Pattern-match starting from the indexes (`brain/AGENT_ROUTER.md`, `skills/INDEX.md`, `brain/CAPABILITIES.md`).
-2. **Web search:** `python scripts/integrations/firecrawl_tool.py search "<query>"` then `read <url>` to extract structured content.
+2. **Web search:** `python scripts/integrations/scrapegraph_tool.py search "<query>" --json`; Firecrawl is fallback only.
 3. **Database:** `python scripts/integrations/supabase_tool.py select <table> --project bravo --eq '{"…":"…"}' --limit N`.
 4. **Memory / past sessions:** read `memory/SESSION_LOG.md` (recent) or `memory/ARCHIVES/` (older).
 

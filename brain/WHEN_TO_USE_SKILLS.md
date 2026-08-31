@@ -2,7 +2,7 @@
 
 # When To Use Skills
 
-Auto-generated from `brain/CAPABILITY_GRAPH.json` — **163 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
+Auto-generated from `brain/CAPABILITY_GRAPH.json` — **164 active skills**. Each entry: what it's for (use-when) → trigger phrases → path. Resolve an intent at runtime with `python scripts/capability_query.py resolve "<intent>"` instead of grepping this file.
 
 ## [[skills/agent-forge/SKILL|agent-forge]]
 - **Use when:** Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese
@@ -585,7 +585,7 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **163 active skills**. Eac
 - **Path:** `skills/requesting-code-review/SKILL.md` · tier `standard` · risk `low`
 
 ## [[skills/research-fetch/SKILL|research-fetch]]
-- **Use when:** Unified research-tier fetcher with auto-escalation (Firecrawl → CloakBrowser) and SQLite site-reputation memory. The single entry point all research-heavy skills should call instead of choosing tiers manually. Replaces ad-hoc firecrawl_tool / cloak_browser_tool decisions in compe
+- **Use when:** Unified research fetcher using ScrapeGraphAI first, Firecrawl as the public-provider fallback, CloakBrowser for anti-bot escalation, and urllib last. The single entry point for third-party URL reads and lead-site research.
 - **Triggers:** research fetch, research_fetch, fetch url, fetch a page, get page content, scrape a page, scrape this url, research a website, scrape with auto escalation, intelligent fetch, tier aware scrape
 - **Path:** `skills/research-fetch/SKILL.md` · tier `tool` · risk `low`
 
@@ -633,6 +633,11 @@ Auto-generated from `brain/CAPABILITY_GRAPH.json` — **163 active skills**. Eac
 - **Use when:** Evaluate inbound B2B SaaS leads using weighted signal analysis to prioritize routing and outreach strategy.
 - **Triggers:** evaluate lead quality, should we reach out to this prospect, rate this inbound lead, what's the lead score
 - **Path:** `skills/score-b2b-lead-quality/SKILL.md` · tier `specialized` · risk `low`
+
+## [[skills/scrapegraph-ai/SKILL|scrapegraph-ai]]
+- **Use when:** Primary public-site and lead-data scraping provider. Use directly for structured extraction, web search, crawling, credit checks, or provider-specific formats; ordinary single-URL reads should still enter through research_fetch.
+- **Triggers:** scrapegraph, scrape public website, extract website data, extract lead data, structured web extraction, crawl website, search and scrape, scrapegraph credits
+- **Path:** `skills/scrapegraph-ai/SKILL.md` · tier `tool` · risk `low`
 
 ## [[skills/security-protocol/SKILL|security-protocol]]
 - **Use when:** Application security protocol. Credential handling plus the 20-Point Vibe-Security Matrix — the mechanical audit for the twenty defects that recur in AI-generated code (RLS off, IDOR, unverified webhooks, client-side authz, injection, XSS, unvalidated uploads). Use when handling

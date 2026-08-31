@@ -1,6 +1,6 @@
 ---
 name: research-fetch
-description: Unified research-tier fetcher with auto-escalation (Firecrawl → CloakBrowser) and SQLite site-reputation memory. The single entry point all research-heavy skills should call instead of choosing tiers manually. Replaces ad-hoc firecrawl_tool / cloak_browser_tool decisions in competitive intel, lead enrichment, market research, prospect site analysis, content harvesting, briefings, and proposals.
+description: Unified research fetcher using ScrapeGraphAI first, Firecrawl as the public-provider fallback, CloakBrowser for anti-bot escalation, and urllib last. The single entry point for third-party URL reads and lead-site research.
 tier: tool
 owner: bravo
 risk: low
@@ -8,12 +8,12 @@ triggers: ["research fetch", "research_fetch", "fetch url", "fetch a page", "get
 tags: [tool, research, scraping, fetch, auto-escalation]
 status: '[NEW]'
 created_at: 2026-05-16
-last_updated: 2026-05-16
+last_updated: 2026-08-31
 ---
 
 # research-fetch — Tier-Aware Fetch with Site-Reputation Memory
 
-> **The single research-fetch entry point.** Any skill that needs to read a third-party web page should call `scripts/research_fetch.py` instead of choosing Firecrawl vs CloakBrowser manually. Auto-escalates through tiers based on actual response + remembers which tier works per domain so the second call burns straight through to the right one.
+> **The single research-fetch entry point.** Any skill that needs a third-party public page should call `scripts/research_fetch.py`. ScrapeGraphAI is the primary scraper; Firecrawl is its fallback; CloakBrowser is a separate anti-bot escalation tier; urllib is the zero-dependency last resort.
 
 Built 2026-05-16 (V6.7+) to unify what was previously 13 skills making the tier-choice manually. Tier-choice drift was the failure mode: skills that called Firecrawl directly silently degraded when a target started Cloudflare-protecting itself, and there was no central place to update when CloakBrowser landed. This skill closes that gap.
 
@@ -32,35 +32,38 @@ Built 2026-05-16 (V6.7+) to unify what was previously 13 skills making the tier-
 Do NOT use when:
 - You need to act AS CC inside CC's logged-in account (Stripe dashboard, Vercel admin, LinkedIn private profile) → use **Browser Harness** (`scripts/browser/browser_harness_doctor.py`).
 - You need an interactive flow on a protected site (multi-step form, navigation chain) → use **CloakBrowser** directly (`scripts/browser/cloak_browser_tool.py goto`).
-- You need batch site crawling or LLM-schema extraction → use **Firecrawl** directly (`scripts/integrations/firecrawl_tool.py crawl` / `extract`).
+- You need batch crawling, search, or schema extraction → use **ScrapeGraphAI** directly (`scripts/integrations/scrapegraph_tool.py crawl-start|search|extract`). Firecrawl is fallback.
 - You need a visual screenshot for evidence → use **Playwright MCP** or `cloak_browser_tool.py scrape --screenshot`.
 
 ## Tier ladder (auto, no agent decision needed)
 
 ```
-1. Firecrawl (scripts/integrations/firecrawl_tool.py scrape)
+1. ScrapeGraphAI (`scripts/integrations/scrapegraph_tool.py scrape`)
+     ↓ fallback on auth/quota/network/thin response
+2. Firecrawl (`scripts/integrations/firecrawl_tool.py scrape`)
      ↓ escalate if:
      - errored (timeout / nonzero / non-json)
      - status 4xx (excluding 200) or 5xx
      - text is empty
      - status missing AND text < min_chars (silent block page)
 
-2. CloakBrowser (scripts/browser/cloak_browser_tool.py scrape)
+3. CloakBrowser (`scripts/browser/cloak_browser_tool.py scrape`) — anti-bot tier, not a public scraping provider
      ↓ accept if:
      - successful response with any text (soft-block tolerant per G2 case)
      ↓ otherwise fail
 
-3. Fail → return {"ok": false, "errors": {firecrawl: "...", cloak: "..."}}
+4. Plain urllib → final zero-dependency attempt
+5. Fail → return `ok=false` with per-tier errors
 ```
 
 ## Site-reputation memory
 
 Lives at `state/site_reputation.db` (SQLite). Records per registered domain (`www.` stripped):
 - `last_tier_succeeded` — start here on the next call
-- `firecrawl_success` / `firecrawl_fail` / `cloak_success` / `cloak_fail`
+- `scrapegraph_success` / `scrapegraph_fail`, `firecrawl_success` / `firecrawl_fail`, `cloak_success` / `cloak_fail`
 - `last_seen_at` / `first_seen_at`
 
-**On fetch:** if reputation says this domain last succeeded on Cloak, start at Cloak directly — skips the wasted Firecrawl roundtrip. New domains start at Firecrawl (cheapest).
+**On fetch:** new domains start at ScrapeGraphAI. A prior Cloak success may skip public providers because it proves the domain needed anti-bot handling.
 
 Inspect: `python scripts/research_fetch.py reputation [domain]`
 Forget: `python scripts/research_fetch.py reputation-clear <domain>` (use after a target's bot defense changes; reputation should be re-learned).
@@ -74,6 +77,7 @@ python scripts/research_fetch.py https://protected-target.com --json
 
 # Force a tier (debug)
 python scripts/research_fetch.py https://target.com --force-tier cloak
+python scripts/research_fetch.py https://target.com --force-tier scrapegraph
 python scripts/research_fetch.py https://target.com --force-tier firecrawl
 
 # Inspect reputation
@@ -82,7 +86,7 @@ python scripts/research_fetch.py reputation singlekey.com         # one domain
 python scripts/research_fetch.py reputation-clear truepeoplesearch.com
 ```
 
-Flags: `--json`, `--force-tier {firecrawl,cloak}`, `--min-chars N` (escalation threshold, default 150), `--cloak-timeout N` (default 45s).
+Flags: `--json`, `--force-tier {scrapegraph,firecrawl,cloak,plain}`, `--min-chars N`, `--cloak-timeout N`.
 
 ## Result schema
 
@@ -113,13 +117,14 @@ Flags: `--json`, `--force-tier {firecrawl,cloak}`, `--min-chars N` (escalation t
 ## Tools used
 
 - `scripts/research_fetch.py` — the canonical entry point (fetch / reputation / reputation-clear)
-- `scripts/integrations/firecrawl_tool.py` — tier-1 invoked as subprocess
-- `scripts/browser/cloak_browser_tool.py` — tier-2 invoked as subprocess
+- `scripts/integrations/scrapegraph_tool.py` — primary public scraper and direct search/extract/crawl surface
+- `scripts/integrations/firecrawl_tool.py` — public-provider fallback
+- `scripts/browser/cloak_browser_tool.py` — anti-bot escalation tier
 - `state/site_reputation.db` — SQLite reputation store
 
 ## Constraints + gotchas
 
-- **Firecrawl credit exhaustion** (CC's account currently): Firecrawl tier-1 returns "Payment Required" → the fetcher auto-escalates to Cloak so the agent still gets results. Top up Firecrawl credits to restore the cheap tier. The escalation masks the cost; check reputation memory periodically (`FC 0/N` for everything = Firecrawl is dead).
+- **ScrapeGraphAI credits are finite.** HTTP 402/quota failure falls through to Firecrawl automatically. Check live balance with `python scripts/integrations/scrapegraph_tool.py credits --json`.
 - **Reputation can go stale.** If a target adds Cloudflare after we'd been Firecrawl'ing it for a year, reputation still says "use Firecrawl" until a fetch fails and re-learns. Acceptable cost: one wasted Firecrawl call.
 - **Soft-block status codes.** CloakBrowser sometimes returns 403 with the full page body (Cloudflare "we're suspicious but not blocking" pattern, confirmed on G2). The fetcher treats `ok=True with text` as success regardless of status.
 - **For CC-authenticated targets, this is the WRONG tool.** No login is performed. Use Browser Harness for Stripe dashboard / Vercel admin / LinkedIn full profiles.

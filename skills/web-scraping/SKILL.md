@@ -3,13 +3,13 @@ name: web-scraping
 description: Web scraping and structured data extraction. Activate when CC needs to pull content from competitor sites, extract pricing/contacts/listings, harvest data for research, scrape pages that don't have an API, or operate a site under CC's logged-in account.
 tags: [skill, scraping, data-extraction, research, browser-harness, cloak-browser]
 triggers: ["web scraping", "use web scraping", "run web scraping", "web scraping and structured data extraction"]
-last_updated: 2026-05-15
+last_updated: 2026-08-31
 tier: specialized
 ---
 
-# Web Scraping — Firecrawl, CloakBrowser, Playwright, and Browser Harness
+# Web Scraping — ScrapeGraphAI, Firecrawl, CloakBrowser, Playwright, and Browser Harness
 
-> Four tools, four jobs. **Firecrawl** extracts public data fast and cheap.
+> **ScrapeGraphAI** is the primary public-site and lead-data scraper. **Firecrawl** is the public-provider fallback.
 > **CloakBrowser** is the mandatory stealth tier when fresh-session targets
 > are bot-protected (Cloudflare, DataDome, etc.). **Playwright** automates
 > throwaway-browser interactions on unprotected sites. **Browser Harness**
@@ -24,12 +24,12 @@ tier: specialized
 python scripts/research_fetch.py <url> --json
 ```
 
-It auto-escalates Firecrawl → CloakBrowser based on actual response and remembers which tier worked per domain (SQLite at `state/site_reputation.db`). The four-tool matrix below is still the authoritative mental model — but `research_fetch` lets agents stop choosing tiers manually for the Firecrawl/CloakBrowser hand-off. Full skill: [[skills/research-fetch/SKILL.md]]. Drop down to a specific tool only when you need:
+It routes ScrapeGraphAI → Firecrawl → CloakBrowser → urllib and remembers per-domain outcomes in `state/site_reputation.db`. CloakBrowser remains the separate anti-bot tier. Drop down to a provider only when you need:
 
-- structured extraction with a schema → `firecrawl_tool.py extract`
-- batch site crawling → `firecrawl_tool.py crawl`
-- site mapping → `firecrawl_tool.py map`
-- search-and-scrape in one call → `firecrawl_tool.py search`
+- structured extraction → `scrapegraph_tool.py extract`
+- search → `scrapegraph_tool.py search`
+- batch crawling → `scrapegraph_tool.py crawl-start`, then `crawl-status`
+- Firecrawl-specific map or fallback behavior → `firecrawl_tool.py`
 - interactive flow / form submission on a protected site → `cloak_browser_tool.py goto`
 - screenshot evidence → `cloak_browser_tool.py scrape --screenshot`
 - act AS CC in CC's logged-in account → Browser Harness
@@ -38,9 +38,10 @@ It auto-escalates Firecrawl → CloakBrowser based on actual response and rememb
 
 | Scenario | Tool | Why |
 |----------|------|-----|
-| Extract text/pricing/contacts from a **public, unprotected** page | **Firecrawl** | Returns clean markdown, handles JS-rendered pages, no browser overhead |
-| Crawl an entire site for content harvesting | **Firecrawl `crawl`** | Follows links automatically up to the limit |
-| Extract structured data (pricing tables, job listings, profiles) | **Firecrawl `extract`** | LLM-powered schema extraction — gets exactly the fields you specify |
+| Extract text/pricing/contacts from a **public** page | **ScrapeGraphAI** | Primary provider; markdown plus structured formats |
+| Crawl an entire site for content harvesting | **ScrapeGraphAI `crawl-start`** | Primary asynchronous crawler |
+| Extract structured data or lead records | **ScrapeGraphAI `extract`** | Prompt + optional JSON Schema |
+| ScrapeGraphAI quota/auth/network failure | **Firecrawl** | Public-provider fallback |
 | Get all URLs on a domain for analysis | **Firecrawl `map`** | Purpose-built for site mapping |
 | Search for pages and extract their content in one step | **Firecrawl `search`** | Search + scrape in a single call |
 | **Firecrawl returned 403/429/empty content, OR target is documented as bot-protected (Cloudflare Turnstile, reCAPTCHA v3, DataDome, ShieldSquare, FingerprintJS, Akamai, Kasada, PerimeterX)** | **CloakBrowser** | Stealth Chromium with C++ source-level fingerprint patches. reCAPTCHA v3 ~0.9 score. Drop-in Playwright API. Use a residential proxy via `CLOAK_PROXY_URL` for the hardest tier. |
@@ -52,8 +53,9 @@ It auto-escalates Firecrawl → CloakBrowser based on actual response and rememb
 
 **Rule of thumb (in priority order):**
 
-1. Need the content from a public unprotected page? → **Firecrawl** (cheapest, fastest).
-2. Firecrawl blocked or page sits behind bot defense? → **CloakBrowser** (mandatory stealth tier for fresh-session protected scraping).
+1. Need public website or lead data? → **ScrapeGraphAI**.
+2. ScrapeGraphAI fails or exhausts credits? → **Firecrawl**.
+3. Public providers are blocked? → **CloakBrowser** (anti-bot escalation).
 3. Need to DO something on a public unprotected page? → **Playwright** (deterministic).
 4. Need to do it AS CC under CC's login? → **Browser Harness** (real human's Chrome).
 

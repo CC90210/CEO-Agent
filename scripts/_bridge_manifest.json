@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-28T23:02:01.291656+00:00",
-  "script_count": 163,
-  "entry_count": 341,
+  "generated_at_iso": "2026-08-31T16:08:15.561003+00:00",
+  "script_count": 164,
+  "entry_count": 347,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1084,6 +1084,78 @@
       "help": "instagram_dm_poller.py \u2014 run OASIS Instagram DMs like a human closer."
     },
     {
+      "key": "scrapegraph_tool_scrape",
+      "path": "scripts/integrations/scrapegraph_tool.py",
+      "root": "bravo",
+      "subcmd": "scrape",
+      "mutating": false,
+      "category": "research.scraping",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
+      "help": "ScrapeGraphAI API v2 CLI \u2014 primary public-site scraping provider. \u2014 subcommand: scrape"
+    },
+    {
+      "key": "scrapegraph_tool_extract",
+      "path": "scripts/integrations/scrapegraph_tool.py",
+      "root": "bravo",
+      "subcmd": "extract",
+      "mutating": false,
+      "category": "research.scraping",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
+      "help": "ScrapeGraphAI API v2 CLI \u2014 primary public-site scraping provider. \u2014 subcommand: extract"
+    },
+    {
+      "key": "scrapegraph_tool_search",
+      "path": "scripts/integrations/scrapegraph_tool.py",
+      "root": "bravo",
+      "subcmd": "search",
+      "mutating": false,
+      "category": "research.scraping",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
+      "help": "ScrapeGraphAI API v2 CLI \u2014 primary public-site scraping provider. \u2014 subcommand: search"
+    },
+    {
+      "key": "scrapegraph_tool_crawl_start",
+      "path": "scripts/integrations/scrapegraph_tool.py",
+      "root": "bravo",
+      "subcmd": "crawl-start",
+      "mutating": false,
+      "category": "research.scraping",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
+      "help": "ScrapeGraphAI API v2 CLI \u2014 primary public-site scraping provider. \u2014 subcommand: crawl-start"
+    },
+    {
+      "key": "scrapegraph_tool_crawl_status",
+      "path": "scripts/integrations/scrapegraph_tool.py",
+      "root": "bravo",
+      "subcmd": "crawl-status",
+      "mutating": false,
+      "category": "research.scraping",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
+      "help": "ScrapeGraphAI API v2 CLI \u2014 primary public-site scraping provider. \u2014 subcommand: crawl-status"
+    },
+    {
+      "key": "scrapegraph_tool_credits",
+      "path": "scripts/integrations/scrapegraph_tool.py",
+      "root": "bravo",
+      "subcmd": "credits",
+      "mutating": false,
+      "category": "research.scraping",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
+      "help": "ScrapeGraphAI API v2 CLI \u2014 primary public-site scraping provider. \u2014 subcommand: credits"
+    },
+    {
       "key": "send_gateway_send",
       "path": "scripts/integrations/send_gateway.py",
       "root": "bravo",
@@ -2052,7 +2124,7 @@
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
-      "help": "Lead scraper using Firecrawl API (replaces slow Playwright + Google Maps flow)."
+      "help": "Lead scraper using ScrapeGraphAI primary with Firecrawl fallback."
     },
     {
       "key": "scrape_website_sales_leads",

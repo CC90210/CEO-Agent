@@ -78,8 +78,9 @@ verified: 2026-06-09
 | **"Can we cancel Supabase?" data gate** | `migration_completeness_audit.py` | One verdict table: tables (exact counts) + auth + storage per project. Exit 0 = all data accounted for. Data parity ≠ cancel-ready — auth/rpc/app cutover must also be live |
 | n8n workflows (read/exec) | `n8n_tool.py` | `list`, `search`, `execute <id>`, `stats` |
 | n8n workflows (build/modify) | n8n-mcp SDK flow | `get_sdk_reference` → `search_nodes` → `get_node_types` → `validate_workflow` → `create_workflow_from_code`. See `skills/n8n-mcp-integration` |
-| **Fetch a URL — DEFAULT entry point (auto-escalates Firecrawl→Cloak + remembers per-domain)** | `research_fetch.py` | `python scripts/research_fetch.py <url> --json`. Reputation: `reputation [domain]`, `reputation-clear <domain>`. Skill: `skills/research-fetch/SKILL.md` |
-| Web scraping (data extraction, public unprotected — when you want Firecrawl-specific features) | `firecrawl_tool.py` | `scrape <url>`, `search <query>`, `crawl`, `extract`, `map` |
+| **Fetch a URL — DEFAULT (ScrapeGraphAI→Firecrawl→Cloak→urllib)** | `research_fetch.py` | `python scripts/research_fetch.py <url> --json`. Reputation: `reputation [domain]`, `reputation-clear <domain>`. |
+| **Primary public/lead scraping** | `scrapegraph_tool.py` | `scrape <url>`, `extract <url> --prompt ... [--schema ...]`, `search <query>`, `crawl-start`, `crawl-status`, `credits` |
+| Firecrawl public-provider fallback | `firecrawl_tool.py` | `scrape`, `search`, `crawl`, `extract`, `map` |
 | **Scrape a bot-protected site directly (Cloudflare, DataDome, reCAPTCHA, FingerprintJS, etc.) — usually `research_fetch` handles this for you** | `cloak_browser_tool.py` | `scrape <url> --json`, `check-stealth`, `goto <url> --eval "..."`, `download`, `binary-info`. Optional `CLOAK_PROXY_URL` in `.env.agents` for residential proxy. Skill: `skills/cloak-browser/SKILL.md` |
 | Web automation (clicks, forms) on unprotected sites | Playwright MCP | `browser_navigate`, `browser_click`, `browser_type` |
 | Real logged-in browser control + reusable site memory | Browser Harness | `python scripts/browser/browser_harness_doctor.py`; setup: `& (Get-Command browser-harness).Source --setup`; workflow: `/.agents/workflows/browser-harness.md` |

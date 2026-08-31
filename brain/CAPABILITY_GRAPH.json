@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-31T01:49:21.742030+00:00",
+  "generated_at": "2026-08-31T16:07:51.801687+00:00",
   "totals": {
-    "skills": 163,
-    "scripts": 201,
+    "skills": 164,
+    "scripts": 204,
     "agents": 31,
-    "mcp_servers": 9,
+    "mcp_servers": 0,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 455,
-    "edges_total": 215,
+    "nodes_total": 450,
+    "edges_total": 221,
     "drift_count": 0
   },
   "nodes": [
@@ -3838,7 +3838,7 @@
       "kind": "skill",
       "name": "research-fetch",
       "path": "skills/research-fetch/SKILL.md",
-      "description": "Unified research-tier fetcher with auto-escalation (Firecrawl \u2192 CloakBrowser) and SQLite site-reputation memory. The single entry point all research-heavy skills should call instead of choosing tiers manually. Replaces ad-hoc firecrawl_tool / cloak_browser_tool decisions in compe",
+      "description": "Unified research fetcher using ScrapeGraphAI first, Firecrawl as the public-provider fallback, CloakBrowser for anti-bot escalation, and urllib last. The single entry point for third-party URL reads and lead-site research.",
       "tier": "tool",
       "owner": "bravo",
       "risk": "low",
@@ -4190,6 +4190,47 @@
       "argument_hint": null,
       "requires": {
         "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:scrapegraph-ai",
+      "kind": "skill",
+      "name": "scrapegraph-ai",
+      "path": "skills/scrapegraph-ai/SKILL.md",
+      "description": "Primary public-site and lead-data scraping provider. Use directly for structured extraction, web search, crawling, credit checks, or provider-specific formats; ordinary single-URL reads should still enter through research_fetch.",
+      "tier": "tool",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "scrapegraph",
+        "scrape public website",
+        "extract website data",
+        "extract lead data",
+        "structured web extraction",
+        "crawl website",
+        "search and scrape",
+        "scrapegraph credits"
+      ],
+      "tags": [
+        "tool",
+        "scraping",
+        "lead-data",
+        "extraction",
+        "crawl",
+        "search"
+      ],
+      "status": "[PROBATIONARY]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [
+          "SCRAPE_GRAPH_AI_API"
+        ],
         "daemons": [],
         "state": []
       },
@@ -6364,16 +6405,6 @@
       "discovery": "auto-docstring"
     },
     {
-      "id": "script:generate_sales_doc",
-      "kind": "script",
-      "name": "generate_sales_doc",
-      "path": "scripts/generate_sales_doc.py",
-      "description": "Generate sales doc \u2014 provides build html content.",
-      "tier": "tool",
-      "owner": "bravo",
-      "discovery": "auto-docstring"
-    },
-    {
       "id": "script:genome_sync",
       "kind": "script",
       "name": "genome_sync",
@@ -7229,7 +7260,7 @@
       "kind": "script",
       "name": "scrape_firecrawl_leads",
       "path": "scripts/scrape_firecrawl_leads.py",
-      "description": "Lead scraper using Firecrawl API (replaces slow Playwright + Google Maps flow).",
+      "description": "Lead scraper using ScrapeGraphAI primary with Firecrawl fallback.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -7412,6 +7443,28 @@
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:sunbiz_cutover_watch",
+      "kind": "script",
+      "name": "sunbiz_cutover_watch",
+      "path": "scripts/sunbiz_cutover_watch.py",
+      "description": "Watch sunbizfunding.com's nameservers and cut it over the moment they move.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "watch sunbizfunding nameservers and cut over",
+        "poll for the registrar change and attach the domain",
+        "overnight dns cutover watch"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
     },
     {
       "id": "script:supabase_cancellation_gate",
@@ -7794,6 +7847,28 @@
       }
     },
     {
+      "id": "script:google_client_pair_probe",
+      "kind": "script",
+      "name": "google_client_pair_probe",
+      "path": "scripts/integrations/google_client_pair_probe.py",
+      "description": "Find which stored secret pairs with a given Google OAuth client id.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "which client secret goes with this google oauth client",
+        "find the matching google client secret",
+        "verify a google oauth client id and secret pair"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
       "id": "script:ig_closer",
       "kind": "script",
       "name": "ig_closer",
@@ -7927,6 +8002,32 @@
       }
     },
     {
+      "id": "script:scrapegraph_tool",
+      "kind": "script",
+      "name": "scrapegraph_tool",
+      "path": "scripts/integrations/scrapegraph_tool.py",
+      "description": "ScrapeGraphAI API v2 CLI \u2014 primary public-site scraping provider.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "research.scraping",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "scrape a public website",
+        "extract lead data from a website",
+        "extract structured website information",
+        "search the web and scrape results",
+        "crawl a public website",
+        "check scrapegraph credits"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "confirm": false
+      }
+    },
+    {
       "id": "script:secret_apply_authorized",
       "kind": "script",
       "name": "secret_apply_authorized",
@@ -7986,6 +8087,28 @@
         "find misnamed secrets",
         "fuzzy match env keys",
         "secrets under the wrong prefix"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:secret_identity_check",
+      "kind": "script",
+      "name": "secret_identity_check",
+      "path": "scripts/integrations/secret_identity_check.py",
+      "description": "Answer \"are these two keys the same credential?\" without revealing either.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "are these two secrets the same value",
+        "check two env keys hold different credentials",
+        "verify oauth client slots are distinct"
       ],
       "project": "empire",
       "bridge": {
@@ -8907,87 +9030,6 @@
         "core-bench"
       ],
       "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "mcp:sequential-thinking",
-      "kind": "mcp",
-      "name": "sequential-thinking",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:playwright",
-      "kind": "mcp",
-      "name": "playwright",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:context7",
-      "kind": "mcp",
-      "name": "context7",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:memory",
-      "kind": "mcp",
-      "name": "memory",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:github",
-      "kind": "mcp",
-      "name": "github",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:firecrawl",
-      "kind": "mcp",
-      "name": "firecrawl",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:obsidian",
-      "kind": "mcp",
-      "name": "obsidian",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:filesystem",
-      "kind": "mcp",
-      "name": "filesystem",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:knowledge-graph",
-      "kind": "mcp",
-      "name": "knowledge-graph",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
     },
     {
       "id": "workflow:browser-harness",
@@ -10192,6 +10234,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:research_fetch",
+      "to": "script:scrapegraph_tool",
+      "kind": "calls"
+    },
+    {
       "from": "script:review_fix",
       "to": "script:notify",
       "kind": "calls"
@@ -10272,6 +10319,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:scrapegraph_tool",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
       "from": "script:seed_cc_leads_turso",
       "to": "script:supabase_tool",
       "kind": "calls"
@@ -10324,6 +10376,11 @@
     {
       "from": "script:skill_synthesizer",
       "to": "script:register_skill",
+      "kind": "calls"
+    },
+    {
+      "from": "script:sunbiz_cutover_watch",
+      "to": "script:notify",
       "kind": "calls"
     },
     {
@@ -10622,6 +10679,11 @@
       "kind": "uses"
     },
     {
+      "from": "skill:research-fetch",
+      "to": "script:scrapegraph_tool",
+      "kind": "uses"
+    },
+    {
       "from": "skill:resource-radar",
       "to": "script:capability_query",
       "kind": "uses"
@@ -10659,6 +10721,21 @@
     {
       "from": "skill:score-b2b-lead-quality",
       "to": "script:skill_metrics",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:scrapegraph-ai",
+      "to": "script:capability_probe",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:scrapegraph-ai",
+      "to": "script:research_fetch",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:scrapegraph-ai",
+      "to": "script:scrapegraph_tool",
       "kind": "uses"
     },
     {
@@ -10710,11 +10787,6 @@
       "from": "skill:web-scraping",
       "to": "script:research_fetch",
       "kind": "uses"
-    },
-    {
-      "from": "skill:web-scraping",
-      "to": "skill:research-fetch",
-      "kind": "requires"
     }
   ],
   "drift": []

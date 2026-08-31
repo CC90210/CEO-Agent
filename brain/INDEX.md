@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **64 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **69 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -30,6 +30,7 @@ Auto-generated index of tracked `brain/*.md` — **64 files**. Each file's first
 
 ## Prompts & playbooks
 - [CLIENT_PLAYBOOK.md](CLIENT_PLAYBOOK.md) — OASIS WEBSITE APPOINTMENT-SETTING PLAYBOOK V5
+- [WAVE3_OASIS_CC_RUNBOOK.md](WAVE3_OASIS_CC_RUNBOOK.md) — Wave 3 Runbook — OASIS Command Center → Cloudflare Workers
 
 ## Reference & architecture
 - [APP_REGISTRY.md](APP_REGISTRY.md) — APP REGISTRY — External Codebase Routing
@@ -48,12 +49,15 @@ Auto-generated index of tracked `brain/*.md` — **64 files**. Each file's first
 - [DATA_LIFECYCLE.md](DATA_LIFECYCLE.md) — Data Lifecycle
 - [DATA_TAXONOMY.md](DATA_TAXONOMY.md) — Data Taxonomy
 - [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS Website Sales Engine V5
+- [DNS_CUTOVER_AND_VERCEL_EXIT_CHECKLIST.md](DNS_CUTOVER_AND_VERCEL_EXIT_CHECKLIST.md) — DNS Cutover & Vercel Cancellation Checklist
 - [EMAIL_PIPELINE.md](EMAIL_PIPELINE.md) — Inbound Email Pipeline — Runbook
 - [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) — EVENT BUS CONTRACT — V6 BUILD 3
 - [EXTERNAL_REVIEW_INTEGRATION.md](EXTERNAL_REVIEW_INTEGRATION.md) — EXTERNAL REVIEW INTEGRATION — Fold the Bots Into the Loop
 - [INVENTORY.md](INVENTORY.md) — INVENTORY.md — Live Repo Inventory (auto-generated)
 - [METRIC_AUDIT.md](METRIC_AUDIT.md) — Dashboard Metric Audit
 - [MODEL_CONFIG.md](MODEL_CONFIG.md) — (no H1 heading)
+- [MORNING_BRIEFING_2026-08-31.md](MORNING_BRIEFING_2026-08-31.md) — Morning Briefing — overnight of 2026-08-30 → 31
+- [OASIS_CC_SECRET_FILL_GUIDE.md](OASIS_CC_SECRET_FILL_GUIDE.md) — OASIS CC — the 26 secrets, and where each one actually comes from
 - [OKRs.md](OKRs.md) — OKRs — Q2 2026 (April - June)
 - [OPENCLI_STRATEGY.md](OPENCLI_STRATEGY.md) — OpenCLI Strategic Integration
 - [PERSONALITY.md](PERSONALITY.md) — PERSONALITY — Bravo, as a Person
@@ -66,6 +70,7 @@ Auto-generated index of tracked `brain/*.md` — **64 files**. Each file's first
 - [SUBCONSCIOUS_LAYER.md](SUBCONSCIOUS_LAYER.md) — THE SUBCONSCIOUS LAYER — What Runs Beneath the Conscious Brain
 - [TOOL_SHED.md](TOOL_SHED.md) — 🧰 TOOL SHED — CC's GitHub Repository Catalog
 - [V6_ARCHITECTURE.md](V6_ARCHITECTURE.md) — Substrate Architecture — current: **V7.3.3** (foundation history V6.0 → V6.8 below)
+- [VERCEL_DECOMMISSIONING_READINESS.md](VERCEL_DECOMMISSIONING_READINESS.md) — Vercel Decommissioning Readiness Report
 - [VERCEL_TO_CLOUDFLARE_MIGRATION.md](VERCEL_TO_CLOUDFLARE_MIGRATION.md) — Vercel to Cloudflare Migration: Master Handover Plan
 
 ## Routing & capability map

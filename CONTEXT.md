@@ -120,8 +120,9 @@ Patterns imported from [free-for-dev](https://github.com/ripienaar/free-for-dev)
 
 ## Browser / scraping
 
-- **Research fetch** — Default URL-fetch entry: `scripts/research_fetch.py <url>`. Auto-escalates Firecrawl → CloakBrowser based on actual response. Per-domain reputation in `state/site_reputation.db`.
-- **Browser ladder** — Mandatory 4-tier classification: Firecrawl → CloakBrowser (stealth tier-2) → Browser Harness (CC-authenticated) → Playwright (interactive unprotected). NEVER raw Playwright against bot-protected sites.
+- **Research fetch** — Default URL-fetch entry: `scripts/research_fetch.py <url>`. Routes ScrapeGraphAI primary → Firecrawl fallback → CloakBrowser anti-bot escalation → urllib. Per-domain reputation lives in `state/site_reputation.db`.
+- **ScrapeGraphAI** — Primary public-site, structured-data, and lead-data scraping provider. Direct wrapper: `scripts/integrations/scrapegraph_tool.py`; empire credential name: `SCRAPE_GRAPH_AI_API` (official alias `SGAI_API_KEY` also accepted).
+- **Browser ladder** — ScrapeGraphAI and Firecrawl are public scraping providers; CloakBrowser is the separate anti-bot escalation tier; Browser Harness is for CC-authenticated sessions; Playwright is for interactive unprotected flows.
 - **CloakBrowser** — `scripts/browser/cloak_browser_tool.py`. Drop-in Playwright replacement with C++ source-level fingerprint patches. Binary at `~/.cloakbrowser/`. Mandatory tier-2 for fresh-session scrapes against Cloudflare / DataDome / FingerprintJS.
 
 ## MCA / Lending (CredPort platform — repo `~/APPS/breeze-portal`, brand rebranded 2026-06-15)
