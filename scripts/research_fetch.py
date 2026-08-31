@@ -395,7 +395,9 @@ def fetch(
     if force_tier in ("scrapegraph", "firecrawl", "cloak", "plain"):
         tiers = [force_tier]
     elif rep and rep["last_tier_succeeded"] == "cloak":
-        tiers = ["cloak", "plain"]
+        # ScrapeGraphAI remains primary even for historically protected domains.
+        # A prior Cloak success skips only the redundant Firecrawl provider.
+        tiers = ["scrapegraph", "cloak", "plain"]
     else:
         tiers = ["scrapegraph", "firecrawl", "cloak", "plain"]
 

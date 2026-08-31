@@ -63,7 +63,7 @@ Lives at `state/site_reputation.db` (SQLite). Records per registered domain (`ww
 - `scrapegraph_success` / `scrapegraph_fail`, `firecrawl_success` / `firecrawl_fail`, `cloak_success` / `cloak_fail`
 - `last_seen_at` / `first_seen_at`
 
-**On fetch:** new domains start at ScrapeGraphAI. A prior Cloak success may skip public providers because it proves the domain needed anti-bot handling.
+**On fetch:** every automatic fetch starts with ScrapeGraphAI. A prior Cloak success may skip Firecrawl, but never the primary provider.
 
 Inspect: `python scripts/research_fetch.py reputation [domain]`
 Forget: `python scripts/research_fetch.py reputation-clear <domain>` (use after a target's bot defense changes; reputation should be re-learned).

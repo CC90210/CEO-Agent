@@ -78,3 +78,17 @@ def test_force_tier_supports_scrapegraph(fetcher, monkeypatch):
     monkeypatch.setattr(fetcher, "_reputation_record", lambda *args: None)
     result = fetcher.fetch("https://example.com", force_tier="scrapegraph")
     assert result["tiers_tried"] == ["scrapegraph"]
+
+
+def test_historical_cloak_reputation_does_not_bypass_primary(fetcher, monkeypatch):
+    monkeypatch.setattr(
+        fetcher,
+        "_reputation_lookup",
+        lambda domain: {"last_tier_succeeded": "cloak"},
+    )
+    monkeypatch.setattr(fetcher, "_call_scrapegraph", lambda url: _result())
+    monkeypatch.setattr(fetcher, "_reputation_record", lambda *args: None)
+    monkeypatch.setattr(fetcher, "_call_cloak", lambda *args: pytest.fail("cloak should not run"))
+    result = fetcher.fetch("https://example.com")
+    assert result["tier_used"] == "scrapegraph"
+    assert result["tiers_tried"] == ["scrapegraph"]
