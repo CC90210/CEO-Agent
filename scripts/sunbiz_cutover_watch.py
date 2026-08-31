@@ -213,11 +213,29 @@ def attempt_cutover() -> bool:
     return False
 
 
+# A lookup that never succeeded is not a domain that never moved. Both end the
+# run with no cutover, and without this counter the closing report would tell CC
+# "the nameservers never changed" when the truth was "I could not read them" —
+# sending them to argue with a registrar instead of fixing DNS on this machine.
+LOOKUP_FAILURES = {"consecutive": 0, "total": 0, "checks": 0}
+
+
 def check_once() -> bool:
+    LOOKUP_FAILURES["checks"] += 1
     ns = nameservers()
     if not ns:
-        log("NS lookup returned nothing — treating as UNKNOWN, not as a change")
+        LOOKUP_FAILURES["consecutive"] += 1
+        LOOKUP_FAILURES["total"] += 1
+        log(f"NS lookup returned nothing — treating as UNKNOWN, not as a change "
+            f"({LOOKUP_FAILURES['consecutive']} consecutive)")
+        # Escalate once rather than every tick: a watcher that cannot see is
+        # worse than no watcher, because it looks like it is working.
+        if LOOKUP_FAILURES["consecutive"] == 4:
+            notify(f"⚠️ {DOMAIN} watcher has failed to resolve nameservers 4 times "
+                   f"in a row (~1h). It is still running, but it is BLIND — it "
+                   f"cannot detect the registrar change while this persists.")
         return False
+    LOOKUP_FAILURES["consecutive"] = 0
     on_cf = [n for n in ns if n.lower().endswith("ns.cloudflare.com")]
     if not on_cf:
         log(f"still at registrar's old nameservers: {', '.join(ns)}")
@@ -264,10 +282,21 @@ def main() -> int:
             log(f"check raised (continuing): {e!r}")
         time.sleep(a.interval)
 
-    log(f"=== deadline reached after {checks} checks; no registrar change seen ===")
-    notify(f"🌅 Overnight watch finished: {DOMAIN} nameservers never moved "
-           f"({checks} checks over {a.hours}h). Still at the old registrar NS. "
-           f"Set damian.ns.cloudflare.com + sydney.ns.cloudflare.com to finish Gate 1.")
+    failed = LOOKUP_FAILURES["total"]
+    log(f"=== deadline reached after {checks} checks; no registrar change seen "
+        f"({failed} lookup failure(s)) ===")
+    if failed >= checks * 0.5:
+        # Say what actually happened. Reporting "never moved" here would send CC
+        # to the registrar to re-do work that may already be done.
+        notify(f"⚠️ {DOMAIN} watch finished INCONCLUSIVE: {failed} of {checks} "
+               f"checks could not resolve the nameservers at all. This is a "
+               f"lookup problem on the watching machine, NOT evidence the "
+               f"registrar change is missing. Re-check by hand before acting.")
+    else:
+        notify(f"🌅 Watch finished: {DOMAIN} nameservers never moved "
+               f"({checks} checks over {a.hours}h, {failed} lookup failures). "
+               f"Still at the old registrar NS. Set damian.ns.cloudflare.com + "
+               f"sydney.ns.cloudflare.com to finish Gate 1.")
     LOCK.unlink(missing_ok=True)
     return 2
 
