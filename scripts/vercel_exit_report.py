@@ -19,6 +19,8 @@ import datetime as dt
 import json
 import socket
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 CAPABILITY_META = {
@@ -175,6 +177,76 @@ def gate_secrets() -> dict:
 VERCEL_PREFIXES = ("216.198.", "216.150.", "76.76.", "64.29.")
 
 
+# Hostnames that are Vercel-dependent but live OUTSIDE our Cloudflare account,
+# so no zone listing can discover them. Curated by hand because Vercel's
+# project-domains API returns 403 for our token — if that ever starts working,
+# derive this list instead of maintaining it.
+#
+# breezeadvance.com serves a CLIENT's live business site from Vercel. Whether it
+# sits on our Vercel account or the client's is UNRESOLVED as of 2026-08-31, and
+# until it is, cancelling could take a client offline.
+EXTERNAL_VERCEL_WATCH = ("breezeadvance.com", "www.breezeadvance.com")
+
+
+def _vercel_origin(host: str) -> tuple[bool, str]:
+    """Is this hostname's ORIGIN Vercel, regardless of what fronts it?
+
+    Resolved IPs alone cannot answer this. A hostname proxied through Cloudflare
+    resolves to 172.x whatever sits behind it, so an IP check reads "not on
+    Vercel" for a record whose origin is a Vercel IP — measured on
+    www.breezeadvance.credit, which this gate passed while Vercel served it.
+
+    Redirects are NOT followed, because a redirect is a response somebody
+    serves: www.breezeadvance.credit 307s to an apex that IS migrated, and
+    following that hop reports the destination's host instead of the redirect's.
+    Cancel the account and the redirect dies with it.
+    """
+    req = urllib.request.Request(f"https://{host}/", method="GET",
+                                 headers={"User-Agent": "bravo-exit-report/1.0"})
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        with opener.open(req, timeout=20) as r:
+            hdr = r.headers
+    except urllib.error.HTTPError as e:
+        hdr = e.headers
+    except Exception as e:                       # noqa: BLE001
+        # Unknown is not a pass. Report it as its own state.
+        return (False, f"probe failed: {type(e).__name__}")
+    if hdr.get("x-vercel-id"):
+        return (True, "x-vercel-id present")
+    if (hdr.get("server") or "").lower() == "vercel":
+        return (True, "server: Vercel")
+    return (False, "")
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k):
+        return None
+
+
+def _watched_hosts() -> list[str]:
+    """Every hostname this gate must clear, from THREE sources.
+
+    Enumerating only from apps.json was the flaw that let three Vercel-dependent
+    hostnames pass unseen: a registry cannot reveal what it never listed. Zone
+    records are the ground truth for anything we host, and the curated list
+    covers what we do not.
+    """
+    hosts: set[str] = set()
+    reg = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    for slug, app in (reg.get("apps") or {}).items():
+        if app.get("dropped"):
+            continue
+        for host in app.get("custom_domains") or []:
+            hosts.add(host)
+            # A registry row naming an apex almost never names its www, and www
+            # is exactly where a half-finished cutover hides.
+            if host.count(".") == 1:
+                hosts.add(f"www.{host}")
+    hosts.update(EXTERNAL_VERCEL_WATCH)
+    return sorted(hosts)
+
+
 def gate_traffic() -> dict:
     """Vercel may only be retired once nothing customer-facing still points at it.
 
@@ -184,19 +256,20 @@ def gate_traffic() -> dict:
     substring test then read as "not on Vercel". A hostname that cannot resolve
     is reported as its own state, never silently as a pass.
     """
-    reg = json.loads(REGISTRY.read_text(encoding="utf-8"))
     still, unresolved = [], []
-    for slug, app in (reg.get("apps") or {}).items():
-        if app.get("dropped"):
+    for host in _watched_hosts():
+        try:
+            ips = {a[4][0] for a in socket.getaddrinfo(host, 443)}
+        except OSError:
+            unresolved.append(host)
             continue
-        for host in app.get("custom_domains") or []:
-            try:
-                ips = {a[4][0] for a in socket.getaddrinfo(host, 443)}
-            except OSError:
-                unresolved.append(host)
-                continue
-            if any(ip.startswith(VERCEL_PREFIXES) for ip in ips):
-                still.append(host)
+        if any(ip.startswith(VERCEL_PREFIXES) for ip in ips):
+            still.append(host)
+            continue
+        # Resolving off-Vercel is not proof of being off Vercel.
+        is_vercel, why = _vercel_origin(host)
+        if is_vercel:
+            still.append(f"{host} (proxied; {why})")
     ok = not still and not unresolved
     bits = []
     if still:
