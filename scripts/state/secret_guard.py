@@ -80,6 +80,43 @@ HEREDOC_RE = re.compile(
 )
 
 
+# GAP-8 (2026-08-31, found empirically by a subagent that tripped it): every
+# check below keys off a secret path being NAMED in the command. A recursive
+# search names no path at all — `grep -rIn "pattern" .` walks into .env.agents
+# and every .env.agents.bak.* beside it, and prints their contents. The guard
+# said nothing, because there was nothing to match.
+#
+# `rg` is exempt: ripgrep honours .gitignore and .env* is ignored here. GNU grep
+# does not, which is exactly the difference that made this reachable.
+#
+# The tool must sit in COMMAND POSITION (start of line, or after | ; && ||) so a
+# mention inside a quoted string is not mistaken for an invocation. The flag
+# match allows clustered short flags — `-rIn` is as recursive as `-r`, and an
+# earlier version that required a bare `-r` missed exactly the command that
+# exposed this.
+_CMD_POS = r"(?:^|[|;&]\s*|\bthen\s+|\bdo\s+)\s*(?:sudo\s+)?"
+RECURSIVE_SEARCH_RE = re.compile(
+    _CMD_POS + r"grep\b[^|;&]*?\s-(?:-(?:dereference-)?recursive\b|[A-Za-z]*[rR][A-Za-z]*\b)"
+    r"|" + _CMD_POS + r"findstr\b[^|;&]*?\s/[sS]\b"
+    r"|Get-ChildItem\b[^|;&]*-Recurse[^|;&]*\|[^|;&]*(?:Select-String|sls|Get-Content)",
+    re.IGNORECASE | re.MULTILINE,
+)
+# An explicit exclusion of the secret family makes a recursive search safe again.
+RECURSIVE_EXCLUDED_RE = re.compile(
+    r"--exclude(?:-dir)?=?\s*['\"]?[^\s'\"]*\.env"
+    r"|--exclude(?:-dir)?=?\s*['\"]?\*\.env"
+    r"|-Exclude\s+['\"]?[^\s'\"]*\.env",
+    re.IGNORECASE,
+)
+
+
+def _command_traverses_secrets(cmd: str) -> bool:
+    """A recursive text search with no .env exclusion reads the store sideways."""
+    if not cmd or not RECURSIVE_SEARCH_RE.search(cmd):
+        return False
+    return not RECURSIVE_EXCLUDED_RE.search(cmd)
+
+
 def _path_is_secret(path: str | None) -> bool:
     if not path:
         return False
@@ -157,6 +194,18 @@ def main() -> int:
         if is_exfil:
             target = matched
             reason = REASON_EXEC.format(path=matched)
+        elif _command_traverses_secrets(cmd):
+            # GAP-8: names no secret path, still reads every one of them.
+            target = "<recursive search>"
+            reason = (
+                "BLOCKED by secret_guard: a recursive search with no .env exclusion\n"
+                "reads the credential store sideways — it names no secret path, so every\n"
+                "other check here passes, but it walks into .env.agents and each\n"
+                ".env.agents.bak.* and prints their contents.\n\n"
+                "Use one of:\n"
+                "  rg '<pattern>'                      (respects .gitignore; .env* is ignored)\n"
+                "  grep -rn '<pattern>' . --exclude='.env*' --exclude='*.pem' --exclude='*.key'\n"
+            )
     elif tool_name in ("Grep", "Glob"):
         # GAP-5: only the Read tool was path-filtered, so Grep/Glob could read a
         # secret file by pointing `path` straight at it (e.g. Grep pattern=STRIPE
