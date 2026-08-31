@@ -37,7 +37,7 @@ from pathlib import Path
 CAPABILITY_META = {
     "category": "release.cloudflare",
     "lifecycle": "active",
-    "risk": "credential_store_write",
+    "risk": "local_write",
     "triggers": ["find misnamed secrets", "fuzzy match env keys",
                  "secrets under the wrong prefix"],
     "owner": "bravo",
@@ -137,19 +137,12 @@ def expected(name: str) -> set[str]:
     return {"long", "hex", "jwt", "short"}
 
 
+sys.path.insert(0, str(ROOT / "scripts"))
+from lib import env_store  # noqa: E402
+
+
 def parse(p: Path) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for raw in p.read_text(encoding="utf-8", errors="replace").splitlines():
-        s = raw.strip()
-        if not s or s.startswith("#") or "=" not in s:
-            continue
-        k, _, v = s.partition("=")
-        k, v = k.strip(), v.strip()
-        if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
-            v = v[1:-1]
-        if k and v:
-            out[k] = v
-    return out
+    return env_store.parse_file(p)
 
 
 def gaps(text: str) -> dict[str, str]:

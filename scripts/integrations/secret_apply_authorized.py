@@ -33,24 +33,47 @@ import shutil
 import sys
 from pathlib import Path
 
+CAPABILITY_META = {
+    "category": "release.cloudflare",
+    "lifecycle": "active",
+    "risk": "local_write",
+    "triggers": ["apply an operator authorized secret alias",
+                 "CC confirmed these two keys are the same account",
+                 "set a non credential config value in the env store"],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {"visible": False},
+}
+
 ROOT = Path(__file__).resolve().parents[2]
 STORE = ROOT / ".env.agents"
 LOG = ROOT / "state" / "secret_alias_authorized.log"
 
 
-def _populated(text: str) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for raw in text.splitlines():
-        s = raw.strip()
-        if not s or s.startswith("#") or "=" not in s:
-            continue
-        k, _, v = s.partition("=")
-        k, v = k.strip(), v.strip()
-        if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
-            v = v[1:-1]
-        if k and v:
-            out[k] = v
-    return out
+sys.path.insert(0, str(ROOT / "scripts"))
+from lib.env_store import parse_text as _populated  # noqa: E402
+
+REFUTATIONS = ROOT / "config" / "secret_match_refutations.json"
+
+
+def _load_refutations() -> dict[tuple[str, str], dict]:
+    """{(target, candidate): record} for pairs adversarial verification killed.
+
+    Absent file means no recorded verdicts, not "everything is approved" — the
+    applier's other checks still stand.
+    """
+    if not REFUTATIONS.exists():
+        return {}
+    try:
+        data = json.loads(REFUTATIONS.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        sys.stderr.write(f"WARNING: cannot read {REFUTATIONS.name} ({e}); "
+                         "proceeding WITHOUT refutation checks\n")
+        return {}
+    return {(r["target"], r["candidate"]): r for r in data.get("refuted", [])}
+
+
+REFUTED = _load_refutations()
 
 
 def _shape(v: str) -> str:
@@ -83,8 +106,17 @@ def _set_values(text: str, pairs: list[str], apply: bool) -> tuple[int, str]:
     pop = _populated(text)
     planned: list[tuple[str, str]] = []
     for spec in pairs:
+        if "=" not in spec:
+            # `--set KEY` (a typo) would otherwise partition to an empty value
+            # and blank a live setting. An omitted value is never an intent to
+            # erase, so it is an error, not an empty assignment.
+            print(f"  REFUSED {spec!r}: no '=' — expected KEY=VALUE")
+            return (-1, text)
         key, _, value = spec.partition("=")
         key, value = key.strip(), value.strip()
+        if not value:
+            print(f"  REFUSED {key}: empty value — use an explicit removal path, not --set")
+            return (-1, text)
         current = pop.get(key)
         if current is None:
             print(f"  REFUSED {key}: not present — use --pair to fill a slot, not --set")
@@ -113,6 +145,8 @@ def main() -> int:
     ap.add_argument("--set", action="append", default=[], dest="set_pairs",
                     help="KEY=VALUE — overwrite a populated NON-credential config value")
     ap.add_argument("--reason", required=True, help="who authorized this, and when")
+    ap.add_argument("--override-refutation", action="store_true",
+                    help="apply a pair that adversarial verification refuted")
     ap.add_argument("--apply", action="store_true")
     a = ap.parse_args()
     if not a.pair and not a.set_pairs:
@@ -130,6 +164,20 @@ def main() -> int:
         target, _, source = spec.partition("=")
         target, source = target.strip(), source.strip()
 
+        refutation = REFUTED.get((target, source))
+        if refutation and not a.override_refutation:
+            # Adversarial verification already killed this exact pair. Without
+            # this check the refutations were written to a file nobody read, and
+            # the next session would re-propose and apply a match that had been
+            # disproved — with the same corroborating evidence that made it look
+            # certain the first time.
+            print(f"  REFUSED {target} <- {source}: previously REFUTED "
+                  f"({refutation['confidence']} confidence) — {refutation['reason'][:200]}")
+            print("           pass --override-refutation if you know the refutation is wrong")
+            fatal = True
+            continue
+        if refutation:
+            print(f"  OVERRIDE {target} <- {source}: applying over a recorded refutation")
         if source not in pop:
             print(f"  REFUSED {target} <- {source}: source is not populated")
             fatal = True

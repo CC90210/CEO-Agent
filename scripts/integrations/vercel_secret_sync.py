@@ -40,7 +40,7 @@ from pathlib import Path
 CAPABILITY_META = {
     "category": "release.cloudflare",
     "lifecycle": "active",
-    "risk": "credential_store_write",
+    "risk": "local_write",
     "triggers": [
         "sync vercel env values into env agents",
         "recover vercel production secrets for cloudflare migration",

@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-29T04:05:44.555089+00:00",
+  "generated_at": "2026-08-31T01:49:21.742030+00:00",
   "totals": {
     "skills": 163,
-    "scripts": 188,
+    "scripts": 201,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 442,
-    "edges_total": 212,
+    "nodes_total": 455,
+    "edges_total": 215,
     "drift_count": 0
   },
   "nodes": [
@@ -5824,7 +5824,7 @@
       "kind": "script",
       "name": "check_vercel_deployments",
       "path": "scripts/check_vercel_deployments.py",
-      "description": "Check vercel deployments.",
+      "description": "List recent Vercel deployments \u2014 a verification check, so it fails loud.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6025,6 +6025,27 @@
             "confirm": false
           }
         }
+      }
+    },
+    {
+      "id": "script:deploy_oasis_cc_phase2",
+      "kind": "script",
+      "name": "deploy_oasis_cc_phase2",
+      "path": "scripts/deploy_oasis_cc_phase2.py",
+      "description": "deploy_oasis_cc_phase2.py \u2014 gated deploy of OASIS Command Center to Workers.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "deploy oasis command center to cloudflare",
+        "phase 2 cutover oasis cc"
+      ],
+      "project": "oasis",
+      "bridge": {
+        "visible": false
       }
     },
     {
@@ -6233,6 +6254,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:fix_cc_leads_tenant_move",
+      "kind": "script",
+      "name": "fix_cc_leads_tenant_move",
+      "path": "scripts/fix_cc_leads_tenant_move.py",
+      "description": "One-off repair (2026-08-29): move mis-seeded CC Leads from the CRM tenant to webdev.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:fix_trade_leads_enrichment",
       "kind": "script",
       "name": "fix_trade_leads_enrichment",
@@ -6421,6 +6452,27 @@
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:join_multiline_classnames",
+      "kind": "script",
+      "name": "join_multiline_classnames",
+      "path": "scripts/join_multiline_classnames.py",
+      "description": "Join multi-line className=\"...\" string attributes onto one line (Tailwind-safe).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "next 15 unterminated string constant classname",
+        "join multi-line classnames before next upgrade"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
     },
     {
       "id": "script:lead_engine",
@@ -7207,7 +7259,7 @@
       "kind": "script",
       "name": "seed_cc_leads_turso",
       "path": "scripts/seed_cc_leads_turso.py",
-      "description": "Seed CC Leads into leadgen_territories and tenant_records with REAL WEBDEV_TENANT_ID contract.",
+      "description": "Seed CC Leads into leadgen_territories and tenant_records for the webdev tenant.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -7460,6 +7512,28 @@
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:vercel_exit_report",
+      "kind": "script",
+      "name": "vercel_exit_report",
+      "path": "scripts/vercel_exit_report.py",
+      "description": "vercel_exit_report.py \u2014 generate the Vercel Decommissioning report from LIVE evidence.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "vercel decommissioning report",
+        "is the migration done",
+        "exit gate"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
     },
     {
       "id": "script:vercel_turso_cutover",
@@ -7831,6 +7905,136 @@
       }
     },
     {
+      "id": "script:public_bundle_recover",
+      "kind": "script",
+      "name": "public_bundle_recover",
+      "path": "scripts/integrations/public_bundle_recover.py",
+      "description": "Recover NEXT_PUBLIC_* values from an app's own live client bundle.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "recover next public env values from a live bundle",
+        "get the supabase url and anon key back",
+        "vercel sensitive value cannot be read"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:secret_apply_authorized",
+      "kind": "script",
+      "name": "secret_apply_authorized",
+      "path": "scripts/integrations/secret_apply_authorized.py",
+      "description": "Apply an operator-authorized alias: one populated key's value into one open slot.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "apply an operator authorized secret alias",
+        "CC confirmed these two keys are the same account",
+        "set a non credential config value in the env store"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:secret_disk_hunt",
+      "kind": "script",
+      "name": "secret_disk_hunt",
+      "path": "scripts/integrations/secret_disk_hunt.py",
+      "description": "secret_disk_hunt.py \u2014 recover outstanding secrets from anything already on disk.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "recover secrets from disk",
+        "find the missing secret values",
+        "hunt for old env files"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:secret_fuzzy_match",
+      "kind": "script",
+      "name": "secret_fuzzy_match",
+      "path": "scripts/integrations/secret_fuzzy_match.py",
+      "description": "secret_fuzzy_match.py \u2014 find outstanding secrets hiding under the wrong NAME.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "find misnamed secrets",
+        "fuzzy match env keys",
+        "secrets under the wrong prefix"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:secret_name_export",
+      "kind": "script",
+      "name": "secret_name_export",
+      "path": "scripts/integrations/secret_name_export.py",
+      "description": "secret_name_export.py \u2014 export KEY NAMES ONLY from the agents store.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "export env key names",
+        "list secret names for matching"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:secret_store_restructure",
+      "kind": "script",
+      "name": "secret_store_restructure",
+      "path": "scripts/integrations/secret_store_restructure.py",
+      "description": "secret_store_restructure.py \u2014 group and sort the agents credential store.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "sort the agents env store",
+        "group secrets by app prefix"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
       "id": "script:send_gateway",
       "kind": "script",
       "name": "send_gateway",
@@ -7978,6 +8182,71 @@
             "confirm": false
           }
         }
+      }
+    },
+    {
+      "id": "script:vercel_env_pull_sync",
+      "kind": "script",
+      "name": "vercel_env_pull_sync",
+      "path": "scripts/integrations/vercel_env_pull_sync.py",
+      "description": "vercel_env_pull_sync.py \u2014 recover Vercel PRODUCTION values via the Vercel CLI.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "pull vercel production secrets via cli",
+        "fill the remaining FILL placeholders"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:vercel_secret_sync",
+      "kind": "script",
+      "name": "vercel_secret_sync",
+      "path": "scripts/integrations/vercel_secret_sync.py",
+      "description": "vercel_secret_sync.py \u2014 recover Vercel prod env values into .env.agents for the CF migration.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "sync vercel env values into env agents",
+        "recover vercel production secrets for cloudflare migration"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:wrangler_tool",
+      "kind": "script",
+      "name": "wrangler_tool",
+      "path": "scripts/integrations/wrangler_tool.py",
+      "description": "wrangler_tool.py \u2014 Cloudflare Workers deploy/secrets pipeline for the fleet migration.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "release.cloudflare",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "deploy an app to cloudflare workers",
+        "push secrets to a cloudflare worker",
+        "check cloudflare account, zones, or registrar auto-renew",
+        "vercel to cloudflare migration"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
       }
     },
     {
@@ -9623,6 +9892,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:deploy_oasis_cc_phase2",
+      "to": "script:wrangler_tool",
+      "kind": "calls"
+    },
+    {
       "from": "script:drift_autofix",
       "to": "script:capability_query",
       "kind": "calls"
@@ -9689,6 +9963,11 @@
     },
     {
       "from": "script:fix_cc_leads_records",
+      "to": "script:supabase_tool",
+      "kind": "calls"
+    },
+    {
+      "from": "script:fix_cc_leads_tenant_move",
       "to": "script:supabase_tool",
       "kind": "calls"
     },
@@ -10350,6 +10629,11 @@
     {
       "from": "skill:resource-radar",
       "to": "script:research_fetch",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:resource-radar",
+      "to": "script:wrangler_tool",
       "kind": "uses"
     },
     {

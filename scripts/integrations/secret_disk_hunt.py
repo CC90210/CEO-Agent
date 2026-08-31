@@ -37,7 +37,7 @@ from pathlib import Path
 CAPABILITY_META = {
     "category": "release.cloudflare",
     "lifecycle": "active",
-    "risk": "credential_store_write",
+    "risk": "local_write",
     "triggers": ["recover secrets from disk", "find the missing secret values",
                  "hunt for old env files"],
     "owner": "bravo",
@@ -65,6 +65,9 @@ SUFFIX_HINTS = (".bak", ".backup", ".old", ".orig", ".local", ".save")
 SKIP_DIRS = {"node_modules", ".git", ".next", ".open-next", "__pycache__",
              ".wrangler", "dist", "build", ".vercel"}
 MAX_BYTES = 2_000_000
+
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from lib import env_store  # noqa: E402
 
 
 # Template files document the SHAPE of a key with a placeholder value. Treating
@@ -105,26 +108,7 @@ def _digest(v: str) -> str:
 
 
 def _parse(path: Path) -> dict[str, str]:
-    out: dict[str, str] = {}
-    try:
-        if path.stat().st_size > MAX_BYTES:
-            return out
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return out
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, _, v = line.partition("=")
-        k, v = k.strip(), v.strip()
-        if k.lower().startswith("export "):
-            k = k[7:].strip()
-        if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
-            v = v[1:-1]
-        if k and v:
-            out[k] = v
-    return out
+    return env_store.parse_file(path, max_bytes=MAX_BYTES)
 
 
 def _wanted() -> dict[str, list[tuple[str, str]]]:
@@ -136,11 +120,7 @@ def _wanted() -> dict[str, list[tuple[str, str]]]:
     cannot see is a key nobody is looking for.
     """
     text = ENV_FILE.read_text(encoding="utf-8")
-    present = {
-        ln.split("=", 1)[0].strip()
-        for ln in text.splitlines()
-        if "=" in ln and not ln.lstrip().startswith("#")
-    }
+    present = env_store.key_names(text)
     reg = json.loads(REGISTRY.read_text(encoding="utf-8"))["apps"]
     want: dict[str, list[tuple[str, str]]] = {}
     for slug in reg:

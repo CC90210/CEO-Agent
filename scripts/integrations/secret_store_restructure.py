@@ -34,7 +34,7 @@ from pathlib import Path
 CAPABILITY_META = {
     "category": "release.cloudflare",
     "lifecycle": "active",
-    "risk": "credential_store_write",
+    "risk": "local_write",
     "triggers": ["sort the agents env store", "group secrets by app prefix"],
     "owner": "bravo",
     "project": "empire",

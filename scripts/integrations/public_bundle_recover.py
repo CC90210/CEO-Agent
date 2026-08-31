@@ -35,6 +35,18 @@ import sys
 import urllib.request
 from pathlib import Path
 
+CAPABILITY_META = {
+    "category": "release.cloudflare",
+    "lifecycle": "active",
+    "risk": "local_write",
+    "triggers": ["recover next public env values from a live bundle",
+                 "get the supabase url and anon key back",
+                 "vercel sensitive value cannot be read"],
+    "owner": "bravo",
+    "project": "empire",
+    "bridge": {"visible": False},
+}
+
 ROOT = Path(__file__).resolve().parents[2]
 STORE = ROOT / ".env.agents"
 MANIFESTS = ROOT / "config" / "cloudflare" / "manifests"
@@ -79,19 +91,8 @@ def _store_text() -> str:
     return STORE.read_text(encoding="utf-8")
 
 
-def _populated(text: str) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for raw in text.splitlines():
-        s = raw.strip()
-        if not s or s.startswith("#") or "=" not in s:
-            continue
-        k, _, v = s.partition("=")
-        k, v = k.strip(), v.strip()
-        if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
-            v = v[1:-1]
-        if k and v:
-            out[k] = v
-    return out
+sys.path.insert(0, str(ROOT / "scripts"))
+from lib.env_store import parse_text as _populated  # noqa: E402
 
 
 def _open_gaps(slug: str, text: str) -> dict[str, str]:
@@ -197,6 +198,18 @@ def main() -> int:
                 found[src] = u
             elif bare.endswith("SUPABASE_ANON_KEY"):
                 found[src] = anon
+
+    # Say what was NOT attempted. Next inlines the VALUE, not the key name, so a
+    # key is only recoverable if its value has a recognisable shape — the
+    # Supabase pair does (a *.supabase.co host and a JWT whose ref must match
+    # it), an arbitrary URL does not. Listing a gap and then going quiet about
+    # it reads as "checked and absent" when the truth is "never looked".
+    unattempted = sorted(bare for src, bare in want.items() if src not in found)
+    if unattempted:
+        print(f"\nNOT ATTEMPTED ({len(unattempted)}) — no shape to identify these "
+              f"in an inlined bundle:")
+        for bare in unattempted:
+            print(f"   {bare}")
 
     if not found:
         print("\nnothing recoverable from this bundle.")
