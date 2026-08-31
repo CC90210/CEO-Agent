@@ -164,6 +164,77 @@ def _cf_get(path: str, token: str, timeout: int = 30) -> dict:
         return {"success": False, "http_status": e.code, "body": e.read().decode()[:300]}
 
 
+def _cf_patch(path: str, token: str, payload: dict, timeout: int = 30) -> dict:
+    req = urllib.request.Request(
+        f"{CF_BASE}{path}",
+        data=json.dumps(payload).encode(),
+        method="PATCH",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": UA},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return {"success": False, "http_status": e.code, "body": e.read().decode()[:300]}
+
+
+def cmd_zone_https(registry: dict, args: argparse.Namespace) -> int:
+    """Report (and optionally fix) zones that still serve cleartext HTTP.
+
+    Vercel answered plain HTTP with a 308 to HTTPS. Cloudflare does not do that
+    by default, so every hostname moved to Workers in this migration began
+    serving its login page over cleartext — measured on all six. Session cookies
+    marked Secure are not sent over HTTP, so sessions do not leak directly, but
+    serving the login FORM unencrypted is an SSL-strip surface: an attacker on
+    the path can rewrite it before it reaches the user.
+
+    `Always Use HTTPS` is a per-zone setting, so it must be checked per zone
+    rather than fixed once. This only ever turns encryption ON — there is no
+    path here that weakens a zone.
+    """
+    token = _cf_token(_secrets())
+    out = _cf_get("/zones?per_page=50", token)
+    if not out.get("success"):
+        print(json.dumps(out, indent=2))
+        return 1
+    zones = out.get("result") or []
+    if args.zone:
+        zones = [z for z in zones if z["name"] == args.zone]
+        if not zones:
+            print(f"no zone named {args.zone} visible to this token")
+            return 1
+
+    offenders, rc = [], 0
+    for z in zones:
+        s = _cf_get(f"/zones/{z['id']}/settings/always_use_https", token)
+        if not s.get("success"):
+            print(f"  {z['name']:38} UNREADABLE — {s.get('body', s.get('http_status'))}")
+            rc = 1                      # unreadable is not the same as compliant
+            continue
+        value = (s.get("result") or {}).get("value")
+        if value == "on":
+            print(f"  {z['name']:38} https-only ON")
+            continue
+        offenders.append(z)
+        print(f"  {z['name']:38} CLEARTEXT ALLOWED (always_use_https={value})")
+
+    if not offenders:
+        print("\nevery visible zone forces HTTPS.")
+        return rc
+    if not args.enable:
+        print(f"\n{len(offenders)} zone(s) still serve cleartext. Re-run with --enable to fix.")
+        return 1
+
+    for z in offenders:
+        res = _cf_patch(f"/zones/{z['id']}/settings/always_use_https", token, {"value": "on"})
+        ok = res.get("success") and (res.get("result") or {}).get("value") == "on"
+        print(f"  {'ENABLED ' if ok else 'FAILED  '} {z['name']}")
+        if not ok:
+            print(f"           {res.get('body', res)}")
+            rc = 1
+    return rc
+
+
 # ---------------------------------------------------------------- registry
 
 def _registry() -> dict:
@@ -872,6 +943,9 @@ def main() -> int:
     add("whoami", cmd_whoami)
     add("accounts", cmd_accounts)
     add("zones", cmd_zones)
+    add("zone-https", cmd_zone_https,
+        **{"--zone": {"default": None, "help": "one zone name; default is every visible zone"},
+           "--enable": {"action": "store_true", "help": "turn Always Use HTTPS on where it is off"}})
     add("zone-baseline", cmd_zone_baseline, **{"--date": {"default": None}})
     add("attach-domain", cmd_attach_domain, needs_app=True,
         **{"--hostname": {"required": True},

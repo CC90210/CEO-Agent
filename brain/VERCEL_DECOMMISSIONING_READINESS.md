@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-08-31
 tags: [cloudflare, migration, vercel-exit, readiness]
 ---
 
@@ -9,6 +9,99 @@ tags: [cloudflare, migration, vercel-exit, readiness]
 > Companions: [[brain/DNS_CUTOVER_AND_VERCEL_EXIT_CHECKLIST]] ·
 > [[brain/WAVE3_OASIS_CC_RUNBOOK]] · baselines in
 > `state/cloudflare_baselines/2026-08-30/`.
+
+## 2026-08-31 02:30Z — GATE 1 CLOSED FOR OASIS CC: FULLY CREDENTIALED, LAST VERCEL PATH CUT
+
+**`oasis-command-center` now runs on Workers with a complete secret set.** 100
+secrets pushed, **zero `--allow-missing` warnings** — the first deploy in this
+migration that needed no exemption. The live apex reports **9 of 12 integrations
+present, which is exact parity with the Vercel baseline**: the same three
+(`BRAVO_OPENAI_API_KEY`, `BRAVO_SUPABASE_ANON_KEY`, `CHAT_ATTACHMENT_HMAC_KEY`)
+were absent on Vercel too, so they are pre-existing and not introduced here.
+
+CC located the missing Google credentials as un-prefixed globals at the top of
+the store; Antigravity mapped them in. Verified before deploying, not assumed:
+`GOOGLE_CLIENT_ID` and `GOOGLE_SYSTEM_CALENDAR_CLIENT_ID` hold **different**
+values, which is the specific failure an earlier adversarial review predicted
+(the app keeps two Google OAuth clients on purpose — a rep-facing web client and
+a headless desktop identity, and one cannot be both).
+
+### The last Vercel path for this app, which the apex cutover did not close
+
+`www.oasisai.work/app/*` was still proxying to `agent-dashboard-cc90210.vercel.app`
+and serving a live 200. The apex cutover on 08-30 moved `oasisai.work` but left
+this second route to the same dashboard pointing at Vercel. It now reaches the
+Worker over a **service binding** (`DASHBOARD → oasis-command-center`), so the
+request never leaves Cloudflare and nothing depends on the workers.dev subdomain
+staying enabled.
+
+Proof it is actually the Worker serving it and not a silent fall-through:
+`/app/api/health` reports the Worker build, while the Vercel deployment reports a
+different one. `/app`, `/app/` and `/app/login` all 200; `/app/dashboard` 307s to
+auth as expected.
+
+⚠ **One regression happened during this change and was caught before it stood.**
+Naming the binding's origin `oasis-command-center.internal` routed correctly but
+returned **530 on `/app` and `/app/`** while deeper paths still worked — the Next
+server does host-dependent work on the root route and an unresolvable hostname
+breaks it. The binding decides routing; the hostname is what the *app* sees, so
+it must be the real public origin. The lesson generalises: **when a proxy target
+changes, probe the ROOT path, not just a deep one** — a deep path can succeed
+while the root fails.
+
+### Google sign-in is broken, and was broken before this migration
+
+Probing `/api/auth/google/start` on the **live Vercel** deployment shows it
+hands Google a `client_id` whose registered redirect URIs do **not** include the
+callback the app itself emits. Google answers `redirect_uri_mismatch`. This is a
+**pre-existing production defect on Vercel, not a cutover regression** — it fails
+identically on both stacks, so it neither blocks nor is fixed by the migration.
+
+Three distinct Google OAuth clients are now accounted for, each verified against
+Google's token endpoint rather than by name:
+
+| Client | Secret in the store? | State |
+|---|---|---|
+| the store's `GOOGLE_CLIENT_ID` pair | yes, and it **authenticates** | valid client; its redirect URIs do not include the production callback |
+| the system-calendar pair | yes, and it **authenticates** | valid, in use for the shared calendar |
+| the client **live production actually uses** | **no — all six candidates failed** | its secret exists only in the Google Cloud Console |
+
+To restore Google sign-in CC needs the client secret for the client whose id
+production already serves, and that client must have the production callback
+registered. Neither is blocking for the Vercel exit. Tools:
+`scripts/integrations/google_client_pair_probe.py` (which secret pairs with which
+client) and `scripts/integrations/secret_identity_check.py` (are two keys the
+same credential, without revealing either).
+
+### Crons after the redeploy
+
+`cron-driver.yml` targets `https://oasisai.work`, which is the Worker. The three
+most recent scheduled runs succeeded. After the 02:20Z redeploy, unauthenticated
+probes of four cron routes all return **401 (configured)** rather than 500 (secret
+missing) or 404 (route gone) — checked without firing production jobs.
+
+### sunbizfunding.com — the repoint has not reached the registrar
+
+Reported repointed twice; both times the live check disagreed, and this is **not
+propagation lag**: Google's own nameservers still answer authoritatively for the
+domain, which means the registrar record was never changed.
+
+- **Set these two at the registrar:** `damian.ns.cloudflare.com` and
+  `sydney.ns.cloudflare.com`
+- **Currently served:** `ns-cloud-a1..a4.googledomains.com`
+
+`wrangler_tool.py zones` now prints both lines for any zone stuck at `pending`,
+so "still pending" is never reported again without the values needed to fix it.
+
+### What is left before the 7-day soak can start
+
+| Item | Owner | Blocking Gate 1? |
+|---|---|---|
+| `breeze-portal` Plaid keys (3) | CC | no — CC accepted a degraded deploy; Plaid routes 401 |
+| `sunbizfunding.com` nameservers | CC | **yes** — two brand hostnames still resolve to Vercel |
+| Google sign-in client secret | CC | no — broken on both stacks, pre-existing |
+
+---
 
 ## 2026-08-31 — APEX CUT OVER, CRONS VERIFIED ALIVE, AND THE CANCELLATION TIMELINE
 
@@ -45,23 +138,24 @@ with the same title.
 | bluerisebusinesscapital.com + www | **Workers** | |
 | propflow.pro + www | **Workers** | |
 | nostalgicrequests.com + www | **Workers** | |
-| breezeadvance.credit | Cloudflare → **Vercel** | zone on CF but proxied to Vercel: breeze-portal has no Worker |
+| breezeadvance.credit | **Workers** | superseded 2026-08-31: breeze-portal deployed and attached; Plaid routes 401 until CC adds the 3 keys |
 | sunbizfunding.com + www | **Vercel** | zone still PENDING — nameservers still at Google Domains |
 | arthrisil.com | third party, **403** | not a zone in this account; broken before the migration |
 
 ### Cancellation timeline — three gates, in order
 
-**Gate 1 — finish the fleet (blocked on CC).**
-- `breeze-portal`: install the OpenNext adapter (its build currently fails with
-  "could not determine executable to run") + 16 secrets, of which
-  **BREEZE_ENCRYPTION_KEY must be RECOVERED, never rotated** — it encrypts Plaid
-  access tokens at rest. Then breezeadvance.credit attaches.
-- `opt-in-vault`: not yet deployed.
-- `oasis-command-center`: 16 secrets outstanding. The app runs today without
-  them; each gap disables a subsystem (Google Calendar needs the refresh token,
-  the VPS bridge needs its bearer).
-- `sunbizfunding.com`: change nameservers at Google Domains → zone activates →
-  attach.
+**Gate 1 — finish the fleet.** Superseded by the 2026-08-31 02:30Z section
+above; kept here for the trail of what each item turned out to be.
+- ~~`breeze-portal`~~ **DONE.** Adapter installed, deployed, `breezeadvance.credit`
+  attached and serving 200 from Workers. BREEZE_ENCRYPTION_KEY was recovered by
+  CC, never rotated, as required. **Plaid keys (3) remain absent** — CC accepted
+  a degraded deploy, so bank-linking routes 401 until they land.
+- ~~`opt-in-vault`~~ **DONE.** Deployed with all 21 secrets and a rewritten
+  trust model (Cloudflare operator-attestation edge). 360 tests green.
+- ~~`oasis-command-center`~~ **DONE.** 100 secrets, zero gaps, parity with the
+  Vercel baseline, and its last Vercel-bound path (`/app/*`) closed.
+- `sunbizfunding.com`: **STILL THE ONE BLOCKER.** The nameserver change has not
+  reached the registrar — exact values in the 02:30Z section above.
 
 **Gate 2 — per-project retirement.** Once a hostname has served from Workers for
 7 clean days, its Vercel project may be deleted one at a time, each with CC's
