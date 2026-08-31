@@ -10,6 +10,79 @@ tags: [cloudflare, migration, vercel-exit, readiness]
 > [[brain/WAVE3_OASIS_CC_RUNBOOK]] · baselines in
 > `state/cloudflare_baselines/2026-08-30/`.
 
+## 2026-08-31 — APEX CUT OVER, CRONS VERIFIED ALIVE, AND THE CANCELLATION TIMELINE
+
+**`oasisai.work` apex now serves the oasis-command-center Worker.** Zone diff vs
+the pre-cutover snapshot: exactly 2 intended deltas (Vercel `A 216.198.79.1`
+removed, Cloudflare's `AAAA 100::` marker added). **All 11 mail/TXT records and
+both tunnel CNAMEs byte-identical.** Rollback is one record:
+`A oasisai.work -> 216.198.79.1`, unproxied, ttl 600.
+
+**Crons proven alive end-to-end**, not merely configured: a `workflow_dispatch`
+after repointing returned **200 on all 6 due routes**.
+
+⚠ **A live outage happened and was fixed inside the hour.** The GitHub secret was
+aligned to the Worker's rotated cron bearer while `cron-driver.yml` still
+targeted the Vercel deployment, which holds the OLD value. The 23:46Z scheduled
+run returned 200s; the 23:51Z dispatch returned **401 on every route**. Fixed by
+PR #349 repointing BASE to the apex. The lesson is the pairing rule the runbook
+already stated: **align the secret AND repoint the driver in the same change.**
+Half of it is an outage.
+
+Also recorded: verifying the cutover from this machine initially showed
+`Server: Vercel` and a 401, which looked like a failed cutover. It was **local
+OS DNS cache** holding the old A record for its 600s TTL. Forcing resolution to
+the Cloudflare edge showed `Server: cloudflare` and a 200. Verify a cutover
+against the edge IP, not through a caching resolver — and note the
+title-equality guard cannot catch this, because both stacks serve the same app
+with the same title.
+
+### Where each hostname now lives
+
+| Hostname | Serving from | Note |
+|---|---|---|
+| oasisai.work (apex) + www | **Workers** | apex = OASIS CC, www = marketing platform |
+| bluerisebusinesscapital.com + www | **Workers** | |
+| propflow.pro + www | **Workers** | |
+| nostalgicrequests.com + www | **Workers** | |
+| breezeadvance.credit | Cloudflare → **Vercel** | zone on CF but proxied to Vercel: breeze-portal has no Worker |
+| sunbizfunding.com + www | **Vercel** | zone still PENDING — nameservers still at Google Domains |
+| arthrisil.com | third party, **403** | not a zone in this account; broken before the migration |
+
+### Cancellation timeline — three gates, in order
+
+**Gate 1 — finish the fleet (blocked on CC).**
+- `breeze-portal`: install the OpenNext adapter (its build currently fails with
+  "could not determine executable to run") + 16 secrets, of which
+  **BREEZE_ENCRYPTION_KEY must be RECOVERED, never rotated** — it encrypts Plaid
+  access tokens at rest. Then breezeadvance.credit attaches.
+- `opt-in-vault`: not yet deployed.
+- `oasis-command-center`: 16 secrets outstanding. The app runs today without
+  them; each gap disables a subsystem (Google Calendar needs the refresh token,
+  the VPS bridge needs its bearer).
+- `sunbizfunding.com`: change nameservers at Google Domains → zone activates →
+  attach.
+
+**Gate 2 — per-project retirement.** Once a hostname has served from Workers for
+7 clean days, its Vercel project may be deleted one at a time, each with CC's
+explicit approval. Keep every Vercel deployment warm until then — it is the only
+rollback, and the `_vercel` TXT records must stay for the same reason.
+
+**Gate 3 — account closure. Separate decision, and the slowest.** Cancelling the
+account also kills **nine out-of-scope projects** (listing-studio — deliberately
+staying — revline, oasis-vanguard, aura-home-agent, on-the-bay-painting,
+kli-hub-dashboard, showroom, gritly, oasis-command-center-arthrisil-deploy), and
+any Vercel-registered domain must be transferred out first or it is lost.
+Listing-studio also holds a Vercel Blob store that would need moving to R2.
+
+**Realistic earliest full cancellation:** Gate 1 is days (operator-dependent),
+Gate 2 adds 7 days after the last cutover, Gate 3 needs a decision on nine
+unrelated projects. Per-project retirement captures nearly all the saving and
+can begin ~7 days after each cutover — that is the lever worth pulling first.
+
+Run `python scripts/vercel_exit_report.py` for the live verdict; it is the
+authority and this section is a snapshot.
+
 ## VERDICT: **NOT READY** (`vercel_exit_report.py` exit 2 — work outstanding, 0 regressions)
 
 > The verdict is no longer maintained by hand. Run
