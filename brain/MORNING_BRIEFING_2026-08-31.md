@@ -119,16 +119,27 @@ callback the Worker actually emits. In Google Cloud Console:
 1. Either reuse the existing Web client
    `266259068460-6hiqinfgi0srcbadae8rkir5qhn82lkg…` **or create a new Web
    client** — both work, pick whichever is tidier.
-2. **Authorized redirect URIs → add this exact string** (keep anything already
+2. **Authorized redirect URIs → add BOTH of these** (keep anything already
    there):
    ```
    https://oasisai.work/api/auth/google/callback
+   https://oasisai.work/api/auth/google-oauth/callback
    ```
-   Add this second one too if you want sign-in working on the Vercel deployment
-   during the soak:
-   ```
-   https://agent-dashboard-cc90210.vercel.app/api/auth/google/callback
-   ```
+
+   > **Both, not one.** Sign-in and the Gmail-connect feature in Settings share
+   > the *same* `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` pair but use
+   > *different* callback paths (`app/api/auth/google/callback` vs
+   > `app/api/auth/google-oauth/callback`). Registering only the first fixes
+   > sign-in and leaves Gmail connect broken — I verified both are currently
+   > MISMATCH on `oasisai.work`.
+   >
+   > **Gmail connect is a live Vercel dependency you may not know about.** It
+   > works today *only* because the vercel.app connect callback is registered on
+   > that client — I confirmed that one is accepted. When Vercel goes away, the
+   > feature dies unless the `oasisai.work` URI above is added.
+
+   Optionally add the two `https://agent-dashboard-cc90210.vercel.app/...`
+   equivalents if you want both flows working on Vercel during the soak.
 3. Copy that client's **id and secret** (minting a fresh secret is cleaner — you
    never handle the old value, and Google supports two during rotation).
 
@@ -150,6 +161,26 @@ means its API will not decrypt it for anyone — I verified this specifically
 **Expect a second failure after this.** Fixing the redirect gets you to Google's
 consent screen; whether the *callback* then succeeds depends on the user lookup
 behind it. Worth a single end-to-end sign-in attempt rather than assuming.
+
+### Three things NOT to do, each of which looks reasonable
+
+- **Do not "fix" the redirect_uri in code.** `app/api/auth/google/start/route.ts:25`
+  derives it from `req.url`, which resolves to the correct public host on both
+  stacks — verified in the live `Location` headers. The URI the app emits is
+  right; the registration is what is missing.
+- **Do not add `PUBLIC_APP_URL` to the sign-in route.** It is already set
+  correctly (`https://oasisai.work` — confirmed by digest without reading it),
+  and the sign-in family deliberately ignores it so that every host serving the
+  app self-describes correctly. Adding it changes nothing and removes that
+  property.
+- **Do not treat broken Google sign-in as a reason to roll back to Vercel.** It
+  was already dead there — the sign-in callback is unregistered on *both* hosts.
+  Rolling back restores nothing. Password login works on both stacks and is
+  unaffected.
+
+Incidental security check while probing: a spoofed `Host:` header against
+`oasisai.work` is rejected at the Cloudflare edge with a 403, so the `req.url`
+derivation is not an injection surface.
 
 ---
 
@@ -231,6 +262,22 @@ nothing, for two independent reasons:
 
 ---
 
+## Fixed overnight: Blue Rise was telling Google its home was a vercel.app URL
+
+`bluerisebusinesscapital.com` — a live customer domain — served
+`rel="canonical"` and `og:url` both pointing at
+`https://blue-rise-website.vercel.app`. So the real domain was serving the
+content while declaring the *platform* URL canonical. That invites the vercel.app
+URL to outrank the brand, and it becomes a dead canonical the moment that Vercel
+project is retired.
+
+Predates the migration, but the cutover made it worse: the real domain moved to
+Workers while the canonical kept naming Vercel. Fixed, deployed, verified live —
+canonical and `og:url` now read `https://bluerisebusinesscapital.com` and the
+served HTML contains zero `vercel.app` references. I checked the other five
+migrated hostnames first; theirs are correct or absent, so this was an instance
+rather than a class.
+
 ## The exit gate itself was wrong, and that is now fixed
 
 Worth its own heading because of what it authorises. `vercel_exit_report.py` is
@@ -254,6 +301,27 @@ Two independent blind spots:
 
 It now watches 15 hostnames and flags all five, labelling the proxied one
 explicitly. No migrated hostname is falsely flagged.
+
+## Flagged, not acted on — worth your judgement
+
+From a 46-agent sweep over the OAuth path and the data layer behind it. These are
+reported rather than fixed because each is a judgement call or needs production
+data I would not query unattended:
+
+- **The Google callback refuses unknown accounts by design** — the user row must
+  pre-exist. So after the redirect URIs are registered, sign-in may still fail
+  for an account that has never been provisioned. That is the "second failure"
+  to expect, and it is intended behaviour, not a bug.
+- **A user with more than one `user_profiles` row 401s on every API call**, and
+  two profile resolvers disagree with each other — so a page can render while
+  every request behind it fails. Latent, not currently firing.
+- **The OAuth sign-in path has no executable test.** Its only "test" greps the
+  source file for a string. Worth fixing before the next change to that route.
+- **The Gmail-connect path still reads Supabase**, which blocks a clean full
+  decommissioning even after Vercel is gone.
+- **The Cloudflare app registry's domain list is wrong on two of three rows** for
+  the dashboard Worker — the same class of staleness that hid three hostnames
+  from the exit gate.
 
 ## Overnight state
 
