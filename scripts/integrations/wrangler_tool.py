@@ -241,6 +241,16 @@ def cmd_zones(registry: dict, args: argparse.Namespace) -> int:
         return 0
     for z in zones:
         print(f"{z['name']:40} {z['status']:10} {z['id']}")
+        # A zone stuck at `pending` is waiting on the REGISTRAR, and the single
+        # most useful thing to print is the exact pair to enter there. Twice a
+        # repoint was reported done while the registrar still served its old
+        # nameservers, and "still pending" was not actionable feedback.
+        if z.get("status") == "pending":
+            assigned = z.get("name_servers") or []
+            current = z.get("original_name_servers") or []
+            print(f"{'':40} SET THESE AT THE REGISTRAR: {', '.join(assigned) or 'not yet assigned'}")
+            if current:
+                print(f"{'':40} registrar currently serves:  {', '.join(current)}")
     return 0
 
 
