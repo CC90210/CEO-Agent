@@ -105,29 +105,24 @@ def gate_fleet() -> dict:
                 "detail": f"COULD NOT PARSE fleet_health_check output (rc={rc})"}
     unhealthy = {r["app"]: r.get("verdict", "?") for r in report if r.get("verdict") != "ok"}
     new = {a: v for a, v in unhealthy.items() if a not in KNOWN_BROKEN}
+    note = ""
     if new:
         confirm, _ = _fleet_run()
         if confirm is not None:
-            still = {r["app"] for r in confirm if r.get("verdict") != "ok"}
-            cleared = [a for a in new if a not in still]
-            new = {a: v for a, v in new.items() if a in still}
+            persisting = {r["app"] for r in confirm if r.get("verdict") != "ok"}
+            cleared = sorted(a for a in new if a not in persisting)
+            new = {a: v for a, v in new.items() if a in persisting}
             for a in cleared:
                 unhealthy.pop(a, None)
-            if cleared and not new:
-                unhealthy_note = f" (transient, cleared on re-check: {', '.join(sorted(cleared))})"
-            else:
-                unhealthy_note = ""
-        else:
-            unhealthy_note = ""
-    else:
-        unhealthy_note = ""
+            if cleared:
+                note = f" (transient, cleared on re-check: {', '.join(cleared)})"
     total = len(report)
     if new:
         detail = "NEW: " + "; ".join(f"{a}: {v}" for a, v in sorted(new.items()))
     else:
         baseline = ", ".join(sorted(unhealthy)) or "none"
         detail = (f"{total - len(unhealthy)}/{total} ok; known-broken only "
-                  f"({baseline}){unhealthy_note}")
+                  f"({baseline}){note}")
     return {"gate": "fleet health (every hostname, both stacks)", "pass": not new,
             "detail": detail}
 
@@ -137,11 +132,19 @@ def gate_fleet() -> dict:
 # and calling incomplete work a regression would make the alarm meaningless.
 # Same contract as KNOWN_BROKEN: a reason and a removal condition, or it becomes
 # a hiding place. gate_secrets still reports these loudly, so nothing is buried.
-KNOWN_INCOMPLETE = {
-    # Deployed 2026-08-30 with 26 sensitive secrets outstanding. Its cron routes
-    # 500 because CRON_SECRET is unset (lib/cron-auth.ts fails closed).
-    # REMOVE WHEN: CRON_SECRET is filled and secrets-plan reports 0 gaps.
-    "oasis-command-center": "deployed with 26 secrets outstanding; cron routes 500 without CRON_SECRET",
+KNOWN_INCOMPLETE: dict[str, str] = {
+    # EMPTY, and that is the point. oasis-command-center sat here from 2026-08-30
+    # with "26 secrets outstanding; cron routes 500 without CRON_SECRET". Both
+    # halves stopped being true on 2026-08-31 — secrets-plan reports 0 gaps and
+    # the cron routes answer 401 (configured) rather than 500 — but the exemption
+    # stayed, which meant this gate would have swallowed a REAL oasis-command-center
+    # data-plane failure and reported "known-incomplete only".
+    #
+    # It was caught by reading the inventory that test_exit_gate_exemptions.py
+    # prints, which is exactly what that inventory is for: a mechanical check can
+    # prove an exemption is well-formed, only a human reading it can notice the
+    # premise expired. Removal condition met; entry deleted rather than kept
+    # "just in case".
 }
 
 
@@ -281,7 +284,12 @@ def gate_traffic() -> dict:
     substring test then read as "not on Vercel". A hostname that cannot resolve
     is reported as its own state, never silently as a pass.
     """
-    still, unresolved = [], []
+    # (hostname, why) kept as a PAIR rather than a preformatted string. The
+    # hostname is the key this gate makes decisions on, and recovering it by
+    # splitting a display string back apart is structure smuggled through text —
+    # it breaks silently the first time the annotation format changes.
+    still: list[tuple[str, str]] = []
+    unresolved: list[str] = []
     for host in _watched_hosts():
         try:
             ips = {a[4][0] for a in socket.getaddrinfo(host, 443)}
@@ -289,17 +297,22 @@ def gate_traffic() -> dict:
             unresolved.append(host)
             continue
         if any(ip.startswith(VERCEL_PREFIXES) for ip in ips):
-            still.append(host)
+            still.append((host, ""))
             continue
         # Resolving off-Vercel is not proof of being off Vercel.
         is_vercel, why = _vercel_origin(host)
         if is_vercel:
-            still.append(f"{host} (proxied; {why})")
+            still.append((host, f"proxied; {why}"))
+
+    def _label(pair: tuple[str, str]) -> str:
+        host, why = pair
+        return f"{host} ({why})" if why else host
+
     # Split what the operator has accepted from what nobody has looked at. The
     # first is a decision; the second is a surprise, and only the second should
     # hold the gate closed.
-    accepted = [h for h in still if h.split(" ")[0] in OPERATOR_ACCEPTED]
-    blocking = [h for h in still if h.split(" ")[0] not in OPERATOR_ACCEPTED]
+    accepted = [_label(p) for p in still if p[0] in OPERATOR_ACCEPTED]
+    blocking = [_label(p) for p in still if p[0] not in OPERATOR_ACCEPTED]
     ok = not blocking and not unresolved
     bits = []
     if blocking:
