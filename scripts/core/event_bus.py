@@ -56,6 +56,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -67,6 +68,11 @@ if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
 OFFLINE_QUEUE_PATH = PROJECT_ROOT / "tmp" / "events_offline.jsonl"
+# Drain bounds. The cron row runs this as a `script_run`, which scheduler.py
+# caps at 300s and kills hard. Budget the WORK well under that so the final
+# file rewrite — the step that makes progress durable — always gets to run.
+DRAIN_BUDGET_SECONDS = 200.0
+DRAIN_MAX_ROWS = 500
 
 # ---- Env helpers (same pattern as send_gateway.py) --------------------------
 
@@ -334,17 +340,51 @@ def reap_stuck() -> int:
         return -1
 
 
-def drain_offline_queue() -> dict[str, int]:
-    """Replay tmp/events_offline.jsonl into the DB. Returns stats."""
+def drain_offline_queue(
+    *,
+    budget_seconds: float = DRAIN_BUDGET_SECONDS,
+    max_rows: int = DRAIN_MAX_ROWS,
+) -> dict[str, int]:
+    """Replay tmp/events_offline.jsonl into the DB. Returns stats.
+
+    BOUNDED BY CONSTRUCTION, and that is the whole point (2026-09-01).
+
+    The previous version read every line, inserted them one at a time, and
+    rewrote the file ONLY after the loop finished. Its cron row is a
+    `script_run` with a 300s cap, so a backlog big enough to exceed the cap was
+    unrecoverable: the process was killed mid-loop, the rewrite never ran, and
+    the next tick re-read the identical backlog and died the same way. Measured
+    2026-09-01: the alert CC saw at 02:06 was that loop, and only an unrelated
+    truncation of the queue file broke it. A single Turso blip large enough to
+    queue a few thousand events would have re-armed it permanently.
+
+    So each run now takes a bounded bite and PERSISTS PROGRESS whether or not
+    it finishes: whatever is left (unprocessed + failed) is written back, and
+    the next tick resumes from there. `remaining > 0` is normal, not an error —
+    it means the drain is working through a backlog, which is exactly what a
+    10-minute cron should do.
+
+    The budget sits well under the 300s cap on purpose. A deadline that only
+    bounds admission does not bound the run: the last insert admitted at 299s
+    still has to finish, and the file still has to be rewritten. The headroom
+    is that teardown reserve.
+    """
     if not OFFLINE_QUEUE_PATH.exists():
         return {"replayed": 0, "failed": 0, "remaining": 0}
     lines = OFFLINE_QUEUE_PATH.read_text(encoding="utf-8").splitlines()
     replayed = 0
     failed: list[str] = []
+    deferred: list[str] = []
     client = _get_database()
-    for line in lines:
+    started = time.monotonic()
+    for index, line in enumerate(lines):
         if not line.strip():
             continue
+        # Stop taking new work once either bound is hit; everything still
+        # untouched is deferred verbatim to the next run.
+        if replayed >= max_rows or (time.monotonic() - started) >= budget_seconds:
+            deferred.extend(l for l in lines[index:] if l.strip())
+            break
         try:
             row = json.loads(line)
             client.table("agent_events").insert(row).execute()
@@ -352,9 +392,11 @@ def drain_offline_queue() -> dict[str, int]:
         except Exception as exc:
             failed.append(line)
             print(f"[event_bus] drain skip: {exc}", file=sys.stderr)
-    # Rewrite the file keeping only failed rows.
-    OFFLINE_QUEUE_PATH.write_text("\n".join(failed) + ("\n" if failed else ""), encoding="utf-8")
-    return {"replayed": replayed, "failed": len(failed), "remaining": len(failed)}
+    # Rewrite the file keeping failed rows AND anything the budget deferred.
+    # Failed rows go last so a permanently-bad row cannot starve fresh work.
+    keep = deferred + failed
+    OFFLINE_QUEUE_PATH.write_text("\n".join(keep) + ("\n" if keep else ""), encoding="utf-8")
+    return {"replayed": replayed, "failed": len(failed), "remaining": len(keep)}
 
 
 def stats() -> dict[str, Any]:

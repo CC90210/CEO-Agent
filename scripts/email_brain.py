@@ -460,11 +460,13 @@ def process_email(
             # auto-sending a low-quality reply. Only an explicit ship=False
             # downgrades — a drafter that doesn't report quality still sends.
             if isinstance(draft, dict) and draft.get("ship") is False:
-                get("store_draft")(email, draft, category)
+                draft_id = get("store_draft")(email, draft, category)
                 out["drafted"] = True
+                out["draft_id"] = draft_id
                 out["action"] = "draft_hold"
                 out["reason"] = "auto-reply downgraded: draft failed the quality critic; held for review."
-                get("notify")(_draft_notice(category, sender, subj, draft, flagged=True))
+                get("notify")(_draft_notice(category, sender, subj, draft, flagged=True),
+                              _draft_buttons(draft_id))
                 out["notified"] = True
             else:
                 get("send_reply")(email, draft)      # if this raises, sent stays False
@@ -474,8 +476,9 @@ def process_email(
                 get("mark_read")(email)
         elif action == "draft_hold":
             draft = get("draft_reply")(email, category)
-            get("store_draft")(email, draft, category)
+            draft_id = get("store_draft")(email, draft, category)
             out["drafted"] = True
+            out["draft_id"] = draft_id
             # Honour the draft's OWN verdict. This branch used to headline every
             # held draft "Draft ready to send" regardless of ship, so a reply the
             # copy critic REJECTED — for quoting a price, for a banned phrase —
@@ -485,7 +488,8 @@ def process_email(
             # catch-all and turn a mislabelled alert into NO alert.
             get("notify")(_draft_notice(
                 category, sender, subj, draft,
-                flagged=isinstance(draft, dict) and draft.get("ship") is False))
+                flagged=isinstance(draft, dict) and draft.get("ship") is False),
+                _draft_buttons(draft_id))
             out["notified"] = True
             # left unread so it stays visible for CC's review
         elif action == "archive":
@@ -783,18 +787,47 @@ def handoff_to_atlas(email: dict, *, db=None) -> bool:
         return False
 
 
-def notify_cc(text: str, *, category: str = "email", force: bool = False) -> bool:
+def notify_cc(text: str, *, category: str = "email", force: bool = False,
+              reply_markup: Optional[dict] = None) -> bool:
     """One clean Telegram alert (replaces the n8n inline Telegram nodes).
 
     `force` breaks through notify.py's muting. notify.py puts "email" in
     DEFAULT_SILENT, so without it a $5k hot lead and an outage arrive on CC's
     phone with no sound — indistinguishable from a newsletter.
+
+    `reply_markup` carries the Approve/Reject keyboard for a held draft. It is
+    optional so every other alert in this module is unchanged.
     """
     try:
         from notify import notify
-        return notify(text, category=category, force=force)
+        return notify(text, category=category, force=force, reply_markup=reply_markup)
     except Exception:  # noqa: BLE001
         return False
+
+
+def _draft_buttons(draft_id: Optional[str]) -> Optional[dict]:
+    """Approve/Reject keyboard bound to one stored draft row.
+
+    Returns None when the draft could not be persisted — store_draft_row is
+    best-effort and returns None on failure. A button whose id does not resolve
+    would be a dead tap, and an alert that LOOKS actionable but silently does
+    nothing is worse than one that plainly says "no buttons": CC would tap it,
+    see nothing happen, and have no way to tell whether the mail went out.
+    In that case the notice still carries the full proposed reply, which is
+    exactly the behaviour that existed before buttons.
+
+    callback_data carries ONLY the row id — never subject or sender. Telegram
+    caps it at 64 bytes, and it is echoed back to the bot verbatim, so it must
+    stay opaque and untrusted-free. The handler re-reads the row to decide.
+    """
+    if not draft_id:
+        return None
+    return {
+        "inline_keyboard": [[
+            {"text": "✅ Approve & send", "callback_data": f"draft_approve:{draft_id}"},
+            {"text": "🗑 Reject", "callback_data": f"draft_reject:{draft_id}"},
+        ]]
+    }
 
 
 def tagged_alert(tag_key: str, sender: str, subject: str, extra: str = "") -> bool:
@@ -838,7 +871,7 @@ def build_default_deps(mark_read=None, db=None, apply_label=None) -> dict:
         "store_draft": lambda email, draft, category: store_draft_row(email, draft, category, db=db),
         "archive": _mark_read,
         "handoff_atlas": lambda email: handoff_to_atlas(email, db=db),
-        "notify": lambda text: notify_cc(text),
+        "notify": lambda text, reply_markup=None: notify_cc(text, reply_markup=reply_markup),
         "alert": tagged_alert,
         "mark_read": _mark_read,
     }

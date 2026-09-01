@@ -480,7 +480,8 @@ CATEGORY_PREFIX = {
 
 def notify(message: str, category: str = "system", silent: bool = False,
            force: bool = False, dedup_key: Optional[str] = None,
-           agent: Optional[str] = None, group: bool = False) -> bool:
+           agent: Optional[str] = None, group: bool = False,
+           reply_markup: Optional[dict] = None) -> bool:
     """
     Send a Telegram notification to CC.
 
@@ -704,6 +705,19 @@ def notify(message: str, category: str = "system", silent: bool = False,
         "parse_mode": "HTML",
         "disable_notification": silent,
     }
+    # Inline keyboard passthrough (2026-09-01). An alert that proposes an action
+    # and gives no way to take it makes the operator the transport: CC was
+    # reading a drafted reply on his phone and then retyping it somewhere else.
+    # Callers attach {"inline_keyboard": [[...]]}; the bot's callback_query
+    # handler does the work. Sent as a dict because this POSTs json=payload —
+    # Telegram only needs it JSON-encoded on form-encoded requests.
+    #
+    # Deliberately NOT escaped: unlike `text` this never reaches an HTML parser,
+    # and callback_data must survive byte-for-byte or the tap will not match.
+    # It follows that callback_data must never carry untrusted text — pass an
+    # opaque row id and let the handler look the record up.
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
 
     # Bounded transport retry (2026-07-28). The AV TLS-scanning filter driver on
     # this box intermittently aborts the outbound socket mid-handshake, which

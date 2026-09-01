@@ -1501,6 +1501,60 @@ bot.on('callback_query', async (query) => {
     // generic "No pending confirmation found." branch — safe no-op.
 
     const [action, nonce] = String(data || '').split(':');
+
+    // ---- Email-draft approvals (2026-09-01) --------------------------------
+    // Handled BEFORE PENDING_CONFIRMATIONS on purpose. That map is one
+    // in-memory slot per chat, cleared on restart: drafts arrive in bursts and
+    // this bot restarts on every deploy, so a memory-backed approval would
+    // track only the newest draft and lose the rest without saying so. The row
+    // id in callback_data survives both, and email_draft_action.py re-reads the
+    // row to decide — so a stale button from an older alert can never send the
+    // wrong mail, and a double-tap is refused by a compare-and-set there
+    // rather than by anything in this process.
+    if (action === 'draft_approve' || action === 'draft_reject') {
+        await bot.answerCallbackQuery(query.id, {
+            text: action === 'draft_approve' ? 'Sending…' : 'Rejecting…',
+        }).catch(() => {});
+        const draftId = String(nonce || '');
+        // callback_data is echoed back by Telegram and goes straight into argv.
+        // Constrain it to an id shape here so nothing else can ever ride along.
+        if (!/^[0-9a-fA-F][0-9a-fA-F-]{7,63}$/.test(draftId)) {
+            await bot.sendMessage(chatId, 'That draft button is malformed — nothing was sent.').catch(() => {});
+            return;
+        }
+        const verb = action === 'draft_approve' ? 'approve' : 'reject';
+        let out = {};
+        try {
+            const r = require('child_process').spawnSync(
+                PYTHON,
+                [path.join(__dirname, 'scripts', 'email_draft_action.py'), verb, '--id', draftId, '--json'],
+                { encoding: 'utf-8', timeout: 60000, windowsHide: IS_WIN, shell: false, cwd: __dirname }
+            );
+            out = JSON.parse((r.stdout || '').trim() || '{}');
+        } catch (e) {
+            out = { ok: false, error: `runner_failed: ${String(e).slice(0, 180)}` };
+        }
+        if (out.ok) {
+            const msg = verb === 'approve'
+                ? `✅ Sent to ${out.to}`
+                : '🗑 Rejected — draft discarded, nothing was sent.';
+            await bot.sendMessage(chatId, msg).catch(() => {});
+            // Strip the keyboard so the resolved draft cannot be tapped again.
+            await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                chat_id: chatId, message_id: query.message.message_id,
+            }).catch(() => {});
+        } else {
+            // Say WHICH failure. "already_approved" and "send_blocked" mean
+            // opposite things to the person holding the phone.
+            await bot.sendMessage(
+                chatId,
+                `⚠️ Draft ${verb} failed: ${out.error || 'unknown'}${out.reason ? ` (${out.reason})` : ''}`,
+            ).catch(() => {});
+        }
+        log(`[DRAFT] ${verb} ${draftId} -> ${out.ok ? 'ok' : out.error}`);
+        return;
+    }
+
     const pending = PENDING_CONFIRMATIONS[String(chatId)];
 
     await bot.answerCallbackQuery(query.id).catch(() => {});

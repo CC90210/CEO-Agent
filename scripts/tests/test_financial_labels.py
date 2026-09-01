@@ -460,7 +460,12 @@ class TestProcessEmailFiling(unittest.TestCase):
 
         deps = {
             "apply_label": apply_label_fn,
-            "notify": lambda t: calls["notify"].append(t),
+            # Second positional arg is the optional Telegram reply_markup that
+            # the draft-hold paths pass (2026-09-01). These cases do not reach
+            # those paths today, so a 1-arg lambda still passes — which is
+            # precisely why it must be widened now: the next test added here
+            # that DOES hold a draft would fail on an unrelated TypeError.
+            "notify": lambda t, reply_markup=None: calls["notify"].append(t),
             "mark_read": lambda e: calls.__setitem__("mark_read", calls["mark_read"] + 1),
             "archive": lambda e: calls.__setitem__("archive", calls["archive"] + 1),
             "handoff_atlas": lambda e: calls.__setitem__("handoff", calls["handoff"] + 1) or True,
@@ -513,7 +518,7 @@ class TestProcessEmailFiling(unittest.TestCase):
         def _boom_label(_e, _l):
             raise LabelError("IMAP STORE returned 'NO'")
 
-        def _boom_notify(_t):
+        def _boom_notify(_t, _reply_markup=None):
             raise RuntimeError("telegram down")
 
         def _cls(**kw):
