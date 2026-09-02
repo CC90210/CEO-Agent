@@ -258,6 +258,34 @@ def _auto_startupinfo(kw: dict, cmd: Any) -> dict:
     return kw
 
 
+def _default_stdin_devnull(kw: dict) -> dict:
+    """Give the child a valid stdin, because it will not inherit one.
+
+    WHY (2026-09-02): daemons on this box run under pythonw.exe, which has NO
+    CONSOLE. subprocess redirects stdout and stderr when asked and leaves stdin
+    INHERITED, so every child of a windowless parent inherited a console handle
+    that does not exist and intermittently died at interpreter startup with
+    exit 3221225480 — 0xC0000008 STATUS_INVALID_HANDLE, roughly 1 run in 100,
+    23 dumps between 2026-08-15 and 09-02, with both output streams empty every
+    time. It was read as an access violation (0xC0000005) for two and a half
+    weeks and chased in the wrong place.
+
+    It belongs HERE and not in any one caller. 37 files spawn through these
+    helpers; fixing the four sites in scheduler.py fixed the four sites in
+    scheduler.py. The fault is a property of "spawned by a windowless parent",
+    which is what this module is for.
+
+    Never overrides an explicit stdin, and never sets one alongside `input=` —
+    subprocess raises ValueError if both are given, and self_audit.py:447 does
+    pass input=.
+    """
+    if "stdin" in kw or "input" in kw:
+        return kw
+    kw = dict(kw)
+    kw["stdin"] = subprocess.DEVNULL
+    return kw
+
+
 def safe_run(cmd: Any, **kwargs: Any) -> subprocess.CompletedProcess:
     """Drop-in replacement for subprocess.run that hides the console on
     Windows by default. Any caller-supplied creationflags are preserved
@@ -266,6 +294,7 @@ def safe_run(cmd: Any, **kwargs: Any) -> subprocess.CompletedProcess:
     if os.name == "nt":
         kwargs = _merge_creationflags(kwargs, WINDOWLESS_FLAGS)
         kwargs = _auto_startupinfo(kwargs, cmd)
+        kwargs = _default_stdin_devnull(kwargs)
     return subprocess.run(cmd, **kwargs)
 
 
@@ -275,6 +304,7 @@ def safe_popen(cmd: Any, **kwargs: Any) -> subprocess.Popen:
     if os.name == "nt":
         kwargs = _merge_creationflags(kwargs, WINDOWLESS_FLAGS)
         kwargs = _auto_startupinfo(kwargs, cmd)
+        kwargs = _default_stdin_devnull(kwargs)
     return subprocess.Popen(cmd, **kwargs)
 
 
@@ -284,6 +314,10 @@ def safe_daemon_popen(cmd: Any, **kwargs: Any) -> subprocess.Popen:
     parent-process linkage and won't be SIGINT'd if the parent dies."""
     if os.name == "nt":
         kwargs = _merge_creationflags(kwargs, DETACHED_FLAGS)
+        # A detached daemon needs this MORE than a short-lived child, not less:
+        # it has no parent to inherit a console from at all, and it lives for
+        # days. See _default_stdin_devnull.
+        kwargs = _default_stdin_devnull(kwargs)
     return subprocess.Popen(cmd, **kwargs)
 
 

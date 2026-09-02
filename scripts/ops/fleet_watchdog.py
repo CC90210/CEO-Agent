@@ -533,7 +533,15 @@ def start(app: dict, dry: bool = False) -> tuple[bool, str]:
     prior = recent_starts(app["name"])
     sink = _daemon_log(app["name"])
     try:
+        # stdin=DEVNULL for the same reason stdout and stderr are redirected:
+        # this watchdog runs under pythonw with no console, so an inherited
+        # stdin handle does not exist. A child that touches it can die at
+        # interpreter startup with 0xC0000008 STATUS_INVALID_HANDLE and no
+        # output at all — and these children are long-lived daemons, so the
+        # failure looks like a crash loop rather than a bad spawn. See
+        # lib/subprocess_helpers._default_stdin_devnull.
         subprocess.Popen(cmd, cwd=app["cwd"] or str(PROJECT_ROOT),
+                         stdin=subprocess.DEVNULL,
                          stdout=sink or subprocess.DEVNULL,
                          stderr=subprocess.STDOUT if sink else subprocess.DEVNULL,
                          creationflags=_NO_WINDOW | DETACHED, close_fds=True)

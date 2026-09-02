@@ -248,11 +248,37 @@ def _merge_creationflags(kw: dict, base: int) -> dict:
     return kw
 
 
+def _default_stdin_devnull(kw: dict) -> dict:
+    """Give the child a valid stdin, because it will not inherit one.
+
+    Mirrors lib/subprocess_helpers._default_stdin_devnull — keep the two in
+    step; this package is a deliberate copy, not an import (see module
+    docstring), so a fix in one is not a fix in the other.
+
+    WHY (2026-09-02): the bridge runs under pythonw.exe, which has NO CONSOLE.
+    subprocess redirects stdout and stderr when asked and leaves stdin
+    INHERITED, so children of a windowless parent inherit a console handle that
+    does not exist and intermittently die at interpreter startup with exit
+    3221225480 (0xC0000008 STATUS_INVALID_HANDLE) and both streams empty. 23
+    such dumps on the scheduler side between 2026-08-15 and 09-02, misread as
+    an access violation the whole time.
+
+    Never overrides an explicit stdin, and never sets one alongside `input=` —
+    subprocess raises ValueError if both are given.
+    """
+    if "stdin" in kw or "input" in kw:
+        return kw
+    kw = dict(kw)
+    kw["stdin"] = subprocess.DEVNULL
+    return kw
+
+
 def safe_run(cmd: Any, **kwargs: Any) -> subprocess.CompletedProcess:
     """subprocess.run with CREATE_NO_WINDOW forced on Windows. Caller's
     creationflags are preserved (ORed). Also auto-applies the windowless
     startupinfo when shell=True or a .cmd/.bat shim is detected."""
     if os.name == "nt":
+        kwargs = _default_stdin_devnull(kwargs)
         kwargs = _merge_creationflags(kwargs, WINDOWLESS_FLAGS)
         if "startupinfo" not in kwargs:
             if kwargs.get("shell"):
@@ -273,6 +299,7 @@ def safe_popen(cmd: Any, **kwargs: Any) -> subprocess.Popen:
     """subprocess.Popen with CREATE_NO_WINDOW forced on Windows. Same
     shim auto-detection as safe_run."""
     if os.name == "nt":
+        kwargs = _default_stdin_devnull(kwargs)
         kwargs = _merge_creationflags(kwargs, WINDOWLESS_FLAGS)
         if "startupinfo" not in kwargs:
             if kwargs.get("shell"):
@@ -295,6 +322,9 @@ def safe_daemon_popen(cmd: Any, **kwargs: Any) -> subprocess.Popen:
     linkage and won't be SIGINT'd when the parent exits."""
     if os.name == "nt":
         kwargs = _merge_creationflags(kwargs, DETACHED_FLAGS)
+        # A detached daemon needs this MORE than a short-lived child: it has no
+        # parent to inherit a console from at all, and it lives for days.
+        kwargs = _default_stdin_devnull(kwargs)
     return subprocess.Popen(cmd, **kwargs)
 
 
