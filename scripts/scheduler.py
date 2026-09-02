@@ -2,7 +2,7 @@
 Bravo Scheduler - Autonomous Business Operations Daemon
 
 This is the heartbeat of the business agent. It runs 24/7 via PM2 and
-executes cron jobs defined in Supabase on schedule.
+executes cron jobs defined in Turso on schedule.
 
 What it does every 60 seconds:
   1. Checks which cron jobs are due (next_run_at <= now)
@@ -635,6 +635,45 @@ def summarize_stdout(stdout: str, limit: int = RESULT_LIMIT) -> str:
         if stripped and not _NOISE_ONLY.match(stripped):
             return _render(stripped) or _clip_result(stripped, limit)
     return _clip_result(text.splitlines()[-1], limit)
+
+
+STORED_RESULT_LIMIT = 500
+
+
+def store_result(result_msg: str, limit: int = STORED_RESULT_LIMIT) -> str:
+    """What actually goes in cron_jobs.last_result.
+
+    This is the LAST write before the registry, and it used to be a bare
+    `result_msg[:500]` — a blind slice with no marker. summarize_stdout fixed
+    the script_run handlers on 2026-08-29, but every action_type with its own
+    handler (email_inbox_check, daily_brief, auto_score_leads, ...) returns raw
+    output that reaches this line untouched, so "Inbound Email Sweep" has been
+    storing a JSON fragment cut at exactly 500 characters every five minutes
+    ever since. It runs 288 times a day; it was never going to age out.
+
+    Fixing it per-handler is how you get a sixth copy of the same slice. This
+    is the one place all of them converge, so the rule lives here:
+
+      * ERROR / FAILED prefixes survive intact — check_cron_health and
+        _looks_like_failure both dispatch on them, and a summariser that ate
+        the prefix would silence the alerting path.
+      * JSON becomes a verdict ("unread_count=0 status=checked"), never its
+        first 500 bytes.
+      * Anything else that is too long is clipped WITH a marker, so a cut is
+        visibly a cut.
+    """
+    text = (result_msg or "").strip()
+    if not text:
+        return ""
+    # Failure prefixes are load-bearing. Keep them, clip only the detail.
+    for prefix in ("ERROR:", "FAILED"):
+        if text.startswith(prefix):
+            return text if len(text) <= limit else _clip_result(text, limit)
+    if text[:1] in "{[":
+        summarized = summarize_stdout(text, limit)
+        if summarized and summarized[:1] not in "{[":
+            return summarized
+    return _clip_result(text, limit)
 
 
 def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
@@ -1827,7 +1866,7 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "last_run_at": datetime.now(timezone.utc).isoformat(),
             "run_count": new_count,
             "next_run_at": next_run,
-            "last_result": result_msg[:500],
+            "last_result": store_result(result_msg),
         }
         # fail_count is a real column as of migration 105 (2026-07-29). It is
         # NOT optional any more: the previous try/except-and-retry-without-it
@@ -2137,7 +2176,7 @@ def main():
 
             # Normal-path pacing. Historically the CHECK_INTERVAL sleep lived
             # ONLY in the error branch below, so the healthy loop busy-spun —
-            # re-querying Supabase cron_jobs thousands of times/hour (CPU looked
+            # re-querying Turso cron_jobs thousands of times/hour (CPU looked
             # ~0% only because each iteration blocked on the network round-trip).
             # Sleep here so the loop actually polls "every 60 seconds" as the
             # banner claims, and so the cycles%5 heartbeat lands ~every 5 min.
