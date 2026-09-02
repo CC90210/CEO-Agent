@@ -510,16 +510,28 @@ def check_no_recent_cron_failure_dumps():
     to tmp/cron_failures/ on every non-zero child exit, precisely because
     everything upstream truncates. 47 dumps were sitting there and NOTHING in
     this eval read them — the newest was 17 hours old
-    (integrations-email-engine-py-20260829T001311Z.log, exit code 3221225480 =
-    0xC0000005, an access violation, with both streams empty) and the run was
-    still ALL GREEN. email_engine has been crashing this way most days since
-    2026-08-15.
+    (integrations-email-engine-py-20260829T001311Z.log, exit code 3221225480,
+    with both streams empty) and the run was still ALL GREEN. email_engine had
+    been crashing this way most days since 2026-08-15.
 
-    A dump is the ONLY surviving evidence of that class of failure: an access
-    violation produces no traceback for last_result to carry, so the cron row
-    reports whatever the previous run left behind and check_cron_health sees
-    nothing wrong. The directory is a ring buffer (FAILURE_DUMP_KEEP), so old
-    dumps are history, not news — only a dump newer than 24h is an open wound.
+    CORRECTED 2026-09-02: this docstring called 3221225480 "0xC0000005, an
+    access violation". It is 0xC0000008, STATUS_INVALID_HANDLE — the access
+    violation is 3221225477. Two and a half weeks were spent looking for a
+    memory fault that was never there. The real cause was stdin: the scheduler
+    runs under console-less pythonw, subprocess.run(capture_output=True) pipes
+    only stdout and stderr, and every child inherited a stdin handle that did
+    not exist. Fixed by stdin=DEVNULL at all four spawn sites — see the
+    STDIN_INHERITANCE note above scheduler.run_script for the evidence.
+
+    A dump is the ONLY surviving evidence of that class of failure: an OS kill
+    produces no traceback for last_result to carry, so the cron row reports
+    whatever the previous run left behind and check_cron_health sees nothing
+    wrong. The directory is a ring buffer (FAILURE_DUMP_KEEP), so old dumps are
+    history, not news — only a dump newer than 24h is an open wound.
+
+    This check therefore CANNOT be turned green by deleting dumps, and must not
+    be. It goes green when 24h pass without a new one, which is the only
+    evidence that a fix actually held.
 
     Cost: one scandir over <=N filenames, no stat call in the common path (the
     UTC stamp is IN the name). Cheap enough to run nightly.

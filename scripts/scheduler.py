@@ -676,6 +676,33 @@ def store_result(result_msg: str, limit: int = STORED_RESULT_LIMIT) -> str:
     return _clip_result(text, limit)
 
 
+# ── STDIN_INHERITANCE: why every subprocess here passes stdin=DEVNULL ──────
+#
+# The scheduler runs under pythonw.exe (ecosystem.config.js `interpreter:
+# PYTHONW`), which has NO CONSOLE. subprocess.run(capture_output=True) pipes
+# stdout and stderr but leaves stdin INHERITED, so each child inherited the
+# parent's non-existent console stdin and intermittently died at interpreter
+# startup with exit 3221225480 — roughly 1 run in 100, 23 dumps since 08-15.
+#
+# That code is 0xC0000008 STATUS_INVALID_HANDLE. It is NOT the access violation
+# (0xC0000005 = 3221225477) that harness_eval and this repo's own comments call
+# it. Chasing the wrong fault is why it stayed open for two and a half weeks.
+#
+# The evidence that it is a startup fault and not a bug in any one job:
+#   * email_engine writes one breadcrumb per stage to state/email_sweep.log.
+#     The 09:20 run logged all 8 stages and finished; the 09:25 run that
+#     crashed logged NOTHING — not even `start`, its first statement. It died
+#     before its own code ran.
+#   * capability_probe.py:270 recorded the identical code on `check stripe`,
+#     which spawns no subprocess at all (1 of 15 runs, 2026-08-29). So it is
+#     not specific to email_engine, or to any child's own logic.
+#   * Both streams are empty in every dump — the signature of an OS kill, and
+#     never of a Python exception.
+#
+# DEVNULL hands the child a valid handle it can inherit, read, close and flush.
+# Do not "tidy" it away.
+
+
 def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
     """Run a Python script from the scripts/ directory and return its output."""
     cmd = [PYTHON, str(SCRIPTS_DIR / script_name)] + args
@@ -683,6 +710,9 @@ def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
         result = subprocess.run(
             cmd,
             capture_output=True,
+            # Load-bearing on Windows, not hygiene — see STDIN_INHERITANCE note
+            # above run_script.
+            stdin=subprocess.DEVNULL,
             text=True,
             encoding="utf-8",
             timeout=timeout,
@@ -947,7 +977,21 @@ def run_agent_self_improvement(env_vars: dict) -> str:
     # showed "self-improvement-handled-by-digest", the dashboard showed green,
     # and the health-check watchdog had nothing to flag. A silent green failure
     # outlives a loud red one, so the FAILED check below is the real fix.
-    out = run_script("core/agent_self_improvement.py", ["run"])
+    # 900s, NOT run_script's 120s default (2026-09-02). The cap was below the
+    # work's measured duration: state/cron_timings.jsonl records this job at a
+    # 115s MEDIAN against a 120s wall, so it timed out on 2026-08-31 and its
+    # 5-minute retry then finished in 118.5s — 1.5s under. It was not slow, it
+    # was under-budgeted, and every timeout wrote a failure dump that held the
+    # nightly harness red.
+    #
+    # The structural version of the same point: this walks three agent repos
+    # (AGENT_ROOTS in core/agent_self_improvement.py) issuing up to six
+    # subprocesses each — self_audit 90s, auto_heal 120s, drift_autofix 120s,
+    # build_capability_graph 120s, two memory_aging passes — so the inner sum
+    # reaches 600s per agent before this outer cap gets a say. An outer cap
+    # below the inner sum destroys the diagnostic the inner layers exist to
+    # produce, which is the lesson already written into run_daily_brief below.
+    out = run_script("core/agent_self_improvement.py", ["run"], timeout=900)
     if not out or not out.strip():
         return "ERROR: agent_self_improvement returned empty output"
     if out.startswith("FAILED"):
@@ -1019,6 +1063,9 @@ def run_snapshot(config: dict) -> str:
         result = subprocess.run(
             [PYTHON, str(full_path), *[str(a) for a in args]],
             capture_output=True,
+            # Load-bearing on Windows, not hygiene — see STDIN_INHERITANCE note
+            # above run_script.
+            stdin=subprocess.DEVNULL,
             text=True,
             encoding="utf-8",
             timeout=300,
@@ -1081,6 +1128,9 @@ def run_script_action(config: dict) -> str:
         result = subprocess.run(
             [PYTHON, str(full_path), *[str(a) for a in args]],
             capture_output=True,
+            # Load-bearing on Windows, not hygiene — see STDIN_INHERITANCE note
+            # above run_script.
+            stdin=subprocess.DEVNULL,
             text=True,
             encoding="utf-8",
             timeout=timeout_s,
@@ -1130,6 +1180,9 @@ def run_morning_powwow(_env_vars: dict) -> str:
         result = subprocess.run(
             [PYTHON, str(full_path)],
             capture_output=True,
+            # Load-bearing on Windows, not hygiene — see STDIN_INHERITANCE note
+            # above run_script.
+            stdin=subprocess.DEVNULL,
             text=True,
             encoding="utf-8",
             timeout=120,
