@@ -593,7 +593,7 @@ def _table_pid_rows(table: str) -> list[tuple[int, str]]:
         if m:
             rows.append((int(m.group(0).strip("|")), _ROW_PID.sub("", line)))
         elif rows:
-            rows[-1] = (rows[-1][0], rows[-1][1] + chr(10) + line)
+            rows[-1] = (rows[-1][0], rows[-1][1] + "\n" + line)
     return rows
 
 
