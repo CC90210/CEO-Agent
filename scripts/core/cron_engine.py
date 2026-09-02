@@ -144,7 +144,7 @@ SEED_JOBS: list[dict] = [
         # cron can honestly invent a CEO's strategic priority.
         #
         # 07:45 local: ahead of Atlas's 08:00 threshold scan, so the sibling-age
-        # figures Atlas reads are same-morning. NOT seeded to Supabase until CC
+        # figures Atlas reads are same-morning. NOT seeded to the shared cron registry until CC
         # reviews (production-scheduling mutation).
         "name": "Daily Pulse Mechanical Refresh",
         "description": "pulse_publish.py autorefresh — refresh machine-knowable pulse sections (sibling ages, V6 telemetry, commits). Never moves updated_at; judgment stays as stale as it is.",
@@ -152,64 +152,6 @@ SEED_JOBS: list[dict] = [
         "action_type": "script_run",
         "action_config": {"script": "scripts/pulse_publish.py", "args": ["autorefresh"], "notify_channel": "telegram", "notify_on": "nonzero_exit"},
         "is_active": True,
-    },
-    {
-        # 2026-08-20 — the Instagram DM closer. Replaces the keyword
-        # autoresponder that read its own replies as prospect messages (it
-        # compared an outgoing IGSID against a Zernio ObjectId, a comparison
-        # that could never be true) and answered itself with the same template.
-        #
-        # */1 as of 2026-08-21 (was */5). A prospect waited 9 minutes for an answer
-        # at */5 — correct per the config and unacceptable for a setter. The
-        # per-run model budget drops to 2 so a run FINISHES inside its minute;
-        # the O_EXCL lock makes an overrun skip the next tick rather than
-        # double-send. Original sizing note follows.
-        # The "~11s per model turn" figure this entry was first
-        # written against is wrong: measured on this machine 2026-08-20,
-        # run_claude_cli takes 29.2 / 26.7 / 28.1 / 25.8s — median 27.4s, because
-        # the cost is `claude -p` process startup, not generation. decide() may
-        # spend two subprocesses per conversation (one retry), so 12 turns is
-        # ~330s worst case and would overrun a 120s tick on every run. The
-        # poller's O_EXCL _RunLock refuses an overlapping tick rather than
-        # doubling it, so the failure mode is a permanently-skipped automation
-        # rather than a double-send — but it is still an automation that never
-        # completes. 5 turns at */5 fits. timeout 600 overrides
-        # SCRIPT_RUN_DEFAULT_TIMEOUT = 300.
-        #
-        # The duplicate is RESOLVED (2026-08-21). The legacy row "Instagram DM
-        # Auto-Reply" was renamed in place to this entry's name and given these
-        # args, so exactly ONE row now points at this script and `seed` skips it
-        # by normalized name instead of creating a second. Two live crons on one
-        # script is what answered CC twice; do not add a second row here.
-        #
-        # --book IS DELIBERATELY ABSENT. Without it the closer never runs and a
-        # prospect who is ready to book becomes a Telegram handoff to CC instead
-        # of a real calendar event and a Google invite to a stranger. Arming it
-        # is CC's decision, not a seed default.
-        #
-        # NOT seeded until CC reviews: `cron_engine.py seed` is a
-        # production-scheduling mutation.
-        "name": "Instagram DM Closer",
-        "description": "instagram_dm_poller.py — read each @oasisaisolutions DM thread in full, reply in CC's voice via the local Claude CLI, extract contact details, hand warm/blocked threads to CC. Booking stays disarmed.",
-        "schedule": "* * * * *",
-        "action_type": "script_run",
-        "action_config": {
-            "script": "scripts/integrations/instagram_dm_poller.py",
-            "args": ["--live", "--json", "--limit", "25", "--max-model-calls", "2"],
-            "timeout": 600,
-            "notify_channel": "telegram",
-            "notify_on": "nonzero_exit",
-        },
-        # DAEMON-BACKED — must stay False FOREVER. Execution moved to the PM2
-        # process `bravo-ig-dm` (2026-08-21) because the shared scheduler queued
-        # DM replies behind an 84s email sweep. The daemon reads this row at boot
-        # and REFUSES TO START while it is armed (two runners answered every
-        # prospect twice on 2026-08-20). Arming this row therefore takes the
-        # setter OFFLINE — the exact inverse of what flipping a toggle ON should
-        # do. The row exists as the config anchor the daemon checks, nothing
-        # more. Control the setter with: pm2 start|stop bravo-ig-dm.
-        "is_active": False,
-        "daemon_backed": "bravo-ig-dm",
     },
     {
         # Phase 6a — OASIS auto-score sweep. Scans tenant_records for
@@ -230,7 +172,7 @@ SEED_JOBS: list[dict] = [
         # drift to Telegram. Changes nothing. 09:00 on the 1st of every 3rd month.
         # n8n handler for action_type 'break_glass_drill' runs
         # scripts/break_glass_drill.py --json; until that handler ships, run it
-        # manually. NOT seeded to Supabase until CC reviews (production-scheduling mutation).
+        # manually. NOT seeded to the shared cron registry until CC reviews (production-scheduling mutation).
         "name": "Break-Glass Drill (quarterly)",
         "description": "Dry-run the emergency runbook; report drift between BREAK_GLASS.md and reality.",
         "schedule": "0 9 1 */3 *",
@@ -244,8 +186,8 @@ SEED_JOBS: list[dict] = [
         # V7 EPIC 7F — Loud Failures Weekly Probe. system_health.py detects silent failures
         # (stale PM2 paths, missing cron/hook/MCP targets, scripts/*.py path drift) BEFORE
         # someone trips over them. Mondays 08:30 local; the probe Telegrams its own reds.
-        # n8n handler for action_type 'script_run' runs the script; NOT seeded to Supabase
-        # until CC reviews (production-scheduling mutation).
+# n8n handler for action_type 'script_run' runs the script; NOT seeded to the shared cron registry
+# until CC reviews (production-scheduling mutation).
         #
         # --strict REMOVED 2026-08-03. It made the probe exit 1 on a finding, the scheduler
         # recorded "ERROR: script_run exit 1", and cron_health_check re-paged "1 cron(s)
@@ -273,41 +215,12 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
-        # Phase 10.2 — Morning Pow Wow Call. Claude drafts a ~120-word
-        # motivational/flirty monologue, ElevenLabs renders it in Aura's
-        # voice, Telegram sendVoice ships it as an inline voicemail at
-        # 08:00 every morning. Cost ~$0.02/day. CC opts in/out via the
-        # standard toggle.
-        "name": "Morning Pow Wow Call",
-        "description": "Aura's daily 8 a.m. voice note — a ~120-word motivational + flirty kickoff monologue delivered as a Telegram voice message. Lives in scripts/aura/. Cost ~$0.02/day (Claude draft + ElevenLabs TTS).",
-        "schedule": "0 8 * * *",
-        "action_type": "morning_powwow",
-        "action_config": {"voice": "aura", "agent": "aura"},
-        # 2026-07-09: matches live DB state (disabled since 2026-05-21) AND
-        # scripts/aura/brain.py still drafts via the dead metered API key —
-        # a reseed must not resurrect a job whose model call cannot succeed.
-        # Re-enable only after porting aura/brain.py to lib/claude_cli.
-        "is_active": False,
-    },
-    {
         "name": "Booking Reminders",
         "description": "Send reminders for tomorrow's bookings",
         "schedule": "0 18 * * *",
         "action_type": "booking_reminder",
         "action_config": {"hours_ahead": 24, "channels": ["email", "sms"]},
         "is_active": True,
-    },
-    {
-        "name": "Stripe Revenue Sync",
-        "description": "Sync latest Stripe events to revenue_events",
-        # Moved off 06:00 so it stops contending with the brief's fan-out.
-        "schedule": "15 6 * * *",
-        "action_type": "stripe_sync",
-        "action_config": {"lookback_hours": 25},
-        # moved_to_atlas 2026-08-01 — Atlas (CFO-Agent) owns revenue sync; the live
-        # row is a tombstone. Seed corrected 2026-08-22 so the watchdog stops
-        # paging about a deliberate migration.
-        "is_active": False,
     },
     {
         # Added 2026-05-18 — closes the manual-edit gap on user_profiles.mrr_current_usd
@@ -329,18 +242,6 @@ SEED_JOBS: list[dict] = [
         # last_result is now the readable summary.
         "action_config": {"script": "scripts/core/sync_mrr.py", "args": []},
         "is_active": True,
-    },
-    {
-        "name": "Weekly MRR Report",
-        "description": "Generate and log weekly MRR dashboard — ATLAS-OWNED reporting; disabled 2026-07-09 (Bravo does not report MRR). Re-home to Atlas (CFO-Agent) if CC wants the weekly digest back.",
-        "schedule": "0 9 * * MON",
-        "action_type": "revenue_report",
-        "action_config": {"report_type": "mrr_weekly", "notify_channel": "telegram"},
-        # 2026-07-09: toggled off in the live DB (row 68e3e96e) same day —
-        # keep seed in lockstep so a reseed doesn't resurrect Bravo-sent
-        # MRR digests. Data plumbing (Stripe Revenue Sync, Daily MRR
-        # Auto-Sync) stays active — Atlas reads those tables.
-        "is_active": False,
     },
     {
         "name": "Weekly Pipeline Review",
@@ -368,15 +269,6 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 10 * * MON-FRI",
         "action_type": "nurture_check",
         "action_config": {"max_sends_per_run": 20},
-        "is_active": False,
-    },
-    {
-        "name": "Monthly Metrics Snapshot",
-        "description": "Log monthly_metrics for the previous month",
-        "schedule": "0 9 1 * *",
-        "action_type": "monthly_snapshot",
-        "action_config": {"tables": ["revenue_events", "leads", "content_calendar"]},
-        # moved_to_atlas 2026-08-01 — same migration as Stripe Revenue Sync.
         "is_active": False,
     },
     {
@@ -475,16 +367,6 @@ SEED_JOBS: list[dict] = [
         "action_type": "snapshot_run",
         "action_config": {"script": "scripts/snapshots/briefing_snapshot.py", "args": []},
         "is_active": True,
-    },
-    {
-        "name": "Weekly Qualified-Leads Snapshot",
-        "description": "Saturday 22:00 ranking of leads scoring >= 60 by MRR potential. Output: state/snapshots/latest_leads.json. Revenue-Hunter agent cherry-picks from this instead of running opencli + scoring per session.",
-        "schedule": "0 22 * * SAT",
-        "action_type": "snapshot_run",
-        "action_config": {"script": "scripts/snapshots/leads_snapshot.py", "args": ["--min-score", "60"]},
-        # dormant since 2026-05-16 (last: qualified 0/0) — superseded by the OASIS
-        # auto-score sweep + Pipeline board. Reversible: flip the live row.
-        "is_active": False,
     },
     {
         "name": "Daily Client Alerts Snapshot",
@@ -710,12 +592,15 @@ SEED_JOBS: list[dict] = [
         # Added 2026-06-06 (Phase 4 of system re-engineering). After the
         # one-shot tmp/ purge that recovered 6.0 GB, this keeps tmp/ bounded.
         # Allowlist preserves pm2-*.log, events_offline.jsonl, *.lock*, *.pid,
-        # *.heartbeat, *.env. Anything else >30 days old gets purged.
+        # *.heartbeat, *.env. Anything else past the cutoff gets purged.
+        # Tightened 30d -> 7d on 2026-08-30: CC found 309 files / 52 MB of
+        # 7-30 day junk accumulating between runs; the job WAS firing, the
+        # policy was just too lax.
         "name": "Weekly tmp/ Hygiene",
-        "description": "Sunday 03:00 ET — purge orphan files in tmp/ older than 30 days. Allowlists active lock/log/env files. Recovered 6.0 GB on the initial run; this prevents drift back to that state.",
+        "description": "Sunday 03:00 ET — purge orphan files in tmp/ older than 7 days. Allowlists active lock/log/env files. Recovered 6.0 GB on the initial run; cutoff tightened 30d->7d 2026-08-30 after manual purge found 52 MB of sub-30-day drift.",
         "schedule": "0 3 * * SUN",
         "action_type": "script_run",
-        "action_config": {"script": "scripts/utilities/tmp_hygiene.py", "args": ["--apply", "--json"]},
+        "action_config": {"script": "scripts/utilities/tmp_hygiene.py", "args": ["--apply", "--json", "--days", "7"]},
         "is_active": True,
     },
     {
@@ -733,12 +618,12 @@ SEED_JOBS: list[dict] = [
     },
     {
         # Added 2026-06-06. event_bus.publish() writes to tmp/events_offline.jsonl
-        # when Supabase is unreachable. Without a drain job, queued events
+        # when the DB is unreachable. Without a drain job, queued events
         # sit forever — observable cross-agent state silently degrades.
         # Every 10 min is a sweet spot: low cost when queue is empty, fast
         # recovery after an outage.
         "name": "Event Bus Offline Drain",
-        "description": "Every 10 min — replay tmp/events_offline.jsonl into Postgres agent_events. Drains the V6 Apex offline-fallback queue so transient Supabase outages don't lose cross-agent events.",
+        "description": "Every 10 min — replay tmp/events_offline.jsonl into Postgres agent_events. Drains the V6 Apex offline-fallback queue so transient DB outages don't lose cross-agent events.",
         "schedule": "*/10 * * * *",
         "action_type": "script_run",
         "action_config": {"script": "scripts/core/event_bus.py", "args": ["drain"]},

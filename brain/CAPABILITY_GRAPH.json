@@ -1,7 +1,7 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-09-02T17:58:14.839542+00:00",
+  "generated_at": "2026-09-02T19:41:21.279315+00:00",
   "totals": {
     "skills": 164,
     "scripts": 206,
@@ -11,7 +11,7 @@
     "resources": 14,
     "runtime_entrypoints": 3,
     "nodes_total": 461,
-    "edges_total": 224,
+    "edges_total": 223,
     "drift_count": 0
   },
   "nodes": [
@@ -9829,11 +9829,6 @@
     {
       "from": "runtime:cron_engine",
       "to": "script:ingest_training_link",
-      "kind": "schedules"
-    },
-    {
-      "from": "runtime:cron_engine",
-      "to": "script:instagram_dm_poller",
       "kind": "schedules"
     },
     {
