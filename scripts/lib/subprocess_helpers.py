@@ -321,9 +321,52 @@ def safe_daemon_popen(cmd: Any, **kwargs: Any) -> subprocess.Popen:
     return subprocess.Popen(cmd, **kwargs)
 
 
+def pid_is_gone(pid: int) -> bool:
+    """True ONLY when this pid provably no longer exists.
+
+    For stale-lock recovery. Two O_EXCL locks in this repo record their
+    holder's pid and then never ask about it, falling back to an age fence:
+    instagram_dm_poller's poll lock (15 min) and fleet_watchdog's supervision
+    lock (10 min). Both therefore turn any hard kill into minutes of dead time
+    — the poller was found idling on a lock whose holder had been gone the
+    whole while, logging "another poll holds the lock" every 20s, and the
+    watchdog's equivalent stops supervising the entire fleet for two passes.
+
+    Fails CLOSED on every uncertainty — a non-positive pid, our own pid, or an
+    OS that will not answer all return False, which leaves the caller's age
+    fence in charge. Guessing "gone" wrongly is how two holders run at once,
+    and for the poller that means one prospect answered twice. "I cannot tell"
+    is not "it is dead".
+
+    Callers must keep their age fence: a recycled pid looks alive, and only
+    elapsed time catches that.
+    """
+    if pid <= 0 or pid == os.getpid():
+        return False
+    try:
+        if os.name == "nt":
+            import ctypes  # noqa: PLC0415
+
+            # PROCESS_QUERY_LIMITED_INFORMATION. A NULL handle with
+            # ERROR_INVALID_PARAMETER (87) is the OS saying "no such pid";
+            # any other failure means we may not ask, which is not evidence.
+            handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+            if not handle:
+                return ctypes.windll.kernel32.GetLastError() == 87
+            ctypes.windll.kernel32.CloseHandle(handle)
+            return False
+        os.kill(pid, 0)  # POSIX: raises ProcessLookupError when absent
+        return False
+    except ProcessLookupError:
+        return True
+    except Exception:  # noqa: BLE001 — an unanswerable probe is not a death
+        return False
+
+
 __all__ = [
     "WINDOWLESS_FLAGS",
     "DETACHED_FLAGS",
+    "pid_is_gone",
     "windowless_startupinfo",
     "prefer_pythonw",
     "command_without_cmd_shim",

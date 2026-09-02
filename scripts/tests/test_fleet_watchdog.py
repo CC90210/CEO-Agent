@@ -404,11 +404,45 @@ def test_stale_lock_is_reclaimed(tmp_path, monkeypatch):
 
 def test_fresh_lock_is_not_reclaimed(tmp_path, monkeypatch):
     """The other half: a lock held by a pass that is genuinely still running
-    must be respected, or the staleness escape hatch defeats the lock."""
+    must be respected, or the staleness escape hatch defeats the lock.
+
+    The holder must be a REAL live pid (2026-09-02). This wrote 99999 — a pid
+    that does not exist — and passed only because the lock was age-only: it was
+    asserting "recent" while its docstring claimed "still running", and the two
+    stopped being the same thing the moment liveness was checked. A fixture
+    that cannot express the behaviour it names is not testing it.
+    """
+    import os as _os
     lock = tmp_path / "wd.lock"
     monkeypatch.setattr(fw, "RUN_LOCK", lock)
-    lock.write_text("99999")
-    assert fw._acquire_run_lock() is False, "a fresh lock must be honoured"
+    lock.write_text(str(_os.getppid()))  # the shell that launched pytest
+    assert fw._acquire_run_lock() is False, "a live holder's lock must be honoured"
+
+
+def test_fresh_lock_whose_holder_died_is_reclaimed(tmp_path, monkeypatch):
+    """A pass killed mid-run must not stop supervision until the age fence
+    expires. At a 5-minute cadence and LOCK_STALE_SEC of 600 that is two
+    skipped passes, and any daemon that dies inside the window stays dead.
+
+    Verified live on the sibling case: the Instagram poller sat logging
+    "another poll holds the lock" every 20s against a holder that had been gone
+    the whole time.
+    """
+    lock = tmp_path / "wd.lock"
+    monkeypatch.setattr(fw, "RUN_LOCK", lock)
+    lock.write_text("999999")  # never existed in this boot
+    assert fw._acquire_run_lock() is True, "a dead holder must not hold the fleet"
+    fw._release_run_lock()
+
+
+def test_an_unreadable_holder_falls_back_to_the_age_fence(tmp_path, monkeypatch):
+    """Garbage in the lock must not read as 'dead'. Failing open here would
+    let two passes start the fleet at once, which is how four schedulers came
+    to exist."""
+    lock = tmp_path / "wd.lock"
+    monkeypatch.setattr(fw, "RUN_LOCK", lock)
+    lock.write_text("not-a-pid")
+    assert fw._acquire_run_lock() is False, "an unreadable holder is not a dead one"
 
 
 # ------------------------------------------------ one definition of state ---

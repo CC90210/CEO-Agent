@@ -98,6 +98,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "integrations"))
 
+from lib.subprocess_helpers import pid_is_gone  # noqa: E402
+
 CAPABILITY_META = {
     "category": "growth.inbound",
     "lifecycle": "active",
@@ -431,36 +433,19 @@ class _RunLock:
     def _holder_is_gone(self) -> bool:
         """True only when the recorded PID provably no longer exists.
 
-        Fails CLOSED on every uncertainty — an unreadable lock, a missing or
-        non-numeric PID, or an OS that will not answer all return False, which
-        keeps the age fence in charge. Guessing 'gone' wrongly is how you get
-        two live pollers answering one prospect twice, which is the exact
-        outcome this lock was written to prevent.
+        The liveness probe itself lives in lib/subprocess_helpers.pid_is_gone,
+        because fleet_watchdog's supervision lock has the same shape and the
+        same defect — two copies of "is this holder dead" is one copy too many
+        for a predicate whose wrong answer sends a prospect two replies.
+
+        Unreadable lock or non-numeric pid stays here and fails closed: that is
+        this lock's own file format, not a property of pids.
         """
         try:
             pid = int(self.path.read_text(encoding="utf-8").strip())
         except (OSError, ValueError):
             return False
-        if pid <= 0 or pid == os.getpid():
-            return False
-        try:
-            if os.name == "nt":
-                import ctypes  # noqa: PLC0415
-
-                # PROCESS_QUERY_LIMITED_INFORMATION. A NULL handle means the
-                # PID is not there; anything else means it is (or that we may
-                # not ask, which is not evidence of death).
-                handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
-                if not handle:
-                    return ctypes.windll.kernel32.GetLastError() == 87  # ERROR_INVALID_PARAMETER
-                ctypes.windll.kernel32.CloseHandle(handle)
-                return False
-            os.kill(pid, 0)  # POSIX: raises ProcessLookupError when absent
-            return False
-        except ProcessLookupError:
-            return True
-        except Exception:  # noqa: BLE001 — an unanswerable probe is not a death
-            return False
+        return pid_is_gone(pid)
 
     def __exit__(self, *_exc) -> None:
         if self.acquired:

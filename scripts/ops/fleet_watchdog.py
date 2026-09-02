@@ -790,7 +790,30 @@ def _acquire_run_lock() -> bool:
         RUN_LOCK.parent.mkdir(parents=True, exist_ok=True)
         if RUN_LOCK.exists():
             age = time.time() - RUN_LOCK.stat().st_mtime
-            if age > LOCK_STALE_SEC:
+            # Ask whether the holder is alive rather than only waiting out the
+            # clock (2026-09-02). This lock records its holder's pid and never
+            # asked about it, so a pass killed mid-run stopped ALL supervision
+            # for up to LOCK_STALE_SEC — two skipped passes at a 5-minute
+            # cadence, during which any daemon that died stayed dead. The same
+            # defect was found idling the Instagram poller on a lock whose
+            # holder had been gone the whole time.
+            #
+            # The age fence stays: pid_is_gone fails closed on anything it
+            # cannot answer, and only elapsed time catches a recycled pid.
+            # Imported HERE, not at module scope. This file is the supervisor;
+            # nothing about a helper module may be able to stop it running, and
+            # it is invoked both as a script (sys.path[0] = scripts/ops) and as
+            # an import from callers that already have scripts/ on the path.
+            # A failure to import simply leaves the age fence in charge.
+            holder_dead = False
+            try:
+                sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+                from lib.subprocess_helpers import pid_is_gone  # noqa: PLC0415
+
+                holder_dead = pid_is_gone(int(RUN_LOCK.read_text(encoding="utf-8").strip()))
+            except (OSError, ValueError, ImportError):
+                pass  # unreadable holder or missing helper — the age fence decides
+            if age > LOCK_STALE_SEC or holder_dead:
                 RUN_LOCK.unlink(missing_ok=True)  # previous pass died holding it
             else:
                 return False
