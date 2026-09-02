@@ -82,6 +82,7 @@ import importlib
 import json
 import os
 import re
+import socket
 import sys
 import time
 import traceback
@@ -324,6 +325,24 @@ def _api_key() -> str:
     return key
 
 
+REQUEST_TIMEOUT_SEC = 30
+# One retry, on transient TRANSPORT faults only.
+#
+# WHY (2026-09-02): a single socket read timeout on GET /v1/inbox/conversations
+# raised straight out of _poll and killed the whole tick — twice in forty
+# minutes (tmp/ig_dm_failures/tick-20260902T200052Z, -204048Z). Measured live
+# the same hour, that endpoint answers in 0.3-1.0s across three calls with 50
+# conversations, so 30s is not too tight; the blips are the network, and a
+# prospect waiting on a reply should not lose a whole cycle to one of them.
+#
+# Deliberately NOT retried: HTTPError (the server answered — 4xx/5xx is a real
+# verdict), and an HTML body (the route does not exist). Retrying those would
+# hammer a broken endpoint and hide the fault. A POST is not retried either:
+# these send DMs, and a timeout after the server already accepted one would
+# double-message a real person.
+_TRANSIENT_NET = (TimeoutError, socket.timeout, urllib.error.URLError, ConnectionError)
+
+
 def _request(key: str, path: str, method: str = "GET", body: dict | None = None) -> dict:
     """Call Zernio. Raises on a non-JSON body, because a 200 of HTML means the
     route does not exist and must never be read as success."""
@@ -337,12 +356,26 @@ def _request(key: str, path: str, method: str = "GET", body: dict | None = None)
             "Content-Type": "application/json",
         },
     )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            raw = resp.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "replace")[:300]
-        raise RuntimeError(f"{method} {path} -> HTTP {exc.code}: {detail}") from exc
+    attempts = 2 if method == "GET" else 1
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SEC) as resp:
+                raw = resp.read().decode("utf-8", "replace")
+            break
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", "replace")[:300]
+            raise RuntimeError(f"{method} {path} -> HTTP {exc.code}: {detail}") from exc
+        except _TRANSIENT_NET as exc:
+            # HTTPError subclasses URLError, so it must be caught above this.
+            if attempt >= attempts:
+                raise RuntimeError(
+                    f"{method} {path} -> {type(exc).__name__} after {attempt} "
+                    f"attempt(s) at {REQUEST_TIMEOUT_SEC}s each: {exc}"
+                ) from exc
+            sys.stderr.write(
+                f"[ig_dm_poller] transient {type(exc).__name__} on {method} {path} "
+                f"(attempt {attempt}/{attempts}) — retrying\n"
+            )
     if raw.lstrip().startswith("<"):
         raise RuntimeError(f"{method} {path} returned HTML — that route does not exist")
     return json.loads(raw) if raw.strip() else {}

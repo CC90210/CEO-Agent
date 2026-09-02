@@ -80,8 +80,11 @@ def disabled_names() -> set[str]:
         return set()
 
 
-def _ecosystem_apps() -> dict[str, dict]:
-    """Launch specs from ecosystem.config.js, keyed by name.
+def _ecosystem_apps(eco_path: "Path | None" = None) -> dict[str, dict]:
+    """Launch specs from an ecosystem.config.js, keyed by name.
+
+    Defaults to this repo's config; SIBLING_APPS passes a sibling's path so the
+    same reader serves both rather than a second, drifting parser.
 
     This is the VERSION-CONTROLLED source and it is more complete than
     dump.pm2: the dump had no `script` for bravo-ig-dm or breeze-live-watch,
@@ -92,7 +95,7 @@ def _ecosystem_apps() -> dict[str, dict]:
     Read via node because it is a JS module; a Python parse would be a second,
     drifting definition of the same file.
     """
-    eco = PROJECT_ROOT / "ecosystem.config.js"
+    eco = eco_path or (PROJECT_ROOT / "ecosystem.config.js")
     if not eco.exists():
         return {}
     js = ("const c=require(process.argv[1]);const a=c.apps||c;"
@@ -108,12 +111,72 @@ def _ecosystem_apps() -> dict[str, dict]:
         return {}
 
 
+# ── Sibling agents this watchdog also supervises ───────────────────────────
+#
+# The repo filter below exists so we never adopt a process that merely happens
+# to be in dump.pm2. But three of CC's daemons live in sibling repos, and the
+# filter meant NOTHING supervised them: PM2 was retired on 2026-08-27 and this
+# watchdog replaced it only for Business-Empire-Agent. Atlas's and Maven's
+# Telegram bridges were simply dead, and the Command Center's worker board
+# rendered them "Down — stopped reporting" with no process behind the label.
+#
+# Declared explicitly, by name, from each sibling's own committed
+# ecosystem.config.js — never by scanning dump.pm2 for anything foreign. An
+# allowlist adopts what CC decided to run; a scan adopts whatever was there.
+SIBLING_APPS: dict[str, tuple[Path, str]] = {
+    "atlas-telegram": (Path.home() / "APPS" / "CFO-Agent", "atlas-telegram"),
+    "maven-telegram": (Path.home() / "CMO-Agent", "maven-telegram"),
+}
+
+
+def _sibling_manifest() -> list[dict]:
+    """Launch specs for the declared sibling daemons.
+
+    A sibling whose repo or config is missing is reported UNRUNNABLE rather
+    than skipped: silence would put it back in the state this function exists
+    to end, where nothing runs it and nothing says so.
+    """
+    rows: list[dict] = []
+    for name, (repo, app_name) in SIBLING_APPS.items():
+        eco = repo / "ecosystem.config.js"
+        if not eco.exists():
+            rows.append({"name": name, "script": "", "args": [], "interp": "",
+                         "cwd": str(repo),
+                         "unrunnable": f"no ecosystem.config.js at {eco}"})
+            continue
+        spec = _ecosystem_apps(eco).get(app_name)
+        if not spec:
+            rows.append({"name": name, "script": "", "args": [], "interp": "",
+                         "cwd": str(repo),
+                         "unrunnable": f"{app_name!r} not declared in {eco}"})
+            continue
+        args = spec.get("args") or []
+        if isinstance(args, str):
+            args = args.split()
+        cwd = Path(str(spec.get("cwd") or repo))
+        script = str(spec.get("script") or "")
+        # ABSOLUTE, deliberately. Two repos can hold a `telegram_agent.js`, and
+        # a relative one makes the two indistinguishable in the process table —
+        # see _identity. It also removes any dependence on the child inheriting
+        # the right working directory.
+        if script and not Path(script).is_absolute():
+            script = str((cwd / script).resolve())
+        rows.append({"name": name,
+                     "script": script,
+                     "args": args,
+                     "interp": str(spec.get("interp") or ""),
+                     "cwd": str(cwd),
+                     "unrunnable": ""})
+    return rows
+
+
 def manifest() -> list[dict]:
-    """Bravo's managed processes, scoped to this repo.
+    """Bravo's managed processes, plus the declared sibling daemons.
 
     dump.pm2 says WHAT was running; ecosystem.config.js says HOW to run it.
     Names come from the dump (machine truth), launch specs prefer the committed
-    config and fall back to the dump.
+    config and fall back to the dump. Siblings come from SIBLING_APPS, because
+    they are deliberately outside the repo filter below.
     """
     eco = _ecosystem_apps()
     try:
@@ -151,6 +214,9 @@ def manifest() -> list[dict]:
             continue
         out.append({"name": name, "script": script, "args": args,
                     "interp": interp, "cwd": str(a.get("cwd")), "unrunnable": ""})
+    # Siblings last, and never overriding a same-named local app.
+    known = {r["name"] for r in out}
+    out.extend(r for r in _sibling_manifest() if r["name"] not in known)
     return out
 
 
@@ -256,10 +322,26 @@ def _identity(app: dict) -> str:
     Deliberately the SCRIPT (or its distinguishing module arg), never the
     interpreter: matching on `pythonw.exe` would report every python process as
     this daemon and the watchdog would never start anything.
+
+    An ABSOLUTE script identifies by its full path (2026-09-02). A basename
+    cannot separate two daemons that share one: Bravo's bridge and Maven's are
+    both `telegram_agent.js`, in different repos, and on the first run after
+    Maven was adopted the watchdog reported maven-telegram UP while no such
+    process existed — it was matching Bravo's. A supervisor that reads one
+    daemon's process as another's will never start the dead one, which is the
+    exact failure this whole file exists to prevent, wearing a new hat.
     """
     script = app["script"]
     base = Path(script).name if script else ""
-    if base and base.lower() not in ("python.exe", "pythonw.exe", "node.exe", ""):
+    is_interpreter = base.lower() in ("python.exe", "pythonw.exe", "node.exe", "")
+    # The interpreter check comes FIRST. claude-bridge records its script as the
+    # absolute path to pythonw.exe and is really `pythonw -m bravo_cli...`;
+    # taking the absolute path there identified it as "pythonw.exe", matched
+    # nothing, and reported two live daemons DOWN — which would have started a
+    # duplicate of each. Verified live before this ordering was fixed.
+    if script and not is_interpreter and Path(script).is_absolute():
+        return str(script).replace("\\", "/").lower()
+    if base and not is_interpreter:
         return base.lower()
     # interpreter-as-script (e.g. `pythonw -m bravo_cli.bridge_chat_server`):
     # the module name is what distinguishes it.
@@ -368,11 +450,20 @@ def _cmdline_target(cmdline: str) -> str:
 
 
 def _row_runs(cmdline: str, ident: str) -> bool:
-    """True only if this command line is running THIS daemon."""
+    """True only if this command line is running THIS daemon.
+
+    Both sides are slash-normalised (2026-09-02). A full-path ident is stored
+    with forward slashes while Windows reports the command line with
+    backslashes, so atlas-telegram read DOWN with its own PID plainly visible
+    in the process table. Comparing two spellings of one path is not a
+    comparison.
+    """
     target = _cmdline_target(cmdline)
     if not target:
         return False
-    return target == ident or target.replace("\\", "/").rsplit("/", 1)[-1] == ident
+    target = target.replace("\\", "/")
+    ident = ident.replace("\\", "/")
+    return target == ident or target.rsplit("/", 1)[-1] == ident
 
 
 def status() -> list[dict]:
@@ -521,10 +612,21 @@ def start(app: dict, dry: bool = False) -> tuple[bool, str]:
     if app.get("unrunnable"):
         return False, app["unrunnable"]
     cmd: list[str] = []
-    if app["interp"] and app["interp"].lower() not in ("none", ""):
-        cmd.append(app["interp"])
-    if app["script"]:
-        cmd.append(app["script"])
+    interp = app["interp"] or ""
+    script = app["script"] or ""
+    if not interp or interp.lower() in ("none", ""):
+        # PM2 infers the interpreter from the extension; we do not inherit that,
+        # so a .js app declared without one was handed to CreateProcess as the
+        # executable itself: "OSError [WinError 193] %1 is not a valid Win32
+        # application". maven-telegram declares no interpreter and is node.
+        if script.lower().endswith(".js"):
+            interp = "node"
+        elif script.lower().endswith(".py"):
+            interp = sys.executable
+    if interp and interp.lower() not in ("none", ""):
+        cmd.append(interp)
+    if script:
+        cmd.append(script)
     cmd.extend(str(a) for a in app["args"])
     if not cmd:
         return False, "no launchable command"
@@ -825,7 +927,15 @@ def _dispatch(a) -> int:
             # daemon would report success and do nothing.
             off.discard(a.name)
             _write_disabled(off)
-            ok, detail = start(_app_by_name(a.name) or app)
+            fresh = _app_by_name(a.name) or app
+            if fresh.get("running"):
+                # `up` has always skipped running apps; this verb did not, so a
+                # dashboard Start on a healthy daemon — or a click racing the
+                # 5-minute pass — quietly produced a SECOND copy. Duplicate
+                # daemons are how every cron in the empire once ran four times.
+                ok, detail = True, "already running"
+            else:
+                ok, detail = start(fresh)
         else:  # restart — deliberately does NOT touch the disabled set
             if a.name in off:
                 print(f"{a.name} is disabled; use start", file=sys.stderr)

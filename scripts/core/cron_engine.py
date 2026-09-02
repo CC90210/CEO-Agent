@@ -278,7 +278,11 @@ SEED_JOBS: list[dict] = [
         # alerts CC's Telegram on any failing check. Closes the frontier gap
         # "the eval exists but feeds nothing" — the score now has a consumer.
         "name": "Bravo — Nightly Harness Eval",
-        "description": "Deterministic 10-check harness eval (genome fitness) — Telegram alert on any red check",
+        # Do NOT hardcode the check count again. It read "10-check" while the
+        # eval ran 17, because the number was copied into a description instead
+        # of being read from CHECKS. An operator comparing "10-check" against a
+        # result of "14/17" cannot tell which one is lying.
+        "description": "Deterministic harness eval (genome fitness) — every check in harness_eval.CHECKS; Telegram alert on any red check",
         "schedule": "30 3 * * *",
         "action_type": "script_run",
         # NO --json here: the script_run wrapper stores the LAST stdout line as

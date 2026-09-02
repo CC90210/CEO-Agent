@@ -57,7 +57,13 @@ def test_entry_without_a_target_is_flagged_not_launched(monkeypatch, tmp_path):
         "exec_interpreter": "pythonw.exe", "cwd": str(REPO_ROOT),
     }]), encoding="utf-8")
     monkeypatch.setattr(fw, "DUMP", dump)
-    monkeypatch.setattr(fw, "_ecosystem_apps", lambda: {})
+    monkeypatch.setattr(fw, "_ecosystem_apps", lambda *a, **k: {})
+    # Siblings are declared in SIBLING_APPS, not in dump.pm2, so manifest()
+    # returns them alongside this fixture's single local app (2026-09-02).
+    # Pinning a total count here would only assert how many sibling agents CC
+    # happens to run today; the behaviour under test is that a targetless entry
+    # is FLAGGED rather than dropped or launched.
+    monkeypatch.setattr(fw, "_sibling_manifest", lambda: [])
     entries = fw.manifest()
     assert len(entries) == 1
     assert entries[0]["unrunnable"], "must be flagged, not silently dropped"
@@ -75,13 +81,72 @@ def test_committed_spec_beats_machine_state(monkeypatch, tmp_path):
         "exec_interpreter": "pythonw.exe", "cwd": str(REPO_ROOT),
     }]), encoding="utf-8")
     monkeypatch.setattr(fw, "DUMP", dump)
-    monkeypatch.setattr(fw, "_ecosystem_apps", lambda: {
+    monkeypatch.setattr(fw, "_ecosystem_apps", lambda *a, **k: {
         "bravo-ig-dm": {"name": "bravo-ig-dm",
                         "script": "scripts/integrations/ig_dm_daemon.py",
                         "args": None, "interp": "pythonw.exe"}})
     entries = fw.manifest()
     assert entries[0]["script"].endswith("ig_dm_daemon.py")
     assert not entries[0]["unrunnable"]
+
+
+# ---------------------------------------------------------------- siblings ---
+# Added 2026-09-02. PM2 was retired on 08-27 and this watchdog replaced it only
+# for Business-Empire-Agent, so Atlas's and Maven's Telegram bridges had NO
+# supervisor at all and were simply dead — while the Command Center's worker
+# board rendered them "Down — stopped reporting", which reads like a heartbeat
+# problem rather than "nothing is running this".
+
+def test_two_daemons_sharing_a_script_name_are_told_apart():
+    """Bravo's bridge and Maven's are BOTH telegram_agent.js, in different
+    repos. On the first run after Maven was adopted the watchdog reported it UP
+    while no such process existed — it was matching Bravo's. A supervisor that
+    reads one daemon's process as another's never starts the dead one."""
+    bravo = {"name": "bravo-telegram", "script": "telegram_agent.js",
+             "args": [], "interp": "node"}
+    maven = {"name": "maven-telegram",
+             "script": r"C:\Users\User\CMO-Agent\telegram_agent.js",
+             "args": [], "interp": "node"}
+    b_id, m_id = fw._identity(bravo), fw._identity(maven)
+    assert b_id != m_id, "a basename cannot separate two repos' telegram_agent.js"
+
+    bravo_cmdline = "node telegram_agent.js"
+    assert fw._row_runs(bravo_cmdline, b_id) is True
+    assert fw._row_runs(bravo_cmdline, m_id) is False, (
+        "Bravo's process must not satisfy Maven's identity")
+
+
+def test_a_full_path_identity_survives_windows_backslashes():
+    """The ident is stored slash-normalised; Windows reports command lines with
+    backslashes. Before both sides were normalised, atlas-telegram read DOWN
+    with its own PID plainly visible in the process table."""
+    app = {"name": "atlas-telegram",
+           "script": r"C:\Users\User\APPS\CFO-Agent\telegram_app\bot.py",
+           "args": [], "interp": "python.exe"}
+    ident = fw._identity(app)
+    cmdline = r"c:\users\user\appdata\local\programs\python\python312\python.exe c:\users\user\apps\cfo-agent\telegram_app\bot.py"
+    assert fw._row_runs(cmdline, ident) is True
+
+
+def test_an_interpreter_path_is_still_never_the_identity():
+    """The absolute-path branch must not fire for `pythonw -m module`. When it
+    did, claude-bridge and claude-bridge-ping — both alive — read DOWN, which
+    would have started a duplicate of each."""
+    app = {"name": "claude-bridge",
+           "script": r"C:\repo\.venv\Scripts\pythonw.exe",
+           "args": ["-m", "bravo_cli.bridge_chat_server"], "interp": ""}
+    assert fw._identity(app) == "bravo_cli.bridge_chat_server"
+
+
+def test_a_sibling_without_its_repo_is_unrunnable_not_invisible(monkeypatch, tmp_path):
+    """Silence would put it back in the state this feature exists to end: no
+    process, and nothing saying so."""
+    monkeypatch.setattr(fw, "SIBLING_APPS",
+                        {"ghost-agent": (tmp_path / "nope", "ghost-agent")})
+    rows = fw._sibling_manifest()
+    assert len(rows) == 1
+    assert rows[0]["name"] == "ghost-agent"
+    assert rows[0]["unrunnable"], "a missing sibling must be reported, not dropped"
 
 
 # --------------------------------------------------------------- disabled ---

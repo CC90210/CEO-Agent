@@ -1,6 +1,6 @@
 """Dashboard outbound-email consumer daemon.
 
-Polls Supabase `lead_interactions` for rows the operator queued from
+Polls Turso `lead_interactions` for rows the operator queued from
 the OASIS Command Center drawer's Email composer:
 
     type='email_queued'
@@ -242,7 +242,7 @@ def _load_env() -> dict[str, str]:
 
 
 def _client(env: dict[str, str]):
-    """Service-role Supabase client. Returns None on missing config."""
+    """Service-role DB client. Returns None on missing config."""
     url = (env.get("BRAVO_SUPABASE_URL") or env.get("SUPABASE_URL") or "").strip()
     key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
            or env.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
@@ -259,7 +259,7 @@ def _client(env: dict[str, str]):
     try:
         return create_client(url, key)
     except Exception as e:
-        print(f"[dashboard_email_consumer] supabase client error: {e}", file=sys.stderr)
+        print(f"[dashboard_email_consumer] db client error: {e}", file=sys.stderr)
         return None
 
 
@@ -467,6 +467,30 @@ def _mark_status(sb, row_id: str, *, status: str, error: str | None = None) -> N
         print(f"[dashboard_email_consumer] mark_status failed for {row_id}: {e}", file=sys.stderr)
 
 
+# Two days. Long enough that a weekend outage still delivers; short enough that
+# nothing goes out quoting context the recipient has forgotten.
+MAX_QUEUED_AGE_HOURS = int(os.environ.get("DASHBOARD_EMAIL_MAX_AGE_H", "48"))
+
+
+def _queued_age_hours(row: dict) -> float | None:
+    """Hours since the operator queued this row, or None if unreadable.
+
+    None means "do not judge" — an unparseable timestamp must not be treated as
+    fresh (silently sending an ancient mail) OR as ancient (silently dropping a
+    live one). The caller only gates on a number it actually has.
+    """
+    raw = str(row.get("created_at") or "").strip()
+    if not raw:
+        return None
+    try:
+        ts = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - ts).total_seconds() / 3600.0
+
+
 def _send_one(env: dict[str, str], sb, row: dict) -> str:
     """Send one queued email. Returns 'sent' | 'failed' | 'suppressed'.
 
@@ -479,6 +503,30 @@ def _send_one(env: dict[str, str], sb, row: dict) -> str:
     if not to_email:
         _mark_status(sb, row_id, status="failed", error="missing to_email")
         return "failed"
+
+    # ---- Staleness gate ----
+    #
+    # An email the operator composed months ago must never leave now. This
+    # daemon is a drain, and a drain will happily flush whatever accumulated
+    # while it was stopped: on 2026-09-02 the queue held 10 rows aged 13 days
+    # to 2.5 months (oldest 2026-06-16), banked up while the consumer sat
+    # Linux-only on a VPS that had stopped reporting. Starting it would have
+    # fired all ten at real leads, quoting context from June.
+    #
+    # Age is measured from when the OPERATOR queued it, and an over-age row is
+    # marked 'stale' — a terminal state, so it stops being retried, stays
+    # visible in the drawer timeline, and can still be requeued deliberately.
+    # Dropping it silently or leaving it 'queued' forever are the two ways this
+    # goes wrong quietly.
+    age_h = _queued_age_hours(row)
+    if age_h is not None and age_h > MAX_QUEUED_AGE_HOURS:
+        _mark_status(
+            sb, row_id, status="stale",
+            error=(f"queued {age_h:.0f}h ago (cap {MAX_QUEUED_AGE_HOURS}h) — not sent. "
+                   "Recompose it if it is still wanted; the context it was written "
+                   "against has moved on."),
+        )
+        return "stale"
     tenant_id = row.get("tenant_id") or ""
     lead_id = row.get("lead_id") or ""
     md = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
@@ -666,7 +714,7 @@ def main() -> int:
     sb = _client(env)
     if sb is None:
         # Don't crash — pm2 will hold the process; sleep + retry.
-        print("[dashboard_email_consumer] no supabase client; sleeping 60s",
+        print("[dashboard_email_consumer] no db client; sleeping 60s",
               file=sys.stderr)
         time.sleep(60)
         return 0
