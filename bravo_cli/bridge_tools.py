@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -1710,10 +1711,65 @@ def _tool_cli_auth_start(payload: dict) -> dict:
     )
 
 
+# ──────────────────────────────────────────────────────────────────
+# fleet_control — start/stop/restart one background worker
+#
+# Added 2026-09-02. The dashboard's Start/Stop/Restart buttons used to POST
+# `bash` with the string `pm2 <action> <name>`. PM2 was retired on this machine
+# 2026-08-27 (its named pipe returns EPERM) and, worse, every blocked pm2 call
+# SPAWNS AN ORPHAN GOD DAEMON — 23 accumulated that way once, 42→112 in forty
+# minutes another time. So each click failed AND leaked a process.
+#
+# A dedicated tool rather than a fixed bash string: the action is validated
+# here, on the bridge, instead of only in the browser that asked; and the
+# command is an argv list, so there is no shell and no injection surface to
+# defend with a regex.
+# ──────────────────────────────────────────────────────────────────
+
+_FLEET_ACTIONS = ("start", "stop", "restart", "status")
+
+
+def _tool_fleet_control(payload: dict) -> dict:
+    """{action: start|stop|restart|status, name?: str} → fleet_watchdog output.
+
+    `name` is the daemon name WITHOUT the `pm2.` prefix the dashboard uses as
+    its integrations_health key; the prefix is stripped here so either form
+    works. Required for everything except `status`.
+    """
+    action = str(payload.get("action") or "").strip().lower()
+    if action not in _FLEET_ACTIONS:
+        return _err(f"action must be one of {list(_FLEET_ACTIONS)} — got {action!r}")
+
+    argv = [sys.executable, str(_bravo_root() / "scripts" / "ops" / "fleet_watchdog.py"), action]
+    if action != "status":
+        name = str(payload.get("name") or "").strip()
+        name = name[4:] if name.startswith("pm2.") else name
+        # Same allowlist the daemon names actually obey. Belt and braces: argv
+        # already makes injection impossible, but a junk name should fail here
+        # with a clear message rather than as "unknown daemon".
+        if not name or not re.fullmatch(r"[A-Za-z0-9._-]+", name):
+            return _err(f"invalid daemon name: {name!r}")
+        argv.append(name)
+
+    try:
+        proc = safe_run(argv, cwd=str(_bravo_root()), capture_output=True, text=True,
+                        encoding="utf-8", errors="replace", timeout=120)
+    except subprocess.TimeoutExpired:
+        return _err(f"fleet_control timeout: {action}")
+    except Exception as e:  # noqa: BLE001
+        return _err(f"fleet_control failed: {e}")
+
+    out = ((proc.stdout or "") + (proc.stderr or "")).strip()
+    if proc.returncode != 0:
+        return _err(f"exit {proc.returncode}: {out or '(no output)'}")
+    return _ok(out or f"{action} ok")
+
+
 TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "read_file": _tool_read_file,
     "write_file": _tool_write_file,
     "bash": _tool_bash,
+    "fleet_control": _tool_fleet_control,
     "send_email": _tool_send_email,
     "send_sms": _tool_send_sms,
     "list_scripts": _tool_list_scripts,

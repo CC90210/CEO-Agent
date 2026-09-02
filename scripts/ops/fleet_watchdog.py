@@ -567,6 +567,103 @@ def start(app: dict, dry: bool = False) -> tuple[bool, str]:
                 pass
 
 
+# ---------------------------------------------------------------------------
+# Stopping a daemon. Added 2026-09-02.
+#
+# `disable` only ever wrote a name into fleet_disabled.json. Nothing killed the
+# process, so the dashboard's Stop button marked a daemon disabled and left it
+# running — and the operator, reading a stopped tile over a live process, got
+# the same false report this whole surface exists to remove.
+#
+# The PID match REUSES _row_runs. The file already carries the scar of two
+# copies of "is this row my daemon" drifting apart (see status()); a kill path
+# with its own private matcher is how you eventually kill the wrong process.
+# ---------------------------------------------------------------------------
+
+
+def _table_pid_rows(table: str) -> list[tuple[int, str]]:
+    """(pid, command line) per process, with _table_rows' continuation rule.
+
+    Same folding as _table_rows — a command line containing newlines is ONE
+    process — but the PID is kept instead of stripped, because a kill needs it.
+    """
+    rows: list[tuple[int, str]] = []
+    for line in table.splitlines():
+        m = _ROW_PID.match(line)
+        if m:
+            rows.append((int(m.group(0).strip("|")), _ROW_PID.sub("", line)))
+        elif rows:
+            rows[-1] = (rows[-1][0], rows[-1][1] + chr(10) + line)
+    return rows
+
+
+def pids_for(ident: str) -> list[int]:
+    """PIDs of processes actually EXECUTING this daemon's script/module.
+
+    Raises ProcessTableUnreadable rather than returning [] on no evidence: an
+    empty list here would read as "already stopped" and silently succeed.
+    """
+    table = _process_table()
+    if not table:
+        raise ProcessTableUnreadable(
+            "could not read the process table — refusing to report a daemon "
+            "as stopped without seeing the process list")
+    if not ident:
+        return []
+    return [pid for pid, cmd in _table_pid_rows(table) if _row_runs(cmd, ident)]
+
+
+def stop(app: dict) -> tuple[bool, str]:
+    """Kill every process running this daemon. /T takes the tree, because a
+    .venv launcher stub re-execs the real interpreter as a child — killing only
+    the parent leaves the daemon alive and orphaned."""
+    ident = _identity(app)
+    try:
+        pids = pids_for(ident)
+    except ProcessTableUnreadable as exc:
+        return False, str(exc)
+    if not pids:
+        return True, "already stopped"
+    # Judge the OUTCOME, not taskkill's exit code. /T kills the whole tree, so
+    # a daemon's second PID (the .venv launcher stub re-execs the real
+    # interpreter) is usually ALREADY GONE by the time its own taskkill runs —
+    # which exits non-zero for "process not found". Trusting exit codes here
+    # reported a successful stop as a failure, and `restart` then aborted
+    # before starting again, leaving the daemon down. Verified live 2026-09-02.
+    for pid in pids:
+        try:
+            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
+                           capture_output=True, text=True, timeout=30,
+                           creationflags=_NO_WINDOW)
+        except Exception as exc:  # noqa: BLE001
+            _log(f"stop {app['name']}: taskkill {pid} raised {exc}")
+    # The kill is asynchronous; give the OS a moment to reap before asking.
+    for _ in range(10):
+        time.sleep(0.3)
+        try:
+            remaining = pids_for(ident)
+        except ProcessTableUnreadable:
+            continue
+        if not remaining:
+            _log(f"stopped {app['name']} (pids {pids})")
+            return True, f"stopped (was {pids})"
+    return False, f"still running after kill: {remaining}"
+
+
+def _write_disabled(off: set) -> None:
+    """Single writer for fleet_disabled.json — start/stop and enable/disable
+    both mutate it, and two inline copies of the write would drift."""
+    DISABLED.parent.mkdir(parents=True, exist_ok=True)
+    DISABLED.write_text(json.dumps(sorted(off), indent=2), encoding="utf-8")
+
+
+def _app_by_name(name: str) -> dict | None:
+    for row in status():
+        if row["name"] == name:
+            return row
+    return None
+
+
 RUN_LOCK = PROJECT_ROOT / "state" / "fleet_watchdog.lock"
 LOCK_STALE_SEC = 600
 
@@ -613,13 +710,18 @@ def main() -> int:
     pu.add_argument("--json", action="store_true")
     pd = sub.add_parser("disable"); pd.add_argument("name")
     pe = sub.add_parser("enable"); pe.add_argument("name")
+    # One verb per dashboard button. The UI used to shell `pm2 <action>`, which
+    # EPERMs on this machine AND leaks an orphan god daemon per click.
+    pst = sub.add_parser("start"); pst.add_argument("name")
+    psp = sub.add_parser("stop"); psp.add_argument("name")
+    prs = sub.add_parser("restart"); prs.add_argument("name")
     sub.add_parser("install-task")
     a = p.parse_args()
 
     # A Session-0 supervisor cannot see the user-session fleet and would start a
     # duplicate of every daemon. Only block the MUTATING pass — `status` from
     # session 0 is merely uninformative, but `up` from session 0 is destructive.
-    if a.cmd == "up":
+    if a.cmd in ("up", "start", "restart"):
         session = _windows_session_id()
         if session == 0:
             msg = ("REFUSING to supervise from Windows Session 0 — a session-0 "
@@ -697,11 +799,40 @@ def _dispatch(a) -> int:
              f"{len(failed)} failed, {sum(1 for r in rows if r['disabled'])} disabled")
         return 1 if failed else 0
 
+    if a.cmd in ("start", "stop", "restart"):
+        app = _app_by_name(a.name)
+        if app is None:
+            print(f"unknown daemon: {a.name}", file=sys.stderr)
+            return 2
+        off = disabled_names()
+        if a.cmd == "stop":
+            # Disable FIRST. Killing without disabling just hands the daemon to
+            # the next 5-minute pass, which restarts it — a Stop button whose
+            # effect expires in under five minutes is not a stop.
+            off.add(a.name)
+            _write_disabled(off)
+            ok, detail = stop(app)
+        elif a.cmd == "start":
+            # Enable FIRST: `up` skips disabled rows, so a Start on a stopped
+            # daemon would report success and do nothing.
+            off.discard(a.name)
+            _write_disabled(off)
+            ok, detail = start(_app_by_name(a.name) or app)
+        else:  # restart — deliberately does NOT touch the disabled set
+            if a.name in off:
+                print(f"{a.name} is disabled; use start", file=sys.stderr)
+                return 2
+            ok, detail = stop(app)
+            if ok:
+                ok, detail = start(_app_by_name(a.name) or app)
+        print(f"{a.cmd} {a.name}: {detail}")
+        _log(f"{a.cmd} {a.name}: {detail} (ok={ok})")
+        return 0 if ok else 1
+
     if a.cmd in ("disable", "enable"):
         off = disabled_names()
         off.add(a.name) if a.cmd == "disable" else off.discard(a.name)
-        DISABLED.parent.mkdir(parents=True, exist_ok=True)
-        DISABLED.write_text(json.dumps(sorted(off), indent=2), encoding="utf-8")
+        _write_disabled(off)
         _log(f"{a.cmd}d {a.name}")
         print(f"{a.cmd}d {a.name}; disabled set = {sorted(off)}")
         return 0

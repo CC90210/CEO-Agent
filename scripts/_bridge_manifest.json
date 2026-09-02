@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-08-31T16:08:15.561003+00:00",
-  "script_count": 164,
-  "entry_count": 347,
+  "generated_at_iso": "2026-09-02T18:38:08.424988+00:00",
+  "script_count": 165,
+  "entry_count": 348,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -778,6 +778,18 @@
       "subcmd": null,
       "mutating": true,
       "help": "Email-safety diagnostic \u2014 verifies the multi-AI safety surface is intact."
+    },
+    {
+      "key": "email_draft_action",
+      "path": "scripts/email_draft_action.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "category": "communication.email",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "project": "empire",
+      "help": "email_draft_action.py \u2014 act on a held email draft from a Telegram tap."
     },
     {
       "key": "enrich_oasis_leads_audit",
@@ -2420,7 +2432,7 @@
       "root": "bravo",
       "subcmd": null,
       "mutating": true,
-      "help": "Wire OASIS outreach templates in the Bravo Supabase project."
+      "help": "Wire OASIS outreach templates in the Bravo Turso project."
     },
     {
       "key": "adon_seed_lender_constraints",

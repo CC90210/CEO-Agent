@@ -49,9 +49,10 @@ sys.path.insert(0, str(ROOT / "scripts" / "integrations"))
 CAPABILITY_META = {
     "category": "communication.email",
     "lifecycle": "active",
-    "risk": "sends_email",
+    "risk": "external_write",
     "triggers": ["approve email draft", "reject email draft", "send held draft"],
     "owner": "bravo",
+    "project": "empire",
     "bridge": {"visible": True, "subcommands": {"approve": {"confirm": True}}},
 }
 

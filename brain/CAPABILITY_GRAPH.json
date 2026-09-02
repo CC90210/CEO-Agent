@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-08-31T16:07:51.801687+00:00",
+  "generated_at": "2026-09-02T17:58:14.839542+00:00",
   "totals": {
     "skills": 164,
-    "scripts": 204,
+    "scripts": 206,
     "agents": 31,
-    "mcp_servers": 0,
+    "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 450,
-    "edges_total": 221,
+    "nodes_total": 461,
+    "edges_total": 224,
     "drift_count": 0
   },
   "nodes": [
@@ -6173,6 +6173,33 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:email_draft_action",
+      "kind": "script",
+      "name": "email_draft_action",
+      "path": "scripts/email_draft_action.py",
+      "description": "email_draft_action.py \u2014 act on a held email draft from a Telegram tap.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "communication.email",
+      "lifecycle": "active",
+      "risk": "external_write",
+      "triggers": [
+        "approve email draft",
+        "reject email draft",
+        "send held draft"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true,
+        "subcommands": {
+          "approve": {
+            "confirm": true
+          }
+        }
+      }
+    },
+    {
       "id": "script:email_playbook",
       "kind": "script",
       "name": "email_playbook",
@@ -6400,6 +6427,16 @@
       "name": "generate_covers",
       "path": "scripts/generate_covers.py",
       "description": "Generate branded cover images for the prior community Skool courses. Each cover: 1460x752px, dark theme, course title + icon/accent.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:generate_sales_doc",
+      "kind": "script",
+      "name": "generate_sales_doc",
+      "path": "scripts/generate_sales_doc.py",
+      "description": "Generate sales doc \u2014 provides build html content.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -7646,7 +7683,7 @@
       "kind": "script",
       "name": "wire_all_templates",
       "path": "scripts/wire_all_templates.py",
-      "description": "Wire OASIS outreach templates in the Bravo Supabase project.",
+      "description": "Wire OASIS outreach templates in the Bravo Turso project.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -9032,6 +9069,87 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "mcp:sequential-thinking",
+      "kind": "mcp",
+      "name": "sequential-thinking",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:playwright",
+      "kind": "mcp",
+      "name": "playwright",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:context7",
+      "kind": "mcp",
+      "name": "context7",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:memory",
+      "kind": "mcp",
+      "name": "memory",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:github",
+      "kind": "mcp",
+      "name": "github",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:firecrawl",
+      "kind": "mcp",
+      "name": "firecrawl",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:obsidian",
+      "kind": "mcp",
+      "name": "obsidian",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:filesystem",
+      "kind": "mcp",
+      "name": "filesystem",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:knowledge-graph",
+      "kind": "mcp",
+      "name": "knowledge-graph",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
       "id": "workflow:browser-harness",
       "kind": "workflow",
       "name": "browser-harness",
@@ -9981,6 +10099,21 @@
     {
       "from": "script:email_doctor",
       "to": "script:wire_all_templates",
+      "kind": "calls"
+    },
+    {
+      "from": "script:email_draft_action",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
+      "from": "script:email_draft_action",
+      "to": "script:inbound_classifier",
+      "kind": "calls"
+    },
+    {
+      "from": "script:email_draft_action",
+      "to": "script:send_gateway",
       "kind": "calls"
     },
     {
