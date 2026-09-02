@@ -403,7 +403,19 @@ class _RunLock:
             age = _now() - datetime.fromtimestamp(
                 self.path.stat().st_mtime, tz=timezone.utc
             )
-            if age > self.stale_after:
+            # Ask whether the holder is ALIVE before waiting out the clock
+            # (2026-09-02). The age fence alone meant every hard kill cost up
+            # to 15 minutes of dead air: observed live with the lock at 14.8
+            # minutes, holder pid 34424 long gone, and the daemon logging
+            # "skipped: another poll holds the lock" every 20s the whole time —
+            # a setter that reads Running and answers nobody, which is exactly
+            # the complaint that started this. The lock exists to stop two LIVE
+            # runs; a dead holder is not one.
+            #
+            # The age fence stays as the backstop, because a recycled PID can
+            # belong to something else entirely and an unreadable lock must not
+            # be assumed dead.
+            if age > self.stale_after or self._holder_is_gone():
                 print(f"  [warn] clearing stale lock ({int(age.total_seconds())}s old)",
                       file=sys.stderr)
                 self.path.unlink(missing_ok=True)
@@ -415,6 +427,40 @@ class _RunLock:
         os.close(fd)
         self.acquired = True
         return self
+
+    def _holder_is_gone(self) -> bool:
+        """True only when the recorded PID provably no longer exists.
+
+        Fails CLOSED on every uncertainty — an unreadable lock, a missing or
+        non-numeric PID, or an OS that will not answer all return False, which
+        keeps the age fence in charge. Guessing 'gone' wrongly is how you get
+        two live pollers answering one prospect twice, which is the exact
+        outcome this lock was written to prevent.
+        """
+        try:
+            pid = int(self.path.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            return False
+        if pid <= 0 or pid == os.getpid():
+            return False
+        try:
+            if os.name == "nt":
+                import ctypes  # noqa: PLC0415
+
+                # PROCESS_QUERY_LIMITED_INFORMATION. A NULL handle means the
+                # PID is not there; anything else means it is (or that we may
+                # not ask, which is not evidence of death).
+                handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+                if not handle:
+                    return ctypes.windll.kernel32.GetLastError() == 87  # ERROR_INVALID_PARAMETER
+                ctypes.windll.kernel32.CloseHandle(handle)
+                return False
+            os.kill(pid, 0)  # POSIX: raises ProcessLookupError when absent
+            return False
+        except ProcessLookupError:
+            return True
+        except Exception:  # noqa: BLE001 — an unanswerable probe is not a death
+            return False
 
     def __exit__(self, *_exc) -> None:
         if self.acquired:
