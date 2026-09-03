@@ -264,6 +264,7 @@ def _extract_via_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, dict | 
             args,
             cwd=str(doc_path.parent),
             env=spawn_env,
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             timeout=CLI_TIMEOUT_SEC,
@@ -281,6 +282,78 @@ def _extract_via_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, dict | 
     if fields is None:
         return False, None, raw, proc.returncode  # exit 0 but unparseable → NOT a quota fail
     return True, fields, raw, 0
+
+
+def _cli_only_env(env: dict[str, str]) -> dict[str, str]:
+    """Remove every metered provider API key before starting a fallback CLI."""
+    clean = {**os.environ, **env}
+    for key in list(clean):
+        if key.upper().endswith("_API_KEY"):
+            clean.pop(key, None)
+    return clean
+
+
+def _extract_via_codex_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, dict | None, str, int]:
+    """Read one application with the Codex subscription CLI in read-only mode."""
+    prompt = (
+        EXTRACT_SYSTEM
+        + f"\n\nRead `{doc_path.name}` from the current directory. Extract its fields and output ONLY JSON."
+    )
+    args = [
+        env.get("BRAVO_CODEX_EXE") or "codex", "exec", "--sandbox", "read-only",
+        "--ephemeral", "--ignore-rules", "--skip-git-repo-check", "--color", "never", prompt,
+    ]
+    spawn_env = _cli_only_env(env)
+    spawn_env.update({"CI": "true", "NONINTERACTIVE": "true", "PAGER": "cat", "NO_COLOR": "1", "FORCE_COLOR": "0"})
+    try:
+        proc = safe_run(args, cwd=str(doc_path.parent), env=spawn_env, stdin=subprocess.DEVNULL, capture_output=True,
+                        text=True, timeout=CLI_TIMEOUT_SEC)
+    except subprocess.TimeoutExpired:
+        return False, None, "codex_cli_timeout", 124
+    except FileNotFoundError:
+        return False, None, "codex_cli_not_found", 127
+    except Exception as e:  # noqa: BLE001
+        return False, None, f"codex_cli_spawn_failed:{e}", 1
+    raw = (proc.stdout or "") + "\n" + (proc.stderr or "")
+    fields = _parse_json_object(proc.stdout or "") if proc.returncode == 0 else None
+    return (fields is not None), fields, raw, proc.returncode
+
+
+def _extract_via_opencode_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, dict | None, str, int]:
+    """Read one application with OpenCode's pinned free model; no API keys inherited."""
+    prompt = EXTRACT_SYSTEM + "\n\nExtract the attached application and output ONLY JSON."
+    attachments = [doc_path]
+    if doc_path.suffix.lower() == ".pdf":
+        try:
+            import fitz  # type: ignore
+            pdf = fitz.open(doc_path)
+            attachments = []
+            for index, page in enumerate(pdf):
+                page_path = doc_path.parent / f"application-page-{index + 1}.png"
+                page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False).save(page_path)
+                attachments.append(page_path)
+            pdf.close()
+        except Exception as e:  # noqa: BLE001
+            return False, None, f"pdf_render_failed:{e}", 1
+    args = [
+        env.get("BRAVO_OPENCODE_EXE") or "opencode", "run", prompt, "--pure",
+        "--model", env.get("EXTRACTION_OPENCODE_FREE_MODEL") or "opencode/mimo-v2.5-free",
+        "--file", *[str(path) for path in attachments],
+    ]
+    spawn_env = _cli_only_env(env)
+    spawn_env.update({"CI": "true", "NONINTERACTIVE": "true", "NO_COLOR": "1", "FORCE_COLOR": "0"})
+    try:
+        proc = safe_run(args, cwd=str(doc_path.parent), env=spawn_env, stdin=subprocess.DEVNULL,
+                        capture_output=True, text=True, timeout=CLI_TIMEOUT_SEC)
+    except subprocess.TimeoutExpired:
+        return False, None, "opencode_cli_timeout", 124
+    except FileNotFoundError:
+        return False, None, "opencode_cli_not_found", 127
+    except Exception as e:  # noqa: BLE001
+        return False, None, f"opencode_cli_spawn_failed:{e}", 1
+    raw = (proc.stdout or "") + "\n" + (proc.stderr or "")
+    fields = _parse_json_object(proc.stdout or "") if proc.returncode == 0 else None
+    return (fields is not None), fields, raw, proc.returncode
 
 
 def _extract_via_api(env: dict[str, str], raw_bytes: bytes, mime: str) -> tuple[bool, dict | None, str]:
@@ -519,6 +592,18 @@ def process_job(sb, env: dict[str, str], job: dict) -> str:
         used_fallback = False
         oc_truncated = False  # OpenCode tier saw a doc cut at 8k chars
         ok, fields, raw_out, code = _extract_via_cli(env, doc_path)
+        if not ok:
+            print(f"[extraction_consumer] Claude unavailable on {job_id} — trying Codex CLI", file=sys.stderr)
+            ok, fields, codex_out, code = _extract_via_codex_cli(env, doc_path)
+            used_fallback = True
+            if not ok:
+                print(f"[extraction_consumer] Codex unavailable on {job_id} — trying OpenCode free model", file=sys.stderr)
+                ok, fields, opencode_out, code = _extract_via_opencode_cli(env, doc_path)
+                if not ok:
+                    return _fail_or_retry(
+                        sb, job_id, attempts + 1,
+                        f"all_cli_providers_failed:claude={raw_out[:120]} codex={codex_out[:120]} opencode={opencode_out[:120]}",
+                    )
         if not ok:
             # Only fall back on an auth/quota signal — a parse miss or a
             # transient spawn error retries on the subscription instead.
