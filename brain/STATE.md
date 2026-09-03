@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-03
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Session close 2026-09-03. Shipped: worker start/stop/restart (pm2 retired; every click also leaked a daemon), cron crash root-caused as stdin inheritance under pythonw (0xC0000008, NOT the access violation the docs claimed) - 0 new dumps in ~230 runs since, last_result no longer blind-sliced, 7 dead crons deleted (43->36), Atlas+Maven adopted into the supervisor (they had none), IG setter dead-holder lock + blip-fatal tick fixed, admin pipeline 3MB discard fixed (1050->239ms). 3 PRs merged and deployed. Open items recorded in ACTIVE_TASKS: harness 17/17 on a 24h clock, Ops/Health/Analytics unreviewed, tenant catch-all 560ms, email consumer needs a row claim, sibling version-sync commits unpushed (their call), 'personal profile' latency unreproduced.
+- **Result:** Overnight: IG setter — hold can't end a thread, hold reasoning persisted, model write-off reopens on new inbound (both markers), CRM gated on email+phone, daemon spawn via safe_run, per-tick verdict log; worker Start/Stop/Restart -> loopback bridge (oasis-cc #386 deployed); genome CI gate reads tracked hook template (substrate-eval green, first since Aug 30). Open: live Restart click unproven (auth-gated bundle); CC's test IG account reads as spam by history.
 
 *Last updated: 2026-09-03*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-02T08:02:03.513802+00:00_
 
 - **Date:** 2026-09-03
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Session close 2026-09-03. Shipped: worker start/stop/restart (pm2 retired; every click also leaked a daemon), cron crash root-caused as stdin inheritance under pythonw (0xC0000008, NOT the access violation the docs claimed) - 0 new dumps in ~230 runs since, last_result no longer blind-sliced, 7 dead crons deleted (43->36), Atlas+Maven adopted into the supervisor (they had none), IG setter dead-holder lock + blip-fatal tick fixed, admin pipeline 3MB discard fixed (1050->239ms). 3 PRs merged and deployed. Open items recorded in ACTIVE_TASKS: harness 17/17 on a 24h clock, Ops/Health/Analytics unreviewed, tenant catch-all 560ms, email consumer needs a row claim, sibling version-sync commits unpushed (their call), 'personal profile' latency unreproduced.
+- **Result:** Overnight: IG setter — hold can't end a thread, hold reasoning persisted, model write-off reopens on new inbound (both markers), CRM gated on email+phone, daemon spawn via safe_run, per-tick verdict log; worker Start/Stop/Restart -> loopback bridge (oasis-cc #386 deployed); genome CI gate reads tracked hook template (substrate-eval green, first since Aug 30). Open: live Restart click unproven (auth-gated bundle); CC's test IG account reads as spam by history.
 
 *Last updated: 2026-09-03*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-02T08:02:03.513802+00:00_
 
 - **Date:** 2026-09-03
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Session close 2026-09-03. Shipped: worker start/stop/restart (pm2 retired; every click also leaked a daemon), cron crash root-caused as stdin inheritance under pythonw (0xC0000008, NOT the access violation the docs claimed) - 0 new dumps in ~230 runs since, last_result no longer blind-sliced, 7 dead crons deleted (43->36), Atlas+Maven adopted into the supervisor (they had none), IG setter dead-holder lock + blip-fatal tick fixed, admin pipeline 3MB discard fixed (1050->239ms). 3 PRs merged and deployed. Open items recorded in ACTIVE_TASKS: harness 17/17 on a 24h clock, Ops/Health/Analytics unreviewed, tenant catch-all 560ms, email consumer needs a row claim, sibling version-sync commits unpushed (their call), 'personal profile' latency unreproduced.
+- **Result:** Overnight: IG setter — hold can't end a thread, hold reasoning persisted, model write-off reopens on new inbound (both markers), CRM gated on email+phone, daemon spawn via safe_run, per-tick verdict log; worker Start/Stop/Restart -> loopback bridge (oasis-cc #386 deployed); genome CI gate reads tracked hook template (substrate-eval green, first since Aug 30). Open: live Restart click unproven (auth-gated bundle); CC's test IG account reads as spam by history.
 
 *Last updated: 2026-09-03*
