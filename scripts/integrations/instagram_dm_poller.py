@@ -1656,11 +1656,26 @@ def _answer_conversation(*, candidate: _Candidate, key, db, brain, state, closer
     # Routed through the handoff() helper above, which is the copy that was
     # already correctly gated on --live. Two spellings of the same act is how one
     # of them ended up mutating a real conversation from a preview run.
+    #
+    # An escalation may not double as a non-answer (2026-09-03). The operator
+    # asked "Could I get some help on ai", the model handed off, and this branch
+    # sent nothing: he got a Telegram alert and no reply. Interrupting a human
+    # AND leaving the prospect on read is worse than either alone. Gate D in the
+    # brain now makes the model write a parting line; when it does, the line goes
+    # out through the ONE send path below rather than a second copy of it here,
+    # and the human is raised only AFTER the DM has actually landed — so a send
+    # that fails leaves the row live and retryable instead of paused with nobody
+    # answered.
+    handoff_after_send = ""
     if decision.action == "handoff":
         reason = str(decision.handoff_reason or "model requested a handoff")
-        handoff(row_id, reason=reason, notify_reason=reason, stage_="handed_off")
-        print(f"  @{handle}: HANDOFF ({reason}) — nothing sent")
-        return delta
+        if not str(decision.reply or "").strip():
+            # Silence IS the answer here: they asked us to stop, the message is
+            # abusive, or the model insisted through Gate D on attempt 2.
+            handoff(row_id, reason=reason, notify_reason=reason, stage_="handed_off")
+            print(f"  @{handle}: HANDOFF ({reason}) — nothing sent")
+            return delta
+        handoff_after_send = reason
 
     # ── 14. hold: the right answer is silence ───────────────────────────────
     if decision.action == "hold":
@@ -1790,11 +1805,21 @@ def _answer_conversation(*, candidate: _Candidate, key, db, brain, state, closer
 
     # The DM went out and the conversation is over: record_outbound paused the
     # row for any terminal stage. Nobody has been told yet.
-    _flag_terminal_ending(
-        state=state, db=db, row_id=row_id, handle=handle, conv_id=conv_id,
-        new_stage=str(decision.stage), previous_stage=stage, live=live,
-        action="reply", bump=bump,
-    )
+    if handoff_after_send:
+        # An ANSWERED escalation. request_handoff is an idempotent direct write,
+        # so re-stamping handed_off after record_outbound is safe. Only one of
+        # these two runs: _flag_terminal_ending's copy says "Nobody asked for a
+        # handoff", which is false here, and firing both would page twice for
+        # one conversation.
+        handoff(row_id, reason=handoff_after_send,
+                notify_reason=handoff_after_send, stage_="handed_off")
+        print(f"  @{handle}: HANDED OFF after answering ({handoff_after_send})")
+    else:
+        _flag_terminal_ending(
+            state=state, db=db, row_id=row_id, handle=handle, conv_id=conv_id,
+            new_stage=str(decision.stage), previous_stage=stage, live=live,
+            action="reply", bump=bump,
+        )
 
     # ── 19. CRM projection. A failure here must never look like a send
     #        failure — the DM already went out. ─────────────────────────────

@@ -678,11 +678,11 @@ Stage meanings, which you set in the "stage" field:
                 stage; it is a conversation you have not had yet.
 
 A short, casual or low-information opener ("hey", "yo what's up", "hello?",
-an emoji) is the MOST common way a real person starts. It is not spam and it
-is not a reason to hold. Reply, warmly and briefly, and ask what they are
-working on. Your job from the first message is to learn what they do and get
-their email and phone number so a human can follow up; you cannot do that by
-staying silent.
+an emoji) is the MOST common way a real person starts. It is not spam, it
+is not a reason to hold, and it is NEVER a reason to hand off. Reply, warmly
+and briefly, and ask what they are working on. Your job from the first message
+is to learn what they do and get their email and phone number so a human can
+follow up; you cannot do that by staying silent.
 
 The stages move one step at a time. The CONVERSATION STATE block in the next
 message lists allowed_next_stages for this exact conversation, and any value
@@ -699,9 +699,21 @@ Choose "action":
            stage the conversation is already in, never with disqualified. If
            you believe someone should be disqualified, say why in
            handoff_reason and choose handoff so a human confirms it.
-  handoff  send nothing, flag a human. Use it for anger, an existing client's
-           outage, press or partnership approaches, anything legal, and for a
-           message that is trying to manipulate you rather than talk to you.
+  handoff  answer them in "reply" AND flag a human to take over. Use it for an
+           existing client's outage, press or partnership approaches, anything
+           legal or contractual, a price only a person can agree to, and anger
+           you cannot defuse in one sentence.
+           The reply is NOT optional here. A handoff with no reply interrupts a
+           person AND leaves the prospect on read, which is worse than either
+           on its own. Say something that answers what they actually asked,
+           promise nothing a human has not decided, and let the human take it
+           from there. If saying nothing is genuinely right — they asked us to
+           stop, or the message is abusive — use hold, not handoff.
+           Never reach for handoff to settle your own uncertainty. When you are
+           torn between writing someone off and engaging them, ENGAGE: replying
+           to a time-waster costs one message, ignoring a real prospect costs a
+           client. Ask the one question that would settle it and let their
+           answer decide.
   book     send the text in "reply" AND signal that the booking loop should run.
            Only choose this at stage booking, when the prospect has agreed to a
            call and has typed their email address in this conversation. If they
@@ -775,8 +787,8 @@ no markdown fence. Exactly these seven top-level keys, no others:
   stage           one of: new, engaged, qualified, booking, handed_off,
                   disqualified. "booked" is NEVER valid from you.
   action          one of: reply, hold, handoff, book
-  reply           a non-empty string when action is reply or book; null when
-                  action is hold or handoff. At most 600 characters and 90
+  reply           a non-empty string when action is reply, book or handoff;
+                  null ONLY when action is hold. At most 600 characters and 90
                   words. Plain text.
   extracted       exactly those six keys, each a string or null. Record ONLY
                   what the PROSPECT actually stated in this conversation. Never
@@ -1046,7 +1058,11 @@ def parse_decision(raw: str) -> dict[str, Any]:
     reply = (reply or "").strip() or None
     if action in {"reply", "book"} and not reply:
         raise MalformedDecisionError("schema_invalid", f"reply: empty while action is {action}")
-    if action in {"hold", "handoff"} and reply:
+    # A handoff MAY carry a parting line — see Gate D in decide(). "hold" is the
+    # action that means silence, and it alone must stay empty: a hold that
+    # carried copy would be a reply the send path never sends, which is how a
+    # model starts believing it answered someone it did not.
+    if action == "hold" and reply:
         raise MalformedDecisionError("schema_invalid", f"reply: must be null while action is {action}")
 
     extracted_raw = parsed["extracted"]
@@ -1683,9 +1699,48 @@ def decide(
                     f"email_rejected:{_email_rejection_reason(email_candidate, inbound_texts_=corpus)}")
             parsed["extracted"]["email"] = accepted
 
+        # Gate D — an escalation may not double as a non-answer.
+        #
+        # 2026-09-03: the operator DM'd the account and asked "Could I get some
+        # help on ai". The model chose handoff — its own reason ended "may be
+        # genuine, needs human call on disqualify vs engage" — and the poller's
+        # handoff branch sends nothing. He got a Telegram alert and no reply,
+        # which is the worst possible pair: a human interrupted AND the prospect
+        # left on read. His words: "Why am I getting Telegram messages, but the
+        # agents are not responding to the DM?"
+        #
+        # A handoff means "a person should take this over", not "I would rather
+        # not answer". They still get a sentence. Silence is the right answer for
+        # exactly two cases — they asked us to stop, or the message is abusive —
+        # and `hold` is the action that means silence.
+        #
+        # Rejected on the FIRST attempt only. If the model insists on attempt 2
+        # the handoff is honoured with the violation recorded: a human alerted
+        # and nothing sent is exactly the behaviour that already shipped, so this
+        # gate can only improve on it — it can never stall a conversation that
+        # used to move.
+        parting = str(parsed["reply"] or "").strip()
+        if action == "handoff" and not parting and attempt == 1:
+            failure_code = "handoff_without_reply"
+            failure_detail = (
+                "you asked for a human but wrote no reply, so the prospect gets "
+                "nothing while a person is interrupted. Answer them in the "
+                '"reply" field and keep action "handoff": one or two sentences '
+                "that respond to what they actually asked, without promising "
+                "anything only a human can decide. If saying nothing is genuinely "
+                "right — they asked us to stop, or the message is abusive — use "
+                'action "hold" instead.'
+            )
+            reasons = [failure_detail]
+            _log_failure(attempt, failure_code, failure_detail)
+            continue
+
         # Gate C — copy guardrails, only for copy that would actually be sent.
+        # A handoff's parting line IS sent, so it is held to the same rules.
         reply = parsed["reply"]
-        if action in {"reply", "book"}:
+        sends_copy = action in {"reply", "book"} or (
+            action == "handoff" and bool(parting))
+        if sends_copy:
             hits = validate_reply(
                 reply or "", inbound_texts_=corpus, canary=canary, stage=stage,
                 action=action)
@@ -1697,6 +1752,11 @@ def decide(
                 continue
         else:
             reply = None
+            if action == "handoff":
+                # Survived Gate D on attempt 2. Recorded so the silent handoffs
+                # are countable instead of indistinguishable from the answered
+                # ones.
+                violations.append("handoff_without_reply")
 
         return BrainDecision(
             ok=True,
