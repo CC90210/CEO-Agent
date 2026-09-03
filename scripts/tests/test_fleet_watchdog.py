@@ -116,6 +116,95 @@ def test_two_daemons_sharing_a_script_name_are_told_apart():
         "Bravo's process must not satisfy Maven's identity")
 
 
+# ------------------------------------------------- ownership arbitration ---
+# 2026-09-03. The test above only ever asserted ONE direction. The other
+# direction was true the whole time and nobody had asked: Bravo's basename
+# ident 'telegram_agent.js' DOES match Maven's absolute command line, so
+# pids_for("telegram_agent.js") returned Maven's PID and a Stop or Restart on
+# bravo-telegram issued `taskkill /PID <maven> /T /F` against another agent's
+# bridge. Only bravo-telegram went into fleet_disabled.json, so the next pass
+# revived Maven and nothing in any log tied the outage to the click.
+#
+# Verified live before and after the fix, against the real process table:
+#   bravo-telegram  pids without arbitration [18404, 40180] -> with [18404]
+#   maven-telegram  pids [40180] either way
+MAVEN_CMDLINE = r"node c:\users\user\cmo-agent\telegram_agent.js"
+BRAVO_CMDLINE = "node telegram_agent.js"
+BRAVO_ID = "telegram_agent.js"
+MAVEN_ID = "c:/users/user/cmo-agent/telegram_agent.js"
+
+
+def test_the_basename_fallback_really_does_match_the_siblings_process():
+    """The premise. If this ever stops being true the fix below is dead code
+    and the test that guards it would pass for the wrong reason."""
+    assert fw._row_runs(MAVEN_CMDLINE, BRAVO_ID) is True
+
+
+def test_a_sibling_full_path_claim_outranks_our_basename_match():
+    """Maven's process is Maven's, however well it matches our basename."""
+    assert fw._claimed_elsewhere(MAVEN_CMDLINE, BRAVO_ID, [MAVEN_ID]) is True
+
+
+def test_our_own_process_is_never_claimed_away():
+    """Bravo's relative command line is matched by nobody else, so it stays
+    ours — the fix must not make a live daemon read as someone else's."""
+    assert fw._claimed_elsewhere(BRAVO_CMDLINE, BRAVO_ID, [MAVEN_ID]) is False
+    assert fw._row_runs(BRAVO_CMDLINE, BRAVO_ID) is True
+
+
+def test_an_exact_claim_of_our_own_outranks_everything():
+    """A daemon whose ident IS the full path keeps its process even when some
+    other entry also names it."""
+    assert fw._claimed_elsewhere(MAVEN_CMDLINE, MAVEN_ID, [BRAVO_ID, MAVEN_ID]) is False
+
+
+def test_arbitration_is_not_the_absolute_ident_shortcut():
+    """Why the fix is arbitration and not 'make every ident absolute'.
+
+    This repo's own command lines are RELATIVE (`node telegram_agent.js`). An
+    absolute ident matches neither spelling, so every local daemon would read
+    DOWN and the watchdog would start a duplicate of the entire fleet — the
+    failure _identity's docstring already records once.
+    """
+    absolute_bravo = "c:/users/user/business-empire-agent/telegram_agent.js"
+    assert fw._row_runs(BRAVO_CMDLINE, absolute_bravo) is False
+
+
+def test_row_runs_exact_refuses_the_basename_fallback():
+    assert fw._row_runs_exact(MAVEN_CMDLINE, MAVEN_ID) is True
+    assert fw._row_runs_exact(MAVEN_CMDLINE, BRAVO_ID) is False
+    assert fw._row_runs_exact("", MAVEN_ID) is False
+    assert fw._row_runs_exact(MAVEN_CMDLINE, "") is False
+
+
+def test_other_idents_excludes_the_app_itself():
+    apps = [{"name": "bravo-telegram", "script": "telegram_agent.js",
+             "args": [], "interp": "node"},
+            {"name": "maven-telegram",
+             "script": r"C:\Users\User\CMO-Agent\telegram_agent.js",
+             "args": [], "interp": "node"}]
+    others = fw._other_idents("bravo-telegram", apps)
+    assert others == [MAVEN_ID]
+    assert BRAVO_ID not in others, "an app must never arbitrate against itself"
+
+
+def test_stop_arbitrates_before_it_kills():
+    """Source-level, because the kill is a taskkill: the arbitration must
+    happen BEFORE pids_for feeds a /T /F, not after."""
+    src = (REPO_ROOT / "scripts" / "ops" / "fleet_watchdog.py").read_text(encoding="utf-8")
+    body = src[src.index("def stop(app: dict)"):]
+    body = body[: body.index("\ndef ", 1)]
+    # Anchor on the CALL, not the word: stop()'s comments say "taskkill" too,
+    # and slicing at prose silently cut the assertion's search window down to
+    # nothing — a test that passes on an empty haystack proves nothing.
+    kill_at = body.index('"taskkill"')
+    before_the_kill = body[:kill_at]
+    assert "_other_idents(" in before_the_kill, (
+        "stop() must resolve the other daemons' identities before killing")
+    assert "pids_for(ident, other_idents=others)" in before_the_kill, (
+        "the kill list must be the ARBITRATED one")
+
+
 def test_a_full_path_identity_survives_windows_backslashes():
     """The ident is stored slash-normalised; Windows reports command lines with
     backslashes. Before both sides were normalised, atlas-telegram read DOWN

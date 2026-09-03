@@ -54,6 +54,7 @@ import re
 import subprocess
 import sys
 import time
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -466,6 +467,58 @@ def _row_runs(cmdline: str, ident: str) -> bool:
     return target == ident or target.rsplit("/", 1)[-1] == ident
 
 
+def _row_runs_exact(cmdline: str, ident: str) -> bool:
+    """_row_runs WITHOUT the basename fallback: a full-path claim, or nothing."""
+    target = _cmdline_target(cmdline)
+    if not target or not ident:
+        return False
+    return target.replace("\\", "/") == ident.replace("\\", "/")
+
+
+def _claimed_elsewhere(cmdline: str, ident: str,
+                       other_idents: "Sequence[str]") -> bool:
+    """True when a DIFFERENT daemon claims this command line by its FULL path.
+
+    _row_runs falls back to comparing basenames so a daemon launched with a
+    relative script (`node telegram_agent.js`, which is how this repo's own
+    entries are recorded) is still recognised. That fallback cannot tell apart
+    two files that share a name — and two do: Bravo's telegram_agent.js and
+    Maven's, in different repos.
+
+    2026-09-03, proven against the live process table:
+        bravo-telegram ident 'telegram_agent.js'                  -> [18404, 40180]
+        maven-telegram ident 'c:/users/user/cmo-agent/telegram_agent.js' -> [40180]
+    40180 is Maven's. So Stop or Restart on bravo-telegram issued
+    `taskkill /PID 40180 /T /F` against another agent's Telegram bridge. Only
+    bravo-telegram went into fleet_disabled.json, so the next 5-minute pass
+    revived Maven and NOTHING in any log attributed the outage to the click —
+    the same "died with no error line" signature the operator was chasing.
+    The read side had the mirror defect: with Bravo's daemon dead and Maven's
+    alive, status() reported bravo-telegram UP and never restarted it.
+
+    An exact full-path claim settles ownership: that process is theirs, and our
+    basename match was a coincidence of naming. Making the ident absolute
+    instead would have been wrong — this repo's own command lines are relative,
+    so an absolute ident matches neither spelling and reports live daemons DOWN,
+    which is how the supervisor starts a duplicate of everything.
+    """
+    if _row_runs_exact(cmdline, ident):
+        return False  # our own claim is exact; nothing outranks it
+    return any(_row_runs_exact(cmdline, other) for other in other_idents)
+
+
+def _other_idents(name: str, apps: "Sequence[dict] | None" = None) -> list[str]:
+    """Every OTHER manifest entry's identity, for ownership arbitration."""
+    out: list[str] = []
+    for other in (apps if apps is not None else manifest()):
+        if other.get("name") == name:
+            continue
+        ident = _identity(other)
+        if ident:
+            out.append(ident)
+    return out
+
+
 def status() -> list[dict]:
     table = _process_table()
     # `not table`, not `table is None`: an EMPTY table is the precise shape of
@@ -490,12 +543,18 @@ def status() -> list[dict]:
     # supervisor. It is the mirror image of the duplicate-fleet bug: that one
     # started daemons on no evidence, this one refuses to on false evidence.
     cmdlines = _table_rows(table)
+    apps = manifest()
     rows = []
-    for app in manifest():
+    for app in apps:
         ident = _identity(app)
+        # A row only counts as OURS if no other daemon claims it by full path —
+        # see _claimed_elsewhere. Without this, Bravo's telegram bridge read as
+        # running off Maven's process and would never have been restarted.
+        others = _other_idents(app["name"], apps)
         rows.append({**app, "ident": ident,
-                     "running": bool(ident and any(_row_runs(c, ident)
-                                                   for c in cmdlines)),
+                     "running": bool(ident and any(
+                         _row_runs(c, ident) and not _claimed_elsewhere(c, ident, others)
+                         for c in cmdlines)),
                      "disabled": app["name"] in off})
     return rows
 
@@ -707,11 +766,17 @@ def _table_pid_rows(table: str) -> list[tuple[int, str]]:
     return rows
 
 
-def pids_for(ident: str) -> list[int]:
+def pids_for(ident: str, *, other_idents: "Sequence[str]" = ()) -> list[int]:
     """PIDs of processes actually EXECUTING this daemon's script/module.
 
     Raises ProcessTableUnreadable rather than returning [] on no evidence: an
     empty list here would read as "already stopped" and silently succeed.
+
+    `other_idents` is every OTHER daemon's identity. A PID one of them claims by
+    full path is not ours, however well it matches our basename — this is the
+    only thing standing between a Stop on bravo-telegram and a taskkill of
+    Maven's bridge. Callers that omit it get the old, unarbitrated behaviour, so
+    it is passed explicitly by stop().
     """
     table = _process_table()
     if not table:
@@ -720,7 +785,9 @@ def pids_for(ident: str) -> list[int]:
             "as stopped without seeing the process list")
     if not ident:
         return []
-    return [pid for pid, cmd in _table_pid_rows(table) if _row_runs(cmd, ident)]
+    return [pid for pid, cmd in _table_pid_rows(table)
+            if _row_runs(cmd, ident)
+            and not _claimed_elsewhere(cmd, ident, other_idents)]
 
 
 def stop(app: dict) -> tuple[bool, str]:
@@ -728,8 +795,11 @@ def stop(app: dict) -> tuple[bool, str]:
     .venv launcher stub re-execs the real interpreter as a child — killing only
     the parent leaves the daemon alive and orphaned."""
     ident = _identity(app)
+    # Ownership arbitration BEFORE any taskkill: a PID another daemon claims by
+    # full path is not ours to kill. See _claimed_elsewhere.
+    others = _other_idents(app["name"])
     try:
-        pids = pids_for(ident)
+        pids = pids_for(ident, other_idents=others)
     except ProcessTableUnreadable as exc:
         return False, str(exc)
     if not pids:
@@ -751,7 +821,7 @@ def stop(app: dict) -> tuple[bool, str]:
     for _ in range(10):
         time.sleep(0.3)
         try:
-            remaining = pids_for(ident)
+            remaining = pids_for(ident, other_idents=others)
         except ProcessTableUnreadable:
             continue
         if not remaining:

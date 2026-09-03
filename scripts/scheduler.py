@@ -715,6 +715,15 @@ def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
             stdin=subprocess.DEVNULL,
             text=True,
             encoding="utf-8",
+            # errors="replace", not strict (2026-09-03). A child that
+            # printed ONE cp1252 byte — 0xb7, the middle dot Windows
+            # consoles emit for a bulleted line — raised
+            # UnicodeDecodeError inside subprocess's reader THREAD, and
+            # a thread that dies leaves communicate() returning None for
+            # that stream. The job's entire stdout vanished and it was
+            # recorded "ok". Losing a job's output to a punctuation mark
+            # is not a decoding decision, it is silent data loss.
+            errors="replace",
             timeout=timeout,
             cwd=str(PROJECT_ROOT),
             env=CHILD_ENV,
@@ -738,7 +747,7 @@ def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
         )
         hint = f" [full: {Path(dump).name}]" if dump else ""
         return f"FAILED (timeout after {timeout}s):{hint} {partial_err[:1000]}"
-    output = result.stdout.strip()
+    output = (result.stdout or "").strip()
     if result.returncode != 0:
         error = result.stderr.strip()
         dump = persist_failure(script_name, cmd, result.returncode, error, output)
@@ -1068,6 +1077,15 @@ def run_snapshot(config: dict) -> str:
             stdin=subprocess.DEVNULL,
             text=True,
             encoding="utf-8",
+            # errors="replace", not strict (2026-09-03). A child that
+            # printed ONE cp1252 byte — 0xb7, the middle dot Windows
+            # consoles emit for a bulleted line — raised
+            # UnicodeDecodeError inside subprocess's reader THREAD, and
+            # a thread that dies leaves communicate() returning None for
+            # that stream. The job's entire stdout vanished and it was
+            # recorded "ok". Losing a job's output to a punctuation mark
+            # is not a decoding decision, it is silent data loss.
+            errors="replace",
             timeout=300,
             cwd=str(PROJECT_ROOT),
             env=CHILD_ENV,
@@ -1133,6 +1151,15 @@ def run_script_action(config: dict) -> str:
             stdin=subprocess.DEVNULL,
             text=True,
             encoding="utf-8",
+            # errors="replace", not strict (2026-09-03). A child that
+            # printed ONE cp1252 byte — 0xb7, the middle dot Windows
+            # consoles emit for a bulleted line — raised
+            # UnicodeDecodeError inside subprocess's reader THREAD, and
+            # a thread that dies leaves communicate() returning None for
+            # that stream. The job's entire stdout vanished and it was
+            # recorded "ok". Losing a job's output to a punctuation mark
+            # is not a decoding decision, it is silent data loss.
+            errors="replace",
             timeout=timeout_s,
             cwd=str(PROJECT_ROOT),
             env=CHILD_ENV,
@@ -1185,6 +1212,15 @@ def run_morning_powwow(_env_vars: dict) -> str:
             stdin=subprocess.DEVNULL,
             text=True,
             encoding="utf-8",
+            # errors="replace", not strict (2026-09-03). A child that
+            # printed ONE cp1252 byte — 0xb7, the middle dot Windows
+            # consoles emit for a bulleted line — raised
+            # UnicodeDecodeError inside subprocess's reader THREAD, and
+            # a thread that dies leaves communicate() returning None for
+            # that stream. The job's entire stdout vanished and it was
+            # recorded "ok". Losing a job's output to a punctuation mark
+            # is not a decoding decision, it is silent data loss.
+            errors="replace",
             timeout=120,
             cwd=str(PROJECT_ROOT),
             env=CHILD_ENV,

@@ -286,6 +286,37 @@ def _default_stdin_devnull(kw: dict) -> dict:
     return kw
 
 
+def _default_decode_errors(kw: dict) -> dict:
+    """Never let a single undecodable byte destroy a child's whole output.
+
+    WHY (2026-09-03): scheduler.py decoded children as STRICT utf-8. A job that
+    printed one 0xb7 — the cp1252 middle dot a Windows console emits for a
+    bulleted line — raised UnicodeDecodeError inside subprocess's reader
+    THREAD. The exception surfaced as a traceback in the daemon log and the
+    thread died, so communicate() returned None for that stream: the job's
+    entire stdout vanished and it was recorded as a success. Losing a run's
+    output to a punctuation mark is not a decoding policy, it is silent data
+    loss, and "the job said nothing" is indistinguishable from "the job is
+    fine".
+
+    Like _default_stdin_devnull, this belongs HERE rather than at the call
+    sites. Fixing the four sites in scheduler.py fixes the four sites in
+    scheduler.py; the fault is a property of "decoding output from a Windows
+    child", which is what this module is for.
+
+    Only applies when the caller already asked for text — errors= is
+    meaningless (and a TypeError) on a bytes pipe. An explicit errors= always
+    wins.
+    """
+    if "errors" in kw:
+        return kw
+    if not (kw.get("text") or kw.get("universal_newlines") or kw.get("encoding")):
+        return kw
+    kw = dict(kw)
+    kw["errors"] = "replace"
+    return kw
+
+
 def safe_run(cmd: Any, **kwargs: Any) -> subprocess.CompletedProcess:
     """Drop-in replacement for subprocess.run that hides the console on
     Windows by default. Any caller-supplied creationflags are preserved
@@ -295,6 +326,7 @@ def safe_run(cmd: Any, **kwargs: Any) -> subprocess.CompletedProcess:
         kwargs = _merge_creationflags(kwargs, WINDOWLESS_FLAGS)
         kwargs = _auto_startupinfo(kwargs, cmd)
         kwargs = _default_stdin_devnull(kwargs)
+        kwargs = _default_decode_errors(kwargs)
     return subprocess.run(cmd, **kwargs)
 
 
@@ -305,6 +337,7 @@ def safe_popen(cmd: Any, **kwargs: Any) -> subprocess.Popen:
         kwargs = _merge_creationflags(kwargs, WINDOWLESS_FLAGS)
         kwargs = _auto_startupinfo(kwargs, cmd)
         kwargs = _default_stdin_devnull(kwargs)
+        kwargs = _default_decode_errors(kwargs)
     return subprocess.Popen(cmd, **kwargs)
 
 
@@ -318,6 +351,7 @@ def safe_daemon_popen(cmd: Any, **kwargs: Any) -> subprocess.Popen:
         # it has no parent to inherit a console from at all, and it lives for
         # days. See _default_stdin_devnull.
         kwargs = _default_stdin_devnull(kwargs)
+        kwargs = _default_decode_errors(kwargs)
     return subprocess.Popen(cmd, **kwargs)
 
 
