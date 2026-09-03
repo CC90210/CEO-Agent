@@ -97,7 +97,13 @@ DEFAULTS: dict[str, list[str]] = {
     # Where the guard must be REGISTERED. A guard on disk that no hook invokes is
     # the "reads as coverage" failure this gene exists to catch, so the wiring is
     # checked in whichever settings file the runtime actually loads.
+    # settings.local.json is gitignored: in CI it does not exist, so the
+    # tracked template — the portable source machine_parity.py syncs FROM —
+    # must count as a hook chain too, or the gene reads as unexpressed on
+    # every CI run while passing on every developer machine (it did, from
+    # 2026-08-28 until this line).
     "guard_wiring": [".claude/settings.local.json", ".claude/settings.json",
+                     ".claude/settings.hooks.template.json",
                      ".codex/settings.json", ".agent/settings.json"],
 }
 
