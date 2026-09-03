@@ -2,12 +2,12 @@
 Memory Consolidation — 3-layer memory pipeline.
 
 Moves working-memory items from memory/WORKING.md into the episodic and semantic
-layers in Supabase, then resets WORKING.md to its blank template.
+layers in Turso, then resets WORKING.md to its blank template.
 
 Three layers:
   Working    memory/WORKING.md                — ephemeral, session-scoped
-  Episodic   memories_episodic (Supabase)     — timestamped events with recency decay
-  Semantic   memories_semantic (Supabase)     — durable facts, procedures, knowledge
+  Episodic   memories_episodic (Turso)     — timestamped events with recency decay
+  Semantic   memories_semantic (Turso)     — durable facts, procedures, knowledge
 
 Consolidation logic (per item):
   importance > 0.7 + type='event'              -> memories_episodic with embedding
@@ -366,8 +366,8 @@ def cmd_status(args: argparse.Namespace) -> int:
 
     print("Memory layer status:")
     print(f"  Working items (WORKING.md): {status['working_items']}")
-    print(f"  Episodic rows (Supabase):   {status['episodic_rows']}")
-    print(f"  Semantic rows (Supabase):   {status['semantic_rows']}")
+    print(f"  Episodic rows (Turso):   {status['episodic_rows']}")
+    print(f"  Semantic rows (Turso):   {status['semantic_rows']}")
     if status.get("db_error"):
         print(f"  DB error: {status['db_error']}", file=sys.stderr)
     return 0
@@ -643,12 +643,12 @@ def cmd_sync_mem0(args: argparse.Namespace) -> int:
 def main() -> None:
     p = argparse.ArgumentParser(
         prog="memory_consolidation.py",
-        description="3-layer memory consolidator: WORKING.md -> episodic/semantic Supabase.",
+        description="3-layer memory consolidator: WORKING.md -> episodic/semantic Turso.",
     )
     p.add_argument("--json", dest="output_json", action="store_true")
     sub = p.add_subparsers(dest="command")
 
-    pr = sub.add_parser("run", help="Consolidate WORKING.md into Supabase memory layers")
+    pr = sub.add_parser("run", help="Consolidate WORKING.md into Turso memory layers")
     pr.add_argument("--dry-run", action="store_true", help="Show what would move, don't write")
     pr.add_argument("--json", dest="output_json", action="store_true", default=argparse.SUPPRESS)
 

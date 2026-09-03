@@ -76,6 +76,13 @@ DEFAULT_INTERVAL = 20
 # delivered on Instagram with no state row recording it.
 TICK_TIMEOUT = 660
 
+# Full stderr for a crashed tick. _log truncates at 300 chars, which on
+# 2026-08-27 reduced two real poller crashes (19:05:38Z, 19:50:42Z) to the word
+# "Traceback" and nothing else — undiagnosable without re-running --live against
+# real prospects. The truncated line stays (it is what CC reads in Telegram);
+# the untruncated copy lands here so the next crash is answerable from disk.
+FAILURE_DIR = PROJECT_ROOT / "tmp" / "ig_dm_failures"
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -171,7 +178,23 @@ def run_tick(extra_args: list[str]) -> int:
         if "another poll is already running" in detail:
             _log("skipped: another poll holds the lock")
             return 0
-        _log(f"ERROR: tick exited {proc.returncode}: {detail[:300]}")
+        dump = ""
+        try:
+            FAILURE_DIR.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            path = FAILURE_DIR / f"tick-{stamp}-exit{proc.returncode}.log"
+            body = (
+                f"argv: {argv}\n"
+                f"returncode: {proc.returncode}\n"
+                f"--- stderr ---\n{proc.stderr or ''}\n"
+                f"--- stdout ---\n{proc.stdout or ''}\n"
+            )
+            path.write_text(body, encoding="utf-8")
+            dump = f" [full: {path}]"
+        except OSError as exc:
+            # Never let the diagnostic swallow the diagnosis.
+            dump = f" [could not write crash dump: {exc}]"
+        _log(f"ERROR: tick exited {proc.returncode}: {detail[:300]}{dump}")
         return proc.returncode
 
     try:

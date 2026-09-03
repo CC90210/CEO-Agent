@@ -1,6 +1,6 @@
 """V6 Apex Phase 3 — cross-agent event-bus router daemon.
 
-Watches the Supabase `agent_events` substrate and writes a sanitized
+Watches the Turso `agent_events` substrate and writes a sanitized
 operations log to `state/event_router.log` (jsonl) so the dashboard's
 /feed page has a single, low-latency surface for live activity.
 
@@ -11,7 +11,7 @@ Why a router on top of event_bus.subscribe()?
   - The router is the OBSERVABILITY layer — it sees every event regardless
     of target_agent, projects it to a uniform shape, and emits it to:
       1. state/event_router.log (jsonl)            — local audit tail
-      2. agent_events (no-op; already there)       — Supabase canonical
+      2. agent_events (no-op; already there)       — Turso canonical
       3. (future) per-event side-effects: Slack pings, dashboard websocket
          pushes, metric counters.
 
@@ -46,7 +46,7 @@ from pathlib import Path
 # sys.path setup MUST happen before importing anything under `lib.*` — otherwise
 # the auto-added scripts/core/ on sys.path[0] doesn't expose lib/, the first
 # `from lib.X import Y` fails, and Python's import-state cache makes every
-# subsequent `from lib.Y import Z` fail too (the silent "Supabase client
+# subsequent `from lib.Y import Z` fail too (the silent "DB client
 # unavailable" bug debugged 2026-06-06).
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
@@ -151,7 +151,7 @@ except Exception:
 
 
 def _client():
-    """Service-role Supabase client. Returns None on any failure.
+    """Service-role DB client. Returns None on any failure.
 
     Each return-None path emits both a stderr breadcrumb (for `pm2 logs`
     tails) AND a structured-log error event (for queryable post-mortems
@@ -438,7 +438,7 @@ def tick(verbose: bool = False) -> int:
         if dirty:
             _save_suppress_state(suppress)
         if verbose:
-            sys.stderr.write("[event_router] Supabase client unavailable; skipping tick\n")
+            sys.stderr.write("[event_router] DB client unavailable; skipping tick\n")
         return 0
 
     cursor = _read_cursor()

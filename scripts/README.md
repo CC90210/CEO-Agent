@@ -12,7 +12,7 @@ last_updated: 2026-05-21
 | Directory | Purpose |
 |-----------|---------|
 | `scripts/core/` | Core empire operations (state management, event routing, memory, sync) |
-| `scripts/integrations/` | External service connectors (Supabase, Stripe, n8n, Google Workspace, email) |
+| `scripts/integrations/` | External service connectors (Turso, Stripe, n8n, Google Workspace, email) |
 | `scripts/browser/` | Browser harness, scraping, cloaking, web automation |
 | `scripts/state/` | V6 state substrate (state_manager, guards, bridges, heartbeats) |
 | `scripts/hooks/` | Pre-commit, session-start, and automation hooks |

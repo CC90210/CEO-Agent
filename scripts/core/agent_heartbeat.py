@@ -13,7 +13,7 @@ CLI use:
     python scripts/core/agent_heartbeat.py --agent bravo
     python scripts/core/agent_heartbeat.py --agent maven --tick 42 --json
 
-Best-effort: never raises on Supabase errors. Logs + continues.
+Best-effort: never raises on DB errors. Logs + continues.
 """
 from __future__ import annotations
 

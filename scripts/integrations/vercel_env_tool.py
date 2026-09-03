@@ -130,7 +130,16 @@ def cmd_projects(_args) -> Any:
 
 
 def cmd_list(args) -> Any:
-    """List env vars on one project."""
+    """List env vars on one project, optionally filtered to one target.
+
+    `--env` USED TO BE ACCEPTED AND SILENTLY IGNORED. Vercel returns every
+    variable across every target, and this returned them all whatever you
+    asked for -- so `list --env preview` answered with production's variables
+    and looked like preview was fully configured. That is the worst shape a
+    filter can have: it does not error, it reports coverage that does not
+    exist. Found 2026-08-27 while auditing why the OASIS calendar credentials
+    were missing from preview -- the tool said they were there.
+    """
     res = _request("GET", f"/v10/projects/{args.project}/env", params={"decrypt": "false"})
     # Mask values — secret_guard blocks reading them anyway, but the
     # response from Vercel doesn't carry them unless decrypt=true.
@@ -139,6 +148,11 @@ def cmd_list(args) -> Any:
         for entry in res["envs"]:
             if "value" in entry:
                 entry["value"] = "***"
+        wanted = {t.strip() for t in (getattr(args, "env", None) or "").split(",") if t.strip()}
+        if wanted:
+            res["envs"] = [
+                e for e in res["envs"] if wanted & set(e.get("target") or [])
+            ]
     return res
 
 

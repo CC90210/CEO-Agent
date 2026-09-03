@@ -475,7 +475,7 @@ def main():
         except Exception as e:
             results["domain_ping"] = f"❌ {e}"
 
-    # Supabase agent_state_snapshot mirror.
+    # DB agent_state_snapshot mirror.
     # In shadow/on modes, state_manager.heartbeat() already pushed it as part
     # of its single-writer contract. Only fire the standalone path in 'off'
     # mode where state_manager wasn't called.

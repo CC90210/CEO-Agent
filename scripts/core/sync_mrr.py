@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""sync_mrr.py — daily MRR auto-sync from revenue_engine to Supabase.
+"""sync_mrr.py — daily MRR auto-sync from revenue_engine to Turso.
 
 Computes Net MRR via revenue_engine.calculate_mrr() (Stripe subscriptions
 + manual retainer entries from revenue_events) and writes the result to
-two Supabase locations so the OASIS Agent Command Center dashboard
+two Turso locations so the OASIS Agent Command Center dashboard
 self-heals every day without operator intervention:
 
   1. user_profiles.mrr_current_usd  — drives the live "Net MRR" widget.

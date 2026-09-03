@@ -54,17 +54,17 @@ USAGE
 
 RELATED — `scripts/register_skill.py` (legacy)
 ----------------------------------------------
-The older `register_skill.py` writes a row to the Supabase `skills_registry`
+The older `register_skill.py` writes a row to the Turso `skills_registry`
 table and remains the right tool when an existing skill needs to be resynced
 to the database (e.g., after editing its frontmatter). Use cases split as:
 
   scripts/register.py        — CREATE a new skill/script/agent/workflow on disk
                                with proper frontmatter + auto-graph rebuild.
-  scripts/register_skill.py  — SYNC an existing skill folder to Supabase
+  scripts/register_skill.py  — SYNC an existing skill folder to Turso
                                (sync-one, sync-all, audit, validate).
 
 `register.py skill` does NOT call `register_skill.py register` automatically
-— Supabase write is opt-in. After scaffolding, run
+— the DB write is opt-in. After scaffolding, run
 `python scripts/register_skill.py register <name>` if you want the
 skills_registry row.
 """

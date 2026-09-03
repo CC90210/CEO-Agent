@@ -36,10 +36,10 @@ DESIGN
    to a manual first-order MAML approximation (Reptile variant) otherwise.
 
 3. Task structure: each past client is a task.  Support set = first half of
-   client interactions.  Query set = second half.  Tasks loaded from Supabase
+   client interactions.  Query set = second half.  Tasks loaded from Turso
    (clients table) if available; synthetic tasks generated as fallback.
 
-4. Adaptation: given a new client_id, load their interactions from Supabase
+4. Adaptation: given a new client_id, load their interactions from Turso
    (or tmp/maml_tasks.jsonl), run inner_steps gradient steps on the support
    set, save the adapted weights to tmp/maml_<client_id>.pt.
 
@@ -135,7 +135,7 @@ def _embed_text(text: str, dim: int = INPUT_DIM) -> list[float]:
     return [(b / 127.5) - 1.0 for b in raw[:dim]]
 
 
-# ---- Supabase client loader (optional) ------------------------------------
+# ---- DB client loader (optional) ------------------------------------------
 
 def _load_env() -> dict[str, str]:
     env_path = PROJECT_ROOT / ".env.agents"
@@ -508,7 +508,7 @@ def _make_parser() -> argparse.ArgumentParser:
                    help="Emit structured JSON output")
     sub = p.add_subparsers(dest="command")
 
-    sub.add_parser("build-tasks", help="Build task dataset from Supabase or synthetic")
+    sub.add_parser("build-tasks", help="Build task dataset from Turso or synthetic")
 
     t = sub.add_parser("train", help="Meta-train on all client tasks")
     t.add_argument("--epochs", type=int, default=50)

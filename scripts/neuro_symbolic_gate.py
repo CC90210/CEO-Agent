@@ -174,7 +174,7 @@ def _extract_facts(draft_text: str, recipient: str) -> dict[str, Any]:
     facts["subject_length"] = len(subject)
     facts["subject_all_caps"] = subject == subject.upper() and len(subject) > 4
 
-    # Cooldown: query Supabase for last_sent_to
+    # Cooldown: query Turso for last_sent_to
     facts["last_sent_hours_ago"] = _query_cooldown(recipient, env)
 
     # Domain cap: count today's sends to this domain

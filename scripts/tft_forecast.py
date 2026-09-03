@@ -41,8 +41,8 @@ DESIGN
    to a lightweight LSTNet-style baseline (LSTM + skip connections) that
    still produces P10/P50/P90 via quantile regression loss.
 
-3. Dataset: built from Supabase (stripe_events + n8n_executions +
-   telegram_messages tables).  If Supabase unavailable, synthetic trend
+3. Dataset: built from Turso (stripe_events + n8n_executions +
+   telegram_messages tables).  If the DB is unavailable, synthetic trend
    data is generated from the known current MRR (~$3,322/mo) with realistic
    noise.
 
@@ -127,7 +127,7 @@ def _cyclical(val: float, period: float) -> tuple[float, float]:
 
 
 def _fetch_stripe_daily(days: int, url: str, key: str) -> dict[str, float]:
-    """Fetch daily Stripe revenue from Supabase stripe_events table."""
+    """Fetch daily Stripe revenue from Turso stripe_events table."""
     try:
         import urllib.request
         cutoff = (date.today() - timedelta(days=days)).isoformat()

@@ -1,6 +1,6 @@
 """Region inference for outreach emails.
 
-Given a lead row (dict from Supabase `leads` table), return a phrase like
+Given a lead row (dict from Turso `leads` table), return a phrase like
 "the Collingwood area" or "the Toronto area" so outreach templates can say
 "as a fellow local business owner in {{region}}" with the right geography.
 

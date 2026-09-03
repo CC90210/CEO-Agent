@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """provision_secrets.py — materialize a tenant's integration secrets onto this host.
 
-CC's credential model (2026-06): the operator hands a SunBiz VPS only Supabase
+CC's credential model (2026-06): the operator hands a SunBiz VPS only the DB
 (URL + service-role key + BRAVO_FIELD_ENCRYPTION_KEY) and GitHub. Every other
 integration secret (Gmail App Password for submissions@, Kixie, TextTorrent,
 Twilio, SMTP, AI provider key) is entered ONCE in the Command Center, stored
-encrypted in Supabase, and pulled down here by this script. This is the
+encrypted in the DB, and pulled down here by this script. This is the
 "credentials migrate with the workspace" mechanism.
 
 Source of truth (writer): oasis-command-center

@@ -174,7 +174,7 @@ def _client(env: dict[str, str]):
     try:
         return create_client(url, key)
     except Exception as e:  # noqa: BLE001
-        print(f"[extraction_consumer] supabase client error: {e}", file=sys.stderr)
+        print(f"[extraction_consumer] db client error: {e}", file=sys.stderr)
         return None
 
 
@@ -664,7 +664,7 @@ def doctor(env: dict[str, str]) -> None:
     base_url = _dashboard_base(env)
     print(f"[extraction_consumer] dashboard callback URL:      {base_url}/api/internal/apply-extraction")
     sb = _client(env)
-    print(f"[extraction_consumer] supabase client:             {'ok' if sb else 'MISSING'}")
+    print(f"[extraction_consumer] db client:             {'ok' if sb else 'MISSING'}")
 
     # Prove the DOCUMENT READ PATH works without waiting for a rep to drop a
     # real application. A signed request with a syntactically valid but

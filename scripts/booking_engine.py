@@ -3,7 +3,7 @@ Booking Engine - Self-hosted scheduling system replacing Cal.com.
 Zero paid services. Backed by Turso/libSQL (bravo DB, via supabase-compat shim; pre-2026-08: Supabase).
 All credentials loaded from .env.agents (never hardcoded).
 
-Tables required (bravo Supabase project):
+Tables required (bravo Turso project):
   booking_slots (id, slot_date, start_time, end_time, meeting_type, is_available, created_at)
   bookings      (id, lead_id, slot_id, name, email, phone, meeting_type, notes,
                  status, meeting_link, reminder_sent, created_at)
@@ -75,7 +75,7 @@ def load_env() -> dict[str, str]:
 
 
 def get_client(env_vars: dict[str, str]):
-    """Create a Supabase client using BRAVO_SUPABASE_* credentials."""
+    """Create a DB client using BRAVO_SUPABASE_* credentials."""
     from supabase import create_client  # type: ignore[import-untyped]
 
     url = env_vars.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat"
@@ -1117,7 +1117,7 @@ def cmd_send_reminders(client, args, json_mode: bool, env_vars: dict[str, str]) 
     Send reminder emails for all confirmed bookings scheduled for tomorrow
     that have not yet had a reminder sent. Marks reminder_sent=true on success.
 
-    --dry-run prints what would be sent without touching Supabase or SMTP.
+    --dry-run prints what would be sent without touching Turso or SMTP.
     """
     dry_run: bool = getattr(args, "dry_run", False)
     meet_link = env_vars.get("GOOGLE_MEET_LINK")
@@ -1226,7 +1226,7 @@ def cmd_send_reminders(client, args, json_mode: bool, env_vars: dict[str, str]) 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Booking Engine - self-hosted Cal.com replacement backed by Supabase",
+        description="Booking Engine - self-hosted Cal.com replacement backed by Turso",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -1343,7 +1343,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         dest="dry_run",
         action="store_true",
-        help="Print what would be sent without emailing or updating Supabase",
+        help="Print what would be sent without emailing or updating Turso",
     )
 
     return parser

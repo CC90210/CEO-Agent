@@ -23,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
 
 # Synthetic lead for rendering — covers the geo-rapport path (region inference)
-# and gives the critic real-looking inputs without hitting Supabase.
+# and gives the critic real-looking inputs without hitting the DB.
 SAMPLE_VARS = {
     "first_name": "Jordan",
     "company": "Apex Wellness Studio",

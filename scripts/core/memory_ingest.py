@@ -67,7 +67,7 @@ DEFAULT_EXCLUDE = [
 EMBED_DIM = 1536
 
 
-# ---- Env / Supabase (same pattern as event_bus.py) --------------------------
+# ---- Env / DB (same pattern as event_bus.py) --------------------------------
 
 def _load_env() -> dict[str, str]:
     env_path = PROJECT_ROOT / ".env.agents"

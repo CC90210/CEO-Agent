@@ -54,7 +54,7 @@ def load_env():
 
 
 def get_supabase(env_vars):
-    """Create Supabase client using Bravo project credentials."""
+    """Create DB client using Bravo project credentials."""
     try:
         from supabase import create_client
     except ImportError:
@@ -451,7 +451,7 @@ Examples:
     # -- send ------------------------------------------------------------------
     p_send = subparsers.add_parser(
         "send",
-        help="Send an outreach email to a lead (looks up lead details from Supabase)",
+        help="Send an outreach email to a lead (looks up lead details from Turso)",
     )
     p_send.add_argument(
         "--lead-id",

@@ -10,7 +10,7 @@ Writes two rows:
   1. `agent_activity` row (agent=cc-agent, status=done, task="[domain] ...",
      detail=summary, files=...) — visible to peers polling `peers`/`recent`.
   2. `agent_events` publish (type `domain.ping`, target=peer agent) via
-     event_bus — falls back to the offline queue if Supabase is down.
+     event_bus — falls back to the offline queue if the DB is down.
 
 Usage:
   python scripts/core/cross_agent_ping.py --domain marketing \

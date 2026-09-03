@@ -1,7 +1,7 @@
 ---
 description: "VPS paste-prompt task to verify SunBiz website-to-CRM-to-email bridge flow; includes end-to-end runbook for lead submission testing and daemon health checks"
 tags: [vps, sunbiz, bridge, paste-prompt, task]
-last_updated: 2026-07-28
+last_updated: 2026-08-28
 ---
 # VPS Agent Task — Verify the SunBiz Website→CRM→Email Bridge
 

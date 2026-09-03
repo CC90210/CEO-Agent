@@ -39,7 +39,7 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 # Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. Without this the
-# AV TLS-scanner root is untrusted and every Supabase call raises
+# AV TLS-scanner root is untrusted and every DB call raises
 # CERTIFICATE_VERIFY_FAILED, which this tool then reported as "non-JSON".
 from lib.tls_trust import ensure_os_trust  # noqa: E402
 
@@ -213,7 +213,7 @@ def run_sync(env_vars: dict[str, str], as_json: bool = False, window_seconds: in
 
         # RACE-SAFE INSERT: use idempotent upsert on email.
         # Two overlapping fast-poll runs could both see "not in CRM yet" and
-        # both try to insert. Supabase .upsert(on_conflict="email") is atomic
+        # both try to insert. .upsert(on_conflict="email") is atomic
         # at the DB layer — one wins, the other is a no-op. We still need to
         # distinguish "I inserted this one" vs "someone else already did" to
         # avoid sending duplicate welcome emails / duplicate notifications.

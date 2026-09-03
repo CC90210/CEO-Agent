@@ -205,10 +205,10 @@ def heartbeat(agent: str, status: str = "working", focus: str | None = None,
 
 def _mirror_supabase_heartbeat(agent: str, focus: str | None,
                                payload: dict | None) -> None:
-    """Best-effort write to the Supabase `agent_state_snapshot` table.
+    """Best-effort write to the Turso `agent_state_snapshot` table.
 
-    Failures never propagate — the local DB is the source of truth; Supabase
-    is the cloud mirror for the OASIS dashboard. Called from inside heartbeat()
+    Failures never propagate — the local DB is the source of truth; Turso
+    is the sync target for the OASIS dashboard. Called from inside heartbeat()
     so anyone using `state_manager` directly (not just state_sync.py) keeps
     the cloud view current.
     """

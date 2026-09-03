@@ -10,8 +10,8 @@ WHAT IT IS — HONESTLY. A **logical** snapshot: every table's column set and it
 exact row count, checksummed, plus optional row export (`--rows`). That is
 enough to (a) prove a baseline existed before a migration and (b) detect what a
 migration actually changed — table dropped, column vanished, rows deleted. It
-is NOT a byte-level backup: full point-in-time restore is Supabase PITR, which
-lives in the dashboard and cannot be driven from here. `verify` says exactly
+is NOT a byte-level backup: no full point-in-time restore exists anymore (the
+Supabase PITR feature died with the cancelled Supabase project). `verify` says exactly
 which of the two you have; it never implies more coverage than it captured.
 
 CLI:
@@ -66,7 +66,7 @@ except ImportError:  # pragma: no cover — lib/retry ships with the repo
 CAPABILITY_META = {
     "category": "data.supabase",
     "lifecycle": "active",
-    # Reads the DB, writes only a local snapshot file — never mutates Supabase.
+    # Reads the DB, writes only a local snapshot file — never mutates the DB.
     "risk": "local_write",
     "triggers": [
         "database snapshot",
@@ -309,8 +309,8 @@ def cmd_create(args) -> int:
         "restore_scope": (
             "logical: schema + exact row counts"
             + (" + exported rows" if want_rows else "")
-            + ". Byte-level point-in-time restore is Supabase PITR (dashboard), "
-              "not this file."
+            + ". No byte-level point-in-time restore (Supabase PITR died with "
+              "the cancelled project), so restore scope is logical only."
         ),
         "tables": tables,
     }
@@ -487,8 +487,8 @@ def _report(checks: list[dict], payload: dict | None, args,
         if payload:
             print(f"  scope: {payload.get('restore_scope')}")
             if not payload.get("rows_captured"):
-                print("  NOTE: counts only — for a destructive change, confirm the "
-                      "Supabase PITR window covers this timestamp before applying.")
+                print("  NOTE: counts only — no byte-level PITR exists (Supabase "
+                      "was cancelled) to recover a destructive change from.")
         if drift:
             print(f"  drift since capture ({len(drift)} table(s)):")
             # ASCII arrow on purpose: U+2192 is absent from cp1252 and crashed
@@ -518,7 +518,7 @@ def main() -> int:
 
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--project", default=None,
-                        help="Supabase project key from supabase_tool.PROJECTS (default: bravo). "
+                        help="project key from supabase_tool.PROJECTS (default: bravo). "
                              "On verify, an explicit value must match the snapshot's own project")
     common.add_argument("--json", dest="output_json", action="store_true",
                         help="Machine-readable output")

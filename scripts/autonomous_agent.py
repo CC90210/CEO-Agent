@@ -139,7 +139,7 @@ def get_supabase(env: Optional[dict[str, str]] = None):
     key = (e.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
            or os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY"))
     if not url or not key:
-        raise RuntimeError("Bravo Supabase credentials missing — autonomous_agent cannot run")
+        raise RuntimeError("Bravo database credentials missing — autonomous_agent cannot run")
     from supabase import create_client
     return create_client(url, key)
 

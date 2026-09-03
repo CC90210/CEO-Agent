@@ -71,7 +71,7 @@ def load_env():
 
 
 def get_client(env_vars):
-    """Create a Supabase client for the bravo project."""
+    """Create a DB client for the bravo project."""
     try:
         from supabase import create_client
     except ImportError:
@@ -124,7 +124,7 @@ def calculate_score(lead: dict, interactions: list) -> int:
     # Recency bonus (based on most recent interaction)
     if interactions:
         now = datetime.now(timezone.utc)
-        # created_at comes back as ISO string from Supabase
+        # created_at comes back as ISO string from Turso
         latest_str = max(ix.get("created_at", "") for ix in interactions)
         if latest_str:
             try:
@@ -724,7 +724,7 @@ def cmd_funnel(client, args, output_json: bool):
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lead_engine.py",
-        description="OASIS AI Lead Engine - CRM CLI backed by Supabase",
+        description="OASIS AI Lead Engine - CRM CLI backed by Turso",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -834,7 +834,7 @@ Examples:
 # -- Entry point ---------------------------------------------------------------
 
 def cmd_bulk_import(client, args, output_json: bool):
-    """Bulk import leads from LEAD_TRACKER.csv into Supabase."""
+    """Bulk import leads from LEAD_TRACKER.csv into Turso."""
     import csv
     import re
 
@@ -942,7 +942,7 @@ def cmd_bulk_import(client, args, output_json: bool):
         result = client.table("leads").insert(batch).execute()
         inserted += len(result.data or [])
 
-    print(f"\n[OK] Imported {inserted} leads into Supabase.")
+    print(f"\n[OK] Imported {inserted} leads into Turso.")
     if skipped:
         print(f"     Skipped {len(skipped)} duplicates.")
 

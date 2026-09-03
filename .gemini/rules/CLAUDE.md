@@ -235,7 +235,7 @@ Bravo coordinates with **APEX** (Adon's agent, `@KnutRPEbot`) in the shared **OA
 - **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
 - **Subagents:** 8 in `.claude/agents/` (7 agents + INDEX.md); 31 agent nodes in the capability graph (incl. `agents/` voltagent + V7.2.0 agency imports) — live count: `CAPABILITY_GRAPH.json` totals, don't hand-count
 - **Workflows:** 35 in `.agents/workflows/`
-- **Cron jobs:** 37 in `cron_engine.py SEED_JOBS` (incl. the 2026-06-06 self-maintenance pass — Weekly tmp/ Hygiene, Daily Log Rotation Audit, Event Bus Offline Drain — and the 2026-08-01 Monthly Inventory Sync). Pushing to the shared `cron_jobs` registry (Turso) is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
+- **Cron jobs:** live count in `cron_engine.py SEED_JOBS` — read it, never restate it (this line said 37 while the list held 42, then 36) (incl. the 2026-06-06 self-maintenance pass — Weekly tmp/ Hygiene, Daily Log Rotation Audit, Event Bus Offline Drain — and the 2026-08-01 Monthly Inventory Sync). Pushing to the shared `cron_jobs` registry (Turso) is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
 - **North Star:** Multiply CC's time and ship the systems that scale OASIS. (Revenue / MRR targets are owned by Atlas — CFO-Agent — not Bravo.)
 
 <!-- LOCKSTEP:untrusted_content -->

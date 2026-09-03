@@ -97,7 +97,7 @@ def _supabase_client():
         from supabase import create_client
         return create_client(url, key)
     except Exception as e:
-        print(f"[quest_publisher] supabase client failed: {e}", file=sys.stderr)
+        print(f"[quest_publisher] db client failed: {e}", file=sys.stderr)
         return None
 
 
@@ -119,7 +119,7 @@ def publish_once(dry_run: bool = False) -> dict:
 
     client = _supabase_client()
     if client is None:
-        return {"error": "no supabase client (env missing or supabase lib not installed)"}
+        return {"error": "no db client (env missing or supabase lib not installed)"}
 
     now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
     upserts: list[dict] = []

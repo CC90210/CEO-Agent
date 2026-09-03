@@ -46,7 +46,7 @@ TOOL_SCENARIOS = [
     {
         "intent": "supabase_query",
         "user": "Show me the top 5 leads in the database.",
-        "assistant": "Querying Supabase leads table via the CLI tool:\n\n`python scripts/integrations/supabase_tool.py select leads --project bravo --limit 5`\n\nFound 5 leads:\n1. Alex Rivers (alex@acme.com) - Score: 85 - Status: qualified\n2. Sarah Chen (sarah@tech.co) - Score: 92 - Status: booked\n3. Mark Vance (mvance@growth.io) - Score: 78 - Status: new\n4. Elena Rostova (elena@horizon.dev) - Score: 88 - Status: qualified\n5. David Kim (dkim@apex.com) - Score: 95 - Status: closed"
+        "assistant": "Querying Turso leads table via the CLI tool:\n\n`python scripts/integrations/supabase_tool.py select leads --project bravo --limit 5`\n\nFound 5 leads:\n1. Alex Rivers (alex@acme.com) - Score: 85 - Status: qualified\n2. Sarah Chen (sarah@tech.co) - Score: 92 - Status: booked\n3. Mark Vance (mvance@growth.io) - Score: 78 - Status: new\n4. Elena Rostova (elena@horizon.dev) - Score: 88 - Status: qualified\n5. David Kim (dkim@apex.com) - Score: 95 - Status: closed"
     },
     {
         "intent": "stripe_balance",
@@ -120,7 +120,7 @@ def generate_synthetic_samples(target_count: int = 100) -> list[dict]:
     context_text = load_workspace_context()
     
     variations_user = [
-        "How do I query the Supabase database for new qualified leads?",
+        "How do I query the Turso database for new qualified leads?",
         "Check the status of our n8n automations.",
         "What is the rule on sending outbound emails?",
         "Can you fix this error in scripts/integrations/stripe_tool.py?",

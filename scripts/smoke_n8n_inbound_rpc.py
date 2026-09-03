@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """smoke_n8n_inbound_rpc.py — end-to-end smoke test for the n8n inbound bridge.
 
-Renamed from test_n8n_inbound_rpc.py (2026-05-21) — this is a live-Supabase
+Renamed from test_n8n_inbound_rpc.py (2026-05-21) — this is a live-DB
 smoke script, not a pytest unit test. Pytest was picking it up via the
 `test_*` prefix but found zero test functions, causing a collection error.
 

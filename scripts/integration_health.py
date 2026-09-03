@@ -101,7 +101,7 @@ def ping(
         status:  'healthy' | 'degraded' | 'down' | 'unconfigured'
         error:   optional error string (sets last_error column)
         metadata: optional jsonb payload for context (latency, version, etc.)
-        client:   pre-built Supabase client; if None, a fresh one is created from env
+        client:   pre-built DB client; if None, a fresh one is created from env
 
     Best-effort — never raises. Returns False if anything failed.
     """

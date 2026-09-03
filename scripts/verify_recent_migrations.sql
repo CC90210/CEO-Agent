@@ -4,9 +4,9 @@
 -- Diagnostic for the migrations shipped 2026-05-19 through 2026-05-23.
 -- Earlier migrations (001-055) are foundational — if they weren't applied,
 -- the dashboard wouldn't render. This script focuses on the recent batch
--- that's most likely to be in git but not yet applied to the live Supabase.
+-- that's most likely to be in git but not yet applied to the live DB.
 --
--- USAGE: paste into the Supabase SQL editor and run.
+-- USAGE: run against the Turso DB (e.g. via turso_tool or the SQL editor).
 --   - Each row returns the migration id + a `status` label
 --   - `applied` = the schema element exists; safe to assume the migration ran.
 --   - `pending` = the schema element is missing; APPLY this migration.

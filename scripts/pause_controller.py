@@ -52,7 +52,7 @@ EXIT CODES
 ----------
 0 = success
 1 = invalid scope / target
-2 = supabase unreachable
+2 = DB unreachable
 3 = pause did not exist (for resume)
 """
 
@@ -116,7 +116,7 @@ MODE_CAP_MULTIPLIERS: dict[str, float] = {
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Supabase
+# DB
 # ─────────────────────────────────────────────────────────────────────
 
 

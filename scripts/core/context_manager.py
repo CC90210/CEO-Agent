@@ -509,7 +509,7 @@ CLI_CHECKS = {
     # owns social publishing. Use Maven's copy via cross-repo subprocess
     # (see ceo_dashboard.py:_content_this_week for the read-only pattern).
     "supabase_tool": {
-        "description": "Database access (Supabase)",
+        "description": "Database access (Turso), legacy tool name",
         "check": "python_script",
         "script": "scripts/integrations/supabase_tool.py",
         "env_key": "BRAVO_SUPABASE_SERVICE_ROLE_KEY",

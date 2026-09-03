@@ -134,7 +134,7 @@ def load_env() -> dict[str, str]:
 
 
 def get_supabase_client(env_vars: dict[str, str]):
-    """Return a Supabase client for the bravo project. Returns None on failure."""
+    """Return a DB client for the bravo project. Returns None on failure."""
     try:
         from supabase import create_client
         url = env_vars.get("BRAVO_SUPABASE_URL")
@@ -152,7 +152,7 @@ def get_supabase_client(env_vars: dict[str, str]):
 
 def lookup_client(db_client, name: str) -> dict:
     """
-    Fetch lead/client context from Supabase if available.
+    Fetch lead/client context from Turso if available.
     Returns a dict with whatever context is found; caller handles missing fields.
     """
     if db_client is None:
@@ -509,7 +509,7 @@ def cmd_create(env_vars: dict[str, str], args: argparse.Namespace) -> int:
         print(f"  Tier:    {tier}")
         print(f"  Expires: {expiry}")
         if not context:
-            print("  NOTE: No client record found in Supabase — proposal uses generic context.")
+            print("  NOTE: No client record found in Turso — proposal uses generic context.")
             print("        Add client notes with: python scripts/lead_engine.py add ...")
 
     # Update Supabase lead record if client is found
@@ -633,7 +633,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command")
 
     create_p = sub.add_parser("create", help="Generate a new proposal")
-    create_p.add_argument("--client",  required=False, help="Client name (searched in Supabase)")
+    create_p.add_argument("--client",  required=False, help="Client name (searched in Turso)")
     create_p.add_argument(
         "--type",
         choices=PROPOSAL_TYPES,

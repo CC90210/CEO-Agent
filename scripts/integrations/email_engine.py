@@ -1,6 +1,6 @@
 """
 Email Engine - Free send and nurture sequence engine.
-Zero paid services. Gmail SMTP (500/day free) + Supabase for tracking.
+Zero paid services. Gmail SMTP (500/day free) + Turso for tracking.
 All credentials loaded from .env.agents (never hardcoded).
 
 Usage:
@@ -37,7 +37,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 # Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. The inbox sweep
-# reads IMAP (unaffected) but then writes lead_interactions to Supabase over
+# reads IMAP (unaffected) but then writes lead_interactions to Turso over
 # HTTPS, which is where the AV TLS-scanner root broke it: the sweep printed
 # emails fine and then exited 1 on the DB write.
 from lib.tls_trust import ensure_os_trust  # noqa: E402
@@ -136,7 +136,7 @@ def load_env():
 
 
 def get_supabase(env_vars):
-    """Create Supabase client using Bravo project credentials."""
+    """Create DB client using Bravo project credentials."""
     try:
         from supabase import create_client
     except ImportError:
@@ -332,7 +332,7 @@ def html_to_text(html):
     return "\n".join(lines).strip()
 
 
-# -- Supabase logging ---------------------------------------
+# -- Turso logging ---------------------------------------
 
 
 def log_email(db, to_email, subject, body_preview, status, lead_id=None,
@@ -1704,7 +1704,7 @@ def _is_known_client(db, email_addr) -> bool:
 
 def cmd_check_inbox(env_vars, args, output_json=False):
     """
-    Connect to Gmail IMAP, fetch UNSEEN emails, log them to Supabase,
+    Connect to Gmail IMAP, fetch UNSEEN emails, log them to Turso,
     notify via Telegram, then mark them as SEEN.
 
     When EMAIL_BRAIN_ENABLED is set, each non-STOP email is routed through
@@ -2035,7 +2035,7 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     _save_processed_msgids(processed_msgids)
                 continue
 
-            # Log to Supabase email_log (legacy SMTP-layer visibility)
+            # Log to Turso email_log (legacy SMTP-layer visibility)
             try:
                 db.table("email_log").insert({
                     "to_email": address,
@@ -2045,7 +2045,7 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                     "sent_at": datetime.now(timezone.utc).isoformat(),
                 }).execute()
             except Exception as db_err:
-                print(f"Warning: could not log inbound email to Supabase: {db_err}", file=sys.stderr)
+                print(f"Warning: could not log inbound email to Turso: {db_err}", file=sys.stderr)
 
             # V5.6 — route through inbound_classifier + record_inbound_from_n8n
             # RPC so the unified ledger gets every classified inbound. This
@@ -2418,7 +2418,7 @@ def cmd_check_inbox(env_vars, args, output_json=False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Email Engine - Free Gmail SMTP sending + Supabase tracking",
+        description="Email Engine - Free Gmail SMTP sending + Turso tracking",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

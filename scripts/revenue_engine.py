@@ -118,7 +118,7 @@ def _stripe_get_all(secret_key: str, endpoint: str, params: dict | None = None, 
     return items
 
 
-# -- Supabase client ------------------------------------------------------------
+# -- DB client ---------------------------------------------------------------
 
 def get_supabase(env_vars: dict[str, str]):
     """Return a DB client for the bravo project.
@@ -271,7 +271,7 @@ def _mrr_manual_from_supabase(db) -> tuple[float, str | None]:
 def calculate_mrr(env_vars: dict[str, str], db) -> dict:
     """
     Returns a dict with stripe_mrr, manual_mrr, total_mrr, stripe_available, stripe_subs.
-    Stripe failure is non-fatal - falls back to Supabase-only data.
+    Stripe failure is non-fatal - falls back to Turso-only data.
     """
     stripe_mrr = 0.0
     stripe_subs: list[dict] = []
@@ -318,7 +318,7 @@ def calculate_mrr(env_vars: dict[str, str], db) -> dict:
     return payload
 
 
-# -- Pipeline + lead stats from Supabase ---------------------------------------
+# -- Pipeline + lead stats from Turso ------------------------------------------
 
 def _pipeline_stats(db) -> dict:
     """Read pipeline and lead summary from monthly_metrics (most recent month)."""
@@ -757,7 +757,7 @@ def cmd_clients(env_vars: dict[str, str], db, args) -> list[dict]:
     elif not getattr(args, "output_json", False):
         print("  [Stripe unavailable]")
 
-    # Also pull manual subscription_start from Supabase
+    # Also pull manual subscription_start from Turso
     try:
         result = (
             db.table("revenue_events")

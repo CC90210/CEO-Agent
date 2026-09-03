@@ -62,7 +62,7 @@ def _fail(name: str, detail: str) -> dict[str, Any]:
 def check_gateway_responds() -> dict[str, Any]:
     """Confirm send_gateway.send() returns the documented shape on a
     bad-input call. We deliberately use an invalid channel so we don't
-    touch SMTP / Supabase even by accident."""
+    touch SMTP / Turso even by accident."""
     try:
         from integrations.send_gateway import send as gateway_send  # type: ignore
     except Exception as exc:  # noqa: BLE001
@@ -244,7 +244,7 @@ def main() -> int:
     parser.add_argument("--json", dest="output_json", action="store_true",
                         help="JSON output for agent consumption")
     parser.add_argument("--skip-network", action="store_true",
-                        help="Skip checks that touch Supabase (template render)")
+                        help="Skip checks that touch Turso (template render)")
     args = parser.parse_args()
 
     results: list[dict[str, Any]] = []

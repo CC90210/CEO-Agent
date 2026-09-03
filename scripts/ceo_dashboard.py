@@ -176,7 +176,7 @@ def _stripe_balance(secret_key: str) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Supabase / lead pipeline helpers
+# Turso / lead pipeline helpers
 # ---------------------------------------------------------------------------
 
 def _read_lead_tracker() -> list[dict]:
@@ -420,7 +420,7 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
         net_mrr = float(mrr_data.get("total_mrr") or 0.0)
         mrr_source = "revenue_engine"
     except Exception:
-        # Fallback only: keep the briefing usable if Supabase/Stripe are down,
+        # Fallback only: keep the briefing usable if Turso/Stripe are down,
         # but revenue_engine remains the source of truth when available.
         if stripe_available:
             stripe_mrr = _stripe_mrr(stripe_key)
@@ -429,7 +429,7 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
         mrr_source = "stripe" if stripe_mrr > 100 else "memory"
 
     # --- Pipeline ---
-    # Source-of-truth is the Supabase `leads` table via lead_engine.py, NOT
+    # Source-of-truth is the Turso `leads` table via lead_engine.py, NOT
     # the legacy memory/LEAD_TRACKER.csv (which has been dormant since the
     # migration to tenant_records). The 2026-05-18 brief told CC "0 active
     # leads in the briefing layer" because this function was still reading

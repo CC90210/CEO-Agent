@@ -59,7 +59,6 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from draft_critic import find_slop  # noqa: E402
 from email_playbook import HARD_RULES, lint_draft, voice_rules  # noqa: E402
 from inbound_classifier import strip_code_fence  # noqa: E402
-from lib.claude_cli import run_claude_cli  # noqa: E402
 from lib.model_fallback import run_smart_cli  # noqa: E402
 
 CAPABILITY_META = {

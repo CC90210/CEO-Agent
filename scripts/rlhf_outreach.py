@@ -113,7 +113,7 @@ def _action_text(ix: dict[str, Any], decision: dict[str, Any]) -> str:
 
 
 def build_dataset(limit: int = 500) -> dict[str, Any]:
-    """Query Supabase and write tmp/rlhf_dataset.jsonl with state/action/reward."""
+    """Query Turso and write tmp/rlhf_dataset.jsonl with state/action/reward."""
     db = _get_supabase()
     interactions = (db.table("lead_interactions").select("*").order("created_at", desc=True).limit(limit).execute().data or [])
     decisions = (db.table("agent_decisions").select("*").order("created_at", desc=True).limit(limit).execute().data or [])
@@ -249,7 +249,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="RLHF skeleton for outreach drafting.")
     sub = parser.add_subparsers(dest="command")
-    p_build = sub.add_parser("build-dataset", parents=[json_parent], help="Build state/action/reward JSONL from Supabase")
+    p_build = sub.add_parser("build-dataset", parents=[json_parent], help="Build state/action/reward JSONL from Turso")
     p_build.add_argument("--limit", type=int, default=500)
     p_train = sub.add_parser("train", parents=[json_parent], help="Train DPO LoRA skeleton")
     p_train.add_argument("--algorithm", default="dpo")

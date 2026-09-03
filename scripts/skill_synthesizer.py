@@ -80,7 +80,7 @@ def load_env() -> dict[str, str]:
 
 
 def get_supabase(env: Optional[dict[str, str]] = None):
-    """Return an authenticated Supabase client. Fail-closed on missing creds."""
+    """Return an authenticated DB client. Fail-closed on missing creds."""
     e = env if env is not None else load_env()
     url = e.get("BRAVO_SUPABASE_URL") or e.get("SUPABASE_URL") or os.environ.get("BRAVO_SUPABASE_URL")
     key = (

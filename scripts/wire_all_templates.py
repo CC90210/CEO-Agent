@@ -1,5 +1,14 @@
 """
-Wire OASIS outreach templates in the Bravo Supabase project.
+Wire OASIS outreach templates in the Bravo Turso project.
+
+This replaces the scratch one-off template patcher that used non-canonical
+environment names. Canonical Bravo tools use:
+
+  BRAVO_SUPABASE_URL
+  BRAVO_SUPABASE_SERVICE_ROLE_KEY
+
+(These legacy-named vars route to the Turso bravo DB via the supabase-compat
+shim; the underlying engine is Turso/libSQL.)
 
 This replaces the scratch one-off template patcher that used non-canonical
 environment names. Canonical Bravo tools use:
@@ -339,7 +348,7 @@ def verify_templates(db: Any, booking_link: str, website_link: str) -> list[dict
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Wire and verify OASIS email templates in Bravo Supabase."
+        description="Wire and verify OASIS email templates in Bravo Turso."
     )
     parser.add_argument("--dry-run", action="store_true", help="Show intended updates without writing")
     parser.add_argument("--verify-only", action="store_true", help="Only verify stored templates")

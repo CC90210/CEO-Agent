@@ -3,7 +3,7 @@ Register Skill — the skill-onboarding tool.
 
 Before this tool, adding a new skill was a five-file manual mess: create
 SKILL.md, manually add to brain/CAPABILITIES.md, update brain/QUICK_REFERENCE.md,
-insert into the skills_registry Supabase table, and hope nothing drifted.
+insert into the skills_registry Turso table, and hope nothing drifted.
 Forgetting step 2 was the most common failure — skills existed in the
 folder but weren't discoverable.
 
@@ -43,7 +43,7 @@ USAGE
 DESIGN
 ------
 1. The `skills/` folder is the source of truth for WHAT exists.
-2. The Supabase `skills_registry` table is runtime truth: which skills are
+2. The Turso `skills_registry` table is runtime truth: which skills are
    active, how they are activated, which agent owns them, usage counts, last
    used, and drift hashes. Migration 016 adds the orchestration metadata.
 3. brain/CAPABILITIES.md is a human-readable doc index. This tool does NOT
@@ -54,7 +54,7 @@ DESIGN
    (just prints a hello message).
 
 The whole tool follows the V5.6 conventions: reads .env.agents, --json flag,
-fail-closed on Supabase errors, zero hardcoded credentials.
+fail-closed on DB errors, zero hardcoded credentials.
 """
 
 from __future__ import annotations

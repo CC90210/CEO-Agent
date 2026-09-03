@@ -425,7 +425,7 @@ def check_all_guards(
     Shabbat/AI-rate checks.
 
     Args:
-        db:          Supabase client (service-role).
+        db:          DB client (service-role).
         lead_id:     Lead UUID; required for opt-out check.
         channel:     'sms' | 'email' | 'telegram'. Telegram is exempt
                      from the quiet-window guard.

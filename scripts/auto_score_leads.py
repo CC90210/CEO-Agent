@@ -106,7 +106,7 @@ def _client():
     url = (env.get("BRAVO_SUPABASE_URL") or "https://bravo.turso.compat").strip()
     key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "turso-compat-key").strip()
     if not url or not key:
-        sys.stderr.write("ERROR: missing Supabase credentials\n")
+        sys.stderr.write("ERROR: missing database credentials\n")
         sys.exit(2)
     from supabase import create_client
     return create_client(url, key)
