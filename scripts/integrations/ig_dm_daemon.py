@@ -50,6 +50,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "integrations"))
 
+from lib.subprocess_helpers import safe_run  # noqa: E402
+
 CAPABILITY_META = {
     "category": "growth.inbound",
     "lifecycle": "active",
@@ -150,6 +152,42 @@ def working_tree_is_sane() -> tuple[bool, str]:
     return True, ""
 
 
+TICK_LOG = PROJECT_ROOT / "state" / "logs" / "ig_ticks.log"
+TICK_LOG_MAX_BYTES = 2_000_000
+
+
+def _record_verdicts(lines: list[str]) -> None:
+    """Persist the per-conversation verdict lines of a tick to disk.
+
+    WHY (2026-09-03): a successful tick's stdout was read for its final JSON
+    summary and then dropped. The poller prints one line per conversation it
+    judged — "@handle: REPLIED", "HOLD (stage=...)", "paused — skipping",
+    "lead created" — and none of it survived the tick. When the operator asked
+    why his own test DM had been written off, the only evidence on disk was
+    `last_error = "model hold"`. The decision that ended a relationship had no
+    record of its own reasoning, and this daemon had thrown the one line that
+    named it. Verdict lines start with two spaces and an @, by the poller's
+    own convention; nothing else does. Bounded by hand like the daemon log —
+    one rolled copy so the tick that matters is not pushed out by the quiet
+    ticks after it.
+    """
+    verdicts = [line for line in lines if line.startswith("  @")]
+    if not verdicts:
+        return
+    try:
+        TICK_LOG.parent.mkdir(parents=True, exist_ok=True)
+        if TICK_LOG.exists() and TICK_LOG.stat().st_size > TICK_LOG_MAX_BYTES:
+            rolled = TICK_LOG.with_suffix(".log.1")
+            rolled.unlink(missing_ok=True)
+            TICK_LOG.rename(rolled)
+        stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        with TICK_LOG.open("a", encoding="utf-8") as f:
+            for line in verdicts:
+                f.write(f"[{stamp}] {line.strip()}\n")
+    except OSError as exc:
+        _log(f"could not write {TICK_LOG.name}: {exc}")
+
+
 def run_tick(extra_args: list[str]) -> int:
     """One poll, as a subprocess. Returns its exit code."""
     sane, why = working_tree_is_sane()
@@ -161,7 +199,14 @@ def run_tick(extra_args: list[str]) -> int:
         return 0
     argv = [sys.executable, str(POLLER), "--live", "--json", *extra_args]
     try:
-        proc = subprocess.run(
+        # safe_run, not subprocess.run (2026-09-03). This daemon runs under
+        # pythonw with no console, and a raw spawn leaves the child's stdin
+        # INHERITED from that non-existent console. The poller died that way at
+        # 05:00:57Z with exit 3221225480 (0xC0000008 STATUS_INVALID_HANDLE) and
+        # both streams empty — five minutes before the operator's test DM
+        # arrived. The scheduler had the identical fault and was fixed at the
+        # shared helper; this was the one spawn site that helper did not reach.
+        proc = safe_run(
             argv, cwd=str(PROJECT_ROOT), capture_output=True, text=True,
             timeout=TICK_TIMEOUT,
         )
@@ -171,6 +216,7 @@ def run_tick(extra_args: list[str]) -> int:
 
     out = (proc.stdout or "").strip().splitlines()
     summary = out[-1] if out else ""
+    _record_verdicts(out)
     if proc.returncode != 0:
         # "another poll is already running" is an EXPECTED, healthy outcome when a
         # manual run holds the lock — it is the guard working, not a fault.

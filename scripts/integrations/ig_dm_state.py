@@ -428,14 +428,64 @@ def record_outbound(db, row_id: str, *, decision: Any, message_sent: str,
             print(f"[ig_dm_state] ILLEGAL STAGE MOVE {current_stage} -> {next_stage} "
                   f"on {row_id}; reply recorded, stage unchanged", file=sys.stderr)
 
-    try:
-        assignments["last_decision_json"] = json.dumps(decision.as_dict())
-    except (AttributeError, TypeError, ValueError) as exc:
-        assignments["last_decision_json"] = json.dumps(
-            {"unserializable_decision": str(exc)[:200]})
+    assignments["last_decision_json"] = _decision_json(decision)
 
     del message_sent  # the DM text lives in the thread; storing it twice ages badly
     return _touch(db, row_id, tenant_id, assignments)
+
+
+def _decision_json(decision: Any) -> str:
+    """One serialisation for every write of last_decision_json."""
+    try:
+        return json.dumps(decision.as_dict())
+    except (AttributeError, TypeError, ValueError) as exc:
+        return json.dumps({"unserializable_decision": str(exc)[:200]})
+
+
+def record_hold(db, row_id: str, *, decision: Any,
+                tenant_id: str = OASIS_TENANT_ID) -> dict:
+    """Keep the model's reasoning when it decided to send NOTHING.
+
+    WHY (2026-09-03): last_decision_json was written only by record_outbound,
+    i.e. only when a DM actually went out. A hold wrote nothing, so when the
+    model held on the operator's own test thread and proposed `disqualified`,
+    the row kept `last_error = "model hold"` and a decision JSON from
+    2026-08-21 — the last reply it had sent. Two weeks stale, and it read as
+    if the model had drafted a reply and something downstream had eaten it.
+    The one decision that ends a relationship was the one decision with no
+    record of why.
+    """
+    return _touch(db, row_id, tenant_id, {"last_decision_json": _decision_json(decision)})
+
+
+def reopen_from_inbound(db, row_id: str, *, reason: str,
+                        tenant_id: str = OASIS_TENANT_ID) -> Optional[dict]:
+    """A prospect the MODEL wrote off, who then wrote back, is engaged again.
+
+    Narrow on purpose. It reopens only a row that is (a) at stage disqualified
+    AND (b) paused by a model verdict — last_error begins "model", which is what
+    the poller's hold branch records. A disqualification the operator set by
+    hand (`ig_dm_state.py disqualify --reason ...`) carries the operator's own
+    reason there and is left alone: the operator's "no" outranks a new "hey".
+    Returns None when the row does not qualify, so the caller can tell "left
+    paused" from "reopened" without a second read.
+
+    Mirrors resume() in what it clears, and like request_handoff() it writes
+    the stage directly rather than through set_stage(): the transition matrix
+    says disqualified is final, and it is — for the automation's own verdicts.
+    A human writing back is the one event that outranks the matrix.
+    """
+    current = _require_row(db, row_id, tenant_id)
+    if str(current.get("stage") or "") != "disqualified":
+        return None
+    if not str(current.get("last_error") or "").lower().startswith("model"):
+        return None
+    return _touch(db, row_id, tenant_id, {
+        "stage": "engaged", "stage_entered_at": _iso(),
+        "automation_paused": 0, "handoff_pending": 0, "handoff_reason": None,
+        "consecutive_model_failures": 0, "consecutive_guardrail_rejects": 0,
+        "last_error": str(reason)[:_MAX_ERROR_CHARS],
+    })
 
 
 # ── extraction ───────────────────────────────────────────────────────────────

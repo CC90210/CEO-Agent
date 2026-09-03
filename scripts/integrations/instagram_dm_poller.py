@@ -1061,6 +1061,64 @@ def _poll(args) -> int:
     return 0
 
 
+def _hold_disposition(current_stage: str, proposed_stage: str) -> tuple[str, Optional[str]]:
+    """What a HOLD may do to the stage: (stage_to_apply, review_reason_or_None).
+
+    A hold means "send nothing this turn". It may carry the conversation one
+    step forward (engaged -> qualified when the prospect answered the
+    qualifying question and nothing more needs saying). It may NOT end it.
+
+    WHY (2026-09-03): the model held on the operator's own test thread and
+    paired the hold with stage=disqualified. The poller applied it: the stage
+    moved, set_stage paused the automation, and a relationship ended with no
+    reply sent and no record of why — a silent close, on a hold, from three
+    casual greetings. Ending a conversation is the one outcome that cannot be
+    walked back, so it is not something a "do nothing" turn gets to do. A
+    terminal proposal on a hold is kept as a REQUEST: the stage stays where it
+    is and the row goes to the human queue with the model's reason attached.
+    """
+    if proposed_stage in TERMINAL_STAGES and proposed_stage != current_stage:
+        return current_stage, (
+            f"model proposed {proposed_stage} on a hold; stage left at "
+            f"{current_stage} — confirm or resume"
+        )
+    return proposed_stage, None
+
+
+def _crm_lead_ready(row: dict) -> bool:
+    """A conversation earns a CRM lead only once BOTH contact fields are known.
+
+    Operator policy (CC, 2026-09-03): a DM thread is not a lead until the
+    prospect has given an email AND a phone number — getting those two is the
+    agent's job, and until it has done that job there is nothing to put in the
+    CRM. The previous behaviour created a lead on the first reply with both
+    fields null, which filled the pipeline with rows nobody could follow up.
+    """
+    email = str(row.get("extracted_email") or "").strip()
+    phone = str(row.get("extracted_phone") or "").strip()
+    return bool(email) and bool(phone)
+
+
+def _reopen_reason(row: dict, conv: dict) -> Optional[str]:
+    """Why a paused row should come back to life, or None to leave it paused.
+
+    Reopens only a MODEL-initiated disqualification (last_error begins
+    "model", which the hold branch writes) when the thread has moved since the
+    stage was set — i.e. the prospect wrote again after being written off.
+    An operator's disqualify carries the operator's own reason and stays
+    closed; handed_off and booked are never touched here.
+    """
+    if str(row.get("stage") or "") != "disqualified":
+        return None
+    if not str(row.get("last_error") or "").lower().startswith("model"):
+        return None
+    moved = _parse_iso(conv.get("updatedTime"))
+    since = _parse_iso(row.get("stage_entered_at"))
+    if moved and since and moved > since:
+        return "reopened: prospect wrote again after a model disqualify"
+    return None
+
+
 def _flag_terminal_ending(*, state, db, row_id, handle, conv_id, new_stage,
                           previous_stage, live, action, bump) -> None:
     """A conversation that just ENDED without asking for a human still needs one.
@@ -1311,9 +1369,29 @@ def _screen_conversation(*, conv, conv_id, account_id, handle, key, db, brain,
     # ── 2. paused? terminal stages set automation_paused, so this is the one
     #      check that covers booked / handed_off / disqualified as well. ──────
     if int(row.get("automation_paused") or 0):
-        bump("skipped_paused")
-        print(f"  @{handle}: paused (stage={stage}) — skipping")
-        return delta, None
+        # A prospect the MODEL wrote off, who then wrote back, is engaged
+        # again. Cheap: compares the inbox's updatedTime with when the stage
+        # was set — no HTTP. Operator disqualifies, handoffs and bookings are
+        # not touched here (see _reopen_reason).
+        why = _reopen_reason(row, conv)
+        if why and live:
+            after = state.reopen_from_inbound(db, row_id, reason=why)
+            if after:
+                row, stage = after, str(after["stage"])
+                bump("reopened")
+                print(f"  @{handle}: {why} — resuming at {stage}")
+                _notify(
+                    f"Instagram: @{_notify_safe(handle, 64)} wrote again after the "
+                    f"model had written them off. Reopened at {stage}; the next "
+                    f"tick answers them. Conversation {conv_id}.",
+                    conv_id=conv_id, event="reopened", live=live,
+                )
+        elif why:
+            dry(f"REOPEN @{handle}: {why}")
+        if int(row.get("automation_paused") or 0):
+            bump("skipped_paused")
+            print(f"  @{handle}: paused (stage={stage}) — skipping")
+            return delta, None
 
     # ── 2b. cheap pre-filter: has the thread moved since we last LOOKED? ─────
     # Saves the per-conversation messages GET on a quiet inbox.
@@ -1576,20 +1654,36 @@ def _answer_conversation(*, candidate: _Candidate, key, db, brain, state, closer
 
     # ── 14. hold: the right answer is silence ───────────────────────────────
     if decision.action == "hold":
+        # A hold may move the stage one step; it may not END the conversation.
+        # See _hold_disposition for the incident behind this.
+        apply_stage, review = _hold_disposition(stage, str(decision.stage))
         if live:
-            try:
-                state.set_stage(db, row_id, stage=decision.stage, reason="model hold")
-            except state.IllegalTransition as exc:
-                print(f"  [warn] @{handle}: {exc}", file=sys.stderr)
+            # The reasoning is recorded BEFORE anything else: a hold used to
+            # write nothing, so the one decision that could close a thread was
+            # the one with no record of why.
+            state.record_hold(db, row_id, decision=decision)
+            if apply_stage != stage:
+                try:
+                    state.set_stage(db, row_id, stage=apply_stage, reason="model hold")
+                except state.IllegalTransition as exc:
+                    print(f"  [warn] @{handle}: {exc}", file=sys.stderr)
+            if review:
+                state.flag_for_review(db, row_id, reason=review)
         else:
-            dry(f"MOVE THE STAGE {stage} -> {decision.stage}")
-        # A hold onto a terminal stage ENDS the conversation: set_stage pauses
-        # the automation for any terminal value. Silently, until this call.
-        _flag_terminal_ending(
-            state=state, db=db, row_id=row_id, handle=handle, conv_id=conv_id,
-            new_stage=decision.stage, previous_stage=stage, live=live,
-            action="hold", bump=bump,
-        )
+            if apply_stage != stage:
+                dry(f"MOVE THE STAGE {stage} -> {apply_stage}")
+            if review:
+                dry(f"FLAG FOR REVIEW: {review}")
+        if review:
+            bump("handoffs")
+            why = str(decision.handoff_reason or "").strip() or "no reason given"
+            _notify(
+                f"Instagram: the model wants @{_notify_safe(handle, 64)} marked "
+                f"{_notify_safe(str(decision.stage), 32)} but sent nothing. Stage "
+                f"left at {_notify_safe(stage, 32)}; it needs your call. Model's "
+                f"reason: {_notify_safe(why, 160)}. Conversation {conv_id}.",
+                conv_id=conv_id, event=f"hold_review:{decision.stage}", live=live,
+            )
         # Consume the message even though nothing was sent. Without this the
         # hold decision is never recorded against the inbound id, so the same
         # DM is re-decided on EVERY poll — a fresh ~27s model call each tick,
@@ -1603,7 +1697,8 @@ def _answer_conversation(*, candidate: _Candidate, key, db, brain, state, closer
                 db, row_id, message_id=newest_inbound.message_id,
                 at_iso=newest_inbound.created_at or _iso(_now()),
             )
-        print(f"  @{handle}: HOLD (stage={decision.stage}) — nothing sent")
+        print(f"  @{handle}: HOLD (stage={apply_stage}"
+              f"{', model proposed ' + str(decision.stage) if review else ''}) — nothing sent")
         return delta
 
     reply = decision.reply or ""
@@ -1694,12 +1789,18 @@ def _answer_conversation(*, candidate: _Candidate, key, db, brain, state, closer
     # ── 19. CRM projection. A failure here must never look like a send
     #        failure — the DM already went out. ─────────────────────────────
     try:
-        status, lead_id = _upsert_lead(conv, newest_inbound.text, f"stage {decision.stage}")
-        if status == "created":
-            bump("leads_created")
-            print(f"  @{handle}: lead created")
-        if lead_id and not row.get("lead_id"):
-            row = state.link_crm_lead(db, row_id, lead_id=lead_id)
+        if not _crm_lead_ready(row):
+            # Operator policy: no CRM row until the prospect has given BOTH an
+            # email and a phone number. Getting them is the agent's job.
+            bump("crm_withheld")
+            print(f"  @{handle}: CRM lead withheld until email AND phone are captured")
+        else:
+            status, lead_id = _upsert_lead(conv, newest_inbound.text, f"stage {decision.stage}")
+            if status == "created":
+                bump("leads_created")
+                print(f"  @{handle}: lead created")
+            if lead_id and not row.get("lead_id"):
+                row = state.link_crm_lead(db, row_id, lead_id=lead_id)
     except Exception as exc:  # noqa: BLE001 — counted and traced, never swallowed
         bump("errors")
         traceback.print_exc()

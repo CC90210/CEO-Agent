@@ -9,7 +9,7 @@ tags: [cloudflare, migration, cron, oasis-command-center, wave-3]
 > (@napi-rs/canvas, pdfjs-dist, libsql→/web, bundle size) are scoped in
 > [[brain/VERCEL_TO_CLOUDFLARE_MIGRATION]] §Wave 3 and the approved plan; this
 > document owns the **28-cron migration with zero dropped ticks**.
-> Related: [[config/cloudflare/apps.json]] · gap report
+> Related: `config/cloudflare/apps.json` · gap report
 > `state/cloudflare_baselines/2026-08-29/secret_gaps.md`.
 
 ## Entry criteria (all required before Phase A)

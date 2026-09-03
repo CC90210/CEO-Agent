@@ -132,6 +132,20 @@ def test_every_copy_of_the_helper_defaults_stdin(path):
     )
 
 
+def test_the_ig_daemon_spawns_its_poller_through_the_helper():
+    """The daemon runs under pythonw and spawns the poller every 20 seconds.
+    A raw subprocess.run there is the exact shape that produced exit
+    3221225480 on the poller at 2026-09-03T05:00:57Z — five minutes before the
+    operator's test DM arrived. The chokepoint fix only reaches spawns that go
+    through the helper, so this one must."""
+    src = (REPO / "scripts" / "integrations" / "ig_dm_daemon.py").read_text(encoding="utf-8")
+    tick = src[src.index("def run_tick("):]
+    tick = tick[: tick.index("\ndef ", 1)]
+    assert "safe_run(" in tick, "run_tick must spawn the poller via safe_run"
+    assert "subprocess.run(" not in tick, "run_tick must not keep a raw spawn beside it"
+    assert "from lib.subprocess_helpers import safe_run" in src
+
+
 def test_the_watchdog_hands_its_daemons_a_stdin():
     """fleet_watchdog spawns the whole fleet with a raw Popen rather than these
     helpers, so it does not inherit the fix. Its children are long-lived, which
