@@ -478,7 +478,14 @@ def reopen_from_inbound(db, row_id: str, *, reason: str,
     current = _require_row(db, row_id, tenant_id)
     if str(current.get("stage") or "") != "disqualified":
         return None
-    if not str(current.get("last_error") or "").lower().startswith("model"):
+    # Same two markers the poller's _reopen_reason accepts: the hold branch
+    # writes last_error="model hold"; the reply-then-close path writes
+    # handoff_reason="... by a model reply" via flag_for_review.
+    by_model = (
+        str(current.get("last_error") or "").lower().startswith("model")
+        or "by a model" in str(current.get("handoff_reason") or "").lower()
+    )
+    if not by_model:
         return None
     return _touch(db, row_id, tenant_id, {
         "stage": "engaged", "stage_entered_at": _iso(),

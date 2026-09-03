@@ -120,6 +120,18 @@ def test_it_stays_closed_until_they_actually_write():
     assert _reopen_reason(row, conv) is None
 
 
+def test_a_reply_path_disqualify_also_reopens():
+    """The OTHER way the model can close a thread: action=reply with
+    stage=disqualified (a polite sign-off, then done). That path never touches
+    last_error — _flag_terminal_ending records the ending in handoff_reason —
+    so keying on last_error alone would have made re-open dead code for the
+    one path that still can disqualify."""
+    row = {"stage": "disqualified", "last_error": None,
+           "handoff_reason": "conversation ended at stage disqualified by a model reply",
+           "stage_entered_at": "2026-09-03T05:06:46+00:00"}
+    assert _reopen_reason(row, {"updatedTime": "2026-09-03T07:00:00.000Z"})
+
+
 def test_an_operator_disqualify_never_reopens():
     """The operator's 'no' outranks a new 'hey'."""
     row = _row("disqualified", "spam account, do not engage", "2026-09-01T00:00:00+00:00")

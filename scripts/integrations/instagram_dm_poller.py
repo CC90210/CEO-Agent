@@ -1110,7 +1110,17 @@ def _reopen_reason(row: dict, conv: dict) -> Optional[str]:
     """
     if str(row.get("stage") or "") != "disqualified":
         return None
-    if not str(row.get("last_error") or "").lower().startswith("model"):
+    # Two spellings of "the model did this", one per path that can write a
+    # disqualify: the hold branch records last_error="model hold", and the
+    # reply branch (a polite sign-off, then close) goes through
+    # _flag_terminal_ending, which records handoff_reason="... by a model
+    # reply". An operator's disqualify carries the operator's own words in
+    # last_error and matches neither.
+    by_model = (
+        str(row.get("last_error") or "").lower().startswith("model")
+        or "by a model" in str(row.get("handoff_reason") or "").lower()
+    )
+    if not by_model:
         return None
     moved = _parse_iso(conv.get("updatedTime"))
     since = _parse_iso(row.get("stage_entered_at"))
