@@ -91,6 +91,14 @@ SERVICES: dict[str, tuple[list[list[str]], str]] = {
                "(the RULE 8 audit — records the verdict to task_outcomes)  |  "
                "node ~/.claude/codex-plugin/scripts/codex-companion.mjs task --write '<ctx>'"),
     "openrouter": ([["OPENROUTER_API_KEY"]], "python scripts/model_router.py"),
+    # Voice. Added 2026-09-04 for the OASIS VISION command-centre read-out.
+    # ELEVENLABS_API_KEY is the current name; XI_API_KEY is ElevenLabs' own
+    # older header name and is still what some of their SDK examples set, so
+    # either satisfies the group rather than reporting a missing service to an
+    # agent that in fact has a working key under the other name.
+    "elevenlabs": ([["ELEVENLABS_API_KEY", "XI_API_KEY", "ELEVEN_API_KEY"]],
+                   "POST /api/voice/speak in APPS/osiris (server-side proxy — "
+                   "the key never reaches the browser)"),
     # RETIRED 2026-08-09 — and this entry was the most dangerous kind of stale:
     # it reported "supabase: AVAILABLE" long after the migration, because those
     # SUPABASE_*/BRAVO_SUPABASE_* keys are the values the TURSO COMPAT SHIM reads.
