@@ -89,9 +89,16 @@ def _cli_returning(output: str, code: int = 1):
     return _stub
 
 
-def _opencode_unavailable(monkeypatch):
-    """Force the ladder past tier 2 so tier 3 (no model at all) is exercised."""
+def _no_model_tiers(monkeypatch):
+    """Silence every MODEL tier so the no-model parser tier is what is proven.
+
+    Also keeps the suite honest about cost and time: without this, these tests
+    would spawn the real codex and opencode CLIs against a synthetic PDF —
+    minutes per test, and a live dependency in what should be a unit test.
+    """
+    monkeypatch.setattr(ec, "_extract_via_codex_cli", lambda *_a, **_k: (False, None, "stubbed_off"))
     monkeypatch.setattr(ec, "_extract_via_opencode", lambda *_a, **_k: (False, None, "stubbed_off"))
+    monkeypatch.setattr(ec, "_extract_via_opencode_files", lambda *_a, **_k: (False, None, "stubbed_off"))
 
 
 # ── defect 1: the predicate ────────────────────────────────────────────────
@@ -113,7 +120,7 @@ def test_the_stdin_warning_alone_is_not_a_quota_signal():
 def test_ladder_descends_on_the_incident_string(monkeypatch, doc):
     path, raw = doc
     monkeypatch.setattr(ec, "_extract_via_cli", _cli_returning(SESSION_LIMIT))
-    _opencode_unavailable(monkeypatch)
+    _no_model_tiers(monkeypatch)
 
     ok, fields, tier, notes, quota_seen = ec._extract_with_ladder({}, path, raw, "application/pdf", "job-1")
 
@@ -139,7 +146,7 @@ def test_ladder_descends_on_an_UNRECOGNISED_failure(monkeypatch, doc):
     )
     path, raw = doc
     monkeypatch.setattr(ec, "_extract_via_cli", _cli_returning(novel))
-    _opencode_unavailable(monkeypatch)
+    _no_model_tiers(monkeypatch)
 
     ok, fields, tier, notes, quota_seen = ec._extract_with_ladder({}, path, raw, "application/pdf", "job-2")
 
@@ -162,17 +169,60 @@ def test_pdf_no_longer_skips_the_free_model_tier(monkeypatch, doc):
         return True, {"business_legal_name": "Red Door Homes", "_signature": {"present": False, "page": None, "bbox": None}}, "opencode_ok"
 
     monkeypatch.setattr(ec, "_extract_via_cli", _cli_returning(SESSION_LIMIT))
+    monkeypatch.setattr(ec, "_extract_via_codex_cli", lambda *_a, **_k: (False, None, "stubbed_off"))
     monkeypatch.setattr(ec, "_extract_via_opencode", _fake_opencode)
 
     ok, fields, tier, notes, _ = ec._extract_with_ladder({}, path, raw, "application/pdf", "job-3")
 
-    assert ok and tier == "opencode", notes
+    assert ok and tier == "opencode_text", notes
     assert "Red Door Homes" in seen.get("text", ""), "the PDF's text never reached the free model"
+
+
+def test_codex_is_tried_before_any_free_tier(monkeypatch, doc):
+    """A second SUBSCRIPTION beats a free model on quality, and an Anthropic
+    cap says nothing about OpenAI's. It must sit directly below Claude."""
+    path, raw = doc
+    order: list[str] = []
+
+    monkeypatch.setattr(ec, "_extract_via_cli", _cli_returning(SESSION_LIMIT))
+    monkeypatch.setattr(ec, "_notify_ops", lambda _m: None)
+
+    def _codex(_env, _p):
+        order.append("codex")
+        return True, {"business_legal_name": "Red Door Homes"}, "codex_ok"
+
+    monkeypatch.setattr(ec, "_extract_via_codex_cli", _codex)
+    monkeypatch.setattr(ec, "_extract_via_opencode", lambda *_a, **_k: order.append("opencode") or (False, None, "off"))
+    monkeypatch.setattr(ec, "_extract_via_opencode_files", lambda *_a, **_k: order.append("files") or (False, None, "off"))
+
+    ok, _f, tier, notes, _q = ec._extract_with_ladder({}, path, raw, "application/pdf", "job-11")
+    assert ok and tier == "codex_cli", notes
+    assert order == ["codex"], f"a free tier ran before/instead of Codex: {order}"
+
+
+def test_fallback_tiers_cannot_reach_a_metered_provider(monkeypatch):
+    """CC's requirement in one test: a *secure* CLI fallback.
+
+    If a fallback CLI inherits a provider key, a subscription cap stops being
+    an outage and silently becomes a bill nobody sees until the invoice.
+    """
+    env = {
+        "ANTHROPIC_API_KEY": "sk-ant-should-not-survive",
+        "OPENAI_API_KEY": "sk-should-not-survive",
+        "BRAVO_ANTHROPIC_API_KEY": "sk-should-not-survive",
+        "SOME_OTHER_API_KEY": "should-not-survive",
+        "OASIS_DASHBOARD_URL": "https://example.invalid",
+    }
+    clean = ec._cli_only_env(env)
+    leaked = [k for k in clean if k.upper().endswith("_API_KEY")]
+    assert not leaked, f"a fallback CLI would inherit metered credentials: {leaked}"
+    assert clean["OASIS_DASHBOARD_URL"] == "https://example.invalid", "non-key config must survive"
 
 
 def test_successful_cli_never_touches_a_fallback(monkeypatch, doc):
     path, raw = doc
     monkeypatch.setattr(ec, "_extract_via_cli", lambda *_a: (True, {"business_legal_name": "X"}, "", 0))
+    monkeypatch.setattr(ec, "_extract_via_codex_cli", lambda *_a, **_k: pytest.fail("fallback ran on success"))
     monkeypatch.setattr(ec, "_extract_via_opencode", lambda *_a, **_k: pytest.fail("fallback ran on success"))
 
     ok, fields, tier, _notes, quota_seen = ec._extract_with_ladder({}, path, raw, "application/pdf", "job-4")
@@ -192,7 +242,7 @@ def test_quota_failure_puts_the_cli_on_cooldown(monkeypatch, doc):
 
     monkeypatch.setattr(ec, "_extract_via_cli", _counting_cli)
     monkeypatch.setattr(ec, "_notify_ops", lambda _m: None)
-    _opencode_unavailable(monkeypatch)
+    _no_model_tiers(monkeypatch)
 
     ec._extract_with_ladder({}, path, raw, "application/pdf", "job-5")
     ec._extract_with_ladder({}, path, raw, "application/pdf", "job-6")
@@ -208,7 +258,7 @@ def test_cooldown_still_reports_quota_so_jobs_park_not_fail(monkeypatch, doc):
     path, raw = doc
     monkeypatch.setattr(ec, "_extract_via_cli", _cli_returning(SESSION_LIMIT))
     monkeypatch.setattr(ec, "_notify_ops", lambda _m: None)
-    monkeypatch.setattr(ec, "_extract_via_opencode", lambda *_a, **_k: (False, None, "off"))
+    _no_model_tiers(monkeypatch)
     monkeypatch.setattr(ec, "_extract_via_parser", lambda *_a, **_k: (False, None, "off"))
 
     ec._extract_with_ladder({}, path, raw, "application/pdf", "job-8")
@@ -236,14 +286,63 @@ def test_scanned_pdf_names_its_own_reason(monkeypatch, tmp_path):
 
     monkeypatch.setattr(ec, "_extract_via_cli", _cli_returning(SESSION_LIMIT))
     monkeypatch.setattr(ec, "_notify_ops", lambda _m: None)
+    _no_model_tiers(monkeypatch)
 
     ok, _f, tier, notes, _q = ec._extract_with_ladder({}, path, raw, "application/pdf", "job-10")
 
     assert ok is False and tier == "none"
     joined = " ".join(notes)
-    assert "free-tiers-skipped" in joined and "no_text_layer" in joined, (
+    assert "no_text_layer" in joined, (
         f"a scan must be distinguishable from a parser bug; got: {joined}"
     )
+    assert "parser-skipped:no_text_layer" in joined, (
+        "the no-model tier must say it was skipped for lack of text, not look like it ran and found nothing"
+    )
+
+
+def test_a_scan_still_gets_the_vision_tier(monkeypatch, tmp_path):
+    """Text extraction cannot read a photo of a paper application — but the
+    free model can, if the pages are handed to it as images. That tier must be
+    attempted even when doc_text found nothing, or a scan during a cap is a
+    dead end."""
+    fitz = pytest.importorskip("fitz")
+    doc_ = fitz.open()
+    doc_.new_page()
+    raw = doc_.tobytes()
+    doc_.close()
+    path = tmp_path / "scan.pdf"
+    path.write_bytes(raw)
+
+    tried: list[str] = []
+    monkeypatch.setattr(ec, "_extract_via_cli", _cli_returning(SESSION_LIMIT))
+    monkeypatch.setattr(ec, "_notify_ops", lambda _m: None)
+    monkeypatch.setattr(ec, "_extract_via_codex_cli", lambda *_a, **_k: (False, None, "off"))
+    monkeypatch.setattr(ec, "_extract_via_opencode", lambda *_a, **_k: (False, None, "off"))
+
+    def _files(_env, _p):
+        tried.append("files")
+        return True, {"business_legal_name": "Scanned Co"}, "opencode_files_ok:rendered_1p"
+
+    monkeypatch.setattr(ec, "_extract_via_opencode_files", _files)
+
+    ok, fields, tier, notes, _q = ec._extract_with_ladder({}, path, raw, "application/pdf", "job-12")
+    assert ok and tier == "opencode_files", notes
+    assert tried == ["files"]
+
+
+def test_pdf_rasteriser_produces_real_pages(tmp_path):
+    """The vision tier is worthless if rasterisation silently yields nothing."""
+    fitz = pytest.importorskip("fitz")
+    doc_ = fitz.open()
+    doc_.new_page().insert_text((50, 60), "Legal Business Name: Raster Co", fontsize=11)
+    path = tmp_path / "app.pdf"
+    doc_.save(str(path))
+    doc_.close()
+
+    pages, note = ec._pdf_pages_as_png(path)
+    assert pages, f"no pages rendered: {note}"
+    assert all(p.exists() and p.stat().st_size > 500 for p in pages), "rendered pages are empty files"
+    assert note.startswith("rendered_")
 
 
 # ── the free tiers themselves ──────────────────────────────────────────────
