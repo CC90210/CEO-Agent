@@ -242,6 +242,48 @@ def seed_from_open_prs(dry_run: bool = False, max_age_days: int = SEED_MAX_AGE_D
     return added
 
 
+STALE_STAMP_PATH = PROJECT_ROOT / "state" / "review_stale_report.json"
+STALE_REPORT_EVERY_HOURS = 20
+
+
+def stale_report_is_due(now: Optional[datetime] = None) -> bool:
+    """Has it been long enough since the last stale digest?
+
+    Time-gated rather than scheduled. Wiring this to its own cron would mean
+    adding a SEED_JOBS entry, and an entry that is not also seeded into the live
+    registry puts the two out of sync and turns check_cron_definitions_match_live
+    red — so the capability would have shipped attached to nothing, which is the
+    failure it exists to report on.
+
+    20 hours, not 24: a fixed 24 drifts later every day until it lands at a time
+    nobody reads, and eventually skips a day entirely when the pass that would
+    have fired it is a minute early.
+
+    Fails OPEN. An unreadable or corrupt stamp means "run it" — the cost of an
+    extra digest is one message; the cost of silence is the 40 findings nobody
+    saw for three weeks.
+    """
+    now = now or datetime.now(timezone.utc)
+    try:
+        raw = json.loads(STALE_STAMP_PATH.read_text(encoding="utf-8"))
+        last = datetime.fromisoformat(str(raw["at"]).replace("Z", "+00:00"))
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+    except (OSError, ValueError, KeyError, TypeError):
+        return True
+    return (now - last).total_seconds() >= STALE_REPORT_EVERY_HOURS * 3600
+
+
+def record_stale_report(now: Optional[datetime] = None) -> None:
+    now = now or datetime.now(timezone.utc)
+    try:
+        STALE_STAMP_PATH.parent.mkdir(parents=True, exist_ok=True)
+        STALE_STAMP_PATH.write_text(
+            json.dumps({"at": now.isoformat()}), encoding="utf-8")
+    except OSError:
+        pass          # a stamp we cannot write means we report again; harmless
+
+
 def stale_report(max_age_days: int = SEED_MAX_AGE_DAYS) -> dict:
     """Which PRs are OUTSIDE the auto-fix window and still carry findings?
 
@@ -317,6 +359,29 @@ def main() -> None:
     if args.seed_open:
         seed_from_open_prs(dry_run=args.dry_run, max_age_days=args.seed_max_age_days,
                            stats=seed_stats)
+        # Once a day, say what the age bound is hiding. The bound itself is
+        # right — review_fix pushes, and pushing to a peer's dead branch is an
+        # unwelcome surprise — but on 2026-09-06 it hid 40 unresolved findings
+        # across 15 PRs, one of them titled "close two lead-data leaks". Nobody
+        # was going to type a flag to find that out, so the loop that already
+        # runs asks on everyone's behalf.
+        if not args.dry_run and stale_report_is_due():
+            try:
+                rep = stale_report(max_age_days=args.seed_max_age_days)
+                record_stale_report()
+                if rep["stale_with_findings"]:
+                    notify(
+                        f"{rep['stale_with_findings']} PR(s) outside the "
+                        f"{rep['window_days']}d auto-fix window carry "
+                        f"{rep['findings_total']} unresolved finding(s) — the loop "
+                        f"cannot touch these, they need a human:\n"
+                        + "\n".join(f"  {i['key']}  {i['count']}  {i['title'][:60]}"
+                                    for i in rep["items"][:10]),
+                        category="system", silent=True, force=True)
+            except Exception as exc:  # noqa: BLE001
+                # A digest failing must never take the drain down with it: the
+                # fixer is the job, this is the footnote.
+                print(f"  stale report skipped: {exc}", file=sys.stderr)
 
     queue = load_queue()
 

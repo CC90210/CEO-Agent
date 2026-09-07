@@ -183,6 +183,46 @@ def test_stale_report_never_invokes_the_fixer():
     assert "harvest_pr" in names
 
 
+# ── 5. it is WIRED, not just available behind a flag ───────────────────────
+
+def test_the_digest_is_time_gated_and_fails_open(tmp_path, monkeypatch):
+    """An unreadable stamp must mean RUN, not stay silent."""
+    from datetime import datetime, timedelta, timezone
+
+    stamp = tmp_path / "stale.json"
+    monkeypatch.setattr(review_loop, "STALE_STAMP_PATH", stamp)
+
+    assert review_loop.stale_report_is_due(), "no stamp yet -> due"
+
+    now = datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
+    review_loop.record_stale_report(now)
+    assert not review_loop.stale_report_is_due(now + timedelta(hours=1))
+    assert not review_loop.stale_report_is_due(now + timedelta(hours=19))
+    assert review_loop.stale_report_is_due(now + timedelta(hours=21)), (
+        "20h, not 24h — a fixed day drifts later until it lands where nobody reads"
+    )
+
+    stamp.write_text("{ this is not json", encoding="utf-8")
+    assert review_loop.stale_report_is_due(), "a corrupt stamp must fail OPEN"
+
+
+def test_the_loop_actually_runs_the_digest():
+    """The whole point. A capability wired to nothing reports nothing."""
+    src = (REPO / "scripts" / "review_loop.py").read_text(encoding="utf-8")
+    seeded = src[src.index("    if args.seed_open:"):]
+    seeded = seeded[: seeded.index("    queue = load_queue()")]
+    assert "stale_report_is_due()" in seeded, (
+        "the digest must be driven by the loop that already runs, not by a flag "
+        "somebody has to remember to type"
+    )
+    assert "record_stale_report()" in seeded, "it must stamp, or it fires every pass"
+    assert "notify(" in seeded, "finding 40 hidden findings and telling nobody is the same as not looking"
+    assert "except Exception" in seeded, (
+        "a failing digest must not take the drain down with it — the fixer is the "
+        "job, this is the footnote"
+    )
+
+
 def test_the_loop_surfaces_the_skipped_count_in_its_json():
     """last_result said `remaining=6` while 29 PRs sat outside the window."""
     src = (REPO / "scripts" / "review_loop.py").read_text(encoding="utf-8")
