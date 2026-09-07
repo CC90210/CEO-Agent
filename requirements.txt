@@ -57,3 +57,20 @@ pyarrow==24.0.0
 #     pip install openai-whisper
 libsql>=0.1.11
 sqlglot>=30.7.0
+
+# ── Free document-text tier (2026-09-03) ───────────────────────────────────
+# HARD-REQUIRED on any host running scripts/integrations/extraction_consumer.py.
+#
+# These turn a PDF into text with no model and no network, which is what lets
+# the extraction daemon keep reading merchant applications while the Claude
+# subscription is capped. Before this, the daemon's free fallback tier was
+# skipped for application/pdf — and every real job in the queue was a PDF, so
+# the fallback was dead on 100% of production traffic (SunBiz outage,
+# 2026-09-03).
+#
+# Three engines on purpose: they fail on different malformed PDFs, and
+# lib/doc_text.py keeps whichever returns the most text. Without them the free
+# tiers cannot run and a capped subscription is once again a hard outage.
+pdfplumber==0.11.9
+pypdf==6.15.0
+PyMuPDF==1.27.2.3
