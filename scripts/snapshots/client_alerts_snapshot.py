@@ -26,11 +26,15 @@ TIMEOUT_SEC = 30
 # briefing_snapshot.py pattern: scripts/ on the path, bare-name import.
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
 
 def _call(args: list[str]) -> dict | list | None:
     try:
-        result = subprocess.run(
+        # safe_run supplies stdin=DEVNULL. This generator feeds "Client health"
+        # in CC's daily brief, which read "unavailable" while the underlying
+        # data was fine. See briefing_snapshot._call for the full incident.
+        result = safe_run(
             [sys.executable, *args],
             capture_output=True,
             text=True,

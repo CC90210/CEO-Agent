@@ -49,11 +49,28 @@ SNAPSHOT_DIR = PROJECT_ROOT / "state" / "snapshots"
 TIMEOUT_SEC = 90
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
 
 def _call(args: list[str]) -> dict | list | None:
     try:
-        result = subprocess.run(
+        # safe_run, NOT subprocess.run. This spawn site never got the
+        # stdin=DEVNULL fix because it predates the helper and bypassed it, and
+        # on 2026-09-07 the live snapshot recorded rc=3221225480 for BOTH
+        # followups_due and briefing -- 0xC0000008 STATUS_INVALID_HANDLE, the
+        # same fault already fixed in scheduler.py and the IG daemon. The
+        # generator runs under pythonw, which has no console; subprocess
+        # redirects stdout/stderr when asked and leaves stdin INHERITED, so the
+        # child inherits a console handle that does not exist and dies at
+        # interpreter startup with both streams empty.
+        #
+        # That is why CC's brief read "Follow-ups due: unavailable" and "Client
+        # health: unavailable" while the underlying data was fine -- and why the
+        # cause was misread as a timeout three separate times. safe_run supplies
+        # stdin, the windowless flags (ORed) and the decode fallback in one
+        # place, which is where this belongs: fixing it at the call site only
+        # fixes this call site.
+        result = safe_run(
             [sys.executable, *args],
             capture_output=True,
             text=True,

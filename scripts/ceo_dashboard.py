@@ -23,6 +23,12 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+# safe_run, not subprocess.run, at both sub-engine spawns below. This module is
+# itself spawned as a child by the snapshot generators, so its own children are
+# grandchildren of a windowless parent and inherit whatever stdin it had. The
+# 0xC0000008 STATUS_INVALID_HANDLE startup death that made CC's brief render
+# "Client health: unavailable" reaches this depth too.
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -251,7 +257,7 @@ def _content_this_week() -> tuple[dict[str, int], Optional[str]]:
         return {}, None
 
     try:
-        result = subprocess.run(
+        result = safe_run(
             # `--json` sits on late_tool's TOP-LEVEL parser, so it must precede
             # the `posts` verb. The old `posts --status published --json` order
             # exited 2 with "unrecognized arguments: --json" on every single
@@ -376,7 +382,7 @@ def _run_engine(script: Path, *args: str) -> tuple[Optional[str], Optional[str]]
     the caller gets the reason so it can be surfaced rather than zeroed out.
     """
     try:
-        result = subprocess.run(
+        result = safe_run(
             [sys.executable, str(script), *args],
             capture_output=True, text=True, timeout=SUBENGINE_TIMEOUT_SEC,
             creationflags=WINDOWLESS_FLAGS, encoding="utf-8", errors="replace",

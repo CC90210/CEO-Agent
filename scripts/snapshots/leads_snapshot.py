@@ -24,12 +24,17 @@ SNAPSHOT_DIR = PROJECT_ROOT / "state" / "snapshots"
 TIMEOUT_SEC = 60
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.subprocess_helpers import safe_run  # noqa: E402
 DEFAULT_MIN_SCORE = 60
 
 
 def _call(args: list[str]) -> dict | list | None:
     try:
-        result = subprocess.run(
+        # safe_run supplies stdin=DEVNULL. Without it a child of this
+        # pythonw-run generator inherits a console handle that does not exist
+        # and dies at interpreter startup with 0xC0000008, both output streams
+        # empty. See briefing_snapshot._call for the full incident.
+        result = safe_run(
             [sys.executable, *args],
             capture_output=True,
             text=True,
