@@ -514,6 +514,26 @@ cutover with hours of soak, against a checklist that asks for 24h — and unlike
 to resolve** (NXDOMAIN) — pre-existing, unrelated to this migration, and worth a
 separate look. `oasisai.work` apex resolves correctly to Vercel as intended.
 
+> **The separate look happened, 2026-09-07. Conclusion: retire it.**
+> The host has no DNS record, `personalized_form_links` has never held a row,
+> and across 487 `lead_interactions` mentioning `sunbizfunding.com` this host
+> appears in **none**. The live funding flow — 6 forms, 4,868 submissions,
+> 1,271 views — runs on the apex and www, which resolve.
+>
+> Removed from `config/cloudflare/apps.json`, so the cutover will no longer try
+> to bind a hostname that does not exist (all 8 remaining registry domains
+> resolve).
+>
+> `fleet_health_check` will KEEP reporting `DOMAIN BROKEN` until it is removed in
+> Vercel, because that check reads the live Vercel project domain list
+> (`/v9/projects/{project}/domains`), not this registry — deliberately, since
+> the registry answers "domains this app has" rather than "domains bound to its
+> Worker". One removal in Vercel project settings takes fleet health from
+> **10/11 to 11/11** and makes `oasisai.work` display as the primary domain.
+> `SUNBIZ_PUBLIC_FORM_ORIGIN` is still set in production and should be unset at
+> the same time; its only consumer is the link-minting path, which has produced
+> zero links.
+
 ## Next actions, in dependency order
 
 1. CC: enable **Workers Paid on `e371c0f2…`** → I deploy the remaining 3.
