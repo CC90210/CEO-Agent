@@ -321,11 +321,18 @@ class BrainDecision:
 
     Invariants callers may rely on without re-checking:
       1. ok is False  => reply is None, action == "hold", stage == current_stage
-      2. ok and action in {"reply","book"} => reply is a non-empty str that
-         already passed validate_reply() with zero violations
-      3. action == "hold"    => reply is None
+      2. ok and reply is not None => reply is a non-empty str that already
+         passed validate_reply() with zero violations. Always non-None for
+         action "reply" and "book".
+      3. action == "hold"    => reply is None. Hold is the ONLY action that
+         means silence; copy on a hold would be a reply the send path never
+         sends, which is how a model starts believing it answered someone.
       4. action == "handoff" => handoff_reason is non-empty, <= 200 chars, and
-         stage == "handed_off"
+         stage == "handed_off". reply is USUALLY non-None and the caller must
+         send it before raising the human: a handoff is an escalation, not a
+         refusal to answer (Gate D in decide()). It is None only when the model
+         insisted on silence through two attempts, in which case violations
+         carries "handoff_without_reply".
       5. stage is NEVER "booked"
       6. extracted.email, when not None, appeared verbatim (case-insensitive) in
          a role=="prospect" turn of THIS transcript, bare and ASCII-only
