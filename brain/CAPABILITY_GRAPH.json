@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-09-02T19:41:21.279315+00:00",
+  "generated_at": "2026-09-07T16:26:05.678137+00:00",
   "totals": {
     "skills": 164,
-    "scripts": 206,
+    "scripts": 207,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 461,
-    "edges_total": 223,
+    "nodes_total": 462,
+    "edges_total": 225,
     "drift_count": 0
   },
   "nodes": [
@@ -5601,6 +5601,28 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:audit_suppression_coverage",
+      "kind": "script",
+      "name": "audit_suppression_coverage",
+      "path": "scripts/audit_suppression_coverage.py",
+      "description": "Find addresses suppressed on ONE tenant that another tenant can still mail.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "communication.email",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "triggers": [
+        "audit email suppression coverage",
+        "is a suppressed address mailable from another tenant",
+        "check standing never-email orders"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": true
+      }
+    },
+    {
       "id": "script:auto_dream",
       "kind": "script",
       "name": "auto_dream",
@@ -9917,6 +9939,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:audit_suppression_coverage",
+      "to": "runtime:bridge_chat_server",
+      "kind": "exposed_via"
+    },
+    {
       "from": "script:auto_score_leads",
       "to": "script:sibling_repos",
       "kind": "calls"
@@ -10414,6 +10441,11 @@
     {
       "from": "script:scrape_firecrawl_leads",
       "to": "script:casl_compliance",
+      "kind": "calls"
+    },
+    {
+      "from": "script:scrape_firecrawl_leads",
+      "to": "script:cloak_browser_tool",
       "kind": "calls"
     },
     {

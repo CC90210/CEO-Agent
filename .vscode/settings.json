@@ -8,5 +8,17 @@
         "**/__pycache__": true,
         "**/.pytest_cache": true,
         "**/.venv": false
-    }
+    },
+    "python.testing.pytestArgs": [
+        "bravo_cli"
+    ],
+    "python.testing.unittestEnabled": true,
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./browser",
+        "-p",
+        "*_test.py"
+    ]
 }

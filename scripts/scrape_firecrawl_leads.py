@@ -5,8 +5,8 @@ Pipeline:
   2. For each URL, run ScrapeGraphAI extract with a structured schema:
        {owner_first_name, owner_full_name, business_name, email, phone, role}
   3. Filter for valid email + real first name (drops business-only contacts)
-  4. Dedup against existing Supabase leads
-  5. Insert to Supabase as status='new', source='cold_outreach_firecrawl'
+  4. Dedup against existing Turso leads
+  5. Insert to Turso as status='new', source='cold_outreach_firecrawl'
 
 This is the canonical lead scraper (replaced the Playwright Google-Maps
 flow on 2026-04-27 — that path produced placeholder names and was slow).
@@ -22,6 +22,7 @@ import argparse
 import json
 import subprocess
 import sys
+import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -29,7 +30,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
-from supabase_tool import get_client, load_env  # noqa: E402
+from integrations.supabase_tool import get_client, load_env  # noqa: E402
 from name_utils import _is_placeholder, strip_honorifics  # noqa: E402
 from casl_compliance import is_reserved_domain  # noqa: E402
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
@@ -62,9 +63,21 @@ EXTRACT_SCHEMA = {
             "description": "Contact / info / sales email shown on page."
         },
         "phone": {"type": "string"},
+        "owner_phone": {
+            "type": "string",
+            "description": "Direct line or personal mobile phone number of the owner/founder, if explicitly shown."
+        },
         "role": {
             "type": "string",
             "description": "Owner's role/title if shown (e.g. 'Owner', 'Founder', 'CEO')."
+        },
+        "linkedin_url": {
+            "type": "string",
+            "description": "LinkedIn profile URL of the owner or business."
+        },
+        "instagram_url": {
+            "type": "string",
+            "description": "Instagram profile URL of the owner or business."
         },
     },
     "required": ["business_name"],
@@ -98,6 +111,20 @@ def _run_tool(tool: str, args: list[str]) -> dict | None:
         print(f"  [{tool} exception] {exc}", file=sys.stderr)
         return None
 
+def _run_cloak(args: list[str]) -> dict[str, Any] | None:
+    try:
+        r = subprocess.run(
+            [sys.executable, "scripts/browser/cloak_browser_tool.py", *args, "--json"],
+            capture_output=True, text=True, timeout=120,
+            cwd=str(PROJECT_ROOT), creationflags=WINDOWLESS_FLAGS,
+        )
+        if r.returncode != 0:
+            print(f"  [cloak error rc={r.returncode}] {r.stderr.strip()[:200]}", file=sys.stderr)
+            return None
+        return json.loads(r.stdout) if r.stdout.strip() else None
+    except Exception as exc:
+        print(f"  [cloak exception] {exc}", file=sys.stderr)
+        return None
 
 # Skip directory / aggregator / national-chain domains — no individual
 # small-business owner contact info worth extracting.
@@ -109,25 +136,25 @@ DIRECTORY_DOMAINS = {
     "bbb.org", "tripadvisor.com", "opentable.com", "houzz.com",
     "thumbtack.com", "wikipedia.org", "trustpilot.com",
     "reliancehomecomfort.com", "directenergy.com",  # national chains
-    "enercare.ca", "enbridgegas.com",
+    "enercare.ca", "enbridgegas.com", "ontario.ca",
 }
-
 
 def _is_skippable(url: str) -> bool:
     lower = url.lower()
-    return any(d in lower for d in DIRECTORY_DOMAINS)
+    if any(d in lower for d in DIRECTORY_DOMAINS):
+        return True
+    if ".gov" in lower or "engage." in lower or "cityof" in lower:
+        return True
+    return False
 
 
-def _search_one(niche: str, city: str) -> list[str]:
-    """Return up to ~6 small-business URLs for a niche+city query."""
-    query = f"{niche} {city} Ontario small business"
-    print(f"  search: {query!r}")
+def _search_linkedin_owners(niche: str, city: str) -> list[str]:
+    """Return LinkedIn profile URLs for owners/founders in a niche+city."""
+    query = f"site:linkedin.com/in \"owner\" OR \"founder\" \"{niche}\" \"{city}\" Ontario"
+    print(f"  search linkedin: {query!r}")
     result = _run_tool("scrapegraph", ["search", query])
     if not result:
-        result = _run_tool("firecrawl", ["search", query])
-    if not result:
         return []
-    # Firecrawl search returns {web: [...], data: [...], or results: [...]}
     data = result.get("data") or {}
     items = (
         result.get("web")
@@ -138,36 +165,124 @@ def _search_one(niche: str, city: str) -> list[str]:
     if isinstance(items, dict):
         items = items.get("results") or items.get("web") or []
     urls = []
-    for item in items[:12]:  # check more results, then filter directories
+    for item in items[:8]:
         u = item.get("url") if isinstance(item, dict) else None
-        if not u or not u.startswith("http"):
-            continue
-        if _is_skippable(u):
-            print(f"    skip directory: {u}")
+        if not u or not u.startswith("http") or "linkedin.com/in/" not in u.lower():
             continue
         urls.append(u)
-        if len(urls) >= 6:
-            break
     return urls
 
 
-def _extract_one(url: str) -> dict[str, Any] | None:
-    print(f"  extract: {url}")
+def _extract_linkedin_profile(url: str) -> dict[str, Any] | None:
+    print(f"  extract linkedin: {url}")
+    schema = {
+        "type": "object",
+        "properties": {
+            "first_name": {"type": "string"},
+            "full_name": {"type": "string"},
+            "company_name": {"type": "string"}
+        },
+        "required": ["full_name", "company_name"]
+    }
     result = _run_tool("scrapegraph", [
-        "extract", url,
-        "--prompt", "Extract the business and its owner or primary contact details. Never invent missing values.",
-        "--schema", json.dumps(EXTRACT_SCHEMA),
+        "extract", url, 
+        "--prompt", "Extract the person's name and their current company where they are an owner/founder.", 
+        "--schema", json.dumps(schema)
     ])
     if not result:
-        result = _run_tool("firecrawl", ["extract", url, "--schema", json.dumps(EXTRACT_SCHEMA)])
-    if not result:
         return None
-    # Firecrawl extract returns {data: {...schema fields...}, ...}
     data = result.get("json") or result.get("result") or result.get("data") or result.get("extract") or result
     if isinstance(data, dict):
         data = data.get("json") or data.get("json_data") or data
     if isinstance(data, dict):
         return data
+    return None
+
+
+def _find_business_website(company: str, city: str) -> str | None:
+    query = f"{company} {city} Ontario official website"
+    print(f"  search biz: {query!r}")
+    result = _run_tool("scrapegraph", ["search", query])
+    if not result:
+        return None
+    data = result.get("data") or {}
+    items = (
+        result.get("web")
+        or result.get("results")
+        or (data.get("results") if isinstance(data, dict) else data)
+        or []
+    )
+    if isinstance(items, dict):
+        items = items.get("results") or items.get("web") or []
+    for item in items[:5]:
+        u = item.get("url") if isinstance(item, dict) else None
+        if not u or not u.startswith("http"):
+            continue
+        if _is_skippable(u):
+            continue
+        return u
+    return None
+
+
+def _extract_biz_website(url: str, owner_name: str) -> dict[str, Any] | None:
+    print(f"  extract biz: {url}")
+    prompt = f"Extract contact details for the business, and any direct phone number or email for the owner ({owner_name}) if listed."
+    result = _run_tool("scrapegraph", [
+        "extract", url,
+        "--prompt", prompt,
+        "--schema", json.dumps(EXTRACT_SCHEMA),
+    ])
+    # Ensure result is valid
+    if result:
+        data = result.get("json") or result.get("result") or result.get("data") or result.get("extract") or result
+        if isinstance(data, dict):
+            data = data.get("json") or data.get("json_data") or data
+        if isinstance(data, dict) and not ("ok" in data and not data["ok"] and "error" in data):
+            return data
+
+    print(f"  [scrapegraph failed] fallback extract biz via cloak: {url}")
+    cloak_res = _run_cloak(["scrape", url])
+    if cloak_res and isinstance(cloak_res, dict) and cloak_res.get("text"):
+        text_content = cloak_res["text"]
+        from lib.claude_cli import run_claude_cli
+        sys_prompt = "You are a JSON extractor. Output ONLY valid JSON matching the schema provided. No markdown code blocks, no preamble, just raw JSON."
+        llm_prompt = f"{prompt}\n\nSchema:\n{json.dumps(EXTRACT_SCHEMA)}\n\nWebsite Text:\n{text_content[:20000]}"
+        llm_text = run_claude_cli(llm_prompt, system=sys_prompt)
+        if llm_text:
+            try:
+                clean_text = llm_text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+                return json.loads(clean_text)
+            except Exception as e:
+                print(f"  [cloak fallback json parse error] {e}", file=sys.stderr)
+                
+    return None
+
+
+def _fallback_phone_search(company: str, city: str) -> str | None:
+    print(f"  fallback phone search via YellowPages: {company} {city}")
+    company_enc = urllib.parse.quote_plus(company)
+    city_enc = urllib.parse.quote_plus(city)
+    url = f"https://www.yellowpages.ca/search/si/1/{company_enc}/{city_enc}+ON"
+    schema = {
+        "type": "object",
+        "properties": {
+            "phone_number": {"type": "string"}
+        }
+    }
+    result = _run_tool("scrapegraph", [
+        "extract", url, 
+        "--prompt", f"Extract the phone number for {company}", 
+        "--schema", json.dumps(schema)
+    ])
+    if not result:
+        return None
+    data = result.get("json") or result.get("result") or result.get("data") or result.get("extract") or result
+    if isinstance(data, dict):
+        data = data.get("json") or data.get("json_data") or data
+    if isinstance(data, dict):
+        p = data.get("phone_number") or data.get("phone")
+        if p and p != "No content available" and len(p) > 6:
+            return p
     return None
 
 
@@ -200,7 +315,7 @@ def main() -> None:
     p.add_argument("--cities", default=",".join(DEFAULT_CITIES))
     p.add_argument("--niches", default=",".join(DEFAULT_NICHES))
     p.add_argument("--dry-run", action="store_true",
-                   help="Don't write to Supabase, just produce the JSON")
+                   help="Don't write to Turso, just produce the JSON")
     p.add_argument("--json", action="store_true", help="Output JSON summary")
     p.add_argument("--tenant", default=None,
                    help="Tenant UUID to stamp on inserted leads "
@@ -234,51 +349,83 @@ def main() -> None:
             if qualified >= args.target:
                 break
             print(f"\n[{city} / {niche}]")
-            urls = _search_one(niche, city)
+            urls = _search_linkedin_owners(niche, city)
             for url in urls:
                 if qualified >= args.target:
                     break
                 if url in seen_urls:
                     continue
                 seen_urls.add(url)
+                
+                profile = _extract_linkedin_profile(url)
+                if not profile or not profile.get("company_name"):
+                    continue
+                    
+                first = (profile.get("first_name") or "").strip()
+                full_name = (profile.get("full_name") or "").strip()
+                company = (profile.get("company_name") or "").strip()
+                
+                if not _is_real_first(first) and full_name:
+                    first = strip_honorifics(full_name).split()[0] if full_name else ""
+                
+                biz_url = _find_business_website(company, city)
+                if not biz_url:
+                    print(f"    skip (no biz url): {company}")
+                    continue
+                    
                 extracted += 1
-                ex = _extract_one(url)
+                ex = _extract_biz_website(biz_url, full_name)
+                
+                # Check for valid phone number in biz_data
+                p_val = ex.get("phone") if ex else None
+                if not p_val or p_val == "No content available":
+                    p_val = ex.get("owner_phone") if ex else None
+                
+                # Fallback to YellowPages if phone missing
+                if not p_val or p_val == "No content available" or len(p_val) < 7:
+                    fallback_phone = _fallback_phone_search(company, city)
+                    if fallback_phone:
+                        if not ex:
+                            ex = {}
+                        ex["phone"] = fallback_phone
+                        p_val = fallback_phone
+                
                 if not ex:
                     continue
+                    
                 email = (ex.get("email") or "").lower().strip()
-                # Strip honorifics so "Dr. Micah" stored as "Micah" and
-                # downstream rendering says "Hi Micah," not "Hi Dr.,"
-                raw_first = (ex.get("owner_first_name") or "").strip()
-                first = strip_honorifics(raw_first).split()[0] if raw_first else ""
-                business = (ex.get("business_name") or "").strip()
-                if not _valid_email(email):
+                has_phone = p_val and p_val != "No content available" and len(p_val) > 6
+                if not _valid_email(email) and not has_phone:
+                    print(f"    skip (no contact info): {email}")
                     continue
-                if email in existing:
+                if email and _valid_email(email) and email in existing:
                     print(f"    skip (dup): {email}")
                     continue
-                if not _is_real_first(first):
-                    # Keep but flag — name enrichment can fix later
-                    flag = "no_first_name"
-                else:
-                    flag = "ready_to_send"
+                
+                flag = "ready_to_send" if _is_real_first(first) else "no_first_name"
+                
                 lead = {
                     "first_name": first if _is_real_first(first) else None,
-                    "full_name": (ex.get("owner_full_name") or "").strip() or None,
-                    "company": business or None,
+                    "full_name": full_name or None,
+                    "company": company or None,
                     "email": email,
                     "phone": (ex.get("phone") or "").strip() or None,
-                    "role": (ex.get("role") or "").strip() or None,
+                    "owner_phone": (ex.get("owner_phone") or "").strip() or None,
+                    "role": (ex.get("role") or "").strip() or "Founder",
+                    "linkedin_url": url,
+                    "instagram_url": (ex.get("instagram_url") or "").strip() or None,
                     "city": city,
                     "niche": niche,
-                    "website": url,
+                    "website": biz_url,
                     "flag": flag,
                 }
+                
                 leads.append(lead)
                 existing.add(email)
                 if flag == "ready_to_send":
                     qualified += 1
                 print(f"    [{flag}] {first or '(no name)':12} | "
-                      f"{(business or '(unknown)')[:30]:30} | {email}")
+                      f"{(company or '(unknown)')[:30]:30} | {email}")
 
     OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
     OUT_JSON.write_text(json.dumps(leads, indent=2), encoding="utf-8")
@@ -295,6 +442,12 @@ def main() -> None:
             ]
             if L.get("role"):
                 notes_parts.append(f"Role: {L['role']}")
+            if L.get("owner_phone"):
+                notes_parts.append(f"Owner Phone: {L['owner_phone']}")
+            if L.get("linkedin_url"):
+                notes_parts.append(f"LinkedIn: {L['linkedin_url']}")
+            if L.get("instagram_url"):
+                notes_parts.append(f"Instagram: {L['instagram_url']}")
             if L.get("flag") == "no_first_name":
                 notes_parts.append("FLAG: no_first_name (needs enrichment before send)")
             # leads.name is NOT NULL — use empty string when no real name was
@@ -363,7 +516,7 @@ def main() -> None:
         "leads_found": len(leads),
         "ready_to_send": sum(1 for L in leads if L["flag"] == "ready_to_send"),
         "needs_enrichment": sum(1 for L in leads if L["flag"] == "no_first_name"),
-        "inserted_to_supabase": inserted,
+        "inserted_to_turso": inserted,
         "json_path": str(OUT_JSON),
         "dry_run": args.dry_run,
     }

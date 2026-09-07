@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-09-02T18:38:08.424988+00:00",
-  "script_count": 165,
-  "entry_count": 348,
+  "generated_at_iso": "2026-09-07T16:29:24.992510+00:00",
+  "script_count": 166,
+  "entry_count": 349,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -67,6 +67,18 @@
       "subcmd": null,
       "mutating": true,
       "help": "Audit tenant-scoped Supabase tables for basic RLS coverage."
+    },
+    {
+      "key": "audit_suppression_coverage",
+      "path": "scripts/audit_suppression_coverage.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "category": "communication.email",
+      "lifecycle": "active",
+      "risk": "read_only",
+      "project": "empire",
+      "help": "Find addresses suppressed on ONE tenant that another tenant can still mail."
     },
     {
       "key": "auto_score_leads",
