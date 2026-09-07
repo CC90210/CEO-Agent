@@ -8,8 +8,28 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const distDir = path.join(root, "dist");
 const exePath = path.join(distDir, "win-unpacked", "OASIS AI.exe");
-const windowsInstallerPath = path.join(distDir, "OASIS-AI-0.1.0-win-x64.exe");
-const windowsPortableZipPath = path.join(distDir, "OASIS-AI-0.1.0-win-x64-portable.zip");
+
+// THE VERSION COMES FROM package.json, NOT A LITERAL.
+//
+// These three paths and the metadata assertion below hardcoded "0.1.0" while
+// the package sat at 0.1.0-alpha.6, so the check looked for artifacts that
+// electron-builder had never named and failed with "Windows portable zip
+// exists" and "release metadata version is 0.1.0" on a build that had in fact
+// succeeded on all three platforms.
+//
+// It went unnoticed because this step is the LAST one in the job and the job
+// had been failing earlier, at release-check, since 2026-05-22 — so the artifact
+// check had not run to completion in months. Fixing the earlier gate is what
+// surfaced it.
+//
+// Pinning a version literal in a check that runs on every build is a guard with
+// an expiry date. Reading it from the package keeps the invariant (the metadata
+// must match the package it was built from) without the expiry.
+const pkgVersion = JSON.parse(
+  fs.readFileSync(path.join(root, "package.json"), "utf8"),
+).version;
+const windowsInstallerPath = path.join(distDir, `OASIS-AI-${pkgVersion}-win-x64.exe`);
+const windowsPortableZipPath = path.join(distDir, `OASIS-AI-${pkgVersion}-win-x64-portable.zip`);
 const metadataPath = path.join(distDir, "release-metadata.json");
 const sumsPath = path.join(distDir, "SHA256SUMS.txt");
 const MIN_INSTALLER_BYTES = 10 * 1024 * 1024;
@@ -75,7 +95,10 @@ for (const required of [
 }
 
 const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-assert(metadata.version === "0.1.0", "release metadata version is 0.1.0");
+assert(
+  metadata.version === pkgVersion,
+  `release metadata version matches package.json (${pkgVersion})`,
+);
 assert(metadata.channel === "alpha", "release metadata channel is alpha");
 assert(Array.isArray(metadata.artifacts) && metadata.artifacts.length > 0, "release metadata has artifacts");
 

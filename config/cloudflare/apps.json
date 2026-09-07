@@ -117,7 +117,6 @@
       "kind": "opennext",
       "vercel_project": "agent-dashboard",
       "custom_domains": [
-        "apply.sunbizfunding.com",
         "oasisai.work",
         "www.oasisai.work"
       ],
@@ -125,7 +124,7 @@
       "build_env": {
         "NODE_OPTIONS": "--max-old-space-size=4096"
       },
-      "note": "APEX-shared repo \u2014 coord_claim before editing; 28 crons; native-dep refactors gated on CC decisions"
+      "note": "APEX-shared repo \u2014 coord_claim before editing; 28 crons; native-dep refactors gated on CC decisions. apply.sunbizfunding.com REMOVED 2026-09-07: it has no DNS record at all (NXDOMAIN), 0 personalized form links have ever been minted, and across 487 lead_interactions mentioning sunbizfunding.com it appears in ZERO \u2014 the live funding flow uses the apex and www, which resolve. Binding a hostname that does not exist would fail the Cloudflare cutover. Do not re-add without creating the CNAME first; the Vercel project still lists it (read-only tooling, operator removes it there)."
     }
   }
 }
