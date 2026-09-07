@@ -345,6 +345,89 @@ def test_pdf_rasteriser_produces_real_pages(tmp_path):
     assert note.startswith("rendered_")
 
 
+# ── park vs fail: what process_job does with a capped subscription ─────────
+#
+# The ladder tests above call _extract_with_ladder directly. This block covers
+# the branch that actually decides a rep's outcome: whether a job WAITS for the
+# subscription or is written off as failed.
+
+
+def _job(**over):
+    j = {"id": "job-park", "status": "queued", "attempts": 0,
+         "storage_path": "leads/x.pdf", "mime_type": "application/pdf",
+         "source": "autofill", "lead_id": None}
+    j.update(over)
+    return j
+
+
+@pytest.fixture
+def captured_status(monkeypatch):
+    """Record _set_status calls instead of writing to the queue."""
+    calls: list[dict] = []
+    monkeypatch.setattr(ec, "_set_status", lambda _sb, job_id, **p: calls.append({"id": job_id, **p}))
+    monkeypatch.setattr(ec, "_download_doc", lambda *_a: (_pdf_bytes(), None))
+    return calls
+
+
+def test_a_capped_subscription_parks_the_job_instead_of_burning_an_attempt(monkeypatch, captured_status):
+    """A cap is temporary. Spending one of three attempts on it — three times —
+    turns a two-hour outage into a permanently failed job a rep must re-key."""
+    monkeypatch.setattr(ec, "_extract_with_ladder",
+                        lambda *_a: (False, None, "none", ["cli-failed(quota)"], True))
+
+    outcome = ec.process_job(None, {}, _job(attempts=0))
+
+    assert outcome.startswith("deferred:"), outcome
+    final = captured_status[-1]
+    assert final["status"] == "queued", "a capped job must go back on the queue, not to failed"
+    assert final["attempts"] == 0, (
+        f"the attempt budget was consumed while merely waiting: attempts={final['attempts']}"
+    )
+    assert "subscription_capped" in final["error"]
+
+
+def test_parking_is_bounded_so_a_job_cannot_wait_forever(monkeypatch, captured_status):
+    monkeypatch.setattr(ec, "_extract_with_ladder",
+                        lambda *_a: (False, None, "none", ["cli-failed(quota)"], True))
+    job = _job()
+
+    outcomes = [ec.process_job(None, {}, job) for _ in range(ec.MAX_DEFERRALS + 1)]
+
+    assert all(o.startswith("deferred:") for o in outcomes[:ec.MAX_DEFERRALS]), outcomes
+    assert not outcomes[-1].startswith("deferred:"), (
+        "a job parked past MAX_DEFERRALS must rejoin the normal retry/fail path, "
+        f"not park forever: {outcomes[-1]}"
+    )
+
+
+def test_a_non_quota_failure_is_never_parked(monkeypatch, captured_status):
+    """Parking exists for a cap. A real defect must surface as a failure a
+    human sees, not sit on the queue looking like it is still working."""
+    monkeypatch.setattr(ec, "_extract_with_ladder",
+                        lambda *_a: (False, None, "none", ["cli-failed:TypeError"], False))
+
+    outcome = ec.process_job(None, {}, _job(attempts=2))
+
+    assert not outcome.startswith("deferred:"), outcome
+    assert captured_status[-1]["status"] == "failed", captured_status[-1]
+
+
+def test_a_recovered_job_clears_its_deferral_count(monkeypatch, captured_status):
+    """Otherwise a job that parked, then succeeded, then parked again months
+    later would inherit a spent budget and fail early."""
+    monkeypatch.setattr(ec, "_extract_with_ladder",
+                        lambda *_a: (False, None, "none", ["quota"], True))
+    ec.process_job(None, {}, _job())
+    assert ec._deferrals.get("job-park") == 1
+
+    monkeypatch.setattr(ec, "_extract_with_ladder",
+                        lambda *_a: (True, {"business_legal_name": "X"}, "parser", [], True))
+    monkeypatch.setattr(ec, "_post_apply_callback", lambda *_a: (True, 200, ""))
+    ec.process_job(None, {}, _job())
+
+    assert "job-park" not in ec._deferrals, "deferral count survived a successful extraction"
+
+
 # ── the free tiers themselves ──────────────────────────────────────────────
 
 

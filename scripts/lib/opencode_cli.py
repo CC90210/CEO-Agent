@@ -156,6 +156,7 @@ def run_opencode_cli(
     timeout: int = 120,
     cwd: Optional[Path] = None,
     task_type: str = "default",
+    allow_metered_keys: bool = False,
 ) -> Optional[str]:
     """One-shot `opencode run` with a free model. Returns stdout text, or
     None on any failure.
@@ -164,6 +165,9 @@ def run_opencode_cli(
     system: optional system prompt prepended to the user prompt (delivered
       via stdin together with the user content — never argv).
     task_type: if model is left at its default, pick a model via TIER_MODELS.
+    allow_metered_keys: leave False. Provider `*_API_KEY` variables are stripped
+      from the child env so this free tier physically cannot bill; set True only
+      for a caller that deliberately routes a paid provider through OpenCode.
     """
     opencode_bin = resolve_opencode_bin()
     if not opencode_bin:
@@ -191,8 +195,21 @@ def run_opencode_cli(
         "--dir", str(cwd or PROJECT_ROOT),
     ]
 
+    # SECURITY/COST (2026-09-06): strip every metered provider credential.
+    #
+    # This module IS the free tier — the thing automations fall back to when a
+    # subscription caps. If it can reach a paid provider, an outage stops being
+    # an outage and quietly becomes a bill nobody sees until the invoice. Every
+    # model in TIER_MODELS is an `opencode/*` free model served through
+    # OpenCode's own auth, so no caller has ever needed a provider key here;
+    # inheriting them was latent exposure, not a feature.
+    #
+    # Caught in review of the SunBiz fallback ladder: two of its three fallback
+    # tiers stripped keys and the one routed through THIS function did not —
+    # and that was the tier actually serving production traffic.
     env = {
-        **os.environ,
+        **{k: v for k, v in os.environ.items()
+           if allow_metered_keys or not k.upper().endswith("_API_KEY")},
         "CI": "true",
         "NONINTERACTIVE": "true",
         "NO_COLOR": "1",

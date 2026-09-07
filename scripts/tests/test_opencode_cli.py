@@ -181,6 +181,44 @@ class TestRunOpencodeCli:
 
     @patch("lib.opencode_cli.resolve_opencode_bin", return_value="C:/x/opencode.exe")
     @patch("lib.opencode_cli.subprocess.run")
+    def test_metered_provider_keys_are_stripped(self, mock_run, _mock_bin, monkeypatch):
+        """COST: this module IS the free tier. If it can reach a paid provider,
+        a subscription cap silently becomes a bill instead of an outage.
+
+        Every model in TIER_MODELS is an `opencode/*` free model served through
+        OpenCode's own auth, so no caller needs a provider key here. Found in
+        review of the SunBiz fallback ladder: two of three fallback tiers
+        stripped keys, and the one routed through THIS function — the tier
+        actually serving production traffic — did not."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-must-not-survive")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-must-not-survive")
+        monkeypatch.setenv("BRAVO_ANTHROPIC_API_KEY", "sk-must-not-survive")
+        monkeypatch.setenv("SOME_VENDOR_API_KEY", "must-not-survive")
+        monkeypatch.setenv("OPENCODE_HOME", "/keep/me")
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
+
+        run_opencode_cli("test")
+
+        child_env = mock_run.call_args.kwargs.get("env") or {}
+        leaked = [k for k in child_env if k.upper().endswith("_API_KEY")]
+        assert not leaked, f"free tier inherited metered credentials: {leaked}"
+        assert child_env.get("OPENCODE_HOME") == "/keep/me", "non-key config must survive"
+
+    @patch("lib.opencode_cli.resolve_opencode_bin", return_value="C:/x/opencode.exe")
+    @patch("lib.opencode_cli.subprocess.run")
+    def test_metered_keys_can_be_opted_back_in(self, mock_run, _mock_bin, monkeypatch):
+        """The escape hatch must actually work, or a future caller that needs a
+        paid provider will re-add the leak by editing the default instead."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-deliberate")
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
+
+        run_opencode_cli("test", allow_metered_keys=True)
+
+        child_env = mock_run.call_args.kwargs.get("env") or {}
+        assert child_env.get("ANTHROPIC_API_KEY") == "sk-ant-deliberate"
+
+    @patch("lib.opencode_cli.resolve_opencode_bin", return_value="C:/x/opencode.exe")
+    @patch("lib.opencode_cli.subprocess.run")
     def test_system_prompt_prepended_via_stdin(self, mock_run, _mock_bin):
         mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
         run_opencode_cli("body", system="You are Bravo.")
