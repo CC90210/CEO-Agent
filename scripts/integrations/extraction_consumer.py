@@ -381,6 +381,34 @@ _quota_cooldown_until = 0.0
 _deferrals: dict[str, int] = {}
 
 
+def _resolve_tool(env: dict[str, str], override_key: str, name: str) -> str | None:
+    """Absolute path to a fallback CLI, or None if it genuinely is not here.
+
+    Passing a BARE name to safe_run relies on the PATH of whatever spawned us.
+    PM2 freezes a slim environment at daemon start, and on Windows the npm
+    global dir is often absent from it — so a bare "opencode" raised
+    FileNotFoundError and this daemon reported `opencode_not_installed` on a
+    machine where opencode was installed and `doctor` said "ok". A fallback
+    tier that reports itself absent when it is present is the same defect class
+    as the outage this ladder exists to fix, one level down.
+    """
+    override = (env.get(override_key) or "").strip()
+    if override:
+        return override
+    if name == "opencode":
+        try:
+            from lib.opencode_cli import resolve_opencode_bin  # type: ignore
+
+            found = resolve_opencode_bin()
+            if found:
+                return found
+        except Exception:  # noqa: BLE001
+            pass
+    import shutil
+
+    return shutil.which(name) or shutil.which(f"{name}.cmd") or shutil.which(f"{name}.exe")
+
+
 def _cli_only_env(env: dict[str, str]) -> dict[str, str]:
     """Child env with EVERY metered provider key removed.
 
@@ -416,8 +444,11 @@ def _extract_via_codex_cli(env: dict[str, str], doc_path: Path) -> tuple[bool, d
         "business-funding application. Extract its fields per the schema and rules "
         "above and output ONLY the JSON object."
     )
+    codex_bin = _resolve_tool(env, "BRAVO_CODEX_EXE", "codex")
+    if not codex_bin:
+        return False, None, "codex_not_installed"
     args = [
-        env.get("BRAVO_CODEX_EXE") or "codex", "exec",
+        codex_bin, "exec",
         "--sandbox", "read-only", "--ephemeral", "--ignore-rules",
         "--skip-git-repo-check", "--color", "never", prompt,
     ]
@@ -491,8 +522,11 @@ def _extract_via_opencode_files(env: dict[str, str], doc_path: Path) -> tuple[bo
     # our own fixed constant, and `--file` has no stdin equivalent. The
     # untrusted part — the merchant document — travels as an attachment, which
     # is exactly where we want it.
+    opencode_bin = _resolve_tool(env, "BRAVO_OPENCODE_EXE", "opencode")
+    if not opencode_bin:
+        return False, None, "opencode_not_installed"
     args = [
-        env.get("BRAVO_OPENCODE_EXE") or "opencode", "run", prompt, "--pure",
+        opencode_bin, "run", prompt, "--pure",
         "--model", env.get("EXTRACTION_OPENCODE_FREE_MODEL") or OPENCODE_VISION_MODEL,
         "--file", *[str(p) for p in attachments],
     ]
