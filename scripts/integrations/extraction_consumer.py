@@ -371,10 +371,18 @@ OPENCODE_DOC_CHARS = 24_000
 # is upload time and context on a free model.
 MAX_RASTER_PAGES = 6
 # Free model for the ATTACHED-IMAGE tier. Carried over from the VPS hand-patch.
-# Whether this particular free model reads images well is NOT established — it
-# is the last model tier and the deterministic parser sits below it, so a poor
-# answer here degrades coverage rather than losing the document. Override with
-# EXTRACTION_OPENCODE_FREE_MODEL once a better free vision model is confirmed.
+#
+# PROVEN on the VPS 2026-09-07: with the Claude tier forced to fail on the real
+# session-limit string, this tier read a rasterised application and returned
+# business_legal_name, tax_id_ein, email, requested_amount and monthly_revenue
+# all correct, in 152s. That run also earned the tier its place — the text tier
+# above it returned `opencode_no_output` (free models are flaky), and this one
+# recovered the document anyway.
+#
+# 152s is most of the dropzone's 180s poll window, so a rep who drops a SCAN
+# during a cap may see "Still reading — refresh in a moment" rather than filled
+# fields. Degraded, not lost. Override with EXTRACTION_OPENCODE_FREE_MODEL if a
+# faster free vision model appears.
 OPENCODE_VISION_MODEL = "opencode/mimo-v2.5-free"
 
 _quota_cooldown_until = 0.0
