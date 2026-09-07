@@ -75,7 +75,19 @@ if (process.platform !== "win32") {
   process.exit(0);
 }
 
-checkSignature(path.join(distDir, "OASIS-AI-0.1.0-win-x64.exe"), "Windows installer");
+// Version from package.json, not a literal — the same defect artifact-check.js
+// carried in three places: it looked for OASIS-AI-0.1.0-* while the package sat
+// at 0.1.0-alpha.6, so it silently checked a file electron-builder never named.
+// Here the consequence is quieter and worse: checkSignature on a missing file
+// reports "allowed for alpha builds" rather than failing, so an UNSIGNED
+// installer and an ABSENT one read identically.
+const pkgVersion = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"),
+).version;
+checkSignature(
+  path.join(distDir, `OASIS-AI-${pkgVersion}-win-x64.exe`),
+  "Windows installer",
+);
 checkSignature(path.join(distDir, "win-unpacked", "OASIS AI.exe"), "Windows app executable");
 
 if (process.exitCode) {

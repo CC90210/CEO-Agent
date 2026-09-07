@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Closed the suppression gap (standing never-email order was SunBiz-only while 2 live OASIS leads carried the address), added the cross-tenant coverage audit + guard, and fixed the 0xC0000008 startup crash in 4 snapshot spawn sites that made CC's brief say 'unavailable'. Harness 17/17.
+- **Result:** OASIS VISION finalised: deleted stray origin/master; closed Codex audit (1 high/9 med/9 low) + 7-dimension workflow audit (53 raised, 45 survived). Removed upstream telemetry beacon sending visitor IPs, fixed 2 impersonating User-Agents, Overpass 120-cap reporting 119 as a measurement (real 520), timed-out Overpass spoken as 'nothing here', silent assessment failures, macOS Launchpad node PATH, and docs installing the upstream app. Pushed 24d8b33. ~25 lower-severity findings documented as open.
 
 *Last updated: 2026-09-07*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-04T08:01:55.974636+00:00_
 
 - **Date:** 2026-09-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Closed the suppression gap (standing never-email order was SunBiz-only while 2 live OASIS leads carried the address), added the cross-tenant coverage audit + guard, and fixed the 0xC0000008 startup crash in 4 snapshot spawn sites that made CC's brief say 'unavailable'. Harness 17/17.
+- **Result:** OASIS VISION finalised: deleted stray origin/master; closed Codex audit (1 high/9 med/9 low) + 7-dimension workflow audit (53 raised, 45 survived). Removed upstream telemetry beacon sending visitor IPs, fixed 2 impersonating User-Agents, Overpass 120-cap reporting 119 as a measurement (real 520), timed-out Overpass spoken as 'nothing here', silent assessment failures, macOS Launchpad node PATH, and docs installing the upstream app. Pushed 24d8b33. ~25 lower-severity findings documented as open.
 
 *Last updated: 2026-09-07*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-04T08:01:55.974636+00:00_
 
 - **Date:** 2026-09-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Closed the suppression gap (standing never-email order was SunBiz-only while 2 live OASIS leads carried the address), added the cross-tenant coverage audit + guard, and fixed the 0xC0000008 startup crash in 4 snapshot spawn sites that made CC's brief say 'unavailable'. Harness 17/17.
+- **Result:** OASIS VISION finalised: deleted stray origin/master; closed Codex audit (1 high/9 med/9 low) + 7-dimension workflow audit (53 raised, 45 survived). Removed upstream telemetry beacon sending visitor IPs, fixed 2 impersonating User-Agents, Overpass 120-cap reporting 119 as a measurement (real 520), timed-out Overpass spoken as 'nothing here', silent assessment failures, macOS Launchpad node PATH, and docs installing the upstream app. Pushed 24d8b33. ~25 lower-severity findings documented as open.
 
 *Last updated: 2026-09-07*
