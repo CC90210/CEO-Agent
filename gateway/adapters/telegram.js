@@ -650,11 +650,24 @@ CC's message:`;
                 // Fail LOUD — no metered-key retry (key dead + banned). But a
                 // quota/auth outage no longer dead-ends the chat: degrade to
                 // the OpenCode free tier (text-only) before giving up.
+                // Fall back on ANY claude failure, not only a recognised quota
+                // phrase (2026-09-03). Requiring the matcher to fire first is
+                // the shape that took the SunBiz application reader down: the
+                // CLI said "You've hit your session limit", the matcher did not
+                // know that phrasing, and the fallback that existed was never
+                // reached. The matcher now chooses the WORDING, not whether a
+                // fallback runs. See config/claude_auth_signals.json.
                 const looksLikeAuth = isClaudeAuthOrQuotaFailure(raw, code);
-                if (looksLikeAuth && tool === 'claude') {
-                    log(`[AUTH FAIL] subscription quota/auth failure: ${raw.substring(0, 200)}`);
+                if (code !== 0 && tool === 'claude') {
+                    log(`[FALLBACK] claude exit ${code}${looksLikeAuth ? ' (quota/auth)' : ''}: ${raw.substring(0, 200)}`);
                     const fb = await this._executeOpenCodeFallback(userPrompt);
-                    resolve(fb || 'Claude subscription quota or auth failure. If quota: wait for the window to reset. If auth: run `claude setup-token`, then restart the bridge.');
+                    if (fb) { resolve(fb); return; }
+                    // No fallback answer. Surface the REAL error rather than a
+                    // quota story that may not be true — this path now also
+                    // catches ordinary claude errors.
+                    resolve(looksLikeAuth
+                        ? 'Claude subscription quota or auth failure, and the OpenCode fallback returned nothing. If quota: wait for the window to reset. If auth: run `claude setup-token`, then restart the bridge.'
+                        : cleanOutput(raw));
                     return;
                 }
                 resolve(cleanOutput(raw));

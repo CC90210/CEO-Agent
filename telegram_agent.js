@@ -893,14 +893,22 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
                 return;
             }
 
-            // Auth + quota detection: pattern lives in c_suite_context. Instead
-            // of a dead-end error, automatically fall back to OpenCode CLI with
-            // a free model. The user sees a seamless response.
+            // Fall back on ANY claude failure, not only a recognised quota
+            // phrase (2026-09-03). This block used to require
+            // isClaudeAuthOrQuotaFailure() to return true before it would try
+            // OpenCode — the same shape that took the SunBiz application reader
+            // down, where Claude printed "You've hit your session limit", the
+            // matcher did not know the phrase, and the fallback that existed
+            // was never reached. A matcher over an open-ended vendor message
+            // always has a next miss; it must choose WORDING, never whether a
+            // fallback exists. See config/claude_auth_signals.json.
             const looksLikeQuotaOrAuth = isClaudeAuthOrQuotaFailure(raw, code);
-            if (looksLikeQuotaOrAuth && tool === 'claude') {
-                log(`[AUTH FAIL] subscription quota/auth — falling back to OpenCode: ${raw.substring(0, 200)}`);
+            if (code !== 0 && tool === 'claude') {
+                log(`[FALLBACK] claude exit ${code}${looksLikeQuotaOrAuth ? ' (quota/auth)' : ''} — trying OpenCode: ${raw.substring(0, 200)}`);
                 if (HAS_OPENCODE) {
-                    bot.sendMessage(chatId, '⚡ Claude quota hit — routing through OpenCode fallback...').catch(() => {});
+                    bot.sendMessage(chatId, looksLikeQuotaOrAuth
+                        ? '⚡ Claude quota hit — routing through OpenCode fallback...'
+                        : '⚡ Claude errored — routing through OpenCode fallback...').catch(() => {});
                     const fallbackResult = await executeOpenCodeFallback(userPrompt, chatId);
                     // Run state_sync after successful OpenCode fallback too
                     if (fallbackResult && tier > 0) {
@@ -910,11 +918,17 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
                             '--note', `telegram T${tier} (opencode-fallback): ${userPrompt.substring(0, 140)}`
                         ], { cwd: __dirname, windowsHide: true, timeout: 8000 }, () => {});
                     }
-                    resolve(fallbackResult);
-                } else {
+                    // If the fallback produced nothing, DO NOT resolve empty —
+                    // fall through to the original error below. Now that this
+                    // path triggers on any non-zero exit (not just quota), a
+                    // silent resolve would turn every ordinary claude error
+                    // into a blank reply.
+                    if (fallbackResult) { resolve(fallbackResult); return; }
+                    log('[FALLBACK] OpenCode returned nothing — surfacing the original claude error');
+                } else if (looksLikeQuotaOrAuth) {
                     resolve('Claude subscription quota or auth failure, and OpenCode fallback is not installed. If quota: wait for the window to reset. If auth: run `claude setup-token`, then: pm2 restart bravo-telegram');
+                    return;
                 }
-                return;
             }
 
             resolve(cleanOutput(raw));
