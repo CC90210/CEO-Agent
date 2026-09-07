@@ -525,8 +525,18 @@ def _extract_via_opencode_files(env: dict[str, str], doc_path: Path) -> tuple[bo
     opencode_bin = _resolve_tool(env, "BRAVO_OPENCODE_EXE", "opencode")
     if not opencode_bin:
         return False, None, "opencode_not_installed"
+    # --agent bravo-oneshot denies ALL tools (.opencode/agents/bravo-oneshot.md).
+    # lib/opencode_cli.py passes it on every call for exactly this reason and
+    # this function was inconsistent with it: the attachment IS an untrusted
+    # merchant upload, so a prompt-injection payload inside the document was
+    # being read by a model that still had tools available. --dir must point at
+    # the project root or the project-level agent definition does not resolve —
+    # the document lives in a temp dir and reaches the model as an absolute
+    # --file path, so cwd is free to be the repo.
     args = [
         opencode_bin, "run", prompt, "--pure",
+        "--agent", "bravo-oneshot",
+        "--dir", str(PROJECT_ROOT),
         "--model", env.get("EXTRACTION_OPENCODE_FREE_MODEL") or OPENCODE_VISION_MODEL,
         "--file", *[str(p) for p in attachments],
     ]
