@@ -171,7 +171,8 @@ def _is_recent(updated_at: Optional[str], days: int) -> bool:
     return (datetime.now(timezone.utc) - ts).days <= days
 
 
-def seed_from_open_prs(dry_run: bool = False, max_age_days: int = SEED_MAX_AGE_DAYS) -> int:
+def seed_from_open_prs(dry_run: bool = False, max_age_days: int = SEED_MAX_AGE_DAYS,
+                       stats: Optional[dict] = None) -> int:
     """Queue every open PR that has UNRESOLVED review findings, without email.
 
     WHY: the queue was fed only by notification mail. That made the whole loop
@@ -193,6 +194,7 @@ def seed_from_open_prs(dry_run: bool = False, max_age_days: int = SEED_MAX_AGE_D
     queue = load_queue()
     added = 0
     skipped_stale = 0
+    stale_keys: list[str] = []
     for repo in rh.TRACKED_REPOS if hasattr(rh, "TRACKED_REPOS") else []:
         for pr in rh.open_prs_detailed(repo):
             number = pr["number"]
@@ -201,6 +203,16 @@ def seed_from_open_prs(dry_run: bool = False, max_age_days: int = SEED_MAX_AGE_D
                 continue                     # already queued by mail or a prior pass
             if not _is_recent(pr.get("updatedAt"), max_age_days):
                 skipped_stale += 1           # dead branch — not ours to auto-edit
+                # Remembered, not just counted. The skip happens BEFORE the
+                # harvest, so a count alone cannot distinguish 29 clean PRs from
+                # 29 carrying unresolved security findings — and on 2026-09-06
+                # it was 29 skipped while a PR titled "close two lead-data
+                # leaks" sat among them with seven findings open. The bound on
+                # AUTO-EDITING is right (review_fix pushes, and pushing to a
+                # peer's six-week-dead branch is an unwelcome surprise); the
+                # bound on KNOWING was not. `--stale-report` reads this set
+                # without queueing or touching anything.
+                stale_keys.append(key)
                 continue
             res = rh.harvest_pr(repo, number)
             if not res or not res.get("findings"):
@@ -219,12 +231,56 @@ def seed_from_open_prs(dry_run: bool = False, max_age_days: int = SEED_MAX_AGE_D
             added += 1
     if added and not dry_run:
         save_queue(queue)
+    if stats is not None:
+        stats["skipped_stale"] = skipped_stale
+        stats["stale_keys"] = stale_keys
     if skipped_stale:
         # Never silent. A poll that quietly drops candidates reads as "nothing
         # to do", which is the exact failure this whole function exists to fix.
         print(f"  seed: skipped {skipped_stale} PR(s) not updated in "
               f"{max_age_days}d")
     return added
+
+
+def stale_report(max_age_days: int = SEED_MAX_AGE_DAYS) -> dict:
+    """Which PRs are OUTSIDE the auto-fix window and still carry findings?
+
+    Read-only by construction: it harvests and reports. It never queues, never
+    calls review_fix, and therefore never pushes to anyone's branch. That is the
+    whole point — the age bound exists because auto-editing a dead branch is
+    rude, not because the findings on it stopped mattering.
+
+    Deliberately NOT wired into the 15-minute loop: it costs one `gh` round trip
+    per stale PR, and there were 29 of them. It belongs on a slow cadence or an
+    operator's command, which is why it is a flag rather than a default.
+    """
+    import review_harvest as rh  # noqa: PLC0415
+
+    stats: dict = {}
+    seed_from_open_prs(dry_run=True, max_age_days=max_age_days, stats=stats)
+    out: list[dict] = []
+    for key in stats.get("stale_keys") or []:
+        repo, _, number = key.rpartition("#")
+        try:
+            res = rh.harvest_pr(repo, int(number))
+        except (ValueError, TypeError):
+            continue
+        findings = (res or {}).get("findings") or []
+        if findings:
+            out.append({
+                "key": key,
+                "count": len(findings),
+                "kinds": sorted({f.get("kind", "review") for f in findings}),
+                "title": (res or {}).get("title") or "",
+            })
+    out.sort(key=lambda r: -r["count"])
+    return {
+        "window_days": max_age_days,
+        "stale_prs": stats.get("skipped_stale", 0),
+        "stale_with_findings": len(out),
+        "findings_total": sum(r["count"] for r in out),
+        "items": out,
+    }
 
 
 def main() -> None:
@@ -238,10 +294,29 @@ def main() -> None:
     ap.add_argument("--seed-open", action="store_true",
                     help="seed the queue from OPEN PRs with unresolved findings, "
                          "instead of waiting for a notification email")
+    ap.add_argument("--stale-report", action="store_true",
+                    help="list OPEN PRs outside the auto-fix age window that still "
+                         "carry unresolved findings. Read-only: queues nothing, "
+                         "pushes nothing.")
     args = ap.parse_args()
 
+    if args.stale_report:
+        rep = stale_report(max_age_days=args.seed_max_age_days)
+        if args.json:
+            print(json.dumps(rep, separators=(",", ":")))
+        else:
+            print(f"{rep['stale_with_findings']} of {rep['stale_prs']} PR(s) outside the "
+                  f"{rep['window_days']}d auto-fix window carry {rep['findings_total']} "
+                  f"unresolved finding(s):")
+            for it in rep["items"]:
+                print(f"  {it['key']:<44} {it['count']:>3}  "
+                      f"{', '.join(it['kinds'])}  {it['title'][:52]}")
+        return
+
+    seed_stats: dict = {}
     if args.seed_open:
-        seed_from_open_prs(dry_run=args.dry_run, max_age_days=args.seed_max_age_days)
+        seed_from_open_prs(dry_run=args.dry_run, max_age_days=args.seed_max_age_days,
+                           stats=seed_stats)
 
     queue = load_queue()
 
@@ -433,6 +508,11 @@ def main() -> None:
                              for x in (r.get("results") or []) if x["status"] == "escalated"),
             "errors": [f"{r['repo']}#{r['pr']}: {r['error'][:80]}"
                        for r in report if r.get("error")],
+            # How many candidates the age bound dropped THIS pass. Without it,
+            # last_result reads "remaining=6" while 29 open PRs sit outside the
+            # window entirely, and a shrinking queue looks like progress rather
+            # than a narrowing view. `--stale-report` says what is in them.
+            "stale_skipped": seed_stats.get("skipped_stale", 0),
             "at": datetime.now(timezone.utc).isoformat(),
             "report": report,
         }
