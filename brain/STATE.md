@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Closed the suppression gap (standing never-email order was SunBiz-only while 2 live OASIS leads carried the address), added the cross-tenant coverage audit + guard, and fixed the 0xC0000008 startup crash in 4 snapshot spawn sites that made CC's brief say 'unavailable'. Harness 17/17.
+- **Result:** Closed the last two: apply.sunbizfunding.com removed from the Cloudflare registry (NXDOMAIN, 0 minted links, 0 of 487 sunbiz interactions reference it); electron 39->44 clears the HIGH symlink advisory on branch fix/electron-44-security with 3-platform packaging GREEN. Also fixed artifact-check.js, which pinned version literal 0.1.0 while the package is 0.1.0-alpha.6. Harness 17/17.
 
 *Last updated: 2026-09-07*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-04T08:01:55.974636+00:00_
 
 - **Date:** 2026-09-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Closed the suppression gap (standing never-email order was SunBiz-only while 2 live OASIS leads carried the address), added the cross-tenant coverage audit + guard, and fixed the 0xC0000008 startup crash in 4 snapshot spawn sites that made CC's brief say 'unavailable'. Harness 17/17.
+- **Result:** Closed the last two: apply.sunbizfunding.com removed from the Cloudflare registry (NXDOMAIN, 0 minted links, 0 of 487 sunbiz interactions reference it); electron 39->44 clears the HIGH symlink advisory on branch fix/electron-44-security with 3-platform packaging GREEN. Also fixed artifact-check.js, which pinned version literal 0.1.0 while the package is 0.1.0-alpha.6. Harness 17/17.
 
 *Last updated: 2026-09-07*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-04T08:01:55.974636+00:00_
 
 - **Date:** 2026-09-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Closed the suppression gap (standing never-email order was SunBiz-only while 2 live OASIS leads carried the address), added the cross-tenant coverage audit + guard, and fixed the 0xC0000008 startup crash in 4 snapshot spawn sites that made CC's brief say 'unavailable'. Harness 17/17.
+- **Result:** Closed the last two: apply.sunbizfunding.com removed from the Cloudflare registry (NXDOMAIN, 0 minted links, 0 of 487 sunbiz interactions reference it); electron 39->44 clears the HIGH symlink advisory on branch fix/electron-44-security with 3-platform packaging GREEN. Also fixed artifact-check.js, which pinned version literal 0.1.0 while the package is 0.1.0-alpha.6. Harness 17/17.
 
 *Last updated: 2026-09-07*
