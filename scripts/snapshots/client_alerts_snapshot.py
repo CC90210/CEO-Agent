@@ -47,7 +47,22 @@ def _call(args: list[str]) -> dict | list | None:
     except (subprocess.TimeoutExpired, OSError) as e:
         return {"_error": str(e)}
     if result.returncode != 0:
-        return {"_error": result.stderr.strip()[:500] or "non-zero exit"}
+        # RECORD THE CODE, not just "non-zero exit". An abnormal Windows
+        # termination arrives with empty stdout AND empty stderr AND no
+        # traceback, so the bare string reads identically for a crashed child, a
+        # killed child, and a child that simply printed nothing. That ambiguity
+        # is why the daily brief's "unavailable" was misdiagnosed as a timeout
+        # three separate times; the real cause was 0xC0000008 at interpreter
+        # startup, which the returncode rules in on the first reading.
+        # Ported from briefing_snapshot._call, which had it and its siblings did
+        # not -- the same drift that let the stdin fix miss two of three files.
+        rc = result.returncode
+        detail = result.stderr.strip()[:500]
+        if not detail:
+            abnormal = (rc & 0xFFFFFFFF) > 0xC0000000
+            detail = (f"abnormal termination 0x{rc & 0xFFFFFFFF:08X}"
+                      if abnormal else f"exit {rc}, no output")
+        return {"_error": detail, "_returncode": rc}
     raw = result.stdout.strip()
     if not raw:
         return None

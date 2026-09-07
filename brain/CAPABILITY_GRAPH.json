@@ -1,7 +1,7 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-09-07T16:26:05.678137+00:00",
+  "generated_at": "2026-09-07T16:50:33.944004+00:00",
   "totals": {
     "skills": 164,
     "scripts": 207,
@@ -11,7 +11,7 @@
     "resources": 14,
     "runtime_entrypoints": 3,
     "nodes_total": 462,
-    "edges_total": 225,
+    "edges_total": 224,
     "drift_count": 0
   },
   "nodes": [
@@ -10376,11 +10376,6 @@
     {
       "from": "script:register",
       "to": "script:build_capability_graph",
-      "kind": "calls"
-    },
-    {
-      "from": "script:register",
-      "to": "script:capability_query",
       "kind": "calls"
     },
     {

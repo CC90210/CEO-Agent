@@ -814,13 +814,22 @@ GENERATED_HEADER = (
 def _tracked_md(subdir: str) -> list[Path]:
     """Versioned or new, non-ignored Markdown files directly under *subdir*."""
     import subprocess
-    from lib.subprocess_helpers import WINDOWLESS_FLAGS, windowless_startupinfo
+    from lib.subprocess_helpers import (
+        WINDOWLESS_FLAGS, safe_run, windowless_startupinfo,
+    )
     base = PROJECT_ROOT / subdir
     try:
         # creationflags + startupinfo — capability graph builds run from
         # the cron daemon; without windowless flags the git ls-files spawn
         # flashed a conhost window on every rebuild.
-        proc = subprocess.run(
+        #
+        # safe_run, not subprocess.run, for the same reason: a child of a
+        # windowless parent inherits a console handle that does not exist and
+        # dies at startup with 0xC0000008. register.py (7 SEED_JOBS entries)
+        # spawns this module, so this git call is a grandchild of the daemon --
+        # exactly the depth that kept the daily brief degraded after the first
+        # round of fixes.
+        proc = safe_run(
             [
                 "git", "-C", str(PROJECT_ROOT), "ls-files",
                 "--cached", "--others", "--exclude-standard", "--", subdir,

@@ -73,12 +73,16 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+# safe_run, not subprocess.run. register.py is referenced by 7 SEED_JOBS, so
+# it runs under pythonw, and a child of a windowless parent inherits a console
+# handle that does not exist -- 0xC0000008 at interpreter startup, both output
+# streams empty. Same fault that made the daily brief say 'unavailable'.
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = PROJECT_ROOT / "skills"
@@ -369,7 +373,7 @@ def create_adr(args) -> int:
 def _post_create(meta: list[str]) -> int:
     """Rebuild the capability graph + run self_audit. Returns 0 on full green."""
     print("  Rebuilding capability graph...")
-    r = subprocess.run(
+    r = safe_run(
         [sys.executable, str(SCRIPTS_DIR / "build_capability_graph.py")],
         capture_output=True, text=True, timeout=30,
      creationflags=WINDOWLESS_FLAGS)
@@ -381,7 +385,7 @@ def _post_create(meta: list[str]) -> int:
     print("  Running self-audit...")
     audit_path = SCRIPTS_DIR / "self_audit.py"
     if audit_path.exists():
-        r = subprocess.run(
+        r = safe_run(
             [sys.executable, str(audit_path), "--json"],
             capture_output=True, text=True, timeout=30,
          creationflags=WINDOWLESS_FLAGS)
@@ -416,7 +420,7 @@ def _post_create(meta: list[str]) -> int:
 def cmd_list(_args) -> int:
     """List every registered capability via the graph."""
     cmd = [sys.executable, str(SCRIPTS_DIR / "capability_query.py"), "stats", "--json"]
-    r = subprocess.run(cmd, capture_output=True, text=True, creationflags=WINDOWLESS_FLAGS)
+    r = safe_run(cmd, capture_output=True, text=True, creationflags=WINDOWLESS_FLAGS)
     if r.returncode == 0:
         print(r.stdout.strip())
     else:
