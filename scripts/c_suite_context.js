@@ -130,15 +130,54 @@ function buildClaudeSpawnEnv(opts = {}) {
     return env;
 }
 
-// Detect "subscription failed, try API key" signals from claude CLI
+// Detect "subscription failed, take the free tier" signals from claude CLI
 // stderr/stdout. Includes auth errors AND quota/rate-limit errors.
-const _AUTH_FAIL_PATTERN = /authentication_error|OAuth token has expired|401|Invalid API key|Please obtain a new token|usage limit|rate limit|quota exceeded|reached your.*limit|hit your.*limit|weekly limit|resets.*aug|resets.*jan|resets.*feb|resets.*mar|resets.*apr|resets.*may|resets.*jun|resets.*jul|resets.*sep|resets.*oct|resets.*nov|resets.*dec|429/i;
+//
+// The signal list is NOT written here any more — it is loaded from
+// config/claude_auth_signals.json, the same file scripts/lib/claude_auth.py
+// reads, and scripts/tests/test_claude_auth_parity.py fails on drift between
+// them. The previous hand-copied regexes disagreed: this one matched
+// "You've hit your session limit", the Python one did not, and the Python one
+// guards the SunBiz extraction daemon — so a rep's application drop died
+// instead of falling over to the free model (2026-09-03).
+//
+// The old twelve month-name alternatives (one per calendar month, each
+// matching "resets" followed by that month) are gone: they were a workaround
+// for not matching the "hit your … limit" phrasing, and they would happily
+// fire on a merchant document that merely mentioned a month.
+const _AUTH_FAIL_SIGNALS = (() => {
+    // Same widest-signals rationale as the Python port: if the canon is
+    // unreadable, assume quota and take the free tier rather than hammering a
+    // capped subscription.
+    const inlineFallback = [
+        'authentication_error', 'OAuth token has expired', 'Invalid API key',
+        'usage limit', 'rate limit', 'quota exceeded', 'reached your.*limit',
+        'hit your.*limit', 'session limit', 'weekly limit', 'limit reached',
+        'credit balance is too low', 'out of credits',
+        '(?:status|code|error|HTTP)\\W{0,12}(?:401|403|429|529)\\b',
+    ];
+    try {
+        const raw = fs.readFileSync(
+            path.join(__dirname, '..', 'config', 'claude_auth_signals.json'), 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.signals) && parsed.signals.length) return parsed.signals;
+    } catch { /* fall through to the inline copy */ }
+    return inlineFallback;
+})();
+
+const _AUTH_FAIL_PATTERN = new RegExp(
+    _AUTH_FAIL_SIGNALS.map((s) => `(?:${s})`).join('|'), 'i');
 
 function isClaudeAuthOrQuotaFailure(rawOutput, exitCode) {
+    // exitCode 0 means claude SUCCEEDED — whatever the text says, there is
+    // nothing to fall back from. Matching Python's short-circuit; the Node
+    // copy lacked it, which is why test_c_suite_context.js has been red on
+    // "exit 0 with auth-error string still false" (a successful run whose
+    // OUTPUT merely quoted an auth error was reported as a quota failure).
+    if (exitCode === 0) return false;
     const text = rawOutput || '';
-    if (_AUTH_FAIL_PATTERN.test(text)) return true;
-    if (exitCode !== 0 && _AUTH_FAIL_PATTERN.test(text)) return true;
-    return false;
+    if (!text) return false;
+    return _AUTH_FAIL_PATTERN.test(text);
 }
 
 // Check the local machine for the Claude Code subscription OAuth token

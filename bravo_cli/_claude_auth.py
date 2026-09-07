@@ -32,23 +32,32 @@ from pathlib import Path
 from typing import Optional
 
 
-# Single-source regex for "subscription failed, fall over to API key" signals.
-# Covers auth-token expiry, invalid keys, usage caps, rate limits, and HTTP
-# 401/429 responses. Matches both stderr text and structured JSON error events
-# claude emits during streaming.
-_AUTH_FAIL_PATTERN = re.compile(
-    r"authentication_error"
-    r"|OAuth token has expired"
-    r"|401"
-    r"|Invalid API key"
-    r"|Please obtain a new token"
-    r"|usage limit"
-    r"|rate limit"
-    r"|quota exceeded"
-    r"|reached your.*limit"
-    r"|429",
-    re.IGNORECASE,
-)
+# Signals for "subscription failed, fall over to the free tier".
+#
+# Loaded from config/claude_auth_signals.json — the SAME file
+# scripts/lib/claude_auth.py and scripts/c_suite_context.js read.
+# scripts/tests/test_claude_auth_parity.py fails if the three disagree.
+# This file used to carry its own hand-copied alternation; it had drifted
+# narrower than the Node one and missed "hit your … limit" entirely.
+try:
+    from lib.claude_auth import AUTH_FAIL_SIGNALS as _SIGNALS  # type: ignore
+except Exception:  # noqa: BLE001 — bravo_cli is importable without scripts/ on sys.path
+    import json as _json
+
+    _SIGNALS_PATH = Path(__file__).resolve().parents[1] / "config" / "claude_auth_signals.json"
+    try:
+        _SIGNALS = [str(s) for s in _json.loads(_SIGNALS_PATH.read_text(encoding="utf-8"))["signals"]]
+    except Exception:  # noqa: BLE001
+        # Widest-signals last resort: assume quota, take the free tier.
+        _SIGNALS = [
+            "authentication_error", "OAuth token has expired", "Invalid API key",
+            "usage limit", "rate limit", "quota exceeded", "reached your.*limit",
+            "hit your.*limit", "session limit", "weekly limit", "limit reached",
+            "credit balance is too low", "out of credits",
+            r"(?:status|code|error|HTTP)\W{0,12}(?:401|403|429|529)\b",
+        ]
+
+_AUTH_FAIL_PATTERN = re.compile("|".join(f"(?:{s})" for s in _SIGNALS), re.IGNORECASE)
 
 
 def build_claude_spawn_env(
