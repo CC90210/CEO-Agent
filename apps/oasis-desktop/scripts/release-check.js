@@ -147,9 +147,33 @@ assert(releaseMetadata.includes("suspiciously small artifact"), "release metadat
 
 assert(pkg.scripts["bundle:sidecar"] === "node scripts/bundle-sidecar.js", "bundle:sidecar npm script wired");
 assert(pkg.scripts.prepack === "node scripts/bundle-sidecar.js", "bundle runs automatically on prepack");
-assert(pkg.scripts["build:win"]?.includes("bundle:sidecar"), "Windows build runs sidecar bundle first");
-assert(pkg.scripts["build:mac"]?.includes("bundle:sidecar"), "Mac build runs sidecar bundle first");
-assert(pkg.scripts["build:linux"]?.includes("bundle:sidecar"), "Linux build runs sidecar bundle first");
+// The sidecar bundle must run before electron-builder on EVERY platform. That
+// invariant was asserted by grepping each npm script for the literal string
+// "bundle:sidecar" — a check on SPELLING, not on behaviour. When build:win and
+// build:mac were refactored to delegate to build-platform.js (2026-05-22,
+// alongside the signing work) the invariant still held, because
+// build-platform.js runs `npm run bundle:sidecar` before electron-builder. The
+// assertion did not, and the desktop Package job went red on Windows, macOS AND
+// Linux for nearly four months — release-check runs on all three, so one
+// string check failing fails every platform. Seven Dependabot PRs have been
+// blocked behind it, and a guard nobody can satisfy teaches everyone that red
+// is normal there.
+//
+// So prove the delegate really bundles, then accept either spelling.
+const buildPlatformSrc = fs.readFileSync(
+  path.join(root, "scripts", "build-platform.js"),
+  "utf8",
+);
+assert(
+  /run\(\s*"npm"\s*,\s*\[\s*"run"\s*,\s*"bundle:sidecar"\s*\]/.test(buildPlatformSrc),
+  "build-platform.js runs the sidecar bundle before electron-builder",
+);
+const bundlesSidecar = (script) =>
+  typeof script === "string" &&
+  (script.includes("bundle:sidecar") || script.includes("build-platform.js"));
+assert(bundlesSidecar(pkg.scripts["build:win"]), "Windows build runs sidecar bundle first");
+assert(bundlesSidecar(pkg.scripts["build:mac"]), "Mac build runs sidecar bundle first");
+assert(bundlesSidecar(pkg.scripts["build:linux"]), "Linux build runs sidecar bundle first");
 assert(
   Array.isArray(pkg.build.extraResources) &&
     pkg.build.extraResources.some((r) => r.from === "resources/sidecar" && r.to === "sidecar"),

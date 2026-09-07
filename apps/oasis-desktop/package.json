@@ -67,8 +67,7 @@
       "verifyUpdateCodeSignature": false,
       "requestedExecutionLevel": "asInvoker",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        { "target": "nsis", "arch": ["x64"] }
       ],
       "signtoolOptions": {
         "signingHashAlgorithms": ["sha256"]
@@ -82,9 +81,6 @@
       "shortcutName": "OASIS AI",
       "uninstallDisplayName": "OASIS AI Command Center",
       "perMachine": false
-    },
-    "portable": {
-      "artifactName": "OASIS-AI-${version}-portable.exe"
     },
     "mac": {
       "category": "public.app-category.productivity",
