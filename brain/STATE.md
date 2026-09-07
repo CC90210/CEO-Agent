@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Closed the last two: apply.sunbizfunding.com removed from the Cloudflare registry (NXDOMAIN, 0 minted links, 0 of 487 sunbiz interactions reference it); electron 39->44 clears the HIGH symlink advisory on branch fix/electron-44-security with 3-platform packaging GREEN. Also fixed artifact-check.js, which pinned version literal 0.1.0 while the package is 0.1.0-alpha.6. Harness 17/17.
+- **Result:** OASIS VISION finalised: deleted stray origin/master; closed Codex audit (1 high/9 med/9 low) + 7-dimension workflow audit (53 raised, 45 survived). Removed upstream telemetry beacon sending visitor IPs, fixed 2 impersonating User-Agents, Overpass 120-cap reporting 119 as a measurement (real 520), timed-out Overpass spoken as 'nothing here', silent assessment failures, macOS Launchpad node PATH, and docs installing the upstream app. Pushed 24d8b33. ~25 lower-severity findings documented as open.
 
 *Last updated: 2026-09-07*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-04T08:01:55.974636+00:00_
 
 - **Date:** 2026-09-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Closed the last two: apply.sunbizfunding.com removed from the Cloudflare registry (NXDOMAIN, 0 minted links, 0 of 487 sunbiz interactions reference it); electron 39->44 clears the HIGH symlink advisory on branch fix/electron-44-security with 3-platform packaging GREEN. Also fixed artifact-check.js, which pinned version literal 0.1.0 while the package is 0.1.0-alpha.6. Harness 17/17.
+- **Result:** OASIS VISION finalised: deleted stray origin/master; closed Codex audit (1 high/9 med/9 low) + 7-dimension workflow audit (53 raised, 45 survived). Removed upstream telemetry beacon sending visitor IPs, fixed 2 impersonating User-Agents, Overpass 120-cap reporting 119 as a measurement (real 520), timed-out Overpass spoken as 'nothing here', silent assessment failures, macOS Launchpad node PATH, and docs installing the upstream app. Pushed 24d8b33. ~25 lower-severity findings documented as open.
 
 *Last updated: 2026-09-07*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-04T08:01:55.974636+00:00_
 
 - **Date:** 2026-09-07
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Closed the last two: apply.sunbizfunding.com removed from the Cloudflare registry (NXDOMAIN, 0 minted links, 0 of 487 sunbiz interactions reference it); electron 39->44 clears the HIGH symlink advisory on branch fix/electron-44-security with 3-platform packaging GREEN. Also fixed artifact-check.js, which pinned version literal 0.1.0 while the package is 0.1.0-alpha.6. Harness 17/17.
+- **Result:** OASIS VISION finalised: deleted stray origin/master; closed Codex audit (1 high/9 med/9 low) + 7-dimension workflow audit (53 raised, 45 survived). Removed upstream telemetry beacon sending visitor IPs, fixed 2 impersonating User-Agents, Overpass 120-cap reporting 119 as a measurement (real 520), timed-out Overpass spoken as 'nothing here', silent assessment failures, macOS Launchpad node PATH, and docs installing the upstream app. Pushed 24d8b33. ~25 lower-severity findings documented as open.
 
 *Last updated: 2026-09-07*
