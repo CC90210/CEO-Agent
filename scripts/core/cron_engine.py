@@ -1215,8 +1215,66 @@ def _seed_by_normalized_name() -> dict:
 
 
 # Fields where a live row disagreeing with its SEED_JOBS definition changes what
-# actually runs. `description` is deliberately excluded — prose drift is noise.
+# actually runs. `description` stays OUT of this tuple on purpose: realigning it
+# must not ride along with a schedule rewrite, which is the mutation CLAUDE.md
+# says CC reviews first. Prose and behaviour carry different risk and get
+# different switches.
 DRIFT_FIELDS = ("schedule", "action_type", "action_config")
+
+# Fields that change what CC READS rather than what runs.
+#
+# `description` used to be excluded from drift entirely, as "prose drift is
+# noise". That was defensible until you notice where the prose goes: the
+# Automations tab renders this string, and brain/AUTOMATIONS.md is generated
+# from it. It is the operator's answer to "what does this job do".
+#
+# Measured 2026-09-08, with `drift` reporting a clean "No drift": 12 of 36 live
+# rows disagreed with their definition. Two of them — "Nurture Sequence Check"
+# and "Funnel Fast-Poll" — are marked RETIRED in SEED_JOBS and the tab was
+# presenting both as live work. "Weekly Receipts Reconciliation" claimed monthly
+# on the 2nd against a weekly definition, "Weekly tmp/ Hygiene" claimed a 30-day
+# purge window against a job whose actual args are `--days 7`, and
+# "Cross-Agent Self-Improvement Sweep" had no description at all.
+#
+# A drift check that stays silent about the one field an operator actually reads
+# is a guard with a hole, and it reads as coverage.
+DOC_FIELDS = ("description",)
+
+
+def _doc_drift_rows(client, only=None) -> list:
+    """Live rows whose DESCRIPTION disagrees with SEED_JOBS.
+
+    Separate from _drift_rows because the remedy is different: a description is
+    documentation, so realigning it from source is safe and reversible, while a
+    schedule rewrite changes what runs and is reviewed first. Same reader, two
+    switches.
+    """
+    by_name = _seed_by_normalized_name()
+    if only:
+        wanted = _normalize_dash(only).casefold()
+        by_name = {k: v for k, v in by_name.items() if k == wanted}
+        if not by_name:
+            print(f"ERROR: no SEED_JOBS definition named {only!r}", file=sys.stderr)
+            raise SystemExit(2)
+
+    live = client.table("cron_jobs").select("*").execute().data or []
+    out = []
+    for row in live:
+        definition = by_name.get(_normalize_dash(row.get("name", "")).casefold())
+        if not definition:
+            continue
+        diffs = {}
+        for field in DOC_FIELDS:
+            want = (definition.get(field) or "").strip()
+            got = (row.get(field) or "").strip()
+            # A definition with no description says nothing about the live one;
+            # only a definition that HAS text can claim the live text is wrong.
+            if want and want != got:
+                diffs[field] = {"seed": want, "live": got}
+        if diffs:
+            out.append({"id": row.get("id"), "name": row.get("name"),
+                        "is_active": row.get("is_active"), "diffs": diffs})
+    return out
 
 
 def _drift_rows(client, only=None) -> list:
@@ -1274,6 +1332,16 @@ def cmd_drift(client, args, output_json: bool) -> None:
     production schedule is exactly the change CLAUDE.md says CC reviews first.
     """
     rows = _drift_rows(client, getattr(args, "only", None))
+    docs = _doc_drift_rows(client, getattr(args, "only", None))
+
+    # Descriptions realign under their OWN flag. --fix is the schedule-rewrite
+    # switch and must not quietly also rewrite prose, nor the reverse.
+    if getattr(args, "fix_docs", False) and docs:
+        for row in docs:
+            client.table("cron_jobs").update(
+                {"description": row["diffs"]["description"]["seed"]}
+            ).eq("id", row["id"]).execute()
+            row["fixed"] = True
 
     if getattr(args, "fix", False) and rows:
         for row in rows:
@@ -1284,9 +1352,21 @@ def cmd_drift(client, args, output_json: bool) -> None:
             row["fixed"] = True
 
     if output_json:
-        print(json.dumps({"drifted": rows}, indent=2, default=str))
-    elif not rows:
+        print(json.dumps({"drifted": rows, "doc_drifted": docs}, indent=2, default=str))
+    elif not rows and not docs:
         print("No drift: every live cron matches its SEED_JOBS definition.")
+    elif not rows:
+        # Behaviour is aligned; only the prose the operator reads is stale.
+        verb = "Realigned" if getattr(args, "fix_docs", False) else "STALE DESCRIPTION"
+        print(f"Schedules and actions all match. {verb} on {len(docs)} job(s):\n")
+        for row in docs:
+            print(f"  {row['name']}  (active={row['is_active']})")
+            print(f"      seed: {row['diffs']['description']['seed'][:110]}")
+            print(f"      live: {(row['diffs']['description']['live'] or '(empty)')[:110]}")
+            print()
+        if not getattr(args, "fix_docs", False):
+            print("These are what the Automations tab shows CC.")
+            print("Re-align with:  cron_engine.py drift --fix-docs")
     else:
         verb = "Realigned" if getattr(args, "fix", False) else "DRIFTED"
         print(f"{verb} {len(rows)} cron job(s):\n")
@@ -1378,6 +1458,9 @@ Examples:
     p_drift.add_argument("--fix", action="store_true",
                          help="Rewrite the live row to match SEED_JOBS "
                               "(a production-schedule mutation — CC reviews first)")
+    p_drift.add_argument("--fix-docs", dest="fix_docs", action="store_true",
+                         help="Realign only DESCRIPTIONS from SEED_JOBS. Safe: it is "
+                              "the text the Automations tab shows, not what runs.")
 
     return parser
 
