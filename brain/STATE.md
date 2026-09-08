@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Rep email incident: Ariel's send DID go out (ledger confirms) but from the BRAND mailbox - 0 reps have a connected inbox, so she had no copy anywhere and reported it as failed. Shipped CC-the-rep (PR #405, d1bead99, live). Also shipped owner name on pipeline list, Kixie dialer, battle card, Today/daily-plan.
+- **Result:** Verified deployed: CC-the-rep on lead emails (d1bead99) and em-dash removal from rep email prose + the every-email sign-off (528a2f9c). Both live on oasisai.work, alias confirmed via vercel inspect. Open: no rep has a connected mailbox (0 rows), so sends still leave from the brand address; 5 emails queued since Aug 20 never drained; SunBiz cold-outreach HTML library still has 31 em dashes (different brand, generated file).
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Rep email incident: Ariel's send DID go out (ledger confirms) but from the BRAND mailbox - 0 reps have a connected inbox, so she had no copy anywhere and reported it as failed. Shipped CC-the-rep (PR #405, d1bead99, live). Also shipped owner name on pipeline list, Kixie dialer, battle card, Today/daily-plan.
+- **Result:** Verified deployed: CC-the-rep on lead emails (d1bead99) and em-dash removal from rep email prose + the every-email sign-off (528a2f9c). Both live on oasisai.work, alias confirmed via vercel inspect. Open: no rep has a connected mailbox (0 rows), so sends still leave from the brand address; 5 emails queued since Aug 20 never drained; SunBiz cold-outreach HTML library still has 31 em dashes (different brand, generated file).
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Rep email incident: Ariel's send DID go out (ledger confirms) but from the BRAND mailbox - 0 reps have a connected inbox, so she had no copy anywhere and reported it as failed. Shipped CC-the-rep (PR #405, d1bead99, live). Also shipped owner name on pipeline list, Kixie dialer, battle card, Today/daily-plan.
+- **Result:** Verified deployed: CC-the-rep on lead emails (d1bead99) and em-dash removal from rep email prose + the every-email sign-off (528a2f9c). Both live on oasisai.work, alias confirmed via vercel inspect. Open: no rep has a connected mailbox (0 rows), so sends still leave from the brand address; 5 emails queued since Aug 20 never drained; SunBiz cold-outreach HTML library still has 31 em dashes (different brand, generated file).
 
 *Last updated: 2026-09-08*
