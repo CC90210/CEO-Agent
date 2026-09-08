@@ -354,7 +354,12 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
         "business_name": "OASIS AI Solutions",
         "sender_name": "Conaugh McKenna",
         "business_address": "OASIS AI Solutions, Montreal, QC, Canada",
-        "from_display": "Conaugh McKenna — OASIS AI",
+        # Comma, not an em dash. This string is the From display name on every
+        # OASIS email, so it is the most-seen text this system produces: it sits
+        # in the recipient's inbox list before they open anything. CC asked for
+        # em dashes out of outbound email on 2026-09-08 and this was the most
+        # visible one of the lot.
+        "from_display": "Conaugh McKenna, OASIS AI",
     },
     "conaugh_mckenna": {
         "business_name": "Conaugh McKenna",
