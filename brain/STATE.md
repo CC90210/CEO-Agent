@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** PR #403 merged (b4f0ee92) and live: Contact name now resolves to the owner via contactNameFor(); 1,684 of 1,685 board leads were showing the company. Editor writes contact_name, not name. Three CodeRabbit findings fixed. Open: bulk-email recipients.ts still lacks the company guard.
+- **Result:** Rep email incident: Ariel's send DID go out (ledger confirms) but from the BRAND mailbox - 0 reps have a connected inbox, so she had no copy anywhere and reported it as failed. Shipped CC-the-rep (PR #405, d1bead99, live). Also shipped owner name on pipeline list, Kixie dialer, battle card, Today/daily-plan.
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** PR #403 merged (b4f0ee92) and live: Contact name now resolves to the owner via contactNameFor(); 1,684 of 1,685 board leads were showing the company. Editor writes contact_name, not name. Three CodeRabbit findings fixed. Open: bulk-email recipients.ts still lacks the company guard.
+- **Result:** Rep email incident: Ariel's send DID go out (ledger confirms) but from the BRAND mailbox - 0 reps have a connected inbox, so she had no copy anywhere and reported it as failed. Shipped CC-the-rep (PR #405, d1bead99, live). Also shipped owner name on pipeline list, Kixie dialer, battle card, Today/daily-plan.
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** PR #403 merged (b4f0ee92) and live: Contact name now resolves to the owner via contactNameFor(); 1,684 of 1,685 board leads were showing the company. Editor writes contact_name, not name. Three CodeRabbit findings fixed. Open: bulk-email recipients.ts still lacks the company guard.
+- **Result:** Rep email incident: Ariel's send DID go out (ledger confirms) but from the BRAND mailbox - 0 reps have a connected inbox, so she had no copy anywhere and reported it as failed. Shipped CC-the-rep (PR #405, d1bead99, live). Also shipped owner name on pipeline list, Kixie dialer, battle card, Today/daily-plan.
 
 *Last updated: 2026-09-08*
