@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Brand now reaches the signer through all three doors (3f1aa4ad): lead route, template-send route (was live-broken - resolved brand then signed without it), and email-signature's own fallback (latent). All unbranded callers unchanged; 209 SunBiz tests green. OASIS email chain complete: sends from conaugh@oasisai.work, rep CC'd + replyTo, rep signs, OASIS footer, no em dashes, suppression fails closed, receipt persisted. 31 web-leads tests in CI.
+- **Result:** Maven handover P0 fixed: Carousel Post cron description was showing CC a stale feed (ONE post every 2 days at 17:00 vs the real 2/day at 13:00+19:00). Fixed in cron_engine SEED_JOBS, regenerated AUTOMATIONS.md, and updated the LIVE cron_jobs row - seed --only would have no-opped because seed skips existing jobs by name. P1 answered: SCRIPT_RUN_MAX_TIMEOUT 3600 is a hard silent clamp, not raising it. P2 recommended one ?lane= param over three funnel slugs (precedent: ?source= already exists on the same route). P3/P4 awaiting Maven answers. Replied via agent_inbox 333646a72916.
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Brand now reaches the signer through all three doors (3f1aa4ad): lead route, template-send route (was live-broken - resolved brand then signed without it), and email-signature's own fallback (latent). All unbranded callers unchanged; 209 SunBiz tests green. OASIS email chain complete: sends from conaugh@oasisai.work, rep CC'd + replyTo, rep signs, OASIS footer, no em dashes, suppression fails closed, receipt persisted. 31 web-leads tests in CI.
+- **Result:** Maven handover P0 fixed: Carousel Post cron description was showing CC a stale feed (ONE post every 2 days at 17:00 vs the real 2/day at 13:00+19:00). Fixed in cron_engine SEED_JOBS, regenerated AUTOMATIONS.md, and updated the LIVE cron_jobs row - seed --only would have no-opped because seed skips existing jobs by name. P1 answered: SCRIPT_RUN_MAX_TIMEOUT 3600 is a hard silent clamp, not raising it. P2 recommended one ?lane= param over three funnel slugs (precedent: ?source= already exists on the same route). P3/P4 awaiting Maven answers. Replied via agent_inbox 333646a72916.
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Brand now reaches the signer through all three doors (3f1aa4ad): lead route, template-send route (was live-broken - resolved brand then signed without it), and email-signature's own fallback (latent). All unbranded callers unchanged; 209 SunBiz tests green. OASIS email chain complete: sends from conaugh@oasisai.work, rep CC'd + replyTo, rep signs, OASIS footer, no em dashes, suppression fails closed, receipt persisted. 31 web-leads tests in CI.
+- **Result:** Maven handover P0 fixed: Carousel Post cron description was showing CC a stale feed (ONE post every 2 days at 17:00 vs the real 2/day at 13:00+19:00). Fixed in cron_engine SEED_JOBS, regenerated AUTOMATIONS.md, and updated the LIVE cron_jobs row - seed --only would have no-opped because seed skips existing jobs by name. P1 answered: SCRIPT_RUN_MAX_TIMEOUT 3600 is a hard silent clamp, not raising it. P2 recommended one ?lane= param over three funnel slugs (precedent: ?source= already exists on the same route). P3/P4 awaiting Maven answers. Replied via agent_inbox 333646a72916.
 
 *Last updated: 2026-09-08*
