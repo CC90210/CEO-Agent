@@ -764,11 +764,11 @@ SEED_JOBS: list[dict] = [
         # 3x/day since 08-02 while he believed it was 1x. Registering it here is
         # what makes the tab honest about the feed.
         #
-        # DAILY ON PURPOSE — do NOT "correct" this to "0 8 */2 * *". The run
-        # happens every day; the every-2-days CADENCE is derived from the posted
-        # ledger by _is_posting_day() in CMO-Agent/scripts/schedule_posts.py.
-        # Encoding the cadence in the trigger as well would give one rule two
-        # definitions, and they drift the first time a run is missed.
+        # DAILY ON PURPOSE — do NOT "correct" this to a */2 schedule. The run happens
+        # every day; how OFTEN the feed speaks is derived from the posted ledger by
+        # _is_posting_day() in CMO-Agent/scripts/schedule_posts.py, and how MANY times
+        # per day is DAILY_CAP in the same file. Encoding either in the trigger would
+        # give one rule two definitions, and they drift the first time a run is missed.
         #
         # FIRST CROSS-REPO SEED_JOB. scheduler.py's run_script_action() does
         # PROJECT_ROOT / script, which pathlib resolves to an absolute path
@@ -786,10 +786,13 @@ SEED_JOBS: list[dict] = [
         # strands a half-written deck.
         "name": "Maven — Carousel Post",
         "description": (
-            "Daily 08:00 — authors carousel specs, renders and queues them, then books ONE "
-            "post every SECOND day at 17:00 UTC to Instagram, LinkedIn and Threads. The "
-            "cadence decides whether a given day books, not this schedule. Also delivers "
-            "finished renders to CC's Telegram and mirrors pieces into the founders Library."
+            "Daily 08:00 — authors carousel specs, renders GEN-9 motion slides (a 6s "
+            "looping MP4 per slide plus a still exported from the same composition), "
+            "queues them, then books TWO posts per day at 13:00 and 19:00 UTC to "
+            "Instagram, LinkedIn and Threads. The cadence decides whether a given day "
+            "books, not this schedule. Rotation guarantees no two consecutive posts "
+            "share a lane or a module shape. Also delivers finished renders to CC's "
+            "Telegram and mirrors pieces into the founders Library."
         ),
         "schedule": "0 8 * * *",
         "action_type": "script_run",
