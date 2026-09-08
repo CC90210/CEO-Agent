@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Rep email chain complete and live: CC-the-rep (d1bead99), em dashes out of rep prose + sign-off (528a2f9c), AI composer prompt (4382e4a5), OASIS brand footer routed away from SunBiz (d44d4f89), send_gateway OASIS From display de-dashed (f77f46ee). Confirmed: sends already use CC's app password via send_gateway brand=oasis. Remaining fragility: bridge depends on CC's PC; a Vercel-side shared mailbox needs from_address+app_password stored under service=gws for tenant ef8d389e via Settings.
+- **Result:** Arthrisil client revisions: guide published on-page under hero, Micael spelling, trytanhealthdist@gmail.com, new Trytan Distribution logo. Found: Vercel+CF have ZERO env vars so the lead form silently discards leads, and arthrisil.com still serves old WordPress on GoDaddy. Committed 5883d4c, NOT pushed. Price still unknown.
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Rep email chain complete and live: CC-the-rep (d1bead99), em dashes out of rep prose + sign-off (528a2f9c), AI composer prompt (4382e4a5), OASIS brand footer routed away from SunBiz (d44d4f89), send_gateway OASIS From display de-dashed (f77f46ee). Confirmed: sends already use CC's app password via send_gateway brand=oasis. Remaining fragility: bridge depends on CC's PC; a Vercel-side shared mailbox needs from_address+app_password stored under service=gws for tenant ef8d389e via Settings.
+- **Result:** Arthrisil client revisions: guide published on-page under hero, Micael spelling, trytanhealthdist@gmail.com, new Trytan Distribution logo. Found: Vercel+CF have ZERO env vars so the lead form silently discards leads, and arthrisil.com still serves old WordPress on GoDaddy. Committed 5883d4c, NOT pushed. Price still unknown.
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Rep email chain complete and live: CC-the-rep (d1bead99), em dashes out of rep prose + sign-off (528a2f9c), AI composer prompt (4382e4a5), OASIS brand footer routed away from SunBiz (d44d4f89), send_gateway OASIS From display de-dashed (f77f46ee). Confirmed: sends already use CC's app password via send_gateway brand=oasis. Remaining fragility: bridge depends on CC's PC; a Vercel-side shared mailbox needs from_address+app_password stored under service=gws for tenant ef8d389e via Settings.
+- **Result:** Arthrisil client revisions: guide published on-page under hero, Micael spelling, trytanhealthdist@gmail.com, new Trytan Distribution logo. Found: Vercel+CF have ZERO env vars so the lead form silently discards leads, and arthrisil.com still serves old WordPress on GoDaddy. Committed 5883d4c, NOT pushed. Price still unknown.
 
 *Last updated: 2026-09-08*
