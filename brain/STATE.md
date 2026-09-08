@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Arthrisil client revisions SHIPPED: pushed 5883d4c, Vercel promoted to production and verified live (11/11 checks), Cloudflare Worker deployed via wrangler_tool and verified uncached. Open: price figure never supplied; arthrisil.com still WordPress on GoDaddy.
+- **Result:** OASIS shared-mailbox send path shipped (bd02fe64) + 4 review fixes incl. a suppression fail-open (cba486e9). Sends from one mailbox, rep CC'd + replyTo, OASIS footer, suppression fails closed, SMTP timeouts, receipt persisted. Falls through to bridge until credential provisioned. SunBiz verified untouched (209 tests) - SUNBIZ_LEGAL_FOOTER was pre-existing since 2026-07-10, I only made it brand-aware. BLOCKED on CC: run provision_oasis_mailbox.py (needs vercel env pull, which secret_guard correctly blocks me from doing).
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Arthrisil client revisions SHIPPED: pushed 5883d4c, Vercel promoted to production and verified live (11/11 checks), Cloudflare Worker deployed via wrangler_tool and verified uncached. Open: price figure never supplied; arthrisil.com still WordPress on GoDaddy.
+- **Result:** OASIS shared-mailbox send path shipped (bd02fe64) + 4 review fixes incl. a suppression fail-open (cba486e9). Sends from one mailbox, rep CC'd + replyTo, OASIS footer, suppression fails closed, SMTP timeouts, receipt persisted. Falls through to bridge until credential provisioned. SunBiz verified untouched (209 tests) - SUNBIZ_LEGAL_FOOTER was pre-existing since 2026-07-10, I only made it brand-aware. BLOCKED on CC: run provision_oasis_mailbox.py (needs vercel env pull, which secret_guard correctly blocks me from doing).
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Arthrisil client revisions SHIPPED: pushed 5883d4c, Vercel promoted to production and verified live (11/11 checks), Cloudflare Worker deployed via wrangler_tool and verified uncached. Open: price figure never supplied; arthrisil.com still WordPress on GoDaddy.
+- **Result:** OASIS shared-mailbox send path shipped (bd02fe64) + 4 review fixes incl. a suppression fail-open (cba486e9). Sends from one mailbox, rep CC'd + replyTo, OASIS footer, suppression fails closed, SMTP timeouts, receipt persisted. Falls through to bridge until credential provisioned. SunBiz verified untouched (209 tests) - SUNBIZ_LEGAL_FOOTER was pre-existing since 2026-07-10, I only made it brand-aware. BLOCKED on CC: run provision_oasis_mailbox.py (needs vercel env pull, which secret_guard correctly blocks me from doing).
 
 *Last updated: 2026-09-08*
