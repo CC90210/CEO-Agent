@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Verified deployed: CC-the-rep on lead emails (d1bead99) and em-dash removal from rep email prose + the every-email sign-off (528a2f9c). Both live on oasisai.work, alias confirmed via vercel inspect. Open: no rep has a connected mailbox (0 rows), so sends still leave from the brand address; 5 emails queued since Aug 20 never drained; SunBiz cold-outreach HTML library still has 31 em dashes (different brand, generated file).
+- **Result:** Rep email chain complete and live: CC-the-rep (d1bead99), em dashes out of rep prose + sign-off (528a2f9c), AI composer prompt (4382e4a5), OASIS brand footer routed away from SunBiz (d44d4f89), send_gateway OASIS From display de-dashed (f77f46ee). Confirmed: sends already use CC's app password via send_gateway brand=oasis. Remaining fragility: bridge depends on CC's PC; a Vercel-side shared mailbox needs from_address+app_password stored under service=gws for tenant ef8d389e via Settings.
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Verified deployed: CC-the-rep on lead emails (d1bead99) and em-dash removal from rep email prose + the every-email sign-off (528a2f9c). Both live on oasisai.work, alias confirmed via vercel inspect. Open: no rep has a connected mailbox (0 rows), so sends still leave from the brand address; 5 emails queued since Aug 20 never drained; SunBiz cold-outreach HTML library still has 31 em dashes (different brand, generated file).
+- **Result:** Rep email chain complete and live: CC-the-rep (d1bead99), em dashes out of rep prose + sign-off (528a2f9c), AI composer prompt (4382e4a5), OASIS brand footer routed away from SunBiz (d44d4f89), send_gateway OASIS From display de-dashed (f77f46ee). Confirmed: sends already use CC's app password via send_gateway brand=oasis. Remaining fragility: bridge depends on CC's PC; a Vercel-side shared mailbox needs from_address+app_password stored under service=gws for tenant ef8d389e via Settings.
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Verified deployed: CC-the-rep on lead emails (d1bead99) and em-dash removal from rep email prose + the every-email sign-off (528a2f9c). Both live on oasisai.work, alias confirmed via vercel inspect. Open: no rep has a connected mailbox (0 rows), so sends still leave from the brand address; 5 emails queued since Aug 20 never drained; SunBiz cold-outreach HTML library still has 31 em dashes (different brand, generated file).
+- **Result:** Rep email chain complete and live: CC-the-rep (d1bead99), em dashes out of rep prose + sign-off (528a2f9c), AI composer prompt (4382e4a5), OASIS brand footer routed away from SunBiz (d44d4f89), send_gateway OASIS From display de-dashed (f77f46ee). Confirmed: sends already use CC's app password via send_gateway brand=oasis. Remaining fragility: bridge depends on CC's PC; a Vercel-side shared mailbox needs from_address+app_password stored under service=gws for tenant ef8d389e via Settings.
 
 *Last updated: 2026-09-08*
