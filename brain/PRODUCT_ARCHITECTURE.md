@@ -1,7 +1,7 @@
 ---
 description: "Two-layer cloneable product architecture: core (canonical skills, agents, docs) stays versioned; personal (brand voice, financials, goals) stays gitignored"
 tags: [product, architecture, business-in-a-box, clonable]
-last_updated: 2026-06-09
+last_updated: 2026-09-08
 freshness_threshold_days: 90
 verified: 2026-06-09
 ---

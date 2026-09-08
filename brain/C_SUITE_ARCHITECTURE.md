@@ -1,7 +1,7 @@
 ---
 description: "Defines the four-agent operating system architecture with roles, scopes, decision rights, and communication protocols"
 tags: [architecture, c-suite, multi-agent]
-last_updated: 2026-06-09
+last_updated: 2026-09-08
 freshness_threshold_days: 90
 verified: 2026-06-09
 ---

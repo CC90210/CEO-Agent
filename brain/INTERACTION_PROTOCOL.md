@@ -1,7 +1,7 @@
 ---
 description: "Interaction protocol: tiered logging system (Turso, sessions), observability standards, and action traceability requirements for all agent interfaces"
 tags: [protocol, governance]
-last_updated: 2026-06-09
+last_updated: 2026-09-08
 freshness_threshold_days: 90
 verified: 2026-06-09
 ---

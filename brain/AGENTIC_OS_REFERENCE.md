@@ -8,7 +8,7 @@ version: V6.7 (slots into V6.0/Phase-2 → V6.5 → V6.6 → V6.7 lineage; see b
 mutability: GOVERNED
 purpose: Single source of logical truth for how every CC agent (Bravo, Maven, Atlas, Hermes, future) should be structured. Practice may diverge — logic should not.
 applies_to: Business-Empire-Agent (Bravo), CMO-Agent (Maven), CFO-Agent (Atlas), hermes (Hermes), all future client agents forged via skills/agent-forge
-last_updated: 2026-06-09
+last_updated: 2026-09-08
 freshness_threshold_days: 90
 verified: 2026-06-09
 tags: [brain]

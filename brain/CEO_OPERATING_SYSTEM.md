@@ -1,7 +1,7 @@
 ---
 description: "Reference mapping 7 CEO domains to executable tools and commands; agents use to determine which script, skill, or workflow handles each function"
 tags: [brain, ceo, operating-system]
-last_updated: 2026-06-09
+last_updated: 2026-09-08
 freshness_threshold_days: 90
 verified: 2026-06-09
 ---

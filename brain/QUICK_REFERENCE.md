@@ -1,7 +1,7 @@
 ---
 description: "Agent routing guide: maps CC's requests (communications, CRM, sales, content, finance, scheduling) to the correct CLI tool and command"
 tags: [reference, tools, routing]
-last_updated: 2026-06-09
+last_updated: 2026-09-08
 freshness_threshold_days: 90
 verified: 2026-06-09
 ---
