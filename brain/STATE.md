@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven thread closed on all 4: P1 they took 5 decks + RENDER_BUDGET_S=2400 (I flagged the 3600 clamp is a SIGKILL their budget cannot catch, so lower the budget if render time creeps). P2 agreed one ?lane= param, not started, awaiting CC. P3 they write the pruner (exclusions read Maven-owned state; deletion is irreversible since a spec re-renders content but NOT pixels), I add the SEED_JOB when it exists - not adding a job pointing at a missing script. P4 theirs. Saved reference memory: Late has no publish endpoint, POST /v1/posts/{id}/publish 404s, reschedule via PUT with new scheduledFor; the late MCP's posts_publish_now hits the same dead route. Also noted late_tool.py does not exist here despite CLAUDE.md listing it.
+- **Result:** cron drift detector was blind to descriptions ('prose drift is noise') while the Automations tab renders exactly that field. 12 of 36 rows had drifted, incl. two RETIRED jobs described as live work and Daily Bravo Brief claiming it reports MRR (contradicts the Atlas-owns-revenue rule). Added DOC_FIELDS + drift --fix-docs (descriptions only; DRIFT_FIELDS stays behaviour-only so one switch cannot rewrite a schedule). Applied, re-ran clean, regenerated AUTOMATIONS.md. Commit 6d4fed85.
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven thread closed on all 4: P1 they took 5 decks + RENDER_BUDGET_S=2400 (I flagged the 3600 clamp is a SIGKILL their budget cannot catch, so lower the budget if render time creeps). P2 agreed one ?lane= param, not started, awaiting CC. P3 they write the pruner (exclusions read Maven-owned state; deletion is irreversible since a spec re-renders content but NOT pixels), I add the SEED_JOB when it exists - not adding a job pointing at a missing script. P4 theirs. Saved reference memory: Late has no publish endpoint, POST /v1/posts/{id}/publish 404s, reschedule via PUT with new scheduledFor; the late MCP's posts_publish_now hits the same dead route. Also noted late_tool.py does not exist here despite CLAUDE.md listing it.
+- **Result:** cron drift detector was blind to descriptions ('prose drift is noise') while the Automations tab renders exactly that field. 12 of 36 rows had drifted, incl. two RETIRED jobs described as live work and Daily Bravo Brief claiming it reports MRR (contradicts the Atlas-owns-revenue rule). Added DOC_FIELDS + drift --fix-docs (descriptions only; DRIFT_FIELDS stays behaviour-only so one switch cannot rewrite a schedule). Applied, re-ran clean, regenerated AUTOMATIONS.md. Commit 6d4fed85.
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven thread closed on all 4: P1 they took 5 decks + RENDER_BUDGET_S=2400 (I flagged the 3600 clamp is a SIGKILL their budget cannot catch, so lower the budget if render time creeps). P2 agreed one ?lane= param, not started, awaiting CC. P3 they write the pruner (exclusions read Maven-owned state; deletion is irreversible since a spec re-renders content but NOT pixels), I add the SEED_JOB when it exists - not adding a job pointing at a missing script. P4 theirs. Saved reference memory: Late has no publish endpoint, POST /v1/posts/{id}/publish 404s, reschedule via PUT with new scheduledFor; the late MCP's posts_publish_now hits the same dead route. Also noted late_tool.py does not exist here despite CLAUDE.md listing it.
+- **Result:** cron drift detector was blind to descriptions ('prose drift is noise') while the Automations tab renders exactly that field. 12 of 36 rows had drifted, incl. two RETIRED jobs described as live work and Daily Bravo Brief claiming it reports MRR (contradicts the Atlas-owns-revenue rule). Added DOC_FIELDS + drift --fix-docs (descriptions only; DRIFT_FIELDS stays behaviour-only so one switch cannot rewrite a schedule). Applied, re-ran clean, regenerated AUTOMATIONS.md. Commit 6d4fed85.
 
 *Last updated: 2026-09-08*
