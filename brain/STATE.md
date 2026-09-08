@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** OASIS email branding fixed and live (447bdfcc): resolveSignerForOperator had a hardcoded 'SunBiz Submissions' fallback for any operator not on the SunBiz roster, so every OASIS rep email was signed by another company. Now brand-driven; OASIS operators sign with their own first name from their address (full_name holds the email on this workspace so it is unusable). Deliberately NOT domain-keyed: the same operator runs SunBiz shop-out/lender flows where that shared identity is correct. All existing callers pass no brand and are unchanged (209 SunBiz tests green).
+- **Result:** Brand now reaches the signer through all three doors (3f1aa4ad): lead route, template-send route (was live-broken - resolved brand then signed without it), and email-signature's own fallback (latent). All unbranded callers unchanged; 209 SunBiz tests green. OASIS email chain complete: sends from conaugh@oasisai.work, rep CC'd + replyTo, rep signs, OASIS footer, no em dashes, suppression fails closed, receipt persisted. 31 web-leads tests in CI.
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** OASIS email branding fixed and live (447bdfcc): resolveSignerForOperator had a hardcoded 'SunBiz Submissions' fallback for any operator not on the SunBiz roster, so every OASIS rep email was signed by another company. Now brand-driven; OASIS operators sign with their own first name from their address (full_name holds the email on this workspace so it is unusable). Deliberately NOT domain-keyed: the same operator runs SunBiz shop-out/lender flows where that shared identity is correct. All existing callers pass no brand and are unchanged (209 SunBiz tests green).
+- **Result:** Brand now reaches the signer through all three doors (3f1aa4ad): lead route, template-send route (was live-broken - resolved brand then signed without it), and email-signature's own fallback (latent). All unbranded callers unchanged; 209 SunBiz tests green. OASIS email chain complete: sends from conaugh@oasisai.work, rep CC'd + replyTo, rep signs, OASIS footer, no em dashes, suppression fails closed, receipt persisted. 31 web-leads tests in CI.
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** OASIS email branding fixed and live (447bdfcc): resolveSignerForOperator had a hardcoded 'SunBiz Submissions' fallback for any operator not on the SunBiz roster, so every OASIS rep email was signed by another company. Now brand-driven; OASIS operators sign with their own first name from their address (full_name holds the email on this workspace so it is unusable). Deliberately NOT domain-keyed: the same operator runs SunBiz shop-out/lender flows where that shared identity is correct. All existing callers pass no brand and are unchanged (209 SunBiz tests green).
+- **Result:** Brand now reaches the signer through all three doors (3f1aa4ad): lead route, template-send route (was live-broken - resolved brand then signed without it), and email-signature's own fallback (latent). All unbranded callers unchanged; 209 SunBiz tests green. OASIS email chain complete: sends from conaugh@oasisai.work, rep CC'd + replyTo, rep signs, OASIS footer, no em dashes, suppression fails closed, receipt persisted. 31 web-leads tests in CI.
 
 *Last updated: 2026-09-08*
