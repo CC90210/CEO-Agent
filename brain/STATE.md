@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven handover P0 fixed: Carousel Post cron description was showing CC a stale feed (ONE post every 2 days at 17:00 vs the real 2/day at 13:00+19:00). Fixed in cron_engine SEED_JOBS, regenerated AUTOMATIONS.md, and updated the LIVE cron_jobs row - seed --only would have no-opped because seed skips existing jobs by name. P1 answered: SCRIPT_RUN_MAX_TIMEOUT 3600 is a hard silent clamp, not raising it. P2 recommended one ?lane= param over three funnel slugs (precedent: ?source= already exists on the same route). P3/P4 awaiting Maven answers. Replied via agent_inbox 333646a72916.
+- **Result:** Maven thread closed on all 4: P1 they took 5 decks + RENDER_BUDGET_S=2400 (I flagged the 3600 clamp is a SIGKILL their budget cannot catch, so lower the budget if render time creeps). P2 agreed one ?lane= param, not started, awaiting CC. P3 they write the pruner (exclusions read Maven-owned state; deletion is irreversible since a spec re-renders content but NOT pixels), I add the SEED_JOB when it exists - not adding a job pointing at a missing script. P4 theirs. Saved reference memory: Late has no publish endpoint, POST /v1/posts/{id}/publish 404s, reschedule via PUT with new scheduledFor; the late MCP's posts_publish_now hits the same dead route. Also noted late_tool.py does not exist here despite CLAUDE.md listing it.
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven handover P0 fixed: Carousel Post cron description was showing CC a stale feed (ONE post every 2 days at 17:00 vs the real 2/day at 13:00+19:00). Fixed in cron_engine SEED_JOBS, regenerated AUTOMATIONS.md, and updated the LIVE cron_jobs row - seed --only would have no-opped because seed skips existing jobs by name. P1 answered: SCRIPT_RUN_MAX_TIMEOUT 3600 is a hard silent clamp, not raising it. P2 recommended one ?lane= param over three funnel slugs (precedent: ?source= already exists on the same route). P3/P4 awaiting Maven answers. Replied via agent_inbox 333646a72916.
+- **Result:** Maven thread closed on all 4: P1 they took 5 decks + RENDER_BUDGET_S=2400 (I flagged the 3600 clamp is a SIGKILL their budget cannot catch, so lower the budget if render time creeps). P2 agreed one ?lane= param, not started, awaiting CC. P3 they write the pruner (exclusions read Maven-owned state; deletion is irreversible since a spec re-renders content but NOT pixels), I add the SEED_JOB when it exists - not adding a job pointing at a missing script. P4 theirs. Saved reference memory: Late has no publish endpoint, POST /v1/posts/{id}/publish 404s, reschedule via PUT with new scheduledFor; the late MCP's posts_publish_now hits the same dead route. Also noted late_tool.py does not exist here despite CLAUDE.md listing it.
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven handover P0 fixed: Carousel Post cron description was showing CC a stale feed (ONE post every 2 days at 17:00 vs the real 2/day at 13:00+19:00). Fixed in cron_engine SEED_JOBS, regenerated AUTOMATIONS.md, and updated the LIVE cron_jobs row - seed --only would have no-opped because seed skips existing jobs by name. P1 answered: SCRIPT_RUN_MAX_TIMEOUT 3600 is a hard silent clamp, not raising it. P2 recommended one ?lane= param over three funnel slugs (precedent: ?source= already exists on the same route). P3/P4 awaiting Maven answers. Replied via agent_inbox 333646a72916.
+- **Result:** Maven thread closed on all 4: P1 they took 5 decks + RENDER_BUDGET_S=2400 (I flagged the 3600 clamp is a SIGKILL their budget cannot catch, so lower the budget if render time creeps). P2 agreed one ?lane= param, not started, awaiting CC. P3 they write the pruner (exclusions read Maven-owned state; deletion is irreversible since a spec re-renders content but NOT pixels), I add the SEED_JOB when it exists - not adding a job pointing at a missing script. P4 theirs. Saved reference memory: Late has no publish endpoint, POST /v1/posts/{id}/publish 404s, reschedule via PUT with new scheduledFor; the late MCP's posts_publish_now hits the same dead route. Also noted late_tool.py does not exist here despite CLAUDE.md listing it.
 
 *Last updated: 2026-09-08*
