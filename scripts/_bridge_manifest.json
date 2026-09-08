@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-09-07T16:29:24.992510+00:00",
-  "script_count": 166,
-  "entry_count": 349,
+  "generated_at_iso": "2026-09-08T19:20:38.173723+00:00",
+  "script_count": 167,
+  "entry_count": 350,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1809,6 +1809,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "provision_maven_telegram.py -- give Maven the Telegram recipient it has never had."
+    },
+    {
+      "key": "provision_oasis_mailbox",
+      "path": "scripts/provision_oasis_mailbox.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Provision the shared OASIS sending mailbox, without the secret passing"
     },
     {
       "key": "provision_secrets",

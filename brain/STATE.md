@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Arthrisil client revisions: guide published on-page under hero, Micael spelling, trytanhealthdist@gmail.com, new Trytan Distribution logo. Found: Vercel+CF have ZERO env vars so the lead form silently discards leads, and arthrisil.com still serves old WordPress on GoDaddy. Committed 5883d4c, NOT pushed. Price still unknown.
+- **Result:** Arthrisil client revisions SHIPPED: pushed 5883d4c, Vercel promoted to production and verified live (11/11 checks), Cloudflare Worker deployed via wrangler_tool and verified uncached. Open: price figure never supplied; arthrisil.com still WordPress on GoDaddy.
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Arthrisil client revisions: guide published on-page under hero, Micael spelling, trytanhealthdist@gmail.com, new Trytan Distribution logo. Found: Vercel+CF have ZERO env vars so the lead form silently discards leads, and arthrisil.com still serves old WordPress on GoDaddy. Committed 5883d4c, NOT pushed. Price still unknown.
+- **Result:** Arthrisil client revisions SHIPPED: pushed 5883d4c, Vercel promoted to production and verified live (11/11 checks), Cloudflare Worker deployed via wrangler_tool and verified uncached. Open: price figure never supplied; arthrisil.com still WordPress on GoDaddy.
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Arthrisil client revisions: guide published on-page under hero, Micael spelling, trytanhealthdist@gmail.com, new Trytan Distribution logo. Found: Vercel+CF have ZERO env vars so the lead form silently discards leads, and arthrisil.com still serves old WordPress on GoDaddy. Committed 5883d4c, NOT pushed. Price still unknown.
+- **Result:** Arthrisil client revisions SHIPPED: pushed 5883d4c, Vercel promoted to production and verified live (11/11 checks), Cloudflare Worker deployed via wrangler_tool and verified uncached. Open: price figure never supplied; arthrisil.com still WordPress on GoDaddy.
 
 *Last updated: 2026-09-08*
