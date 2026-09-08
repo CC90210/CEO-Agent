@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Adversarial verification of PR #401 corrected two claims: visible owner-named leads in the CA pool are ~1,549 (not 1,668 - territory gate + isClaimable narrow further, ~ON 533 / BC 435); and the web-leads client has no focus/interval refetch, so a rep with the tab open sees pre-deploy data until they reload. New defect found and reported to APEX: US board renders 0 of its 132 owner-named leads (no US rows in leadgen_territories).
+- **Result:** PR #403 merged (b4f0ee92) and live: Contact name now resolves to the owner via contactNameFor(); 1,684 of 1,685 board leads were showing the company. Editor writes contact_name, not name. Three CodeRabbit findings fixed. Open: bulk-email recipients.ts still lacks the company guard.
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Adversarial verification of PR #401 corrected two claims: visible owner-named leads in the CA pool are ~1,549 (not 1,668 - territory gate + isClaimable narrow further, ~ON 533 / BC 435); and the web-leads client has no focus/interval refetch, so a rep with the tab open sees pre-deploy data until they reload. New defect found and reported to APEX: US board renders 0 of its 132 owner-named leads (no US rows in leadgen_territories).
+- **Result:** PR #403 merged (b4f0ee92) and live: Contact name now resolves to the owner via contactNameFor(); 1,684 of 1,685 board leads were showing the company. Editor writes contact_name, not name. Three CodeRabbit findings fixed. Open: bulk-email recipients.ts still lacks the company guard.
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Adversarial verification of PR #401 corrected two claims: visible owner-named leads in the CA pool are ~1,549 (not 1,668 - territory gate + isClaimable narrow further, ~ON 533 / BC 435); and the web-leads client has no focus/interval refetch, so a rep with the tab open sees pre-deploy data until they reload. New defect found and reported to APEX: US board renders 0 of its 132 owner-named leads (no US rows in leadgen_territories).
+- **Result:** PR #403 merged (b4f0ee92) and live: Contact name now resolves to the owner via contactNameFor(); 1,684 of 1,685 board leads were showing the company. Editor writes contact_name, not name. Three CodeRabbit findings fixed. Open: bulk-email recipients.ts still lacks the company guard.
 
 *Last updated: 2026-09-08*
