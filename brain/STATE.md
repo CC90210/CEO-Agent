@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Rep-created leads shipped and live (fa53a50b): 4 gates opened (button canManage->canCreateLead, page redirect, API 403, no owner stamp). Creator stamped server-side as assigned_to + stage=assigned (researched is the shared pool and is excluded from REP_PIPELINE_STAGE_KEYS, so owner alone would leave it invisible). Scoped to OASIS leads + sales roles only; bulk assign stays admin-only. Email path also confirmed: tenant slug oasis-ai-cc so brand=oasis and the shared-mailbox branch fires.
+- **Result:** OASIS email branding fixed and live (447bdfcc): resolveSignerForOperator had a hardcoded 'SunBiz Submissions' fallback for any operator not on the SunBiz roster, so every OASIS rep email was signed by another company. Now brand-driven; OASIS operators sign with their own first name from their address (full_name holds the email on this workspace so it is unusable). Deliberately NOT domain-keyed: the same operator runs SunBiz shop-out/lender flows where that shared identity is correct. All existing callers pass no brand and are unchanged (209 SunBiz tests green).
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Rep-created leads shipped and live (fa53a50b): 4 gates opened (button canManage->canCreateLead, page redirect, API 403, no owner stamp). Creator stamped server-side as assigned_to + stage=assigned (researched is the shared pool and is excluded from REP_PIPELINE_STAGE_KEYS, so owner alone would leave it invisible). Scoped to OASIS leads + sales roles only; bulk assign stays admin-only. Email path also confirmed: tenant slug oasis-ai-cc so brand=oasis and the shared-mailbox branch fires.
+- **Result:** OASIS email branding fixed and live (447bdfcc): resolveSignerForOperator had a hardcoded 'SunBiz Submissions' fallback for any operator not on the SunBiz roster, so every OASIS rep email was signed by another company. Now brand-driven; OASIS operators sign with their own first name from their address (full_name holds the email on this workspace so it is unusable). Deliberately NOT domain-keyed: the same operator runs SunBiz shop-out/lender flows where that shared identity is correct. All existing callers pass no brand and are unchanged (209 SunBiz tests green).
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Rep-created leads shipped and live (fa53a50b): 4 gates opened (button canManage->canCreateLead, page redirect, API 403, no owner stamp). Creator stamped server-side as assigned_to + stage=assigned (researched is the shared pool and is excluded from REP_PIPELINE_STAGE_KEYS, so owner alone would leave it invisible). Scoped to OASIS leads + sales roles only; bulk assign stays admin-only. Email path also confirmed: tenant slug oasis-ai-cc so brand=oasis and the shared-mailbox branch fires.
+- **Result:** OASIS email branding fixed and live (447bdfcc): resolveSignerForOperator had a hardcoded 'SunBiz Submissions' fallback for any operator not on the SunBiz roster, so every OASIS rep email was signed by another company. Now brand-driven; OASIS operators sign with their own first name from their address (full_name holds the email on this workspace so it is unusable). Deliberately NOT domain-keyed: the same operator runs SunBiz shop-out/lender flows where that shared identity is correct. All existing callers pass no brand and are unchanged (209 SunBiz tests green).
 
 *Last updated: 2026-09-08*
