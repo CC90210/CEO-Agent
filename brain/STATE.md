@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** OASIS rep email automation COMPLETE and live (b44b2bec). Sends from conaugh@oasisai.work via Vercel env creds, rep CC'd + replyTo, OASIS footer, suppression fails closed, SMTP timeouts, receipt persisted. SMTP auth verified live + real test message delivered. No manual step outstanding. SunBiz untouched (209 tests green every merge).
+- **Result:** Ariel's 21:12:07 send predated the deploy by 43s - it hit the old build and took the bridge, which is why no CC. Live build (mfarw06z8, git-main alias, created 3s after merge b44b2bec) now carries the shared-mailbox path with env creds. Proved CC+ReplyTo land with a real send: conaugh@oasisai.work -> CC ariel@oasisai.work, msg id 17dc6f51. Next button click writes from_email=conaugh@oasisai.work and provider=oasis_shared_gmail on its row; both were NULL before.
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** OASIS rep email automation COMPLETE and live (b44b2bec). Sends from conaugh@oasisai.work via Vercel env creds, rep CC'd + replyTo, OASIS footer, suppression fails closed, SMTP timeouts, receipt persisted. SMTP auth verified live + real test message delivered. No manual step outstanding. SunBiz untouched (209 tests green every merge).
+- **Result:** Ariel's 21:12:07 send predated the deploy by 43s - it hit the old build and took the bridge, which is why no CC. Live build (mfarw06z8, git-main alias, created 3s after merge b44b2bec) now carries the shared-mailbox path with env creds. Proved CC+ReplyTo land with a real send: conaugh@oasisai.work -> CC ariel@oasisai.work, msg id 17dc6f51. Next button click writes from_email=conaugh@oasisai.work and provider=oasis_shared_gmail on its row; both were NULL before.
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** OASIS rep email automation COMPLETE and live (b44b2bec). Sends from conaugh@oasisai.work via Vercel env creds, rep CC'd + replyTo, OASIS footer, suppression fails closed, SMTP timeouts, receipt persisted. SMTP auth verified live + real test message delivered. No manual step outstanding. SunBiz untouched (209 tests green every merge).
+- **Result:** Ariel's 21:12:07 send predated the deploy by 43s - it hit the old build and took the bridge, which is why no CC. Live build (mfarw06z8, git-main alias, created 3s after merge b44b2bec) now carries the shared-mailbox path with env creds. Proved CC+ReplyTo land with a real send: conaugh@oasisai.work -> CC ariel@oasisai.work, msg id 17dc6f51. Next button click writes from_email=conaugh@oasisai.work and provider=oasis_shared_gmail on its row; both were NULL before.
 
 *Last updated: 2026-09-08*
