@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** web-leads: fixed owner-tier filter (FILTER_KEYS projection dropped owner_name/owner_phone/owner_verification_state, hiding 1,668 owner-named leads); wired 26 never-run web-leads tests into CI; added quick-email send path to pipeline lead workspace; built owner-operator small-town scraper (ON/BC, 12 ICPs) - blocked on Firecrawl credits after 3 verified leads. PR #401.
+- **Result:** PR #401 merged to main (0162a6e0) and deployed to production; oasisai.work confirmed serving the new build via vercel inspect alias. Owner-tier filter fix live: 1,668 owner-named leads now reachable (ON 548 / BC 451).
 
 *Last updated: 2026-09-08*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** web-leads: fixed owner-tier filter (FILTER_KEYS projection dropped owner_name/owner_phone/owner_verification_state, hiding 1,668 owner-named leads); wired 26 never-run web-leads tests into CI; added quick-email send path to pipeline lead workspace; built owner-operator small-town scraper (ON/BC, 12 ICPs) - blocked on Firecrawl credits after 3 verified leads. PR #401.
+- **Result:** PR #401 merged to main (0162a6e0) and deployed to production; oasisai.work confirmed serving the new build via vercel inspect alias. Owner-tier filter fix live: 1,668 owner-named leads now reachable (ON 548 / BC 451).
 
 *Last updated: 2026-09-08*
 
@@ -210,6 +210,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-08
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** web-leads: fixed owner-tier filter (FILTER_KEYS projection dropped owner_name/owner_phone/owner_verification_state, hiding 1,668 owner-named leads); wired 26 never-run web-leads tests into CI; added quick-email send path to pipeline lead workspace; built owner-operator small-town scraper (ON/BC, 12 ICPs) - blocked on Firecrawl credits after 3 verified leads. PR #401.
+- **Result:** PR #401 merged to main (0162a6e0) and deployed to production; oasisai.work confirmed serving the new build via vercel inspect alias. Owner-tier filter fix live: 1,668 owner-named leads now reachable (ON 548 / BC 451).
 
 *Last updated: 2026-09-08*
