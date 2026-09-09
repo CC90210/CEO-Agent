@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-09
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven reported the GEN-9 carousel now holds its final frame (26s per slide: ~6s build + 20s hold) instead of fading at 6s. Verified with ffprobe on both re-queued decks (26.000s, mean 0.82MB) rather than restating the peer claim, then realigned the 'Maven - Carousel Post' description in SEED_JOBS and the live cron_jobs row via drift --fix-docs; drift now clean across 36 jobs. That row has no dashboard override so the DB text is what the Automations tab shows CC. Committed f68cbb09 and pushed 14 backlogged commits - the APEX handover doc at 47e98dad had been unpushed and therefore unfetchable by APEX.
+- **Result:** Snapshot fix merged db61ddc5 (PR #419), main CI green 5m50s - staging the 37th SEED_JOB tripped my own #418 guard locally while CI stayed green (skip announced), which is the two-mode split earning its keep on its first real change. Also re-verified the pruner after Maven's aafb8f3 (caption match replaced by URL match, slides presigned <slug>__slide_N.ext): cwd trap still closed, fail-closed exit 2 still holds under --apply, 10 tests. Corrected my own stale '7 tests' claim in the staged job's safety rationale (427c7c97). Carousel Media Retention remains UNSEEDED - AWAITING CC.
 
 *Last updated: 2026-09-09*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-09
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven reported the GEN-9 carousel now holds its final frame (26s per slide: ~6s build + 20s hold) instead of fading at 6s. Verified with ffprobe on both re-queued decks (26.000s, mean 0.82MB) rather than restating the peer claim, then realigned the 'Maven - Carousel Post' description in SEED_JOBS and the live cron_jobs row via drift --fix-docs; drift now clean across 36 jobs. That row has no dashboard override so the DB text is what the Automations tab shows CC. Committed f68cbb09 and pushed 14 backlogged commits - the APEX handover doc at 47e98dad had been unpushed and therefore unfetchable by APEX.
+- **Result:** Snapshot fix merged db61ddc5 (PR #419), main CI green 5m50s - staging the 37th SEED_JOB tripped my own #418 guard locally while CI stayed green (skip announced), which is the two-mode split earning its keep on its first real change. Also re-verified the pruner after Maven's aafb8f3 (caption match replaced by URL match, slides presigned <slug>__slide_N.ext): cwd trap still closed, fail-closed exit 2 still holds under --apply, 10 tests. Corrected my own stale '7 tests' claim in the staged job's safety rationale (427c7c97). Carousel Media Retention remains UNSEEDED - AWAITING CC.
 
 *Last updated: 2026-09-09*
 
@@ -210,7 +210,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-09
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven reported the GEN-9 carousel now holds its final frame (26s per slide: ~6s build + 20s hold) instead of fading at 6s. Verified with ffprobe on both re-queued decks (26.000s, mean 0.82MB) rather than restating the peer claim, then realigned the 'Maven - Carousel Post' description in SEED_JOBS and the live cron_jobs row via drift --fix-docs; drift now clean across 36 jobs. That row has no dashboard override so the DB text is what the Automations tab shows CC. Committed f68cbb09 and pushed 14 backlogged commits - the APEX handover doc at 47e98dad had been unpushed and therefore unfetchable by APEX.
+- **Result:** Snapshot fix merged db61ddc5 (PR #419), main CI green 5m50s - staging the 37th SEED_JOB tripped my own #418 guard locally while CI stayed green (skip announced), which is the two-mode split earning its keep on its first real change. Also re-verified the pruner after Maven's aafb8f3 (caption match replaced by URL match, slides presigned <slug>__slide_N.ext): cwd trap still closed, fail-closed exit 2 still holds under --apply, 10 tests. Corrected my own stale '7 tests' claim in the staged job's safety rationale (427c7c97). Carousel Media Retention remains UNSEEDED - AWAITING CC.
 
 *Last updated: 2026-09-09*
 
@@ -218,6 +218,6 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-09
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Maven reported the GEN-9 carousel now holds its final frame (26s per slide: ~6s build + 20s hold) instead of fading at 6s. Verified with ffprobe on both re-queued decks (26.000s, mean 0.82MB) rather than restating the peer claim, then realigned the 'Maven - Carousel Post' description in SEED_JOBS and the live cron_jobs row via drift --fix-docs; drift now clean across 36 jobs. That row has no dashboard override so the DB text is what the Automations tab shows CC. Committed f68cbb09 and pushed 14 backlogged commits - the APEX handover doc at 47e98dad had been unpushed and therefore unfetchable by APEX.
+- **Result:** Snapshot fix merged db61ddc5 (PR #419), main CI green 5m50s - staging the 37th SEED_JOB tripped my own #418 guard locally while CI stayed green (skip announced), which is the two-mode split earning its keep on its first real change. Also re-verified the pruner after Maven's aafb8f3 (caption match replaced by URL match, slides presigned <slug>__slide_N.ext): cwd trap still closed, fail-closed exit 2 still holds under --apply, 10 tests. Corrected my own stale '7 tests' claim in the staged job's safety rationale (427c7c97). Carousel Media Retention remains UNSEEDED - AWAITING CC.
 
 *Last updated: 2026-09-09*
