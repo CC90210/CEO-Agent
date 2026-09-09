@@ -366,6 +366,12 @@ def cmd_send(args) -> None:
         # wrong intent here would put a CASL marketing footer on a legal
         # document and could route it through cold-outreach suppression.
         intent="transactional",
+        # Declared, not defaulted (2026-09-09). The body above signs "Conaugh
+        # McKenna / OASIS AI Solutions", so the footer must say the same
+        # company. This relied on send_gateway's old DEFAULT_BRAND="oasis" and
+        # happened to be right; that default is gone, and a legal agreement is
+        # the last place to discover an identity by accident.
+        brand="oasis",
         metadata={"contract_id": c["id"], "contract_type": c["contract_type"]},
         dry_run=not args.apply,
         db=db,

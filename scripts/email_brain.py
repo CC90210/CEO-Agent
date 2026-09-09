@@ -684,7 +684,22 @@ def send_reply_via_gateway(email: dict, draft: dict) -> dict:
             to_email=sender,
             subject=draft.get("subject"),
             body_text=draft.get("body"),
-            brand="oasis",
+            # NO BRAND. Deliberately omitted so send() derives it from
+            # tenant_id (scripts/lib/tenant_brand.py).
+            #
+            # This said brand="oasis" until 2026-09-09, on the line directly
+            # above a tenant_id that could be SunBiz's. This function runs
+            # autonomously every 5 minutes (Inbound Email Sweep cron ->
+            # email_engine.cmd_check_inbox -> process_email) with
+            # EMAIL_BRAIN_AUTO_SEND=1, so a SunBiz merchant who replied to
+            # their own funding thread got an answer signed "OASIS AI
+            # Solutions, Montreal, QC" — a different company, in a different
+            # country, on a thread they started with their funder.
+            #
+            # Omitting it is safer than computing it here: if tenant_id is
+            # missing or unmapped, send() refuses rather than picking a
+            # company, which is the correct outcome for a message that is
+            # about to state a legal sender identity to an outside party.
             intent="transactional",
             in_reply_to=email.get("rfc_message_id"),
             references=email.get("references"),

@@ -96,7 +96,7 @@ ordinarily-fast job look permanently slow.
 
 | Job | Median | Worst | Runs | Failures |
 |---|---|---|---|---|
-| Maven — Carousel Post | 401s | 401s | 2 | — |
+| Maven — Carousel Post | — (stale, struck 2026-09-09) | — | 2 | — |
 | Cross-Agent Self-Improvement Sweep | 137s | 137s | 2 | — |
 | Bravo — Sleep Agent (Memory Consolidation) | 130s | 130s | 2 | — |
 | Post Analytics Sync | 120s | 314s | 55 | — |
@@ -108,6 +108,14 @@ ordinarily-fast job look permanently slow.
 | Daily Briefing Snapshot | 15s | 15s | 2 | — |
 | Daily Memory Index Rebuild | 13s | 13s | 2 | — |
 | Weekly Receipts Reconciliation | 9s | 9s | 1 | — |
+
+> **Carousel Post duration struck 2026-09-09, not replaced.** The 401s median was
+> measured on the PIL-era renderer. Slides moved from 6s to 26s each (the build
+> animates, then the finished text HOLDS so it can be read), so one post is now
+> ~130s of video to render and for Late to transcode, against ~30s before —
+> authoring alone measures ~605s. A wrong number gets believed; a missing one
+> invites the question. Maven re-measures after a clean full run. Do not
+> reinstate a figure from any partial or dry run.
 
 ## OS scheduled tasks
 

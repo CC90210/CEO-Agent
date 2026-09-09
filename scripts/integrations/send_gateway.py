@@ -154,6 +154,14 @@ from casl_compliance import (  # noqa: E402
     to_e164,
 )
 from lib.smtp_send import smtp_send as _smtp_send  # noqa: E402
+# Tenant -> brand, the fail-closed answer to "which company is this send for?".
+# Imported here so the ONE outbound chokepoint is also the one place a brand can
+# be derived or refused. See lib/tenant_brand.py for why it is a static map.
+from lib.tenant_brand import (  # noqa: E402
+    brand_matches_tenant as _brand_matches_tenant,
+    mailbox_matches_brand as _mailbox_matches_brand,
+    resolve_brand_for_tenant as _resolve_brand_for_tenant,
+)
 
 # Per-user Gmail OAuth resolver (Phase 4 of SunBiz multi-employee
 # personalization, 2026-05-29). When acted_by_user_id + tenant_id are
@@ -353,7 +361,7 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
     "oasis": {
         "business_name": "OASIS AI Solutions",
         "sender_name": "Conaugh McKenna",
-        "business_address": "OASIS AI Solutions, Montreal, QC, Canada",
+        "business_address": "OASIS AI Solutions, 6993 Decarie Blvd, Montreal, QC H3W 0B5, Canada",
         # Comma, not an em dash. This string is the From display name on every
         # OASIS email, so it is the most-seen text this system produces: it sits
         # in the recipient's inbox list before they open anything. CC asked for
@@ -364,7 +372,7 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
     "conaugh_mckenna": {
         "business_name": "Conaugh McKenna",
         "sender_name": "CC (Conaugh McKenna)",
-        "business_address": "Conaugh McKenna, Montreal, QC, Canada",
+        "business_address": "Conaugh McKenna, 6993 Decarie Blvd, Montreal, QC H3W 0B5, Canada",
         "from_display": "Conaugh McKenna",
     },
     "nostalgic": {
@@ -2847,7 +2855,16 @@ def send(
     subject: Optional[str] = None,
     body_text: Optional[str] = None,
     body_html: Optional[str] = None,
-    brand: str = DEFAULT_BRAND,
+    # None means "derive it from tenant_id" — NOT "use OASIS".
+    #
+    # This defaulted to DEFAULT_BRAND ("oasis") until 2026-09-09, which made a
+    # forgotten argument indistinguishable from a deliberate choice: every
+    # caller that omitted it silently claimed to be OASIS AI Solutions,
+    # including callers that had a SunBiz tenant_id in the same call
+    # (email_brain, email_draft_action). A sentinel of None lets send() tell
+    # "nobody said" apart from "OASIS", derive the right answer from the tenant,
+    # and refuse when it cannot. See the brand resolution block below.
+    brand: Optional[str] = None,
     intent: str = "commercial",
     # Per-send override (Ezra 2026-06-24): force the physical mailing address
     # OUT of the CASL footer for THIS send, regardless of the brand default.
@@ -2929,6 +2946,63 @@ def send(
         return {"status": "error", "reason": "agent_source required",
                 "lead_id": lead_id, "interaction_id": None,
                 "cooldown_until": None, "daily_count": None}
+    # ---- Brand resolution: derive from the tenant, and refuse to guess -------
+    #
+    # Three rules, in order. Together they close the cross-company leak that a
+    # SunBiz client reported on 2026-09-09 (an OASIS-branded email reaching
+    # their operation) and its mirror image (OASIS prospects receiving mail
+    # signed "SunBiz Funding LLC ... you submitted a funding inquiry", which is
+    # another company's legal identity and a false statement of provenance).
+    #
+    # 1. DISAGREEMENT IS ALWAYS FATAL. If the caller named a brand and the
+    #    tenant sends as a different one, that is a misattribution no matter how
+    #    confident the caller was. The ledger shows this fired twice already:
+    #    tenant oasis-ai-cc sending as 'sunbiz' (2026-07-10) and tenant
+    #    submissions sending as 'oasis' (2026-08-01).
+    _ok, _why = _brand_matches_tenant(brand, tenant_id)
+    if not _ok:
+        return {"status": "error",
+                "reason": f"brand/tenant mismatch — {_why}. Refusing to send: "
+                          "a commercial email may not claim another company's "
+                          "identity. Pass the correct brand, or pass none and "
+                          "let the tenant decide.",
+                "lead_id": lead_id, "interaction_id": None,
+                "cooldown_until": None, "daily_count": None}
+
+    # 2. NO BRAND -> DERIVE IT. This is the common case now that the parameter
+    #    defaults to None. A caller that supplies tenant_id gets the right
+    #    identity without having to know which company it is working for.
+    if not (brand or "").strip():
+        brand = _resolve_brand_for_tenant(tenant_id)
+
+    # 3. STILL NOTHING -> REFUSE, unless the message is internal. A commercial
+    #    or transactional message goes to an outside party and carries a legal
+    #    sender identity (CASL s.6 / CAN-SPAM); there is no honest default for
+    #    it, so guessing is worse than failing. `internal` mail is agent-to-agent
+    #    or CC's own notifications — not a commercial electronic message — so it
+    #    keeps the historical default rather than breaking ops alerting, and
+    #    says so loudly on stderr.
+    if not (brand or "").strip():
+        if intent == "internal":
+            print(
+                f"[send_gateway] no brand and tenant_id={tenant_id!r} is not in "
+                f"TENANT_BRAND; falling back to '{DEFAULT_BRAND}' for an INTERNAL "
+                f"message from agent_source='{agent_source}'. Map the tenant in "
+                "scripts/lib/tenant_brand.py if this is a real company.",
+                file=sys.stderr,
+            )
+            brand = DEFAULT_BRAND
+        else:
+            return {"status": "error",
+                    "reason": (
+                        f"no brand, and tenant_id={tenant_id!r} does not resolve to "
+                        f"one. A '{intent}' message needs a legal sender identity; "
+                        "refusing to guess. Map the tenant in "
+                        "scripts/lib/tenant_brand.py or pass brand= explicitly."
+                    ),
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+
     if brand not in BRAND_IDENTITY:
         return {"status": "error", "reason": f"unknown brand '{brand}' — "
                 f"known: {sorted(BRAND_IDENTITY.keys())}",
@@ -3262,6 +3336,42 @@ def send(
                 "daily_count": None,
             }
 
+        # ---- LATE BRAND RE-CHECK, against the AUTHORITATIVE tenant ---------
+        #
+        # The brand gate near the top of send() runs before the lead has been
+        # resolved, so it can only see a caller-SUPPLIED tenant_id. A caller
+        # that passes lead_id and omits tenant_id therefore presented "no
+        # tenant" to that gate, which had nothing to contradict and let the
+        # brand stand. The lead's real tenant is only known here.
+        #
+        # That gap is reachable today, not hypothetical: email_engine.py:418,
+        # :530 and :858 all pass lead_id with brand="oasis" and no tenant_id,
+        # so a SunBiz lead would have cleared the early gate and then sent
+        # under OASIS's legal identity — the exact leak the early gate exists
+        # to stop, arriving through the one door it cannot see.
+        #
+        # Found by Codex on adversarial review of the first fix (2026-09-09).
+        # Refusing rather than silently re-branding: brand_cfg, the CASL footer
+        # and the HTML shell were all built from the earlier value, so quietly
+        # adopting a different brand here would leave the message's body and
+        # its envelope disagreeing — a subtler version of the same defect.
+        if resolved_tenant:
+            _ok_late, _why_late = _brand_matches_tenant(brand, resolved_tenant)
+            if not _ok_late:
+                return {
+                    "status": "error",
+                    "reason": (
+                        f"brand/tenant mismatch (resolved from lead) — {_why_late}. "
+                        "The tenant was not supplied by the caller and was only "
+                        "learned from lead_id. Pass tenant_id explicitly, or pass "
+                        "no brand and let it be derived."
+                    ),
+                    "lead_id": lead_id,
+                    "interaction_id": None,
+                    "cooldown_until": None,
+                    "daily_count": None,
+                }
+
         # Kill-switch + operating-mode pre-check — runs for transactional too
         # (booking confirmations etc. ARE tenant-scoped; a paused operator
         # shouldn't see them ship). Independent from can_act() because
@@ -3367,11 +3477,56 @@ def send(
             gmail_user = user_gmail_bundle["gmail_address"]
         else:
             gmail_user = env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS", "")
-            if not gmail_user:
-                return {"status": "error",
-                        "reason": "GMAIL_USER missing in .env.agents",
-                        "lead_id": lead_id, "interaction_id": None,
-                        "cooldown_until": None, "daily_count": None}
+
+        # ---- THE MAILBOX MUST BE ENTITLED TO THE BRAND -------------------
+        #
+        # Everything above decides what this message SAYS. This is the only
+        # check on whether the mailbox actually authenticating is entitled to
+        # say it, and it is the one that would have caught the 2026-09-09
+        # incident by itself.
+        #
+        # The failure it stops: OASIS mail composed correctly, then handed to
+        # whatever GMAIL_USER the host happens to have. On the SunBiz box that
+        # is submissions@sunbizfunding.com, so a client's mailbox sends —
+        # and appears in a Sent folder the client reads — asserting our
+        # identity. The reverse is equally bad: a SunBiz merchant receiving
+        # funding correspondence from conaugh@oasisai.work.
+        #
+        # It is also a deliverability fix, not only a legal one. A From header
+        # on one domain authenticated by a mailbox on another is DKIM-
+        # misaligned, which is the shape receivers score as forgery.
+        #
+        # Verified safe before enabling: every recorded outbound from_address
+        # in the ledger is already domain-correct for its tenant, so this
+        # refuses nothing that currently succeeds. Brands with no pinned
+        # domain (conaugh_mckenna, nostalgic) are not checked at all.
+        # NO MAILBOX AT ALL comes first — an empty user is a configuration
+        # fault, not an identity mismatch, and saying so is more useful than
+        # "brand X must send from Y, but the mailbox is ''". This guard is
+        # ORIGINAL code; a first cut of the brand check below was inserted
+        # above it and silently swallowed it into that block, leaving it after
+        # an unconditional return where it could never run. py_compile passes
+        # on dead code, so nothing caught it — an AST walk did.
+        if not gmail_user:
+            return {"status": "error",
+                    "reason": "GMAIL_USER missing in .env.agents",
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+
+        _mb_ok, _mb_why = _mailbox_matches_brand(brand, gmail_user)
+        if not _mb_ok:
+            return {
+                "status": "error",
+                "reason": (
+                    f"mailbox/brand mismatch — {_mb_why}. Refusing to send: this "
+                    "mailbox is not entitled to assert that company's identity, "
+                    "and the DKIM signature would not align with the From header."
+                ),
+                "lead_id": lead_id,
+                "interaction_id": None,
+                "cooldown_until": None,
+                "daily_count": None,
+            }
 
         effective_cooldown = (
             cooldown_hours
