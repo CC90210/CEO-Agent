@@ -3335,6 +3335,42 @@ def send(
                 "daily_count": None,
             }
 
+        # ---- LATE BRAND RE-CHECK, against the AUTHORITATIVE tenant ---------
+        #
+        # The brand gate near the top of send() runs before the lead has been
+        # resolved, so it can only see a caller-SUPPLIED tenant_id. A caller
+        # that passes lead_id and omits tenant_id therefore presented "no
+        # tenant" to that gate, which had nothing to contradict and let the
+        # brand stand. The lead's real tenant is only known here.
+        #
+        # That gap is reachable today, not hypothetical: email_engine.py:418,
+        # :530 and :858 all pass lead_id with brand="oasis" and no tenant_id,
+        # so a SunBiz lead would have cleared the early gate and then sent
+        # under OASIS's legal identity — the exact leak the early gate exists
+        # to stop, arriving through the one door it cannot see.
+        #
+        # Found by Codex on adversarial review of the first fix (2026-09-09).
+        # Refusing rather than silently re-branding: brand_cfg, the CASL footer
+        # and the HTML shell were all built from the earlier value, so quietly
+        # adopting a different brand here would leave the message's body and
+        # its envelope disagreeing — a subtler version of the same defect.
+        if resolved_tenant:
+            _ok_late, _why_late = _brand_matches_tenant(brand, resolved_tenant)
+            if not _ok_late:
+                return {
+                    "status": "error",
+                    "reason": (
+                        f"brand/tenant mismatch (resolved from lead) — {_why_late}. "
+                        "The tenant was not supplied by the caller and was only "
+                        "learned from lead_id. Pass tenant_id explicitly, or pass "
+                        "no brand and let it be derived."
+                    ),
+                    "lead_id": lead_id,
+                    "interaction_id": None,
+                    "cooldown_until": None,
+                    "daily_count": None,
+                }
+
         # Kill-switch + operating-mode pre-check — runs for transactional too
         # (booking confirmations etc. ARE tenant-scoped; a paused operator
         # shouldn't see them ship). Independent from can_act() because

@@ -143,11 +143,27 @@ def resolve_brand_for_tenant(
     the slug is display text that has already drifted from it once.
     """
     tid = (tenant_id or "").strip().lower()
+    s = (slug or "").strip().lower()
+
+    # A SUPPLIED BUT UNMAPPED id returns None. It does NOT fall through to the
+    # slug.
+    #
+    # The first version fell through, which contradicted the docstring above and
+    # reopened the hole one layer down: resolve_brand_for_tenant(<stranger's
+    # tenant>, "submissions") would have answered "sunbiz". The id is the
+    # primary key — holding one we do not recognise is exactly the case where
+    # guessing is worst. (Codex, adversarial review, 2026-09-09.)
     if tid:
         brand = TENANT_BRAND.get(tid)
-        if brand:
-            return brand
-    s = (slug or "").strip().lower()
+        if not brand:
+            return None
+        # If a slug was also supplied and disagrees, refuse rather than choose.
+        if s:
+            by_slug = SLUG_BRAND.get(s)
+            if by_slug and by_slug != brand:
+                return None
+        return brand
+
     if s:
         # Exact match only. "submissions-5f63d7e6" is a different company.
         return SLUG_BRAND.get(s)
