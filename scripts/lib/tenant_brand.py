@@ -56,12 +56,18 @@ from __future__ import annotations
 
 from typing import Optional
 
-# Brand keys that carry a real legal identity (name + postal address) and are
-# therefore lawful to attach to a commercial electronic message.
+# NO LOCAL LIST OF BRAND NAMES LIVES HERE, deliberately.
 #
-# Kept as a plain tuple rather than imported from send_gateway to avoid a
-# circular import: send_gateway imports THIS module, not the other way around.
-KNOWN_BRANDS: tuple[str, ...] = ("oasis", "sunbiz", "conaugh_mckenna", "nostalgic")
+# The first draft of this module declared its own KNOWN_BRANDS tuple "to avoid a
+# circular import". That would have been a FOURTH brand vocabulary in a system
+# whose defect was three brand vocabularies disagreeing — send_gateway's
+# BRAND_IDENTITY, email_template's BRAND_CONFIG, and brands.ts's BrandKey, where
+# a name valid in one silently became another company in the next.
+#
+# send_gateway.BRAND_IDENTITY is the authority for which brands exist. It
+# validates `brand` itself right after calling this module, and
+# scripts/tests/test_tenant_brand.py asserts every value mapped below is a key
+# in it. A second list here could only ever drift from that one.
 
 # tenant_id (UUID) -> brand key.
 #

@@ -25,7 +25,6 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from lib.tenant_brand import (  # noqa: E402
-    KNOWN_BRANDS,
     MAILBOX_TENANT,
     SLUG_BRAND,
     TENANT_BRAND,
@@ -158,18 +157,19 @@ for addr, tid in MAILBOX_TENANT.items():
 
 
 # ---- registry coherence ----------------------------------------------------
-for tid, brand in TENANT_BRAND.items():
-    check(f"TENANT_BRAND[{tid}] is a known brand", brand in KNOWN_BRANDS, True)
-for slug, brand in SLUG_BRAND.items():
-    check(f"SLUG_BRAND[{slug}] is a known brand", brand in KNOWN_BRANDS, True)
-
-# The Python gateway must know every brand this module can hand it, or a
-# correctly-resolved tenant dies at the next validation step instead.
+# ONE vocabulary, not two. send_gateway.BRAND_IDENTITY is the authority for
+# which brands exist; this module deliberately keeps no local list, because a
+# second list is how the original defect happened (three registries whose key
+# spaces disagreed, so a name valid in one became another company in the next).
 try:
     from integrations.send_gateway import BRAND_IDENTITY  # noqa: E402
 
     for tid, brand in TENANT_BRAND.items():
-        check(f"send_gateway knows brand '{brand}'", brand in BRAND_IDENTITY, True)
+        check(f"TENANT_BRAND[{tid}] -> '{brand}' is a brand send_gateway knows",
+              brand in BRAND_IDENTITY, True)
+    for slug, brand in SLUG_BRAND.items():
+        check(f"SLUG_BRAND[{slug}] -> '{brand}' is a brand send_gateway knows",
+              brand in BRAND_IDENTITY, True)
 except Exception as exc:  # noqa: BLE001
     failures.append(f"could not import send_gateway.BRAND_IDENTITY: {exc}")
 
