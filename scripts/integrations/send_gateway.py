@@ -3500,6 +3500,19 @@ def send(
         # in the ledger is already domain-correct for its tenant, so this
         # refuses nothing that currently succeeds. Brands with no pinned
         # domain (conaugh_mckenna, nostalgic) are not checked at all.
+        # NO MAILBOX AT ALL comes first — an empty user is a configuration
+        # fault, not an identity mismatch, and saying so is more useful than
+        # "brand X must send from Y, but the mailbox is ''". This guard is
+        # ORIGINAL code; a first cut of the brand check below was inserted
+        # above it and silently swallowed it into that block, leaving it after
+        # an unconditional return where it could never run. py_compile passes
+        # on dead code, so nothing caught it — an AST walk did.
+        if not gmail_user:
+            return {"status": "error",
+                    "reason": "GMAIL_USER missing in .env.agents",
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+
         _mb_ok, _mb_why = _mailbox_matches_brand(brand, gmail_user)
         if not _mb_ok:
             return {
@@ -3514,11 +3527,6 @@ def send(
                 "cooldown_until": None,
                 "daily_count": None,
             }
-            if not gmail_user:
-                return {"status": "error",
-                        "reason": "GMAIL_USER missing in .env.agents",
-                        "lead_id": lead_id, "interaction_id": None,
-                        "cooldown_until": None, "daily_count": None}
 
         effective_cooldown = (
             cooldown_hours
