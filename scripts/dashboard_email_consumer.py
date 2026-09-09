@@ -93,30 +93,24 @@ _VALID_INTENTS = frozenset({"commercial", "transactional", "internal"})
 # footer fields. Local mirror per this file's no-gateway-import rule; if a
 # brand's legal identity changes, update send_gateway.BRAND_IDENTITY first,
 # then this. (sunbiz address provenance: CC-confirmed 2026-06-17.)
-# COMPLETED 2026-09-09. This held a single entry, {"submissions": "sunbiz"},
-# and every other slug fell to _DEFAULT_BRAND — so any tenant that was not
-# SunBiz was branded OASIS by omission rather than by decision.
+# IMPORTED, NOT MIRRORED.
 #
-# Verified against the live tenants table the same day: exactly two tenants
-# have ever sent email (submissions / SunBiz, oasis-ai-cc / OASIS), and both
-# are now named here. Listing them changes NOTHING for current traffic —
-# "submissions" already returned sunbiz, "oasis-ai-cc" already returned oasis
-# via the default — but it removes the class where a real tenant's identity is
-# decided by a fallback instead of a mapping.
+# This held a single entry, {"submissions": "sunbiz"}, and every other slug
+# fell to _DEFAULT_BRAND — so any tenant that was not SunBiz was branded OASIS
+# by omission rather than by decision.
 #
-# The SunBiz aliases are included because docs/PORTALS.md and
-# lib/consent/brand-for-tenant.ts both treat "sun" and "sunbiz" as SunBiz;
-# the tenant ROW slug is "submissions" and "sun" is its dashboard profile slug,
-# and code in this fleet has already confused the two.
-# Mirrors scripts/lib/tenant_brand.py SLUG_BRAND — keep them identical.
-_BRAND_BY_TENANT_SLUG = {
-    "submissions": "sunbiz",
-    "sunbiz": "sunbiz",
-    "sun": "sunbiz",
-    "oasis-ai-cc": "oasis",
-    "oasis-webdev": "oasis",
-    "oasis": "oasis",
-}
+# The first fix copied the full map in here with a comment saying "keep them
+# identical", which is the same mistake one level up: this whole incident was
+# caused by SEVERAL brand registries whose contents were supposed to agree and
+# silently did not. A comment is not a guarantee. lib/tenant_brand.py is pure
+# (stdlib only, no I/O, no DB) precisely so every process can share the one
+# map, and this file already hard-imports lib.smtp_send, so nothing new is
+# being assumed about sys.path.
+#
+# Verified against the live tenants table 2026-09-09: exactly two tenants have
+# ever sent email (submissions / SunBiz 4,595, oasis-ai-cc / OASIS 59) and both
+# are in that map, so adopting it changes nothing for current traffic.
+from lib.tenant_brand import SLUG_BRAND as _BRAND_BY_TENANT_SLUG  # noqa: E402
 # Reached only when a tenant is genuinely unidentifiable (no tenant_id, a slug
 # lookup that errored, or a slug nobody has mapped). Deliberately NOT changed to
 # a refusal here: _resolve_message_identity is documented as always returning a
