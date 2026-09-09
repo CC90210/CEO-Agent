@@ -164,11 +164,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-08
+- **Date:** 2026-09-09
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** cron drift detector was blind to descriptions ('prose drift is noise') while the Automations tab renders exactly that field. 12 of 36 rows had drifted, incl. two RETIRED jobs described as live work and Daily Bravo Brief claiming it reports MRR (contradicts the Atlas-owns-revenue rule). Added DOC_FIELDS + drift --fix-docs (descriptions only; DRIFT_FIELDS stays behaviour-only so one switch cannot rewrite a schedule). Applied, re-ran clean, regenerated AUTOMATIONS.md. Commit 6d4fed85.
+- **Result:** Automations tab finalised: 21 of 25 FRIENDLY_DESCRIPTIONS keys never rendered (6 renames re-keyed, 8 dead deleted, 7 SunBiz correctly exempt to tenant_cron_jobs); Daily Bravo Brief copy said it reports revenue and named a stale 5K MRR goal - rewritten; guard test reads SEED_JOBS so the next rename fails instead of orphaning copy. Merged 1092a879, 32 web-leads tests. APEX handover written and posted: docs/APEX_LEAD_SOURCING_HANDOVER_2026-09-08.md (47e98dad), mirrored to Telegram, proposes Bravo-owns-discovery / APEX-owns-extraction split.
 
-*Last updated: 2026-09-08*
+*Last updated: 2026-09-09*
 
 ## Manifest
 
@@ -200,16 +200,16 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-08
+- **Date:** 2026-09-09
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** cron drift detector was blind to descriptions ('prose drift is noise') while the Automations tab renders exactly that field. 12 of 36 rows had drifted, incl. two RETIRED jobs described as live work and Daily Bravo Brief claiming it reports MRR (contradicts the Atlas-owns-revenue rule). Added DOC_FIELDS + drift --fix-docs (descriptions only; DRIFT_FIELDS stays behaviour-only so one switch cannot rewrite a schedule). Applied, re-ran clean, regenerated AUTOMATIONS.md. Commit 6d4fed85.
+- **Result:** Automations tab finalised: 21 of 25 FRIENDLY_DESCRIPTIONS keys never rendered (6 renames re-keyed, 8 dead deleted, 7 SunBiz correctly exempt to tenant_cron_jobs); Daily Bravo Brief copy said it reports revenue and named a stale 5K MRR goal - rewritten; guard test reads SEED_JOBS so the next rename fails instead of orphaning copy. Merged 1092a879, 32 web-leads tests. APEX handover written and posted: docs/APEX_LEAD_SOURCING_HANDOVER_2026-09-08.md (47e98dad), mirrored to Telegram, proposes Bravo-owns-discovery / APEX-owns-extraction split.
 
-*Last updated: 2026-09-08*
+*Last updated: 2026-09-09*
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-08
+- **Date:** 2026-09-09
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** cron drift detector was blind to descriptions ('prose drift is noise') while the Automations tab renders exactly that field. 12 of 36 rows had drifted, incl. two RETIRED jobs described as live work and Daily Bravo Brief claiming it reports MRR (contradicts the Atlas-owns-revenue rule). Added DOC_FIELDS + drift --fix-docs (descriptions only; DRIFT_FIELDS stays behaviour-only so one switch cannot rewrite a schedule). Applied, re-ran clean, regenerated AUTOMATIONS.md. Commit 6d4fed85.
+- **Result:** Automations tab finalised: 21 of 25 FRIENDLY_DESCRIPTIONS keys never rendered (6 renames re-keyed, 8 dead deleted, 7 SunBiz correctly exempt to tenant_cron_jobs); Daily Bravo Brief copy said it reports revenue and named a stale 5K MRR goal - rewritten; guard test reads SEED_JOBS so the next rename fails instead of orphaning copy. Merged 1092a879, 32 web-leads tests. APEX handover written and posted: docs/APEX_LEAD_SOURCING_HANDOVER_2026-09-08.md (47e98dad), mirrored to Telegram, proposes Bravo-owns-discovery / APEX-owns-extraction split.
 
-*Last updated: 2026-09-08*
+*Last updated: 2026-09-09*
