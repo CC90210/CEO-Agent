@@ -628,8 +628,18 @@ SEED_JOBS: list[dict] = [
         #     deletes nothing. It refuses to prune media it cannot prove is
         #     unbooked, asking the live API rather than the local ledger (which
         #     only knows what this box dispatched).
-        #   - 7 tests pass; dry run is the default, --apply deletes.
+        #   - 10 tests pass; dry run is the default, --apply deletes.
         #   - 0 files eligible today at the 60-day window.
+        # Re-verified after CMO-Agent aafb8f3 (2026-09-09), which replaced the
+        # caption match with a URL match — I had flagged caption matching as the
+        # soft spot, since a caption edited on Late after booking would detach a
+        # deck from its media and make a booked deck look prunable. Slides are now
+        # presigned as "<slug>__slide_N.ext" and Late keeps the filename in the
+        # public URL, so the match is exact; caption matching survives only as a
+        # fallback for posts booked before that change. All three safety
+        # properties re-proven against the new code, not assumed to have survived
+        # the refactor: identical output from both roots, exit 2 under a dead
+        # proxy with --apply, 0 eligible at 60 days.
         # Exit 2 is a deliberate abort, not a crash: surface it, never swallow it.
         "name": "Carousel Media Retention",
         "description": "Daily 03:50 ET — delete rendered carousel artifacts (slide_*.mp4/.png) from decks older than 60 days, freeing the disk the daily render fills. Never deletes the deck folder, spec.json, manifest.json, or slide_1.png (the showroom rebuilds its catalogue by globbing that file). Skips decks still queued or still scheduled on Late, asked over the live API — if that call fails it aborts with exit 2 and prunes nothing rather than guess.",
