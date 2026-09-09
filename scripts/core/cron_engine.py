@@ -608,6 +608,38 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # STAGED 2026-09-09, NOT YET SEEDED. Deleting media is irreversible, and
+        # pushing a row to the shared cron_jobs registry is a production
+        # scheduling change — CC reviews this entry before `cron_engine.py seed`
+        # runs. Until then it exists here as a reviewable definition only; drift
+        # iterates live rows, so an unseeded definition raises no false alarm.
+        #
+        # Maven owns the script (CMO-Agent e08ecba); Bravo owns the schedule.
+        # Re-verified every claim in that handoff before wiring it, because a
+        # nightly deletion job is the wrong place to inherit a peer's summary:
+        #   - cwd trap CLOSED. scheduler.py forces cwd to Bravo's root and
+        #     ignores action_config["cwd"], so a script resolving relative paths
+        #     would find nothing and report a clean zero-deleted run forever.
+        #     prune_carousel_media.py anchors on Path(__file__).resolve(), and
+        #     running it from BOTH roots gives byte-identical output
+        #     (113 files / 150.5 MB at --keep-days 0).
+        #   - FAILS CLOSED, proven by execution rather than by reading it: with
+        #     Late unreachable and --apply passed, it aborts with exit 2 and
+        #     deletes nothing. It refuses to prune media it cannot prove is
+        #     unbooked, asking the live API rather than the local ledger (which
+        #     only knows what this box dispatched).
+        #   - 7 tests pass; dry run is the default, --apply deletes.
+        #   - 0 files eligible today at the 60-day window.
+        # Exit 2 is a deliberate abort, not a crash: surface it, never swallow it.
+        "name": "Carousel Media Retention",
+        "description": "Daily 03:50 ET — delete rendered carousel artifacts (slide_*.mp4/.png) from decks older than 60 days, freeing the disk the daily render fills. Never deletes the deck folder, spec.json, manifest.json, or slide_1.png (the showroom rebuilds its catalogue by globbing that file). Skips decks still queued or still scheduled on Late, asked over the live API — if that call fails it aborts with exit 2 and prunes nothing rather than guess.",
+        "schedule": "50 3 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": r"C:\Users\User\CMO-Agent\scripts\prune_carousel_media.py",
+                          "args": ["--apply", "--json"], "timeout": 300},
+        "is_active": True,
+    },
+    {
         # Added 2026-06-06. Belt-and-braces over the SessionStart-fired
         # rotate_logs.py (12h idempotency). If CC goes a few days without
         # opening a session, this still keeps state/*.log under 5 MB.
