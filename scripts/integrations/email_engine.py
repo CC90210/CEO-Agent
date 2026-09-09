@@ -41,6 +41,8 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 # HTTPS, which is where the AV TLS-scanner root broke it: the sweep printed
 # emails fine and then exited 1 on the DB write.
 from lib.tls_trust import ensure_os_trust  # noqa: E402
+# The authenticated mailbox decides which company an inbound message belongs to.
+from lib.tenant_brand import resolve_tenant_for_mailbox as _resolve_tenant_for_mailbox  # noqa: E402
 
 ensure_os_trust()
 
@@ -2281,7 +2283,19 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                         "references": msg.get("References"),
                         "is_known_client": _is_known_client(db, sender_addr),
                         "attachments": _extract_attachment_meta(msg),
-                        "tenant_id": None,
+                        # The mailbox we authenticated as IS the company this
+                        # message belongs to. This was hardcoded None until
+                        # 2026-09-09, which is why every autonomous reply came
+                        # out OASIS-branded: no tenant reached send_gateway, so
+                        # nothing could contradict its "oasis" default, and a
+                        # SunBiz merchant replying to their funder got an answer
+                        # signed "OASIS AI Solutions, Montreal, QC".
+                        #
+                        # None is still possible (an unmapped mailbox) and is
+                        # deliberately left as None rather than guessed —
+                        # send_gateway then refuses the reply instead of
+                        # attributing it to whichever company it defaults to.
+                        "tenant_id": _resolve_tenant_for_mailbox(address),
                         # Deterministic triage: who sent this, and are they even
                         # eligible for a generated reply.
                         "sender_kind": sender_triage.get("kind"),
