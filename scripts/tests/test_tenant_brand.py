@@ -25,10 +25,12 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from lib.tenant_brand import (  # noqa: E402
+    BRAND_SENDING_DOMAIN,
     MAILBOX_TENANT,
     SLUG_BRAND,
     TENANT_BRAND,
     brand_matches_tenant,
+    mailbox_matches_brand,
     resolve_brand_for_tenant,
     resolve_tenant_for_mailbox,
 )
@@ -154,6 +156,60 @@ check("None mailbox -> None", resolve_tenant_for_mailbox(None), None)
 # mailbox -> tenant -> brand breaks silently at the last hop.
 for addr, tid in MAILBOX_TENANT.items():
     check(f"mailbox {addr} maps to a branded tenant", resolve_brand_for_tenant(tid) is not None, True)
+
+
+# ---- mailbox may not assert a brand it is not entitled to ------------------
+#
+# THIS IS THE INCIDENT, reduced to one assertion. The message was composed as
+# OASIS and handed to whatever GMAIL_USER the host had; on the SunBiz box that
+# is submissions@sunbizfunding.com, so the client's own mailbox sent it and it
+# appeared in a Sent folder the client reads.
+ok, why = mailbox_matches_brand("oasis", "submissions@sunbizfunding.com")
+check("OASIS may NOT send from the client's mailbox", ok, False)
+check("...and the reason names the required domain", "oasisai.work" in why, True)
+
+# The mirror image: a SunBiz merchant receiving funding mail from our address.
+ok, _ = mailbox_matches_brand("sunbiz", "conaugh@oasisai.work")
+check("SunBiz may NOT send from the OASIS mailbox", ok, False)
+
+# Correct pairings must still pass, or the guard is just an outage.
+for brand, mailbox in [
+    ("oasis", "conaugh@oasisai.work"),
+    ("sunbiz", "submissions@sunbizfunding.com"),
+    ("sunbiz", "Alex@sunbizfunding.com"),          # a real sender in the ledger
+    ("bluerise", "submissions@bluerisebusinesscapital.com"),
+]:
+    ok, why = mailbox_matches_brand(brand, mailbox)
+    check(f"{brand} may send from {mailbox}", ok, True)
+
+# Case and display-name wrapping must not defeat it.
+ok, _ = mailbox_matches_brand("oasis", "OASIS AI <Conaugh@OasisAI.Work>")
+check("display-name + case still matches", ok, True)
+ok, _ = mailbox_matches_brand("oasis", "OASIS <submissions@SunBizFunding.com>")
+check("display-name does not launder a mismatch", ok, False)
+
+# A subdomain of the sending domain is legitimate (mail.oasisai.work).
+ok, _ = mailbox_matches_brand("oasis", "bot@mail.oasisai.work")
+check("subdomain of the sending domain is allowed", ok, True)
+# But a lookalike that merely ENDS with the domain text is not.
+ok, _ = mailbox_matches_brand("oasis", "attacker@notoasisai.work")
+check("suffix lookalike is refused", ok, False)
+
+# Brands with no pinned domain are NOT checked — those paths keep working.
+ok, _ = mailbox_matches_brand("conaugh_mckenna", "anything@example.com")
+check("unpinned brand is not checked", ok, True)
+ok, _ = mailbox_matches_brand("nostalgic", "anything@example.com")
+check("nostalgic is not checked", ok, True)
+# Missing inputs are not a disagreement; the caller decides.
+ok, _ = mailbox_matches_brand("oasis", "")
+check("no mailbox is not a mismatch", ok, True)
+ok, _ = mailbox_matches_brand(None, "submissions@sunbizfunding.com")
+check("no brand is not a mismatch", ok, True)
+
+# Every brand with a pinned domain must have a registry entry whose fromAddress
+# actually lives on that domain, or the guard would refuse its own brand.
+for _b, _dom in BRAND_SENDING_DOMAIN.items():
+    check(f"{_b}'s pinned domain is non-empty", bool(_dom.strip()), True)
 
 
 # ---- registry coherence ----------------------------------------------------

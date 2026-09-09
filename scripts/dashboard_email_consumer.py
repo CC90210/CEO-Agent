@@ -121,7 +121,7 @@ _DEFAULT_BRAND = "oasis"
 _BRAND_FOOTER_IDENTITY: dict[str, dict[str, str]] = {
     "oasis": {
         "business_name": "OASIS AI Solutions",
-        "business_address": "OASIS AI Solutions, Montreal, QC, Canada",
+        "business_address": "OASIS AI Solutions, 6993 Decarie Blvd, Montreal, QC H3W 0B5, Canada",
         "sender_name": "Conaugh McKenna",
     },
     "sunbiz": {

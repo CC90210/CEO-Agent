@@ -59,7 +59,7 @@ def is_reserved_domain(email: str) -> bool:
 
 # Physical mailing address required by CASL s. 6(2)(b).
 # Set via .env.agents; fall back to a public OASIS AI address.
-DEFAULT_BUSINESS_ADDRESS = "OASIS AI Solutions, Montreal, QC, Canada"
+DEFAULT_BUSINESS_ADDRESS = "OASIS AI Solutions, 6993 Decarie Blvd, Montreal, QC H3W 0B5, Canada"
 DEFAULT_BUSINESS_NAME = "OASIS AI Solutions"
 DEFAULT_SENDER_NAME = "Conaugh McKenna"
 

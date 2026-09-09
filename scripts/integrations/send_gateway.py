@@ -159,6 +159,7 @@ from lib.smtp_send import smtp_send as _smtp_send  # noqa: E402
 # be derived or refused. See lib/tenant_brand.py for why it is a static map.
 from lib.tenant_brand import (  # noqa: E402
     brand_matches_tenant as _brand_matches_tenant,
+    mailbox_matches_brand as _mailbox_matches_brand,
     resolve_brand_for_tenant as _resolve_brand_for_tenant,
 )
 
@@ -360,7 +361,7 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
     "oasis": {
         "business_name": "OASIS AI Solutions",
         "sender_name": "Conaugh McKenna",
-        "business_address": "OASIS AI Solutions, Montreal, QC, Canada",
+        "business_address": "OASIS AI Solutions, 6993 Decarie Blvd, Montreal, QC H3W 0B5, Canada",
         # Comma, not an em dash. This string is the From display name on every
         # OASIS email, so it is the most-seen text this system produces: it sits
         # in the recipient's inbox list before they open anything. CC asked for
@@ -371,7 +372,7 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
     "conaugh_mckenna": {
         "business_name": "Conaugh McKenna",
         "sender_name": "CC (Conaugh McKenna)",
-        "business_address": "Conaugh McKenna, Montreal, QC, Canada",
+        "business_address": "Conaugh McKenna, 6993 Decarie Blvd, Montreal, QC H3W 0B5, Canada",
         "from_display": "Conaugh McKenna",
     },
     "nostalgic": {
@@ -3476,6 +3477,43 @@ def send(
             gmail_user = user_gmail_bundle["gmail_address"]
         else:
             gmail_user = env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS", "")
+
+        # ---- THE MAILBOX MUST BE ENTITLED TO THE BRAND -------------------
+        #
+        # Everything above decides what this message SAYS. This is the only
+        # check on whether the mailbox actually authenticating is entitled to
+        # say it, and it is the one that would have caught the 2026-09-09
+        # incident by itself.
+        #
+        # The failure it stops: OASIS mail composed correctly, then handed to
+        # whatever GMAIL_USER the host happens to have. On the SunBiz box that
+        # is submissions@sunbizfunding.com, so a client's mailbox sends —
+        # and appears in a Sent folder the client reads — asserting our
+        # identity. The reverse is equally bad: a SunBiz merchant receiving
+        # funding correspondence from conaugh@oasisai.work.
+        #
+        # It is also a deliverability fix, not only a legal one. A From header
+        # on one domain authenticated by a mailbox on another is DKIM-
+        # misaligned, which is the shape receivers score as forgery.
+        #
+        # Verified safe before enabling: every recorded outbound from_address
+        # in the ledger is already domain-correct for its tenant, so this
+        # refuses nothing that currently succeeds. Brands with no pinned
+        # domain (conaugh_mckenna, nostalgic) are not checked at all.
+        _mb_ok, _mb_why = _mailbox_matches_brand(brand, gmail_user)
+        if not _mb_ok:
+            return {
+                "status": "error",
+                "reason": (
+                    f"mailbox/brand mismatch — {_mb_why}. Refusing to send: this "
+                    "mailbox is not entitled to assert that company's identity, "
+                    "and the DKIM signature would not align with the From header."
+                ),
+                "lead_id": lead_id,
+                "interaction_id": None,
+                "cooldown_until": None,
+                "daily_count": None,
+            }
             if not gmail_user:
                 return {"status": "error",
                         "reason": "GMAIL_USER missing in .env.agents",

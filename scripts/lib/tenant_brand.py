@@ -119,6 +119,64 @@ MAILBOX_TENANT: dict[str, str] = {
 }
 
 
+# brand -> the domain its mail MUST leave from.
+#
+# This is the last line of defence, and the one that would have caught the
+# 2026-09-09 incident on its own. Everything upstream decides what a message
+# SAYS; this decides whether the mailbox actually authenticating is entitled to
+# say it. A message composed as OASIS but authenticated as
+# submissions@sunbizfunding.com is a client's mailbox asserting our identity —
+# and it is also DKIM-misaligned, so a receiver sees a domain that does not
+# match the From header.
+#
+# Only brands with a real, verified sending domain are listed. A brand that is
+# absent here is NOT checked, which keeps the semi-retired
+# conaugh_mckenna / nostalgic brands sending exactly as they do today rather
+# than failing closed on a domain nobody has established.
+#
+# Safe to enforce, verified against the live ledger 2026-09-09: every recorded
+# outbound from_address is already domain-correct for its tenant
+# (oasis-ai-cc -> conaugh@oasisai.work; submissions -> *@sunbizfunding.com).
+# Zero cross-domain sends exist, so this refuses nothing that currently works.
+BRAND_SENDING_DOMAIN: dict[str, str] = {
+    "oasis": "oasisai.work",
+    "sunbiz": "sunbizfunding.com",
+    "bluerise": "bluerisebusinesscapital.com",
+}
+
+
+def mailbox_matches_brand(
+    brand: Optional[str],
+    mailbox: Optional[str],
+) -> tuple[bool, str]:
+    """May this mailbox send as this brand?
+
+    Returns (ok, reason). ok is True when they agree, when the brand has no
+    established sending domain, or when either value is missing — this answers
+    only the DISAGREEMENT question, exactly like brand_matches_tenant. Deciding
+    what to do about a missing value stays with the caller.
+    """
+    b = (brand or "").strip().lower()
+    expected = BRAND_SENDING_DOMAIN.get(b)
+    if not expected:
+        return True, f"brand '{b}' has no pinned sending domain — not checked"
+
+    addr = (mailbox or "").strip().lower()
+    if "<" in addr and ">" in addr:
+        addr = addr[addr.rfind("<") + 1 : addr.rfind(">")].strip()
+    if "@" not in addr:
+        return True, "no mailbox to check"
+
+    got = addr.rsplit("@", 1)[1].strip()
+    # Accept the exact domain or any subdomain of it.
+    if got == expected or got.endswith("." + expected):
+        return True, f"mailbox {addr} is on {expected}"
+    return False, (
+        f"brand '{b}' must send from {expected}, but the authenticating mailbox "
+        f"is {addr} (domain {got})"
+    )
+
+
 def resolve_tenant_for_mailbox(address: Optional[str]) -> Optional[str]:
     """The tenant that owns this mailbox, or None.
 
