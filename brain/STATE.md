@@ -166,7 +166,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-09-09
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Automations tab finalised: 21 of 25 FRIENDLY_DESCRIPTIONS keys never rendered (6 renames re-keyed, 8 dead deleted, 7 SunBiz correctly exempt to tenant_cron_jobs); Daily Bravo Brief copy said it reports revenue and named a stale 5K MRR goal - rewritten; guard test reads SEED_JOBS so the next rename fails instead of orphaning copy. Merged 1092a879, 32 web-leads tests. APEX handover written and posted: docs/APEX_LEAD_SOURCING_HANDOVER_2026-09-08.md (47e98dad), mirrored to Telegram, proposes Bravo-owns-discovery / APEX-owns-extraction split.
+- **Result:** Maven reported the GEN-9 carousel now holds its final frame (26s per slide: ~6s build + 20s hold) instead of fading at 6s. Verified with ffprobe on both re-queued decks (26.000s, mean 0.82MB) rather than restating the peer claim, then realigned the 'Maven - Carousel Post' description in SEED_JOBS and the live cron_jobs row via drift --fix-docs; drift now clean across 36 jobs. That row has no dashboard override so the DB text is what the Automations tab shows CC. Committed f68cbb09 and pushed 14 backlogged commits - the APEX handover doc at 47e98dad had been unpushed and therefore unfetchable by APEX.
 
 *Last updated: 2026-09-09*
 
@@ -202,7 +202,7 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-09
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Automations tab finalised: 21 of 25 FRIENDLY_DESCRIPTIONS keys never rendered (6 renames re-keyed, 8 dead deleted, 7 SunBiz correctly exempt to tenant_cron_jobs); Daily Bravo Brief copy said it reports revenue and named a stale 5K MRR goal - rewritten; guard test reads SEED_JOBS so the next rename fails instead of orphaning copy. Merged 1092a879, 32 web-leads tests. APEX handover written and posted: docs/APEX_LEAD_SOURCING_HANDOVER_2026-09-08.md (47e98dad), mirrored to Telegram, proposes Bravo-owns-discovery / APEX-owns-extraction split.
+- **Result:** Maven reported the GEN-9 carousel now holds its final frame (26s per slide: ~6s build + 20s hold) instead of fading at 6s. Verified with ffprobe on both re-queued decks (26.000s, mean 0.82MB) rather than restating the peer claim, then realigned the 'Maven - Carousel Post' description in SEED_JOBS and the live cron_jobs row via drift --fix-docs; drift now clean across 36 jobs. That row has no dashboard override so the DB text is what the Automations tab shows CC. Committed f68cbb09 and pushed 14 backlogged commits - the APEX handover doc at 47e98dad had been unpushed and therefore unfetchable by APEX.
 
 *Last updated: 2026-09-09*
 
@@ -210,6 +210,14 @@ _Last synced: 2026-09-08T08:01:40.072102+00:00_
 
 - **Date:** 2026-09-09
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Automations tab finalised: 21 of 25 FRIENDLY_DESCRIPTIONS keys never rendered (6 renames re-keyed, 8 dead deleted, 7 SunBiz correctly exempt to tenant_cron_jobs); Daily Bravo Brief copy said it reports revenue and named a stale 5K MRR goal - rewritten; guard test reads SEED_JOBS so the next rename fails instead of orphaning copy. Merged 1092a879, 32 web-leads tests. APEX handover written and posted: docs/APEX_LEAD_SOURCING_HANDOVER_2026-09-08.md (47e98dad), mirrored to Telegram, proposes Bravo-owns-discovery / APEX-owns-extraction split.
+- **Result:** Maven reported the GEN-9 carousel now holds its final frame (26s per slide: ~6s build + 20s hold) instead of fading at 6s. Verified with ffprobe on both re-queued decks (26.000s, mean 0.82MB) rather than restating the peer claim, then realigned the 'Maven - Carousel Post' description in SEED_JOBS and the live cron_jobs row via drift --fix-docs; drift now clean across 36 jobs. That row has no dashboard override so the DB text is what the Automations tab shows CC. Committed f68cbb09 and pushed 14 backlogged commits - the APEX handover doc at 47e98dad had been unpushed and therefore unfetchable by APEX.
+
+*Last updated: 2026-09-09*
+
+## Last Heartbeat
+
+- **Date:** 2026-09-09
+- **Agent:** BRAVO via Claude Code (claude-fable-5)
+- **Result:** Maven reported the GEN-9 carousel now holds its final frame (26s per slide: ~6s build + 20s hold) instead of fading at 6s. Verified with ffprobe on both re-queued decks (26.000s, mean 0.82MB) rather than restating the peer claim, then realigned the 'Maven - Carousel Post' description in SEED_JOBS and the live cron_jobs row via drift --fix-docs; drift now clean across 36 jobs. That row has no dashboard override so the DB text is what the Automations tab shows CC. Committed f68cbb09 and pushed 14 backlogged commits - the APEX handover doc at 47e98dad had been unpushed and therefore unfetchable by APEX.
 
 *Last updated: 2026-09-09*
