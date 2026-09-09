@@ -786,8 +786,10 @@ SEED_JOBS: list[dict] = [
         # strands a half-written deck.
         "name": "Maven — Carousel Post",
         "description": (
-            "Daily 08:00 — authors carousel specs, renders GEN-9 motion slides (a 6s "
-            "looping MP4 per slide plus a still exported from the same composition), "
+            "Daily 08:00 — authors carousel specs, renders GEN-9 motion slides (a 26s "
+            "MP4 per slide: the build animates for ~6s, then the finished text holds "
+            "to the last frame so it can actually be read, plus a still exported from "
+            "the same composition), "
             "queues them, then books TWO posts per day at 13:00 and 19:00 UTC to "
             "Instagram, LinkedIn and Threads. The cadence decides whether a given day "
             "books, not this schedule. Rotation guarantees no two consecutive posts "
