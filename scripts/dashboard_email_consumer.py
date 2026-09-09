@@ -93,7 +93,36 @@ _VALID_INTENTS = frozenset({"commercial", "transactional", "internal"})
 # footer fields. Local mirror per this file's no-gateway-import rule; if a
 # brand's legal identity changes, update send_gateway.BRAND_IDENTITY first,
 # then this. (sunbiz address provenance: CC-confirmed 2026-06-17.)
-_BRAND_BY_TENANT_SLUG = {"submissions": "sunbiz"}
+# COMPLETED 2026-09-09. This held a single entry, {"submissions": "sunbiz"},
+# and every other slug fell to _DEFAULT_BRAND — so any tenant that was not
+# SunBiz was branded OASIS by omission rather than by decision.
+#
+# Verified against the live tenants table the same day: exactly two tenants
+# have ever sent email (submissions / SunBiz, oasis-ai-cc / OASIS), and both
+# are now named here. Listing them changes NOTHING for current traffic —
+# "submissions" already returned sunbiz, "oasis-ai-cc" already returned oasis
+# via the default — but it removes the class where a real tenant's identity is
+# decided by a fallback instead of a mapping.
+#
+# The SunBiz aliases are included because docs/PORTALS.md and
+# lib/consent/brand-for-tenant.ts both treat "sun" and "sunbiz" as SunBiz;
+# the tenant ROW slug is "submissions" and "sun" is its dashboard profile slug,
+# and code in this fleet has already confused the two.
+# Mirrors scripts/lib/tenant_brand.py SLUG_BRAND — keep them identical.
+_BRAND_BY_TENANT_SLUG = {
+    "submissions": "sunbiz",
+    "sunbiz": "sunbiz",
+    "sun": "sunbiz",
+    "oasis-ai-cc": "oasis",
+    "oasis-webdev": "oasis",
+    "oasis": "oasis",
+}
+# Reached only when a tenant is genuinely unidentifiable (no tenant_id, a slug
+# lookup that errored, or a slug nobody has mapped). Deliberately NOT changed to
+# a refusal here: _resolve_message_identity is documented as always returning a
+# complete identity and this daemon drains a live client queue, so re-shaping
+# that contract mid-incident risks holding real merchant mail. It is instead
+# made LOUD at every site that reaches it — a silent rebrand was the defect.
 _DEFAULT_BRAND = "oasis"
 _BRAND_FOOTER_IDENTITY: dict[str, dict[str, str]] = {
     "oasis": {
@@ -119,8 +148,18 @@ _rep_name_cache: dict[tuple[str, str], str] = {}
 
 
 def _brand_for_tenant(sb, tenant_id: str) -> str:
-    """Resolve tenant_id -> brand key via the tenants.slug lookup."""
+    """Resolve tenant_id -> brand key via the tenants.slug lookup.
+
+    Falling back to _DEFAULT_BRAND is unchanged behaviour, but it is now
+    ANNOUNCED. Every path below that reaches the default is one where this
+    daemon is about to stamp a company's legal identity onto a message without
+    having established that the company is that one — the shape of the
+    2026-09-09 cross-tenant incident. Silence there is what let it run.
+    """
     if not tenant_id:
+        print("[dashboard_email_consumer] WARNING: no tenant_id on a queued row; "
+              f"branding it '{_DEFAULT_BRAND}' without having identified the tenant.",
+              file=sys.stderr)
         return _DEFAULT_BRAND
     slug = _tenant_slug_cache.get(tenant_id)
     if slug is None:
@@ -133,10 +172,24 @@ def _brand_for_tenant(sb, tenant_id: str) -> str:
             slug = ((rows[0] or {}).get("slug") if rows else "") or ""
             _tenant_slug_cache[tenant_id] = slug
         except Exception as e:  # noqa: BLE001
-            print(f"[dashboard_email_consumer] tenant slug lookup failed: {e}",
+            # A TRANSIENT DB ERROR MUST NOT QUIETLY REBRAND A CLIENT'S EMAIL.
+            # Behaviour is unchanged (the send proceeds on the default) because
+            # blocking a live merchant queue on a blip is its own outage, but
+            # this now says so instead of looking like a normal send.
+            print(f"[dashboard_email_consumer] WARNING: tenant slug lookup failed for "
+                  f"{tenant_id}: {e} — branding '{_DEFAULT_BRAND}' WITHOUT having "
+                  "identified the tenant. If that tenant is not OASIS, this message "
+                  "carries the wrong company's identity.",
                   file=sys.stderr)
             return _DEFAULT_BRAND
-    return _BRAND_BY_TENANT_SLUG.get(slug, _DEFAULT_BRAND)
+    brand = _BRAND_BY_TENANT_SLUG.get(slug)
+    if brand is None:
+        print(f"[dashboard_email_consumer] WARNING: tenant slug {slug!r} is not in "
+              f"_BRAND_BY_TENANT_SLUG; branding it '{_DEFAULT_BRAND}' by fallback. "
+              "Map it here and in scripts/lib/tenant_brand.py.",
+              file=sys.stderr)
+        return _DEFAULT_BRAND
+    return brand
 
 
 def _rep_display_name(sb, tenant_id: str, md: dict) -> str | None:
