@@ -1494,12 +1494,37 @@ def _calendar_reader(rc: int = 0, *, text=CALENDAR_TEXT_OUTPUT,
     return _run
 
 
+def _freeze_calendar_clock(monkeypatch):
+    """Pin book_discovery_call's clock to the morning before the fixture's events.
+
+    read_calendar() drops anything that ended more than a day ago
+    (`end < now - timedelta(days=1)`), which is correct for a forward-looking
+    clash check. The fixture's events are dated 2026-09-02/03, so on any real
+    date after 2026-09-03 they fall out of the window and a test asserts against
+    an empty list. Two tests below went red on main exactly that way — time rot,
+    not a parser regression: the one test that already froze the clock passed
+    throughout, through the same parser and the same fixture.
+
+    Frozen, not re-dated. Rewriting the fixture relative to today would break
+    test_a_slot_on_top_of_a_timed_meeting_is_never_offered, which asserts the
+    literal "2026-09-02T14:" prefix, and would drift across weekends because
+    free_slots() skips Saturday and Sunday.
+    """
+    class _FixedNow(book_discovery_call.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 9, 1, 8, 0, tzinfo=tz or book_discovery_call.TZ)
+
+    monkeypatch.setattr(book_discovery_call, "datetime", _FixedNow)
+
+
 def test_a_timed_meeting_is_seen_by_the_clash_check(monkeypatch):
     """busy_windows' parser was `\\s*(\\d{4}-\\d{2}-\\d{2})\\s+(.*)`, which needs
     whitespace after the date and gets `T`. Every TIMED event — i.e. every real
     meeting — hit `continue`, so the clash check that free_slots() and
     ig_closer.close() depend on only ever saw all-day entries."""
     monkeypatch.setattr(book_discovery_call, "_run", _calendar_reader())
+    _freeze_calendar_clock(monkeypatch)
 
     busy = REAL_BUSY(days=30)
     timed = [(s, e) for s, e in busy if s.hour == 14 and s.day == 2]
@@ -1514,6 +1539,7 @@ def test_a_timed_meeting_is_seen_by_the_clash_check(monkeypatch):
 def test_an_all_day_entry_still_blocks_the_whole_day(monkeypatch):
     """The conservative reading of an untimed entry is unchanged."""
     monkeypatch.setattr(book_discovery_call, "_run", _calendar_reader())
+    _freeze_calendar_clock(monkeypatch)
 
     allday = [(s, e) for s, e in REAL_BUSY(days=30) if s.day == 3]
     assert allday, "the all-day entry disappeared"
@@ -1530,12 +1556,7 @@ def test_a_slot_on_top_of_a_timed_meeting_is_never_offered(monkeypatch):
     # replaced with a refusal. Put the REAL one back for this test only.
     monkeypatch.setattr(book_discovery_call, "busy_windows", REAL_BUSY)
 
-    class _FixedNow(book_discovery_call.datetime):
-        @classmethod
-        def now(cls, tz=None):
-            return cls(2026, 9, 1, 8, 0, tzinfo=tz or book_discovery_call.TZ)
-
-    monkeypatch.setattr(book_discovery_call, "datetime", _FixedNow)
+    _freeze_calendar_clock(monkeypatch)
     slots = REAL_FREE_SLOTS(days=3, limit=40)
     clashing = [s for s in slots if s["start"].startswith("2026-09-02T14:")]
 

@@ -131,8 +131,8 @@ individually rotates it in place like a propeller pinned to a wall.
 - **Idle sway.** Rotating the subject forever turns every flaw toward the
   viewer in turn. Sweep a LIGHT instead: reads as alive, and hides geometry
   rather than parading it.
-- **setState in the render loop.** Publishing per-frame data to React
-  re-renders the tree at 60fps. Publish only on meaningful change.
+- **setState in the render loop.** Pushing per-frame data into React state
+  re-renders the tree at 60fps. Update state only on meaningful change.
 
 ## Verify by looking, and break your own checks
 
