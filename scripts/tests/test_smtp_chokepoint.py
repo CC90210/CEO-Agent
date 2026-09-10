@@ -120,19 +120,47 @@ for allowed in ALLOWED:
     if not (_REPO / allowed).is_file():
         failures.append(f"ALLOWED names {allowed}, which does not exist")
 
-# And the chokepoint must still BE one — if smtp_send stopped calling smtplib,
-# every other file would pass this test while nothing sent mail through a guard.
-_chokepoint = (_REPO / "scripts/lib/smtp_send.py").read_text(encoding="utf-8")
-if "smtplib.SMTP_SSL" not in _chokepoint:
-    failures.append(
-        "scripts/lib/smtp_send.py no longer opens an SMTP_SSL connection — "
-        "this test would then be enforcing an empty invariant"
-    )
-if "_identity_conflict" not in _chokepoint:
-    failures.append(
-        "scripts/lib/smtp_send.py no longer runs the identity guard — routing "
-        "every caller through it is only worth doing while it checks something"
-    )
+# And the chokepoint must still BE one. Routing every caller through a module
+# that no longer opens a connection, or no longer runs the guard, would satisfy
+# every check above while protecting nothing.
+#
+# These are AST checks against the body of smtp_send(), not substring searches.
+# A substring search passes when the guard is merely DEFINED — the exact shape
+# of the original bug, where the check existed in a module nothing called.
+# (CodeRabbit, PR #73.)
+_chokepoint_src = (_REPO / "scripts/lib/smtp_send.py").read_text(encoding="utf-8")
+_chokepoint_tree = ast.parse(_chokepoint_src)
+_smtp_send_fn = next(
+    (n for n in _chokepoint_tree.body
+     if isinstance(n, ast.FunctionDef) and n.name == "smtp_send"),
+    None,
+)
+if _smtp_send_fn is None:
+    failures.append("scripts/lib/smtp_send.py no longer defines smtp_send()")
+else:
+    _called: set[str] = set()
+    _attrs: set[str] = set()
+    for _n in ast.walk(_smtp_send_fn):
+        if isinstance(_n, ast.Call):
+            _f = _n.func
+            if isinstance(_f, ast.Name):
+                _called.add(_f.id)
+            elif isinstance(_f, ast.Attribute):
+                _called.add(_f.attr)
+                if isinstance(_f.value, ast.Name):
+                    _attrs.add(f"{_f.value.id}.{_f.attr}")
+    if "SMTP_SSL" not in _called and "smtplib.SMTP_SSL" not in _attrs:
+        failures.append(
+            "smtp_send() no longer CALLS smtplib.SMTP_SSL — this test would "
+            "then be enforcing an empty invariant"
+        )
+    if "_identity_conflict" not in _called:
+        failures.append(
+            "smtp_send() no longer CALLS _identity_conflict — routing every "
+            "caller through it is only worth doing while it checks something. "
+            "(Defining the function is not calling it: that is the shape of "
+            "the original bug.)"
+        )
 
 checked = len(_FILES)
 

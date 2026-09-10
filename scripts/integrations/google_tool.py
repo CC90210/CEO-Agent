@@ -67,6 +67,7 @@ from lib.subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 # network tools use.
 from lib.tls_trust import ensure_os_trust
 # Shared SMTP transport — carries the sender-identity guard.
+from typing import Optional  # noqa: E402
 from lib.smtp_send import smtp_send  # noqa: E402
 from lib.tenant_brand import brand_for_mailbox  # noqa: E402
 
@@ -209,18 +210,54 @@ def refresh_gws_auth():
     return False
 
 
-def _brand_from_display(brand: str) -> str:
-    """The display name this brand signs as, or the OASIS operator default.
+def _brand_from_display(brand: str) -> Optional[str]:
+    """The display name this brand signs as, or None when it cannot resolve.
 
-    Lazy import: email_template is optional for the rest of this CLI (the
-    branded render below is already wrapped in try/except for a partial
-    deploy), so resolving this must not break `gmail send --plain`.
+    FAILS CLOSED for every brand but this module's own. The first version of
+    this helper returned "Conaugh McKenna" on ANY exception, which put CC's
+    name on a client's mailbox — `Conaugh McKenna <submissions@...>` — the
+    exact leak this branch exists to close, reintroduced through an except
+    branch. The transport guard cannot catch it either: that guard keys on a
+    postal address in the body, and a From header carries none.
+    (CodeRabbit, PR #73.)
+
+    The operator default is CC's identity, so it is only ever a safe answer
+    for CC's own brands. Anything else returns None and the caller refuses.
+
+    Lazy import: email_template is optional for the rest of this CLI, so a
+    partial deploy must not break `gmail send --plain`.
     """
     try:
-        from email_template import _from_display  # type: ignore
+        from email_template import (  # type: ignore
+            _BRAND_ALIASES, _OWN_BRAND, _from_display,
+        )
+    except Exception:
+        # Template module unavailable. Only the literal own brand has a safe
+        # hardcoded default here; every other brand must refuse rather than
+        # borrow one. Deliberately not a second alias table — see below.
+        return _OPERATOR_DEFAULT_DISPLAY if _is_own(brand, {}, "oasis") else None
+    try:
         return _from_display(brand)
     except Exception:
-        return "Conaugh McKenna"
+        # A brand with no configured identity (e.g. bluerise, which has a
+        # registered sending domain but no BRAND_CONFIG entry).
+        if _is_own(brand, _BRAND_ALIASES, _OWN_BRAND):
+            return _OPERATOR_DEFAULT_DISPLAY
+        return None
+
+
+# CC's own operator identity. Used ONLY as a fallback for his own brands.
+_OPERATOR_DEFAULT_DISPLAY = "Conaugh McKenna"
+
+
+def _is_own(brand, aliases: dict, own: str) -> bool:
+    """Is this brand the template module's own — directly or by alias?
+
+    Takes the alias map as an argument rather than keeping a copy, so this
+    file never becomes a second brand registry.
+    """
+    raw = (brand or "").strip().lower()
+    return aliases.get(raw, raw) == own
 
 
 def gmail_send_smtp(to, subject, body, ics_content=None, *, branded=False, cta_label=None, cta_url=None):
@@ -269,6 +306,15 @@ def gmail_send_smtp(to, subject, body, ics_content=None, *, branded=False, cta_l
     # 2026-09-10.) _from_display applies the same own-brand rule internally, so
     # the globals still win for OASIS and never for anyone else.
     from_display = _brand_from_display(brand)
+    if from_display is None:
+        return None, (
+            f"refusing to send: brand {brand!r} (resolved from the "
+            f"authenticating mailbox {gmail_user!r}) has no configured sending "
+            f"identity, and falling back to the operator default would put one "
+            f"company's name on another's mailbox. Add a BRAND_CONFIG entry for "
+            f"{brand!r} in scripts/email_template.py, or set "
+            f"BRAVO_FROM_DISPLAY_{(brand or '').upper().replace('-', '_')}."
+        )
 
     if branded:
         # Lazy-import so the rest of google_tool.py keeps working when
