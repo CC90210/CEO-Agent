@@ -446,6 +446,26 @@ _DAILY_CAP_ALERTS_SENT: set[str] = set()
 # ---- Env + DB ---------------------------------------------------------------
 
 def load_env() -> dict[str, str]:
+    # TEST SEAM — inert in production, and deliberately not a precedence change.
+    #
+    # The file-wins ordering below is intentional (see the comment at the merge)
+    # and this does not touch it. What it fixes is that a TEST could not override
+    # a key the file defines, because line ~462 uses setdefault: the file value
+    # is already present, so os.environ never fills it.
+    #
+    # Consequence, found by the agent on the SunBiz VPS 2026-09-09:
+    # test_send_gateway.py sets GMAIL_USER to test@oasisai.work in os.environ,
+    # the file defines GMAIL_USER, and 15 of 88 tests therefore fail on any host
+    # that HAS the file — while passing in CI, which has none. The suite was
+    # green for the wrong reason: not because the code was right, but because
+    # the runner was empty. A test that cannot control its own inputs is not
+    # testing what it claims to.
+    #
+    # Nothing in production sets this. It is read from os.environ rather than
+    # taken as a parameter so the six existing call sites need no change.
+    if os.environ.get("BRAVO_ENV_IGNORE_FILE", "").strip() == "1":
+        return dict(os.environ)
+
     env_path = PROJECT_ROOT / ".env.agents"
     env_vars: dict[str, str] = {}
     if env_path.exists():
@@ -460,7 +480,19 @@ def load_env() -> dict[str, str]:
     # require the file to exist in hosted runtimes or tests.
     for k, v in os.environ.items():
         env_vars.setdefault(k, v)
-    # Also mirror into os.environ so downstream helpers resolve
+    # Also mirror into os.environ so downstream helpers resolve.
+    #
+    # KNOWN DIVERGENCE, deliberately left alone. Both merges use setdefault, so
+    # for a key the file defines AND os.environ already holds, the returned dict
+    # carries the file's value while os.environ keeps its own. Code reading
+    # env.get("X") and code reading os.environ["X"] then see different strings.
+    #
+    # Not changed here because the fix is a precedence decision on live client
+    # hosts — making os.environ win could let a stray variable override a real
+    # credential on the SunBiz VPS, and making the file win could clobber a
+    # value systemd injected deliberately. That is CC's call with the deploy
+    # topology in front of him, not a late-session edit. The test seam above
+    # removes the only case where this actually bit us.
     for k, v in env_vars.items():
         os.environ.setdefault(k, v)
     return env_vars
