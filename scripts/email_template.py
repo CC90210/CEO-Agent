@@ -280,11 +280,19 @@ def _brand_env(
     (PR review, 2026-09-10); the header was the symptom and this was the
     cause.
     """
-    brand_key = (brand or _OWN_BRAND).upper().replace("-", "_")
+    raw = (brand or _OWN_BRAND).strip().lower()
+    # The SCOPED lookup uses the raw name, so BRAVO_FROM_DISPLAY_NOSTALGIC can
+    # be set for that brand specifically...
+    brand_key = raw.upper().replace("-", "_")
     scoped = os.environ.get(f"BRAVO_{per_brand}_{brand_key}")
     if scoped:
         return scoped
-    if (brand or _OWN_BRAND).strip().lower() == _OWN_BRAND:
+    # ...but the own-brand test resolves the alias first. conaugh_mckenna and
+    # nostalgic ARE this brand — same legal entity, aliased in _BRAND_ALIASES —
+    # so CC's generic operator vars are his to apply there. Comparing the raw
+    # name would have quietly stopped BRAVO_FROM_DISPLAY reaching his own
+    # personal sending identities while still reaching "oasis".
+    if _BRAND_ALIASES.get(raw, raw) == _OWN_BRAND:
         for name in generic:
             value = os.environ.get(name)
             if value:

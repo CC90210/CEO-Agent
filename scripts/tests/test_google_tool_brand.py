@@ -223,6 +223,24 @@ for _k in ("BRAVO_WEBSITE_URL", "BRAVO_FROM_PHONE", "BRAVO_SIGNATURE_TAGLINE",
            "BRAVO_FROM_DISPLAY_SUNBIZ"):
     os.environ.pop(_k, None)
 
+# An ALIASED brand is the own brand, so CC's generic operator vars must still
+# reach it. conaugh_mckenna and nostalgic are his personal sending identities
+# on the same legal entity; comparing the raw name against the own brand would
+# have quietly stopped BRAVO_FROM_DISPLAY applying to them while still applying
+# to "oasis" — a difference nobody would notice until a signature looked wrong.
+os.environ["BRAVO_FROM_DISPLAY"] = "CC"
+for _own in ("oasis", "conaugh_mckenna", "nostalgic"):
+    check(f"a generic operator override still reaches {_own}",
+          email_template._from_display(_own), "CC")
+check("...but never reaches the client's brand",
+      email_template._from_display("sunbiz"), "SunBiz Submissions")
+# A scoped override still outranks the generic on an aliased brand.
+os.environ["BRAVO_FROM_DISPLAY_NOSTALGIC"] = "Nostalgic Desk"
+check("a scoped override wins on an aliased brand too",
+      email_template._from_display("nostalgic"), "Nostalgic Desk")
+os.environ.pop("BRAVO_FROM_DISPLAY_NOSTALGIC", None)
+os.environ["BRAVO_FROM_DISPLAY"] = "Conaugh McKenna"
+
 # Bluerise is deliberately NOT aliased: a separate legal entity may not borrow
 # another's chrome. It must refuse until it has its own BRAND_CONFIG entry.
 try:
