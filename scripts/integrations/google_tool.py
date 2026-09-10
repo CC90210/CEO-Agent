@@ -693,9 +693,17 @@ def gmail_send(args):
     else:
         # Plain-text path: try gws first (preserves From: identity from
         # the operator's OAuth grant), fall back to SMTP.
-        message_body = {
-            "raw": _encode_email(args.to, args.subject, args.body)
-        }
+        try:
+            message_body = {
+                "raw": _encode_email(args.to, args.subject, args.body)
+            }
+        except ValueError as identity_err:
+            # Refuse rather than send under a guessed identity. Deliberately
+            # NOT falling through to the SMTP path: that path would refuse for
+            # the same reason, and a "gws unavailable" message would misreport
+            # an identity refusal as an auth problem.
+            print(f"ERROR: refusing to send: {identity_err}", file=sys.stderr)
+            sys.exit(1)
         data, err = run_gws([
             "gmail", "users", "messages", "send",
             "--params", json.dumps({"userId": "me"}),
@@ -1572,12 +1580,47 @@ def _now_iso():
 
 
 def _encode_email(to, subject, body):
-    """Create base64url encoded email for Gmail API."""
+    """Create base64url encoded email for Gmail API. Brand-aware, fail-closed.
+
+    THIS PATH HAS NO OTHER GUARD. It hands a raw message to the external `gws`
+    CLI, which sends over the Gmail API — it never touches lib.smtp_send, so
+    the transport's sender-identity guard never sees it. The chokepoint test
+    cannot see it either: that test enforces "only smtp_send imports smtplib",
+    and this is not smtplib. Getting the From header right HERE is the whole
+    of this path's protection.
+
+    It used to be `From: Conaugh McKenna <{gmail_user}>` — CC's name, hardcoded,
+    whatever mailbox GMAIL_USER names. That is the same defect just fixed in
+    gmail_send_smtp, in the OTHER branch of the same CLI verb: `gmail send`
+    routes branded sends to SMTP and --plain sends here. On the SunBiz VPS this
+    branch sent `Conaugh McKenna <submissions@sunbizfunding.com>`.
+
+    Raises ValueError when the authenticating mailbox has no brand, or that
+    brand has no configured identity. The caller turns that into a refusal —
+    guessing is what produced the incident.
+    """
     import base64
     gmail_user = os.environ.get("GMAIL_USER", "conaugh@oasisai.work")
+    brand = brand_for_mailbox(gmail_user)
+    if brand is None:
+        raise ValueError(
+            f"no brand is registered for the authenticating mailbox "
+            f"{gmail_user!r}, so there is no way to know which company this "
+            f"email would claim to be from. Add its domain to "
+            f"lib/tenant_brand.BRAND_SENDING_DOMAIN."
+        )
+    display = _brand_from_display(brand)
+    if display is None:
+        raise ValueError(
+            f"brand {brand!r} (resolved from the authenticating mailbox "
+            f"{gmail_user!r}) has no configured sending identity, and falling "
+            f"back to the operator default would put one company's name on "
+            f"another's mailbox. Add a BRAND_CONFIG entry for {brand!r} in "
+            f"scripts/email_template.py."
+        )
     message = MIMEText(body)
     message["to"] = to
-    message["from"] = f"Conaugh McKenna <{gmail_user}>"
+    message["from"] = f"{display} <{gmail_user}>"
     message["subject"] = subject
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     return raw

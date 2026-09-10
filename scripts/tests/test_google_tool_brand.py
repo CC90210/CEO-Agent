@@ -175,6 +175,43 @@ def _checks(mp) -> list[str]:
     check("a client brand resolves to the client, never the operator",
           gt._brand_from_display("sunbiz"), "SunBiz Submissions")
 
+    # ---- THE FIFTH DOOR: the --plain path, over the Gmail API -------------
+    # `gmail send` routes branded sends to SMTP and --plain sends through
+    # _encode_email to the external gws CLI. That path never touches
+    # lib.smtp_send, so the transport guard cannot see it, and the chokepoint
+    # test cannot either (it enforces "only smtp_send imports smtplib", and
+    # this is not smtplib). It used to hardcode `From: Conaugh McKenna
+    # <{GMAIL_USER}>`, so on the SunBiz VPS it signed CC's name on the
+    # client's mailbox. Getting the From header right here is the whole of
+    # this path's protection.
+    import base64
+    import email as _email
+
+    def plain_from(mailbox: str):
+        mp.setenv("GMAIL_USER", mailbox)
+        raw = gt._encode_email("contact@example.com", "Subject", "Body")
+        return _email.message_from_bytes(base64.urlsafe_b64decode(raw))["from"]
+
+    check("the --plain path signs as the client from the client's mailbox",
+          plain_from("submissions@sunbizfunding.com"),
+          "SunBiz Submissions <submissions@sunbizfunding.com>")
+    check("...and never as CC, whose name is set host-globally right now",
+          "conaugh" in plain_from("submissions@sunbizfunding.com").lower(), False)
+    check("...a rep's own address resolves by domain",
+          plain_from("rep.example@sunbizfunding.com"),
+          "SunBiz Submissions <rep.example@sunbizfunding.com>")
+    check("...and CC's own mailbox still signs as CC",
+          plain_from("conaugh@oasisai.work"),
+          "Conaugh McKenna <conaugh@oasisai.work>")
+
+    for _bad, _why in (("ops@bluerisebusinesscapital.com", "no configured sending identity"),
+                       ("someone@unknown.example", "no brand is registered")):
+        try:
+            plain_from(_bad)
+            failures.append(f"the --plain path sent under a guessed identity for {_bad}")
+        except ValueError as _exc:
+            check(f"the --plain path refuses {_bad}", _why in str(_exc), True)
+
     # ---- The template registry must refuse an unknown brand ---------------
     # The last of the fail-open family named in the root-cause assessment:
     # email_template returned the OASIS config for ANY unrecognised string.
