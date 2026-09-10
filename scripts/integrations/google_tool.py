@@ -667,6 +667,27 @@ def calendar_delete(args):
 
 # ── Gmail Commands ─────────────────────────────────────────────────
 
+def _gws_authenticated_address() -> tuple[Optional[str], Optional[str]]:
+    """The Gmail address gws is AUTHENTICATED as, or (None, reason).
+
+    The --plain path sends through gws users.messages.send, which sends as the
+    OAuth account gws is logged in with. That account — not GMAIL_USER, which
+    is a separate credential — is the real sender, so it is the only honest
+    source for the From identity. (Codex, PR #73: taking the From from
+    GMAIL_USER let one company's identity ride on another company's
+    authenticated send whenever the two credentials disagreed.)
+    """
+    data, err = run_gws(["gmail", "users", "getProfile",
+                         "--params", json.dumps({"userId": "me"})])
+    if err:
+        return None, err
+    addr = data.get("emailAddress") if isinstance(data, dict) else None
+    addr = (addr or "").strip().lower()
+    if addr.count("@") != 1:
+        return None, "gws returned no authenticated Gmail address"
+    return addr, None
+
+
 def gmail_send(args):
     """Send an email. Uses gws CLI first, falls back to SMTP.
 
@@ -693,22 +714,38 @@ def gmail_send(args):
     else:
         # Plain-text path: try gws first (preserves From: identity from
         # the operator's OAuth grant), fall back to SMTP.
-        try:
-            message_body = {
-                "raw": _encode_email(args.to, args.subject, args.body)
-            }
-        except ValueError as identity_err:
-            # Refuse rather than send under a guessed identity. Deliberately
-            # NOT falling through to the SMTP path: that path would refuse for
-            # the same reason, and a "gws unavailable" message would misreport
-            # an identity refusal as an auth problem.
-            print(f"ERROR: refusing to send: {identity_err}", file=sys.stderr)
-            sys.exit(1)
-        data, err = run_gws([
-            "gmail", "users", "messages", "send",
-            "--params", json.dumps({"userId": "me"}),
-            "--json", json.dumps(message_body)
-        ])
+        #
+        # THE SENDER IS WHOEVER gws IS AUTHENTICATED AS, NOT GMAIL_USER. The
+        # previous version took the From from GMAIL_USER and then handed the
+        # message to users.messages.send, which sends as gws's own OAuth login
+        # — a separate credential. Wherever the two disagreed, that produced a
+        # SunBiz From on an OASIS-authenticated send, or the reverse. (Codex,
+        # PR #73.) The identity now comes from the account that sends, so they
+        # cannot disagree.
+        #
+        # If gws cannot say who it is, the gws path is skipped and the SMTP
+        # fallback runs. That path takes its identity from GMAIL_USER AND
+        # authenticates as GMAIL_USER, so it is consistent in the same way.
+        data = None
+        sender, err = _gws_authenticated_address()
+        if sender:
+            try:
+                message_body = {
+                    "raw": _encode_email(args.to, args.subject, args.body,
+                                         sender=sender)
+                }
+            except ValueError as identity_err:
+                # Refuse rather than send under a guessed identity, and do NOT
+                # fall through to SMTP: that would silently switch the sending
+                # account from the one gws is logged in as to GMAIL_USER, and
+                # report an identity refusal as an auth problem.
+                print(f"ERROR: refusing to send: {identity_err}", file=sys.stderr)
+                sys.exit(1)
+            data, err = run_gws([
+                "gmail", "users", "messages", "send",
+                "--params", json.dumps({"userId": "me"}),
+                "--json", json.dumps(message_body)
+            ])
         if err == "AUTH_EXPIRED" or err:
             print("gws CLI unavailable, using SMTP fallback...", file=sys.stderr)
             data, smtp_err = gmail_send_smtp(args.to, args.subject, args.body)
@@ -1579,48 +1616,51 @@ def _now_iso():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _encode_email(to, subject, body):
+def _encode_email(to, subject, body, *, sender):
     """Create base64url encoded email for Gmail API. Brand-aware, fail-closed.
 
     THIS PATH HAS NO OTHER GUARD. It hands a raw message to the external `gws`
-    CLI, which sends over the Gmail API — it never touches lib.smtp_send, so
-    the transport's sender-identity guard never sees it. The chokepoint test
-    cannot see it either: that test enforces "only smtp_send imports smtplib",
-    and this is not smtplib. Getting the From header right HERE is the whole
-    of this path's protection.
+    CLI, which sends over the Gmail API — it never touches lib.smtp_send, so the
+    transport's sender-identity guard never sees it. Getting the From header
+    right HERE is the whole of this path's protection. test_smtp_chokepoint
+    inventories this site, so a new Gmail API send path cannot appear unseen.
 
-    It used to be `From: Conaugh McKenna <{gmail_user}>` — CC's name, hardcoded,
-    whatever mailbox GMAIL_USER names. That is the same defect just fixed in
-    gmail_send_smtp, in the OTHER branch of the same CLI verb: `gmail send`
-    routes branded sends to SMTP and --plain sends here. On the SunBiz VPS this
-    branch sent `Conaugh McKenna <submissions@sunbizfunding.com>`.
+    `sender` is the address gws is AUTHENTICATED as (users.getProfile). It is
+    keyword-only and required on purpose. Two earlier versions got this wrong in
+    turn:
+      - `From: Conaugh McKenna <{GMAIL_USER}>` — CC's name on every mailbox;
+      - brand and address from GMAIL_USER — the right shape from the wrong
+        source: gws sends as its own OAuth account, so a From taken from
+        GMAIL_USER could name one company while the other company's account
+        sent it. (Codex, PR #73.)
+    A caller that forgets `sender` now fails with a TypeError instead of
+    quietly falling back to an environment variable.
 
-    Raises ValueError when the authenticating mailbox has no brand, or that
-    brand has no configured identity. The caller turns that into a refusal —
-    guessing is what produced the incident.
+    Raises ValueError when the sender has no registered brand, or that brand
+    has no configured identity. The caller turns that into a refusal.
     """
     import base64
-    gmail_user = os.environ.get("GMAIL_USER", "conaugh@oasisai.work")
-    brand = brand_for_mailbox(gmail_user)
+    addr = (sender or "").strip().lower()
+    brand = brand_for_mailbox(addr)
     if brand is None:
         raise ValueError(
-            f"no brand is registered for the authenticating mailbox "
-            f"{gmail_user!r}, so there is no way to know which company this "
-            f"email would claim to be from. Add its domain to "
+            f"no brand is registered for the authenticated Gmail account "
+            f"{addr!r}, so there is no way to know which company this email "
+            f"would claim to be from. Add its domain to "
             f"lib/tenant_brand.BRAND_SENDING_DOMAIN."
         )
     display = _brand_from_display(brand)
     if display is None:
         raise ValueError(
-            f"brand {brand!r} (resolved from the authenticating mailbox "
-            f"{gmail_user!r}) has no configured sending identity, and falling "
-            f"back to the operator default would put one company's name on "
-            f"another's mailbox. Add a BRAND_CONFIG entry for {brand!r} in "
+            f"brand {brand!r} (resolved from the authenticated Gmail account "
+            f"{addr!r}) has no configured sending identity, and falling back to "
+            f"the operator default would put one company's name on another's "
+            f"mailbox. Add a BRAND_CONFIG entry for {brand!r} in "
             f"scripts/email_template.py."
         )
     message = MIMEText(body)
     message["to"] = to
-    message["from"] = f"{display} <{gmail_user}>"
+    message["from"] = f"{display} <{addr}>"
     message["subject"] = subject
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     return raw

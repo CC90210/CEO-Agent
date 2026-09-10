@@ -188,8 +188,10 @@ def _checks(mp) -> list[str]:
     import email as _email
 
     def plain_from(mailbox: str):
-        mp.setenv("GMAIL_USER", mailbox)
-        raw = gt._encode_email("contact@example.com", "Subject", "Body")
+        # `sender` is the gws-authenticated account, passed explicitly: the
+        # encoder no longer reads GMAIL_USER at all.
+        raw = gt._encode_email("contact@example.com", "Subject", "Body",
+                               sender=mailbox)
         return _email.message_from_bytes(base64.urlsafe_b64decode(raw))["from"]
 
     check("the --plain path signs as the client from the client's mailbox",
@@ -211,6 +213,86 @@ def _checks(mp) -> list[str]:
             failures.append(f"the --plain path sent under a guessed identity for {_bad}")
         except ValueError as _exc:
             check(f"the --plain path refuses {_bad}", _why in str(_exc), True)
+
+    # ---- Codex, PR #73: the identity comes from the account that SENDS -----
+    # gws sends as its own OAuth login. Taking the From from GMAIL_USER let a
+    # SunBiz From ride on an OASIS-authenticated send (or the reverse) whenever
+    # the two credentials disagreed. Drive gmail_send itself, with gws faked,
+    # through exactly that disagreement in both directions.
+    import json as _json
+    import types as _types
+    sent_raw: list[str] = []
+
+    def fake_gws(profile_addr=None, profile_err=None):
+        def _run(args_list, timeout=30):
+            if args_list[:3] == ["gmail", "users", "getProfile"]:
+                if profile_err:
+                    return None, profile_err
+                return {"emailAddress": profile_addr}, None
+            if args_list[:4] == ["gmail", "users", "messages", "send"]:
+                payload = _json.loads(args_list[args_list.index("--json") + 1])
+                sent_raw.append(payload["raw"])
+                return {"id": "fake-message-id"}, None
+            return None, f"unexpected gws call {args_list[:4]}"
+        return _run
+
+    def plain_send():
+        sent_raw.clear()
+        seen.clear()
+        args = _types.SimpleNamespace(
+            to="contact@example.com", subject="Subject", body="Body",
+            branded=False, plain=True, cta_label=None, cta_url=None,
+            json_output=True)
+        try:
+            gt.gmail_send(args)
+            return None
+        except SystemExit as exc:
+            return exc.code
+
+    def sent_from():
+        return _email.message_from_bytes(base64.urlsafe_b64decode(sent_raw[0]))["from"]
+
+    # gws logged in as OASIS while GMAIL_USER names the SunBiz mailbox.
+    mp.setenv("GMAIL_USER", "submissions@sunbizfunding.com")
+    mp.setattr(gt, "run_gws", fake_gws(profile_addr="conaugh@oasisai.work"))
+    code = plain_send()
+    check("a --plain send with gws authenticated as OASIS goes out", code, None)
+    check("...through gws, exactly once", len(sent_raw), 1)
+    if sent_raw:
+        check("...with the From of the account that actually SENDS",
+              sent_from(), "Conaugh McKenna <conaugh@oasisai.work>")
+        check("...and never the SunBiz identity GMAIL_USER names",
+              "sunbiz" in sent_from().lower(), False)
+
+    # The mirror: gws logged in as SunBiz while GMAIL_USER names OASIS.
+    mp.setenv("GMAIL_USER", "conaugh@oasisai.work")
+    mp.setattr(gt, "run_gws", fake_gws(profile_addr="submissions@sunbizfunding.com"))
+    code = plain_send()
+    check("gws authenticated as SunBiz goes out", code, None)
+    if sent_raw:
+        check("...as SunBiz, whatever GMAIL_USER says",
+              sent_from(), "SunBiz Submissions <submissions@sunbizfunding.com>")
+    else:
+        failures.append("gws authenticated as SunBiz produced no gws send")
+
+    # gws cannot say who it is: skip gws entirely and fall back to SMTP, which
+    # authenticates AS GMAIL_USER — consistent by construction.
+    mp.setenv("GMAIL_USER", "submissions@sunbizfunding.com")
+    mp.setattr(gt, "run_gws", fake_gws(profile_err="AUTH_EXPIRED"))
+    code = plain_send()
+    check("an unknown gws identity never sends through gws", len(sent_raw), 0)
+    check("...it falls back to SMTP, authenticated as GMAIL_USER",
+          seen.get("auth"), "submissions@sunbizfunding.com")
+    check("...and the fallback goes out", code, None)
+
+    # gws authenticated as an account with no registered brand: refuse, and do
+    # NOT silently switch to a different sending account over SMTP.
+    mp.setattr(gt, "run_gws", fake_gws(profile_addr="someone@unknown.example"))
+    code = plain_send()
+    check("an unregistered gws account refuses", code, 1)
+    check("...without a gws send", len(sent_raw), 0)
+    check("...and without quietly switching accounts over SMTP",
+          seen.get("auth"), None)
 
     # ---- The template registry must refuse an unknown brand ---------------
     # The last of the fail-open family named in the root-cause assessment:
