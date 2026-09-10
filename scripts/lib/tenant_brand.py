@@ -177,6 +177,31 @@ def mailbox_matches_brand(
     )
 
 
+def brand_for_mailbox(address: Optional[str]) -> Optional[str]:
+    """The brand this mailbox is entitled to send as, or None.
+
+    The inverse of BRAND_SENDING_DOMAIN. None means nobody has decided what
+    company this mailbox speaks for, and the caller must refuse rather than
+    pick one — a renderer that guesses is how the OASIS shell went out of
+    submissions@sunbizfunding.com.
+
+    Deliberately keyed on the DOMAIN, not the individual address, so a rep's
+    own mailbox on an entitled domain resolves without being enumerated.
+    """
+    a = (address or "").strip().lower()
+    if not a:
+        return None
+    if "<" in a and ">" in a:
+        a = a[a.rfind("<") + 1 : a.rfind(">")].strip()
+    if a.count("@") != 1:
+        return None
+    domain = a.rsplit("@", 1)[1].strip()
+    for brand, entitled in BRAND_SENDING_DOMAIN.items():
+        if domain == entitled or domain.endswith("." + entitled):
+            return brand
+    return None
+
+
 def resolve_tenant_for_mailbox(address: Optional[str]) -> Optional[str]:
     """The tenant that owns this mailbox, or None.
 

@@ -111,10 +111,56 @@ BRAND_CONFIG: dict[str, dict[str, object]] = {
 }
 
 
+# Brands that DELIBERATELY render in another brand's chrome, named one by one.
+#
+# This map is the difference between a considered decision and the fail-open it
+# replaced. _brand() used to return the OASIS config for any unrecognised
+# string, which silently covered both these legitimate aliases AND every typo,
+# stale key and cross-tenant mistake — including the ones this branch exists to
+# stop. Listing them explicitly keeps the aliases working and makes everything
+# else refuse.
+#
+# conaugh_mckenna / nostalgic are CC's personal sending identities: the same
+# legal entity as OASIS AI Solutions (send_gateway.BRAND_IDENTITY, and the
+# --brand choices on email_engine), so OASIS chrome is correct for them.
+#
+# NOT aliased, on purpose: bluerise. Bluerise Business Capital is a separate
+# legal entity from both OASIS and SunBiz, so silently lending it either one's
+# chrome is the defect, not the fix. It has a registered sending domain
+# (lib/tenant_brand.BRAND_SENDING_DOMAIN) but no chrome of its own yet, so a
+# branded Bluerise render refuses loudly until someone gives it a BRAND_CONFIG
+# entry. Nothing in this repo reaches that path today.
+_BRAND_ALIASES: dict[str, str] = {
+    "conaugh_mckenna": "oasis",
+    "nostalgic": "oasis",
+}
+
+
 def _brand(brand: Optional[str]) -> dict[str, object]:
-    """Resolve a brand entry. Defaults to oasis when unknown."""
-    key = (brand or "oasis").strip().lower()
-    return BRAND_CONFIG.get(key, BRAND_CONFIG["oasis"])
+    """Resolve a brand entry. ABSENT falls back to oasis; UNKNOWN refuses.
+
+    The distinction is the whole point. This module used to return the OASIS
+    config for any unrecognised string, which is how a caller that passed
+    "sunbiz-funding" or a stale key silently rendered a client's mail in
+    OASIS chrome. An unrecognised brand is a bug in the caller, and the only
+    safe answer is to say so — the fallback was named as a root cause of the
+    2026-09-09 cross-brand leak and is the last of that family.
+
+    Absent (None / "") still means "this module's own brand", which is the
+    legitimate case: an OASIS operator script rendering an OASIS email.
+    """
+    raw = (brand or "").strip().lower()
+    if not raw:
+        return BRAND_CONFIG["oasis"]
+    raw = _BRAND_ALIASES.get(raw, raw)
+    try:
+        return BRAND_CONFIG[raw]
+    except KeyError:
+        raise ValueError(
+            f"unknown brand {brand!r} — known brands are "
+            f"{sorted(BRAND_CONFIG)}. Refusing to fall back to OASIS chrome: "
+            f"guessing is how one company's shell reaches another's contacts."
+        ) from None
 
 
 def _hex_to_rgba(hex_color: str, alpha: float) -> str:
@@ -202,38 +248,88 @@ def _starfield_data_uri() -> str:
     return f"data:image/svg+xml;base64,{encoded}"
 
 
+# The brand this module speaks for itself. The generic BRAVO_* variables below
+# describe THIS brand's operator, so they may only fill in for this brand.
+from lib.tenant_brand import brand_for_mailbox  # noqa: E402
+
+_OWN_BRAND = "oasis"
+
+
+def _brand_env(
+    brand,
+    per_brand: str,
+    generic: tuple = (),
+    default: str = "",
+) -> str:
+    """Resolve one per-brand identity value from the environment.
+
+    PRECEDENCE, and the reason it is not the obvious one:
+
+      1. BRAVO_<X>_<BRAND>  always wins — it names the brand it belongs to
+      2. a generic var       ONLY when rendering this module's own brand
+      3. the brand's default
+
+    Rule 2's guard is the fix. The generic variables hold CC's OPERATOR
+    identity — his name, his phone, his website, his tagline — and they are
+    set host-globally on any box Bravo runs on. Letting them outrank a brand
+    default meant that on such a host a SunBiz render produced OASIS's
+    website and CC's phone number under the client's name.
+
+    That was true in all five resolvers below, so it is fixed here once
+    rather than five times. Found by Codex on the google_tool From header
+    (PR review, 2026-09-10); the header was the symptom and this was the
+    cause.
+    """
+    brand_key = (brand or _OWN_BRAND).upper().replace("-", "_")
+    scoped = os.environ.get(f"BRAVO_{per_brand}_{brand_key}")
+    if scoped:
+        return scoped
+    if (brand or _OWN_BRAND).strip().lower() == _OWN_BRAND:
+        for name in generic:
+            value = os.environ.get(name)
+            if value:
+                return value
+    return default
+
+
 def _from_display(brand: Optional[str] = None) -> str:
-    """The operator's display name. Per-brand env var override, then
-    brand default. SunBiz brand picks BRAVO_FROM_DISPLAY_SUNBIZ if set,
-    else the SunBiz default. Same shape for any future brand."""
-    bcfg = _brand(brand)
-    brand_key = (brand or "oasis").upper().replace("-", "_")
-    return (
-        os.environ.get(f"BRAVO_FROM_DISPLAY_{brand_key}")
-        or os.environ.get("BRAVO_FROM_DISPLAY")
-        or os.environ.get("USER_FULL_NAME")
-        or str(bcfg["default_from_display"])
+    """The operator's display name. BRAVO_FROM_DISPLAY_<BRAND> if set, then
+    the generic operator name for THIS module's brand only, then the brand
+    default. SunBiz picks BRAVO_FROM_DISPLAY_SUNBIZ, else "SunBiz
+    Submissions" — never CC's name off a host-global."""
+    return _brand_env(
+        brand, "FROM_DISPLAY",
+        generic=("BRAVO_FROM_DISPLAY", "USER_FULL_NAME"),
+        default=str(_brand(brand)["default_from_display"]),
     )
 
 
 def _from_email(brand: Optional[str] = None) -> str:
-    bcfg = _brand(brand)
-    brand_key = (brand or "oasis").upper().replace("-", "_")
-    return (
-        os.environ.get(f"BRAVO_FROM_EMAIL_{brand_key}")
-        or os.environ.get("GMAIL_USER")
-        or os.environ.get("BRAVO_FROM_EMAIL")
-        or str(bcfg["default_from_email"])
+    # GMAIL_USER is handled separately from the other generics: it is the
+    # AUTHENTICATING mailbox, so it is the right answer exactly when it
+    # belongs to the brand being rendered — which is the normal case on a
+    # single-tenant host — and the wrong answer otherwise. Checking the
+    # domain is more precise than the own-brand gate and keeps the SunBiz
+    # VPS rendering submissions@sunbizfunding.com as it does today.
+    brand_key = (brand or _OWN_BRAND).upper().replace("-", "_")
+    scoped = os.environ.get(f"BRAVO_FROM_EMAIL_{brand_key}")
+    if scoped:
+        return scoped
+    mailbox = os.environ.get("GMAIL_USER")
+    if mailbox and brand_for_mailbox(mailbox) == (brand or _OWN_BRAND).strip().lower():
+        return mailbox
+    return _brand_env(
+        brand, "FROM_EMAIL",
+        generic=("BRAVO_FROM_EMAIL",),
+        default=str(_brand(brand)["default_from_email"]),
     )
 
 
 def _signature_block(brand: Optional[str] = None) -> str:
-    bcfg = _brand(brand)
-    brand_key = (brand or "oasis").upper().replace("-", "_")
-    return (
-        os.environ.get(f"BRAVO_SIGNATURE_TAGLINE_{brand_key}")
-        or os.environ.get("BRAVO_SIGNATURE_TAGLINE")
-        or str(bcfg["default_signature_tagline"])
+    return _brand_env(
+        brand, "SIGNATURE_TAGLINE",
+        generic=("BRAVO_SIGNATURE_TAGLINE",),
+        default=str(_brand(brand)["default_signature_tagline"]),
     )
 
 
@@ -244,12 +340,10 @@ def _booking_link() -> Optional[str]:
 
 
 def _website(brand: Optional[str] = None) -> str:
-    bcfg = _brand(brand)
-    brand_key = (brand or "oasis").upper().replace("-", "_")
-    return (
-        os.environ.get(f"BRAVO_WEBSITE_URL_{brand_key}")
-        or os.environ.get("BRAVO_WEBSITE_URL")
-        or str(bcfg["default_website"])
+    return _brand_env(
+        brand, "WEBSITE_URL",
+        generic=("BRAVO_WEBSITE_URL",),
+        default=str(_brand(brand)["default_website"]),
     )
 
 
@@ -262,11 +356,10 @@ def _from_phone(brand: Optional[str] = None) -> str:
     Wired 2026-06-10 so the bridge tool's BRAVO_FROM_PHONE_SUNBIZ env
     override (set from the per-operator signing payload) actually
     reaches the rendered signature instead of vanishing."""
-    brand_key = (brand or "oasis").upper().replace("-", "_")
-    return (
-        os.environ.get(f"BRAVO_FROM_PHONE_{brand_key}")
-        or os.environ.get("BRAVO_FROM_PHONE")
-        or ""
+    return _brand_env(
+        brand, "FROM_PHONE",
+        generic=("BRAVO_FROM_PHONE",),
+        default="",
     ).strip()
 
 

@@ -44,7 +44,6 @@ import argparse
 import json
 import os
 import platform
-import smtplib
 import subprocess
 import sys
 from email.mime.multipart import MIMEMultipart
@@ -66,7 +65,10 @@ from lib.subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 # cannot verify the intercepted chain; ensure_os_trust injects the OS store
 # (and strips a poisoned SSLKEYLOGFILE). Same canonical helper the rest of the
 # network tools use.
-from lib.tls_trust import ensure_os_trust  # noqa: E402
+from lib.tls_trust import ensure_os_trust
+# Shared SMTP transport — carries the sender-identity guard.
+from lib.smtp_send import smtp_send  # noqa: E402
+from lib.tenant_brand import brand_for_mailbox  # noqa: E402
 
 ensure_os_trust()
 
@@ -207,6 +209,20 @@ def refresh_gws_auth():
     return False
 
 
+def _brand_from_display(brand: str) -> str:
+    """The display name this brand signs as, or the OASIS operator default.
+
+    Lazy import: email_template is optional for the rest of this CLI (the
+    branded render below is already wrapped in try/except for a partial
+    deploy), so resolving this must not break `gmail send --plain`.
+    """
+    try:
+        from email_template import _from_display  # type: ignore
+        return _from_display(brand)
+    except Exception:
+        return "Conaugh McKenna"
+
+
 def gmail_send_smtp(to, subject, body, ics_content=None, *, branded=False, cta_label=None, cta_url=None):
     """Send email via SMTP as fallback when gws CLI auth fails.
 
@@ -223,11 +239,36 @@ def gmail_send_smtp(to, subject, body, ics_content=None, *, branded=False, cta_l
     if not gmail_pass:
         return None, "GMAIL_APP_PASSWORD not set in .env.agents"
 
-    from_display = (
-        os.environ.get("BRAVO_FROM_DISPLAY")
-        or os.environ.get("USER_FULL_NAME")
-        or "Conaugh McKenna"
-    )
+    # THE BRAND IS THE MAILBOX'S, NOT THE MODULE'S.
+    #
+    # This used to render the OASIS shell unconditionally, because
+    # render_branded_html defaults to OASIS and nothing here passed a brand.
+    # GMAIL_USER is host-global, so on the SunBiz VPS that produced
+    # OASIS-chromed mail — logo, "Founder, OASIS AI Solutions", oasisai.work —
+    # authenticated as the client's own mailbox. The transport's identity
+    # guard could not catch it either: that guard keys on the postal address
+    # in a CASL block, and this shell renders no address at all.
+    #
+    # Deriving the brand from the authenticating mailbox makes the mismatch
+    # unrepresentable rather than merely detected.
+    brand = brand_for_mailbox(gmail_user)
+    if brand is None:
+        return None, (
+            f"refusing to send: no brand is registered for the authenticating "
+            f"mailbox {gmail_user!r}, so there is no way to know which company "
+            f"this email would claim to be from. Add its domain to "
+            f"lib/tenant_brand.BRAND_SENDING_DOMAIN, or point GMAIL_USER at a "
+            f"mailbox on a registered sending domain."
+        )
+
+    # Brand-aware FIRST. The old order put the host-global BRAVO_FROM_DISPLAY /
+    # USER_FULL_NAME ahead of the brand, so on any box where those are set to
+    # CC's name — which is every box Bravo runs on — a SunBiz send went out as
+    # "Conaugh McKenna <submissions@sunbizfunding.com>". Correct chrome, wrong
+    # name, in the one header every recipient actually reads. (Codex, PR review
+    # 2026-09-10.) _from_display applies the same own-brand rule internally, so
+    # the globals still win for OASIS and never for anyone else.
+    from_display = _brand_from_display(brand)
 
     if branded:
         # Lazy-import so the rest of google_tool.py keeps working when
@@ -237,9 +278,9 @@ def gmail_send_smtp(to, subject, body, ics_content=None, *, branded=False, cta_l
             from email_template import render_branded_html, render_branded_plaintext
             html_body = render_branded_html(
                 body, subject=subject, cta_label=cta_label, cta_url=cta_url,
-                show_booking=True,
+                show_booking=True, brand=brand,
             )
-            plain_body = render_branded_plaintext(body)
+            plain_body = render_branded_plaintext(body, brand=brand)
         except Exception as e:
             return None, f"branded_template_failed: {e}"
 
@@ -274,21 +315,31 @@ def gmail_send_smtp(to, subject, body, ics_content=None, *, branded=False, cta_l
     msg["To"] = to
     msg["Subject"] = subject
 
-    # V5.6 chokepoint exception (documented 2026-05-21):
+    # V5.6 chokepoint exception (documented 2026-05-21), NARROWED 2026-09-10:
     # google_tool.py is an OPERATOR CLI for one-off ad-hoc sends (calendar
     # invites, manual emails from the terminal) — NOT a pipeline send.
     # Pipeline outbound (drips, lead replies, queue consumers, agent
-    # actions) still routes through scripts/integrations/send_gateway.py.
-    # This direct SMTP path is intentional and audited; do NOT add it to
-    # any automated flow without also updating send_gateway.
-    try:
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(gmail_user, gmail_pass)
-        server.sendmail(gmail_user, to, msg.as_string())
-        server.quit()
-        return {"status": "sent", "method": "smtp", "to": to, "branded": bool(branded)}, None
-    except Exception as e:
-        return None, str(e)
+    # actions) still routes through scripts/integrations/send_gateway.py,
+    # and that remains true: this path deliberately skips send_gateway's
+    # POLICY layer (cooldowns, daily caps, suppression, the dedup ledger).
+    #
+    # It no longer skips the TRANSPORT. It used to open its own
+    # smtplib.SMTP_SSL, which meant it also bypassed the sender-identity
+    # guard in lib.smtp_send — and the `gmail send` verb defaults --branded
+    # ON (gmail_send:594), which routes EVERY branded send here and renders
+    # the OASIS shell, while gmail_user is the host-global GMAIL_USER
+    # (defaulting to conaugh@oasisai.work). On the SunBiz VPS GMAIL_USER is
+    # the client's own mailbox, so
+    # one `google_tool send-email` there would have sent OASIS-identified
+    # mail authenticated as submissions@sunbizfunding.com: the exact
+    # 2026-09-09 incident, through a third door.
+    #
+    # Skipping policy is a deliberate operator choice. Skipping the check
+    # that a message may not claim another company's identity never was.
+    ok, err = smtp_send(gmail_user, gmail_pass, msg, to)
+    if not ok:
+        return None, err
+    return {"status": "sent", "method": "smtp", "to": to, "branded": bool(branded)}, None
 
 
 # ── Calendar Commands ──────────────────────────────────────────────
