@@ -79,9 +79,11 @@ check("OASIS mail from the OASIS mailbox",
       _identity_conflict(msg("Hi." + OASIS_FOOTER), "conaugh@oasisai.work"), None)
 check("SunBiz mail from the SunBiz mailbox",
       _identity_conflict(msg("Hi." + SUNBIZ_FOOTER), "submissions@sunbizfunding.com"), None)
-# A real sender from the ledger.
+# A rep's own address on the sending domain, not just the shared mailbox.
+# Synthetic on purpose: a real employee address does not belong in a test file
+# that ships in the repo. (CodeRabbit, PR #72.)
 check("SunBiz mail from a rep's own SunBiz address",
-      _identity_conflict(msg("Hi." + SUNBIZ_FOOTER), "Alex@sunbizfunding.com"), None)
+      _identity_conflict(msg("Hi." + SUNBIZ_FOOTER), "rep.example@sunbizfunding.com"), None)
 # Bluerise shares SunBiz's premises by agreement, so either domain may carry it.
 check("the shared Hallandale address from the Bluerise domain",
       _identity_conflict(msg("Hi." + SUNBIZ_FOOTER),
@@ -99,6 +101,26 @@ html_only = _identity_conflict(
     "submissions@sunbizfunding.com",
 )
 check("an identification present ONLY in the HTML part is caught", html_only is not None, True)
+
+# ---- MARKUP MUST NOT HIDE THE IDENTIFICATION ------------------------------
+# A raw substring match over HTML is trivially defeated by ordinary markup:
+# every shape below renders as the identification a human reads, and none of
+# them contains the literal "6993 decarie blvd". A guard a template change can
+# step around is not a guard. (CodeRabbit, PR #72.)
+for label, markup in [
+    ("non-breaking spaces", "OASIS AI Solutions, 6993&nbsp;Decarie&nbsp;Blvd, Montreal"),
+    ("a span mid-address", "OASIS AI Solutions, 6993 <span>Decarie</span> Blvd, Montreal"),
+    ("a line break", "OASIS AI Solutions,<br>6993 Decarie<br />Blvd, Montreal"),
+    ("a tag splitting a word", "6993 Deca<b>rie</b> Blvd, Montreal"),
+    ("an anchor around it", '<a href="#">6993 Decarie Blvd</a>, Montreal'),
+    ("collapsed whitespace", "6993\n\n   Decarie\t Blvd, Montreal"),
+    ("HTML entity encoding", "6993 Decarie&#32;Blvd, Montreal"),
+]:
+    got = _identity_conflict(
+        msg("plain body with no identification", f"<div>{markup}</div>"),
+        "submissions@sunbizfunding.com",
+    )
+    check(f"markup cannot hide the identification — {label}", got is not None, True)
 
 # ---- What must NOT be refused ---------------------------------------------
 # No identification block at all — internal and transactional mail that never

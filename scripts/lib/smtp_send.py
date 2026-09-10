@@ -15,7 +15,9 @@ Usage:
 Canonical: send_gateway.py _send_email_smtp() → extracted here 2026-05-21.
 """
 
+import html as _html
 import os
+import re
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from typing import Optional, Sequence, Union
@@ -62,6 +64,10 @@ _IDENTITY_ADDRESSES: tuple[tuple[str, frozenset[str]], ...] = (
 )
 
 
+_TAG_RE = re.compile(r"<[^>]*>")
+_WS_RE = re.compile(r"\s+")
+
+
 def _message_text(mime: MIMEMultipart) -> str:
     """Every text part of the message, lowercased, for identity inspection.
 
@@ -96,6 +102,29 @@ def _message_text(mime: MIMEMultipart) -> str:
     return "\n".join(chunks).lower()
 
 
+def _normalised_variants(raw: str) -> tuple[str, ...]:
+    """The message text as a matcher should see it, in both tag-strip flavours.
+
+    A raw substring match over HTML is trivially defeated by ordinary markup:
+    "6993&nbsp;Decarie Blvd" and "6993 <span>Decarie</span> Blvd" both render as
+    the identification a human reads, and neither contains the literal
+    "6993 decarie blvd". A guard that can be stepped around by a template change
+    is not a guard. (CodeRabbit, PR #72.)
+
+    Two variants because neither tag replacement is safe alone:
+      - tags -> ""   joins "6993<br>Decarie" correctly, but welds "Deca<b>rie</b>"
+      - tags -> " "  splits "Deca<b>rie</b>" correctly, but breaks the <br> case
+    Checking both means markup cannot hide an identification either way. Entity
+    decoding and whitespace collapsing apply to both.
+    """
+    text = _html.unescape(raw)
+    out = []
+    for filler in ("", " "):
+        stripped = _TAG_RE.sub(filler, text)
+        out.append(_WS_RE.sub(" ", stripped).strip())
+    return tuple(out)
+
+
 def _identity_conflict(mime: MIMEMultipart, gmail_user: str) -> Optional[str]:
     """The message identifies as a company this mailbox may not send for.
 
@@ -107,11 +136,12 @@ def _identity_conflict(mime: MIMEMultipart, gmail_user: str) -> Optional[str]:
     if addr.count("@") != 1:
         return None  # the credential guard above already owns malformed addresses
     domain = addr.rsplit("@", 1)[1]
-    body = _message_text(mime)
-    if not body:
+    raw = _message_text(mime)
+    if not raw:
         return None
+    variants = _normalised_variants(raw)
     for street, entitled in _IDENTITY_ADDRESSES:
-        if street not in body:
+        if not any(street in v for v in variants):
             continue
         if domain in entitled or any(domain.endswith("." + d) for d in entitled):
             continue

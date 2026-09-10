@@ -445,6 +445,13 @@ _DAILY_CAP_ALERTS_SENT: set[str] = set()
 
 # ---- Env + DB ---------------------------------------------------------------
 
+# Keys load_env() copied from the credential file into os.environ, with the
+# value it wrote. Lets the test seam distinguish "this came from the file" from
+# "the environment genuinely owns this". Module-level because load_env has no
+# memoization and is called fresh from six sites.
+_MIRRORED_FROM_FILE: dict[str, str] = {}
+
+
 def load_env() -> dict[str, str]:
     # TEST SEAM — inert in production, and deliberately not a precedence change.
     #
@@ -464,7 +471,22 @@ def load_env() -> dict[str, str]:
     # Nothing in production sets this. It is read from os.environ rather than
     # taken as a parameter so the six existing call sites need no change.
     if os.environ.get("BRAVO_ENV_IGNORE_FILE", "").strip() == "1":
-        return dict(os.environ)
+        # DROP WHAT AN EARLIER NON-SEAM CALL MIRRORED IN.
+        #
+        # The production branch below copies file keys into os.environ. If
+        # load_env() ran once before the seam was set — at import, or in an
+        # earlier test — those file values are sitting in os.environ, and
+        # returning dict(os.environ) would hand back exactly the file content
+        # the seam exists to exclude. (CodeRabbit, PR #72.)
+        #
+        # Compared by VALUE, not by name: a key is dropped only if os.environ
+        # still holds the precise string we mirrored. If a test has since set
+        # its own value the strings differ, and the test's value is kept —
+        # which is the whole point of the seam.
+        return {
+            k: v for k, v in os.environ.items()
+            if _MIRRORED_FROM_FILE.get(k) != v
+        }
 
     env_path = PROJECT_ROOT / ".env.agents"
     env_vars: dict[str, str] = {}
@@ -482,6 +504,9 @@ def load_env() -> dict[str, str]:
         env_vars.setdefault(k, v)
     # Also mirror into os.environ so downstream helpers resolve.
     #
+    # Record what WE put there, so the test seam above can tell a file value it
+    # mirrored from a value the environment genuinely owns.
+    #
     # KNOWN DIVERGENCE, deliberately left alone. Both merges use setdefault, so
     # for a key the file defines AND os.environ already holds, the returned dict
     # carries the file's value while os.environ keeps its own. Code reading
@@ -494,6 +519,8 @@ def load_env() -> dict[str, str]:
     # topology in front of him, not a late-session edit. The test seam above
     # removes the only case where this actually bit us.
     for k, v in env_vars.items():
+        if k not in os.environ:
+            _MIRRORED_FROM_FILE[k] = v
         os.environ.setdefault(k, v)
     return env_vars
 
