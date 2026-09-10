@@ -354,6 +354,21 @@ class TestSendGateway(unittest.TestCase):
         _orig_send = self.sg.send
         def _send_with_default_html(**kwargs):
             no_html_override = kwargs.pop("_no_html_for_test", False)
+            # DECLARE THE BRAND FOR THIS HARNESS (2026-09-09).
+            #
+            # send() used to default brand to "oasis"; it now derives the brand
+            # from tenant_id and REFUSES a commercial send when it cannot,
+            # because a missing brand and a deliberate one were previously
+            # indistinguishable and that shipped another company's legal
+            # identity to real recipients.
+            #
+            # These cases exercise cooldowns, caps, footers and threading — not
+            # brand resolution — and were written when the default existed. So
+            # the harness states the brand once here rather than 24 call sites
+            # re-acquiring a default that production no longer has. Brand
+            # resolution itself is asserted in tests/test_tenant_brand.py,
+            # including that an undeclared commercial send is refused.
+            kwargs.setdefault("brand", "oasis")
             brand = kwargs.get("brand", "oasis")
             intent = kwargs.get("intent", "commercial")
             html = kwargs.get("body_html")
@@ -2149,6 +2164,9 @@ class TestAutonomousNurtureLane(unittest.TestCase):
                 channel="email", agent_source="inbound_nurture",
                 to_email="jane@acme.example", subject="Re: hi",
                 body_text="reply", body_html="<p>reply</p>", db=self.db,
+                # Declared since 2026-09-09: send() no longer defaults the
+                # brand. In production this lane gets it from tenant_id.
+                brand="oasis",
             )
         self.assertEqual(r["status"], "sent", r.get("reason"))
         notify.assert_called_once()
@@ -2171,6 +2189,9 @@ class TestAutonomousNurtureLane(unittest.TestCase):
                 channel="email", agent_source="inbound_nurture",
                 to_email="jane@acme.example", subject="Re: hi",
                 body_text="reply", body_html="<p>reply</p>", db=self.db,
+                # Declared since 2026-09-09: send() no longer defaults the
+                # brand. In production this lane gets it from tenant_id.
+                brand="oasis",
             )
         self.assertEqual(r["status"], "sent", r.get("reason"))
         self.assertNotIn("Telegram ping failed", err.getvalue())
@@ -2187,6 +2208,9 @@ class TestAutonomousNurtureLane(unittest.TestCase):
                 channel="email", agent_source="inbound_nurture",
                 to_email="jane@acme.example", subject="Re: hi",
                 body_text="reply", body_html="<p>reply</p>", db=self.db,
+                # Declared since 2026-09-09: send() no longer defaults the
+                # brand. In production this lane gets it from tenant_id.
+                brand="oasis",
             )
         self.assertIn("Telegram ping failed", err.getvalue())
 
@@ -2198,6 +2222,7 @@ class TestAutonomousNurtureLane(unittest.TestCase):
                 channel="email", agent_source="test_harness",
                 to_email="jane@acme.example", subject="hi",
                 body_text="hello", body_html="<p>hello</p>", db=self.db,
+                brand="oasis",
             )
         self.assertEqual(r["status"], "sent", r.get("reason"))
         notify.assert_not_called()

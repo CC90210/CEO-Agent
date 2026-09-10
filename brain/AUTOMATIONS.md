@@ -101,14 +101,26 @@ ordinarily-fast job look permanently slow.
 
 | Job | Median | Worst | Runs | Failures |
 |---|---|---|---|---|
-| Post Analytics Sync | 121s | 121s | 1 | — |
-| Library Post Linker | 73s | 73s | 1 | — |
-| Bravo — Review Harvest | 42s | 102s | 5 | — |
-| Marketing Publish Drain | 5s | 40s | 43 | — |
-| Bravo — Hourly Cron Health Check | 5s | 5s | 1 | — |
-| Training Corpus Ingest | 4s | 9s | 14 | — |
-| Inbound Email Sweep | 4s | 302s | 13 | 1 |
-| Event Bus Offline Drain | 3s | 8s | 6 | — |
+| Maven — Carousel Post | — (stale, struck 2026-09-09) | — | 2 | — |
+| Cross-Agent Self-Improvement Sweep | 137s | 137s | 2 | — |
+| Bravo — Sleep Agent (Memory Consolidation) | 130s | 130s | 2 | — |
+| Post Analytics Sync | 120s | 314s | 55 | — |
+| Library Post Linker | 72s | 174s | 56 | 1 |
+| Bravo — Nightly Harness Eval | 62s | 70s | 6 | 5 |
+| Bravo — Cross-Agent Review Scan | 50s | 62s | 5 | — |
+| Daily Bravo Brief | 29s | 29s | 2 | — |
+| Bravo — Review Harvest | 18s | 204s | 221 | 1 |
+| Daily Briefing Snapshot | 15s | 15s | 2 | — |
+| Daily Memory Index Rebuild | 13s | 13s | 2 | — |
+| Weekly Receipts Reconciliation | 9s | 9s | 1 | — |
+
+> **Carousel Post duration struck 2026-09-09, not replaced.** The 401s median was
+> measured on the PIL-era renderer. Slides moved from 6s to 26s each (the build
+> animates, then the finished text HOLDS so it can be read), so one post is now
+> ~130s of video to render and for Late to transcode, against ~30s before —
+> authoring alone measures ~605s. A wrong number gets believed; a missing one
+> invites the question. Maven re-measures after a clean full run. Do not
+> reinstate a figure from any partial or dry run.
 
 ## OS scheduled tasks
 
