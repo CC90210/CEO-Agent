@@ -1632,6 +1632,9 @@ def decide(
     reasons: list[str] = []
     failure_code = "model_unavailable"
     failure_detail = "runner returned None"
+    # Set when Gate D rejects a silent handoff on attempt 1, and returned if the
+    # retry then fails — so that rejection can never stall the conversation.
+    honoured_silent_handoff: Optional[dict] = None
 
     for attempt in (1, 2):
         user_prompt = base_user_prompt
@@ -1726,8 +1729,36 @@ def decide(
         # and nothing sent is exactly the behaviour that already shipped, so this
         # gate can only improve on it — it can never stall a conversation that
         # used to move.
+        #
+        # THAT PROMISE WAS FALSE UNTIL 2026-09-10. The rejection sent the model
+        # round again, and if attempt 2 then failed for ANY reason — the runner
+        # returned nothing, the JSON was malformed, the stage move was illegal,
+        # the parting line tripped a copy rule — the loop fell through to
+        # _failed(): ok=False, nothing sent, and nobody raised until the
+        # poller's failure counters escalated on a later poll, with the model's
+        # real handoff reason replaced by "auto: model_unavailable x3". A
+        # conversation that used to move stalled, which is exactly what this
+        # comment said could not happen. The one test on that path,
+        # tests/test_ig_dm_closer.py::test_handoff_action_carries_a_reason_and_no_reply,
+        # had been red on main for it — the messenger, not a stale fixture.
+        #
+        # So the rejected decision is KEPT. By this point it has passed Gates A
+        # and B above, and a silent handoff sends no copy, so Gate C does not
+        # apply: it is precisely the decision the attempt-2 branch below would
+        # honour if the model simply repeated it. If attempt 2 produces anything
+        # usable, that wins. If attempt 2 fails, this is returned instead.
         parting = str(parsed["reply"] or "").strip()
         if action == "handoff" and not parting and attempt == 1:
+            honoured_silent_handoff = {
+                "stage": stage,
+                "action": action,
+                "extracted": carried.merged_with(Extracted.from_dict(parsed["extracted"])),
+                "memory": carried_memory.merged_with(LeadMemory.from_dict(parsed["memory"])),
+                "handoff_reason": parsed["handoff_reason"],
+                "confidence": parsed["confidence"],
+                "violations": tuple(violations) + ("handoff_without_reply",),
+                "raw_model_output": raw[:MAX_RAW_OUTPUT_CHARS],
+            }
             failure_code = "handoff_without_reply"
             failure_detail = (
                 "you asked for a human but wrote no reply, so the prospect gets "
@@ -1783,6 +1814,18 @@ def decide(
             violations=tuple(violations),
             attempts=attempt,
             raw_model_output=raw[:MAX_RAW_OUTPUT_CHARS],
+        )
+
+    if honoured_silent_handoff is not None:
+        # Gate D sent the model round and the retry failed. Honour the handoff
+        # it rejected rather than stall — see the Gate D comment above. The
+        # cause is recorded as its own violation, so a flaky runner is countable
+        # separately from a model that simply insists on silence.
+        return BrainDecision(
+            ok=True, reply=None, failure=None, failure_detail=None, attempts=2,
+            **{**honoured_silent_handoff,
+               "violations": honoured_silent_handoff["violations"]
+               + (f"handoff_retry_failed:{failure_code}",)},
         )
 
     return _failed(

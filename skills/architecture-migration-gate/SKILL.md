@@ -113,6 +113,7 @@ A migration is NOT complete until:
 - [ ] `brain/STATE.md` infrastructure counts updated
 - [ ] `brain/CAPABILITIES.md` Tech Stack section updated
 - [ ] `brain/CREDENTIALS_SCAFFOLD.md` credentials priority updated
+- [ ] If the migration touched any outbound path, every send path is re-enumerated and each still passes an identity guard — `send_gateway` for pipeline sends, `lib/smtp_send` for the SMTP transport. Enumerate by the ARTIFACT (From-header construction, `msg["From"] =`), not the transport (`import smtplib`): on 2026-09-10 that sweep found five send paths where a transport-named check could see three. A migration is exactly when a second door opens.
 
 ## Related Skills
 - `skills/turso-patterns/SKILL.md` — Turso-specific migration patterns
