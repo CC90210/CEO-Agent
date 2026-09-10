@@ -870,6 +870,20 @@ def test_the_model_can_never_set_booked():
 
 
 def test_handoff_action_carries_a_reason_and_no_reply():
+    """A silent handoff whose Gate D retry FAILS must still be honoured.
+
+    The Runner holds ONE response: attempt 1 is a silent handoff, which Gate D
+    rejects, and attempt 2 gets nothing back. Gate D promised it "can never stall
+    a conversation that used to move", and until 2026-09-10 this exact input
+    returned ok=False — nothing sent, nobody raised, the model's own handoff
+    reason discarded. This test was red on main for that reason and was the only
+    one on the path. It is now the regression pin for the fix in decide().
+
+    Deliberately NOT given a second response. Runner(silent, silent) would pass
+    too, through the stubborn-model path test_ig_handoff_must_answer already
+    covers — and would move this test off the only input that reproduces the
+    stall.
+    """
     runner = Runner(decision_json(action="handoff", reply=None, stage="handed_off",
                                   handoff_reason="asking about an outage on their live site"))
     d = brain.decide(inbound_turns(), current_stage="engaged",
@@ -879,6 +893,14 @@ def test_handoff_action_carries_a_reason_and_no_reply():
     assert d.reply is None
     assert d.stage == "handed_off"
     assert d.handoff_reason and len(d.handoff_reason) <= 200
+    # The model's OWN reason survives, not a stand-in like "needs a human".
+    assert d.handoff_reason == "asking about an outage on their live site"
+    # State which path this is, so a later change cannot satisfy the assertions
+    # above by quietly reaching them some other way.
+    assert runner.n == 2, "Gate D must have sent the model round exactly once"
+    assert d.attempts == 2
+    assert "handoff_without_reply" in d.violations
+    assert "handoff_retry_failed:model_unavailable" in d.violations
 
 
 def test_set_stage_refuses_an_illegal_move_without_force(db):
@@ -2347,6 +2369,7 @@ class FakeState:
             "extracted_need": None, "extracted_timeline": None,
             "memory_budget": None, "memory_objections": None,
             "memory_pitched": None, "memory_summary": None,
+            "last_decision_json": None,
         }
         self.row.update(row_over)
         self.writes: list[str] = []
@@ -2402,6 +2425,28 @@ class FakeState:
         self.row["stage"] = decision.stage
         if decision.stage in self.TERMINAL:
             self.row["automation_paused"] = 1
+        return dict(self.row)
+
+    def record_hold(self, db, row_id, *, decision, tenant_id=None):
+        """Mirrors ig_dm_state.record_hold (62a0a933, 2026-09-03), which writes
+        last_decision_json and NOTHING else.
+
+        Missing from this fake since that commit, so the one test that drives the
+        live hold branch died on an AttributeError before any assertion ran.
+
+        A strict signature on purpose, where the rest of this class takes **kw:
+        a fake that swallows unknown keywords accepts a call the real DAO rejects
+        (e.g. `reason=`, copied from set_stage). And it must not touch stage,
+        automation_paused or handoff_pending — the test that reaches it asserts
+        handoff_pending == 1, so a fake that raised it would pass with the
+        original bug put back.
+        """
+        self.writes.append("record_hold")
+        try:
+            self.row["last_decision_json"] = json.dumps(decision.as_dict())
+        except (AttributeError, TypeError, ValueError) as exc:
+            self.row["last_decision_json"] = json.dumps(
+                {"unserializable_decision": str(exc)[:200]})
         return dict(self.row)
 
     def link_crm_lead(self, db, row_id, *, lead_id, **kw):
@@ -2600,6 +2645,13 @@ def test_a_terminal_stage_reached_by_a_hold_reaches_a_human(dm):
 
     assert run.notes, "a hold onto a terminal stage ended the conversation silently"
     assert int(run.state.row["handoff_pending"]) == 1
+    # The 2026-09-03 guarantee, which the two lines above do not check: a hold
+    # may not APPLY a terminal stage. Reverting the hold branch to
+    # set_stage(decision.stage) + _flag_terminal_ending would still alert and
+    # still flag, so without this the test stays green against that regression.
+    assert run.state.row["stage"] == "engaged", "a hold applied a terminal stage"
+    # ...and the hold recorded why it sent nothing.
+    assert "record_hold" in run.state.writes
 
 
 def test_a_tenant_wide_budget_refusal_is_alerted_and_recorded(dm):
