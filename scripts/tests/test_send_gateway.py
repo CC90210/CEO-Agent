@@ -300,6 +300,18 @@ class FailingLedgerSupabase(FakeSupabase):
 def _fresh_env(monkeypatch_env: dict):
     """Patch send_gateway env-loading + smtplib so tests don't hit network."""
     monkeypatch_env.update({
+        # MAKE THE SUITE HERMETIC.
+        #
+        # Without this, load_env reads .env.agents FIRST and merges os.environ
+        # with setdefault — so on any host that HAS that file, the file's
+        # GMAIL_USER wins and the value set below is silently discarded. 15 of
+        # these 88 tests failed on the SunBiz VPS for exactly that reason while
+        # passing in CI, which has no such file.
+        #
+        # That is a suite that was green because the runner was empty, not
+        # because the code was right. The seam makes the tests control their own
+        # inputs on every host. Nothing in production sets it.
+        "BRAVO_ENV_IGNORE_FILE": "1",
         "BRAVO_SUPABASE_URL": "https://test.supabase.co",
         "BRAVO_SUPABASE_SERVICE_ROLE_KEY": "fake-service-key",
         "GMAIL_USER": "test@oasisai.work",
