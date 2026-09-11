@@ -240,6 +240,17 @@ for rel, needle in (("scripts/integrations/send_gateway.py",
             f"bundle as the token ({needle!r}) — re-verify before keeping it in "
             f"GMAIL_API_SENDERS")
 
+# The dashboard consumer's Gmail API send is listed above as safe because the
+# From and the token come from one bundle. That is necessary, not sufficient: a
+# rep's bundle can sit on the OTHER company's domain. It is safe because the send
+# is refused first when the mailbox belongs to the other company. (Codex +
+# CodeRabbit, PR #73.) Keep that refusal visible, or the reason above is prose.
+if "_refuse_other_company(" not in (_REPO / "scripts/dashboard_email_consumer.py").read_text(encoding="utf-8"):
+    failures.append(
+        "scripts/dashboard_email_consumer.py no longer refuses a mailbox that belongs "
+        "to the other company before sending — its GMAIL_API_SENDERS entry is then "
+        "an unchecked claim")
+
 # The allowlist must describe reality, or it is the same broken promise one
 # level up: a file listed here that no longer exists would let a real
 # violation be renamed into the gap.
@@ -270,13 +281,17 @@ else:
     for _n in ast.walk(_smtp_send_fn):
         if isinstance(_n, ast.Call):
             _f = _n.func
+            # Record each callee EXACTLY. The first version also added the
+            # bare attribute name for every attribute call, so an unrelated
+            # `transport.SMTP_SSL()` or `guard._identity_conflict()` satisfied
+            # the checks below while neither guard was actually called.
+            # (CodeRabbit, PR #73.) Names go in _called; `receiver.attr` pairs
+            # go in _attrs; nothing is matched on the final name alone.
             if isinstance(_f, ast.Name):
                 _called.add(_f.id)
-            elif isinstance(_f, ast.Attribute):
-                _called.add(_f.attr)
-                if isinstance(_f.value, ast.Name):
-                    _attrs.add(f"{_f.value.id}.{_f.attr}")
-    if "SMTP_SSL" not in _called and "smtplib.SMTP_SSL" not in _attrs:
+            elif isinstance(_f, ast.Attribute) and isinstance(_f.value, ast.Name):
+                _attrs.add(f"{_f.value.id}.{_f.attr}")
+    if "smtplib.SMTP_SSL" not in _attrs:
         failures.append(
             "smtp_send() no longer CALLS smtplib.SMTP_SSL — this test would "
             "then be enforcing an empty invariant"

@@ -202,6 +202,68 @@ def brand_for_mailbox(address: Optional[str]) -> Optional[str]:
     return None
 
 
+# brand -> the legal COMPANY it belongs to.
+#
+# The cross-tenant question that matters is not "is this mailbox on the brand's
+# own domain" but "does this mailbox belong to the OTHER company". A SunBiz rep
+# who connected a personal Gmail is not another company's identity, and refusing
+# them would be a new SunBiz outage. A SunBiz mailbox sending an OASIS message is
+# the 2026-09-09 incident.
+#
+# SunBiz Funding and Bluerise Business Capital share premises by agreement
+# (Adon, 2026-08-05), and lib/smtp_send already lets either domain carry the
+# Hallandale identification block, so they are one side of the line and OASIS is
+# the other. test_dashboard_consumer_tenant_scope asserts this map agrees with
+# smtp_send's entitlement sets, so the two cannot drift apart.
+BRAND_COMPANY: dict[str, str] = {
+    "oasis": "oasis",
+    "sunbiz": "sunbiz",
+    "bluerise": "sunbiz",
+}
+
+
+def mailbox_is_other_company(
+    brand: Optional[str], mailbox: Optional[str]
+) -> tuple[bool, str]:
+    """True when the mailbox belongs to a DIFFERENT company than `brand`.
+
+    Only a definite conflict counts: the brand's company and the mailbox's
+    company must both be known, and differ. A personal or unregistered mailbox
+    resolves to no company, so it is not a conflict — it cannot claim another
+    company's identity, and lib/smtp_send still inspects whatever it sends.
+    """
+    b = (brand or "").strip().lower()
+    mine = BRAND_COMPANY.get(b)
+    mb_brand = brand_for_mailbox(mailbox)
+    theirs = BRAND_COMPANY.get(mb_brand) if mb_brand else None
+    if mine is None or theirs is None:
+        return False, "not a cross-company pair"
+    if mine == theirs:
+        return False, f"mailbox and brand '{b}' belong to the same company"
+    addr = (mailbox or "").strip().lower()
+    return True, (
+        f"brand '{b}' belongs to {mine}, but the sending mailbox {addr} belongs "
+        f"to {theirs}; one company's message may not leave from the other's mailbox"
+    )
+
+
+def tenants_for_mailbox(mailbox: Optional[str]) -> list[str]:
+    """Tenant ids whose mail this mailbox's company is entitled to send.
+
+    [] when the mailbox belongs to no registered company: the caller must then
+    send NOTHING, not everything. Used to scope a shared queue — a consumer
+    authenticated as one company must not even CLAIM the other company's rows,
+    or they are either leaked (the incident) or refused into 'failed' when the
+    right consumer could have sent them.
+    """
+    mb_brand = brand_for_mailbox(mailbox)
+    company = BRAND_COMPANY.get(mb_brand) if mb_brand else None
+    if company is None:
+        return []
+    return sorted(tid for tid, b in TENANT_BRAND.items()
+                  if BRAND_COMPANY.get(b) == company)
+
+
 def resolve_tenant_for_mailbox(address: Optional[str]) -> Optional[str]:
     """The tenant that owns this mailbox, or None.
 
