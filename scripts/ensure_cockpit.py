@@ -57,7 +57,7 @@ _CONSOLE_QUERY = [
 ]
 
 
-def _cockpit_is_alive() -> bool | None:
+def _cockpit_is_alive(timeout: float = 30) -> bool | None:
     """True if a Bravo Console is open, False if none is, None if unknown.
 
     Matches a cmd.exe whose command line runs bravo_console_tail.cmd — the
@@ -77,7 +77,7 @@ def _cockpit_is_alive() -> bool | None:
     if sys.platform != "win32":
         return True  # No cockpit concept on POSIX
     try:
-        result = safe_run(_CONSOLE_QUERY, capture_output=True, text=True, timeout=30)
+        result = safe_run(_CONSOLE_QUERY, capture_output=True, text=True, timeout=timeout)
     except Exception:
         return None
     lines = [ln.strip() for ln in (result.stdout or "").splitlines() if ln.strip()]
@@ -119,10 +119,12 @@ def main() -> int:
 
     # Verify the launch took. A 5-second budget rather than a count of checks:
     # each check is now a ~2s process-table read, so the old ten-check loop
-    # would hold a session start for ~25s whenever a launch failed.
+    # would hold a session start for ~25s whenever a launch failed. Each check
+    # also gets only what is left of the budget as its timeout: with the
+    # query's own 30s, one stalled read could hold the session start that long.
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
-        if _cockpit_is_alive():
+        if _cockpit_is_alive(timeout=max(1.0, deadline - time.monotonic())):
             print("[ensure_cockpit] cockpit launched")
             return 0
         time.sleep(0.5)
