@@ -110,7 +110,12 @@ _VALID_INTENTS = frozenset({"commercial", "transactional", "internal"})
 # Verified against the live tenants table 2026-09-09: exactly two tenants have
 # ever sent email (submissions / SunBiz 4,595, oasis-ai-cc / OASIS 59) and both
 # are in that map, so adopting it changes nothing for current traffic.
-from lib.tenant_brand import SLUG_BRAND as _BRAND_BY_TENANT_SLUG  # noqa: E402
+from lib.tenant_brand import (  # noqa: E402
+    SLUG_BRAND as _BRAND_BY_TENANT_SLUG,
+    mailbox_is_other_company as _mailbox_is_other_company,
+    resolve_brand_for_tenant as _static_brand_for_tenant,
+    tenants_for_mailbox as _tenants_for_mailbox,
+)
 # Reached only when a tenant is genuinely unidentifiable (no tenant_id, a slug
 # lookup that errored, or a slug nobody has mapped). Deliberately NOT changed to
 # a refusal here: _resolve_message_identity is documented as always returning a
@@ -155,6 +160,14 @@ def _brand_for_tenant(sb, tenant_id: str) -> str:
               f"branding it '{_DEFAULT_BRAND}' without having identified the tenant.",
               file=sys.stderr)
         return _DEFAULT_BRAND
+    # The static map first. For a mapped tenant it is exact and cannot fail,
+    # so a transient DB error can no longer rebrand a KNOWN client's email —
+    # the risk every WARNING below describes. The DB lookup now serves only
+    # tenants the map does not know, and the queue scope in tick() stops
+    # this daemon from claiming those at all.
+    static = _static_brand_for_tenant(tenant_id)
+    if static:
+        return static
     slug = _tenant_slug_cache.get(tenant_id)
     if slug is None:
         try:
@@ -329,12 +342,22 @@ def _publish_event(sb, *, event_type: str, tenant_id: str, payload: dict) -> Non
               file=sys.stderr)
 
 
-def _fetch_queued(sb, *, limit: int = 25) -> list[dict]:
+def _fetch_queued(sb, *, limit: int = 25,
+                  tenant_ids: list[str] | None = None) -> list[dict]:
     """Pull queued rows. Filter is `metadata.status = 'queued'` and the
     other channel/direction/source guards so we don't accidentally
-    re-send drip-engine or legacy rows."""
+    re-send drip-engine or legacy rows.
+
+    `tenant_ids` SCOPES THE CLAIM. The queue is shared by every tenant and
+    this query had no tenant filter, so the SunBiz VPS drained OASIS rows —
+    six went out from the client's mailbox, the 2026-09-09 incident. In 30
+    days those six were the ONLY OASIS rows through this queue. The filter
+    is in the QUERY, not after it, for the reason the jsonb filter below
+    is: a post-filter lets the oldest page fill with rows this box must
+    skip, and starves the rows behind them.
+    """
     try:
-        r = (
+        q = (
             sb.table("lead_interactions")
             .select(
                 "id, tenant_id, lead_id, subject, content, content_preview, "
@@ -355,10 +378,10 @@ def _fetch_queued(sb, *, limit: int = 25) -> list[dict]:
             # returned 0, and NEW queued rows behind them were never reached
             # (found 2026-07-10 via a loopback that sat queued forever).
             .eq("metadata->>status", "queued")
-            .order("created_at", desc=False)
-            .limit(limit)
-            .execute()
         )
+        if tenant_ids is not None:
+            q = q.in_("tenant_id", list(tenant_ids))
+        r = q.order("created_at", desc=False).limit(limit).execute()
         rows = r.data or []
     except Exception as e:
         print(f"[dashboard_email_consumer] fetch failed: {e}", file=sys.stderr)
@@ -538,6 +561,55 @@ def _queued_age_hours(row: dict) -> float | None:
     return (datetime.now(timezone.utc) - ts).total_seconds() / 3600.0
 
 
+def _refuse_other_company(sb, row: dict, *, brand: str, mailbox: str, via: str) -> bool:
+    """Refuse, and record, a send whose mailbox belongs to the other company.
+
+    Returns True when refused; the caller must then return "failed".
+
+    lib/smtp_send's guard keys on a postal address in the body, so it cannot
+    see an INTERNAL message — no CASL footer, but still the brand's chrome —
+    and the per-user Gmail API path never reaches smtp_send at all. This
+    check needs neither: it compares the company the message is RENDERED for
+    with the company that owns the mailbox. (Codex + CodeRabbit, PR #73.)
+    """
+    other, why = _mailbox_is_other_company(brand, mailbox)
+    if not other:
+        return False
+    row_id = row.get("id") or ""
+    _mark_status(sb, row_id, status="failed", error=f"sender-identity guard: {why}")
+    _publish_event(
+        sb,
+        event_type="BRAVO_DASHBOARD_EMAIL_FAILED",
+        tenant_id=row.get("tenant_id") or "",
+        payload={
+            "interaction_id": row_id,
+            "lead_id": row.get("lead_id") or "",
+            "to_email": row.get("to_email") or "",
+            "reason": "mailbox_is_other_company",
+            "sent_via": via,
+        },
+    )
+    print(f"[dashboard_email_consumer] REFUSED {row_id}: {why}", file=sys.stderr)
+    return True
+
+
+def _host_mailbox(env: dict[str, str]) -> str:
+    """The mailbox this process authenticates SMTP as — and so the one whose
+    company decides which rows the queue may claim. Scope and send both read
+    it through this function, so they cannot disagree.
+
+    Each candidate is stripped BEFORE precedence. `(a or b).strip()` let a
+    whitespace-only GMAIL_USER, which is truthy, mask a real GMAIL_ADDRESS and
+    strip to "": the claim scope came out empty and the box drained nothing,
+    with no error anywhere. (Codex, PR #73.)
+    """
+    for key in ("GMAIL_USER", "GMAIL_ADDRESS"):
+        value = (env.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
 def _send_one(env: dict[str, str], sb, row: dict) -> str:
     """Send one queued email. Returns 'sent' | 'failed' | 'suppressed'.
 
@@ -652,6 +724,9 @@ def _send_one(env: dict[str, str], sb, row: dict) -> str:
 
     if user_bundle and _send_via_gmail_api is not None:
         gmail_from = user_bundle["gmail_address"]
+        if _refuse_other_company(sb, row, brand=msg_identity["brand"],
+                                 mailbox=gmail_from, via="gmail_api"):
+            return "failed"
         msg = _build_message(row, gmail_from, intent, msg_identity)
         try:
             raw = msg.as_bytes()
@@ -668,7 +743,7 @@ def _send_one(env: dict[str, str], sb, row: dict) -> str:
         sent_via = "gmail_api"
         sent_as = gmail_from
     else:
-        gmail_user = (env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS") or "").strip()
+        gmail_user = _host_mailbox(env)
         gmail_pass = (env.get("GMAIL_APP_PASSWORD") or "").strip()
         gmail_from = (env.get("GMAIL_FROM_ADDRESS") or gmail_user or "").strip()
         if not gmail_user or not gmail_pass:
@@ -678,6 +753,17 @@ def _send_one(env: dict[str, str], sb, row: dict) -> str:
                 status="failed",
                 error="GMAIL_USER or GMAIL_APP_PASSWORD missing in .env.agents",
             )
+            return "failed"
+        # Both the account that authenticates and the address the From header
+        # will carry: GMAIL_FROM_ADDRESS may differ from GMAIL_USER. Each has its
+        # own direct guard, unconditionally. test_smtp_chokepoint binds every
+        # identity a send uses to a guard on that same mailbox, and accepts only
+        # a direct guard: one inside a loop or another if proves nothing.
+        if _refuse_other_company(sb, row, brand=msg_identity["brand"],
+                                 mailbox=gmail_user, via="smtp"):
+            return "failed"
+        if _refuse_other_company(sb, row, brand=msg_identity["brand"],
+                                 mailbox=gmail_from, via="smtp"):
             return "failed"
         msg = _build_message(row, gmail_from or gmail_user, intent, msg_identity)
         try:
@@ -731,9 +817,43 @@ def _send_one(env: dict[str, str], sb, row: dict) -> str:
     return "sent"
 
 
+_SCOPE_WARNED: set[str] = set()
+
+
+def _queue_scope(env: dict[str, str]) -> list[str]:
+    """The tenants this process may drain: those whose COMPANY its host
+    mailbox belongs to. Derived from the static map — no DB lookup, so a
+    blip cannot widen it."""
+    return _tenants_for_mailbox(_host_mailbox(env))
+
+
 def tick(env: dict[str, str], sb) -> dict[str, int]:
-    """One pass: fetch + send each queued row. Returns counts."""
-    rows = _fetch_queued(sb)
+    """One pass: fetch + send each queued row. Returns counts.
+
+    Only rows for tenants this box's mailbox may speak for are CLAIMED.
+    Another company's rows are left 'queued' for a consumer that is
+    entitled to send them, rather than leaked (the incident) or refused
+    into 'failed' here.
+
+    A row NO running consumer is entitled to — a tenant missing from
+    TENANT_BRAND, or OASIS mail while no OASIS consumer runs — stays
+    queued, but not silently: dashboard_email_queue_monitor counts queued
+    rows of EVERY tenant and alerts after 15 minutes, and
+    test_dashboard_consumer_tenant_scope pins that its query stays
+    unscoped. (Codex, PR #73.)
+    """
+    scope = _queue_scope(env)
+    if not scope:
+        mailbox = _host_mailbox(env) or "<unset>"
+        if mailbox not in _SCOPE_WARNED:
+            _SCOPE_WARNED.add(mailbox)
+            print("[dashboard_email_consumer] REFUSING TO DRAIN: host mailbox "
+                  f"{mailbox!r} belongs to no registered company, so there is no "
+                  "tenant this process may send for. Point GMAIL_USER at a "
+                  "mailbox on a domain in lib/tenant_brand.BRAND_SENDING_DOMAIN.",
+                  file=sys.stderr)
+        return {"queued_seen": 0, "sent": 0, "failed": 0, "suppressed": 0}
+    rows = _fetch_queued(sb, tenant_ids=scope)
     counts = {"queued_seen": len(rows), "sent": 0, "failed": 0, "suppressed": 0}
     for row in rows:
         status = _send_one(env, sb, row)

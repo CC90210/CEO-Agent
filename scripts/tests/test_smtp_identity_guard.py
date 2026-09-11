@@ -147,9 +147,25 @@ check("uppercase identification is still caught",
 check("malformed mailbox defers to the credential guard",
       _identity_conflict(msg("Hi." + OASIS_FOOTER), "not-an-address"), None)
 
-if failures:
-    print(f"FAIL — {len(failures)} assertion(s):\n")
-    for f in failures:
-        print(f"  - {f}")
-    sys.exit(1)
-print("test_smtp_identity_guard.py — all assertions passed")
+
+def test_no_failures() -> None:
+    """The pytest entry point.
+
+    Every assertion above runs at import. Without a real test function pytest
+    collects ZERO tests from this file, and a failure surfaces as SystemExit
+    during collection — an INTERNALERROR that aborts the WHOLE run and hides
+    every suite after it. One red test is the correct signal.
+    """
+    assert not failures, (
+        f"{len(failures)} assertion(s) failed:\n\n  - "
+        + "\n  - ".join(failures)
+    )
+
+
+if __name__ == "__main__":
+    if failures:
+        print(f"FAIL — {len(failures)} assertion(s):\n")
+        for _f in failures:
+            print(f"  - {_f}")
+        sys.exit(1)
+    print("test_smtp_identity_guard.py — all assertions passed")

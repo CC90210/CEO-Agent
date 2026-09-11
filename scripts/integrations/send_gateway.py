@@ -89,7 +89,6 @@ import json
 import math
 import os
 import re
-import smtplib
 import hashlib
 import sys
 import uuid
@@ -3755,11 +3754,23 @@ def send(
                         show_booking=False,
                         brand=brand,
                     )
-            except Exception:
+            except Exception as _tpl_err:
                 # Template missing or borked — keep whatever the
                 # caller passed (plaintext if None, original HTML
                 # if they supplied one).
-                pass
+                #
+                # SAY SO. This used to `pass`, which was survivable while the
+                # only failure was a missing module. It is not survivable now:
+                # email_template._brand REFUSES an unrecognised brand instead
+                # of silently rendering OASIS chrome, and a swallowed refusal
+                # would look identical to a successful plaintext send while
+                # meaning "nobody knows what company this mail is from".
+                print(
+                    f"[send_gateway] WARNING: branded render failed for brand "
+                    f"{brand!r} ({type(_tpl_err).__name__}: {_tpl_err}) — "
+                    f"falling back to the caller's body unwrapped.",
+                    file=sys.stderr,
+                )
 
         # ----------------------------------------------------------------
         # Email-open tracking pixel (Phase 19, 2026-05-17)

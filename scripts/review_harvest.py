@@ -319,6 +319,28 @@ def mark_seen(thread_ids: list[str]) -> int:
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
+def _force_utf8_stdout() -> None:
+    """Windows consoles default to cp1252, and CodeRabbit findings carry emoji.
+
+    Without this the FIRST finding containing one raises UnicodeEncodeError
+    mid-render and kills the process, so the operator sees a partial list and
+    a traceback rather than "4 findings". On 2026-09-10 that hid 3 of 4
+    findings on PR #73 — two of them HIGH, one a live cross-brand identity
+    leak — until the run was repeated with PYTHONIOENCODING=utf-8.
+
+    A review harvester that silently truncates its own output is the same
+    defect class as the bugs it is meant to surface.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 — a non-reconfigurable stream is fine
+            pass
+
+
 def _render(results: list[dict]) -> None:
     total = 0
     for r in results:
@@ -342,6 +364,7 @@ def _render(results: list[dict]) -> None:
 
 
 def main() -> None:
+    _force_utf8_stdout()
     ap = argparse.ArgumentParser(description="Harvest unresolved automated-review signal")
     ap.add_argument("--pr", help="OWNER/REPO#N")
     ap.add_argument("--repo", help="OWNER/REPO (with --open)")

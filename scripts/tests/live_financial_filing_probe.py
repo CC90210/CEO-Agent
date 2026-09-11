@@ -21,7 +21,6 @@ from __future__ import annotations
 import argparse
 import email as emod
 import imaplib
-import smtplib
 import sys
 import time
 from email.message import EmailMessage
@@ -34,6 +33,7 @@ for p in (str(SCRIPTS_DIR), str(SCRIPTS_DIR / "integrations")):
 
 from email_engine import load_env, _decode_header_value  # noqa: E402
 from lib.gmail_labels import read_labels  # noqa: E402
+from lib.smtp_send import smtp_send  # noqa: E402
 
 TAG = "OASIS-FILING-PROBE"
 
@@ -110,21 +110,24 @@ def _imap(addr, pw):
 def cmd_send(args):
     addr, pw = _creds()
     stamp = time.strftime("%H%M%S")
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=60) as s:
-        s.login(addr, pw)
-        for key, subject, body, attach, _expect in CASES:
-            m = EmailMessage()
-            # The probe tag rides in the subject so verify/cleanup can scope
-            # themselves to exactly these messages.
-            m["Subject"] = f"{subject} [{TAG}-{stamp}-{key}]"
-            m["From"] = addr
-            m["To"] = addr
-            m.set_content(body)
-            if attach:
-                m.add_attachment(_PDF, maintype="application",
-                                 subtype="pdf", filename=attach)
-            s.send_message(m)
-            print(f"  sent  {key}")
+    for key, subject, body, attach, _expect in CASES:
+        m = EmailMessage()
+        # The probe tag rides in the subject so verify/cleanup can scope
+        # themselves to exactly these messages.
+        m["Subject"] = f"{subject} [{TAG}-{stamp}-{key}]"
+        m["From"] = addr
+        m["To"] = addr
+        m.set_content(body)
+        if attach:
+            m.add_attachment(_PDF, maintype="application",
+                             subtype="pdf", filename=attach)
+        # Through the shared transport, not smtplib directly. A probe that
+        # opens its own connection is a door beside the guard, and a door
+        # nobody uses today is still a door. Costs one connection per case.
+        ok, err = smtp_send(addr, pw, m, addr, timeout=60)
+        if not ok:
+            raise SystemExit(f"probe send failed for {key}: {err}")
+        print(f"  sent  {key}")
     print(f"\nprobe id: {TAG}-{stamp}")
     print("now run the sweep, then: live_financial_filing_probe.py verify")
 
