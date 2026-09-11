@@ -425,6 +425,24 @@ for _label, _want, _body in (
         if ready:
             smtp_send(user, pw, msg)
     """),
+    # A guard that precedes the send in the SAME block dominates it, whatever
+    # encloses both: every execution of the send runs the guard first, and if
+    # the loop runs zero times or the outer if is false, neither runs.
+    # _send_one's own guards sit inside its if/else branches, so a rule that
+    # accepted only top-level guards would reject the consumer's real ones.
+    # What is rejected is a guard in a DIFFERENT block from the send.
+    ("guard and send together inside a loop body", True, """
+        for mb in mailboxes:
+            if _refuse_other_company(mailbox=user):
+                return "failed"
+            smtp_send(user, pw, msg)
+    """),
+    ("guard and send together inside an if body", True, """
+        if use_smtp:
+            if _refuse_other_company(mailbox=user):
+                return "failed"
+            smtp_send(user, pw, msg)
+    """),
     ("login guarded, From not", False, """
         if _refuse_other_company(mailbox=user):
             return "failed"
