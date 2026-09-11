@@ -114,6 +114,16 @@ class TestTheClaimIsScoped(unittest.TestCase):
         fetch.assert_not_called()
         self.assertEqual(out["queued_seen"], 0)
 
+    def test_a_blank_gmail_user_does_not_mask_gmail_address(self):
+        # Codex, PR #73: a whitespace-only GMAIL_USER is truthy, so the old
+        # `(a or b).strip()` never reached GMAIL_ADDRESS and gave "" — no
+        # scope, nothing drained, and no error anywhere.
+        env = {"GMAIL_USER": "   ", "GMAIL_ADDRESS": "  Submissions@SunBizFunding.com "}
+        with mock.patch.object(dec, "_fetch_queued", return_value=[]) as fetch:
+            dec.tick(env, object())
+        fetch.assert_called_once()
+        self.assertEqual(fetch.call_args.kwargs.get("tenant_ids"), [SUNBIZ])
+
     def test_the_scope_reaches_the_query_itself(self):
         # In the QUERY, not a post-filter — a post-filter starves the queue.
         calls: list = []
@@ -207,6 +217,57 @@ class TestSendRefusesTheOtherCompany(unittest.TestCase):
             SUNBIZ_BOX, _row(SUNBIZ, acted_by="user-1"), identity=ident)
         self.assertEqual(result, "sent")
         api_mock.assert_called_once()
+
+    def test_the_send_authenticates_as_the_mailbox_the_claim_was_scoped_by(self):
+        # Scope and send must read the same mailbox, or the box claims rows as
+        # one company and logs in as another.
+        env = {"GMAIL_USER": "   ", "GMAIL_ADDRESS": " Submissions@SunBizFunding.com ",
+               "GMAIL_APP_PASSWORD": "app-pw"}
+        result, _marks, _events, smtp_mock, _api = self._run(env, _row(SUNBIZ))
+        self.assertEqual(result, "sent")
+        smtp_mock.assert_called_once()
+        self.assertIn("submissions@sunbizfunding.com", repr(smtp_mock.call_args).lower())
+
+
+class TestAStrandedRowIsStillSeen(unittest.TestCase):
+    """The claim is scoped, so a row no running consumer is entitled to — a
+    tenant missing from TENANT_BRAND, or OASIS mail while no OASIS consumer
+    runs — stays queued. That is safe only while something still SEES it:
+    dashboard_email_queue_monitor counts queued rows of every tenant and
+    alerts after 15 minutes. Scope that query too and a stranded row becomes
+    invisible. (Codex, PR #73.)"""
+
+    def test_the_queue_monitor_counts_queued_rows_of_every_tenant(self):
+        import dashboard_email_queue_monitor as monitor
+
+        calls: list = []
+        old = "2000-01-01T00:00:00+00:00"
+        rows = [{"id": f"r{i}", "created_at": old, "tenant_id": t,
+                 "metadata": {"status": "queued"}}
+                for i, t in enumerate([SUNBIZ, OASIS_CC, "tenant-in-no-company"])]
+
+        class Query:
+            def __getattr__(self, name):
+                def step(*args, **_kwargs):
+                    calls.append((name, args[0] if args else None))
+                    return self
+                return step
+
+            def execute(self):
+                return type("Result", (), {"data": rows})()
+
+        class Client:
+            def table(self, _name):
+                return Query()
+
+        fake = type(sys)("supabase")
+        fake.create_client = lambda *_a, **_k: Client()
+        with mock.patch.dict(sys.modules, {"supabase": fake}):
+            count, _oldest = monitor._stale_queued(
+                {"BRAVO_SUPABASE_URL": "u", "BRAVO_SUPABASE_SERVICE_ROLE_KEY": "k"})
+        self.assertEqual(count, 3, "a queued row of some tenant went uncounted")
+        self.assertNotIn("tenant_id", [col for _op, col in calls],
+                         "the monitor's stale query is now tenant-scoped")
 
 
 if __name__ == "__main__":

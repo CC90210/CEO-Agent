@@ -593,6 +593,23 @@ def _refuse_other_company(sb, row: dict, *, brand: str, mailbox: str, via: str) 
     return True
 
 
+def _host_mailbox(env: dict[str, str]) -> str:
+    """The mailbox this process authenticates SMTP as — and so the one whose
+    company decides which rows the queue may claim. Scope and send both read
+    it through this function, so they cannot disagree.
+
+    Each candidate is stripped BEFORE precedence. `(a or b).strip()` let a
+    whitespace-only GMAIL_USER, which is truthy, mask a real GMAIL_ADDRESS and
+    strip to "": the claim scope came out empty and the box drained nothing,
+    with no error anywhere. (Codex, PR #73.)
+    """
+    for key in ("GMAIL_USER", "GMAIL_ADDRESS"):
+        value = (env.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
 def _send_one(env: dict[str, str], sb, row: dict) -> str:
     """Send one queued email. Returns 'sent' | 'failed' | 'suppressed'.
 
@@ -726,7 +743,7 @@ def _send_one(env: dict[str, str], sb, row: dict) -> str:
         sent_via = "gmail_api"
         sent_as = gmail_from
     else:
-        gmail_user = (env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS") or "").strip()
+        gmail_user = _host_mailbox(env)
         gmail_pass = (env.get("GMAIL_APP_PASSWORD") or "").strip()
         gmail_from = (env.get("GMAIL_FROM_ADDRESS") or gmail_user or "").strip()
         if not gmail_user or not gmail_pass:
@@ -802,8 +819,7 @@ def _queue_scope(env: dict[str, str]) -> list[str]:
     """The tenants this process may drain: those whose COMPANY its host
     mailbox belongs to. Derived from the static map — no DB lookup, so a
     blip cannot widen it."""
-    mailbox = (env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS") or "").strip()
-    return _tenants_for_mailbox(mailbox)
+    return _tenants_for_mailbox(_host_mailbox(env))
 
 
 def tick(env: dict[str, str], sb) -> dict[str, int]:
@@ -813,10 +829,17 @@ def tick(env: dict[str, str], sb) -> dict[str, int]:
     Another company's rows are left 'queued' for a consumer that is
     entitled to send them, rather than leaked (the incident) or refused
     into 'failed' here.
+
+    A row NO running consumer is entitled to — a tenant missing from
+    TENANT_BRAND, or OASIS mail while no OASIS consumer runs — stays
+    queued, but not silently: dashboard_email_queue_monitor counts queued
+    rows of EVERY tenant and alerts after 15 minutes, and
+    test_dashboard_consumer_tenant_scope pins that its query stays
+    unscoped. (Codex, PR #73.)
     """
     scope = _queue_scope(env)
     if not scope:
-        mailbox = env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS") or "<unset>"
+        mailbox = _host_mailbox(env) or "<unset>"
         if mailbox not in _SCOPE_WARNED:
             _SCOPE_WARNED.add(mailbox)
             print("[dashboard_email_consumer] REFUSING TO DRAIN: host mailbox "

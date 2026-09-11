@@ -244,12 +244,61 @@ for rel, needle in (("scripts/integrations/send_gateway.py",
 # From and the token come from one bundle. That is necessary, not sufficient: a
 # rep's bundle can sit on the OTHER company's domain. It is safe because the send
 # is refused first when the mailbox belongs to the other company. (Codex +
-# CodeRabbit, PR #73.) Keep that refusal visible, or the reason above is prose.
-if "_refuse_other_company(" not in (_REPO / "scripts/dashboard_email_consumer.py").read_text(encoding="utf-8"):
-    failures.append(
-        "scripts/dashboard_email_consumer.py no longer refuses a mailbox that belongs "
-        "to the other company before sending — its GMAIL_API_SENDERS entry is then "
-        "an unchecked claim")
+# CodeRabbit, PR #73.)
+#
+# Checked on the syntax tree of _send_one(), not the file's text. The first
+# version searched for "_refuse_other_company(", which the helper's own `def`
+# line satisfies, so deleting every call left it green. (CodeRabbit, PR #73.)
+# Now each transport call must have, earlier in its OWN branch or an enclosing
+# one, an `if _refuse_other_company(...):` whose body returns. A refusal in the
+# other branch does not count, and neither does a call whose verdict is ignored.
+def _is_refusal_gate(stmt: ast.AST) -> bool:
+    for node in ast.walk(stmt):
+        if (isinstance(node, ast.If)
+                and any(isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+                        and c.func.id == "_refuse_other_company"
+                        for c in ast.walk(node.test))
+                and any(isinstance(s, ast.Return) for s in node.body)):
+            return True
+    return False
+
+
+def _gated(fn: ast.FunctionDef, call: ast.Call) -> bool:
+    parents = {child: parent for parent in ast.walk(fn)
+               for child in ast.iter_child_nodes(parent)}
+    node = call
+    while node is not fn:
+        parent = parents[node]
+        for field in ("body", "orelse", "finalbody"):
+            seq = getattr(parent, field, None)
+            if isinstance(seq, list) and node in seq:
+                if any(_is_refusal_gate(s) for s in seq[:seq.index(node)]):
+                    return True
+        node = parent
+    return False
+
+
+_dec_rel = "scripts/dashboard_email_consumer.py"
+_dec_tree = ast.parse((_REPO / _dec_rel).read_text(encoding="utf-8"))
+_send_one_fn = next((n for n in _dec_tree.body
+                     if isinstance(n, ast.FunctionDef) and n.name == "_send_one"), None)
+if _send_one_fn is None:
+    failures.append(f"{_dec_rel} no longer defines _send_one() — re-check which "
+                    "function drains the dashboard queue before trusting this test")
+else:
+    for _transport in ("_send_via_gmail_api", "smtp_send"):
+        _sends = [n for n in ast.walk(_send_one_fn)
+                  if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                  and n.func.id == _transport]
+        if not _sends:
+            failures.append(f"{_dec_rel}: _send_one() no longer calls {_transport}() — "
+                            "this check would then pass while guarding nothing")
+        for _call in _sends:
+            if not _gated(_send_one_fn, _call):
+                failures.append(
+                    f"{_dec_rel}:{_call.lineno}: _send_one() calls {_transport}() with no "
+                    "`if _refuse_other_company(...): return` before it in its branch — a "
+                    "mailbox on the other company's domain can send that company's mail")
 
 # The allowlist must describe reality, or it is the same broken promise one
 # level up: a file listed here that no longer exists would let a real
