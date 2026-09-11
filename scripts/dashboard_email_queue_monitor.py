@@ -16,9 +16,16 @@ failure can't hide behind an empty queue the way the original bug did:
   2. BACKPRESSURE — no dashboard email row sits status='queued' older than
                   STALE_MINUTES. (Catches "daemon up but wedged / not draining".)
 
-Either signal tripping fires ONE Telegram alert to the operator (EZRA channel),
-then goes quiet for ALERT_COOLDOWN_S so a persistent fault can't spam. When both
-signals return healthy after an alert, it sends a single "recovered" note.
+Either signal tripping fires ONE Telegram alert to this company's own operators
+(see _ALERT_CHANNEL_KEYS), then goes quiet for ALERT_COOLDOWN_S so a persistent
+fault can't spam. When both signals return healthy after an alert, it sends a
+single "recovered" note.
+
+ONE COMPANY PER BOX. A box serves the company its host mailbox belongs to
+(lib/tenant_brand.host_mailbox), exactly as its consumer does. The monitor
+counts only that company's queued rows, names that company in its alerts, and
+alerts only that company's channel. It never reads, counts or reports another
+company's queue. (CC, 2026-09-11.)
 
 It deliberately does NOT send email, mutate lead rows, or touch the queue — it
 only observes and alerts. Held rows (status='held') are ignored by design.
@@ -44,6 +51,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
+
+from lib.tenant_brand import (
+    COMPANY_DISPLAY_NAME,
+    company_for_mailbox,
+    host_mailbox,
+    tenants_for_mailbox,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATE_PATH = PROJECT_ROOT / "state" / "dashboard_email_queue_monitor.json"
@@ -94,14 +108,26 @@ def _load_env() -> dict[str, str]:
     return env
 
 
-def _telegram(env: dict[str, str], text: str) -> bool:
-    """Send via the EZRA channel — the one that actually delivers on this box.
-    (scripts/notify.py reads TELEGRAM_BOT_TOKEN/TELEGRAM_ALLOWED_USERS which are
-    absent here, so it is a silent no-op — do not route alerts through it.)"""
-    tok = (env.get("EZRA_TELEGRAM_BOT_TOKEN") or "").strip()
-    chat = (env.get("EZRA_TELEGRAM_CHAT_ID") or "").strip()
+# Each company's monitor alerts ONLY that company's own operators. EZRA is
+# SunBiz's operations channel: an OASIS box must never use it, even where the
+# keys happen to be present. A company with no entry here cannot alert, and
+# says so, rather than borrowing another company's channel.
+_ALERT_CHANNEL_KEYS: dict[str, tuple[str, str]] = {
+    "sunbiz": ("EZRA_TELEGRAM_BOT_TOKEN", "EZRA_TELEGRAM_CHAT_ID"),
+}
+
+
+def _telegram(env: dict[str, str], company: str | None, text: str) -> bool:
+    """Send to this company's own alert channel (see _ALERT_CHANNEL_KEYS)."""
+    keys = _ALERT_CHANNEL_KEYS.get(company or "")
+    if not keys:
+        print(f"[queue_monitor] no alert channel is configured for company {company!r} "
+              "— cannot alert", file=sys.stderr)
+        return False
+    tok = (env.get(keys[0]) or "").strip()
+    chat = (env.get(keys[1]) or "").strip()
     if not tok or not chat:
-        print("[queue_monitor] EZRA_TELEGRAM_* missing — cannot alert", file=sys.stderr)
+        print(f"[queue_monitor] {keys[0]} / {keys[1]} missing — cannot alert", file=sys.stderr)
         return False
     try:
         r = requests.post(
@@ -217,9 +243,11 @@ def _consumer_online() -> bool | None:
     return False  # fleet readable but process absent ⇒ definitively down
 
 
-def _stale_queued(env: dict[str, str]) -> tuple[int, str | None]:
-    """Count dashboard emails stuck 'queued' older than STALE_MINUTES.
-    Returns (count, oldest_created_at). count == -1 ⇒ DB unreadable (unknown)."""
+def _stale_queued(env: dict[str, str], tenant_ids: list[str]) -> tuple[int, str | None]:
+    """Count THIS company's dashboard emails stuck 'queued' older than
+    STALE_MINUTES. Returns (count, oldest_created_at); count == -1 means the
+    queue could not be read. The tenant filter is in the query itself, so
+    this box never reads another company's rows."""
     url = (env.get("BRAVO_SUPABASE_URL") or env.get("SUPABASE_URL") or "").strip()
     key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
            or env.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
@@ -235,6 +263,7 @@ def _stale_queued(env: dict[str, str]) -> tuple[int, str | None]:
             .eq("channel", "email").eq("direction", "outbound")
             .in_("agent_source", ["dashboard_drawer", "dashboard_bulk_email"])
             .eq("type", "email_queued")
+            .in_("tenant_id", list(tenant_ids))
             .lt("created_at", cutoff)
             .order("created_at", desc=False)
             .limit(500)
@@ -265,11 +294,22 @@ def _write_state(state: dict) -> None:
 
 
 def check(env: dict[str, str]) -> dict:
+    mailbox = host_mailbox(env)
+    company = company_for_mailbox(mailbox)
+    scope = tenants_for_mailbox(mailbox)
+    label = COMPANY_DISPLAY_NAME.get(company or "", "This box")
     online = _consumer_online()
-    stale_count, oldest = _stale_queued(env)
 
     state = _read_state()
     problems: list[str] = []
+    if scope:
+        stale_count, oldest = _stale_queued(env, scope)
+    else:
+        # The consumer on a box like this refuses to drain anything. Say so
+        # rather than watch nothing in silence.
+        stale_count, oldest = 0, None
+        problems.append("this box's mailbox belongs to no registered company, so no "
+                        "dashboard email queue is being sent or watched here")
     if online is False:
         problems.append(f"consumer pm2 process '{CONSUMER_PROC}' is DOWN")
     if stale_count > 0:
@@ -293,7 +333,8 @@ def check(env: dict[str, str]) -> dict:
     now = datetime.now(timezone.utc)
     was_alerting = bool(state.get("alerting"))
     last_alert = state.get("last_alert_ts")
-    result = {"online": online, "stale_count": stale_count, "problems": problems}
+    result = {"company": company, "online": online, "stale_count": stale_count,
+              "problems": problems}
 
     if problems:
         cooled = True
@@ -304,7 +345,7 @@ def check(env: dict[str, str]) -> dict:
                 cooled = True
         delivered = False
         if not was_alerting or cooled:
-            delivered = _telegram(env, "⚠️ SunBiz outbound stalled:\n• " + "\n• ".join(problems))
+            delivered = _telegram(env, company, f"⚠️ {label} outbound stalled:\n• " + "\n• ".join(problems))
             # Only a DELIVERED alert starts the cooldown. Recording the attempt
             # let a Telegram timeout, a refusal or a missing credential suppress
             # the only notice of a stalled queue for an hour; now the next check
@@ -315,7 +356,7 @@ def check(env: dict[str, str]) -> dict:
         result["alerted"] = delivered
     else:
         if was_alerting:
-            _telegram(env, "✅ SunBiz outbound recovered — dashboard email queue draining normally.")
+            _telegram(env, company, f"✅ {label} outbound recovered — dashboard email queue draining normally.")
         state["alerting"] = False
         state.pop("last_alert_ts", None)
         result["alerted"] = False

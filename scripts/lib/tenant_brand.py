@@ -54,7 +54,7 @@ send_gateway.BRAND_IDENTITY and email_template.BRAND_CONFIG. The parity test
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Mapping, Optional
 
 # NO LOCAL LIST OF BRAND NAMES LIVES HERE, deliberately.
 #
@@ -262,6 +262,32 @@ def tenants_for_mailbox(mailbox: Optional[str]) -> list[str]:
         return []
     return sorted(tid for tid, b in TENANT_BRAND.items()
                   if BRAND_COMPANY.get(b) == company)
+
+
+# How each company is named in its own operators' alerts.
+COMPANY_DISPLAY_NAME: dict[str, str] = {"oasis": "OASIS AI", "sunbiz": "SunBiz"}
+
+
+def host_mailbox(env: Mapping[str, str]) -> str:
+    """The mailbox a box authenticates as, which decides the company it serves.
+
+    The dashboard consumer (what its queue may claim) and the queue monitor
+    (what it watches) both read it here, so they cannot disagree about which
+    company this box works for. Each candidate is stripped BEFORE precedence:
+    a whitespace-only GMAIL_USER, which is truthy, must not mask a real
+    GMAIL_ADDRESS. (Codex, PR #73.)
+    """
+    for key in ("GMAIL_USER", "GMAIL_ADDRESS"):
+        value = (env.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def company_for_mailbox(mailbox: Optional[str]) -> Optional[str]:
+    """The company ('oasis' or 'sunbiz') a mailbox belongs to, or None."""
+    brand = brand_for_mailbox(mailbox)
+    return BRAND_COMPANY.get(brand) if brand else None
 
 
 def resolve_tenant_for_mailbox(address: Optional[str]) -> Optional[str]:

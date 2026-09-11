@@ -233,46 +233,99 @@ class TestSendRefusesTheOtherCompany(unittest.TestCase):
         self.assertEqual(smtp_mock.call_args.args[0], "Submissions@SunBizFunding.com")
 
 
-class TestAStrandedRowIsStillSeen(unittest.TestCase):
-    """The claim is scoped, so a row no running consumer is entitled to — a
-    tenant missing from TENANT_BRAND, or OASIS mail while no OASIS consumer
-    runs — stays queued. That is safe only while something still SEES it:
-    dashboard_email_queue_monitor counts queued rows of every tenant and
-    alerts after 15 minutes. Scope that query too and a stranded row becomes
-    invisible. (Codex, PR #73.)"""
+class TestEachCompanyWatchesOnlyItsOwnQueue(unittest.TestCase):
+    """A box serves ONE company: the one its host mailbox belongs to. Its
+    consumer claims only that company's rows, and its queue monitor watches
+    only that company's rows, names that company and alerts only that
+    company's channel. It never reads, counts or reports another company's
+    queue. (CC, 2026-09-11: an earlier version of this monitor counted every
+    tenant's rows, so a stuck OASIS email would have alerted SunBiz's channel.)"""
 
-    def test_the_queue_monitor_counts_queued_rows_of_every_tenant(self):
+    def _stale_query(self, env):
         import dashboard_email_queue_monitor as monitor
 
         calls: list = []
-        old = "2000-01-01T00:00:00+00:00"
-        rows = [{"id": f"r{i}", "created_at": old, "tenant_id": t,
-                 "metadata": {"status": "queued"}}
-                for i, t in enumerate([SUNBIZ, OASIS_CC, "tenant-in-no-company"])]
 
         class Query:
             def __getattr__(self, name):
                 def step(*args, **_kwargs):
-                    calls.append((name, args[0] if args else None))
+                    calls.append((name, args))
                     return self
                 return step
 
             def execute(self):
-                return type("Result", (), {"data": rows})()
-
-        class Client:
-            def table(self, _name):
-                return Query()
+                return type("Result", (), {"data": []})()
 
         fake = type(sys)("supabase")
-        fake.create_client = lambda *_a, **_k: Client()
-        with mock.patch.dict(sys.modules, {"supabase": fake}):
-            count, _oldest = monitor._stale_queued(
-                {"BRAVO_SUPABASE_URL": str(mock.sentinel.db_url),
-                 "BRAVO_SUPABASE_SERVICE_ROLE_KEY": str(mock.sentinel.service_role_key)})
-        self.assertEqual(count, 3, "a queued row of some tenant went uncounted")
-        self.assertNotIn("tenant_id", [col for _op, col in calls],
-                         "the monitor's stale query is now tenant-scoped")
+        fake.create_client = lambda *_a, **_k: type("Client", (), {"table": lambda _s, _n: Query()})()
+        store: dict = {}
+        with mock.patch.dict(sys.modules, {"supabase": fake}), \
+             mock.patch.object(monitor, "_consumer_online", return_value=True), \
+             mock.patch.object(monitor, "_read_state", side_effect=lambda: dict(store)), \
+             mock.patch.object(monitor, "_write_state", side_effect=store.update), \
+             mock.patch.object(monitor, "_telegram", return_value=True):
+            result = monitor.check(dict(env, BRAVO_SUPABASE_URL=str(mock.sentinel.db_url),
+                                        BRAVO_SUPABASE_SERVICE_ROLE_KEY=str(mock.sentinel.service_role_key)))
+        scopes = [args[1] for name, args in calls if name == "in_" and args and args[0] == "tenant_id"]
+        return result, scopes
+
+    def test_the_sunbiz_box_watches_only_sunbiz_rows(self):
+        result, scopes = self._stale_query(SUNBIZ_BOX)
+        self.assertEqual(scopes, [[SUNBIZ]], "the SunBiz monitor's query was not scoped to SunBiz")
+        self.assertEqual(result["company"], "sunbiz")
+
+    def test_an_oasis_box_watches_only_oasis_rows(self):
+        result, scopes = self._stale_query({"GMAIL_USER": "conaugh@oasisai.work"})
+        self.assertEqual(scopes, [sorted([OASIS_CC, OASIS_WEBDEV])],
+                         "the OASIS monitor's query was not scoped to OASIS")
+        self.assertEqual(result["company"], "oasis")
+
+    def test_a_box_whose_mailbox_belongs_to_no_company_watches_nothing_and_says_so(self):
+        result, scopes = self._stale_query({"GMAIL_USER": "someone@unknown.example"})
+        self.assertEqual(scopes, [], "a box of no company queried the queue")
+        self.assertTrue(any("no registered company" in p for p in result["problems"]))
+
+    def test_each_company_alerts_only_its_own_channel_and_names_itself(self):
+        import dashboard_email_queue_monitor as monitor
+
+        env: dict = {}
+        for company, (tok_key, chat_key) in monitor._ALERT_CHANNEL_KEYS.items():
+            env[tok_key] = f"token-{company}"
+            env[chat_key] = f"chat-{company}"
+        for company, mailbox in (("sunbiz", "submissions@sunbizfunding.com"),
+                                 ("oasis", "conaugh@oasisai.work")):
+            if company not in monitor._ALERT_CHANNEL_KEYS:
+                continue
+            posts: list = []
+
+            def fake_post(url, json=None, timeout=None):  # noqa: A002
+                posts.append((url, json))
+                return type("R", (), {"json": lambda _s: {"ok": True}, "text": "ok"})()
+
+            store: dict = {}
+            with self.subTest(company=company), \
+                 mock.patch.object(monitor.requests, "post", side_effect=fake_post), \
+                 mock.patch.object(monitor, "_consumer_online", return_value=True), \
+                 mock.patch.object(monitor, "_stale_queued", return_value=(2, "2026-09-11T00:00:00+00:00")), \
+                 mock.patch.object(monitor, "_read_state", side_effect=lambda: dict(store)), \
+                 mock.patch.object(monitor, "_write_state", side_effect=store.update):
+                monitor.check(dict(env, GMAIL_USER=mailbox))
+                self.assertEqual(len(posts), 1)
+                url, body = posts[0]
+                self.assertIn(f"token-{company}", url, f"the {company} monitor used another company's bot")
+                self.assertEqual(body["chat_id"], f"chat-{company}")
+                for other in (c for c in monitor._ALERT_CHANNEL_KEYS if c != company):
+                    self.assertNotIn(f"token-{other}", url)
+                label = monitor.COMPANY_DISPLAY_NAME[company]
+                self.assertTrue(body["text"].startswith(f"⚠️ {label} outbound stalled"),
+                                f"the {company} alert does not name its own company: {body['text'][:60]!r}")
+
+    def test_oasis_never_alerts_through_the_sunbiz_channel(self):
+        import dashboard_email_queue_monitor as monitor
+
+        for key in monitor._ALERT_CHANNEL_KEYS.get("oasis", ()):
+            self.assertNotIn("EZRA", key.upper(), "OASIS alerts must never use SunBiz's EZRA channel")
+        self.assertNotEqual(monitor._ALERT_CHANNEL_KEYS.get("oasis"), monitor._ALERT_CHANNEL_KEYS["sunbiz"])
 
     def test_a_failed_alert_is_retried_not_put_on_cooldown(self):
         # Codex, PR #73: check() recorded last_alert_ts even when Telegram
@@ -285,7 +338,7 @@ class TestAStrandedRowIsStillSeen(unittest.TestCase):
         sent: list = []
         outcomes = iter([False, True])
 
-        def fake_telegram(_env, _text):
+        def fake_telegram(_env, _company, _text):
             ok = next(outcomes)
             sent.append(ok)
             return ok
@@ -300,10 +353,10 @@ class TestAStrandedRowIsStillSeen(unittest.TestCase):
              mock.patch.object(monitor, "_read_state", side_effect=lambda: dict(store)), \
              mock.patch.object(monitor, "_write_state", side_effect=write_state), \
              mock.patch.object(monitor, "_telegram", side_effect=fake_telegram):
-            first = monitor.check({})
+            first = monitor.check(SUNBIZ_BOX)
             self.assertFalse(first["alerted"], "an undelivered alert was reported as sent")
             self.assertNotIn("last_alert_ts", store, "a failed alert started the cooldown")
-            second = monitor.check({})
+            second = monitor.check(SUNBIZ_BOX)
         self.assertEqual(sent, [False, True], "the failed alert was not retried on the next check")
         self.assertTrue(second["alerted"])
         self.assertIn("last_alert_ts", store, "a delivered alert must start the cooldown")
@@ -339,7 +392,7 @@ class TestAStrandedRowIsStillSeen(unittest.TestCase):
         with mock.patch.object(monitor, "PROJECT_ROOT", Path(__file__).parent / "_no_such_root_"), \
              mock.patch.dict(os.environ, {}, clear=True), \
              mock.patch.dict(sys.modules, {"lib.secret_loader": loader, "supabase": db}):
-            count, _oldest = monitor._stale_queued(monitor._load_env())
+            count, _oldest = monitor._stale_queued(monitor._load_env(), [SUNBIZ])
         self.assertEqual(count, 1, "the monitor could not read the queue the consumer drains")
 
     def test_an_unreadable_queue_alerts_after_three_checks_not_one(self):
@@ -352,7 +405,7 @@ class TestAStrandedRowIsStillSeen(unittest.TestCase):
         sent: list = []
         reads = iter([(-1, None), (-1, None), (-1, None), (0, None), (-1, None)])
 
-        def fake_telegram(_env, text):
+        def fake_telegram(_env, _company, text):
             sent.append(text)
             return True
 
@@ -361,11 +414,11 @@ class TestAStrandedRowIsStillSeen(unittest.TestCase):
             store.update(state)
 
         with mock.patch.object(monitor, "_consumer_online", return_value=True), \
-             mock.patch.object(monitor, "_stale_queued", side_effect=lambda _env: next(reads)), \
+             mock.patch.object(monitor, "_stale_queued", side_effect=lambda _env, _scope: next(reads)), \
              mock.patch.object(monitor, "_read_state", side_effect=lambda: dict(store)), \
              mock.patch.object(monitor, "_write_state", side_effect=write_state), \
              mock.patch.object(monitor, "_telegram", side_effect=fake_telegram):
-            results = [monitor.check({}) for _ in range(5)]
+            results = [monitor.check(SUNBIZ_BOX) for _ in range(5)]
         self.assertEqual(results[0]["problems"], [], "one unreadable check paged")
         self.assertEqual(results[1]["problems"], [], "two unreadable checks paged")
         self.assertTrue(results[2]["problems"], "three unreadable checks in a row raised nothing")
