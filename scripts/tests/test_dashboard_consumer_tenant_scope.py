@@ -308,6 +308,79 @@ class TestAStrandedRowIsStillSeen(unittest.TestCase):
         self.assertTrue(second["alerted"])
         self.assertIn("last_alert_ts", store, "a delivered alert must start the cooldown")
 
+    def test_the_monitor_reads_the_database_the_consumer_reads(self):
+        # On the SunBiz VPS neither daemon holds a database key in its process
+        # env (read from /proc, 2026-09-10) and the env file holds none either:
+        # the consumer gets Turso's compatibility values from lib/secret_loader.
+        # The monitor parsed the file by hand, so _stale_queued returned -1 on
+        # every check and the stuck-row alert could not fire. This models that
+        # host: no env file, nothing in the process env, only the loader.
+        import os
+        import dashboard_email_queue_monitor as monitor
+
+        loader = type(sys)("lib.secret_loader")
+        loader.load_env = lambda: {
+            "BRAVO_SUPABASE_URL": "https://turso.compat",
+            "BRAVO_SUPABASE_SERVICE_ROLE_KEY": str(mock.sentinel.compat_key),
+        }
+        rows = [{"id": "r1", "created_at": "2000-01-01T00:00:00+00:00", "tenant_id": SUNBIZ,
+                 "metadata": {"status": "queued"}}]
+
+        class Query:
+            def __getattr__(self, _name):
+                return lambda *_a, **_k: self
+
+            def execute(self):
+                return type("Result", (), {"data": rows})()
+
+        db = type(sys)("supabase")
+        db.create_client = lambda *_a, **_k: type("Client", (), {"table": lambda _s, _n: Query()})()
+        with mock.patch.object(monitor, "PROJECT_ROOT", Path(__file__).parent / "_no_such_root_"), \
+             mock.patch.dict(os.environ, {}, clear=True), \
+             mock.patch.dict(sys.modules, {"lib.secret_loader": loader, "supabase": db}):
+            count, _oldest = monitor._stale_queued(monitor._load_env())
+        self.assertEqual(count, 1, "the monitor could not read the queue the consumer drains")
+
+    def test_an_unreadable_queue_is_a_problem_not_a_zero(self):
+        # -1 used to read as "no stuck rows". That is how the check sat blind.
+        import dashboard_email_queue_monitor as monitor
+
+        store: dict = {}
+        sent: list = []
+
+        def fake_telegram(_env, text):
+            sent.append(text)
+            return True
+
+        with mock.patch.object(monitor, "_consumer_online", return_value=True), \
+             mock.patch.object(monitor, "_stale_queued", return_value=(-1, None)), \
+             mock.patch.object(monitor, "_read_state", side_effect=lambda: dict(store)), \
+             mock.patch.object(monitor, "_write_state", side_effect=store.update), \
+             mock.patch.object(monitor, "_telegram", side_effect=fake_telegram):
+            result = monitor.check({})
+        self.assertTrue(result["problems"], "an unreadable queue raised no problem")
+        self.assertTrue(sent, "an unreadable queue sent no alert")
+
+    def test_on_linux_the_monitor_can_see_the_consumer(self):
+        # fleet_watchdog reads the process table through WMI only; on the Linux
+        # VPS it saw nothing, so the monitor could never report the consumer down.
+        import tempfile
+        import dashboard_email_queue_monitor as monitor
+
+        with tempfile.TemporaryDirectory() as root:
+            proc = Path(root)
+            for pid, argv in (("101", b"/srv/.venv/bin/python\0/srv/sunbiz/ceo-agent/scripts/"
+                                      b"dashboard_email_consumer.py\0loop\0"),
+                              ("102", b"/srv/.venv/bin/python\0scripts/dashboard_email_queue_monitor.py\0")):
+                (proc / pid).mkdir()
+                (proc / pid / "cmdline").write_bytes(argv)
+            (proc / "self").mkdir()
+            with mock.patch.object(monitor, "_IS_WINDOWS", False), \
+                 mock.patch.object(monitor, "_PROC_ROOT", proc):
+                self.assertIs(monitor._consumer_online(), True, "a running consumer read as down")
+                (proc / "101" / "cmdline").write_bytes(b"/usr/bin/sleep\0100\0")
+                self.assertIs(monitor._consumer_online(), False, "a stopped consumer read as running")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

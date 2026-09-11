@@ -54,15 +54,30 @@ ALERT_COOLDOWN_S = 3600     # min seconds between repeat alerts for a live fault
 
 
 def _load_env() -> dict[str, str]:
+    """Load env the way the consumer does: through lib/secret_loader.
+
+    This used to parse the env file by hand. Since the Turso migration
+    (2026-08-09) secret_loader is also where the compatibility values
+    create_client() needs come from, so on the SunBiz VPS the hand parse saw
+    no database URL and _stale_queued() returned -1 ("unknown") on every
+    check: the stuck-row alert could not fire. The consumer and its monitor
+    must read the same database. (PR #73.) The direct parse stays as a
+    fallback and fills only what the loader did not supply.
+    """
     env: dict[str, str] = {}
+    try:
+        from lib.secret_loader import load_env as _secret_env  # type: ignore
+        env.update(_secret_env())
+    except Exception as exc:  # noqa: BLE001
+        print(f"[queue_monitor] secret_loader failed, parsing the env file directly: {exc}",
+              file=sys.stderr)
     p = PROJECT_ROOT / ".env.agents"
     if p.exists():
         for line in p.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, _, v = line.partition("=")
-                env[k.strip()] = v.strip()
-    # env vars win over the file so a pm2 override or shell export is honored
+                env.setdefault(k.strip(), v.strip())
     for k, v in os.environ.items():
         env.setdefault(k, v)
     return env
@@ -92,6 +107,32 @@ def _telegram(env: dict[str, str], text: str) -> bool:
         return False
 
 
+_IS_WINDOWS = os.name == "nt"
+_PROC_ROOT = Path("/proc")
+_CONSUMER_SCRIPT = "dashboard_email_consumer.py"
+
+
+def _consumer_running_from_proc() -> bool | None:
+    """Linux: is any process running the consumer script? Read from /proc,
+    matching on the script name as fleet_watchdog does on Windows, with no pm2
+    call. None if /proc is unreadable: the same "unknown" the Windows path gives."""
+    if not _PROC_ROOT.is_dir():
+        return None
+    try:
+        entries = [e for e in _PROC_ROOT.iterdir() if e.name.isdigit()]
+    except OSError as exc:
+        print(f"[queue_monitor] /proc unreadable: {exc}", file=sys.stderr)
+        return None
+    for entry in entries:
+        try:
+            argv = (entry / "cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue  # exited between the listing and the read
+        if any(arg.endswith(_CONSUMER_SCRIPT.encode()) for arg in argv):
+            return True
+    return False
+
+
 def _consumer_online() -> bool | None:
     """True/False if the consumer daemon is running; None if unknown (we do NOT
     alert on unknown, to avoid false alarms on a probe hiccup).
@@ -105,7 +146,13 @@ def _consumer_online() -> bool | None:
     Supervision moved to scripts/ops/fleet_watchdog.py (e7d0a50f); its status()
     reads the OS process table and matches on the script name rather than the
     interpreter, which is the same question this needs answered.
+
+    fleet_watchdog reads that table through WMI only, so on Linux it sees
+    nothing and this returned None: the SunBiz VPS monitor could never report
+    the consumer down. There the table is /proc, read directly. (PR #73.)
     """
+    if not _IS_WINDOWS:
+        return _consumer_running_from_proc()
     try:
         _ops = Path(__file__).resolve().parent / "ops"
         if str(_ops.parent) not in sys.path:
@@ -184,6 +231,14 @@ def check(env: dict[str, str]) -> dict:
         problems.append(
             f"{stale_count} dashboard email(s) stuck queued >{STALE_MINUTES}m "
             f"(oldest {oldest}) — daemon not draining"
+        )
+    if stale_count < 0:
+        # -1 means the queue could not be read. It used to count as "no stuck
+        # rows", which is how this check sat blind on the VPS for a month
+        # without a word. An unreadable queue is a problem, not a zero. (PR #73.)
+        problems.append(
+            "cannot read the dashboard email queue, so the stuck-row check is "
+            "blind — check this monitor's database access"
         )
 
     now = datetime.now(timezone.utc)
