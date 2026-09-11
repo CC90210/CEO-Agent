@@ -722,3 +722,152 @@ def test_a_healthy_daemon_start_carries_no_crash_loop_note(tmp_path, monkeypatch
     _, msg = fw.start({"name": "probe", "interp": "python.exe", "script": "s.py",
                        "args": [], "cwd": str(tmp_path), "unrunnable": ""})
     assert "CRASH LOOP" not in msg
+
+
+# ---------------------------------------- apps the frozen dump never saw ---
+# Added 2026-09-11. Names came from dump.pm2 alone, and nothing has rewritten
+# it since PM2 was retired on 2026-08-27. So OASIS's dashboard email sender and
+# its monitor, declared in ecosystem.config.js after that, would never have been
+# started, and the monitor would have read its own consumer as DOWN forever.
+
+CONSUMER = {"name": "dashboard-email-consumer",
+            "script": "scripts/dashboard_email_consumer.py",
+            "args": ["loop", "--interval", "10"], "interp": "pythonw.exe",
+            "cwd": str(REPO_ROOT),
+            "env": {"PYTHONIOENCODING": "utf-8", "PYTHONUNBUFFERED": "1",
+                    "SSLKEYLOGFILE": ""}}
+ROUTER_DUMP = {"name": "event-router", "script": "scripts/core/event_router.py",
+               "args": ["loop", "--interval", "3"],
+               "exec_interpreter": "pythonw.exe", "cwd": str(REPO_ROOT)}
+ROUTER_ECO = {"name": "event-router", "script": "scripts/core/event_router.py",
+              "args": ["loop", "--interval", "3"], "interp": "pythonw.exe",
+              "cwd": str(REPO_ROOT), "env": {"PYTHONIOENCODING": "utf-8"}}
+
+
+def _sources(monkeypatch, tmp_path, dump_apps, eco_apps, siblings=()):
+    dump = tmp_path / "dump.pm2"
+    dump.write_text(json.dumps(dump_apps), encoding="utf-8")
+    monkeypatch.setattr(fw, "DUMP", dump)
+    monkeypatch.setattr(fw, "_ecosystem_apps", lambda *a, **k: eco_apps)
+    monkeypatch.setattr(fw, "_sibling_manifest", lambda: list(siblings))
+
+
+def test_an_app_only_the_committed_config_declares_is_supervised(monkeypatch, tmp_path):
+    _sources(monkeypatch, tmp_path, [ROUTER_DUMP],
+             {"event-router": ROUTER_ECO, "dashboard-email-consumer": CONSUMER})
+    rows = fw.manifest()
+    names = [r["name"] for r in rows]
+    assert names == ["event-router", "dashboard-email-consumer"], (
+        "an app in both sources is listed once; one only the config declares "
+        "is added")
+    adopted = rows[1]
+    assert adopted["script"] == "scripts/dashboard_email_consumer.py"
+    assert adopted["args"] == ["loop", "--interval", "10"]
+    assert adopted["interp"] == "pythonw.exe"
+    assert adopted["cwd"] == str(REPO_ROOT)
+    assert adopted["unrunnable"] == ""
+    ok, detail = fw.start(adopted, dry=True)
+    assert ok and detail.endswith("scripts/dashboard_email_consumer.py loop --interval 10")
+    # And status() can see it: the ident matches the command line start() builds.
+    assert fw._row_runs(
+        r"c:\users\user\business-empire-agent\.venv\scripts\pythonw.exe "
+        r"scripts/dashboard_email_consumer.py loop --interval 10",
+        fw._identity(adopted))
+
+
+def test_a_worktree_copy_does_not_adopt_the_canonical_checkouts_apps(monkeypatch, tmp_path):
+    """Same repo filter as the dump. The committed config pins cwd to the
+    canonical checkout, so without it an `up` run from a worktree would start
+    that checkout's daemons."""
+    elsewhere = dict(CONSUMER, cwd=str(tmp_path / "another-checkout"))
+    _sources(monkeypatch, tmp_path, [], {"dashboard-email-consumer": elsewhere})
+    assert fw.manifest() == []
+
+
+def test_a_committed_app_without_a_target_is_flagged_not_launched(monkeypatch, tmp_path):
+    ghost = {"name": "ghost", "script": None, "args": ["loop"],
+             "interp": "pythonw.exe", "cwd": str(REPO_ROOT)}
+    _sources(monkeypatch, tmp_path, [], {"ghost": ghost})
+    [row] = fw.manifest()
+    assert row["unrunnable"], "must be flagged, not silently dropped"
+    ok, _ = fw.start(row, dry=True)
+    assert ok is False
+
+
+def test_a_sibling_never_overrides_an_adopted_app(monkeypatch, tmp_path):
+    impostor = {"name": "dashboard-email-consumer",
+                "script": r"C:\elsewhere\dashboard_email_consumer.py",
+                "args": [], "interp": "", "cwd": r"C:\elsewhere", "unrunnable": ""}
+    _sources(monkeypatch, tmp_path, [], {"dashboard-email-consumer": CONSUMER},
+             siblings=[impostor])
+    [row] = fw.manifest()
+    assert row["script"] == "scripts/dashboard_email_consumer.py"
+
+
+def _capture_start(monkeypatch, tmp_path, row):
+    monkeypatch.setattr(fw, "DAEMON_LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(fw, "LOG", tmp_path / "fleet.log")
+    seen: dict = {}
+    monkeypatch.setattr(fw.subprocess, "Popen",
+                        lambda *a, **kw: seen.update(kw) or object())
+    ok, _ = fw.start(row)
+    assert ok
+    return seen
+
+
+def test_an_adopted_app_gets_its_env_block_over_the_inherited_env(monkeypatch, tmp_path):
+    """PM2 applied each app's env block; the watchdog never did."""
+    # Cleared, so a pass cannot come from the test runner's own environment.
+    monkeypatch.delenv("PYTHONIOENCODING", raising=False)
+    monkeypatch.delenv("PYTHONUNBUFFERED", raising=False)
+    monkeypatch.setenv("FLEET_TEST_INHERITED", "kept")
+    _sources(monkeypatch, tmp_path, [], {"dashboard-email-consumer": CONSUMER})
+    [row] = fw.manifest()
+    env = _capture_start(monkeypatch, tmp_path, row)["env"]
+    assert env["PYTHONIOENCODING"] == "utf-8"
+    assert env["PYTHONUNBUFFERED"] == "1"
+    # The AV guard is an EMPTY value; dropping empties would lose it.
+    assert env["SSLKEYLOGFILE"] == ""
+    assert env["FLEET_TEST_INHERITED"] == "kept", (
+        "the block must extend the inherited environment, not replace it")
+
+
+def test_the_dump_daemons_keep_the_environment_they_run_under(monkeypatch, tmp_path):
+    """Handing the dump's daemons their env blocks would change live behaviour
+    on their next restart — bravo-scheduler's block turns on the email
+    auto-reply path. Only adopted apps get theirs."""
+    scheduler_eco = {"name": "bravo-scheduler", "script": "scripts/scheduler.py",
+                     "args": None, "interp": "pythonw.exe", "cwd": str(REPO_ROOT),
+                     "env": {"EMAIL_BRAIN_AUTO_SEND": "1"}}
+    scheduler_dump = {"name": "bravo-scheduler", "script": "scripts/scheduler.py",
+                      "args": [], "exec_interpreter": "pythonw.exe",
+                      "cwd": str(REPO_ROOT)}
+    _sources(monkeypatch, tmp_path, [scheduler_dump],
+             {"bravo-scheduler": scheduler_eco})
+    [row] = fw.manifest()
+    assert _capture_start(monkeypatch, tmp_path, row)["env"] is None, (
+        "a dump daemon must inherit exactly as before")
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the OASIS pair is Windows-only")
+def test_the_windows_config_declares_oasis_own_pair():
+    """CC's order (2026-09-11): OASIS's dashboard email sender and its monitor
+    run on his Windows machine. The consumer's name is load-bearing: the
+    monitor finds it in the fleet by that name."""
+    import shutil
+    if not shutil.which("node"):
+        pytest.skip("node is not installed")
+    import dashboard_email_queue_monitor as monitor_mod
+
+    eco = fw._ecosystem_apps(REPO_ROOT / "ecosystem.config.js")
+    consumer = eco.get(monitor_mod.CONSUMER_PROC)
+    monitor = eco.get("dashboard-email-queue-monitor")
+    assert consumer and monitor, "both must be declared for Windows"
+    assert consumer["script"] == "scripts/dashboard_email_consumer.py"
+    assert consumer["args"] == ["loop", "--interval", "10"]
+    assert monitor["script"] == "scripts/dashboard_email_queue_monitor.py"
+    assert monitor["args"] == ["loop", "--interval", "300"]
+    for app in (consumer, monitor):
+        assert app["interp"].lower().endswith("pythonw.exe")
+        assert app["env"]["PYTHONIOENCODING"] == "utf-8"
+        assert app["env"]["PYTHONUNBUFFERED"] == "1"

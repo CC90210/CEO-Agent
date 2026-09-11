@@ -460,17 +460,22 @@ apps.push({
 // sends via smtplib SMTP_SSL, and updates metadata.status to 'sent' or
 // 'failed' so the drawer's timeline reflects the outcome.
 //
-// VPS (LINUX) ONLY as of 2026-06-29 (was Windows-only). Same rule as
-// extraction-consumer below: exactly ONE consumer must own the email queue, and
-// the VPS is the right home — always-on (independent of CC's laptop) and already
-// holds the shared submissions@ Gmail creds send_gateway uses for shop-out.
-// Windows-only gating meant queued lead-emails never drained whenever CC's PC was
-// off — the 2026-06-29 "Send Email doesn't work" report (21 rows stuck at
-// metadata.status='queued', recipients never delivered). The synchronous
-// auto-trigger in /api/leads/[id]/email still fires instantly for owner/admin;
-// this daemon is the safety net that drains everything else (member roles, bridge
-// hiccups). For Windows dev, run by hand:
-//   python scripts/dashboard_email_consumer.py once
+// ONE CONSUMER PER COMPANY (2026-09-11, CC's order). It was "exactly ONE
+// consumer", on the VPS only, from 2026-06-29. Each box now claims only the
+// rows of the company its host mailbox belongs to
+// (scripts/lib/tenant_brand.py tenants_for_mailbox), so the two never compete
+// for a row:
+//   SunBiz — the VPS, this IS_LINUX block. Always-on, and holds the shared
+//            submissions@ Gmail creds send_gateway uses for shop-out.
+//   OASIS  — CC's Windows machine, the IS_WIN block after this one.
+// NEVER on the Mac: it would be a second OASIS consumer, and two would
+// double-send — a row is marked sent by id after the send, so the claim is
+// not a row lock.
+// The VPS home dates from the 2026-06-29 "Send Email doesn't work" report (21
+// rows stuck at metadata.status='queued' while CC's PC was off). The
+// synchronous auto-trigger in /api/leads/[id]/email still fires instantly for
+// owner/admin; this daemon is the safety net that drains everything else
+// (member roles, bridge hiccups).
 if (IS_LINUX) {
     apps.push({
         name: "dashboard-email-consumer",
@@ -505,6 +510,62 @@ if (IS_LINUX) {
         script: "scripts/dashboard_email_queue_monitor.py",
         args: ["loop", "--interval", "300"],
         interpreter: PYTHON,
+        cwd: PROJECT_ROOT,
+        watch: false,
+        autorestart: true,
+        max_restarts: 20,
+        restart_delay: 10000,
+        windowsHide: true,
+        env: {
+            PYTHONIOENCODING: "utf-8",
+            PYTHONUNBUFFERED: "1",
+        },
+        log_date_format: "YYYY-MM-DD HH:mm:ss",
+        error_file: "tmp/pm2-dashboard-email-queue-monitor-error.log",
+        out_file: "tmp/pm2-dashboard-email-queue-monitor-out.log",
+        merge_logs: true,
+        max_size: "10M",
+    });
+}
+
+// OASIS's own dashboard email sender and its monitor — WINDOWS (CC's machine)
+// ONLY. Same scripts and flags as SunBiz's pair above; the host mailbox decides
+// the company, so here the consumer claims only OASIS's tenants and the monitor
+// counts and alerts only OASIS's (CC's own Telegram, never the EZRA channel —
+// see _ALERT_CHANNEL_KEYS in the monitor).
+// Supervised by scripts/ops/fleet_watchdog.py, not PM2: it also adopts
+// ecosystem apps the frozen ~/.pm2/dump.pm2 never recorded, and it writes their
+// output to state/logs/daemon-<name>.log (the tmp/pm2-* paths below are PM2's).
+// Keep the consumer's name exactly 'dashboard-email-consumer': the monitor and
+// the fleet lookups find it by that name.
+// KILL SWITCH: python scripts/ops/fleet_watchdog.py stop <name>  (it sticks)
+if (IS_WIN) {
+    apps.push({
+        name: "dashboard-email-consumer",
+        script: "scripts/dashboard_email_consumer.py",
+        args: ["loop", "--interval", "10"],
+        interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
+        cwd: PROJECT_ROOT,
+        watch: false,
+        autorestart: true,
+        max_restarts: 20,
+        restart_delay: 10000,
+        windowsHide: true,
+        env: {
+            PYTHONIOENCODING: "utf-8",
+            PYTHONUNBUFFERED: "1",
+        },
+        log_date_format: "YYYY-MM-DD HH:mm:ss",
+        error_file: "tmp/pm2-dashboard-email-consumer-error.log",
+        out_file: "tmp/pm2-dashboard-email-consumer-out.log",
+        merge_logs: true,
+        max_size: "10M",
+    });
+    apps.push({
+        name: "dashboard-email-queue-monitor",
+        script: "scripts/dashboard_email_queue_monitor.py",
+        args: ["loop", "--interval", "300"],
+        interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
         cwd: PROJECT_ROOT,
         watch: false,
         autorestart: true,
