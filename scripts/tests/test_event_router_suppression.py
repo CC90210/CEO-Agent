@@ -35,8 +35,12 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
 from core import event_router as er  # noqa: E402
+from lib.event_scope import box_scope  # noqa: E402
 
 TENANT = "aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110"
+# The flood is SunBiz's (TENANT), so these ticks run as SunBiz's box. Which box
+# routes which company's rows is pinned in test_event_company_scope.py.
+SUNBIZ_BOX = box_scope({"GMAIL_USER": "submissions@sunbizfunding.com"})
 
 
 @pytest.fixture(autouse=True)
@@ -46,6 +50,7 @@ def _isolate(monkeypatch, tmp_path):
     monkeypatch.setattr(er, "LOG_PATH", tmp_path / "event_router.log")
     monkeypatch.setattr(er, "CURSOR_PATH", tmp_path / "event_router.cursor")
     monkeypatch.setattr(er, "SUPPRESS_STATE_PATH", tmp_path / "event_router.suppress.json")
+    monkeypatch.setattr(er, "_host_scope", lambda: SUNBIZ_BOX)
     yield
 
 

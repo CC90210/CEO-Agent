@@ -454,6 +454,38 @@ def _load_env() -> dict[str, str]:
     return _env_cache
 
 
+# EZRA_TELEGRAM_* is SunBiz's operations channel (the pair ezra-telegram-bridge
+# and the scrubber use on SunBiz's VPS). Borrowing it when Bravo's keys are
+# missing is right on SunBiz's own box and nowhere else: on CC's machine, which
+# also holds EZRA keys, it would put OASIS alerts in the client's chat.
+_EZRA_COMPANY = "sunbiz"
+
+
+def _ezra_fallback_refusal(env: dict[str, str]) -> Optional[str]:
+    """None when this box may fall back to the EZRA channel, else the reason not.
+
+    The box's company is the company its authenticating mailbox belongs to
+    (lib/tenant_brand.host_mailbox — what the dashboard consumer and the queue
+    monitor act on), read from the SAME env the Telegram keys came from, so the
+    keys and the company cannot come from two different places.
+    """
+    scripts_dir = str(Path(__file__).resolve().parent)
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    try:
+        from lib.tenant_brand import company_for_mailbox, host_mailbox  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001
+        return (f"this box's company cannot be determined ({type(exc).__name__}: "
+                f"{exc}), so the EZRA_TELEGRAM_* fallback (SunBiz's channel) is refused")
+    mailbox = host_mailbox(env)
+    company = company_for_mailbox(mailbox)
+    if company == _EZRA_COMPANY:
+        return None
+    return (f"EZRA_TELEGRAM_* is SunBiz's operations channel, but this box's "
+            f"mailbox {mailbox or '<unset>'!r} belongs to "
+            f"{company or 'no registered company'} — set this box's own Telegram keys")
+
+
 def _get_blocked_categories() -> set[str]:
     env = _load_env()
     override = env.get("NOTIFY_BLOCKED_CATEGORIES", "")
@@ -594,8 +626,15 @@ def notify(message: str, category: str = "system", silent: bool = False,
         # Explicit team broadcast lane. Uses Bravo's bot (the bot already in
         # the OASIS group) but targets GROUP_TELEGRAM_CHAT_ID — never the
         # personal allowed-users list.
-        token = (env.get("TELEGRAM_BOT_TOKEN") or "").strip() \
-            or (env.get("EZRA_TELEGRAM_BOT_TOKEN") or "").strip()
+        token = (env.get("TELEGRAM_BOT_TOKEN") or "").strip()
+        ezra_token = (env.get("EZRA_TELEGRAM_BOT_TOKEN") or "").strip()
+        if not token and ezra_token:
+            refusal = _ezra_fallback_refusal(env)
+            if refusal:
+                print(f"[notify] REFUSED: TELEGRAM_BOT_TOKEN missing, and {refusal}",
+                      file=sys.stderr)
+                return False
+            token = ezra_token
         chat_id = (env.get("GROUP_TELEGRAM_CHAT_ID") or "").strip()
         if not token:
             print("[notify] TELEGRAM_BOT_TOKEN missing in .env.agents", file=sys.stderr)
@@ -630,9 +669,22 @@ def notify(message: str, category: str = "system", silent: bool = False,
         # EZRA_TELEGRAM_CHAT_ID (the pair ezra-telegram-bridge + scrubber use), so
         # every notify() call there — including notify_daemon_crash() from the pm2
         # daemons — was a silent no-op for months. Primary keys still win.
+        #
+        # EZRA is SunBiz's channel, so the fallback is allowed only on SunBiz's
+        # own box. Anywhere else a missing Bravo key is refused out loud rather
+        # than delivered to the other company's chat.
         if tok_key == AGENT_TOKEN_KEYS[DEFAULT_AGENT][0]:
-            token = token or (env.get("EZRA_TELEGRAM_BOT_TOKEN") or "").strip()
-            raw_users = raw_users or env.get("EZRA_TELEGRAM_CHAT_ID", "")
+            ezra_token = (env.get("EZRA_TELEGRAM_BOT_TOKEN") or "").strip()
+            ezra_users = env.get("EZRA_TELEGRAM_CHAT_ID", "")
+            if (not token and ezra_token) or (not raw_users and ezra_users):
+                refusal = _ezra_fallback_refusal(env)
+                if refusal:
+                    missing = tok_key if not token else chat_key
+                    print(f"[notify] REFUSED: {missing} missing, and {refusal}",
+                          file=sys.stderr)
+                    return False
+            token = token or ezra_token
+            raw_users = raw_users or ezra_users
         # V2.1 2026-04-11: Guarded chat_id parsing. Old code used
         # `.split(",")[0].strip()` which returned "" on empty/whitespace env
         # and silently failed at Telegram send. Now we filter valid IDs and
