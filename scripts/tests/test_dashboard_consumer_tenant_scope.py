@@ -294,8 +294,7 @@ class TestEachCompanyWatchesOnlyItsOwnQueue(unittest.TestCase):
             env[chat_key] = f"chat-{company}"
         for company, mailbox in (("sunbiz", "submissions@sunbizfunding.com"),
                                  ("oasis", "conaugh@oasisai.work")):
-            if company not in monitor._ALERT_CHANNEL_KEYS:
-                continue
+            self.assertIn(company, monitor._ALERT_CHANNEL_KEYS, f"{company} has no alert channel of its own")
             posts: list = []
 
             def fake_post(url, json=None, timeout=None):  # noqa: A002
@@ -303,29 +302,51 @@ class TestEachCompanyWatchesOnlyItsOwnQueue(unittest.TestCase):
                 return type("R", (), {"json": lambda _s: {"ok": True}, "text": "ok"})()
 
             store: dict = {}
+            stale = [(2, "2026-09-11T00:00:00+00:00")]
             with self.subTest(company=company), \
                  mock.patch.object(monitor.requests, "post", side_effect=fake_post), \
                  mock.patch.object(monitor, "_consumer_online", return_value=True), \
-                 mock.patch.object(monitor, "_stale_queued", return_value=(2, "2026-09-11T00:00:00+00:00")), \
+                 mock.patch.object(monitor, "_stale_queued", side_effect=lambda *_a: stale[0]), \
                  mock.patch.object(monitor, "_read_state", side_effect=lambda: dict(store)), \
                  mock.patch.object(monitor, "_write_state", side_effect=store.update):
                 monitor.check(dict(env, GMAIL_USER=mailbox))
-                self.assertEqual(len(posts), 1)
-                url, body = posts[0]
-                self.assertIn(f"token-{company}", url, f"the {company} monitor used another company's bot")
-                self.assertEqual(body["chat_id"], f"chat-{company}")
-                for other in (c for c in monitor._ALERT_CHANNEL_KEYS if c != company):
-                    self.assertNotIn(f"token-{other}", url)
+                stale[0] = (0, None)
+                monitor.check(dict(env, GMAIL_USER=mailbox))
+                self.assertEqual(len(posts), 2, "expected one stalled alert, then one recovery note")
                 label = monitor.COMPANY_DISPLAY_NAME[company]
-                self.assertTrue(body["text"].startswith(f"⚠️ {label} outbound stalled"),
-                                f"the {company} alert does not name its own company: {body['text'][:60]!r}")
+                for (url, body), opening in zip(posts, (f"⚠️ {label} outbound stalled",
+                                                         f"✅ {label} outbound recovered")):
+                    self.assertIn(f"token-{company}", url, f"the {company} monitor used another company's bot")
+                    self.assertEqual(body["chat_id"], f"chat-{company}")
+                    for other in (c for c in monitor._ALERT_CHANNEL_KEYS if c != company):
+                        self.assertNotIn(f"token-{other}", url)
+                    self.assertTrue(body["text"].startswith(opening),
+                                    f"the {company} alert does not name its own company: {body['text'][:60]!r}")
 
     def test_oasis_never_alerts_through_the_sunbiz_channel(self):
         import dashboard_email_queue_monitor as monitor
 
-        for key in monitor._ALERT_CHANNEL_KEYS.get("oasis", ()):
+        self.assertEqual(monitor._ALERT_CHANNEL_KEYS.get("oasis"), ("TELEGRAM_BOT_TOKEN", "CC_TELEGRAM_USER_ID"),
+                         "OASIS alerts go to Bravo's bot in CC's private chat, the Command Center's operator lane")
+        for key in monitor._ALERT_CHANNEL_KEYS["oasis"]:
             self.assertNotIn("EZRA", key.upper(), "OASIS alerts must never use SunBiz's EZRA channel")
-        self.assertNotEqual(monitor._ALERT_CHANNEL_KEYS.get("oasis"), monitor._ALERT_CHANNEL_KEYS["sunbiz"])
+        self.assertTrue(set(monitor._ALERT_CHANNEL_KEYS["oasis"]).isdisjoint(monitor._ALERT_CHANNEL_KEYS["sunbiz"]),
+                        "OASIS and SunBiz share an alert key")
+
+    def test_an_oasis_box_holding_only_sunbiz_keys_stays_silent_rather_than_borrow_them(self):
+        import dashboard_email_queue_monitor as monitor
+
+        sunbiz_tok, sunbiz_chat = monitor._ALERT_CHANNEL_KEYS["sunbiz"]
+        env = {"GMAIL_USER": "conaugh@oasisai.work", sunbiz_tok: "token-sunbiz", sunbiz_chat: "chat-sunbiz"}
+        store: dict = {}
+        with mock.patch.object(monitor.requests, "post") as post, \
+             mock.patch.object(monitor, "_consumer_online", return_value=True), \
+             mock.patch.object(monitor, "_stale_queued", return_value=(2, "2026-09-11T00:00:00+00:00")), \
+             mock.patch.object(monitor, "_read_state", side_effect=lambda: dict(store)), \
+             mock.patch.object(monitor, "_write_state", side_effect=store.update):
+            result = monitor.check(env)
+        post.assert_not_called()
+        self.assertFalse(result["alerted"], "an OASIS alert went out through SunBiz's channel")
 
     def test_a_failed_alert_is_retried_not_put_on_cooldown(self):
         # Codex, PR #73: check() recorded last_alert_ts even when Telegram

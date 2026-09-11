@@ -108,11 +108,14 @@ def _load_env() -> dict[str, str]:
     return env
 
 
-# Each company's monitor alerts ONLY that company's own operators. EZRA is
-# SunBiz's operations channel: an OASIS box must never use it, even where the
-# keys happen to be present. A company with no entry here cannot alert, and
-# says so, rather than borrowing another company's channel.
+# Each company's monitor alerts ONLY that company's own operators, and never
+# falls back to another company's channel, even on a box that holds both sets
+# of keys (CC's machine does):
+#   oasis  -> Bravo's bot, CC's private chat (the Command Center's operator lane)
+#   sunbiz -> EZRA, SunBiz's operations channel
+# A company with no entry here cannot alert, and says so.
 _ALERT_CHANNEL_KEYS: dict[str, tuple[str, str]] = {
+    "oasis": ("TELEGRAM_BOT_TOKEN", "CC_TELEGRAM_USER_ID"),
     "sunbiz": ("EZRA_TELEGRAM_BOT_TOKEN", "EZRA_TELEGRAM_CHAT_ID"),
 }
 
