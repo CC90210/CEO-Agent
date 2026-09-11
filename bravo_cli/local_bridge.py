@@ -348,6 +348,7 @@ def _pm2_jlist_services() -> dict[str, dict]:
         sys.stderr.write(f"[local_bridge] pm2 jlist gave no process table (exit {res.returncode}); "
                          "dashboard will show no daemon data this tick\n")
         return out
+    rank = {"healthy": 0, "degraded": 1, "down": 2}
     for p in procs:
         name = p.get("name") or "unnamed"
         pm2_env = p.get("pm2_env") or {}
@@ -361,15 +362,40 @@ def _pm2_jlist_services() -> dict[str, dict]:
         else:
             health = "degraded"
         monit = p.get("monit") or {}
-        out[f"pm2.{name}"] = {
+        entry = {
             "status": health,
             "metadata": {
                 "pm2_status": status,
                 "pid": p.get("pid") or 0,
                 "restart_count": pm2_env.get("restart_time") or 0,
+                # The process START time in epoch ms, not elapsed time: the
+                # dashboard renders formatUptime(Date.now() - uptime_ms)
+                # (BackgroundWorkersPanel.tsx).
                 "uptime_ms": pm2_env.get("pm_uptime") or 0,
                 "memory_bytes": monit.get("memory") or 0,
                 "cpu_pct": monit.get("cpu") or 0,
+            },
+        }
+        key = f"pm2.{name}"
+        prev = out.get(key)
+        if prev is None:
+            out[key] = entry
+            continue
+        # Several PM2 rows can share a name (cluster mode, a duplicate start).
+        # One healthy instance must not hide a dead one: the worst instance is
+        # the one shown, and the counters add up.
+        worst = entry if rank[entry["status"]] > rank[prev["status"]] else prev
+        pm, em = prev["metadata"], entry["metadata"]
+        out[key] = {
+            "status": worst["status"],
+            "metadata": {
+                "pm2_status": worst["metadata"]["pm2_status"],
+                "pid": worst["metadata"]["pid"],
+                "restart_count": pm["restart_count"] + em["restart_count"],
+                "uptime_ms": worst["metadata"]["uptime_ms"],
+                "memory_bytes": pm["memory_bytes"] + em["memory_bytes"],
+                "cpu_pct": pm["cpu_pct"] + em["cpu_pct"],
+                "instances": pm.get("instances", 1) + 1,
             },
         }
     return out

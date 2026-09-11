@@ -71,6 +71,28 @@ class TestDaemonPanelOnEachPlatform(unittest.TestCase):
             out = lb.detect_pm2_daemons()
         self.assertIn("pm2.sunbiz-sequence-runner", out)
 
+    def _linux(self, table):
+        done = subprocess.CompletedProcess(["pm2", "jlist"], 0, stdout=json.dumps(table), stderr="")
+        with mock.patch.object(lb, "_IS_WINDOWS", False), \
+             mock.patch.object(lb.shutil, "which", return_value="/usr/bin/pm2"), \
+             mock.patch.object(lb, "safe_run", return_value=done):
+            return lb.detect_pm2_daemons()
+
+    def test_duplicate_names_show_the_worst_instance_not_the_last(self):
+        out = self._linux([
+            {"name": "worker", "pid": 1, "pm2_env": {"status": "errored", "restart_time": 3, "pm_uptime": 100}},
+            {"name": "worker", "pid": 2, "pm2_env": {"status": "online", "restart_time": 1, "pm_uptime": 200}},
+        ])
+        meta = out["pm2.worker"]["metadata"]
+        self.assertEqual(out["pm2.worker"]["status"], "down", "a healthy instance hid a dead one")
+        self.assertEqual((meta["instances"], meta["restart_count"], meta["pid"], meta["uptime_ms"]), (2, 4, 1, 100))
+
+    def test_uptime_ms_is_the_start_time_the_panel_subtracts_from_now(self):
+        # BackgroundWorkersPanel.tsx renders formatUptime(Date.now() - uptime_ms).
+        # Sending elapsed time here would show "up 56 years".
+        out = self._linux([{"name": "w", "pid": 1, "pm2_env": {"status": "online", "pm_uptime": 1757600000000}}])
+        self.assertEqual(out["pm2.w"]["metadata"]["uptime_ms"], 1757600000000)
+
 
 if __name__ == "__main__":
     unittest.main()
