@@ -101,7 +101,7 @@ def _ecosystem_apps(eco_path: "Path | None" = None) -> dict[str, dict]:
         return {}
     js = ("const c=require(process.argv[1]);const a=c.apps||c;"
           "console.log(JSON.stringify(a.map(x=>({name:x.name,script:x.script,"
-          "args:x.args,interp:x.interpreter,cwd:x.cwd}))));")
+          "args:x.args,interp:x.interpreter,cwd:x.cwd,env:x.env}))));")
     try:
         out = subprocess.run(["node", "-e", js, str(eco)], capture_output=True,
                              text=True, timeout=60, creationflags=_NO_WINDOW).stdout
@@ -175,9 +175,11 @@ def manifest() -> list[dict]:
     """Bravo's managed processes, plus the declared sibling daemons.
 
     dump.pm2 says WHAT was running; ecosystem.config.js says HOW to run it.
-    Names come from the dump (machine truth), launch specs prefer the committed
-    config and fall back to the dump. Siblings come from SIBLING_APPS, because
-    they are deliberately outside the repo filter below.
+    Names come from the dump (machine truth) AND from this repo's committed
+    config, because the dump has been frozen since PM2 was retired and a daemon
+    added after that exists only in the config. Launch specs prefer the
+    committed config and fall back to the dump. Siblings come from
+    SIBLING_APPS, because they are deliberately outside the repo filter below.
     """
     eco = _ecosystem_apps()
     try:
@@ -215,6 +217,40 @@ def manifest() -> list[dict]:
             continue
         out.append({"name": name, "script": script, "args": args,
                     "interp": interp, "cwd": str(a.get("cwd")), "unrunnable": ""})
+    # This repo's committed apps that the dump never recorded (2026-09-11).
+    # Nothing has rewritten dump.pm2 since PM2 was retired on 2026-08-27, so
+    # taking names from it alone meant a daemon added to ecosystem.config.js
+    # after that date was never started or restarted, and read as absent to
+    # everything that asks this module. OASIS's dashboard email sender and its
+    # monitor were the first two. Same repo filter as the dump: a copy of this
+    # repo at another path (a worktree) must not adopt the canonical
+    # checkout's daemons.
+    listed = {r["name"] for r in out}
+    for name, e in eco.items():
+        if name in listed:
+            continue
+        cwd = str(e.get("cwd") or PROJECT_ROOT)
+        if root not in cwd.replace("/", "\\").lower():
+            continue
+        script = str(e.get("script") or "")
+        args = e.get("args") or []
+        if isinstance(args, str):
+            args = args.split()
+        row = {"name": name, "script": script, "args": args,
+               "interp": str(e.get("interp") or ""), "cwd": cwd, "unrunnable": "",
+               # The env block applies ONLY to apps adopted here. The dump's
+               # daemons have run without theirs since the watchdog replaced
+               # PM2, and handing it to them now would change live behaviour
+               # on whatever restart comes next: bravo-scheduler's block turns
+               # on the email auto-reply path (EMAIL_BRAIN_AUTO_SEND),
+               # claude-bridge's sets IS_SANDBOX, and every block sets
+               # EMPIRE_TURSO_PATCH_REQUIRED. That is CC's call, not a side
+               # effect of adopting new daemons.
+               "env": e.get("env") or {}}
+        if not script and not any(str(x) == "-m" for x in args):
+            row["unrunnable"] = ("no script declared in ecosystem.config.js — "
+                                 "cannot build the command")
+        out.append(row)
     # Siblings last, and never overriding a same-named local app.
     known = {r["name"] for r in out}
     out.extend(r for r in _sibling_manifest() if r["name"] not in known)
@@ -701,7 +737,15 @@ def start(app: dict, dry: bool = False) -> tuple[bool, str]:
         # output at all — and these children are long-lived daemons, so the
         # failure looks like a crash loop rather than a bad spawn. See
         # lib/subprocess_helpers._default_stdin_devnull.
+        # An adopted app's env block (see manifest) is laid OVER the inherited
+        # environment, never in place of it: the child still needs PATH, the
+        # user profile and EMPIRE_DATA_BACKEND from the Task Scheduler session.
+        # Every other row passes env=None and inherits exactly as before.
+        env = app.get("env")
+        child_env = ({**os.environ, **{str(k): str(v) for k, v in env.items()
+                                       if v is not None}} if env else None)
         subprocess.Popen(cmd, cwd=app["cwd"] or str(PROJECT_ROOT),
+                         env=child_env,
                          stdin=subprocess.DEVNULL,
                          stdout=sink or subprocess.DEVNULL,
                          stderr=subprocess.STDOUT if sink else subprocess.DEVNULL,
