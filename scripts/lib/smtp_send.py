@@ -1,7 +1,15 @@
 """Shared SMTP transport — single source of truth for all Gmail sends.
 
-All outbound email MUST go through this module. This closes the V5.6
-outbound chokepoint: no other file should import smtplib directly.
+All outbound email MUST go through this module, and that is ENFORCED, not
+requested: scripts/tests/test_smtp_chokepoint.py walks every .py file in the
+repo and fails if any file other than this one imports smtplib.
+
+The enforcement is new (2026-09-10) because the sentence it replaced — "no
+other file should import smtplib directly" — was false in three places at
+once (google_tool, live_financial_filing_probe, and an unused import in
+send_gateway). The sender-identity guard below only works because every
+caller comes through here, so a second door does not merely skip a check,
+it voids the fix. A "should" in a docstring does not hold that; a test does.
 
 V6.8.3: every send emits one structured-log line (success or failure type)
 so the dashboard's "Recent Outbound" + the audit trail share a queryable
@@ -19,7 +27,7 @@ import html as _html
 import os
 import re
 import smtplib
-from email.mime.multipart import MIMEMultipart
+from email.message import Message
 from typing import Optional, Sequence, Union
 
 try:  # pragma: no cover — optional dep
@@ -68,7 +76,7 @@ _TAG_RE = re.compile(r"<[^>]*>")
 _WS_RE = re.compile(r"\s+")
 
 
-def _message_text(mime: MIMEMultipart) -> str:
+def _message_text(mime: Message) -> str:
     """Every text part of the message, lowercased, for identity inspection.
 
     Walks the MIME tree rather than reading a single payload: the identification
@@ -125,7 +133,7 @@ def _normalised_variants(raw: str) -> tuple[str, ...]:
     return tuple(out)
 
 
-def _identity_conflict(mime: MIMEMultipart, gmail_user: str) -> Optional[str]:
+def _identity_conflict(mime: Message, gmail_user: str) -> Optional[str]:
     """The message identifies as a company this mailbox may not send for.
 
     Returns an explanation, or None when there is no conflict — including when
@@ -157,7 +165,7 @@ def _identity_conflict(mime: MIMEMultipart, gmail_user: str) -> Optional[str]:
 def smtp_send(
     gmail_user: str,
     gmail_pass: str,
-    mime: MIMEMultipart,
+    mime: Message,
     to_email: Union[str, Sequence[str]],
     timeout: int = 30,
     require_from_domain: Optional[str] = None,
