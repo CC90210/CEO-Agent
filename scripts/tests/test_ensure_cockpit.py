@@ -76,7 +76,7 @@ def _run_main(monkeypatch, states):
     answers = iter(states)
     launches: list[int] = []
     monkeypatch.setattr(ec.sys, "platform", "win32")
-    monkeypatch.setattr(ec, "_cockpit_is_alive", lambda: next(answers))
+    monkeypatch.setattr(ec, "_cockpit_is_alive", lambda **kw: next(answers))
     monkeypatch.setattr(ec, "_launch_cockpit", lambda: launches.append(1))
     monkeypatch.setattr(ec.time, "sleep", lambda s: None)
     return ec.main(), launches
@@ -95,6 +95,35 @@ def test_an_unreadable_table_never_launches(monkeypatch):
 def test_a_missing_console_is_launched_once(monkeypatch):
     rc, launches = _run_main(monkeypatch, [False, True])
     assert (rc, launches) == (0, [1])
+
+
+def test_the_post_launch_checks_stay_inside_the_five_second_budget(monkeypatch):
+    """Each check after a launch gets only what is left of the budget. With the
+    query's own 30s timeout, one stalled read could hold the session start far
+    past the 5s it promises. (Codex, PR #79.)"""
+    timeouts: list[float] = []
+    answers = iter([False, None, True])     # missing, a stalled read, then up
+
+    def _alive(timeout=30):
+        timeouts.append(timeout)
+        return next(answers)
+
+    monkeypatch.setattr(ec.sys, "platform", "win32")
+    monkeypatch.setattr(ec, "_cockpit_is_alive", _alive)
+    monkeypatch.setattr(ec, "_launch_cockpit", lambda: None)
+    monkeypatch.setattr(ec.time, "sleep", lambda s: None)
+    assert ec.main() == 0
+    assert len(timeouts) == 3
+    assert all(t <= 5 for t in timeouts[1:]), timeouts
+
+
+def test_the_query_runs_under_the_callers_timeout(monkeypatch):
+    seen: dict = {}
+    monkeypatch.setattr(ec.sys, "platform", "win32")
+    monkeypatch.setattr(ec, "safe_run", lambda cmd, **kw: seen.update(kw) or
+                        subprocess.CompletedProcess(cmd, 0, stdout=ec._END + "\n", stderr=""))
+    ec._cockpit_is_alive(timeout=2.5)
+    assert seen["timeout"] == 2.5
 
 
 def test_the_check_matches_what_the_launcher_runs():
