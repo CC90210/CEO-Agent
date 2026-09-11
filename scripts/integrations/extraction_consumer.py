@@ -62,6 +62,7 @@ from lib.claude_auth import (  # noqa: E402
     is_claude_auth_or_quota_failure,
     check_claude_auth_paths,
 )
+from lib.tenant_brand import host_mailbox, tenants_for_mailbox  # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -989,8 +990,14 @@ def _fail_or_retry(sb, job_id: str, attempts: int, reason: str) -> str:
     return f"retry:{reason}"
 
 
-def _fetch_jobs(sb, limit: int = 10) -> list[dict]:
-    """Queued rows + rows stuck in processing/extracted past the stale window."""
+def _fetch_jobs(sb, *, tenant_ids: list[str], limit: int = 10) -> list[dict]:
+    """Queued rows + rows stuck in processing/extracted past the stale window.
+
+    `tenant_ids` SCOPES THE CLAIM to this box's company. Both queries filtered
+    by status only, so the SunBiz VPS would have downloaded and read the first
+    OASIS document anyone queued. The filter is in the query, not after it, so
+    another company's rows can neither be read here nor fill the page.
+    """
     cols = "id, tenant_id, lead_id, storage_path, mime_type, source, status, attempts, result_json, updated_at"
     out: list[dict] = []
     try:
@@ -998,6 +1005,7 @@ def _fetch_jobs(sb, limit: int = 10) -> list[dict]:
             sb.table("document_extraction_jobs")
             .select(cols)
             .eq("status", "queued")
+            .in_("tenant_id", tenant_ids)
             .order("created_at", desc=False)
             .limit(limit)
             .execute()
@@ -1013,6 +1021,7 @@ def _fetch_jobs(sb, limit: int = 10) -> list[dict]:
             sb.table("document_extraction_jobs")
             .select(cols)
             .in_("status", ["processing", "extracted", "applying"])
+            .in_("tenant_id", tenant_ids)
             .order("updated_at", desc=False)
             .limit(limit)
             .execute()
@@ -1030,8 +1039,30 @@ def _fetch_jobs(sb, limit: int = 10) -> list[dict]:
     return out
 
 
+_SCOPE_WARNED: set[str] = set()
+
+
+def _job_scope(env: dict[str, str]) -> list[str]:
+    """The tenants whose documents this box may read: those of the company its
+    host mailbox belongs to (lib/tenant_brand), exactly as the dashboard email
+    consumer scopes its queue. Static map, no DB lookup, so a blip cannot widen
+    it; [] when the mailbox belongs to no company."""
+    return tenants_for_mailbox(host_mailbox(env))
+
+
 def tick(sb, env: dict[str, str]) -> int:
-    jobs = _fetch_jobs(sb)
+    scope = _job_scope(env)
+    if not scope:
+        mailbox = host_mailbox(env) or "<unset>"
+        if mailbox not in _SCOPE_WARNED:
+            _SCOPE_WARNED.add(mailbox)
+            print("[extraction_consumer] REFUSING TO CLAIM: host mailbox "
+                  f"{mailbox!r} belongs to no registered company, so there is no "
+                  "tenant whose documents this box may read. Point GMAIL_USER at a "
+                  "mailbox on a domain in lib/tenant_brand.BRAND_SENDING_DOMAIN.",
+                  file=sys.stderr)
+        return 0
+    jobs = _fetch_jobs(sb, tenant_ids=scope)
     for job in jobs:
         outcome = process_job(sb, env, job)
         print(f"[extraction_consumer] job {job['id'][:8]} → {outcome}")
