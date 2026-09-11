@@ -51,6 +51,7 @@ STATE_PATH = PROJECT_ROOT / "state" / "dashboard_email_queue_monitor.json"
 CONSUMER_PROC = "dashboard-email-consumer"
 STALE_MINUTES = 15          # a queued row older than this ⇒ drain is broken
 ALERT_COOLDOWN_S = 3600     # min seconds between repeat alerts for a live fault
+BLIND_ALERT_AFTER = 3       # unreadable checks in a row before "blind" alerts (15 min at the 300s loop)
 
 
 def _load_env() -> dict[str, str]:
@@ -113,11 +114,19 @@ _CONSUMER_SCRIPT = "dashboard_email_consumer.py"
 
 
 def _consumer_running_from_proc() -> bool | None:
-    """Linux: is any process running the consumer script? Read from /proc,
-    matching on the script name as fleet_watchdog does on Windows, with no pm2
-    call. None if /proc is unreadable: the same "unknown" the Windows path gives."""
+    """Linux: is THIS checkout's consumer running? Read from /proc with no pm2
+    call, matching the script's path as fleet_watchdog matches its name on
+    Windows.
+
+    A process counts only if it is alive (not a zombie), is a Python
+    interpreter, and runs this checkout's dashboard_email_consumer.py. A grep or
+    an editor with that name in its arguments, or another checkout's consumer,
+    does not: any of them would hide a dead daemon. (Codex, PR #73.) None if
+    /proc is unreadable, the same "unknown" the Windows path gives.
+    """
     if not _PROC_ROOT.is_dir():
         return None
+    expected = (PROJECT_ROOT / "scripts" / _CONSUMER_SCRIPT).resolve()
     try:
         entries = [e for e in _PROC_ROOT.iterdir() if e.name.isdigit()]
     except OSError as exc:
@@ -125,11 +134,27 @@ def _consumer_running_from_proc() -> bool | None:
         return None
     for entry in entries:
         try:
-            argv = (entry / "cmdline").read_bytes().split(b"\0")
-        except OSError:
+            argv = [a.decode("utf-8", "replace")
+                    for a in (entry / "cmdline").read_bytes().split(b"\0") if a]
+            state = (entry / "stat").read_text().rsplit(")", 1)[-1].split()[0]
+        except (OSError, IndexError):
             continue  # exited between the listing and the read
-        if any(arg.endswith(_CONSUMER_SCRIPT.encode()) for arg in argv):
-            return True
+        if state == "Z" or not argv or "python" not in Path(argv[0]).name:
+            continue
+        for arg in argv[1:]:
+            if not arg.endswith(_CONSUMER_SCRIPT):
+                continue
+            path = Path(arg)
+            if not path.is_absolute():
+                try:
+                    path = Path(os.readlink(entry / "cwd")) / path
+                except OSError:
+                    continue
+            try:
+                if path.resolve() == expected:
+                    return True
+            except OSError:
+                continue
     return False
 
 
@@ -224,6 +249,7 @@ def check(env: dict[str, str]) -> dict:
     online = _consumer_online()
     stale_count, oldest = _stale_queued(env)
 
+    state = _read_state()
     problems: list[str] = []
     if online is False:
         problems.append(f"consumer pm2 process '{CONSUMER_PROC}' is DOWN")
@@ -232,17 +258,20 @@ def check(env: dict[str, str]) -> dict:
             f"{stale_count} dashboard email(s) stuck queued >{STALE_MINUTES}m "
             f"(oldest {oldest}) — daemon not draining"
         )
-    if stale_count < 0:
-        # -1 means the queue could not be read. It used to count as "no stuck
-        # rows", which is how this check sat blind on the VPS for a month
-        # without a word. An unreadable queue is a problem, not a zero. (PR #73.)
+    # -1 means the queue could not be read. It used to count as "no stuck
+    # rows", which is how this check sat blind on the VPS for a month without
+    # a word. An unreadable queue is a problem, not a zero. One failed read is
+    # not an outage, though: it alerts after BLIND_ALERT_AFTER checks in a row,
+    # so a single DB blip does not page the client's channel. (Codex, PR #73.)
+    blind = int(state.get("unreadable_streak") or 0) + 1 if stale_count < 0 else 0
+    state["unreadable_streak"] = blind
+    if blind >= BLIND_ALERT_AFTER:
         problems.append(
-            "cannot read the dashboard email queue, so the stuck-row check is "
-            "blind — check this monitor's database access"
+            f"cannot read the dashboard email queue ({blind} checks in a row), so the "
+            "stuck-row check is blind — check this monitor's database access"
         )
 
     now = datetime.now(timezone.utc)
-    state = _read_state()
     was_alerting = bool(state.get("alerting"))
     last_alert = state.get("last_alert_ts")
     result = {"online": online, "stale_count": stale_count, "problems": problems}

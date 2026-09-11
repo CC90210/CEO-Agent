@@ -280,16 +280,56 @@ def _is_refusal_gate(stmt: ast.AST) -> bool:
     return _is_refusal_if(stmt)
 
 
-def _gated(fn: ast.FunctionDef, node: ast.AST, parents: dict) -> bool:
+def _dominating(fn: ast.FunctionDef, node: ast.AST, parents: dict) -> list:
+    """Every statement that runs, unconditionally, before `node` in its own
+    branch or an enclosing one."""
+    out: list = []
     while node is not fn:
         parent = parents[node]
         for field in ("body", "orelse", "finalbody"):
             seq = getattr(parent, field, None)
             if isinstance(seq, list) and node in seq:
-                if any(_is_refusal_gate(s) for s in seq[:seq.index(node)]):
-                    return True
+                out.extend(seq[:seq.index(node)])
         node = parent
-    return False
+    return out
+
+
+def _guarded_mailboxes(fn: ast.FunctionDef, node: ast.AST, parents: dict) -> set:
+    """The names a dominating direct guard checked, via its mailbox= argument."""
+    names: set = set()
+    for stmt in _dominating(fn, node, parents):
+        if _is_refusal_if(stmt):
+            for kw in stmt.test.keywords:
+                if kw.arg == "mailbox" and isinstance(kw.value, ast.Name):
+                    names.add(kw.value.id)
+    return names
+
+
+def _names_in(expr: ast.AST) -> set:
+    return {n.id for n in ast.walk(expr) if isinstance(n, ast.Name)}
+
+
+def _send_identities(fn: ast.FunctionDef, call: ast.Call, parents: dict) -> set:
+    """Every mailbox a send uses: the account smtp_send() logs in as (its first
+    argument), and the From of each message built before it (the second
+    argument of _build_message). Codex, PR #73: a checker that only asks
+    whether SOME guard precedes the send stays green when the From's guard is
+    deleted, because the login's guard still precedes it."""
+    ids: set = set()
+    if (isinstance(call.func, ast.Name) and _gate_canon.get(call.func.id) == "smtp_send"
+            and call.args):
+        ids |= _names_in(call.args[0])
+    for stmt in _dominating(fn, call, parents):
+        for n in ast.walk(stmt):
+            if (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                    and n.func.id == "_build_message" and len(n.args) >= 2):
+                ids |= _names_in(n.args[1])
+    return ids
+
+
+def _send_is_guarded(fn: ast.FunctionDef, call: ast.Call, parents: dict) -> bool:
+    ids = _send_identities(fn, call, parents)
+    return bool(ids) and ids <= _guarded_mailboxes(fn, call, parents)
 
 
 _dec_rel = "scripts/dashboard_email_consumer.py"
@@ -325,11 +365,15 @@ else:
             _up = _gate_par.get(_node)
             if isinstance(_up, ast.Call) and _up.func is _node:
                 _gate_called.add(_gate_canon[_name])
-                if not _gated(_send_one_fn, _up, _gate_par):
+                _ids = _send_identities(_send_one_fn, _up, _gate_par)
+                _unguarded = sorted(_ids - _guarded_mailboxes(_send_one_fn, _up, _gate_par))
+                if not _ids or _unguarded:
                     failures.append(
-                        f"{_dec_rel}:{_node.lineno}: _send_one() calls {_name}() with no "
-                        "`if _refuse_other_company(...): return` before it in its branch — "
-                        "a mailbox on the other company's domain can send that company's mail")
+                        f"{_dec_rel}:{_node.lineno}: _send_one() calls {_name}() as "
+                        f"{', '.join(_unguarded) or 'an identity it cannot name'} with no "
+                        "`if _refuse_other_company(..., mailbox=<that name>): return` before "
+                        "it in its branch — a mailbox on the other company's domain can send "
+                        "that company's mail")
             elif not isinstance(_up, ast.Compare):
                 failures.append(
                     f"{_dec_rel}:{_node.lineno}: _send_one() uses transport {_name} other "
@@ -346,9 +390,9 @@ else:
 
 
 # The gate checker is itself tested, on small synthetic send functions, so an
-# edit that loosens _is_refusal_gate or _gated fails here instead of quietly
-# approving a bypass. Each rejected shape was named by CodeRabbit or Codex on
-# PR #73; the accepted ones include the guard-then-try shape _send_one() uses.
+# edit that loosens it fails here instead of quietly approving a bypass. Each
+# rejected shape was named by CodeRabbit or Codex on PR #73; the accepted ones
+# include the shapes _send_one() really uses.
 def _gate_verdict(body: str) -> bool:
     import textwrap
     src = "def _send_one():\n" + textwrap.indent(textwrap.dedent(body).strip("\n") + "\n", "    ")
@@ -356,88 +400,103 @@ def _gate_verdict(body: str) -> bool:
     par = {child: parent for parent in ast.walk(fn) for child in ast.iter_child_nodes(parent)}
     sends = [n for n in ast.walk(fn) if isinstance(n, ast.Call)
              and isinstance(n.func, ast.Name) and n.func.id == "smtp_send"]
-    return bool(sends) and all(_gated(fn, s, par) for s in sends)
+    return bool(sends) and all(_send_is_guarded(fn, s, par) for s in sends)
 
 
 for _label, _want, _body in (
-    ("direct guard", True, """
-        if _refuse_other_company(a):
+    ("guards on the login and on the From", True, """
+        if _refuse_other_company(mailbox=user):
             return "failed"
-        smtp_send(x)
+        if _refuse_other_company(mailbox=sender):
+            return "failed"
+        msg = _build_message(row, sender or user)
+        smtp_send(user, pw, msg)
     """),
     ("guard, then the send inside a try", True, """
-        if _refuse_other_company(a):
+        if _refuse_other_company(mailbox=user):
             return "failed"
+        msg = _build_message(row, user)
         try:
-            smtp_send(x)
+            smtp_send(user, pw, msg)
         except Exception:
             pass
     """),
     ("guard enclosing a nested send", True, """
-        if _refuse_other_company(a):
+        if _refuse_other_company(mailbox=user):
             return "failed"
         if ready:
-            smtp_send(x)
+            smtp_send(user, pw, msg)
+    """),
+    ("login guarded, From not", False, """
+        if _refuse_other_company(mailbox=user):
+            return "failed"
+        msg = _build_message(row, sender or user)
+        smtp_send(user, pw, msg)
+    """),
+    ("guard on a different mailbox", False, """
+        if _refuse_other_company(mailbox=someone_else):
+            return "failed"
+        smtp_send(user, pw, msg)
     """),
     ("no guard", False, """
-        smtp_send(x)
+        smtp_send(user, pw, msg)
     """),
     ("guard after the send", False, """
-        smtp_send(x)
-        if _refuse_other_company(a):
+        smtp_send(user, pw, msg)
+        if _refuse_other_company(mailbox=user):
             return "failed"
     """),
     ("negated", False, """
-        if not _refuse_other_company(a):
+        if not _refuse_other_company(mailbox=user):
             return "failed"
-        smtp_send(x)
+        smtp_send(user, pw, msg)
     """),
     ("conjunctive", False, """
-        if strict and _refuse_other_company(a):
+        if strict and _refuse_other_company(mailbox=user):
             return "failed"
-        smtp_send(x)
+        smtp_send(user, pw, msg)
     """),
     ("wrapped", False, """
-        if bool(_refuse_other_company(a)):
+        if bool(_refuse_other_company(mailbox=user)):
             return "failed"
-        smtp_send(x)
+        smtp_send(user, pw, msg)
     """),
     ("verdict ignored", False, """
-        _refuse_other_company(a)
-        smtp_send(x)
+        _refuse_other_company(mailbox=user)
+        smtp_send(user, pw, msg)
     """),
     ("conditional return", False, """
-        if _refuse_other_company(a):
+        if _refuse_other_company(mailbox=user):
             if strict:
                 return "failed"
-        smtp_send(x)
+        smtp_send(user, pw, msg)
     """),
     ("guard inside an except", False, """
         try:
             pass
         except Exception:
-            if _refuse_other_company(a):
+            if _refuse_other_company(mailbox=user):
                 return "failed"
-        smtp_send(x)
+        smtp_send(user, pw, msg)
     """),
     ("guard inside another if", False, """
         if strict:
-            if _refuse_other_company(a):
+            if _refuse_other_company(mailbox=user):
                 return "failed"
-        smtp_send(x)
+        smtp_send(user, pw, msg)
     """),
     ("guard in the other branch", False, """
         if use_api:
-            if _refuse_other_company(a):
+            if _refuse_other_company(mailbox=user):
                 return "failed"
         else:
-            smtp_send(x)
+            smtp_send(user, pw, msg)
     """),
     ("guard inside a loop that may not run", False, """
         for mb in mailboxes:
-            if _refuse_other_company(mb):
+            if _refuse_other_company(mailbox=user):
                 return "failed"
-        smtp_send(x)
+        smtp_send(user, pw, msg)
     """),
 ):
     if _gate_verdict(_body) is not _want:

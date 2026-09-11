@@ -341,45 +341,67 @@ class TestAStrandedRowIsStillSeen(unittest.TestCase):
             count, _oldest = monitor._stale_queued(monitor._load_env())
         self.assertEqual(count, 1, "the monitor could not read the queue the consumer drains")
 
-    def test_an_unreadable_queue_is_a_problem_not_a_zero(self):
-        # -1 used to read as "no stuck rows". That is how the check sat blind.
+    def test_an_unreadable_queue_alerts_after_three_checks_not_one(self):
+        # -1 used to read as "no stuck rows". Now it is a problem, but only after
+        # three unreadable checks in a row, so one DB blip does not page the
+        # client's ops channel (Codex). A good read resets the count.
         import dashboard_email_queue_monitor as monitor
 
         store: dict = {}
         sent: list = []
+        reads = iter([(-1, None), (-1, None), (-1, None), (0, None), (-1, None)])
 
         def fake_telegram(_env, text):
             sent.append(text)
             return True
 
-        with mock.patch.object(monitor, "_consumer_online", return_value=True), \
-             mock.patch.object(monitor, "_stale_queued", return_value=(-1, None)), \
-             mock.patch.object(monitor, "_read_state", side_effect=lambda: dict(store)), \
-             mock.patch.object(monitor, "_write_state", side_effect=store.update), \
-             mock.patch.object(monitor, "_telegram", side_effect=fake_telegram):
-            result = monitor.check({})
-        self.assertTrue(result["problems"], "an unreadable queue raised no problem")
-        self.assertTrue(sent, "an unreadable queue sent no alert")
+        def write_state(state):
+            store.clear()
+            store.update(state)
 
-    def test_on_linux_the_monitor_can_see_the_consumer(self):
+        with mock.patch.object(monitor, "_consumer_online", return_value=True), \
+             mock.patch.object(monitor, "_stale_queued", side_effect=lambda _env: next(reads)), \
+             mock.patch.object(monitor, "_read_state", side_effect=lambda: dict(store)), \
+             mock.patch.object(monitor, "_write_state", side_effect=write_state), \
+             mock.patch.object(monitor, "_telegram", side_effect=fake_telegram):
+            results = [monitor.check({}) for _ in range(5)]
+        self.assertEqual(results[0]["problems"], [], "one unreadable check paged")
+        self.assertEqual(results[1]["problems"], [], "two unreadable checks paged")
+        self.assertTrue(results[2]["problems"], "three unreadable checks in a row raised nothing")
+        self.assertIn("cannot read", sent[0])
+        self.assertEqual(results[3]["problems"], [])
+        self.assertEqual(results[4]["problems"], [], "a good read did not reset the count")
+
+    def test_on_linux_the_monitor_sees_this_checkouts_consumer_and_nothing_else(self):
         # fleet_watchdog reads the process table through WMI only; on the Linux
-        # VPS it saw nothing, so the monitor could never report the consumer down.
+        # VPS it saw nothing, so the monitor could never report the consumer
+        # down. The /proc reader must not be fooled either (Codex): a grep,
+        # another checkout's consumer, or a zombie with the right path is not it.
         import tempfile
         import dashboard_email_queue_monitor as monitor
 
-        with tempfile.TemporaryDirectory() as root:
-            proc = Path(root)
-            for pid, argv in (("101", b"/srv/.venv/bin/python\0/srv/sunbiz/ceo-agent/scripts/"
-                                      b"dashboard_email_consumer.py\0loop\0"),
-                              ("102", b"/srv/.venv/bin/python\0scripts/dashboard_email_queue_monitor.py\0")):
-                (proc / pid).mkdir()
-                (proc / pid / "cmdline").write_bytes(argv)
-            (proc / "self").mkdir()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ceo-agent"
+            (root / "scripts").mkdir(parents=True)
+            real = str((root / "scripts" / "dashboard_email_consumer.py").resolve())
+            other = str((Path(tmp) / "other-checkout" / "scripts" / "dashboard_email_consumer.py").resolve())
+            proc = Path(tmp) / "proc"
+
+            def process(pid, state, *argv):
+                (proc / pid).mkdir(parents=True)
+                (proc / pid / "cmdline").write_bytes(b"\0".join(a.encode() for a in argv) + b"\0")
+                (proc / pid / "stat").write_text(f"{pid} (python) {state} 1 1 1")
+
+            process("201", "S", "/usr/bin/grep", "dashboard_email_consumer.py")
+            process("202", "S", "/srv/.venv/bin/python", other, "loop")
+            process("203", "Z", "/srv/.venv/bin/python", real, "loop")
             with mock.patch.object(monitor, "_IS_WINDOWS", False), \
-                 mock.patch.object(monitor, "_PROC_ROOT", proc):
-                self.assertIs(monitor._consumer_online(), True, "a running consumer read as down")
-                (proc / "101" / "cmdline").write_bytes(b"/usr/bin/sleep\0100\0")
-                self.assertIs(monitor._consumer_online(), False, "a stopped consumer read as running")
+                 mock.patch.object(monitor, "_PROC_ROOT", proc), \
+                 mock.patch.object(monitor, "PROJECT_ROOT", root):
+                self.assertIs(monitor._consumer_online(), False,
+                              "a grep, another checkout or a zombie read as the consumer")
+                process("204", "S", "/srv/.venv/bin/python", real, "loop")
+                self.assertIs(monitor._consumer_online(), True, "the running consumer read as down")
 
 
 if __name__ == "__main__":
