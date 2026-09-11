@@ -112,6 +112,7 @@ _VALID_INTENTS = frozenset({"commercial", "transactional", "internal"})
 # are in that map, so adopting it changes nothing for current traffic.
 from lib.tenant_brand import (  # noqa: E402
     SLUG_BRAND as _BRAND_BY_TENANT_SLUG,
+    host_mailbox as _shared_host_mailbox,
     mailbox_is_other_company as _mailbox_is_other_company,
     resolve_brand_for_tenant as _static_brand_for_tenant,
     tenants_for_mailbox as _tenants_for_mailbox,
@@ -596,18 +597,16 @@ def _refuse_other_company(sb, row: dict, *, brand: str, mailbox: str, via: str) 
 def _host_mailbox(env: dict[str, str]) -> str:
     """The mailbox this process authenticates SMTP as — and so the one whose
     company decides which rows the queue may claim. Scope and send both read
-    it through this function, so they cannot disagree.
+    it through this function, and the queue monitor reads the same
+    lib.tenant_brand.host_mailbox, so claim, send and watch all serve one
+    company.
 
     Each candidate is stripped BEFORE precedence. `(a or b).strip()` let a
     whitespace-only GMAIL_USER, which is truthy, mask a real GMAIL_ADDRESS and
     strip to "": the claim scope came out empty and the box drained nothing,
     with no error anywhere. (Codex, PR #73.)
     """
-    for key in ("GMAIL_USER", "GMAIL_ADDRESS"):
-        value = (env.get(key) or "").strip()
-        if value:
-            return value
-    return ""
+    return _shared_host_mailbox(env)
 
 
 def _send_one(env: dict[str, str], sb, row: dict) -> str:
@@ -835,12 +834,10 @@ def tick(env: dict[str, str], sb) -> dict[str, int]:
     entitled to send them, rather than leaked (the incident) or refused
     into 'failed' here.
 
-    A row NO running consumer is entitled to — a tenant missing from
-    TENANT_BRAND, or OASIS mail while no OASIS consumer runs — stays
-    queued, but not silently: dashboard_email_queue_monitor counts queued
-    rows of EVERY tenant and alerts after 15 minutes, and
-    test_dashboard_consumer_tenant_scope pins that its query stays
-    unscoped. (Codex, PR #73.)
+    Each company runs its own consumer, authenticated as its own mailbox,
+    and its own dashboard_email_queue_monitor, which watches only that
+    company's tenants and alerts only that company's channel. No box
+    reads, claims or reports another company's queue.
     """
     scope = _queue_scope(env)
     if not scope:
