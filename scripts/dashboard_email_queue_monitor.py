@@ -199,11 +199,17 @@ def check(env: dict[str, str]) -> dict:
                 cooled = (now - datetime.fromisoformat(last_alert)) >= timedelta(seconds=ALERT_COOLDOWN_S)
             except Exception:
                 cooled = True
+        delivered = False
         if not was_alerting or cooled:
-            _telegram(env, "⚠️ SunBiz outbound stalled:\n• " + "\n• ".join(problems))
-            state["last_alert_ts"] = now.isoformat()
+            delivered = _telegram(env, "⚠️ SunBiz outbound stalled:\n• " + "\n• ".join(problems))
+            # Only a DELIVERED alert starts the cooldown. Recording the attempt
+            # let a Telegram timeout, a refusal or a missing credential suppress
+            # the only notice of a stalled queue for an hour; now the next check
+            # retries. (Codex, PR #73.)
+            if delivered:
+                state["last_alert_ts"] = now.isoformat()
         state["alerting"] = True
-        result["alerted"] = (not was_alerting or cooled)
+        result["alerted"] = delivered
     else:
         if was_alerting:
             _telegram(env, "✅ SunBiz outbound recovered — dashboard email queue draining normally.")

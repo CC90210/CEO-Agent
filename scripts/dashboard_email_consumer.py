@@ -755,10 +755,15 @@ def _send_one(env: dict[str, str], sb, row: dict) -> str:
             )
             return "failed"
         # Both the account that authenticates and the address the From header
-        # will carry: GMAIL_FROM_ADDRESS may differ from GMAIL_USER.
-        for _mb in sorted({gmail_user, gmail_from} - {""}):
+        # will carry: GMAIL_FROM_ADDRESS may differ from GMAIL_USER. Direct
+        # checks, not a loop: a guard inside a loop proves nothing when the loop
+        # can run zero times, so test_smtp_chokepoint accepts only a direct one.
+        if _refuse_other_company(sb, row, brand=msg_identity["brand"],
+                                 mailbox=gmail_user, via="smtp"):
+            return "failed"
+        if gmail_from and gmail_from != gmail_user:
             if _refuse_other_company(sb, row, brand=msg_identity["brand"],
-                                     mailbox=_mb, via="smtp"):
+                                     mailbox=gmail_from, via="smtp"):
                 return "failed"
         msg = _build_message(row, gmail_from or gmail_user, intent, msg_identity)
         try:

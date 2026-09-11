@@ -250,23 +250,37 @@ for rel, needle in (("scripts/integrations/send_gateway.py",
 # version searched for "_refuse_other_company(", which the helper's own `def`
 # line satisfies, so deleting every call left it green. (CodeRabbit, PR #73.)
 # Now each transport call must have, earlier in its OWN branch or an enclosing
-# one, an `if _refuse_other_company(...):` whose body returns. A refusal in the
-# other branch does not count, and neither does a call whose verdict is ignored.
+# one, a gate: `if _refuse_other_company(...): return ...`, where the test IS the
+# call and the body is only the return. A refusal in the other branch does not
+# count, and neither does one whose verdict is ignored.
+#
+# Hardened after Codex (PR #73) showed the first AST version could stay green
+# while a send went unguarded. A gate buried inside a preceding statement (an
+# `except`, another `if`) counted as guarding what follows, and a transport
+# reached through an alias or getattr() was never inspected. Now nothing is
+# searched inside a preceding statement. Every name a transport is imported or
+# re-bound as is followed. Any use of a transport other than calling it (or
+# testing it against None) fails, so it cannot be carried past the gate.
+_TRANSPORTS = ("smtp_send", "send_via_gmail_api")
+
+
+def _is_refusal_if(stmt: ast.AST) -> bool:
+    return (isinstance(stmt, ast.If)
+            and isinstance(stmt.test, ast.Call)
+            and isinstance(stmt.test.func, ast.Name)
+            and stmt.test.func.id == "_refuse_other_company"
+            and len(stmt.body) == 1
+            and isinstance(stmt.body[0], ast.Return))
+
+
 def _is_refusal_gate(stmt: ast.AST) -> bool:
-    for node in ast.walk(stmt):
-        if (isinstance(node, ast.If)
-                and any(isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
-                        and c.func.id == "_refuse_other_company"
-                        for c in ast.walk(node.test))
-                and any(isinstance(s, ast.Return) for s in node.body)):
-            return True
-    return False
+    # Only a direct refusal `if`. Never a gate found by searching inside
+    # another statement, and never one inside a loop: a loop can run zero
+    # times, so a guard in its body proves nothing about the send after it.
+    return _is_refusal_if(stmt)
 
 
-def _gated(fn: ast.FunctionDef, call: ast.Call) -> bool:
-    parents = {child: parent for parent in ast.walk(fn)
-               for child in ast.iter_child_nodes(parent)}
-    node = call
+def _gated(fn: ast.FunctionDef, node: ast.AST, parents: dict) -> bool:
     while node is not fn:
         parent = parents[node]
         for field in ("body", "orelse", "finalbody"):
@@ -280,25 +294,158 @@ def _gated(fn: ast.FunctionDef, call: ast.Call) -> bool:
 
 _dec_rel = "scripts/dashboard_email_consumer.py"
 _dec_tree = ast.parse((_REPO / _dec_rel).read_text(encoding="utf-8"))
+# Every local name a transport is bound to: `from x import smtp_send as y`
+# anywhere in the module, then module-level `z = y` re-bindings.
+_gate_canon = {t: t for t in _TRANSPORTS}
+for _node in ast.walk(_dec_tree):
+    if isinstance(_node, ast.ImportFrom):
+        for _alias in _node.names:
+            if _alias.name in _TRANSPORTS:
+                _gate_canon[_alias.asname or _alias.name] = _alias.name
+for _ in range(3):
+    for _node in _dec_tree.body:
+        if (isinstance(_node, ast.Assign) and isinstance(_node.value, ast.Name)
+                and _node.value.id in _gate_canon):
+            for _target in _node.targets:
+                if isinstance(_target, ast.Name):
+                    _gate_canon[_target.id] = _gate_canon[_node.value.id]
 _send_one_fn = next((n for n in _dec_tree.body
                      if isinstance(n, ast.FunctionDef) and n.name == "_send_one"), None)
 if _send_one_fn is None:
     failures.append(f"{_dec_rel} no longer defines _send_one() — re-check which "
                     "function drains the dashboard queue before trusting this test")
 else:
-    for _transport in ("_send_via_gmail_api", "smtp_send"):
-        _sends = [n for n in ast.walk(_send_one_fn)
-                  if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
-                  and n.func.id == _transport]
-        if not _sends:
-            failures.append(f"{_dec_rel}: _send_one() no longer calls {_transport}() — "
-                            "this check would then pass while guarding nothing")
-        for _call in _sends:
-            if not _gated(_send_one_fn, _call):
+    _gate_par = {child: parent for parent in ast.walk(_send_one_fn)
+                 for child in ast.iter_child_nodes(parent)}
+    _gate_called: set = set()
+    for _node in ast.walk(_send_one_fn):
+        _name = (_node.id if isinstance(_node, ast.Name)
+                 else _node.attr if isinstance(_node, ast.Attribute) else None)
+        if _name in _gate_canon:
+            _up = _gate_par.get(_node)
+            if isinstance(_up, ast.Call) and _up.func is _node:
+                _gate_called.add(_gate_canon[_name])
+                if not _gated(_send_one_fn, _up, _gate_par):
+                    failures.append(
+                        f"{_dec_rel}:{_node.lineno}: _send_one() calls {_name}() with no "
+                        "`if _refuse_other_company(...): return` before it in its branch — "
+                        "a mailbox on the other company's domain can send that company's mail")
+            elif not isinstance(_up, ast.Compare):
                 failures.append(
-                    f"{_dec_rel}:{_call.lineno}: _send_one() calls {_transport}() with no "
-                    "`if _refuse_other_company(...): return` before it in its branch — a "
-                    "mailbox on the other company's domain can send that company's mail")
+                    f"{_dec_rel}:{_node.lineno}: _send_one() uses transport {_name} other "
+                    "than by calling it — an alias or callback carries it past the refusal gate")
+        elif (isinstance(_node, ast.Constant) and isinstance(_node.value, str)
+                and _node.value in _gate_canon):
+            failures.append(
+                f"{_dec_rel}:{_node.lineno}: _send_one() names transport {_node.value!r} as a "
+                "string — a getattr() call cannot be checked for a refusal gate")
+    for _t in _TRANSPORTS:
+        if _t not in _gate_called:
+            failures.append(f"{_dec_rel}: _send_one() no longer calls {_t}() — "
+                            "this check would then pass while guarding nothing")
+
+
+# The gate checker is itself tested, on small synthetic send functions, so an
+# edit that loosens _is_refusal_gate or _gated fails here instead of quietly
+# approving a bypass. Each rejected shape was named by CodeRabbit or Codex on
+# PR #73; the accepted ones include the guard-then-try shape _send_one() uses.
+def _gate_verdict(body: str) -> bool:
+    import textwrap
+    src = "def _send_one():\n" + textwrap.indent(textwrap.dedent(body).strip("\n") + "\n", "    ")
+    fn = ast.parse(src).body[0]
+    par = {child: parent for parent in ast.walk(fn) for child in ast.iter_child_nodes(parent)}
+    sends = [n for n in ast.walk(fn) if isinstance(n, ast.Call)
+             and isinstance(n.func, ast.Name) and n.func.id == "smtp_send"]
+    return bool(sends) and all(_gated(fn, s, par) for s in sends)
+
+
+for _label, _want, _body in (
+    ("direct guard", True, """
+        if _refuse_other_company(a):
+            return "failed"
+        smtp_send(x)
+    """),
+    ("guard, then the send inside a try", True, """
+        if _refuse_other_company(a):
+            return "failed"
+        try:
+            smtp_send(x)
+        except Exception:
+            pass
+    """),
+    ("guard enclosing a nested send", True, """
+        if _refuse_other_company(a):
+            return "failed"
+        if ready:
+            smtp_send(x)
+    """),
+    ("no guard", False, """
+        smtp_send(x)
+    """),
+    ("guard after the send", False, """
+        smtp_send(x)
+        if _refuse_other_company(a):
+            return "failed"
+    """),
+    ("negated", False, """
+        if not _refuse_other_company(a):
+            return "failed"
+        smtp_send(x)
+    """),
+    ("conjunctive", False, """
+        if strict and _refuse_other_company(a):
+            return "failed"
+        smtp_send(x)
+    """),
+    ("wrapped", False, """
+        if bool(_refuse_other_company(a)):
+            return "failed"
+        smtp_send(x)
+    """),
+    ("verdict ignored", False, """
+        _refuse_other_company(a)
+        smtp_send(x)
+    """),
+    ("conditional return", False, """
+        if _refuse_other_company(a):
+            if strict:
+                return "failed"
+        smtp_send(x)
+    """),
+    ("guard inside an except", False, """
+        try:
+            pass
+        except Exception:
+            if _refuse_other_company(a):
+                return "failed"
+        smtp_send(x)
+    """),
+    ("guard inside another if", False, """
+        if strict:
+            if _refuse_other_company(a):
+                return "failed"
+        smtp_send(x)
+    """),
+    ("guard in the other branch", False, """
+        if use_api:
+            if _refuse_other_company(a):
+                return "failed"
+        else:
+            smtp_send(x)
+    """),
+    ("guard inside a loop that may not run", False, """
+        for mb in mailboxes:
+            if _refuse_other_company(mb):
+                return "failed"
+        smtp_send(x)
+    """),
+):
+    if _gate_verdict(_body) is not _want:
+        failures.append(
+            f"the refusal-gate checker misjudges the {_label!r} shape: it should be "
+            f"{'accepted' if _want else 'rejected'}. A checker that approves a bypass "
+            "is worse than none, and one that refuses the real guard trains people "
+            "to delete it")
 
 # The allowlist must describe reality, or it is the same broken promise one
 # level up: a file listed here that no longer exists would let a real

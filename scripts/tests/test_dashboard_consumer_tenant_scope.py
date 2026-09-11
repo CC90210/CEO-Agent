@@ -42,7 +42,8 @@ SUNBIZ = "aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110"
 OASIS_CC = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
 OASIS_WEBDEV = "42423fde-be8b-454f-932a-750e8c9b743d"
 
-SUNBIZ_BOX = {"GMAIL_USER": "submissions@sunbizfunding.com", "GMAIL_APP_PASSWORD": "app-pw"}
+SUNBIZ_BOX = {"GMAIL_USER": "submissions@sunbizfunding.com",
+              "GMAIL_APP_PASSWORD": str(mock.sentinel.gmail_app_password)}
 
 
 def _row(tenant_id: str, intent: str = "commercial", acted_by: str | None = None) -> dict:
@@ -222,11 +223,14 @@ class TestSendRefusesTheOtherCompany(unittest.TestCase):
         # Scope and send must read the same mailbox, or the box claims rows as
         # one company and logs in as another.
         env = {"GMAIL_USER": "   ", "GMAIL_ADDRESS": " Submissions@SunBizFunding.com ",
-               "GMAIL_APP_PASSWORD": "app-pw"}
+               "GMAIL_APP_PASSWORD": str(mock.sentinel.gmail_app_password)}
         result, _marks, _events, smtp_mock, _api = self._run(env, _row(SUNBIZ))
         self.assertEqual(result, "sent")
         smtp_mock.assert_called_once()
-        self.assertIn("submissions@sunbizfunding.com", repr(smtp_mock.call_args).lower())
+        # args[0] is the account smtp_send() logs in as. The MIME message also
+        # carries the address in its From header, so matching the whole call
+        # would pass even if the login were a different mailbox. (CodeRabbit)
+        self.assertEqual(smtp_mock.call_args.args[0], "Submissions@SunBizFunding.com")
 
 
 class TestAStrandedRowIsStillSeen(unittest.TestCase):
@@ -264,10 +268,45 @@ class TestAStrandedRowIsStillSeen(unittest.TestCase):
         fake.create_client = lambda *_a, **_k: Client()
         with mock.patch.dict(sys.modules, {"supabase": fake}):
             count, _oldest = monitor._stale_queued(
-                {"BRAVO_SUPABASE_URL": "u", "BRAVO_SUPABASE_SERVICE_ROLE_KEY": "k"})
+                {"BRAVO_SUPABASE_URL": str(mock.sentinel.db_url),
+                 "BRAVO_SUPABASE_SERVICE_ROLE_KEY": str(mock.sentinel.service_role_key)})
         self.assertEqual(count, 3, "a queued row of some tenant went uncounted")
         self.assertNotIn("tenant_id", [col for _op, col in calls],
                          "the monitor's stale query is now tenant-scoped")
+
+    def test_a_failed_alert_is_retried_not_put_on_cooldown(self):
+        # Codex, PR #73: check() recorded last_alert_ts even when Telegram
+        # refused, timed out or had no credentials, so the one alert for a
+        # stalled queue could fail and then be suppressed for an hour. The
+        # guarantee above is only as good as that delivery.
+        import dashboard_email_queue_monitor as monitor
+
+        store: dict = {}
+        sent: list = []
+        outcomes = iter([False, True])
+
+        def fake_telegram(_env, _text):
+            ok = next(outcomes)
+            sent.append(ok)
+            return ok
+
+        def write_state(state):
+            store.clear()
+            store.update(state)
+
+        with mock.patch.object(monitor, "_consumer_online", return_value=True), \
+             mock.patch.object(monitor, "_stale_queued",
+                               return_value=(1, "2026-09-10T00:00:00+00:00")), \
+             mock.patch.object(monitor, "_read_state", side_effect=lambda: dict(store)), \
+             mock.patch.object(monitor, "_write_state", side_effect=write_state), \
+             mock.patch.object(monitor, "_telegram", side_effect=fake_telegram):
+            first = monitor.check({})
+            self.assertFalse(first["alerted"], "an undelivered alert was reported as sent")
+            self.assertNotIn("last_alert_ts", store, "a failed alert started the cooldown")
+            second = monitor.check({})
+        self.assertEqual(sent, [False, True], "the failed alert was not retried on the next check")
+        self.assertTrue(second["alerted"])
+        self.assertIn("last_alert_ts", store, "a delivered alert must start the cooldown")
 
 
 if __name__ == "__main__":
