@@ -300,6 +300,107 @@ def detect_gemini_cli() -> dict:
     return {"status": "unconfigured", "last_error": "gemini CLI not on PATH"}
 
 
+_IS_WINDOWS = os.name == "nt"
+
+
+def _pm2_table(raw: str) -> list | None:
+    """The process list in `pm2 jlist` output. PM2 can print a notice line
+    such as "[PM2] Spawning PM2 daemon" before the JSON, which also starts
+    with '[', so try the whole output first, then each line from the bottom."""
+    try:
+        table = json.loads(raw)
+        return table if isinstance(table, list) else None
+    except ValueError:
+        pass
+    for line in reversed(raw.splitlines()):
+        line = line.strip()
+        if not line.startswith("["):
+            continue
+        try:
+            table = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(table, list):
+            return table
+    return None
+
+
+def _pm2_jlist_services() -> dict[str, dict]:
+    """PM2's own process table as `pm2.<name>` service reports. NOT on Windows:
+    see detect_pm2_daemons for why pm2 must never be called there.
+
+    A failed read is reported on stderr, never swallowed: a silent failure here
+    is how the dashboard's daemon panel can go blank with no signal anywhere.
+    """
+    out: dict[str, dict] = {}
+    pm2_bin = shutil.which("pm2")
+    if not pm2_bin:
+        return out
+    try:
+        res = safe_run([*command_without_cmd_shim(pm2_bin), "jlist"],
+                       capture_output=True, text=True, timeout=10)
+        procs = _pm2_table(res.stdout or "") if res.returncode == 0 else None
+    except Exception as exc:  # noqa: BLE001
+        sys.stderr.write(f"[local_bridge] pm2 jlist failed ({type(exc).__name__}: {exc}); "
+                         "dashboard will show no daemon data this tick\n")
+        return out
+    if not isinstance(procs, list):
+        sys.stderr.write(f"[local_bridge] pm2 jlist gave no process table (exit {res.returncode}); "
+                         "dashboard will show no daemon data this tick\n")
+        return out
+    rank = {"healthy": 0, "degraded": 1, "down": 2}
+    for p in procs:
+        name = p.get("name") or "unnamed"
+        pm2_env = p.get("pm2_env") or {}
+        status = pm2_env.get("status") or "unknown"
+        # PM2 statuses: online, stopping, stopped, launching, errored,
+        # one-launch-status. Map to integrations_health vocabulary.
+        if status == "online":
+            health = "healthy"
+        elif status in ("errored", "stopped"):
+            health = "down"
+        else:
+            health = "degraded"
+        monit = p.get("monit") or {}
+        entry = {
+            "status": health,
+            "metadata": {
+                "pm2_status": status,
+                "pid": p.get("pid") or 0,
+                "restart_count": pm2_env.get("restart_time") or 0,
+                # The process START time in epoch ms, not elapsed time: the
+                # dashboard renders formatUptime(Date.now() - uptime_ms)
+                # (BackgroundWorkersPanel.tsx).
+                "uptime_ms": pm2_env.get("pm_uptime") or 0,
+                "memory_bytes": monit.get("memory") or 0,
+                "cpu_pct": monit.get("cpu") or 0,
+            },
+        }
+        key = f"pm2.{name}"
+        prev = out.get(key)
+        if prev is None:
+            out[key] = entry
+            continue
+        # Several PM2 rows can share a name (cluster mode, a duplicate start).
+        # One healthy instance must not hide a dead one: the worst instance is
+        # the one shown, and the counters add up.
+        worst = entry if rank[entry["status"]] > rank[prev["status"]] else prev
+        pm, em = prev["metadata"], entry["metadata"]
+        out[key] = {
+            "status": worst["status"],
+            "metadata": {
+                "pm2_status": worst["metadata"]["pm2_status"],
+                "pid": worst["metadata"]["pid"],
+                "restart_count": pm["restart_count"] + em["restart_count"],
+                "uptime_ms": worst["metadata"]["uptime_ms"],
+                "memory_bytes": pm["memory_bytes"] + em["memory_bytes"],
+                "cpu_pct": pm["cpu_pct"] + em["cpu_pct"],
+                "instances": pm.get("instances", 1) + 1,
+            },
+        }
+    return out
+
+
 def detect_pm2_daemons() -> dict[str, dict]:
     """Snapshot the operator's PM2 process table — surfaces background
     workers (sequence-runner, event-router, claude-bridge,
@@ -319,55 +420,63 @@ def detect_pm2_daemons() -> dict[str, dict]:
     """
     out: dict[str, dict] = {}
 
-    # NEVER invoke pm2 here.
-    #
-    # This function used to shell `pm2 jlist` on every ping (PING_INTERVAL_SEC,
-    # 60s). pm2's named pipe returns EPERM on this machine, and each invocation
-    # against a blocked pipe SPAWNS A NEW ORPHAN PM2 GOD DAEMON that never
-    # exits. The `except Exception: pass` below the call meant the failure was
-    # completely silent, so this daemon leaked one orphan per minute with no
-    # signal anywhere. Measured 2026-08-28: 42 orphans at 02:46 -> 112 by 03:28,
-    # a steady ~71s cadence (60s sleep + ~11s of work) that traced straight back
-    # to this loop. It was the single largest consumer of node.exe on the box.
-    #
-    # Supervision moved to scripts/ops/fleet_watchdog.py in e7d0a50f. Its
-    # status() reads the OS process table via wmic and matches on the SCRIPT
-    # name, so it answers the same question — which daemons are alive — without
-    # touching pm2 at all. Keys stay `pm2.<name>` so the dashboard's
-    # /automations page and any stored integrations_health rows keep working.
-    try:
-        _fw = Path(__file__).resolve().parent.parent / "scripts"
-        if str(_fw) not in sys.path:
-            sys.path.insert(0, str(_fw))
-        from ops.fleet_watchdog import classify as _classify
-        from ops.fleet_watchdog import status as _fleet_status
+    if not _IS_WINDOWS:
+        # LINUX / macOS (the SunBiz VPS). PM2 is the live supervisor there and
+        # its CLI works; fleet_watchdog reads the process table only through
+        # Windows CIM/wmic, so on Linux its status() raises and the panel went
+        # blank. The orphan-daemon leak described below is a Windows
+        # named-pipe failure — it does not happen here.
+        out.update(_pm2_jlist_services())
+    else:
+        # WINDOWS: NEVER invoke pm2 here.
+        #
+        # This function used to shell `pm2 jlist` on every ping (PING_INTERVAL_SEC,
+        # 60s). pm2's named pipe returns EPERM on this machine, and each invocation
+        # against a blocked pipe SPAWNS A NEW ORPHAN PM2 GOD DAEMON that never
+        # exits. The `except Exception: pass` below the call meant the failure was
+        # completely silent, so this daemon leaked one orphan per minute with no
+        # signal anywhere. Measured 2026-08-28: 42 orphans at 02:46 -> 112 by 03:28,
+        # a steady ~71s cadence (60s sleep + ~11s of work) that traced straight back
+        # to this loop. It was the single largest consumer of node.exe on the box.
+        #
+        # Supervision moved to scripts/ops/fleet_watchdog.py in e7d0a50f. Its
+        # status() reads the OS process table via wmic and matches on the SCRIPT
+        # name, so it answers the same question — which daemons are alive — without
+        # touching pm2 at all. Keys stay `pm2.<name>` so the dashboard's
+        # /automations page and any stored integrations_health rows keep working.
+        try:
+            _fw = Path(__file__).resolve().parent.parent / "scripts"
+            if str(_fw) not in sys.path:
+                sys.path.insert(0, str(_fw))
+            from ops.fleet_watchdog import classify as _classify
+            from ops.fleet_watchdog import status as _fleet_status
 
-        # One definition of daemon state — see fleet_watchdog.classify. This
-        # maps it onto the dashboard's integrations_health vocabulary.
-        _HEALTH = {"running": "healthy", "disabled": "degraded",
-                   "unrunnable": "down", "down": "down"}
-        for row in _fleet_status():
-            name = row.get("name") or "unnamed"
-            kind = _classify(row)
-            health = _HEALTH[kind]
-            detail = (f"unrunnable: {row['unrunnable']}" if kind == "unrunnable"
-                      else {"running": "running",
-                            "disabled": "disabled by operator",
-                            "down": "not running"}[kind])
-            out[f"pm2.{name}"] = {
-                "status": health,
-                "metadata": {
-                    "pm2_status": detail,
-                    "supervisor": "fleet_watchdog",
-                    "ident": row.get("ident") or "",
-                },
-            }
-    except Exception as exc:  # noqa: BLE001
-        # Still non-fatal — a heartbeat must not die over a dashboard panel —
-        # but no longer SILENT. The silence is what let the orphan leak run.
-        sys.stderr.write(
-            f"[local_bridge] fleet status unavailable ({type(exc).__name__}: {exc}); "
-            "dashboard will show no daemon data this tick\n")
+            # One definition of daemon state — see fleet_watchdog.classify. This
+            # maps it onto the dashboard's integrations_health vocabulary.
+            _HEALTH = {"running": "healthy", "disabled": "degraded",
+                       "unrunnable": "down", "down": "down"}
+            for row in _fleet_status():
+                name = row.get("name") or "unnamed"
+                kind = _classify(row)
+                health = _HEALTH[kind]
+                detail = (f"unrunnable: {row['unrunnable']}" if kind == "unrunnable"
+                          else {"running": "running",
+                                "disabled": "disabled by operator",
+                                "down": "not running"}[kind])
+                out[f"pm2.{name}"] = {
+                    "status": health,
+                    "metadata": {
+                        "pm2_status": detail,
+                        "supervisor": "fleet_watchdog",
+                        "ident": row.get("ident") or "",
+                    },
+                }
+        except Exception as exc:  # noqa: BLE001
+            # Still non-fatal — a heartbeat must not die over a dashboard panel —
+            # but no longer SILENT. The silence is what let the orphan leak run.
+            sys.stderr.write(
+                f"[local_bridge] fleet status unavailable ({type(exc).__name__}: {exc}); "
+                "dashboard will show no daemon data this tick\n")
 
     # Standalone Skool daemon — runs outside PM2 (DaemonLock conflict per
     # ecosystem.config.js). Detect via its lock file under the project root.
