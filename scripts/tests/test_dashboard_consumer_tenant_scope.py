@@ -403,6 +403,36 @@ class TestAStrandedRowIsStillSeen(unittest.TestCase):
                 process("204", "S", "/srv/.venv/bin/python", real, "loop")
                 self.assertIs(monitor._consumer_online(), True, "the running consumer read as down")
 
+    def test_an_unreadable_process_makes_liveness_unknown_not_down(self):
+        # A process whose command line cannot be read might be the consumer, so
+        # the honest answer is "unknown", which never pages, not "down". A
+        # process that exits mid-scan is simply skipped. (CodeRabbit, PR #73.)
+        import tempfile
+        import dashboard_email_queue_monitor as monitor
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ceo-agent"
+            (root / "scripts").mkdir(parents=True)
+            proc = Path(tmp) / "proc"
+            for pid in ("301", "302"):
+                (proc / pid).mkdir(parents=True)
+                (proc / pid / "cmdline").write_bytes(b"/usr/bin/sleep\0100\0")
+                (proc / pid / "stat").write_text(f"{pid} (sleep) S 1 1 1")
+            real_read = Path.read_bytes
+
+            def read_bytes(path):
+                if path.parent.name == "302":
+                    raise PermissionError("denied")
+                return real_read(path)
+
+            with mock.patch.object(monitor, "_IS_WINDOWS", False), \
+                 mock.patch.object(monitor, "_PROC_ROOT", proc), \
+                 mock.patch.object(monitor, "PROJECT_ROOT", root):
+                self.assertIs(monitor._consumer_online(), False)
+                with mock.patch.object(Path, "read_bytes", read_bytes):
+                    self.assertIsNone(monitor._consumer_online(),
+                                      "an unreadable process read as a definite 'down'")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

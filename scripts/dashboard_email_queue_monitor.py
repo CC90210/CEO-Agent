@@ -132,13 +132,19 @@ def _consumer_running_from_proc() -> bool | None:
     except OSError as exc:
         print(f"[queue_monitor] /proc unreadable: {exc}", file=sys.stderr)
         return None
+    unreadable = False
     for entry in entries:
         try:
             argv = [a.decode("utf-8", "replace")
                     for a in (entry / "cmdline").read_bytes().split(b"\0") if a]
             state = (entry / "stat").read_text().rsplit(")", 1)[-1].split()[0]
-        except (OSError, IndexError):
+        except (FileNotFoundError, ProcessLookupError, IndexError):
             continue  # exited between the listing and the read
+        except OSError:
+            # Present but unreadable: it could be the consumer, so the answer
+            # is "unknown", which never pages, not "down". (CodeRabbit, PR #73.)
+            unreadable = True
+            continue
         if state == "Z" or not argv or "python" not in Path(argv[0]).name:
             continue
         for arg in argv[1:]:
@@ -148,14 +154,17 @@ def _consumer_running_from_proc() -> bool | None:
             if not path.is_absolute():
                 try:
                     path = Path(os.readlink(entry / "cwd")) / path
+                except FileNotFoundError:
+                    continue
                 except OSError:
+                    unreadable = True
                     continue
             try:
                 if path.resolve() == expected:
                     return True
             except OSError:
                 continue
-    return False
+    return None if unreadable else False
 
 
 def _consumer_online() -> bool | None:
