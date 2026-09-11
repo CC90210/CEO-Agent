@@ -265,19 +265,17 @@ _TRANSPORTS = ("smtp_send", "send_via_gmail_api")
 
 
 def _is_refusal_if(stmt: ast.AST) -> bool:
+    """A direct `if _refuse_other_company(...): return ...` and nothing else.
+
+    Never a guard found by searching inside another statement, and never one
+    inside a loop: a loop can run zero times, so a guard in its body proves
+    nothing about the send after it."""
     return (isinstance(stmt, ast.If)
             and isinstance(stmt.test, ast.Call)
             and isinstance(stmt.test.func, ast.Name)
             and stmt.test.func.id == "_refuse_other_company"
             and len(stmt.body) == 1
             and isinstance(stmt.body[0], ast.Return))
-
-
-def _is_refusal_gate(stmt: ast.AST) -> bool:
-    # Only a direct refusal `if`. Never a gate found by searching inside
-    # another statement, and never one inside a loop: a loop can run zero
-    # times, so a guard in its body proves nothing about the send after it.
-    return _is_refusal_if(stmt)
 
 
 def _dominating(fn: ast.FunctionDef, node: ast.AST, parents: dict) -> list:
@@ -425,6 +423,24 @@ for _label, _want, _body in (
         if _refuse_other_company(mailbox=user):
             return "failed"
         if ready:
+            smtp_send(user, pw, msg)
+    """),
+    # A guard that precedes the send in the SAME block dominates it, whatever
+    # encloses both: every execution of the send runs the guard first, and if
+    # the loop runs zero times or the outer if is false, neither runs.
+    # _send_one's own guards sit inside its if/else branches, so a rule that
+    # accepted only top-level guards would reject the consumer's real ones.
+    # What is rejected is a guard in a DIFFERENT block from the send.
+    ("guard and send together inside a loop body", True, """
+        for mb in mailboxes:
+            if _refuse_other_company(mailbox=user):
+                return "failed"
+            smtp_send(user, pw, msg)
+    """),
+    ("guard and send together inside an if body", True, """
+        if use_smtp:
+            if _refuse_other_company(mailbox=user):
+                return "failed"
             smtp_send(user, pw, msg)
     """),
     ("login guarded, From not", False, """
