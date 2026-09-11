@@ -67,11 +67,21 @@ def _load_env() -> dict[str, str]:
     """
     env: dict[str, str] = {}
     try:
-        from lib.secret_loader import load_env as _secret_env  # type: ignore
-        env.update(_secret_env())
+        from lib.secret_loader import SecretLoaderRefused, load_env as _secret_env  # type: ignore
     except Exception as exc:  # noqa: BLE001
-        print(f"[queue_monitor] secret_loader failed, parsing the env file directly: {exc}",
+        print(f"[queue_monitor] secret_loader unavailable, parsing the env file directly: {exc}",
               file=sys.stderr)
+    else:
+        try:
+            env.update(_secret_env())
+        except SecretLoaderRefused:
+            # A refusal is the loader's policy (an interactive shell, a caller
+            # under tmp/), not an outage. Reading the file directly here would
+            # route around it, so it propagates. (CodeRabbit, PR #73.)
+            raise
+        except Exception as exc:  # noqa: BLE001
+            print(f"[queue_monitor] secret_loader failed, parsing the env file directly: {exc}",
+                  file=sys.stderr)
     p = PROJECT_ROOT / ".env.agents"
     if p.exists():
         for line in p.read_text(encoding="utf-8").splitlines():

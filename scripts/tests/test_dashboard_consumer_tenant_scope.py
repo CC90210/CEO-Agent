@@ -319,6 +319,7 @@ class TestAStrandedRowIsStillSeen(unittest.TestCase):
         import dashboard_email_queue_monitor as monitor
 
         loader = type(sys)("lib.secret_loader")
+        loader.SecretLoaderRefused = type("SecretLoaderRefused", (Exception,), {})
         loader.load_env = lambda: {
             "BRAVO_SUPABASE_URL": "https://turso.compat",
             "BRAVO_SUPABASE_SERVICE_ROLE_KEY": str(mock.sentinel.compat_key),
@@ -432,6 +433,24 @@ class TestAStrandedRowIsStillSeen(unittest.TestCase):
                 with mock.patch.object(Path, "read_bytes", read_bytes):
                     self.assertIsNone(monitor._consumer_online(),
                                       "an unreadable process read as a definite 'down'")
+
+    def test_a_secret_loader_refusal_is_not_routed_around(self):
+        # A refusal (interactive shell, caller under tmp/) is the loader's
+        # policy. Falling back to a direct read of the env file would bypass
+        # it, so it must propagate. (CodeRabbit, PR #73.)
+        import dashboard_email_queue_monitor as monitor
+
+        refused = type("SecretLoaderRefused", (Exception,), {})
+        loader = type(sys)("lib.secret_loader")
+        loader.SecretLoaderRefused = refused
+
+        def refuse():
+            raise refused("refusing to load secrets from an interactive shell")
+
+        loader.load_env = refuse
+        with mock.patch.dict(sys.modules, {"lib.secret_loader": loader}):
+            with self.assertRaises(refused):
+                monitor._load_env()
 
 
 if __name__ == "__main__":
