@@ -167,8 +167,35 @@ _WRITE_SQL = re.compile(
 )
 
 
+def _run_write(db: TursoDB, args) -> dict:
+    """Execute one mutating statement, COMMIT it, and report how many rows it changed.
+
+    Writes used to go through db.query(), which is the READ path: it fetches a
+    result set and never commits. libsql answers fetchall() with None, not [],
+    for a statement that returns no rows, so an UPDATE crashed with
+    "'NoneType' object is not iterable" — and had it not crashed, the change
+    would still have been rolled back when the process exited.
+    """
+    cur = db.execute(args.query, args.param or [],
+                     allow_unscoped=args.allow_unscoped, reason=args.reason)
+    rows: list[dict] = []
+    desc = getattr(cur, "description", None)
+    if desc:  # RETURNING, or a PRAGMA that reports something
+        cols = [d[0] for d in desc]
+        rows = [dict(zip(cols, r)) for r in (cur.fetchall() or [])]
+    # Read before commit: the count describes this statement, not the commit.
+    # A driver that cannot say reports -1; show that as unknown, not as zero.
+    affected = getattr(cur, "rowcount", None)
+    if not isinstance(affected, int) or affected < 0:
+        affected = None
+    db.commit()
+    return {"ok": True, "committed": True, "affected": affected,
+            "count": len(rows), "rows": rows}
+
+
 def cmd_sql(args) -> int:
-    if _WRITE_SQL.match(args.query) and not args.dangerous_write:
+    is_write = bool(_WRITE_SQL.match(args.query))
+    if is_write and not args.dangerous_write:
         _emit(args,
               {"ok": False, "kind": "write_blocked",
                "error": "the sql verb is read-only; pass --dangerous-write to override"},
@@ -177,6 +204,13 @@ def cmd_sql(args) -> int:
         return 1
     db = _db(args)
     try:
+        if is_write:
+            result = _run_write(db, args)
+            affected = "unknown" if result["affected"] is None else result["affected"]
+            _emit(args, result,
+                  f"committed — {affected} row(s) affected"
+                  + "".join("\n" + json.dumps(r, default=str) for r in result["rows"]))
+            return 0
         rows = db.query(args.query, args.param or [],
                         allow_unscoped=args.allow_unscoped, reason=args.reason)
     except UnscopedQueryError as exc:
