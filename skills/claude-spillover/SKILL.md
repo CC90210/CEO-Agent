@@ -58,10 +58,14 @@ python scripts/integrations/omniroute_tool.py doctor --json      # every hardeni
 - **Raw state (read-only):** `%LOCALAPPDATA%\bravo-spillover\state\state.json`, plus one metadata line per
   request in `events.jsonl` (`route` is `direct`, `fallback`, `limit-429`, `overloaded-529` or `local`).
   Neither ever holds an auth header or a body.
-- **`doctor` asserts:** one listener, on 127.0.0.1:20128; 401 without a key; Next.js ≥ 16.3.3; sha pinned;
-  no plaintext key in `DATA_DIR/.env`; `requireLogin` true; no tunnel processes (cloudflared, ngrok,
-  tailscale); a rebinding Host/Origin probe gets 403/421; `POST /api/system/version` refused; forbidden
-  providers absent; a canary prompt gone from `DATA_DIR` after rotation.
+- **`doctor` asserts:** OmniRoute listens only on 127.0.0.1; 401 without a key; Next.js ≥ 16.3.3; runtime
+  version not denied; no plaintext key in `DATA_DIR/.env`; `log_env` caps present; `requireLogin` true; no
+  tunnel processes (cloudflared, ngrok, tailscale); a rebinding Host/Origin probe refused on an API route and
+  a management route (OmniRoute has no Host allowlist, so its auth is what refuses it); `POST
+  /api/system/version`, `/api/settings/mitm` and `/api/settings/require-login` refused without auth;
+  forbidden providers absent; proxy healthy; Claude Code versions allowed; owned settings unchanged; no
+  user-level Anthropic credential vars; the ChatGPT training-off attestation present. The pinned sha is
+  checked by `install --verify`. Not automated yet: the canary-prompt rotation check (ADR 0018, decision 6).
 
 ## What happens at a limit
 

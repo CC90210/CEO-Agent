@@ -2,7 +2,6 @@
   "version": 1,
   "min_claude_code": "2.1.268",
   "deny_claude_code": ["2.1.265", "2.1.266", "2.1.267"],
-  "python_exe": "C:/Users/User/Business-Empire-Agent/.venv/Scripts/python.exe",
   "proxy": {
     "host": "127.0.0.1",
     "port": 20131,

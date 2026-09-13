@@ -318,6 +318,38 @@ def test_deploy_fails_cleanly_when_source_missing(home, monkeypatch):
     assert code == ot.EXIT_USAGE
 
 
+def test_repo_config_carries_no_machine_specific_python_exe():
+    repo_cfg = json.loads(ot.REPO_CONFIG_PATH.read_text(encoding="utf-8"))
+    assert "python_exe" not in repo_cfg
+
+
+def test_deploy_resolves_python_exe_on_this_machine(home):
+    code, payload, msg = ot._do_deploy()
+    assert code == ot.EXIT_OK, msg
+    cfg = json.loads((home / "config.json").read_text(encoding="utf-8"))
+    assert cfg["python_exe"] == Path(sys.executable).as_posix()
+
+
+def test_deploy_replaces_a_python_exe_that_no_longer_exists(home, tmp_path):
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "config.json").write_text(json.dumps({"python_exe": str(tmp_path / "gone" / "python.exe")}), encoding="utf-8")
+    code, payload, msg = ot._do_deploy()
+    assert code == ot.EXIT_OK, msg
+    cfg = json.loads((home / "config.json").read_text(encoding="utf-8"))
+    assert cfg["python_exe"] == Path(sys.executable).as_posix()
+
+
+def test_deploy_keeps_a_configured_python_exe_that_exists(home, tmp_path):
+    other = tmp_path / "other-python.exe"
+    other.write_bytes(b"")
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "config.json").write_text(json.dumps({"python_exe": str(other)}), encoding="utf-8")
+    code, payload, msg = ot._do_deploy()
+    assert code == ot.EXIT_OK, msg
+    cfg = json.loads((home / "config.json").read_text(encoding="utf-8"))
+    assert cfg["python_exe"] == str(other)
+
+
 # --------------------------------------------------------------------------- #
 # start / stop against a stub supervisor (real node, config-driven port)
 # --------------------------------------------------------------------------- #
@@ -564,6 +596,49 @@ def test_disable_routing_remove_deletes_only_owned_keys(home):
     assert settings["hooks"]["SessionStart"] == [other_hook]
 
 
+def _routing_ready(home, monkeypatch):
+    write_home_config(home)
+    monkeypatch.setattr(ot, "proxy_health", lambda h, p, timeout=2.0: {"ok": True})
+    monkeypatch.setattr(ot, "get_running_claude_versions", lambda: [])
+    monkeypatch.setattr(ot, "get_cli_claude_version", lambda: "2.1.268")
+
+
+def test_enable_routing_twice_registers_the_ensure_hook_once(home, monkeypatch):
+    _routing_ready(home, monkeypatch)
+    settings_path = ot.claude_settings_path()
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps({"env": {}}), encoding="utf-8")
+
+    assert ot._do_enable_routing(assume_yes=True)[0] == ot.EXIT_OK
+    assert ot._do_enable_routing(assume_yes=True)[0] == ot.EXIT_OK
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert len([e for e in settings["hooks"]["SessionStart"] if ot._is_spillover_hook(e)]) == 1
+
+    assert ot._do_disable_routing(remove=True)[0] == ot.EXIT_OK
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert not [e for e in settings.get("hooks", {}).get("SessionStart", []) if ot._is_spillover_hook(e)]
+
+
+def test_disable_routing_remove_restores_preexisting_values(home, monkeypatch):
+    _routing_ready(home, monkeypatch)
+    settings_path = ot.claude_settings_path()
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    own_status = {"type": "command", "command": "my-own-statusline"}
+    settings_path.write_text(json.dumps({"env": {"ENABLE_TOOL_SEARCH": "auto"}, "statusLine": own_status}),
+                             encoding="utf-8")
+
+    assert ot._do_enable_routing(assume_yes=True)[0] == ot.EXIT_OK
+    # The second run sees our own values live; it must keep the first record, not overwrite it.
+    assert ot._do_enable_routing(assume_yes=True)[0] == ot.EXIT_OK
+    assert ot._do_disable_routing(remove=True)[0] == ot.EXIT_OK
+
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert settings["env"]["ENABLE_TOOL_SEARCH"] == "auto"
+    assert "ANTHROPIC_BASE_URL" not in settings["env"]
+    assert settings["statusLine"] == own_status
+    assert not (home / "state" / "owned_settings.json").exists()
+
+
 def test_rollback_runs_in_order(home, monkeypatch):
     order = []
 
@@ -697,7 +772,7 @@ def test_doctor_cli_exit_code_three(home, monkeypatch):
     assert code == ot.EXIT_CHECK_FAILED
 
 
-def test_doctor_passes_when_everything_is_healthy(home, monkeypatch):
+def _healthy_doctor_setup(home, monkeypatch, *, rebinding_status=401):
     write_home_config(home, omniroute={"log_env": dict(ot.DEFAULT_OMNIROUTE_LOG_ENV)})
     monkeypatch.setattr(ot, "_check_listen_loopback_only", lambda port: (True, "ok"))
     monkeypatch.setattr(ot, "_check_no_tunnel_process", lambda: (True, "ok"))
@@ -720,8 +795,9 @@ def test_doctor_passes_when_everything_is_healthy(home, monkeypatch):
             return 401, {"error": "no key"}, b""
         if url.endswith("/api/settings/require-login") and method == "GET":
             return 200, {"requireLogin": True}, b""
-        if method == "POST" and url.endswith("/v1/messages") and (headers or {}).get("Host") == "evil.example":
-            return 403, {"error": "forbidden"}, b""  # the rebinding Host/Origin probe
+        if (headers or {}).get("Host") == "evil.example":
+            # OmniRoute has no Host allowlist; its auth is what refuses a DNS-rebinding page.
+            return rebinding_status, {}, b""
         if method == "POST":
             return 401, {"error": "unauthorized"}, b""
         return 403, {}, b""
@@ -734,10 +810,46 @@ def test_doctor_passes_when_everything_is_healthy(home, monkeypatch):
         json.dumps({"version": "16.3.3"}), encoding="utf-8")
     (runtime / "package.json").write_text(json.dumps({"version": "3.9.0"}), encoding="utf-8")
 
+
+def test_doctor_passes_when_everything_is_healthy(home, monkeypatch):
+    _healthy_doctor_setup(home, monkeypatch)
     result = ot.run_doctor_checks(home, ot.load_home_config(home))
     failing = [c for c in result["checks"] if not c["ok"]]
     assert not failing, failing
     assert result["ok"] is True
+
+
+def test_doctor_fails_when_a_rebinding_host_reaches_a_route(home, monkeypatch):
+    _healthy_doctor_setup(home, monkeypatch, rebinding_status=200)
+    result = ot.run_doctor_checks(home, ot.load_home_config(home))
+    failing = {c["name"] for c in result["checks"] if not c["ok"]}
+    assert "rebinding Host/Origin probe refused on POST /v1/messages" in failing
+    assert "rebinding Host/Origin probe refused on GET /api/providers" in failing
+    assert result["ok"] is False
+
+
+def test_http_call_does_not_identify_as_python_urllib():
+    # auth.openai.com's edge answers "Python-urllib/x" with a 530 (live 2026-09-13), which is what broke
+    # `omniroute connect codex`; a descriptive User-Agent gets through.
+    seen = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen["ua"] = self.headers.get("User-Agent")
+            self.send_response(204)
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        ot.http_call(f"http://127.0.0.1:{server.server_address[1]}/", timeout=5)
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert seen["ua"] == ot.HTTP_USER_AGENT
 
 
 # --------------------------------------------------------------------------- #
@@ -938,6 +1050,58 @@ def test_connect_key_rejects_unknown_provider(home, fake_omniroute):
     store_secret(home, "initial_password", state["password"])
     code, payload, msg = ot._do_connect_key("glm-cn")
     assert code == ot.EXIT_USAGE
+
+
+class _FakeSecretLoader:
+    def __init__(self, values):
+        self.values = values
+
+    def get(self, key, default=None):
+        return self.values.get(key, default)
+
+    def load_env(self, required=None):
+        return dict(self.values)
+
+
+def test_connect_key_from_env_agents_needs_no_tty_and_never_echoes(home, fake_omniroute, monkeypatch, capsys):
+    port, state = fake_omniroute
+    write_home_config(home, proxy={"omniroute_base": f"http://127.0.0.1:{port}"})
+    store_secret(home, "initial_password", state["password"])
+    monkeypatch.setattr(ot, "_stdin_is_tty", lambda: False)
+    monkeypatch.setattr(ot, "_secret_loader_module", lambda: _FakeSecretLoader({"CEREBRAS_API_KEY": "env-secret-cerebras"}))
+
+    capsys.readouterr()
+    exit_code = ot.main(["omniroute", "connect-key", "cerebras", "--from-env-agents", "--json"])
+    captured = capsys.readouterr()
+
+    assert exit_code == ot.EXIT_OK, captured.out
+    assert "env-secret-cerebras" not in captured.out + captured.err
+    assert state["created_providers"][0]["provider"] == "cerebras"
+    assert state["created_providers"][0]["apiKey"] == "env-secret-cerebras"
+
+
+def test_connect_key_from_env_agents_missing_name_points_at_similar_names(home, fake_omniroute, monkeypatch):
+    port, state = fake_omniroute
+    write_home_config(home, proxy={"omniroute_base": f"http://127.0.0.1:{port}"})
+    store_secret(home, "initial_password", state["password"])
+    monkeypatch.setattr(ot, "_secret_loader_module", lambda: _FakeSecretLoader({"CEREBRAS_KEY": "value-must-not-leak"}))
+
+    code, payload, msg = ot._do_connect_key("cerebras", from_env_agents=True)
+    assert code == ot.EXIT_USAGE
+    assert "CEREBRAS_API_KEY" in msg and "CEREBRAS_KEY" in msg
+    assert "value-must-not-leak" not in msg + json.dumps(payload)
+    assert not state["created_providers"]
+
+
+def test_connect_key_from_env_agents_honours_env_name(home, fake_omniroute, monkeypatch):
+    port, state = fake_omniroute
+    write_home_config(home, proxy={"omniroute_base": f"http://127.0.0.1:{port}"})
+    store_secret(home, "initial_password", state["password"])
+    monkeypatch.setattr(ot, "_secret_loader_module", lambda: _FakeSecretLoader({"MY_ZAI": "zai-secret"}))
+
+    code, payload, msg = ot._do_connect_key("zai", from_env_agents=True, env_name="MY_ZAI")
+    assert code == ot.EXIT_OK, msg
+    assert state["created_providers"][0]["apiKey"] == "zai-secret"
 
 
 # --------------------------------------------------------------------------- #
@@ -1245,10 +1409,22 @@ def test_never_touches_real_localappdata_bravo_spillover(home, monkeypatch):
     assert _REAL_LOCALAPPDATA, "LOCALAPPDATA must be set on this machine for the guard to mean anything"
     real_home = Path(_REAL_LOCALAPPDATA) / "bravo-spillover"
 
+    # A running install rewrites these on its own at any moment (OmniRoute's database, the proxy's
+    # state and logs), so comparing them would flag the live service rather than a test.
+    def written_by_live_service(rel: Path) -> bool:
+        if rel.parts[0] == "omniroute-data":
+            return True
+        if rel.parts[0] != "state":
+            return False
+        name = rel.parts[-1]
+        return (rel.parts[1:2] in (("logs",), ("captured",)) or name == "supervisor.pid"
+                or name.startswith("state.json") or name.startswith("events.jsonl"))
+
     def snapshot():
         if not real_home.exists():
             return None
-        return {str(p): p.stat().st_mtime for p in real_home.rglob("*") if p.is_file()}
+        return {str(p): p.stat().st_mtime for p in real_home.rglob("*")
+                if p.is_file() and not written_by_live_service(p.relative_to(real_home))}
 
     before = snapshot()
 

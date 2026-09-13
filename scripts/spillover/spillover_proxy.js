@@ -38,7 +38,10 @@ if (host !== "127.0.0.1") die("proxy host must be 127.0.0.1");
 const nowOffsetMs=isTest ? Number(arg("--now-offset") || 0)*1000 : 0;
 const nowMs=()=>Date.now()+nowOffsetMs;
 const nowIso=()=>new Date(nowMs()).toISOString();
-let laneKey=isTest ? String(arg("--lane-key") || "") : loadLaneKey();
+// Test runs normally pass --lane-key; one that omits it exercises the production loader below.
+const laneKeyFromLoader=!(isTest && arg("--lane-key")!==undefined);
+let laneKey=laneKeyFromLoader ? loadLaneKey() : String(arg("--lane-key"));
+let laneKeyRetryAt=0;
 let configMtime=0;
 const instanceId=crypto.randomUUID();
 let transitionPromise=null;
@@ -46,8 +49,17 @@ let storedLimitRaw=null;
 let healthCache={healthy:true,at:0};
 let state=loadState();
 
+// A missing or unreadable lane key must never stop the proxy: the direct leg needs no key, and the
+// fallback leg reports itself down until one loads (checkHealth). Only the failure's code is logged,
+// never the helper's output.
 function loadLaneKey() {
-  return childProcess.execFileSync(fullConfig.python_exe,[path.join(homeDir,"bin","lane_key.py"),"get","omniroute_lane"],{encoding:"utf8",windowsHide:true,timeout:5000}).trim();
+  try {
+    // -S: lane_key.py is stdlib only, and skipping the venv's site import cuts this synchronous call from ~1.4 s to ~0.1 s.
+    return childProcess.execFileSync(fullConfig.python_exe,["-S",path.join(homeDir,"bin","lane_key.py"),"get","omniroute_lane"],{encoding:"utf8",windowsHide:true,timeout:5000,stdio:["ignore","pipe","pipe"]}).trim();
+  } catch (e) {
+    console.error(`spillover: lane key unavailable (${e.code||`exit ${e.status}`}); fallback leg stays down until it loads`);
+    return "";
+  }
 }
 function blankState() { return {schema_version:1,mode:"direct",config_mode:cfg.mode,limit:null,fallback:{healthy:true,checked_at:null,consecutive_failures:0,last_error:null,outage_since:null},last_probe_at:null,counters:{direct:0,fallback:0,limit_passthrough:0,overloaded_529:0,automation:0,errors:0},last_route:null,instance_id:instanceId,pid:process.pid,started_at:nowIso(),version:readVersion()}; }
 function readVersion(){ try{return fs.readFileSync(path.join(__dirname,"VERSION"),"utf8").trim() || "dev";}catch{return "dev";} }
@@ -149,7 +161,12 @@ function retryAfter(){if(!state.limit)return "60";return String(Math.max(1,Math.
 function sendStoredLimit(res){if(!storedLimitRaw)return anthropicError(res,429,"rate_limit_error","Claude subscription usage limit reached");const h={...storedLimitRaw.headers,"retry-after":retryAfter()};delete h["content-length"];res.writeHead(429,h);res.end(storedLimitRaw.body);return storedLimitRaw.body.length;}
 function persistentFallback(){const f=state.fallback;return f.consecutive_failures>=cfg.fallback_health_fail_threshold||(f.outage_since&&nowMs()-Date.parse(f.outage_since)>=cfg.fallback_persistent_outage_sec*1000);}
 async function markHealth(ok,error){const f=state.fallback;f.healthy=ok;f.checked_at=nowIso();if(ok){f.consecutive_failures=0;f.last_error=null;f.outage_since=null;}else{f.consecutive_failures++;f.last_error=String(error||"fallback unavailable");if(!f.outage_since)f.outage_since=nowIso();}healthCache={healthy:ok,at:nowMs()};await saveState();}
-async function checkHealth(force=false){const ttl=healthCache.healthy?cfg.fallback_health_ttl_ok_ms:cfg.fallback_health_ttl_fail_ms;if(!force&&nowMs()-healthCache.at<ttl)return healthCache.healthy;const fake=readFault();if(fake&&fake.mode==="omniroute_down"){await markHealth(false,"fault omniroute_down");return false;}for(let attempt=0;attempt<2;attempt++){try{const u=new URL("/v1/models",cfg.omniroute_base);const h={authorization:`Bearer ${laneKey}`};const result=await new Promise((resolve,reject)=>{const q=http.request(u,{method:"GET",headers:h},resolve);q.setTimeout(Math.min(3000,cfg.fallback_first_content_timeout_ms),()=>q.destroy(new Error("health timeout")));q.on("error",reject);q.end();});result.resume();if(result.statusCode>=200&&result.statusCode<500&&result.statusCode!==401){await markHealth(true);return true;}if(result.statusCode===401&&attempt===0&&!isTest){laneKey=loadLaneKey();continue;}throw new Error(`health status ${result.statusCode}`);}catch(e){if(attempt===1||isTest){await markHealth(false,e.message);return false;}}}return false;}
+async function checkHealth(force=false){const ttl=healthCache.healthy?cfg.fallback_health_ttl_ok_ms:cfg.fallback_health_ttl_fail_ms;if(!force&&nowMs()-healthCache.at<ttl)return healthCache.healthy;
+  // No lane key yet (setup not run, or the store unreadable): the fallback is down, and it must never
+  // be called with an empty bearer. The reload is synchronous, so it is retried at most once a minute.
+  if(!laneKey&&laneKeyFromLoader&&nowMs()>=laneKeyRetryAt){laneKeyRetryAt=nowMs()+60000;laneKey=loadLaneKey();}
+  if(!laneKey){await markHealth(false,"lane key not set");return false;}
+  const fake=readFault();if(fake&&fake.mode==="omniroute_down"){await markHealth(false,"fault omniroute_down");return false;}for(let attempt=0;attempt<2;attempt++){try{const u=new URL("/v1/models",cfg.omniroute_base);const h={authorization:`Bearer ${laneKey}`};const result=await new Promise((resolve,reject)=>{const q=http.request(u,{method:"GET",headers:h},resolve);q.setTimeout(Math.min(3000,cfg.fallback_first_content_timeout_ms),()=>q.destroy(new Error("health timeout")));q.on("error",reject);q.end();});result.resume();if(result.statusCode>=200&&result.statusCode<500&&result.statusCode!==401){await markHealth(true);return true;}if(result.statusCode===401&&attempt===0&&!isTest){laneKey=loadLaneKey();continue;}throw new Error(`health status ${result.statusCode}`);}catch(e){if(attempt===1||isTest){await markHealth(false,e.message);return false;}}}return false;}
 function readFault(){try{const f=JSON.parse(fs.readFileSync(path.join(stateDir,"fault.json"),"utf8"));const expires=Date.parse(f.expires_at);if(!cfg.allow_fault_injection||!Number.isFinite(expires)||expires<=nowMs()||expires>nowMs()+3600000)return null;return f;}catch{return null;}}
 async function enterSpilling(classification,status,headers,body){if(transitionPromise)return transitionPromise;transitionPromise=(async()=>{if(state.mode==="spilling")return;const captured=capture429(status,headers,body);storedLimitRaw={status,headers:{...headers},body:Buffer.from(body)};state.mode="spilling";state.last_probe_at=nowIso();state.limit={detected_at:nowIso(),reset_at:new Date(classification.reset_at*1000).toISOString(),reset_source:classification.reset_source,claim:classification.claim,captured};await saveState();event({req_id:null,method:null,path:null,lane:null,entrypoint:null,cc_version:null,route:"local",status:429,upstream_status:429,ms:0,bytes_in:0,bytes_out:0,reason:"entered_fallback",route_model:null,unified:detector.unifiedTelemetry(headers)});alert("entered_fallback",`Claude limit reached until ${state.limit.reset_at}`);})();try{await transitionPromise;}finally{transitionPromise=null;}}
 async function returnDirect(reason){if(state.mode!=="spilling")return;state.mode="direct";state.limit=null;storedLimitRaw=null;await saveState();alert("back_to_claude",`Back on Claude: ${reason}`);}

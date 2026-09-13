@@ -146,10 +146,13 @@ This came out of five build attempts on this 15 GB machine at `152d9510`:
 The backend-only build succeeded in 7.7 minutes. In a local trial it booted in 8 s, listened on 127.0.0.1 only, and returned 401 both on unauthenticated `/v1/*` and on the Codex device-flow route.
 
 What backend-only changes:
-- **No dashboard UI.** Codex connects through OmniRoute's device-code flow, and API-key providers through the management API (`omniroute_tool.py omniroute connect codex` and `connect-key`). Combos and the lane key are created through the same API.
-- **OmniRoute's instrumentation is stubbed**, so its `ensureSecrets()` and background schedulers never run.
-  - **Secrets:** the supervisor passes `STORAGE_ENCRYPTION_KEY`, `INITIAL_PASSWORD`, `JWT_SECRET` and `API_KEY_SECRET` from DPAPI blobs on every start (CONTRACT §16). They must stay stable, or the lane key stops validating.
-  - **Token refresh and log retention don't depend on the stubbed schedulers.** The pinned source shows:
+- **No dashboard UI.** Codex connects through OmniRoute's device-code flow, and API-key providers through the management API (`omniroute_tool.py omniroute connect codex` and `connect-key`). `connect-key` reads the key either from a hidden prompt or, with `--from-env-agents`, from `.env.agents` through the audited secret loader. Combos and the lane key are created through the same API.
+- **OmniRoute's startup still runs** (corrected 2026-09-13). An earlier draft said the instrumentation was stubbed.
+  - Backend-only stubs only the dashboard pages. The instrumentation entrypoint is stubbed only for the separate contributor profile (`scripts/build/build-next-isolated.mjs:294-304`).
+  - So `registerNodejs()` runs `ensureSecrets()` (`instrumentation-node.ts:358`). Unless `OMNIROUTE_DISABLE_BACKGROUND_SERVICES` is set, it also starts the background services; they are left on.
+  - The first live start proved it: OmniRoute's embedded-service WebSocket proxy took 127.0.0.1:20131 from the spillover proxy. It now runs on 20133, and the live dashboard socket is off (CONTRACT §10).
+  - **Secrets:** the supervisor passes `STORAGE_ENCRYPTION_KEY`, `INITIAL_PASSWORD`, `JWT_SECRET` and `API_KEY_SECRET` from DPAPI blobs on every start (CONTRACT §16). With them set, `ensureSecrets()` neither generates nor persists its own, so they stay stable; if they changed, the lane key would stop validating.
+  - **Token refresh and log retention don't depend on the background schedulers.** The pinned source shows:
     - Codex OAuth tokens refresh at request time: `open-sse/executors/base.ts:735` checks `needsRefresh()` before each call, and `CodexExecutor` extends `BaseExecutor` (`codex.ts:801`).
     - Call-log rotation is triggered on write: `callLogs.ts:638` and `:694` call `scheduleCallLogRotation()`, which runs the day-based delete, the row trim and the file cleanup (`callLogRotation.ts:333-359`).
   - **No switch turns call-log persistence off.** `deploy` therefore writes privacy-minimal caps into `omniroute.log_env`: 1-day retention, 200 rows, 2 KB text, a 16 KB body limit, no app log file and no debug file.
@@ -185,8 +188,8 @@ import, Cloud Sync, and the 9router installer. Those routes stay behind four pro
 - the loopback-only bind
 - `doctor` checks that assert unauthenticated and rebinding callers are refused
 
-That reduces the exposure but doesn't remove it. The stubbed instrumentation is the other cost: see
-Decision 6 for what must be verified before spilling. Re-evaluate the build once upstream fixes the full-build
+That reduces the exposure but doesn't remove it. Decision 6 lists what the backend-only build changes and
+what must be verified before spilling. Re-evaluate the build once upstream fixes the full-build
 module leak and the `minimal` alias paths, or npm ships a patched release.
 
 **Other costs:** one more always-on local service; a Claude Code version floor (2.1.268, with

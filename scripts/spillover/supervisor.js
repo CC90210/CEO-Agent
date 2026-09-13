@@ -63,7 +63,12 @@ const OMNI_SECRETS = {
 const OMNI_FIXED_ENV_NAMES = [
   "PORT", "API_PORT", "DASHBOARD_PORT", "OMNIROUTE_SERVER_HOST", "HOSTNAME", "REQUIRE_API_KEY",
   "DATA_DIR", "OMNIROUTE_NO_UPDATE_NOTIFIER", "OMNIROUTE_MEMORY_MB", "NODE_ENV",
+  "EMBED_WS_PROXY_PORT", "EMBED_WS_PROXY_HOST", "OMNIROUTE_ENABLE_LIVE_WS", "LIVE_WS_HOST",
 ];
+// OmniRoute opens side listeners next to its main port. Its embedded-service WebSocket proxy defaults to
+// 20131, which is the spillover proxy's own port: whichever binds first wins, so it is moved off. The live
+// dashboard socket (default 20132) only feeds the dashboard UI, which the backend-only build doesn't ship.
+const OMNI_EMBED_WS_PORT = 20133;
 
 // CONTRACT §11 flags (all value-taking), plus the supervisor-only --omniroute-cmd.
 const TEST_VALUE_FLAGS = [
@@ -197,6 +202,10 @@ function resolveSettings(opts, cfg, homeDir, appDir) {
   // so a test can never touch the real one.
   let omniPort = OMNI_DEFAULT_PORT;
   if (opts.test) omniPort = opts.omnirouteBase ? urlPort(opts.omnirouteBase) : null;
+
+  if (port === omniPort || port === OMNI_EMBED_WS_PORT) {
+    throw new Error(`proxy.port ${port} collides with an OmniRoute listener (main ${omniPort}, embedded WebSocket ${OMNI_EMBED_WS_PORT})`);
+  }
 
   const memoryMb = omni.memory_mb === undefined ? 1536 : omni.memory_mb;
   if (!Number.isInteger(memoryMb) || memoryMb <= 0) throw new Error(`omniroute.memory_mb is invalid: ${memoryMb}`);
@@ -432,6 +441,10 @@ function buildOmnirouteEnv(baseEnv, s, secrets, warn) {
     OMNIROUTE_NO_UPDATE_NOTIFIER: "1",
     OMNIROUTE_MEMORY_MB: String(s.memoryMb),
     NODE_ENV: "production",
+    EMBED_WS_PROXY_PORT: String(OMNI_EMBED_WS_PORT),
+    EMBED_WS_PROXY_HOST: "127.0.0.1",
+    OMNIROUTE_ENABLE_LIVE_WS: "0",
+    LIVE_WS_HOST: "127.0.0.1",
   });
   for (const [name, value] of Object.entries(secrets)) env[name] = value;
   const bad = Object.keys(env).filter(hasForbiddenPrefix);
@@ -450,7 +463,9 @@ function fetchSecret(s, baseEnv, name) {
   if (!fs.existsSync(script)) return { ok: false, why: `${script} not found` };
   let out;
   try {
-    out = execFileSync(s.pythonExe, [script, "get", name], {
+    // -S: lane_key.py is stdlib only; skipping the venv's site import cuts each of these sequential
+    // startup calls from ~1.4 s to ~0.1 s.
+    out = execFileSync(s.pythonExe, ["-S", script, "get", name], {
       env: baseEnv,
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
@@ -672,12 +687,19 @@ let currentWorker = null;
 let workerCrashTimes = [];
 let workerRespawnTimer = null;
 let shuttingDown = false;
+let workerLog = null;
+const passThrough = makeRedactor([]);
 
 function forkWorker() {
   if (shuttingDown) return;
   const worker = cluster.fork();
   currentWorker = worker;
   log("info", `proxy worker forked pid=${worker.process.pid}`);
+  if (workerLog) {
+    // The worker's env never carries the OmniRoute secrets, so there is nothing of ours to redact.
+    pipeToLog(worker.process.stdout, workerLog, passThrough);
+    pipeToLog(worker.process.stderr, workerLog, passThrough);
+  }
   worker.once("exit", (code, signal) => {
     if (currentWorker === worker) currentWorker = null;
     if (shuttingDown) return;
@@ -962,7 +984,10 @@ async function main() {
   // own env must already be reduced to the allowlist before the first fork (CONTRACT §10).
   scrubProcessEnv(baseEnv);
 
-  cluster.setupPrimary({ exec: s.proxyScript, args: s.workerArgs, windowsHide: true });
+  // silent: the worker gets piped stdio, which forkWorker() copies into proxy.log. Inherited stdio went
+  // nowhere (the supervisor runs detached), so a worker that died on startup left only its exit code.
+  workerLog = new RotatingLog(path.join(s.logsDir, "proxy.log"));
+  cluster.setupPrimary({ exec: s.proxyScript, args: s.workerArgs, windowsHide: true, silent: true });
   forkWorker();
 
   if (s.omniEnabled && fs.existsSync(s.omniCmd)) {

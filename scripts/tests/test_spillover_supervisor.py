@@ -60,6 +60,7 @@ const arg = (f) => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : un
 const port = Number(arg("--port"));
 const stateDir = arg("--state-dir");
 const instanceId = crypto.randomUUID();
+process.stderr.write(`stub worker ${process.pid} stderr line\n`);
 fs.writeFileSync(path.join(stateDir, `worker-${process.pid}.json`),
   JSON.stringify({ pid: process.pid, argv, execArgv: process.execArgv, envNames: Object.keys(process.env) }));
 http.createServer((req, res) => {
@@ -421,6 +422,16 @@ def test_single_instance_foreign_listener_exits_three(tmp_path, supervisors, for
 # ---------------------------------------------------------------------------------------------------------
 
 
+def test_worker_output_is_captured_to_proxy_log(tmp_path, supervisors):
+    # The supervisor runs detached with no console, so the worker's own stderr is the only record of why
+    # it died on startup. Before this was captured, a crash-looping worker left only "exited code=1".
+    h = supervisors(tmp_path)
+    assert h.wait_health(timeout=10.0), f"worker never became healthy\n{h.output()}"
+    proxy_log = h.state_dir / "logs" / "proxy.log"
+    seen = wait_until(lambda: proxy_log.is_file() and "stderr line" in proxy_log.read_text(encoding="utf-8"), 5.0)
+    assert seen, f"worker stderr never reached {proxy_log}\n{h.output()}"
+
+
 def test_worker_crash_respawns_and_serves_health_again(tmp_path, supervisors):
     h = supervisors(tmp_path)
     first = h.wait_health(timeout=10.0)
@@ -480,6 +491,11 @@ def test_omniroute_env_secrets_and_log_redaction(tmp_path, supervisors):
     assert env["PORT"] == env["API_PORT"] == env["DASHBOARD_PORT"] == str(omni_port)
     assert env["REQUIRE_API_KEY"] == "true"
     assert env["OMNIROUTE_SERVER_HOST"] == "127.0.0.1"
+    # OmniRoute's embedded WebSocket proxy defaults to 20131, the spillover proxy's own port; whichever
+    # bound first used to win. It must be pinned elsewhere, on loopback.
+    assert env["EMBED_WS_PROXY_PORT"] not in ("20131", str(omni_port)), env["EMBED_WS_PROXY_PORT"]
+    assert env["EMBED_WS_PROXY_HOST"] == "127.0.0.1"
+    assert env["OMNIROUTE_ENABLE_LIVE_WS"] == "0"
 
     for env_name, value in ALL_OMNI_SECRETS.items():
         assert env.get(env_name) == value, f"{env_name} missing or wrong in omniroute env"

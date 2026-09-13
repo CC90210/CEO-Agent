@@ -26,7 +26,7 @@ def start(cmd):
     return p,int(line.split()[1])
 
 @contextlib.contextmanager
-def rig(tmp_path,anthropic,omni,mode="spill",extra=None,now_offset=0,initial_state=None,top_level=None):
+def rig(tmp_path,anthropic,omni,mode="spill",extra=None,now_offset=0,initial_state=None,top_level=None,lane=LANE):
     procs=[]
     tmp_path.mkdir(parents=True,exist_ok=True)
     try:
@@ -40,7 +40,8 @@ def rig(tmp_path,anthropic,omni,mode="spill",extra=None,now_offset=0,initial_sta
         if top_level:base.update(top_level)
         (home/"config.json").write_text(json.dumps(base),encoding="utf8")
         if initial_state is not None: (state/"state.json").write_text(json.dumps(initial_state),encoding="utf8")
-        cmd=[NODE,str(PROXY),"--test","--state-dir",str(state),"--anthropic-base",f"http://127.0.0.1:{ap}","--omniroute-base",f"http://127.0.0.1:{op}","--lane-key",LANE,"--port","0","--now-offset",str(now_offset)]
+        cmd=[NODE,str(PROXY),"--test","--state-dir",str(state),"--anthropic-base",f"http://127.0.0.1:{ap}","--omniroute-base",f"http://127.0.0.1:{op}","--port","0","--now-offset",str(now_offset)]
+        if lane is not None:cmd+=["--lane-key",lane]
         pp,port=start(cmd);procs.append(pp);yield port,state,alog,olog,home
     finally:
         for p in reversed(procs):stop(p)
@@ -73,6 +74,20 @@ def test_errors_and_transient_are_unmodified(tmp_path):
     with rig(tmp_path,[x[0] for x in bodies],[],mode="spill") as (port,*_):
         for _,status,body in bodies:
             got=request(port);assert (got[0],got[2])==(status,body)
+
+def test_missing_lane_key_keeps_direct_up_and_fallback_down(tmp_path):
+    # Production loads the lane key through python_exe at startup. Before `omniroute setup` has stored
+    # one, that load fails, and it used to throw: the worker exited 1 before it ever listened, taking the
+    # direct leg down with it. The direct leg needs no key; the fallback must stay down and must never be
+    # called with an empty bearer.
+    anth=[{"match":{"path":"/v1/messages"},"status":200,"body":"direct-ok"},
+          {"match":{"path":"/v1/messages"},"status":429,"headers":LIMIT_HEADERS,"body":LIMIT_BODY}]
+    omni=[{"match":{"method":"GET","path":"/v1/models"},"status":200,"body":{}}]
+    with rig(tmp_path,anth,omni,lane=None,top_level={"python_exe":str(tmp_path/"no-such-python.exe")}) as (port,_,_,olog,_):
+        status,_,data=request(port);assert (status,data)==(200,b"direct-ok")
+        status,_,_=request(port);assert status==529
+        assert health(port)["fallback_healthy"] is False
+        assert rows(olog)==[]
 
 def test_limit_replayed_without_claude_secret_and_state(tmp_path):
     anth=[{"match":{"path":"/v1/messages"},"status":429,"headers":LIMIT_HEADERS,"body":LIMIT_BODY}]

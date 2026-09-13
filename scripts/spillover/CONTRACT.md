@@ -20,7 +20,7 @@ until the limit resets. OmniRoute never holds a Claude credential.
 | Thing | Value |
 |---|---|
 | Proxy listen | `127.0.0.1:20131` (never 0.0.0.0) |
-| OmniRoute listen | `127.0.0.1:20128`, with `PORT`, `API_PORT` and `DASHBOARD_PORT` all 20128 |
+| OmniRoute listen | `127.0.0.1:20128`, with `PORT`, `API_PORT` and `DASHBOARD_PORT` all 20128; its embedded-service WebSocket proxy on `127.0.0.1:20133` (§10) |
 | Runtime home (`HOME_DIR`) | Windows `%LOCALAPPDATA%\bravo-spillover`; Mac `~/Library/Application Support/bravo-spillover` |
 | `HOME_DIR/app/` | Deployed `spillover_proxy.js`, `limit_detector.js`, `supervisor.js`, plus `VERSION` (git sha) |
 | `HOME_DIR/bin/` | Deployed `lane_key.py`, `statusline.py`, `ensure_spillover.py`, `claude-direct.cmd` |
@@ -169,19 +169,25 @@ It is honoured only while `proxy.allow_fault_injection` is `true` and `expires_a
 `lane_key.py` offers `generate <name> [--bytes N]`, `set <name>` (read with getpass), `exists <name>` (prints `true` or `false`) and `get <name>` (prints the value to stdout).
 - **Storage:** DPAPI at user scope on Windows, the `security` keychain on the Mac. Stdlib only. `get` is blocked for agent Bash and PowerShell calls by `secret_guard`.
 - **Callers:**
-  - The proxy runs `python_exe bin/lane_key.py get omniroute_lane` windowless when it starts, and again after a fallback 401.
+  - The proxy runs `python_exe -S bin/lane_key.py get omniroute_lane` windowless when it starts, and again after a fallback 401. `lane_key.py` is stdlib only; `-S` skips the venv's site import (~1.4 s down to ~0.1 s per call, measured 2026-09-13).
+    - A failed load never stops the proxy (clarification 2026-09-13). The direct leg needs no key. The fallback reports itself down with `last_error: "lane key not set"` and is never called with an empty bearer; the load is retried at most once a minute.
   - The supervisor fetches `storage_encryption` and `initial_password` the same way to build OmniRoute's env.
 - **Handling:** values live only in process memory, are never logged, and are never written anywhere else.
 
 ## 10. Supervisor (`supervisor.js`)
 - **Single instance.** It binds `proxy.port` itself (cluster primary, one worker running `spillover_proxy.js`). If the bind fails with `EADDRINUSE`, it checks `/__spillover/health`: if that shows our own instance it exits 0; otherwise it exits 3 and alerts.
 - **Worker restarts.** It respawns the worker after 250 ms, backing off to 5 s after 5 crashes in a minute.
+- **Worker output.** The worker's stdout and stderr are copied to `HOME_DIR/state/logs/proxy.log` (clarification 2026-09-13). The supervisor runs detached, so inherited stdio went nowhere, and a worker that died on startup left only its exit code.
 - **OmniRoute child.** It runs `node --use-system-ca <omniroute-src>/bin/omniroute.mjs serve --no-open --port 20128` with an allowlisted env and restarts it with backoff. Before spawning, it kills any stale process that owns :20128 and whose command line contains `HOME_DIR/omniroute-src`.
+- **OmniRoute side listeners** (clarification 2026-09-13). Besides :20128, OmniRoute opens an embedded-service WebSocket proxy, which defaults to 20131: the proxy's own port, so whichever bound first won. It also opens a live dashboard socket on 20132.
+  - The supervisor sets `EMBED_WS_PROXY_PORT=20133` and `EMBED_WS_PROXY_HOST=127.0.0.1`.
+  - It turns the live socket off with `OMNIROUTE_ENABLE_LIVE_WS=0`; only the dashboard UI uses it.
+  - It refuses to start if `proxy.port` is 20128 or 20133.
 - **Environment.** Everything it launches gets an **allowlisted env**: `SystemRoot, SYSTEMROOT, PATH, TEMP, TMP, USERPROFILE, LOCALAPPDATA, APPDATA, HOME, COMPUTERNAME, NODE_EXTRA_CA_CERTS` (only if the file exists), plus the variables that component itself needs. No `ANTHROPIC_*`, `OPENAI_*` or `CLAUDE_*` variable is ever passed through.
 - **Shutdown.** On shutdown it kills its children. On Windows the OmniRoute tree is killed with `taskkill /T /F`.
 
 ## 11. Test mode
-A proxy or supervisor honours `--test --state-dir D --anthropic-base URL --omniroute-base URL --lane-key K --port N --now-offset S` only when `--test` is present **and** every URL host is `127.0.0.1` or `localhost`. In any other case these flags are rejected with exit 2. Environment overrides are never read.
+A proxy or supervisor honours `--test --state-dir D --anthropic-base URL --omniroute-base URL --lane-key K --port N --now-offset S` only when `--test` is present **and** every URL host is `127.0.0.1` or `localhost`. In any other case these flags are rejected with exit 2. Environment overrides are never read. A test proxy started without `--lane-key` loads its key the production way (`python_exe bin/lane_key.py`, §9), so a test can exercise that path.
 
 ## 12. Claude Code settings written by `omniroute_tool.py spillover enable-routing`
 - **Env keys** in `~/.claude/settings.json`: `ANTHROPIC_BASE_URL=http://127.0.0.1:20131` and `ENABLE_TOOL_SEARCH=true`.

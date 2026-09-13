@@ -117,11 +117,12 @@ COMBO_MAIN = "bravo-fallback"
 COMBO_FAST = "bravo-fallback-fast"
 DEFAULT_MODELS_MAIN = ["cx/gpt-5.6-sol", "cx/gpt-6-astra"]
 DEFAULT_MODELS_FAST = ["cx/gpt-5.6-sol"]
+START_HEALTH_TIMEOUT_SEC = 30.0
 # Verified live against the pinned OmniRoute source (src/lib/logEnv.ts): small
-# retention/size caps so the backend-only build (no stubbed cleanup scheduler)
-# doesn't grow call/app logs unbounded. Rotation is triggered on write
-# (callLogs.ts -> scheduleCallLogRotation() -> rotateCallLogs()), so these caps
-# are actually enforced even though the background scheduler is stubbed.
+# retention/size caps so call/app logs can't grow unbounded. Rotation is
+# triggered on write (callLogs.ts -> scheduleCallLogRotation() ->
+# rotateCallLogs()), so these caps hold whether or not OmniRoute's background
+# cleanup scheduler runs.
 # `deploy` seeds these into HOME_DIR/config.json omniroute.log_env without
 # overwriting any value the operator already set; `doctor` reports which of
 # these names are present/missing (names only, values are non-secret but kept
@@ -380,11 +381,18 @@ class ApiUnreachable(Exception):
     """Network/transport failure talking to the proxy or OmniRoute."""
 
 
+# auth.openai.com's edge answers Python's default "Python-urllib/x" identity with a 530 (live 2026-09-13)
+# while a descriptive User-Agent gets through. This names the tool; it doesn't pose as a browser.
+HTTP_USER_AGENT = "bravo-spillover/1.0 (omniroute_tool)"
+
+
 def http_call(url: str, *, method: str = "GET", headers: dict | None = None,
               json_body: Any = None, raw_body: bytes | None = None,
               timeout: float = 10, opener: urllib.request.OpenerDirector | None = None
               ) -> tuple[int, Any, bytes]:
     hdrs = dict(headers or {})
+    if not any(k.lower() == "user-agent" for k in hdrs):
+        hdrs["User-Agent"] = HTTP_USER_AGENT
     data: bytes | None = None
     if raw_body is not None:
         data = raw_body
@@ -628,6 +636,12 @@ def _do_deploy() -> tuple[int, dict, str]:
     merged = isinstance(existing, dict)
     final_cfg = existing if merged else {}
     merge_missing(final_cfg, repo_cfg)
+    # python_exe is machine-specific, so the repo defaults carry none. Keep a configured interpreter that
+    # still exists; otherwise use the one running this deploy (the proxy and supervisor use it for secrets
+    # and alerts, so a dangling path takes both down).
+    configured_python = final_cfg.get("python_exe")
+    if not (isinstance(configured_python, str) and configured_python and Path(configured_python).is_file()):
+        final_cfg["python_exe"] = Path(sys.executable).as_posix()
     omni_section = dict(final_cfg.get("omniroute") or {})
     log_env = dict(omni_section.get("log_env") or {})
     merge_missing(log_env, DEFAULT_OMNIROUTE_LOG_ENV)
@@ -671,7 +685,9 @@ def _do_start() -> tuple[int, dict, str]:
     except OSError as exc:
         return EXIT_UNREACHABLE, {}, f"failed to spawn supervisor: {exc}"
 
-    deadline = time.monotonic() + 5.0
+    # Cold node start, then the worker's synchronous lane-key fetch through python_exe: measured at 4-8 s
+    # on this box, so a 5 s wait reported a healthy start as a failure.
+    deadline = time.monotonic() + START_HEALTH_TIMEOUT_SEC
     health = None
     while time.monotonic() < deadline:
         health = proxy_health(host, port, timeout=0.5)
@@ -679,7 +695,9 @@ def _do_start() -> tuple[int, dict, str]:
             break
         time.sleep(0.2)
     if not health:
-        return EXIT_UNREACHABLE, {}, "supervisor spawned but health check did not come up within 5s"
+        return EXIT_UNREACHABLE, {}, (
+            f"supervisor spawned but health check did not come up within {START_HEALTH_TIMEOUT_SEC:.0f}s; "
+            "see state/logs/supervisor.log and proxy.log")
     return EXIT_OK, {"health": health}, "spillover proxy started"
 
 
@@ -812,23 +830,48 @@ def _do_enable_routing(*, assume_yes: bool) -> tuple[int, dict, str]:
     before = json.dumps(settings, indent=2, sort_keys=True)
     new_settings = json.loads(json.dumps(settings))  # deep copy via round-trip
     new_env = dict(new_settings.get("env") or {})
+
+    # What each owned setting held before routing was first enabled, so `disable-routing --remove` can
+    # put it back instead of deleting a value the operator had set. A re-run keeps the first record: by
+    # then the live values are our own.
+    owned_path = home / "state" / "owned_settings.json"
+    prior_owned = load_json_file(owned_path)
+    previous = prior_owned.get("previous") if isinstance(prior_owned, dict) else None
+    if not isinstance(previous, dict):
+        ide_path = ide_settings_path()
+        ide_before = load_json_file(ide_path) if ide_path and ide_path.is_file() else None
+        ide_env_before = ide_before.get("env") if isinstance(ide_before, dict) else None
+        if not isinstance(ide_env_before, dict):
+            ide_env_before = {}
+        previous = {
+            "env": {k: new_env[k] for k in OWNED_ENV_KEYS if k in new_env},
+            "ide_env": {k: ide_env_before[k] for k in OWNED_ENV_KEYS if k in ide_env_before},
+        }
+        if "statusLine" in new_settings:
+            previous["statusLine"] = new_settings["statusLine"]
+
     new_env["ANTHROPIC_BASE_URL"] = f"http://{host}:{port}"
     new_env["ENABLE_TOOL_SEARCH"] = True
     new_settings["env"] = new_env
 
-    pythonw = _pythonw_for(cfg)
+    # Forward slashes, like every existing hook in ~/.claude/settings.json. machine_parity parses these
+    # commands with shlex in posix mode, which would eat backslashes.
+    pythonw = Path(_pythonw_for(cfg)).as_posix()
+    statusline_py = (home / "bin" / "statusline.py").as_posix()
+    ensure_py = (home / "bin" / "ensure_spillover.py").as_posix()
     new_settings["statusLine"] = {
         "type": "command",
-        "command": f'"{pythonw}" "{home / "bin" / "statusline.py"}"',
+        "command": f'"{pythonw}" "{statusline_py}"',
         "refreshInterval": 5,
     }
 
     hooks = dict(new_settings.get("hooks") or {})
-    session_start = list(hooks.get("SessionStart") or [])
     hook_entry = {
         "matcher": "",
-        "hooks": [{"type": "command", "command": f'"{pythonw}" "{home / "bin" / "ensure_spillover.py"}"'}],
+        "hooks": [{"type": "command", "command": f'"{pythonw}" "{ensure_py}"'}],
     }
+    # Replace, never stack: a re-run must not register the ensure hook a second time.
+    session_start = [e for e in (hooks.get("SessionStart") or []) if not _is_spillover_hook(e)]
     session_start.append(hook_entry)
     hooks["SessionStart"] = session_start
     new_settings["hooks"] = hooks
@@ -852,18 +895,43 @@ def _do_enable_routing(*, assume_yes: bool) -> tuple[int, dict, str]:
     owned: dict[str, Any] = {
         "settings_path": str(settings_path),
         "backup_path": str(backup) if backup else None,
-        "env_keys": ["ANTHROPIC_BASE_URL", "ENABLE_TOOL_SEARCH"],
+        "env_keys": list(OWNED_ENV_KEYS),
         "status_line": True,
         "session_start_hook": hook_entry,
+        "previous": previous,
         "applied_at": _iso_now(),
     }
     ide_mirrored = _mirror_ide_settings({"ANTHROPIC_BASE_URL": f"http://{host}:{port}", "ENABLE_TOOL_SEARCH": True})
     if ide_mirrored:
         owned["ide_settings_path"] = ide_mirrored
-        owned["ide_env_keys"] = ["ANTHROPIC_BASE_URL", "ENABLE_TOOL_SEARCH"]
+        owned["ide_env_keys"] = list(OWNED_ENV_KEYS)
 
-    atomic_write_json(home / "state" / "owned_settings.json", owned)
+    atomic_write_json(owned_path, owned)
     return EXIT_OK, {"diff": diff, "owned": owned}, f"routing enabled via {settings_path}"
+
+
+OWNED_ENV_KEYS = ("ANTHROPIC_BASE_URL", "ENABLE_TOOL_SEARCH")
+
+
+def _is_spillover_hook(entry: Any) -> bool:
+    """A SessionStart entry that runs our ensure hook, wherever HOME_DIR or the interpreter live."""
+    if not isinstance(entry, dict):
+        return False
+    return any(isinstance(h, dict) and "ensure_spillover.py" in str(h.get("command", ""))
+               for h in entry.get("hooks") or [])
+
+
+def _restore_env(env: dict, keys: Any, previous_env: dict) -> list[str]:
+    """Puts each owned env key back to its pre-enable value, or drops it if it had none."""
+    touched = []
+    for key in keys:
+        if key in previous_env:
+            env[key] = previous_env[key]
+            touched.append(key)
+        elif key in env:
+            del env[key]
+            touched.append(key)
+    return touched
 
 
 def _do_disable_routing(*, remove: bool) -> tuple[int, dict, str]:
@@ -881,24 +949,29 @@ def _do_disable_routing(*, remove: bool) -> tuple[int, dict, str]:
     removed: list[str] = []
     if remove:
         home = home_dir()
-        owned = load_json_file(home / "state" / "owned_settings.json")
+        owned_path = home / "state" / "owned_settings.json"
+        owned = load_json_file(owned_path)
         if isinstance(owned, dict):
+            previous = owned.get("previous") if isinstance(owned.get("previous"), dict) else {}
             settings2 = load_json_file(settings_path) or {}
             env2 = dict(settings2.get("env") or {})
-            for key in owned.get("env_keys", []):
-                if key in env2:
-                    del env2[key]
-                    removed.append(key)
+            removed += _restore_env(env2, owned.get("env_keys", []), previous.get("env") or {})
             settings2["env"] = env2
-            if owned.get("status_line") and "statusLine" in settings2:
-                del settings2["statusLine"]
-                removed.append("statusLine")
-            hook_entry = owned.get("session_start_hook")
-            if hook_entry and isinstance(settings2.get("hooks"), dict):
+            if owned.get("status_line"):
+                if "statusLine" in previous:
+                    settings2["statusLine"] = previous["statusLine"]
+                    removed.append("statusLine")
+                elif "statusLine" in settings2:
+                    del settings2["statusLine"]
+                    removed.append("statusLine")
+            owned_hook = owned.get("session_start_hook")
+            if isinstance(settings2.get("hooks"), dict):
                 arr = settings2["hooks"].get("SessionStart")
-                if isinstance(arr, list) and hook_entry in arr:
-                    arr.remove(hook_entry)
-                    removed.append("SessionStart hook")
+                if isinstance(arr, list):
+                    kept = [e for e in arr if e != owned_hook and not _is_spillover_hook(e)]
+                    if len(kept) != len(arr):
+                        settings2["hooks"]["SessionStart"] = kept
+                        removed.append("SessionStart hook")
             atomic_write_json(settings_path, settings2)
 
             ide_path_raw = owned.get("ide_settings_path")
@@ -907,11 +980,12 @@ def _do_disable_routing(*, remove: bool) -> tuple[int, dict, str]:
                 ide_settings = load_json_file(ide_path)
                 if isinstance(ide_settings, dict):
                     ide_env = dict(ide_settings.get("env") or {})
-                    for key in owned.get("ide_env_keys", []):
-                        ide_env.pop(key, None)
+                    _restore_env(ide_env, owned.get("ide_env_keys", []), previous.get("ide_env") or {})
                     ide_settings["env"] = ide_env
                     atomic_write_json(ide_path, ide_settings)
                     removed.append("ide settings")
+            # Fully undone: the next enable-routing must record the operator's values afresh.
+            owned_path.unlink(missing_ok=True)
 
     return EXIT_OK, {"removed": removed, "backup": str(backup) if backup else None}, (
         "routing disabled" + (" and owned keys removed" if remove else ""))
@@ -1138,7 +1212,8 @@ def _do_connect_codex() -> tuple[int, dict, str]:
     if not device_auth_id or not user_code:
         return EXIT_UNREACHABLE, {}, "device code response is missing device_auth_id/user_code"
 
-    print(f"Open {CODEX_VERIFICATION_URI} and enter this code: {user_code}")
+    # flush: the operator needs this line while the poll below runs, and a piped stdout is block-buffered.
+    print(f"Open {CODEX_VERIFICATION_URI} and enter this code: {user_code}", flush=True)
 
     deadline = time.monotonic() + min(CODEX_POLL_DEADLINE_SEC, CODEX_POLL_TIMEOUT_SEC)
     auth_code = None
@@ -1189,21 +1264,75 @@ def _do_connect_codex() -> tuple[int, dict, str]:
     return EXIT_OK, {"connection": conn}, f"codex connected: {conn.get('email') or conn.get('id')}"
 
 
-def _do_connect_key(provider_arg: str) -> tuple[int, dict, str]:
+# The .env.agents names `connect-key --from-env-agents` reads (override with --env-name), and the
+# substrings used to point at a differently spelled name when the default is absent.
+CONNECT_KEY_ENV_NAMES = {"cerebras": "CEREBRAS_API_KEY", "zai": "ZAI_API_KEY"}
+CONNECT_KEY_NAME_HINTS = {"cerebras": ("CEREBRAS",), "zai": ("ZAI", "ZHIPU", "BIGMODEL")}
+
+
+def _secret_loader_module():
+    """lib.secret_loader, bound to the checkout that actually holds .env.agents.
+
+    The file is gitignored, so a linked git worktree has none. There, the main checkout's own loader is
+    used: the same audited code path, logging to that checkout's state/. This never opens the file itself.
+    """
+    from lib import secret_loader  # scripts/ is on sys.path
+    if secret_loader.ENV_FILE.is_file():
+        return secret_loader
+    try:
+        cp = run_cmd(["git", "-C", str(REPO), "rev-parse", "--path-format=absolute", "--git-common-dir"], timeout=10)
+        common = Path(cp.stdout.strip()) if cp.returncode == 0 and cp.stdout.strip() else None
+    except (OSError, subprocess.SubprocessError):
+        common = None
+    main = common.parent if common is not None and common.name == ".git" else None
+    if main is None or main.resolve() == REPO.resolve():
+        return secret_loader
+    candidate = main / "scripts" / "lib" / "secret_loader.py"
+    if not candidate.is_file():
+        return secret_loader
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("bravo_main_checkout_secret_loader", candidate)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _do_connect_key(provider_arg: str, *, from_env_agents: bool = False,
+                    env_name: str | None = None) -> tuple[int, dict, str]:
     if provider_arg not in CONNECT_KEY_PROVIDERS:
         return EXIT_USAGE, {}, f"unknown provider {provider_arg!r}; choose one of {sorted(CONNECT_KEY_PROVIDERS)}"
     provider_id = CONNECT_KEY_PROVIDERS[provider_arg]
+
+    key_value = None
+    if from_env_agents:
+        # From .env.agents straight into the request body: the value is never printed, logged or returned.
+        name = env_name or CONNECT_KEY_ENV_NAMES[provider_arg]
+        try:
+            loader = _secret_loader_module()
+            key_value = loader.get(name) or ""
+            if not key_value:
+                tokens = CONNECT_KEY_NAME_HINTS[provider_arg]
+                similar = sorted(k for k in loader.load_env() if k != name and any(t in k.upper() for t in tokens))
+            else:
+                similar = []
+        except Exception as exc:  # noqa: BLE001 -- SecretLoaderRefused, OSError, a malformed file
+            return EXIT_USAGE, {"env_name": name}, f"could not load .env.agents: {type(exc).__name__}"
+        if not key_value:
+            hint = f"; similar names present: {', '.join(similar)} (pass one with --env-name)" if similar else ""
+            return EXIT_USAGE, {"env_name": name, "similar_names": similar}, f"{name} is not set in .env.agents{hint}"
+
     home = home_dir()
     cfg = load_home_config(home)
     session, err = admin_session(cfg, home)
     if session is None:
         return EXIT_UNREACHABLE, {}, err or "could not establish an admin session"
 
-    if not _stdin_is_tty():
-        return EXIT_USAGE, {}, "refusing to read an API key from a non-interactive stdin"
-    key_value = getpass.getpass(f"{provider_arg} API key (hidden): ")
-    if not key_value:
-        return EXIT_USAGE, {}, "empty API key, nothing stored"
+    if key_value is None:
+        if not _stdin_is_tty():
+            return EXIT_USAGE, {}, "refusing to read an API key from a non-interactive stdin (use --from-env-agents)"
+        key_value = getpass.getpass(f"{provider_arg} API key (hidden): ")
+        if not key_value:
+            return EXIT_USAGE, {}, "empty API key, nothing stored"
 
     body = {"provider": provider_id, "name": f"bravo-{provider_arg}", "apiKey": key_value}
     key_value = None
@@ -1486,13 +1615,18 @@ def run_doctor_checks(home: Path, cfg: dict) -> dict:
 
     add("no cloudflared/ngrok/tailscale under the OmniRoute tree", *_check_no_tunnel_process())
 
-    try:
-        status, _p, _r = http_call(f"{base}/v1/messages", method="POST",
-                                    headers={"Host": "evil.example", "Origin": "http://evil.example"},
-                                    json_body={}, timeout=10)
-        add("rebinding Host/Origin probe gets 403/421", status in (403, 421), f"status {status}")
-    except ApiUnreachable as exc:
-        add("rebinding Host/Origin probe gets 403/421", False, f"unreachable: {exc}")
+    # OmniRoute has no Host allowlist: its unauthenticated status routes (require-login, auth/status)
+    # answer any Host. What a DNS-rebinding page must never reach is a route that reads or changes
+    # state, so an API route and a management route must both refuse it (live 2026-09-13: both 401).
+    for probe_method, probe_path in (("POST", "/v1/messages"), ("GET", "/api/providers")):
+        name = f"rebinding Host/Origin probe refused on {probe_method} {probe_path}"
+        try:
+            status, _p, _r = http_call(f"{base}{probe_path}", method=probe_method,
+                                        headers={"Host": "evil.example", "Origin": "http://evil.example"},
+                                        json_body={} if probe_method == "POST" else None, timeout=10)
+            add(name, status in (401, 403, 421), f"status {status}")
+        except ApiUnreachable as exc:
+            add(name, False, f"unreachable: {exc}")
 
     for path, method in (("/api/system/version", "POST"), ("/api/settings/mitm", "POST"),
                           ("/api/settings/require-login", "POST")):
@@ -1711,7 +1845,8 @@ def _do_uninstall(*, purge: bool, assume_yes: bool) -> tuple[int, dict, str]:
 # --------------------------------------------------------------------------- #
 def _emit(args: argparse.Namespace, exit_code: int, payload: dict, message: str) -> int:
     if getattr(args, "output_json", False):
-        out = {"ok": exit_code == EXIT_OK, "exit_code": exit_code, **(payload or {})}
+        # The message carries the reason for a failure; without it --json callers saw only an exit code.
+        out = {"ok": exit_code == EXIT_OK, "exit_code": exit_code, "message": message, **(payload or {})}
         print(json.dumps(out, indent=2, default=str))
     else:
         print(message)
@@ -1754,6 +1889,9 @@ def build_parser() -> argparse.ArgumentParser:
     connect_p.add_argument("provider", choices=["codex"])
     connect_key_p = omni_sub.add_parser("connect-key", parents=[parent], help="connect an API-key provider")
     connect_key_p.add_argument("provider", choices=sorted(CONNECT_KEY_PROVIDERS))
+    connect_key_p.add_argument("--from-env-agents", action="store_true",
+                               help="read the key from .env.agents (CEREBRAS_API_KEY / ZAI_API_KEY) instead of a prompt")
+    connect_key_p.add_argument("--env-name", help="the .env.agents name to read with --from-env-agents")
 
     smoke = sub.add_parser("smoke", parents=[parent], help="exercise the fallback leg end to end")
     smoke.add_argument("--model")
@@ -1833,7 +1971,8 @@ def main(argv: list[str] | None = None) -> int:
             return _emit(args, *_do_setup(args.models_main, args.models_fast))
         if args.omniroute_verb == "connect":
             return _emit(args, *_do_connect_codex())
-        return _emit(args, *_do_connect_key(args.provider))
+        return _emit(args, *_do_connect_key(args.provider, from_env_agents=args.from_env_agents,
+                                            env_name=args.env_name))
     if args.command == "smoke":
         return _emit(args, *_do_smoke(args.model, args.tools, args.stream, args.corpus))
     if args.command == "doctor":
