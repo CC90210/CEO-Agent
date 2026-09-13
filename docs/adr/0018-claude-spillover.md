@@ -128,12 +128,28 @@ degraded/hold path — no auto-send, no DM, a Telegram note to CC. `require_clau
 OpenCode tier, so client content stops going to OpenCode free models. Automations never spill (Decision 2);
 the hold covers the other way a non-Claude model can answer them, the existing model-fallback chain.
 
-### 6. OmniRoute is built from its standard profile, with webpack
+### 6. OmniRoute is built backend-only, with Turbopack
 
-`omniroute_tool.py install` builds OmniRoute's **standard** profile, not `minimal`, because `minimal` fails
-at the pinned sha (see Context). It builds with webpack, because the default Turbopack build ran out of
-memory on this 15 GB machine. Build settings: `OMNIROUTE_USE_TURBOPACK=0` (webpack),
-`OMNIROUTE_BUILD_MEMORY_MB=8192`, `NEXT_TELEMETRY_DISABLED=1`.
+OmniRoute is built from the pinned source with `OMNIROUTE_BUILD_BACKEND_ONLY=1`, OmniRoute's supported
+headless mode:
+- **What it keeps:** every `route.ts` API handler.
+- **What it drops:** the dashboard UI files. They're swapped for stubs during the build and restored afterwards, which leaves the source tree clean.
+
+Build settings: Turbopack (the default bundler), `OMNIROUTE_BUILD_MEMORY_MB=4096`,
+`NEXT_TELEMETRY_DISABLED=1`, and dependencies from `npm ci --ignore-scripts`.
+
+This came out of five build attempts on this 15 GB machine at `152d9510`:
+- **Full Turbopack build:** it exhausted system memory. Commit charge reached ~36 of 61 GB with 35 MB of RAM free, and small Node workers died with "Zone Allocation failed".
+- **Full builds under both bundlers:** they pulled Node-only modules (`child_process`, `fs`, `net`, `tls`, via playwright-core, ioredis and detect-libc) into the dashboard's browser bundle. Turbopack reported 168 "Module not found" errors, and webpack failed the same way.
+- **`minimal`:** it also fails under webpack (see Context).
+
+The backend-only build succeeded in 7.7 minutes. In a local trial it booted in 8 s, listened on 127.0.0.1 only, and returned 401 both on unauthenticated `/v1/*` and on the Codex device-flow route.
+
+What backend-only changes:
+- **No dashboard UI.** Codex connects through OmniRoute's device-code flow, and API-key providers through the management API (`omniroute_tool.py omniroute connect codex` and `connect-key`). Combos and the lane key are created through the same API.
+- **OmniRoute's instrumentation is stubbed**, so its `ensureSecrets()` and background schedulers never run.
+  - **Secrets:** the supervisor passes `STORAGE_ENCRYPTION_KEY`, `INITIAL_PASSWORD`, `JWT_SECRET` and `API_KEY_SECRET` from DPAPI blobs on every start (CONTRACT §16). They must stay stable, or the lane key stops validating.
+  - **Still to verify:** whether Codex OAuth tokens still refresh on demand, and how call-log retention is enforced without the cleanup scheduler. Both must be checked in the live smoke test before spilling is switched on.
 
 ## Consequences
 
@@ -157,11 +173,17 @@ memory on this 15 GB machine. Build settings: `OMNIROUTE_USE_TURBOPACK=0` (webpa
 - **R7 — The Mac.** Uncovered until a session is opened there, which runs the same installer plus a launchd
   agent.
 
-**Standard-profile build (part of R6).** The standard build keeps four privileged modules that `minimal`
-would stub out: the MITM certificate installer, the Zed keychain import, Cloud Sync, and the 9router
-installer. They are covered by OmniRoute's `LOCAL_ONLY` route guard, required login, the loopback-only bind,
-and `doctor` checks that assert unauthenticated and rebinding callers are refused — the exposure is reduced,
-not removed. Re-evaluate `minimal` once upstream fixes the alias paths or npm ships a patched release.
+**Backend-only build (part of R6).** Four privileged modules that `minimal` would stub out lose their
+dashboard UI, but their API routes are still compiled in: the MITM certificate installer, the Zed keychain
+import, Cloud Sync, and the 9router installer. Those routes stay behind four protections:
+- OmniRoute's `LOCAL_ONLY` route guard
+- required login
+- the loopback-only bind
+- `doctor` checks that assert unauthenticated and rebinding callers are refused
+
+That reduces the exposure but doesn't remove it. The stubbed instrumentation is the other cost: see
+Decision 6 for what must be verified before spilling. Re-evaluate the build once upstream fixes the full-build
+module leak and the `minimal` alias paths, or npm ships a patched release.
 
 **Other costs:** one more always-on local service; a Claude Code version floor (2.1.268, with
 2.1.265–2.1.267 denied) that `spillover enable-routing` enforces; a pinned OmniRoute sha to re-check when
