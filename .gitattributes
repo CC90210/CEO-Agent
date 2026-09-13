@@ -15,6 +15,9 @@
 *.yml text eol=lf
 *.toml text eol=lf
 
+# Server-sent-event fixtures: byte-exact proxy tests replay these, so LF everywhere.
+*.sse text eol=lf
+
 # Markdown — leave as-is (CRLF won't break rendering).
 *.md text
 
