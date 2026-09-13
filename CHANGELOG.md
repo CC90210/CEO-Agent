@@ -26,7 +26,7 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
   `ANTHROPIC_BASE_URL` at a local zero-dependency pass-through proxy (`127.0.0.1:20131`, no credential, so
   the Max login stays active). It forwards byte-for-byte to Anthropic and, only on an account-wide
   subscription usage-limit 429, re-sends eligible requests to OmniRoute (`127.0.0.1:20128`, combo
-  `bravo-fallback`: GPT-5.6 via CC's ChatGPT plan, then smoke-passed Cerebras / Z.AI) until the reset.
+  `bravo-fallback`: GPT-5.6 via CC's ChatGPT plan, then smoke-passed Cerebras, then Cloudflare Workers AI) until the reset.
   OmniRoute never holds a Claude credential. Contract: `scripts/spillover/CONTRACT.md`.
 - **Runs outside the repo and outside `fleet_watchdog`.** Deployed SHA-stamped to
   `%LOCALAPPDATA%\bravo-spillover\`, supervised by its own `supervisor.js` (Startup VBS + SessionStart

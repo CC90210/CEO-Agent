@@ -245,12 +245,12 @@ Spillover reads nothing from `.env.agents` and needs no row in it. `omniroute_to
 
 | DPAPI blob name | Holds | Read by |
 |---|---|---|
-| `omniroute_lane` | The OmniRoute lane key — scoped to the `bravo-fallback` / `bravo-fallback-fast` combos and to `/v1/messages`, `count_tokens` and `/v1/models`; no manage scope | The spillover proxy, at start and after a fallback 401 |
+| `omniroute_lane` | The OmniRoute lane key — scoped to the `bravo-fallback` / `bravo-fallback-fast` combos and to OmniRoute's `chat` and `models` endpoint categories (which cover `/v1/messages`, `count_tokens` and `/v1/models`); no manage scope | The spillover proxy, at start and after a fallback 401 |
 | `storage_encryption` | OmniRoute's storage encryption key | The supervisor, into OmniRoute's env only |
 | `initial_password` | OmniRoute's initial dashboard password | The supervisor; dropped once setup is locked |
 
 - Written and read only through `scripts/spillover/lane_key.py` (`generate`, `set` at a hidden prompt, `exists`). `lane_key.py get` is blocked for agent Bash and PowerShell by `secret_guard`, and `*.key` is already a blocked pattern.
-- **Provider keys live in OmniRoute's encrypted database**, not here: CC pastes the Cerebras and Z.AI free keys into the OmniRoute dashboard and clicks through the Codex (ChatGPT) OAuth consent there. Never paste them into `.env.agents` or into chat.
+- **Provider keys end up in OmniRoute's encrypted database.** `omniroute_tool.py omniroute connect-key cerebras|cloudflare --from-env-agents` reads `CEREBRAS_API_KEY` / `CLOUDFLARE_API_TOKEN` from `.env.agents` through the audited secret loader (without the flag it asks at a hidden prompt); Cloudflare also takes `--account-id`. Codex (ChatGPT) connects through `omniroute connect codex` and a device code CC enters in the browser. There is no OmniRoute dashboard in this build. Never paste a key into chat.
 - DPAPI is at-rest protection only. The real controls are the loopback bind, the required key, and the key's scope.
 - The Claude Max login is never stored by Spillover — Claude Code keeps it, and the proxy only forwards it in flight.
 

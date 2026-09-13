@@ -34,7 +34,7 @@ Contract: [[scripts/spillover/CONTRACT]] · Decision: [[docs/adr/0018-claude-spi
   traffic.
 - On an account-wide **subscription usage-limit 429** (`five_hour` or `seven_day` claim; the exact header set
   is in CONTRACT §5), eligible requests go to OmniRoute `127.0.0.1:20128`, combo `bravo-fallback`: GPT-5.6
-  through CC's ChatGPT plan first, then Cerebras / Z.AI models that passed the smoke gate. Haiku-class
+  through CC's ChatGPT plan first, then Cerebras, then Cloudflare Workers AI models that passed the smoke gate. Haiku-class
   requests use `bravo-fallback-fast`.
 - It returns to Claude at `reset_at`, or sooner when the 10-minute probe gets a non-limit reply from
   Anthropic.

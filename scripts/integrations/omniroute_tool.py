@@ -16,7 +16,7 @@ USAGE
     python scripts/integrations/omniroute_tool.py secrets init [--json]
     python scripts/integrations/omniroute_tool.py omniroute setup [--models-main M ...] [--models-fast M ...] [--json]
     python scripts/integrations/omniroute_tool.py omniroute connect codex [--json]
-    python scripts/integrations/omniroute_tool.py omniroute connect-key cerebras|zai [--json]
+    python scripts/integrations/omniroute_tool.py omniroute connect-key cerebras|cloudflare [--from-env-agents] [--env-name N] [--account-id ID] [--json]
     python scripts/integrations/omniroute_tool.py smoke [--model M] [--tools] [--stream] [--corpus DIR] [--json]
     python scripts/integrations/omniroute_tool.py doctor [--json]
     python scripts/integrations/omniroute_tool.py install --verify [--json]
@@ -151,7 +151,7 @@ CODEX_POLL_DEADLINE_SEC = 10 * 60
 # (omniroute-src/src/shared/validation/schemas/provider.ts). "zai" = api.z.ai
 # (international), never the mainland glm-cn variant (forbidden_model_prefixes
 # includes "glm-cn/").
-CONNECT_KEY_PROVIDERS = {"cerebras": "cerebras", "zai": "zai"}
+CONNECT_KEY_PROVIDERS = {"cerebras": "cerebras", "cloudflare": "cloudflare-ai"}
 # omniroute-src/src/shared/constants/dashboardCsrf.ts DASHBOARD_CSRF_HEADER
 CSRF_HEADER = "x-omniroute-csrf"
 
@@ -469,6 +469,9 @@ class OmniRouteAdmin:
 
     def patch(self, path: str, body: Any = None) -> tuple[int, Any, bytes]:
         return self._call("PATCH", path, body)
+
+    def delete(self, path: str) -> tuple[int, Any, bytes]:
+        return self._call("DELETE", path)
 
 
 def admin_session(cfg: dict, home: Path) -> tuple[OmniRouteAdmin | None, str | None]:
@@ -1170,8 +1173,11 @@ def _do_setup(models_main: list[str] | None, models_fast: list[str] | None) -> t
     key_value = parsed2["key"]
     parsed2 = None  # noqa: F841 - drop the reference carrying the raw key
 
+    # allowedEndpoints takes OmniRoute's endpoint CATEGORY ids, not paths (src/shared/constants/
+    # endpointCategories.ts): /v1/messages and its count_tokens are "chat", /v1/models is "models".
+    # Paths matched no category, so the key could reach nothing (live 2026-09-13: every call 403).
     st2, _p2, _r2 = session.patch(f"/api/keys/{key_id}", {
-        "allowedEndpoints": ["/v1/messages", "/v1/messages/count_tokens", "/v1/models"],
+        "allowedEndpoints": ["chat", "models"],
         "compressionEnabled": False,
     })
     if st2 not in (200, 204):
@@ -1184,9 +1190,39 @@ def _do_setup(models_main: list[str] | None, models_fast: list[str] | None) -> t
     if not stored:
         return EXIT_UNREACHABLE, {}, "lane key created in OmniRoute but failed to store it locally"
 
+    # Revoke our earlier lane keys only once the new one is stored: every re-run creates a fresh key,
+    # and without this each previous one stayed valid in OmniRoute.
+    revoked: list[str] = []
+    revoke_errors: list[str] = []
+    try:
+        kst, kparsed, _r3 = session.get("/api/keys")
+    except ApiUnreachable as exc:
+        kst, kparsed = None, None
+        revoke_errors.append(f"list keys: {exc}")
+    listed = kparsed.get("keys") if kst == 200 and isinstance(kparsed, dict) else None
+    for old in listed if isinstance(listed, list) else []:
+        old_id = old.get("id") if isinstance(old, dict) else None
+        if not old_id or old_id == key_id or old.get("name") != key_body["name"]:
+            continue
+        try:
+            dst, _p3, _r4 = session.delete(f"/api/keys/{old_id}")
+        except ApiUnreachable as exc:
+            revoke_errors.append(f"{old_id}: {exc}")
+            continue
+        if dst in (200, 204):
+            revoked.append(old_id)
+        else:
+            revoke_errors.append(f"{old_id}: status {dst}")
+    if listed is None and not revoke_errors:
+        revoke_errors.append(f"list keys: status {kst}")
+
+    message = "omniroute setup complete"
+    if revoke_errors:
+        message += f"; could not revoke earlier lane keys: {revoke_errors}"
     return EXIT_OK, {
         "combos": [COMBO_MAIN, COMBO_FAST], "disabled_providers": disabled, "auto_combo_disabled": auto_disabled,
-    }, "omniroute setup complete"
+        "revoked_old_keys": revoked, "revoke_errors": revoke_errors,
+    }, message
 
 
 def _do_connect_codex() -> tuple[int, dict, str]:
@@ -1266,8 +1302,8 @@ def _do_connect_codex() -> tuple[int, dict, str]:
 
 # The .env.agents names `connect-key --from-env-agents` reads (override with --env-name), and the
 # substrings used to point at a differently spelled name when the default is absent.
-CONNECT_KEY_ENV_NAMES = {"cerebras": "CEREBRAS_API_KEY", "zai": "ZAI_API_KEY"}
-CONNECT_KEY_NAME_HINTS = {"cerebras": ("CEREBRAS",), "zai": ("ZAI", "ZHIPU", "BIGMODEL")}
+CONNECT_KEY_ENV_NAMES = {"cerebras": "CEREBRAS_API_KEY", "cloudflare": "CLOUDFLARE_API_TOKEN"}
+CONNECT_KEY_NAME_HINTS = {"cerebras": ("CEREBRAS",), "cloudflare": ("CLOUDFLARE",)}
 
 
 def _secret_loader_module():
@@ -1298,10 +1334,13 @@ def _secret_loader_module():
 
 
 def _do_connect_key(provider_arg: str, *, from_env_agents: bool = False,
-                    env_name: str | None = None) -> tuple[int, dict, str]:
+                    env_name: str | None = None, account_id: str | None = None) -> tuple[int, dict, str]:
     if provider_arg not in CONNECT_KEY_PROVIDERS:
         return EXIT_USAGE, {}, f"unknown provider {provider_arg!r}; choose one of {sorted(CONNECT_KEY_PROVIDERS)}"
     provider_id = CONNECT_KEY_PROVIDERS[provider_arg]
+    # Workers AI URLs are per account: OmniRoute's cloudflare-ai executor reads providerSpecificData.accountId.
+    if provider_arg == "cloudflare" and not account_id:
+        return EXIT_USAGE, {}, "cloudflare needs --account-id (see `wrangler_tool.py accounts`)"
 
     key_value = None
     if from_env_agents:
@@ -1335,6 +1374,8 @@ def _do_connect_key(provider_arg: str, *, from_env_agents: bool = False,
             return EXIT_USAGE, {}, "empty API key, nothing stored"
 
     body = {"provider": provider_id, "name": f"bravo-{provider_arg}", "apiKey": key_value}
+    if account_id:
+        body["providerSpecificData"] = {"accountId": account_id}
     key_value = None
     try:
         st, parsed, _ = session.post("/api/providers", body)
@@ -1343,8 +1384,11 @@ def _do_connect_key(provider_arg: str, *, from_env_agents: bool = False,
     finally:
         body["apiKey"] = None
     if st not in (200, 201) or not isinstance(parsed, dict):
-        return EXIT_UNREACHABLE, {}, f"failed to create the {provider_arg} connection (status {st})"
-    return EXIT_OK, {"id": parsed.get("id"), "provider": provider_id}, f"{provider_arg} connected (id {parsed.get('id')})"
+        reason = str(parsed.get("error"))[:200] if isinstance(parsed, dict) and parsed.get("error") else ""
+        return EXIT_UNREACHABLE, {}, f"failed to create the {provider_arg} connection (status {st}) {reason}".rstrip()
+    # POST /api/providers answers 201 {"connection": {...}}.
+    conn = parsed.get("connection") if isinstance(parsed.get("connection"), dict) else parsed
+    return EXIT_OK, {"id": conn.get("id"), "provider": provider_id}, f"{provider_arg} connected (id {conn.get('id')})"
 
 
 # --------------------------------------------------------------------------- #
@@ -1401,6 +1445,12 @@ def _do_smoke(model: str | None, want_tools: bool, want_stream: bool, corpus_dir
             return
         ok = status == 200
         detail = f"status {status}"
+        if not ok and isinstance(parsed, dict):
+            # OmniRoute's error body says why (scope, combo, endpoint); it never carries a credential.
+            err = parsed.get("error")
+            reason = err.get("message") if isinstance(err, dict) else (err or parsed.get("message"))
+            if reason:
+                detail += f": {str(reason)[:200]}"
         if ok and raw_check:
             ok, detail = raw_check(raw)
         elif ok and json_check:
@@ -1890,8 +1940,9 @@ def build_parser() -> argparse.ArgumentParser:
     connect_key_p = omni_sub.add_parser("connect-key", parents=[parent], help="connect an API-key provider")
     connect_key_p.add_argument("provider", choices=sorted(CONNECT_KEY_PROVIDERS))
     connect_key_p.add_argument("--from-env-agents", action="store_true",
-                               help="read the key from .env.agents (CEREBRAS_API_KEY / ZAI_API_KEY) instead of a prompt")
+                               help="read the key from .env.agents (CEREBRAS_API_KEY / CLOUDFLARE_API_TOKEN) instead of a prompt")
     connect_key_p.add_argument("--env-name", help="the .env.agents name to read with --from-env-agents")
+    connect_key_p.add_argument("--account-id", help="Cloudflare account id (required for cloudflare)")
 
     smoke = sub.add_parser("smoke", parents=[parent], help="exercise the fallback leg end to end")
     smoke.add_argument("--model")
@@ -1972,7 +2023,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.omniroute_verb == "connect":
             return _emit(args, *_do_connect_codex())
         return _emit(args, *_do_connect_key(args.provider, from_env_agents=args.from_env_agents,
-                                            env_name=args.env_name))
+                                            env_name=args.env_name, account_id=args.account_id))
     if args.command == "smoke":
         return _emit(args, *_do_smoke(args.model, args.tools, args.stream, args.corpus))
     if args.command == "doctor":

@@ -149,6 +149,11 @@ class FakeOmniRouteHandler(BaseHTTPRequestHandler):
             if expected and auth == f"Bearer {expected}":
                 return self._send_json(200, {"object": "list", "data": [{"id": "bravo-fallback"}]})
             return self._send_json(403, {"error": "invalid key"})
+        if self.path == "/api/keys":
+            if not self._authed():
+                return self._send_json(401, {"error": "unauthorized"})
+            listed = [{"id": k["id"], "name": k["body"].get("name")} for k in state["created_keys"]]
+            return self._send_json(200, {"keys": listed + state.get("preexisting_keys", [])})
         if self.path == "/api/settings/require-login":
             return self._send_json(200, {"requireLogin": True})
         return self._send_json(404, {"error": "not found"})
@@ -217,6 +222,15 @@ class FakeOmniRouteHandler(BaseHTTPRequestHandler):
             body = self._read_json()
             state["key_patches"].append((kid, body))
             return self._send_json(200, {"id": kid, **body})
+        return self._send_json(404, {"error": "not found"})
+
+    def do_DELETE(self):  # noqa: N802
+        state = self.server.state
+        if not self._authed():
+            return self._send_json(401, {"error": "unauthorized"})
+        if self.path.startswith("/api/keys/"):
+            state.setdefault("deleted_keys", []).append(self.path.rsplit("/", 1)[-1])
+            return self._send_json(200, {"success": True})
         return self._send_json(404, {"error": "not found"})
 
 
@@ -855,6 +869,20 @@ def test_http_call_does_not_identify_as_python_urllib():
 # --------------------------------------------------------------------------- #
 # omniroute setup (against the fake OmniRoute)
 # --------------------------------------------------------------------------- #
+def test_setup_revokes_only_its_own_earlier_lane_keys(home, fake_omniroute):
+    port, state = fake_omniroute
+    write_home_config(home, proxy={"omniroute_base": f"http://127.0.0.1:{port}"})
+    store_secret(home, "initial_password", state["password"])
+    state["preexisting_keys"] = [{"id": "key-old", "name": "bravo-omniroute-lane"},
+                                 {"id": "key-other", "name": "someone-elses-key"}]
+
+    code, payload, msg = ot._do_setup(None, None)
+    assert code == ot.EXIT_OK, msg
+    assert state.get("deleted_keys") == ["key-old"]  # never the new key, never a foreign one
+    assert payload["revoked_old_keys"] == ["key-old"]
+    assert payload["revoke_errors"] == []
+
+
 def test_setup_creates_combos_and_scoped_key_never_leaks(home, fake_omniroute, capsys):
     port, state = fake_omniroute
     write_home_config(home, proxy={"omniroute_base": f"http://127.0.0.1:{port}"})
@@ -880,7 +908,8 @@ def test_setup_creates_combos_and_scoped_key_never_leaks(home, fake_omniroute, c
 
     assert len(state["key_patches"]) == 1
     _kid, patch_body = state["key_patches"][0]
-    assert patch_body["allowedEndpoints"] == ["/v1/messages", "/v1/messages/count_tokens", "/v1/models"]
+    # OmniRoute endpoint CATEGORY ids; the paths used before matched nothing and every call got 403.
+    assert patch_body["allowedEndpoints"] == ["chat", "models"]
     assert patch_body["compressionEnabled"] is False
 
     # the key must never appear in our own stdout/stderr or the JSON payload
@@ -1039,7 +1068,7 @@ def test_connect_key_refuses_noninteractive(home, fake_omniroute, monkeypatch):
     write_home_config(home, proxy={"omniroute_base": f"http://127.0.0.1:{port}"})
     store_secret(home, "initial_password", state["password"])
     monkeypatch.setattr(ot, "_stdin_is_tty", lambda: False)
-    code, payload, msg = ot._do_connect_key("zai")
+    code, payload, msg = ot._do_connect_key("cerebras")
     assert code == ot.EXIT_USAGE
     assert not state["created_providers"]
 
@@ -1050,6 +1079,8 @@ def test_connect_key_rejects_unknown_provider(home, fake_omniroute):
     store_secret(home, "initial_password", state["password"])
     code, payload, msg = ot._do_connect_key("glm-cn")
     assert code == ot.EXIT_USAGE
+    # CC 2026-09-13: Z.AI is not part of the chain.
+    assert ot._do_connect_key("zai")[0] == ot.EXIT_USAGE
 
 
 class _FakeSecretLoader:
@@ -1097,11 +1128,35 @@ def test_connect_key_from_env_agents_honours_env_name(home, fake_omniroute, monk
     port, state = fake_omniroute
     write_home_config(home, proxy={"omniroute_base": f"http://127.0.0.1:{port}"})
     store_secret(home, "initial_password", state["password"])
-    monkeypatch.setattr(ot, "_secret_loader_module", lambda: _FakeSecretLoader({"MY_ZAI": "zai-secret"}))
+    monkeypatch.setattr(ot, "_secret_loader_module", lambda: _FakeSecretLoader({"MY_CEREBRAS": "cerebras-secret"}))
 
-    code, payload, msg = ot._do_connect_key("zai", from_env_agents=True, env_name="MY_ZAI")
+    code, payload, msg = ot._do_connect_key("cerebras", from_env_agents=True, env_name="MY_CEREBRAS")
     assert code == ot.EXIT_OK, msg
-    assert state["created_providers"][0]["apiKey"] == "zai-secret"
+    assert state["created_providers"][0]["apiKey"] == "cerebras-secret"
+
+
+def test_connect_key_cloudflare_sends_the_account_id(home, fake_omniroute, monkeypatch):
+    port, state = fake_omniroute
+    write_home_config(home, proxy={"omniroute_base": f"http://127.0.0.1:{port}"})
+    store_secret(home, "initial_password", state["password"])
+    monkeypatch.setattr(ot, "_secret_loader_module", lambda: _FakeSecretLoader({"CLOUDFLARE_API_TOKEN": "cf-secret"}))
+
+    code, payload, msg = ot._do_connect_key("cloudflare", from_env_agents=True, account_id="acct-synthetic")
+    assert code == ot.EXIT_OK, msg
+    created = state["created_providers"][0]
+    assert created["provider"] == "cloudflare-ai"
+    assert created["providerSpecificData"] == {"accountId": "acct-synthetic"}
+
+
+def test_connect_key_cloudflare_requires_an_account_id(home, fake_omniroute, monkeypatch):
+    port, state = fake_omniroute
+    write_home_config(home, proxy={"omniroute_base": f"http://127.0.0.1:{port}"})
+    store_secret(home, "initial_password", state["password"])
+    monkeypatch.setattr(ot, "_secret_loader_module", lambda: _FakeSecretLoader({"CLOUDFLARE_API_TOKEN": "cf-secret"}))
+
+    code, payload, msg = ot._do_connect_key("cloudflare", from_env_agents=True)
+    assert code == ot.EXIT_USAGE
+    assert not state["created_providers"]
 
 
 # --------------------------------------------------------------------------- #
