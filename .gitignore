@@ -28,6 +28,9 @@ state/*
 !state/migrations/
 !state/migrations/*.sql
 
+# Scratch runtime the spillover tests build and tear down under the fixtures dir
+scripts/tests/fixtures/spillover/test_runtime/
+
 # Live financial / pulse state (exact MRR figures, client revenue)
 data/pulse/ceo_pulse.json
 data/pulse/*.json
