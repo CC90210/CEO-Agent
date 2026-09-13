@@ -1,6 +1,6 @@
 ---
 tags: [docs, adr, decision, index, hub]
-last_updated: 2026-08-15
+last_updated: 2026-09-12
 ---
 
 # Architecture Decision Records — Index
@@ -55,6 +55,8 @@ free, and un-reserving these would silently break the remediation above.
 | 0012 | [[docs/adr/0012-agent-fleet-contract]] — one agent schema, two dialects, scoped by default | 2026-07-19 | agent fleet |
 | 0015 | [[docs/adr/0015-evidence-gated-harness-refinement]] — evidence is an executed command, not a rationale | 2026-08-07 | self-improvement |
 | 0016 | [[docs/adr/0016-20-point-vibe-code-security-standard]] — 20-point vibe-security matrix, single-sourced with a tested defense mapping | 2026-08-15 | security |
+| 0017 | [[docs/adr/0017-cross-agent-claim-leases]] — cross-agent claims become enforced path leases | 2026-08-27 | coordination |
+| 0018 | [[docs/adr/0018-claude-spillover]] — Claude Spillover: base-URL-only pass-through proxy, OmniRoute on the fallback leg only | 2026-09-12 | model fallback |
 
 ## Proposed
 

@@ -232,14 +232,24 @@ def _call_haiku(system_prompt: str, user_msg: str, _env: dict[str, str],
     """Return the raw text response from Haiku via the subscription `claude` CLI
     (lib.claude_cli) — never the metered ANTHROPIC_API_KEY (out of credits +
     banned per CC's CLI-only rule). max_tokens is kept for signature stability;
-    the CLI manages its own output length."""
-    from lib.model_fallback import run_smart_cli
-    text = run_smart_cli(
+    the CLI manages its own output length.
+
+    CLAUDE OR NOTHING (require_claude=True, CC's decision 2026-09-12). Every
+    draft this module reviews or rewrites is copy bound for a client or a
+    prospect. If Claude cannot review it, the review has not happened: this
+    raises, critique() escalates, critique_draft() rejects, and the draft is
+    held for CC instead of being approved by a free model. The OpenCode tier is
+    never used here — its models log prompts, and these prompts are client copy.
+    """
+    from lib.model_fallback import run_smart_cli_ex
+    text, _tier, _model = run_smart_cli_ex(
         user_msg, system=system_prompt, model="haiku", timeout=90,
-        task_type="reasoning", agent_name="draft_critic",
+        task_type="reasoning", agent_name="draft_critic", require_claude=True,
     )
     if text is None:
-        raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")
+        raise RuntimeError(
+            "Claude unavailable (usage limit or outage) - client-facing review "
+            "holds; it never falls back to OpenCode")
     text = text.strip()
     if text.startswith("```"):
         text = re.sub(r"^```[a-z]*\n", "", text)

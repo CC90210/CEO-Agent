@@ -118,11 +118,63 @@ const SIBLING_REPOS = {
 // The two implementations diverge only in language idiom — Node vs
 // Python — never in behavior.
 
+// Shared fixture: config/claude_auth_signals.json, the same file
+// scripts/lib/claude_auth.py reads. Every list below is loaded through
+// _loadFixtureList, which never throws (the Telegram bridge requires this
+// module at boot) but is never silent either: a degraded read goes to stderr,
+// so the bridge's own log names it.
+const _SIGNALS_PATH = path.join(__dirname, '..', 'config', 'claude_auth_signals.json');
+
+function _loadFixtureList(key, inlineFallback) {
+    let problem;
+    try {
+        const values = JSON.parse(fs.readFileSync(_SIGNALS_PATH, 'utf8'))[key];
+        if (Array.isArray(values) && values.length) return values.map(String);
+        problem = `has no non-empty "${key}" list`;
+    } catch (e) {
+        problem = `is unreadable (${(e && (e.code || e.name)) || 'error'})`;
+    }
+    process.stderr.write(`[claude_auth] ${_SIGNALS_PATH} ${problem}; using the inline fallback\n`);
+    return inlineFallback.slice();
+}
+
+// Claude Spillover lane vars (fixture key `lane_env_strip`, v3 2026-09-12).
+// They come off the INHERITED env before extras apply: a parent Claude Code
+// session exports CLAUDE_CODE_ENTRYPOINT=cli, and a shell can carry
+// ANTHROPIC_BASE_URL or a model-lane override. No child claude may inherit a
+// route into the local spillover proxy or a lane. The inline copy is the FULL
+// list, never a subset; test_claude_auth_parity.py runs this module with the
+// fixture unreadable and fails if any lane var survives.
+const _LANE_ENV_FALLBACK = [
+    'ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_MODEL',
+    'ANTHROPIC_SMALL_FAST_MODEL', 'ANTHROPIC_DEFAULT_OPUS_MODEL',
+    'ANTHROPIC_DEFAULT_SONNET_MODEL', 'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+    'ANTHROPIC_DEFAULT_FABLE_MODEL', 'CLAUDE_CODE_SUBAGENT_MODEL',
+    'ANTHROPIC_CUSTOM_HEADERS', 'CLAUDE_CODE_ENTRYPOINT',
+    'CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_CODE_MAX_CONTEXT_TOKENS',
+    'BRAVO_CLAUDE_LANE',
+];
+const LANE_ENV_VARS = Object.freeze(_loadFixtureList('lane_env_strip', _LANE_ENV_FALLBACK));
+const _LANE_ENV_SET = new Set(LANE_ENV_VARS.map((k) => k.toUpperCase()));
+
+// Remove every lane var from `env` in place and return it. Case-insensitive
+// because Windows env names are: `{ ...process.env }` keeps the parent's
+// spelling, and claude.exe would still read `Anthropic_Base_Url`.
+function stripLaneEnv(env) {
+    for (const key of Object.keys(env)) {
+        if (_LANE_ENV_SET.has(key.toUpperCase())) delete env[key];
+    }
+    return env;
+}
+
 // Build a child-process env that respects subscription-first auth.
 // Pass forceApiKey=true on the retry path to enable the paid fallback.
+// Order matters: lane vars come off the inherited base FIRST, then extras
+// apply, so a caller can still set one deliberately.
 function buildClaudeSpawnEnv(opts = {}) {
     const { forceApiKey = false, base = process.env, extras = {} } = opts;
-    const env = { ...base, ...extras };
+    const env = stripLaneEnv({ ...base });
+    Object.assign(env, extras);
     if (!forceApiKey) {
         // Strip the key so claude CLI uses the OAuth token (subscription).
         delete env.ANTHROPIC_API_KEY;
@@ -156,13 +208,7 @@ const _AUTH_FAIL_SIGNALS = (() => {
         'credit balance is too low', 'out of credits',
         '(?:status|code|error|HTTP)\\W{0,12}(?:401|403|429|529)\\b',
     ];
-    try {
-        const raw = fs.readFileSync(
-            path.join(__dirname, '..', 'config', 'claude_auth_signals.json'), 'utf8');
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed.signals) && parsed.signals.length) return parsed.signals;
-    } catch { /* fall through to the inline copy */ }
-    return inlineFallback;
+    return _loadFixtureList('signals', inlineFallback);
 })();
 
 const _AUTH_FAIL_PATTERN = new RegExp(
@@ -178,6 +224,29 @@ function isClaudeAuthOrQuotaFailure(rawOutput, exitCode) {
     const text = rawOutput || '';
     if (!text) return false;
     return _AUTH_FAIL_PATTERN.test(text);
+}
+
+// The NARROW predicate (fixture key `subscription_limit_signals`, v3): the
+// account-wide subscription usage limit is spent and every call fails until
+// the reset. Verb-anchored ("hit your … limit", "… limit reached") so that
+// "Approaching Opus usage limit" (a warning) and a per-minute rate limit never
+// count. Mirrors lib.claude_auth.is_subscription_limit; the parity test
+// compares the two on the fixture's must_match / must_not_match.
+const _SUBSCRIPTION_LIMIT_FALLBACK = [
+    'hit your (?:(?:session|weekly|daily|opus|sonnet|usage|5[- ]?hour|five[- ]hour)\\s+)?limit',
+    'reached your (?:(?:session|weekly|daily|opus|sonnet|usage|5[- ]?hour|five[- ]hour)\\s+)?limit',
+    'exhausted your (?:(?:session|weekly|daily|usage|5[- ]?hour|five[- ]hour)\\s+)?(?:limit|quota|usage)',
+    '(?:usage|session|weekly|opus|sonnet|5[- ]?hour|five[- ]hour)\\s+limit\\s+(?:has been\\s+|was\\s+)?reached',
+    'your limit will reset',
+    "you(?:'ve|’ve| have) used all (?:of )?your (?:(?:session|weekly|daily|opus|sonnet|5[- ]?hour)\\s+)?(?:usage|limit|quota|messages)",
+];
+const _SUBSCRIPTION_LIMIT_PATTERN = new RegExp(
+    _loadFixtureList('subscription_limit_signals', _SUBSCRIPTION_LIMIT_FALLBACK)
+        .map((s) => `(?:${s})`).join('|'), 'i');
+
+function isSubscriptionLimit(text) {
+    if (!text) return false;
+    return _SUBSCRIPTION_LIMIT_PATTERN.test(String(text));
 }
 
 // Check the local machine for the Claude Code subscription OAuth token
@@ -341,6 +410,11 @@ module.exports = {
     loadLocalSiblingPaths,
     // Claude auth priority (subscription-first, API-key fallback)
     buildClaudeSpawnEnv,
+    // Claude Spillover: lane vars every spawn strips, and the subscription usage-limit test
+    // (parity-tested against scripts/lib/claude_auth.py via config/claude_auth_signals.json).
+    LANE_ENV_VARS,
+    stripLaneEnv,
+    isSubscriptionLimit,
     isClaudeAuthOrQuotaFailure,
     checkClaudeAuthPaths,
     // Exported for unit tests only — not part of the stable public API.

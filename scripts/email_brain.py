@@ -269,8 +269,13 @@ def _resolve_config(config: Optional[dict]) -> dict:
 def _default_classifier(content=None, subject=None, from_identity=None,
                         is_bulk=False) -> dict:
     from inbound_classifier import classify_category
+    # Claude or nothing (see _client_model_call). When Claude cannot answer the
+    # runner returns None, classify_category drops to its keyword rubric with
+    # fallback=True, and decide_action's degraded guard holds the email for
+    # review — so an OpenCode read can never be what clears an auto-reply.
     return classify_category(content=content, subject=subject,
-                             from_identity=from_identity, is_bulk=is_bulk)
+                             from_identity=from_identity, is_bulk=is_bulk,
+                             runner=_classify_runner)
 
 
 def _noop(*_a: Any, **_kw: Any) -> None:
@@ -582,12 +587,34 @@ _REPLY_GOALS = {
 }
 
 
-def _draft_runner(prompt, system=None, model="sonnet", timeout=90):
-    from lib.model_fallback import run_smart_cli
-    return run_smart_cli(
+def _client_model_call(prompt, *, system, model, timeout, task_type):
+    """Every model call this module makes for a client reply: Claude or nothing.
+
+    CC's decision, 2026-09-12: the classification and the draft decide what an
+    outside person receives, so when anything other than Claude would answer,
+    the email is held for his review instead, and its content never goes to the
+    OpenCode free tier (those models log prompts). require_claude=True returns
+    None when Claude cannot answer, and that None lands on paths that already
+    hold: no classification -> keyword rubric with fallback=True -> the degraded
+    guard in decide_action -> review; no draft -> ship=False -> draft_hold.
+    model_fallback sends CC the one deduped "client replies held" note.
+    """
+    from lib.model_fallback import run_smart_cli_ex
+    text, _tier, _model = run_smart_cli_ex(
         prompt, system=system, model=model, timeout=timeout,
-        task_type="reasoning", agent_name="email_brain",
+        task_type=task_type, agent_name="email_brain", require_claude=True,
     )
+    return text
+
+
+def _classify_runner(prompt, system=None, model="haiku", timeout=60):
+    return _client_model_call(prompt, system=system, model=model,
+                              timeout=timeout, task_type="classify")
+
+
+def _draft_runner(prompt, system=None, model="sonnet", timeout=90):
+    return _client_model_call(prompt, system=system, model=model,
+                              timeout=timeout, task_type="reasoning")
 
 
 def _default_critic(subject, body):

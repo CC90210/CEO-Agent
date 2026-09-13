@@ -122,3 +122,125 @@ def test_it_uses_the_shared_json_ledger_rather_than_a_private_copy():
     src = (Path(cc.__file__)).read_text(encoding="utf-8")
     assert "json_ledger" in src
     assert "os.replace(tmp" not in src, "private atomic-write copy reintroduced"
+
+
+# --- what opens it (2026-09-12) -----------------------------------------------
+# The trigger was a substring test ("weekly limit" / "usage limit" / "quota")
+# over both streams. It opened on "Approaching Opus usage limit", a warning, and
+# missed "You've hit your session limit · resets 8pm", the 2026-09-03 incident
+# string. It is now lib.claude_auth.is_subscription_limit (verb-anchored,
+# config/claude_auth_signals.json), read from stderr first and from stdout only
+# when stderr is empty.
+
+SIGNALS = json.loads((Path(__file__).resolve().parents[2] / "config" /
+                      "claude_auth_signals.json").read_text(encoding="utf-8"))
+INCIDENT = "You've hit your session limit · resets 8pm"
+
+
+@pytest.fixture
+def fake_cli(monkeypatch):
+    """Stand in for the claude binary: record every spawn, return what the test
+    scripts. Nothing real is launched and no quota is spent."""
+    calls: list[dict] = []
+
+    def install(returncode=0, stdout="", stderr=""):
+        monkeypatch.setattr(cc, "resolve_claude_bin", lambda: "claude")
+
+        def _run(args, **kw):
+            calls.append({"args": list(args), **kw})
+            return cc.subprocess.CompletedProcess(args, returncode, stdout, stderr)
+
+        monkeypatch.setattr(cc.subprocess, "run", _run)
+        return calls
+
+    return install
+
+
+@pytest.mark.parametrize("message", SIGNALS["subscription_limit_must_match"])
+def test_a_real_subscription_limit_opens_the_breaker(fake_cli, message):
+    fake_cli(returncode=1, stderr=message)
+    assert cc.run_claude_cli("hi") is None
+    assert cc._quota_cooldown_remaining() > 0, f"{message!r} should have opened the breaker"
+
+
+@pytest.mark.parametrize("message", SIGNALS["subscription_limit_must_not_match"])
+def test_a_warning_or_transient_limit_leaves_the_breaker_shut(fake_cli, message):
+    fake_cli(returncode=1, stderr=message)
+    assert cc.run_claude_cli("hi") is None
+    assert cc._quota_cooldown_remaining() == 0, (
+        f"{message!r} opened the breaker: every automation would sit on fallback "
+        "models for the whole cooldown")
+
+
+def test_the_incident_string_records_its_reset_hint(fake_cli, isolated_marker):
+    fake_cli(returncode=1, stderr=INCIDENT)
+    cc.run_claude_cli("hi")
+    assert json.loads(isolated_marker.read_text(encoding="utf-8"))["reset_hint"] == "8pm"
+
+
+def test_stdout_is_read_when_stderr_is_empty(fake_cli):
+    """2026-08-13: the CLI can explain itself on stdout alone."""
+    fake_cli(returncode=1, stdout=INCIDENT)
+    cc.run_claude_cli("hi")
+    assert cc._quota_cooldown_remaining() > 0
+
+
+def test_stderr_is_read_first(fake_cli):
+    """stdout counts only when stderr is empty: a real error on stderr is not
+    overridden by a limit phrase that merely appears in stdout."""
+    fake_cli(returncode=1, stderr="TypeError: foo is undefined", stdout=INCIDENT)
+    cc.run_claude_cli("hi")
+    assert cc._quota_cooldown_remaining() == 0
+
+
+def test_a_success_never_opens_the_breaker(fake_cli):
+    fake_cli(returncode=0, stdout=INCIDENT)  # a reply that merely quotes the phrase
+    assert cc.run_claude_cli("hi") == INCIDENT
+    assert cc._quota_cooldown_remaining() == 0
+
+
+# --- the automation pin (Claude Spillover guard) ------------------------------
+# Once ~/.claude/settings.json points ANTHROPIC_BASE_URL at the spillover proxy,
+# an automation would follow it there. --settings <pin> outranks user settings;
+# the X-Bravo-Lane header is the second, independent guard.
+
+def test_run_claude_cli_passes_the_automation_pin(fake_cli, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://127.0.0.1:20131")
+    monkeypatch.setenv("CLAUDE_CODE_ENTRYPOINT", "cli")
+    calls = fake_cli(returncode=0, stdout="ok")
+    assert cc.run_claude_cli("hi") == "ok"
+    args, env = calls[0]["args"], calls[0]["env"]
+    pin = Path(args[args.index("--settings") + 1])
+    assert pin.is_absolute() and pin == cc.AUTOMATION_PIN_PATH
+    assert json.loads(pin.read_text(encoding="utf-8")) == {
+        "env": {"ANTHROPIC_BASE_URL": "https://api.anthropic.com"}}
+    assert env["ANTHROPIC_CUSTOM_HEADERS"] == "X-Bravo-Lane: automation"
+    assert "ANTHROPIC_BASE_URL" not in env and "CLAUDE_CODE_ENTRYPOINT" not in env, (
+        "an inherited lane var reached the automation's claude")
+
+
+def test_the_document_path_passes_the_automation_pin(fake_cli, tmp_path):
+    doc = tmp_path / "invoice.pdf"
+    doc.write_bytes(b"%PDF-1.4 test")
+    calls = fake_cli(returncode=0, stdout="ok")
+    assert cc.run_claude_cli_on_document(doc, "What is the total?") == "ok"
+    args = calls[0]["args"]
+    assert args[args.index("--settings") + 1] == str(cc.AUTOMATION_PIN_PATH)
+    assert calls[0]["env"]["ANTHROPIC_CUSTOM_HEADERS"] == "X-Bravo-Lane: automation"
+
+
+@pytest.mark.parametrize("pin_content", [
+    None,                                                          # missing
+    "{ not json",                                                  # corrupt
+    '{"env": {"ANTHROPIC_BASE_URL": "http://127.0.0.1:20131"}}',   # wrong target
+])
+def test_a_bad_pin_is_loud_but_never_blocks_the_call(fake_cli, monkeypatch, tmp_path,
+                                                     capsys, pin_content):
+    pin = tmp_path / "automation_pin.json"
+    if pin_content is not None:
+        pin.write_text(pin_content, encoding="utf-8")
+    monkeypatch.setattr(cc, "AUTOMATION_PIN_PATH", pin)
+    calls = fake_cli(returncode=0, stdout="ok")
+    assert cc.run_claude_cli("hi") == "ok", "a bad pin must never block an automation"
+    assert "--settings" not in calls[0]["args"]
+    assert "AUTOMATION PIN" in capsys.readouterr().err

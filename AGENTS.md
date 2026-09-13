@@ -144,6 +144,8 @@ The `scripts/` directory contains 165 top-level production CLI tools (415 script
 
 Full routing: [brain/QUICK_REFERENCE.md](brain/QUICK_REFERENCE.md).
 
+Claude usage limit -> automatic Spillover to OmniRoute (skills/claude-spillover/SKILL.md); status: omniroute_tool.py spillover status
+
 Browser Harness is the shared direct-browser layer for Bravo, Atlas, Maven, Aura, and Hermes. Use it through [skills/browser-harness/SKILL.md](skills/browser-harness/SKILL.md) and [browser/SAFETY.md](browser/SAFETY.md); any real send, publish, finance, admin, destructive, or production browser action requires explicit CC approval and outbound still goes through `scripts/integrations/send_gateway.py`.
 
 ### RULE 3: CREDENTIALS AND SECURITY

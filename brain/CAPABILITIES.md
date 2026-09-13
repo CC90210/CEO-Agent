@@ -1,7 +1,7 @@
 ---
 description: "Registry of Bravo's MCP servers, integrations, and CLI tools auto-synced by catalog_sync.py; agents use it to route tasks to capabilities"
 tags: [capabilities, tools]
-last_updated: 2026-08-19
+last_updated: 2026-09-12
 freshness_threshold_days: 30
 verified: 2026-08-19
 ---
@@ -155,6 +155,41 @@ V6.0 ships the multi-provider model router, autonomous skill synthesis, 3-layer 
 **Gateway entry:** `gateway/index.js` (HTTP control on `localhost:7773`).
 **Public install:** `install.sh` / `install.ps1` (one-line install for non-technical clients).
 **Fork mechanism (V6.1):** wizard → `personalize.py apply --force` → (if new operator) `scaffold.py --apply --backup` → `bravo doctor`. Turns a fresh clone into the new operator's personal agent.
+
+## Claude Spillover — usage-limit failover to OmniRoute (2026-09-12)
+
+When the Claude Max subscription hits its account-wide usage limit, interactive Claude Code sessions (IDE panel + CLI) keep going on OmniRoute's `bravo-fallback` combo until the reset, then return to Claude — automatically, same conversation. Contract: [[scripts/spillover/CONTRACT]] · Decision: [[docs/adr/0018-claude-spillover]] · Operator skill: [[skills/claude-spillover/SKILL]] · Terms: [[CONTEXT]] § Spillover. It routes model traffic only: not the messaging gateway, not `send_gateway.py`.
+
+**Ports (loopback only):** `127.0.0.1:20131` = spillover proxy (Claude Code's `ANTHROPIC_BASE_URL`; outside OmniRoute's 20128–20130 range) · `127.0.0.1:20128` = OmniRoute (`PORT` = `API_PORT` = `DASHBOARD_PORT`).
+
+| Piece | What it is | Where |
+|---|---|---|
+| Spillover proxy | Zero-dependency Node pass-through. Byte-for-byte to `https://api.anthropic.com`; reroutes only eligible requests, only after a subscription usage-limit 429, only until reset | `scripts/spillover/spillover_proxy.js` + `limit_detector.js` → deployed `app/` |
+| OmniRoute | Local router, fallback leg only. Pinned sha `152d9510` (npm 3.8.50 refused). Never holds a Claude credential | `HOME_DIR/omniroute-src/`, data in `HOME_DIR/omniroute-data/` |
+| Supervisor | `supervisor.js`: holds the proxy listener, respawns the proxy worker, runs OmniRoute as a child. Started by a Startup-folder VBS at logon and by the SessionStart ensure-hook (`bin/ensure_spillover.py`). Deliberately **not** under `fleet_watchdog` (ADR-0018) | deployed `app/supervisor.js` |
+| Status line | CLI status line: 5h/7d usage and `DIRECT` or `FALLBACK until <time>`. The IDE panel doesn't render status lines — it relies on the toast + Telegram alerts | deployed `bin/statusline.py` |
+| `claude-direct` | `claude --settings {"env":{"ANTHROPIC_BASE_URL":"https://api.anthropic.com"}}` — Claude with no proxy and no Python | deployed `bin/claude-direct.cmd` |
+| Lane key | `lane_key.py` DPAPI (Mac: Keychain) blobs `omniroute_lane`, `storage_encryption`, `initial_password`; `get` is blocked for agents by `secret_guard` | deployed `bin/lane_key.py`, `HOME_DIR/secrets/` |
+| Automation pin | `config/spillover/automation_pin.json`, passed as `--settings` by `run_claude_cli`: daemon automations always reach Anthropic directly and never spill | `scripts/lib/claude_cli.py` |
+
+`HOME_DIR` = `%LOCALAPPDATA%\bravo-spillover\` (Mac: `~/Library/Application Support/bravo-spillover`). The runtime reads only from there, never from the checkout.
+
+**`omniroute_tool.py` verbs** — `python scripts/integrations/omniroute_tool.py <verb>`; `--json`, exit codes 0–4; not exposed to dashboard `run_script`:
+
+| Verb | What it does |
+|---|---|
+| `health` | Quick liveness of the proxy and OmniRoute — the skill's prerequisite (`health --json`) |
+| `doctor` | Full hardening checklist (`doctor --json`): one listener on 127.0.0.1:20128, 401 without a key, Next.js ≥ 16.3.3, sha pinned, no plaintext key in `DATA_DIR/.env`, login required, no tunnels, rebinding probe refused, forbidden providers absent |
+| `install` | Clone OmniRoute at the pinned sha, `npm ci --ignore-scripts` with a scrubbed env, rebuild native modules, build; refuses 3.8.50 |
+| `deploy` | Copy the repo sources to `HOME_DIR/app` + `HOME_DIR/bin` with a SHA stamp, create or merge `HOME_DIR/config.json`, write the Startup VBS |
+| `smoke` | Tool-use smoke gate (`--tools --stream --corpus`); a model joins `bravo-fallback` only if it passes |
+| `spillover status` | Mode (DIRECT or SPILLING), `reset_at`, fallback health, counters, last route |
+| `spillover enable-routing` | Writes `ANTHROPIC_BASE_URL` + `ENABLE_TOOL_SEARCH` to `~/.claude/settings.json`, plus the status line and the ensure-hook. Refuses if the proxy is unhealthy, a running Claude Code is older than 2.1.268 or in 2.1.265–2.1.267, or the settings already hold `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY` or `apiKeyHelper` |
+| `spillover enable` | Spilling on |
+| `spillover passthrough` | **Kill switch** — hot-reload to forward-only. Never stop the proxy instead |
+| `spillover fault set` | Fault-injection drills (`force_limit`, `force_reset`, `omniroute_down`) — TTY confirmation, TTL ≤ 1 h, Telegram alert |
+| `rollback` | Base URL back to Anthropic, restart prompt, supervisor stopped + VBS removed, owned settings restored from backup |
+| `uninstall --purge` | Removes OmniRoute and its data |
 
 ## CLI-Anything (Universal CLI Generation)
 

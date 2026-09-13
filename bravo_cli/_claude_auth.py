@@ -22,17 +22,25 @@ Auth priority (the rule):
 
 This is CC's billing model: free under Pro until the 5-hour rolling window
 caps, then paid metered API. Never the other way around.
+
+Claude Spillover (fixture v3, 2026-09-12): build_claude_spawn_env also strips
+the `lane_env_strip` vars inherited from the parent before applying extras, and
+is_subscription_limit() is the narrow usage-limit predicate. Both come from the
+same fixture and are parity-tested against scripts/lib/claude_auth.py and the
+Node port.
 """
 
 from __future__ import annotations
 
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Optional
 
 
-# Signals for "subscription failed, fall over to the free tier".
+# Signals for "subscription failed, fall over to the free tier", the spillover
+# lane vars, and the narrow subscription-limit signals.
 #
 # Loaded from config/claude_auth_signals.json — the SAME file
 # scripts/lib/claude_auth.py and scripts/c_suite_context.js read.
@@ -40,24 +48,72 @@ from typing import Optional
 # This file used to carry its own hand-copied alternation; it had drifted
 # narrower than the Node one and missed "hit your … limit" entirely.
 try:
-    from lib.claude_auth import AUTH_FAIL_SIGNALS as _SIGNALS  # type: ignore
+    from lib.claude_auth import (  # type: ignore
+        AUTH_FAIL_SIGNALS as _SIGNALS,
+        LANE_ENV_VARS,
+        SUBSCRIPTION_LIMIT_SIGNALS as _SUBSCRIPTION_LIMIT_SIGNALS,
+    )
 except Exception:  # noqa: BLE001 — bravo_cli is importable without scripts/ on sys.path
     import json as _json
 
     _SIGNALS_PATH = Path(__file__).resolve().parents[1] / "config" / "claude_auth_signals.json"
-    try:
-        _SIGNALS = [str(s) for s in _json.loads(_SIGNALS_PATH.read_text(encoding="utf-8"))["signals"]]
-    except Exception:  # noqa: BLE001
-        # Widest-signals last resort: assume quota, take the free tier.
-        _SIGNALS = [
-            "authentication_error", "OAuth token has expired", "Invalid API key",
-            "usage limit", "rate limit", "quota exceeded", "reached your.*limit",
-            "hit your.*limit", "session limit", "weekly limit", "limit reached",
-            "credit balance is too low", "out of credits",
-            r"(?:status|code|error|HTTP)\W{0,12}(?:401|403|429|529)\b",
-        ]
+
+    def _fixture_list(key: str, fallback: list) -> list:
+        # Same contract as lib.claude_auth._load_fixture_list: never raises
+        # (the bridge imports this at startup), never silent.
+        try:
+            values = _json.loads(_SIGNALS_PATH.read_text(encoding="utf-8")).get(key)
+            if isinstance(values, list) and values:
+                return [str(v) for v in values]
+            problem = f"has no non-empty {key!r} list"
+        except Exception as e:  # noqa: BLE001
+            problem = f"is unreadable ({type(e).__name__})"
+        sys.stderr.write(f"[_claude_auth] {_SIGNALS_PATH} {problem}; using the inline fallback\n")
+        return list(fallback)
+
+    # Widest-signals last resort: assume quota, take the free tier.
+    _SIGNALS = _fixture_list("signals", [
+        "authentication_error", "OAuth token has expired", "Invalid API key",
+        "usage limit", "rate limit", "quota exceeded", "reached your.*limit",
+        "hit your.*limit", "session limit", "weekly limit", "limit reached",
+        "credit balance is too low", "out of credits",
+        r"(?:status|code|error|HTTP)\W{0,12}(?:401|403|429|529)\b",
+    ])
+    # The FULL lane list, never a subset: a missing name is a route into the
+    # spillover proxy.
+    LANE_ENV_VARS = tuple(_fixture_list("lane_env_strip", [
+        "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_MODEL",
+        "ANTHROPIC_SMALL_FAST_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        "ANTHROPIC_DEFAULT_FABLE_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL",
+        "ANTHROPIC_CUSTOM_HEADERS", "CLAUDE_CODE_ENTRYPOINT",
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+        "BRAVO_CLAUDE_LANE",
+    ]))
+    _SUBSCRIPTION_LIMIT_SIGNALS = _fixture_list("subscription_limit_signals", [
+        r"hit your (?:(?:session|weekly|daily|opus|sonnet|usage|5[- ]?hour|five[- ]hour)\s+)?limit",
+        r"reached your (?:(?:session|weekly|daily|opus|sonnet|usage|5[- ]?hour|five[- ]hour)\s+)?limit",
+        r"exhausted your (?:(?:session|weekly|daily|usage|5[- ]?hour|five[- ]hour)\s+)?(?:limit|quota|usage)",
+        r"(?:usage|session|weekly|opus|sonnet|5[- ]?hour|five[- ]hour)\s+limit\s+(?:has been\s+|was\s+)?reached",
+        r"your limit will reset",
+        "you(?:'ve|’ve| have) used all (?:of )?your "
+        r"(?:(?:session|weekly|daily|opus|sonnet|5[- ]?hour)\s+)?(?:usage|limit|quota|messages)",
+    ])
 
 _AUTH_FAIL_PATTERN = re.compile("|".join(f"(?:{s})" for s in _SIGNALS), re.IGNORECASE)
+_SUBSCRIPTION_LIMIT_PATTERN = re.compile(
+    "|".join(f"(?:{s})" for s in _SUBSCRIPTION_LIMIT_SIGNALS), re.IGNORECASE)
+
+
+def strip_lane_env(env: dict) -> dict:
+    """Remove every LANE_ENV_VARS name from `env`, in place, and return it.
+
+    Case-insensitive because Windows env names are: `Anthropic_Base_Url` in a
+    copied env dict still reaches the child claude.exe as ANTHROPIC_BASE_URL."""
+    lane = {name.upper() for name in LANE_ENV_VARS}
+    for key in [k for k in env if k.upper() in lane]:
+        del env[key]
+    return env
 
 
 def build_claude_spawn_env(
@@ -74,10 +130,14 @@ def build_claude_spawn_env(
         base: starting env (default os.environ).
         extras: additional env keys to merge on top (e.g. CI=true).
 
+    The spillover lane vars come off the INHERITED base before extras apply,
+    so nothing leaks in from the parent while a caller can still set one on
+    purpose.
+
     Returns:
         A dict suitable for subprocess.Popen's env= argument.
     """
-    env = dict(base if base is not None else os.environ)
+    env = strip_lane_env(dict(base if base is not None else os.environ))
     if extras:
         env.update(extras)
     if not force_api_key:
@@ -103,6 +163,14 @@ def is_claude_auth_or_quota_failure(raw_output: str, exit_code: Optional[int]) -
     if not raw_output:
         return False
     return bool(_AUTH_FAIL_PATTERN.search(raw_output))
+
+
+def is_subscription_limit(text: Optional[str]) -> bool:
+    """True when `text` says the SUBSCRIPTION usage limit is spent — the narrow,
+    verb-anchored predicate (see lib.claude_auth.is_subscription_limit)."""
+    if not text:
+        return False
+    return bool(_SUBSCRIPTION_LIMIT_PATTERN.search(text))
 
 
 def check_claude_auth_paths(home: Optional[str] = None, env: Optional[dict] = None) -> dict:

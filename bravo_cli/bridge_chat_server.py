@@ -170,6 +170,7 @@ try:
     )
     from .warm_claude_pool import use_or_create as _warm_use_or_create, pool_status as _warm_pool_status, chat_lean_args as _warm_chat_lean_args
     from ._claude_auth import is_claude_auth_or_quota_failure as _is_auth_failure
+    from ._claude_auth import build_claude_spawn_env as _build_claude_spawn_env
 except ImportError:
     _here = Path(__file__).resolve().parent
     if str(_here) not in sys.path:
@@ -185,6 +186,7 @@ except ImportError:
     from warm_claude_pool import pool_status as _warm_pool_status  # type: ignore
     from warm_claude_pool import chat_lean_args as _warm_chat_lean_args  # type: ignore
     from _claude_auth import is_claude_auth_or_quota_failure as _is_auth_failure  # type: ignore
+    from _claude_auth import build_claude_spawn_env as _build_claude_spawn_env  # type: ignore
     from _subprocess_helpers import (  # type: ignore
         command_without_cmd_shim as _command_without_cmd_shim,
         safe_popen as _safe_popen,
@@ -3118,8 +3120,13 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # billed (and now 400s on) the dead metered key instead of using
         # CC's subscription. Cold spawn only fires when the warm pool is
         # disabled (OASIS_NO_WARM_POOL=1) or crashes.
-        env = dict(os.environ)
-        env.pop("ANTHROPIC_API_KEY", None)
+        #
+        # Built by _claude_auth.build_claude_spawn_env, the builder the warm
+        # pool already uses, not by hand (2026-09-12). It also strips the
+        # Claude Spillover lane vars (ANTHROPIC_BASE_URL,
+        # CLAUDE_CODE_ENTRYPOINT, model overrides) this bridge inherited from
+        # whatever launched it; the hand-built copy dropped only the API key.
+        env = _build_claude_spawn_env(force_api_key=False)
         # Enriched PATH — Claude's own child processes (ripgrep, node, sed,
         # the user's hooks) need to see Homebrew + npm-global + nvm. Same
         # treatment _run_cli_command gives codex/gemini spawns.

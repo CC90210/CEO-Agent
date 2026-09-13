@@ -22,8 +22,27 @@
     "failure is worth retrying on the subscription first. A miss must cost latency,",
     "never functionality."
   ],
-  "version": 2,
-  "updated": "2026-09-03",
+  "_comment_v3": [
+    "v3 (2026-09-12, Claude Spillover — see scripts/spillover/CONTRACT.md section 13).",
+    "",
+    "lane_env_strip: env vars that every build_claude_spawn_env port removes from the",
+    "INHERITED environment before applying the caller's extras. A parent Claude Code",
+    "session exports CLAUDE_CODE_ENTRYPOINT=cli (which makes a child automation look",
+    "spill-eligible to the proxy), and a shell can carry ANTHROPIC_BASE_URL or a model",
+    "lane override. No automation may inherit a route into the spillover proxy or a",
+    "lane. Each port keeps a FULL inline copy for an unreadable fixture, and the",
+    "parity test fails if a copy is missing a name.",
+    "",
+    "subscription_limit_signals: the NARROW predicate is_subscription_limit() — the",
+    "account-wide usage limit is spent and every call fails until the reset. It opens",
+    "claude_cli's 30-minute quota breaker, so a false positive parks the whole fleet on",
+    "fallback models. Every signal is verb-anchored (hit / reached / exhausted / used",
+    "all, or a named '<kind> limit reached'): 'Approaching … usage limit' is only a",
+    "warning and a per-minute rate limit clears in seconds. The broad 'signals' list",
+    "above stays the retry-worthiness predicate; the two answer different questions."
+  ],
+  "version": 3,
+  "updated": "2026-09-12",
   "signals": [
     "authentication_error",
     "invalid_api_key",
@@ -99,5 +118,54 @@
     "{\"business_address\": \"401 Main Street, Tampa FL\"}",
     "{\"monthly_revenue\": 4290, \"requested_amount\": 52900}",
     "{\"phone\": \"(813) 555-4013\", \"business_legal_name\": \"529 Holdings LLC\"}"
+  ],
+  "lane_env_strip": [
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_SMALL_FAST_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "ANTHROPIC_CUSTOM_HEADERS",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "BRAVO_CLAUDE_LANE"
+  ],
+  "subscription_limit_signals": [
+    "hit your (?:(?:session|weekly|daily|opus|sonnet|usage|5[- ]?hour|five[- ]hour)\\s+)?limit",
+    "reached your (?:(?:session|weekly|daily|opus|sonnet|usage|5[- ]?hour|five[- ]hour)\\s+)?limit",
+    "exhausted your (?:(?:session|weekly|daily|usage|5[- ]?hour|five[- ]hour)\\s+)?(?:limit|quota|usage)",
+    "(?:usage|session|weekly|opus|sonnet|5[- ]?hour|five[- ]hour)\\s+limit\\s+(?:has been\\s+|was\\s+)?reached",
+    "your limit will reset",
+    "you(?:'ve|’ve| have) used all (?:of )?your (?:(?:session|weekly|daily|opus|sonnet|5[- ]?hour)\\s+)?(?:usage|limit|quota|messages)"
+  ],
+  "subscription_limit_must_match": [
+    "You've hit your session limit · resets 8pm",
+    "You've hit your session limit - resets 8pm",
+    "cli_failed:You've hit your session limit - resets 8pm",
+    "You've hit your weekly limit",
+    "You've hit your usage limit - resets 3am",
+    "Claude usage limit reached. Your limit will reset at 8pm",
+    "5-hour limit reached",
+    "5 hour limit reached ∙ resets 8pm"
+  ],
+  "subscription_limit_must_not_match": [
+    "Approaching Opus usage limit",
+    "Approaching usage limit · resets at 8pm",
+    "Number of request tokens has exceeded your per-minute rate limit",
+    "API Error: 429 {\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"Number of request tokens has exceeded your per-minute rate limit\"}} · Retrying in 12 seconds",
+    "529 Overloaded",
+    "overloaded_error",
+    "Error: Reached max turns (20)",
+    "The merchant requested a limit increase on their line of credit",
+    "Credit limit reached on the card ending 4013",
+    "Daily limit reached on the merchant's POS terminal",
+    "Your credit limit will reset on the 1st of the month",
+    "You have used all of your available credit",
+    "{\"monthly_revenue\": 4290, \"requested_amount\": 52900}"
   ]
 }

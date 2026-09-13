@@ -475,6 +475,21 @@ const spawnOpenCodeFallback = (prompt) => new Promise((resolve) => {
     child.on('error', (e) => { clearTimeout(timer); log(`[OPENCODE FALLBACK ERR] ${e.message}`); resolve(null); });
 });
 
+// Claude Spillover lane vars (config/claude_auth_signals.json `lane_env_strip`).
+// cSuite.buildClaudeSpawnEnv strips them from the inherited env; this copy
+// serves the fallback below, which runs exactly when that module failed to
+// load, so it cannot read the list from there. The FULL list, never a subset:
+// test_claude_auth_parity.py fails if it drifts from the fixture.
+const CLAUDE_LANE_ENV_FALLBACK = [
+    'ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_MODEL',
+    'ANTHROPIC_SMALL_FAST_MODEL', 'ANTHROPIC_DEFAULT_OPUS_MODEL',
+    'ANTHROPIC_DEFAULT_SONNET_MODEL', 'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+    'ANTHROPIC_DEFAULT_FABLE_MODEL', 'CLAUDE_CODE_SUBAGENT_MODEL',
+    'ANTHROPIC_CUSTOM_HEADERS', 'CLAUDE_CODE_ENTRYPOINT',
+    'CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_CODE_MAX_CONTEXT_TOKENS',
+    'BRAVO_CLAUDE_LANE',
+];
+
 const spawnClaude = (prompt, { trusted }) => new Promise((resolve) => {
     const args = ['-p', prompt, '--output-format', 'text', '--setting-sources', 'project,local'];
     let env;
@@ -491,7 +506,13 @@ const spawnClaude = (prompt, { trusted }) => new Promise((resolve) => {
                 // dotenv-loaded (dead/banned) ANTHROPIC_API_KEY leaks into the spawn and
                 // surfaces a raw 401 in the OASIS group (2026-07-20 incident; the
                 // b72b7ac9 dead-key purge covered the other bridges but missed this one).
-                const e = { ...process.env, CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' };
+                // The lane vars come off the inherited env first, exactly as
+                // buildClaudeSpawnEnv does (see CLAUDE_LANE_ENV_FALLBACK above).
+                const e = { ...process.env };
+                for (const k of Object.keys(e)) {
+                    if (CLAUDE_LANE_ENV_FALLBACK.includes(k.toUpperCase())) delete e[k];
+                }
+                Object.assign(e, { CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' });
                 delete e.ANTHROPIC_API_KEY;
                 delete e.ANTHROPIC_AUTH_TOKEN;
                 return e;

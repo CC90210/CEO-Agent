@@ -3,7 +3,7 @@ name: AGENT ROUTER
 description: Runtime-agnostic routing-by-intent table, loaded after the active entry point for operational requests.
 mutability: SEMI-MUTABLE
 tags: [brain, router, rag-entry, agent-only]
-last_updated: 2026-08-19
+last_updated: 2026-09-12
 freshness_threshold_days: 30
 verified: 2026-07-19
 ---
@@ -84,6 +84,7 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | App-specific work (PropFlow, OASIS, etc.) | `brain/APP_REGISTRY.md` | `APPS_CONTEXT/<app>_CLAUDE.md` |
 | Code review / pre-ship | `skills/code-review/SKILL.md` | `skills/ship/SKILL.md` |
 | Debugging | `skills/systematic-debugging/SKILL.md` | `memory/MISTAKES.md` |
+| **Claude usage limit / Claude limit / switch model / fallback / spillover** | `skills/claude-spillover/SKILL.md` | run `python scripts/integrations/omniroute_tool.py spillover status` · `docs/adr/0018-claude-spillover.md` |
 | Cron / background workers | `skills/background-workers/SKILL.md` | `oasis-command-center:vercel.json` |
 | Dashboard structure | `oasis-command-center:lib/agent-roots.ts` | the relevant `oasis-command-center:app/<route>/page.tsx` |
 | **Audit the system / health check** | (run `python scripts/core/self_audit.py`) | `brain/ORCHESTRATION.md` |

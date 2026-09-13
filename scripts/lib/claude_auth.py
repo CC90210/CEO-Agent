@@ -28,6 +28,14 @@ nothing more. Callers MUST fall back to the free tier on ANY model failure, so
 that a signal this list has never seen costs one wasted retry instead of the
 whole feature. See model_fallback.run_smart_cli and extraction_consumer's tier
 ladder for the shape that is safe.
+
+CLAUDE SPILLOVER (fixture v3, 2026-09-12 — scripts/spillover/CONTRACT.md §13):
+build_claude_spawn_env also strips the `lane_env_strip` vars (ANTHROPIC_BASE_URL,
+CLAUDE_CODE_ENTRYPOINT, the model overrides, …) from the INHERITED env before the
+caller's extras, so no child automation inherits a route into the local
+spillover proxy or a model lane. is_subscription_limit() is the narrow,
+verb-anchored "the subscription usage limit is spent" predicate behind
+claude_cli's quota breaker. Both lists live in the same fixture.
 """
 
 from __future__ import annotations
@@ -35,8 +43,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, MutableMapping, Optional
 
 # config/claude_auth_signals.json — canonical, shared with the Node port.
 SIGNALS_PATH = Path(__file__).resolve().parents[2] / "config" / "claude_auth_signals.json"
@@ -54,20 +63,74 @@ _FALLBACK_SIGNALS = [
     r"(?:status|code|error|HTTP)\W{0,12}(?:401|403|429|529)\b",
 ]
 
+# Last-resort inline copy of `lane_env_strip`. Unlike _FALLBACK_SIGNALS this is
+# the FULL list, never a subset: a name missing here is a route into the
+# spillover proxy on a partial deploy. test_claude_auth_parity.py runs every
+# port with the fixture unreadable and fails if any lane var survives.
+_FALLBACK_LANE_ENV_STRIP = [
+    "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_MODEL",
+    "ANTHROPIC_SMALL_FAST_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL",
+    "ANTHROPIC_CUSTOM_HEADERS", "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "BRAVO_CLAUDE_LANE",
+]
+
+# Last-resort inline copy of `subscription_limit_signals`. A miss only costs
+# latency (the breaker stays shut and the caller falls back anyway), but the
+# parity test still holds this copy to the fixture's must_match/must_not_match.
+_FALLBACK_SUBSCRIPTION_LIMIT_SIGNALS = [
+    r"hit your (?:(?:session|weekly|daily|opus|sonnet|usage|5[- ]?hour|five[- ]hour)\s+)?limit",
+    r"reached your (?:(?:session|weekly|daily|opus|sonnet|usage|5[- ]?hour|five[- ]hour)\s+)?limit",
+    r"exhausted your (?:(?:session|weekly|daily|usage|5[- ]?hour|five[- ]hour)\s+)?(?:limit|quota|usage)",
+    r"(?:usage|session|weekly|opus|sonnet|5[- ]?hour|five[- ]hour)\s+limit\s+(?:has been\s+|was\s+)?reached",
+    r"your limit will reset",
+    "you(?:'ve|’ve| have) used all (?:of )?your "
+    r"(?:(?:session|weekly|daily|opus|sonnet|5[- ]?hour)\s+)?(?:usage|limit|quota|messages)",
+]
+
+
+def _load_fixture_list(key: str, fallback: list[str]) -> list[str]:
+    """One list from the shared fixture, or `fallback` when it cannot be read.
+
+    Never raises — daemons import this at startup — but never silent either: a
+    degraded read goes to stderr, so the daemon's own log names it."""
+    try:
+        values = json.loads(SIGNALS_PATH.read_text(encoding="utf-8")).get(key)
+        if isinstance(values, list) and values:
+            return [str(v) for v in values]
+        problem = f"has no non-empty {key!r} list"
+    except Exception as e:  # noqa: BLE001 — see _FALLBACK_SIGNALS rationale above
+        problem = f"is unreadable ({type(e).__name__})"
+    sys.stderr.write(f"[claude_auth] {SIGNALS_PATH} {problem}; using the inline fallback\n")
+    return list(fallback)
+
 
 def _load_signals() -> list[str]:
-    try:
-        data = json.loads(SIGNALS_PATH.read_text(encoding="utf-8"))
-        signals = data.get("signals")
-        if isinstance(signals, list) and signals:
-            return [str(s) for s in signals]
-    except Exception:  # noqa: BLE001 — see _FALLBACK_SIGNALS rationale above
-        pass
-    return list(_FALLBACK_SIGNALS)
+    return _load_fixture_list("signals", _FALLBACK_SIGNALS)
 
 
 AUTH_FAIL_SIGNALS: list[str] = _load_signals()
 _AUTH_FAIL_PATTERN = re.compile("|".join(f"(?:{s})" for s in AUTH_FAIL_SIGNALS), re.IGNORECASE)
+
+LANE_ENV_VARS: tuple[str, ...] = tuple(_load_fixture_list("lane_env_strip", _FALLBACK_LANE_ENV_STRIP))
+SUBSCRIPTION_LIMIT_SIGNALS: list[str] = _load_fixture_list(
+    "subscription_limit_signals", _FALLBACK_SUBSCRIPTION_LIMIT_SIGNALS)
+_SUBSCRIPTION_LIMIT_PATTERN = re.compile(
+    "|".join(f"(?:{s})" for s in SUBSCRIPTION_LIMIT_SIGNALS), re.IGNORECASE)
+
+
+def strip_lane_env(env: MutableMapping[str, str]) -> MutableMapping[str, str]:
+    """Remove every LANE_ENV_VARS name from `env`, in place, and return it.
+
+    Case-insensitive on purpose: Windows env names are, so a copied env dict
+    carrying `Anthropic_Base_Url` still reaches a child claude.exe as
+    ANTHROPIC_BASE_URL."""
+    lane = {name.upper() for name in LANE_ENV_VARS}
+    for key in [k for k in env if k.upper() in lane]:
+        del env[key]
+    return env
 
 
 def build_claude_spawn_env(
@@ -80,10 +143,17 @@ def build_claude_spawn_env(
     Default (force_api_key=False): strips ANTHROPIC_API_KEY so the claude CLI
     falls through to the OAuth subscription token. Pass force_api_key=True on the
     retry path to enable the paid API-key fallback.
+
+    Order matters: the lane vars come off the INHERITED env first, then extras
+    apply. A parent Claude Code session exports CLAUDE_CODE_ENTRYPOINT=cli and a
+    shell can carry ANTHROPIC_BASE_URL — neither may leak into a child — while a
+    caller can still set one deliberately (claude_cli sets
+    ANTHROPIC_CUSTOM_HEADERS=X-Bravo-Lane: automation).
     """
     if base is None:
         base = os.environ
     env: dict[str, str] = dict(base)
+    strip_lane_env(env)
     if extras:
         env.update(extras)
     if not force_api_key:
@@ -99,6 +169,21 @@ def is_claude_auth_or_quota_failure(raw_output: str, exit_code: int) -> bool:
     if not raw_output:
         return False
     return bool(_AUTH_FAIL_PATTERN.search(raw_output))
+
+
+def is_subscription_limit(text: Optional[str]) -> bool:
+    """True when `text` is Claude saying the SUBSCRIPTION usage limit is spent
+    (session / weekly / 5-hour), so every call fails until the reset.
+
+    Deliberately narrower than is_claude_auth_or_quota_failure: it opens
+    claude_cli's quota breaker, and a false positive parks the whole fleet on
+    fallback models for the cooldown. Every signal is verb-anchored ("hit your …
+    limit", "… limit reached"): "Approaching Opus usage limit" is only a warning
+    and a per-minute rate limit clears in seconds. The fixture's
+    subscription_limit_must_match / _must_not_match pin both sides."""
+    if not text:
+        return False
+    return bool(_SUBSCRIPTION_LIMIT_PATTERN.search(text))
 
 
 def check_claude_auth_paths(

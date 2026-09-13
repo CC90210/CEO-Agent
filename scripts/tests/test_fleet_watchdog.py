@@ -835,7 +835,13 @@ def test_an_adopted_app_gets_its_env_block_over_the_inherited_env(monkeypatch, t
 def test_the_dump_daemons_keep_the_environment_they_run_under(monkeypatch, tmp_path):
     """Handing the dump's daemons their env blocks would change live behaviour
     on their next restart — bravo-scheduler's block turns on the email
-    auto-reply path. Only adopted apps get theirs."""
+    auto-reply path. Only adopted apps get theirs.
+
+    Since 2026-09-12 "exactly as before" means the inherited environment minus
+    the Claude Spillover lane vars, passed explicitly instead of env=None (see
+    test_lane_vars_never_reach_a_child)."""
+    monkeypatch.delenv("EMAIL_BRAIN_AUTO_SEND", raising=False)
+    monkeypatch.setenv("FLEET_TEST_INHERITED", "kept")
     scheduler_eco = {"name": "bravo-scheduler", "script": "scripts/scheduler.py",
                      "args": None, "interp": "pythonw.exe", "cwd": str(REPO_ROOT),
                      "env": {"EMAIL_BRAIN_AUTO_SEND": "1"}}
@@ -845,8 +851,72 @@ def test_the_dump_daemons_keep_the_environment_they_run_under(monkeypatch, tmp_p
     _sources(monkeypatch, tmp_path, [scheduler_dump],
              {"bravo-scheduler": scheduler_eco})
     [row] = fw.manifest()
-    assert _capture_start(monkeypatch, tmp_path, row)["env"] is None, (
-        "a dump daemon must inherit exactly as before")
+    env = _capture_start(monkeypatch, tmp_path, row)["env"]
+    assert "EMAIL_BRAIN_AUTO_SEND" not in env, "a dump daemon must not get its env block"
+    lane = {name.upper() for name in LANE_VARS}
+    assert env == {k: v for k, v in os.environ.items() if k.upper() not in lane}, (
+        "a dump daemon must inherit exactly as before, minus the lane vars")
+
+
+# ------------------------------------------------ Claude Spillover lane vars ---
+# Added 2026-09-12. Whatever launched this watchdog (a Task Scheduler session, a
+# shell inside a Claude Code session) can carry ANTHROPIC_BASE_URL or
+# CLAUDE_CODE_ENTRYPOINT=cli. A daemon that inherits them hands them to every
+# claude it spawns, and an automation lands in the spillover proxy or looks
+# spill-eligible to it. So every child loses them: dump daemons, adopted apps
+# and siblings alike, whatever an env block says.
+
+LANE_VARS = json.loads((REPO_ROOT / "config" / "claude_auth_signals.json")
+                       .read_text(encoding="utf-8"))["lane_env_strip"]
+
+
+def _inherit_every_lane_var(monkeypatch):
+    for name in LANE_VARS:
+        monkeypatch.setenv(name, "http://127.0.0.1:20131" if name == "ANTHROPIC_BASE_URL"
+                           else "inherited")
+
+
+def _leaked(env: dict) -> list[str]:
+    lane = {name.upper() for name in LANE_VARS}
+    return sorted(k for k in env if k.upper() in lane)
+
+
+@pytest.mark.parametrize("kind", ["dump", "adopted", "sibling"])
+def test_lane_vars_never_reach_a_child(monkeypatch, tmp_path, kind):
+    _inherit_every_lane_var(monkeypatch)
+    monkeypatch.setenv("FLEET_TEST_INHERITED", "kept")
+    sibling_repo = tmp_path / "sibling-repo"
+    rows = {
+        "dump": {"name": "probe", "interp": "python.exe", "script": "s.py",
+                 "args": [], "cwd": str(tmp_path), "unrunnable": ""},
+        # Even a manifest env block cannot hand a child a lane var.
+        "adopted": dict(CONSUMER, cwd=str(tmp_path), unrunnable="",
+                        env={**CONSUMER["env"], "ANTHROPIC_BASE_URL": "http://127.0.0.1:20131"}),
+        # The shape _sibling_manifest builds: absolute script, no env block.
+        "sibling": {"name": "maven-telegram", "interp": "node",
+                    "script": str(sibling_repo / "telegram_agent.js"),
+                    "args": [], "cwd": str(sibling_repo), "unrunnable": ""},
+    }
+    env = _capture_start(monkeypatch, tmp_path, rows[kind])["env"]
+    assert not _leaked(env), f"a {kind} child would inherit {_leaked(env)}"
+    assert env["FLEET_TEST_INHERITED"] == "kept", "only the lane vars are removed"
+
+
+def test_the_watchdogs_inline_lane_list_is_complete():
+    """The copy start() strips when lib.claude_auth will not import."""
+    assert set(fw._LANE_ENV_FALLBACK) == set(LANE_VARS)
+
+
+def test_a_broken_helper_import_still_strips_and_still_starts(monkeypatch, tmp_path, capsys):
+    """The supervisor never stops on a helper: with lib.claude_auth unimportable
+    it strips its inline list, says so, and starts the daemon anyway."""
+    _inherit_every_lane_var(monkeypatch)
+    monkeypatch.setitem(sys.modules, "lib.claude_auth", None)
+    env = _capture_start(monkeypatch, tmp_path,
+                         {"name": "probe", "interp": "python.exe", "script": "s.py",
+                          "args": [], "cwd": str(tmp_path), "unrunnable": ""})["env"]
+    assert not _leaked(env)
+    assert "stripping the inline lane list" in capsys.readouterr().err
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="the OASIS pair is Windows-only")

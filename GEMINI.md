@@ -139,6 +139,8 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 
 All CLI tools read credentials from `.env.agents` automatically. Pass `--json` for machine-readable output.
 
+Claude usage limit -> automatic Spillover to OmniRoute (skills/claude-spillover/SKILL.md); status: omniroute_tool.py spillover status
+
 Browser Harness is shared by Bravo, Atlas, Maven, Aura, and Hermes. Use `skills/browser-harness/SKILL.md`, `browser/domain-skills/`, and `browser/SAFETY.md`; never click send/publish/billing/finance/admin/destructive/production actions without explicit CC approval.
 
 If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE sentence. No curl fallbacks. No workaround scripts. No audit reports.

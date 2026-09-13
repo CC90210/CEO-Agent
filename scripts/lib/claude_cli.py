@@ -19,11 +19,26 @@ one-shot haiku call: 11.1s with "user,project" vs 5.3s with "". Flagged for CC
 rather than changed unilaterally, since every automation on this path (daily
 brief, sleep agent, email classifier) would shift behaviour at once.
 
+That user-settings load is also why both functions carry the CLAUDE SPILLOVER
+GUARDS (2026-09-12, scripts/spillover/CONTRACT.md §13). Once
+~/.claude/settings.json points ANTHROPIC_BASE_URL at the local spillover proxy,
+an automation on this path would follow it there. So:
+  * --settings config/spillover/automation_pin.json pins ANTHROPIC_BASE_URL to
+    https://api.anthropic.com. Command-line settings outrank user and project
+    settings, so the pin wins whatever the user file says
+    (scripts/tests/test_spillover_pin_live.py proves it against fake servers).
+  * ANTHROPIC_CUSTOM_HEADERS=X-Bravo-Lane: automation. The proxy never spills a
+    request carrying it, so either guard alone keeps an automation on Claude.
+  * build_claude_spawn_env strips the inherited lane vars before either is set.
+A missing or unreadable pin is reported loudly on stderr and the call still
+runs: the header still holds, and blocking every automation is worse.
+
 Returns the model's text, or None on ANY failure (missing CLI, expired token,
 timeout, non-zero exit) so callers degrade gracefully instead of crashing.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -42,7 +57,7 @@ try:
 except Exception:  # pragma: no cover - fallback if helper moves
     WINDOWLESS_FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
-from lib.claude_auth import build_claude_spawn_env  # noqa: E402
+from lib.claude_auth import build_claude_spawn_env, is_subscription_limit  # noqa: E402
 
 # --- Quota circuit breaker ----------------------------------------------------
 # State lives on disk, not in memory: the callers that hurt are short-lived cron
@@ -58,6 +73,33 @@ QUOTA_COOLDOWN_DEFAULT_SEC = 1800  # 30 min
 
 _RESET_HINT = re.compile(
     r"reset[s]?\s+(?:at|on|in)?\s*([0-9]{1,2}(?::[0-9]{2})?\s*(?:am|pm)?)", re.IGNORECASE)
+
+# --- Claude Spillover automation guards (see the module docstring) -------------
+AUTOMATION_PIN_PATH = PROJECT_ROOT / "config" / "spillover" / "automation_pin.json"
+AUTOMATION_PIN_BASE_URL = "https://api.anthropic.com"
+AUTOMATION_LANE_HEADER = "X-Bravo-Lane: automation"
+
+
+def _automation_pin_args() -> list[str]:
+    """["--settings", <absolute pin path>], or [] plus a loud stderr line when the
+    pin is missing, unreadable, or does not pin the Anthropic API. Never blocks
+    the call: the X-Bravo-Lane header still keeps the proxy from spilling it."""
+    try:
+        pin = json.loads(AUTOMATION_PIN_PATH.read_text(encoding="utf-8"))
+        base_url = pin["env"]["ANTHROPIC_BASE_URL"]
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        sys.stderr.write(
+            f"[claude_cli] AUTOMATION PIN MISSING OR UNREADABLE at {AUTOMATION_PIN_PATH} "
+            f"({type(e).__name__}) — running WITHOUT it, so this call follows "
+            "~/.claude/settings.json (possibly into the spillover proxy; the "
+            "X-Bravo-Lane header still refuses the spill)\n")
+        return []
+    if base_url != AUTOMATION_PIN_BASE_URL:
+        sys.stderr.write(
+            f"[claude_cli] AUTOMATION PIN at {AUTOMATION_PIN_PATH} does not pin "
+            f"{AUTOMATION_PIN_BASE_URL} — ignoring it and running without the pin\n")
+        return []
+    return ["--settings", str(AUTOMATION_PIN_PATH)]
 
 
 def _quota_cooldown_remaining() -> int:
@@ -194,12 +236,16 @@ def run_claude_cli(
         "--disable-slash-commands",
         "--strict-mcp-config",
         "--setting-sources", "user,project",
+        # Spillover guard 1: pin the Anthropic API over whatever user settings say.
+        *_automation_pin_args(),
     ]
 
     env = build_claude_spawn_env(force_api_key=False, extras={
         "CI": "true", "NONINTERACTIVE": "true", "NO_COLOR": "1",
         "FORCE_COLOR": "0", "PAGER": "cat",
         "CLAUDE_PROJECT_DIR": str(PROJECT_ROOT),
+        # Spillover guard 2: the proxy never spills an automation-lane request.
+        "ANTHROPIC_CUSTOM_HEADERS": AUTOMATION_LANE_HEADER,
     })
     try:
         proc = subprocess.run(
@@ -217,13 +263,21 @@ def run_claude_cli(
         # The CLI does not always explain itself on stderr. On 2026-08-13 the
         # nightly sleep agent recorded a bare "[claude_cli] exit 1: " — stderr
         # empty, stdout discarded — which left the failure un-diagnosable after
-        # the fact. Scan BOTH streams for the quota marker and report whichever
-        # one actually carried text, so the next occurrence names its own cause.
-        blob = f"{err}\n{out}".lower()
-        if "weekly limit" in blob or "usage limit" in blob or "quota" in blob:
+        # the fact. So the quota check reads stderr first, falls back to stdout
+        # only when stderr said nothing, and the report below names whichever
+        # stream actually carried text.
+        #
+        # is_subscription_limit (config/claude_auth_signals.json, verb-anchored)
+        # replaced a substring test for "weekly limit" / "usage limit" / "quota"
+        # on 2026-09-12. That test tripped on "Approaching Opus usage limit" (a
+        # warning) and missed "You've hit your session limit · resets 8pm" (the
+        # 2026-09-03 incident string) — and a false positive here parks every
+        # automation on fallback models for QUOTA_COOLDOWN_DEFAULT_SEC.
+        limit_text = err or out
+        if is_subscription_limit(limit_text):
             sys.stderr.write(
-                f"[claude_cli] quota limit reached (resets on schedule): {(err or out)[:150]}\n")
-            _open_quota_breaker(err or out)
+                f"[claude_cli] quota limit reached (resets on schedule): {limit_text[:150]}\n")
+            _open_quota_breaker(limit_text)
             return None
         detail = err[:300] if err else (f"(stderr empty) stdout: {out[:300]}" if out
                                         else "(no output on either stream)")
@@ -305,12 +359,17 @@ def run_claude_cli_on_document(
             "--disable-slash-commands",
             "--strict-mcp-config",
             "--setting-sources", "",
-            "--max-turns", "6"]
+            "--max-turns", "6",
+            # Spillover guard 1 (see run_claude_cli). "--setting-sources ''"
+            # already skips the user file; the pin also covers a future change.
+            *_automation_pin_args()]
 
     env = build_claude_spawn_env(force_api_key=False, extras={
         "CI": "true", "NONINTERACTIVE": "true", "NO_COLOR": "1",
         "FORCE_COLOR": "0", "PAGER": "cat",
         "CLAUDE_PROJECT_DIR": str(p.parent),
+        # Spillover guard 2: the proxy never spills an automation-lane request.
+        "ANTHROPIC_CUSTOM_HEADERS": AUTOMATION_LANE_HEADER,
     })
     try:
         proc = subprocess.run(

@@ -5,6 +5,7 @@ secondary. All subprocess calls are mocked.
 """
 from __future__ import annotations
 
+import inspect
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -15,7 +16,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 from lib import model_fallback  # noqa: E402
-from lib.model_fallback import is_fallback_available, run_smart_cli  # noqa: E402
+from lib.model_fallback import (  # noqa: E402
+    is_fallback_available, run_smart_cli, run_smart_cli_ex,
+)
 
 
 REAL_PROJECT_ROOT = PROJECT_ROOT
@@ -263,6 +266,145 @@ class TestTelemetryIsolation:
         run_smart_cli("test", task_type="classify")
         redirected = (model_fallback.PROJECT_ROOT / "memory" / "SESSION_LOG.md")
         assert "MODEL FALLBACK" in redirected.read_text(encoding="utf-8")
+
+
+class TestRunSmartCliEx:
+    """run_smart_cli_ex says WHO answered, and require_claude never lets a
+    client-facing call reach the OpenCode free tier (CC, 2026-09-12: client
+    content never goes to the free models, which log prompts)."""
+
+    @pytest.fixture
+    def notes(self, monkeypatch):
+        """Records _note_client_hold calls instead of reaching notify.py."""
+        seen: list[str] = []
+        monkeypatch.setattr(model_fallback, "_note_client_hold", seen.append)
+        return seen
+
+    @patch("lib.model_fallback.run_claude_cli", return_value="Claude says hello")
+    @patch("lib.model_fallback.run_opencode_cli")
+    def test_claude_answer_reports_claude_and_the_alias(self, mock_oc, _mock_claude, notes):
+        assert run_smart_cli_ex("p", model="haiku") == ("Claude says hello", "claude", "haiku")
+        mock_oc.assert_not_called()
+        assert notes == []
+
+    @patch("lib.model_fallback.run_claude_cli", return_value=None)
+    @patch("lib.model_fallback.run_opencode_cli")
+    def test_opencode_answer_reports_the_model_that_actually_answered(
+            self, mock_oc, _mock_claude, notes):
+        mock_oc.side_effect = [None, "Secondary model reply"]
+        text, tier, model = run_smart_cli_ex("p", task_type="reasoning")
+        assert (text, tier) == ("Secondary model reply", "opencode")
+        assert model == mock_oc.call_args.kwargs["model"], (
+            "model must name the candidate that produced the text")
+        assert model != mock_oc.call_args_list[0].kwargs["model"], (
+            "the first candidate failed; reporting it would misattribute the text")
+        assert notes == []
+
+    @patch("lib.model_fallback.run_claude_cli", return_value=None)
+    @patch("lib.model_fallback.run_opencode_cli", return_value=None)
+    def test_nothing_answered_is_three_nones(self, _mock_oc, _mock_claude, notes):
+        assert run_smart_cli_ex("p", task_type="reasoning") == (None, None, None)
+        assert notes == [], "an internal call that found no model is not a client hold"
+
+    @patch("lib.model_fallback.run_claude_cli", return_value=None)
+    @patch("lib.model_fallback.run_opencode_cli", return_value="free model reply")
+    def test_require_claude_skips_opencode_and_holds(self, mock_oc, _mock_claude, notes):
+        assert run_smart_cli_ex("p", require_claude=True,
+                                agent_name="email_brain") == (None, None, None)
+        mock_oc.assert_not_called()
+        assert notes == ["email_brain"]
+
+    @patch("lib.model_fallback.run_claude_cli", return_value="ok")
+    @patch("lib.model_fallback.run_opencode_cli")
+    def test_require_claude_is_invisible_while_claude_answers(
+            self, mock_oc, mock_claude, notes):
+        assert run_smart_cli_ex("p", model="sonnet", timeout=7,
+                                require_claude=True) == ("ok", "claude", "sonnet")
+        assert mock_claude.call_args.kwargs.get("timeout") == 7
+        mock_oc.assert_not_called()
+        assert notes == []
+
+    @patch("lib.model_fallback.run_claude_cli", side_effect=RuntimeError("boom"))
+    @patch("lib.model_fallback.run_opencode_cli", return_value="free model reply")
+    def test_require_claude_treats_a_claude_exception_as_no_answer(
+            self, mock_oc, _mock_claude, notes):
+        """Same never-raises contract as run_smart_cli, and still no OpenCode."""
+        assert run_smart_cli_ex("p", require_claude=True) == (None, None, None)
+        mock_oc.assert_not_called()
+        assert len(notes) == 1
+
+    @patch("lib.model_fallback.run_claude_cli", return_value=None)
+    @patch("lib.model_fallback.run_opencode_cli")
+    def test_require_claude_hold_log_redacts_prompt(
+            self, _mock_oc, _mock_claude, notes, capsys):
+        secret = "my phone is 555-0199 and my name is John"
+        run_smart_cli_ex(secret, require_claude=True)
+        err = capsys.readouterr().err
+        assert secret not in err
+        assert "sha256:" in err
+        assert "OpenCode tier SKIPPED" in err
+
+    @patch("lib.model_fallback.run_claude_cli", return_value=None)
+    @patch("lib.model_fallback.run_opencode_cli")
+    def test_require_claude_leaves_no_fallback_bookkeeping(
+            self, _mock_oc, _mock_claude, notes):
+        """A held call must not demote or credit an OpenCode tier it never tried."""
+        run_smart_cli_ex("p", task_type="classify", require_claude=True)
+        assert not model_fallback.TIER_HEALTH_PATH.exists()
+        log = model_fallback.PROJECT_ROOT / "memory" / "SESSION_LOG.md"
+        assert "MODEL FALLBACK" not in log.read_text(encoding="utf-8")
+
+    @patch("lib.model_fallback.run_claude_cli", return_value=None)
+    @patch("lib.model_fallback.run_opencode_cli", return_value="OpenCode says hello")
+    def test_run_smart_cli_still_falls_back_and_never_holds(
+            self, mock_oc, _mock_claude, notes):
+        assert run_smart_cli("p", task_type="reasoning") == "OpenCode says hello"
+        mock_oc.assert_called_once()
+        assert notes == []
+
+    def test_run_smart_cli_signature_is_unchanged(self):
+        """Every existing caller passes these keywords. require_claude is opt-in
+        through run_smart_cli_ex only, so no internal automation picks it up by
+        accident."""
+        assert list(inspect.signature(run_smart_cli).parameters) == [
+            "prompt", "system", "model", "timeout", "cwd",
+            "task_type", "fallback_timeout", "agent_name"]
+        assert inspect.signature(run_smart_cli_ex).parameters[
+            "require_claude"].default is False
+
+
+class TestClientHoldNote:
+    """_note_client_hold: one CONDITION-keyed note through notify.py, and a
+    failure to alert is loud but never breaks the hold it reports."""
+
+    def test_note_is_forced_and_pinned_to_the_condition(self, monkeypatch, capsys):
+        import notify as notify_mod
+        calls = []
+
+        def fake_notify_result(message, **kwargs):
+            calls.append((message, kwargs))
+            return True, "sent"
+
+        monkeypatch.setattr(notify_mod, "notify_result", fake_notify_result)
+        model_fallback._note_client_hold("draft_critic")
+
+        assert calls == [(model_fallback.CLIENT_HOLD_MESSAGE, {
+            "category": "system", "force": True,
+            "dedup_key": model_fallback.CLIENT_HOLD_DEDUP_KEY})]
+        assert "Telegram note sent" in capsys.readouterr().err
+
+    def test_note_failure_is_loud_and_does_not_raise(self, monkeypatch, capsys):
+        import notify as notify_mod
+
+        def broken(*_a, **_kw):
+            raise RuntimeError("telegram transport down")
+
+        monkeypatch.setattr(notify_mod, "notify_result", broken)
+        model_fallback._note_client_hold("email_brain")  # must not raise
+
+        err = capsys.readouterr().err
+        assert "FAILED to dispatch" in err
+        assert "telegram transport down" in err
 
 
 if __name__ == "__main__":

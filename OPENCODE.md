@@ -117,6 +117,8 @@ OpenCode is the move when speed beats breadth:
 
 Intent → tool routing: `brain/QUICK_REFERENCE.md`. Capability registry: `brain/CAPABILITY_GRAPH.json` (auto-built by `scripts/build_capability_graph.py`).
 
+Claude usage limit -> automatic Spillover to OmniRoute (skills/claude-spillover/SKILL.md); status: omniroute_tool.py spillover status
+
 ---
 
 ## Rules you don't get to bend

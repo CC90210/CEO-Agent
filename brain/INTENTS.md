@@ -3,7 +3,7 @@ name: INTENTS
 description: Verb-by-verb playbook. For each kind of operator request, the exact sequence the agent should run.
 mutability: SEMI-MUTABLE
 tags: [brain, agent-only, playbook]
-last_updated: 2026-08-22
+last_updated: 2026-09-12
 freshness_threshold_days: 30
 verified: 2026-08-22
 ---
@@ -320,6 +320,18 @@ threads to CC. There is no operator step in the reply loop.
    not a fault.
 4. Booking stays `--book` OFF until CC supervises one real `--apply` against
    his own conversation and email.
+
+## "I hit my Claude usage limit" / "Claude limit" / "switch model" / "fallback" / "spillover"
+
+Claude Spillover handles this automatically — there is no model to switch by hand. Read `skills/claude-spillover/SKILL.md` for anything past step 1.
+
+1. **Where are we?** `python scripts/integrations/omniroute_tool.py spillover status` → DIRECT, or SPILLING until `<reset>`. If it errors: `health --json`, then `doctor --json`.
+2. **"Is this Claude answering?"** While spilling, interactive turns and their subagents run on `bravo-fallback` (GPT-5.6 first). Say so when a judgment call rides on it.
+3. **"Turn the fallback off":** `omniroute_tool.py spillover passthrough` (hot reload, forward-only); `spillover enable` turns it back on. **Never** stop the proxy or its supervisor as a kill switch — every open session is pointed at it.
+4. **"I need Claude and the proxy is down":** run `claude-direct` (`%LOCALAPPDATA%\bravo-spillover\bin\claude-direct.cmd`) — no proxy, no Python.
+5. **"Take it out":** `omniroute_tool.py rollback`, then tell CC to restart open sessions.
+6. **"Why didn't automation X fall back?"** By design: automations are pinned direct, and client-facing ones hold for review when anything other than Claude answers. Don't "fix" it.
+7. **Never:** import Claude credentials into OmniRoute; enable `oc` / `kiro` / `agy` / Gemini OAuth providers; run `omniroute config set claude`, `autostart`, `launch`, or the dashboard's Apply Config.
 
 ## How to extend this file
 

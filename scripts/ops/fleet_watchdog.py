@@ -66,6 +66,38 @@ TASK_NAME = "Bravo Fleet Watchdog"
 _NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 DETACHED = 0x00000008 if sys.platform == "win32" else 0
 
+# Claude Spillover lane vars (config/claude_auth_signals.json `lane_env_strip`).
+# start() removes them from EVERY child: a daemon that inherited
+# ANTHROPIC_BASE_URL or CLAUDE_CODE_ENTRYPOINT from the session that launched
+# this watchdog would hand them to every claude it spawns, routing an
+# automation into the spillover proxy or a model lane. The inline copy exists
+# because this file is the supervisor: as with pid_is_gone in the run lock,
+# nothing about a helper module may be able to stop it starting a daemon.
+_LANE_ENV_FALLBACK = (
+    "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_MODEL",
+    "ANTHROPIC_SMALL_FAST_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL",
+    "ANTHROPIC_CUSTOM_HEADERS", "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "BRAVO_CLAUDE_LANE",
+)
+
+
+def _lane_env_vars() -> tuple[str, ...]:
+    """lib.claude_auth.LANE_ENV_VARS, or the inline copy if it will not import."""
+    try:
+        scripts_dir = str(PROJECT_ROOT / "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        from lib.claude_auth import LANE_ENV_VARS  # noqa: PLC0415
+
+        return tuple(LANE_ENV_VARS)
+    except Exception as e:  # noqa: BLE001 — the supervisor never stops on a helper
+        print(f"[fleet] lib.claude_auth unavailable ({type(e).__name__}: {e}) — "
+              f"stripping the inline lane list", file=sys.stderr)
+        return _LANE_ENV_FALLBACK
+
 
 def _log(msg: str) -> None:
     LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -740,10 +772,15 @@ def start(app: dict, dry: bool = False) -> tuple[bool, str]:
         # An adopted app's env block (see manifest) is laid OVER the inherited
         # environment, never in place of it: the child still needs PATH, the
         # user profile and EMPIRE_DATA_BACKEND from the Task Scheduler session.
-        # Every other row passes env=None and inherits exactly as before.
-        env = app.get("env")
-        child_env = ({**os.environ, **{str(k): str(v) for k, v in env.items()
-                                       if v is not None}} if env else None)
+        # Every other row inherits exactly as before, with one removal: the
+        # Claude Spillover lane vars come off EVERY child (dump daemons,
+        # adopted apps and siblings alike, whatever an env block says), which
+        # is why child_env is always explicit now rather than None.
+        env = app.get("env") or {}
+        child_env = {**os.environ, **{str(k): str(v) for k, v in env.items()
+                                      if v is not None}}
+        lane = {name.upper() for name in _lane_env_vars()}
+        child_env = {k: v for k, v in child_env.items() if k.upper() not in lane}
         subprocess.Popen(cmd, cwd=app["cwd"] or str(PROJECT_ROOT),
                          env=child_env,
                          stdin=subprocess.DEVNULL,

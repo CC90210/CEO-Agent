@@ -104,6 +104,8 @@ ZCode's tool surface is **leaner than Claude Code's**. It can read/write files a
 
 Intent → tool routing: `brain/QUICK_REFERENCE.md`. Capability registry: `brain/CAPABILITY_GRAPH.json` (auto-built by `scripts/build_capability_graph.py`; resolve an intent with `python scripts/capability_query.py resolve "<intent>"`).
 
+Claude usage limit -> automatic Spillover to OmniRoute (skills/claude-spillover/SKILL.md); status: omniroute_tool.py spillover status
+
 ---
 
 ## Why CC opened ZCode (and not the other five)

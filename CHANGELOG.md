@@ -1,6 +1,6 @@
 ---
 tags: [root]
-last_updated: 2026-08-08
+last_updated: 2026-09-12
 ---
 
 # Changelog
@@ -19,6 +19,29 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 - **Patch** — production-hardening passes, doc syncs, test repairs.
 
 ## [Unreleased]
+
+### Added — Claude Spillover (ADR-0018)
+
+- **Automatic failover at the Claude Max usage limit.** Interactive Claude Code sessions point
+  `ANTHROPIC_BASE_URL` at a local zero-dependency pass-through proxy (`127.0.0.1:20131`, no credential, so
+  the Max login stays active). It forwards byte-for-byte to Anthropic and, only on an account-wide
+  subscription usage-limit 429, re-sends eligible requests to OmniRoute (`127.0.0.1:20128`, combo
+  `bravo-fallback`: GPT-5.6 via CC's ChatGPT plan, then smoke-passed Cerebras / Z.AI) until the reset.
+  OmniRoute never holds a Claude credential. Contract: `scripts/spillover/CONTRACT.md`.
+- **Runs outside the repo and outside `fleet_watchdog`.** Deployed SHA-stamped to
+  `%LOCALAPPDATA%\bravo-spillover\`, supervised by its own `supervisor.js` (Startup VBS + SessionStart
+  ensure-hook). Kill switch: `spillover passthrough`, never stopping the proxy.
+- **`scripts/integrations/omniroute_tool.py`** — `install` (pinned OmniRoute sha `152d9510`; refuses npm
+  3.8.50 and its Next.js 16.3.1 Windows RCE), `deploy`, `health`, `doctor`, `smoke`,
+  `spillover {status, enable-routing, enable, passthrough, fault set}`, `rollback`, `uninstall --purge`.
+- **Automation guards:** the automation pin (`config/spillover/automation_pin.json`) plus
+  `X-Bravo-Lane: automation` keep daemon automations direct; the per-repo `X-Bravo-Spill: deny` keeps
+  SunBiz-Agent direct.
+- **Hold-for-review:** email auto-replies, the draft critic and the Instagram DM closer hold instead of
+  sending when anything other than Claude answers.
+- **Docs:** ADR-0018 (plus the missing ADR-0017 row in `docs/adr/INDEX.md`), `skills/claude-spillover/SKILL.md`,
+  `CONTEXT.md` § Spillover, `brain/TOOL_SHED.md` § 9 radar rows, the Rule-4 routing docs, one routing line in
+  each of the six entry points, and `docs/ENV_KEYS_TEMPLATE.md` (no `.env.agents` keys — DPAPI blob names only).
 
 ## [9.2.0] — 2026-08-08
 

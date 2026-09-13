@@ -1,6 +1,6 @@
 ---
 tags: [onboarding, deployment, credentials, template]
-last_updated: 2026-07-09
+last_updated: 2026-09-12
 freshness_threshold_days: 60
 ---
 
@@ -236,6 +236,23 @@ Per-client isolation contract: `brain/AGENT_ORCHESTRATION.md` § "Per-client API
 ## Free-Tier Radar adoptions (V7.1)
 
 When CC greenlights a `candidate` row from `brain/TOOL_SHED.md` § "Free-Tier Radar" (uptime probes, error tracking, dead-man pings, coverage, SAST, …), its key lands here FIRST as a documented row, then CC signs up for the service and hand-adds the key to `.env.agents` — agents never create, see, or paste keys (ADR-0010 rule 4). No keys are pre-registered for candidates; this section gains rows only per adoption. Currently adopted from the Radar: **Disify** (`email_validate_tool.py`) — no-auth, no key needed.
+
+---
+
+## Claude Spillover (ADR-0018) — uses NO `.env.agents` keys
+
+Spillover reads nothing from `.env.agents` and needs no row in it. `omniroute_tool.py install` runs with `.env.agents` scrubbed out of its env, and the supervisor passes OmniRoute an allowlisted env that never includes `ANTHROPIC_*`, `OPENAI_*` or `CLAUDE_*`. Its only secrets are three DPAPI blobs (Mac: Keychain entries) under `%LOCALAPPDATA%\bravo-spillover\secrets\` with an owner-only ACL:
+
+| DPAPI blob name | Holds | Read by |
+|---|---|---|
+| `omniroute_lane` | The OmniRoute lane key — scoped to the `bravo-fallback` / `bravo-fallback-fast` combos and to `/v1/messages`, `count_tokens` and `/v1/models`; no manage scope | The spillover proxy, at start and after a fallback 401 |
+| `storage_encryption` | OmniRoute's storage encryption key | The supervisor, into OmniRoute's env only |
+| `initial_password` | OmniRoute's initial dashboard password | The supervisor; dropped once setup is locked |
+
+- Written and read only through `scripts/spillover/lane_key.py` (`generate`, `set` at a hidden prompt, `exists`). `lane_key.py get` is blocked for agent Bash and PowerShell by `secret_guard`, and `*.key` is already a blocked pattern.
+- **Provider keys live in OmniRoute's encrypted database**, not here: CC pastes the Cerebras and Z.AI free keys into the OmniRoute dashboard and clicks through the Codex (ChatGPT) OAuth consent there. Never paste them into `.env.agents` or into chat.
+- DPAPI is at-rest protection only. The real controls are the loopback bind, the required key, and the key's scope.
+- The Claude Max login is never stored by Spillover — Claude Code keeps it, and the proxy only forwards it in flight.
 
 ---
 

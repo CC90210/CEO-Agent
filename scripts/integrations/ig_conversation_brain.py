@@ -34,9 +34,14 @@ prospect is worse than no reply.
 
 MODEL ACCESS. Only scripts/lib/claude_cli.py:run_claude_cli, which runs the local
 `claude` binary on CC's subscription OAuth with all tools denied. No API key, no
-SDK, ever. run_claude_cli returns None on five distinct conditions (CLI missing,
-spawn/timeout, non-zero exit, quota exhausted, empty-but-successful output) and
-this module treats all five identically: model_unavailable, loudly, on stderr.
+SDK, ever. The default runner reaches it through model_fallback.run_smart_cli_ex
+with require_claude=True (CC's decision, 2026-09-12): a DM reply is client-facing,
+so it never falls back to the OpenCode free tier, whose models log prompts; when
+Claude cannot answer, the turn holds instead. run_claude_cli returns None on five
+distinct conditions (CLI missing, spawn/timeout, non-zero exit, quota exhausted,
+empty-but-successful output) and this module treats all five identically:
+model_unavailable, loudly, on stderr. The model layer, not this module, sends CC
+the one deduped "client replies held" Telegram note.
 
 Standalone check (exercises the REAL model):
     python scripts/integrations/ig_conversation_brain.py --self-test
@@ -59,7 +64,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from draft_critic import find_slop  # noqa: E402
 from email_playbook import HARD_RULES, lint_draft, voice_rules  # noqa: E402
 from inbound_classifier import strip_code_fence  # noqa: E402
-from lib.model_fallback import run_smart_cli  # noqa: E402
+from lib.model_fallback import run_smart_cli_ex  # noqa: E402
 
 CAPABILITY_META = {
     "category": "growth.inbound",
@@ -1570,6 +1575,23 @@ def _failed(
     )
 
 
+def _claude_only_runner(prompt: str, *, system: Optional[str] = None,
+                        model: str = "sonnet", timeout: int = 90) -> Optional[str]:
+    """decide()'s default model call: Claude or nothing (see MODEL ACCESS).
+
+    The previous default was run_smart_cli, which quietly handed a failed Claude
+    turn to the OpenCode free tier: the prospect's DMs went to a model that logs
+    prompts, and a free model's reply could then be sent to them. A None here is
+    the same model_unavailable as any other failure: hold, send nothing.
+    """
+    text, _tier, _model = run_smart_cli_ex(
+        prompt, system=system, model=model, timeout=timeout,
+        task_type="closing", agent_name="ig_conversation_brain",
+        require_claude=True,
+    )
+    return text
+
+
 def decide(
     turns: Sequence[TranscriptTurn],
     *,
@@ -1580,7 +1602,7 @@ def decide(
     dropped_turns: int = 0,
     model: str = "sonnet",
     timeout: int = 90,
-    runner: Callable[..., Optional[str]] = run_smart_cli,
+    runner: Callable[..., Optional[str]] = _claude_only_runner,
     replies_left_today: int = DEFAULT_REPLIES_LEFT_TODAY,
 ) -> BrainDecision:
     """One model turn over one conversation.
@@ -1648,7 +1670,7 @@ def decide(
 
         raw = runner(user_prompt, system=system_prompt, model=model, timeout=timeout)
         if raw is None:
-            failure_code, failure_detail = "model_unavailable", "run_smart_cli returned None (Claude + OpenCode both failed)"
+            failure_code, failure_detail = "model_unavailable", "runner returned None (Claude unavailable; DM replies never fall back to OpenCode)"
             reasons = ["the model produced no output"]
             _log_failure(attempt, failure_code, failure_detail)
             continue

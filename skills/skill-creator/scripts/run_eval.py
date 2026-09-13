@@ -6,6 +6,8 @@ for a set of queries. Outputs results as JSON.
 """
 
 import argparse
+import functools
+import importlib.util
 import json
 import os
 import select
@@ -17,6 +19,45 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 from scripts.utils import parse_skill_md
+
+# Claude Spillover lane vars (Bravo's config/claude_auth_signals.json
+# `lane_env_strip`). The eval's `claude -p` must not inherit a route into the
+# local spillover proxy or a model lane from the session running it: a parent
+# Claude Code session exports CLAUDE_CODE_ENTRYPOINT=cli, which would make these
+# runs look spill-eligible. Inline copy because this skill can run outside the
+# Bravo repo; inside it, _lane_env_vars() uses the repo's canonical list.
+_LANE_ENV_FALLBACK = (
+    "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_MODEL",
+    "ANTHROPIC_SMALL_FAST_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL",
+    "ANTHROPIC_CUSTOM_HEADERS", "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "BRAVO_CLAUDE_LANE",
+)
+
+
+@functools.lru_cache(maxsize=1)
+def _lane_env_vars() -> tuple[str, ...]:
+    """Bravo's LANE_ENV_VARS when this skill sits inside that repo, else the inline copy."""
+    parents = Path(__file__).resolve().parents
+    claude_auth = parents[3] / "scripts" / "lib" / "claude_auth.py" if len(parents) > 3 else None
+    if claude_auth is not None and claude_auth.is_file():
+        try:
+            spec = importlib.util.spec_from_file_location("_bravo_claude_auth", claude_auth)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return tuple(module.LANE_ENV_VARS)
+        except Exception as e:  # noqa: BLE001 — degrade to the inline list, loudly
+            print(f"[run_eval] could not load {claude_auth} ({type(e).__name__}: {e}); "
+                  "stripping the inline lane list", file=sys.stderr)
+    return _LANE_ENV_FALLBACK
+
+
+def _strip_lane_env(env: dict) -> dict:
+    """A copy of `env` without the lane vars (case-insensitive, like Windows env names)."""
+    lane = {name.upper() for name in _lane_env_vars()}
+    return {k: v for k, v in env.items() if k.upper() not in lane}
 
 
 def find_project_root() -> Path:
@@ -79,8 +120,9 @@ def run_single_query(
 
         # Remove CLAUDECODE env var to allow nesting claude -p inside a
         # Claude Code session. The guard is for interactive terminal conflicts;
-        # programmatic subprocess usage is safe.
-        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+        # programmatic subprocess usage is safe. The spillover lane vars go
+        # too (see _LANE_ENV_FALLBACK).
+        env = _strip_lane_env({k: v for k, v in os.environ.items() if k != "CLAUDECODE"})
 
         process = subprocess.Popen(
             cmd,

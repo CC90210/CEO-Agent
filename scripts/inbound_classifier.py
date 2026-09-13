@@ -548,13 +548,18 @@ Output ONLY a JSON object, no prose, no markdown:
 
 def _default_category_runner(prompt: str, system: Optional[str] = None,
                              model: str = "haiku", timeout: int = 60) -> Optional[str]:
-    """Subscription Claude CLI first, OpenCode fallback — never the metered ANTHROPIC_API_KEY."""
-    from lib.model_fallback import run_smart_cli
-    return run_smart_cli(
+    """Subscription Claude CLI only: never the metered ANTHROPIC_API_KEY, and never
+    OpenCode. Inbound mail is client content, and CC's decision (2026-09-12, Claude
+    Spillover #3) is that client content never goes to the OpenCode free models,
+    which log prompts. Returns None when Claude cannot answer; callers already
+    treat None as "unclassified" and fail safe."""
+    from lib.model_fallback import run_smart_cli_ex
+    text, _tier, _model = run_smart_cli_ex(
         prompt, system=system, model=model, timeout=timeout,
         task_type="classify" if model == "haiku" else "reasoning",
-        agent_name="inbound_classifier",
+        agent_name="inbound_classifier", require_claude=True,
     )
+    return text
 
 
 def _build_category_user_msg(content: str, subject: Optional[str],
@@ -1061,8 +1066,15 @@ def _classify_via_haiku(content: str, channel: str,
     call below to run_smart_cli but left this import naming run_claude_cli, so
     every call raised NameError and was swallowed by the same except — two days
     of keyword-only inbound triage. Import and call must name the same symbol;
-    `pyflakes` reports both halves and now runs as a harness gate."""
-    from lib.model_fallback import run_smart_cli
+    `pyflakes` reports both halves and now runs as a harness gate.
+
+    2026-09-12: Claude only (require_claude). Inbound mail is client content,
+    and CC's Claude Spillover decision #3 says it never goes to the OpenCode free
+    models, which log prompts. So a parsed result here always came from Claude,
+    and _validate_and_normalize's fallback=False is true. When Claude cannot
+    answer this raises, and the caller takes its keyword fallback, which is
+    flagged fallback=True."""
+    from lib.model_fallback import run_smart_cli_ex
 
     user_parts = [f"Channel: {channel}"]
     if from_identity:
@@ -1074,8 +1086,9 @@ def _classify_via_haiku(content: str, channel: str,
     user_parts.append((content or "")[:4000])
     user_msg = "\n".join(user_parts)
 
-    text = run_smart_cli(user_msg, system=CLASSIFY_SYSTEM_PROMPT, model="haiku", timeout=90,
-                         task_type="classify", agent_name="inbound_classifier")
+    text, _tier, _model = run_smart_cli_ex(
+        user_msg, system=CLASSIFY_SYSTEM_PROMPT, model="haiku", timeout=90,
+        task_type="classify", agent_name="inbound_classifier", require_claude=True)
     if text is None:
         raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")
     parsed = json.loads(strip_code_fence(text))

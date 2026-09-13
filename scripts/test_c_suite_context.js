@@ -359,6 +359,64 @@ console.log('\nisClaudeAuthOrQuotaFailure — pattern matching');
 
 
 // ============================================================
+console.log('\nbuildClaudeSpawnEnv — Claude Spillover lane vars never inherited');
+// ============================================================
+{
+    const { buildClaudeSpawnEnv, stripLaneEnv, LANE_ENV_VARS, isSubscriptionLimit } =
+        require('./c_suite_context.js');
+    const fixture = JSON.parse(fs.readFileSync(
+        path.join(__dirname, '..', 'config', 'claude_auth_signals.json'), 'utf8'));
+    const lane = fixture.lane_env_strip;
+
+    assertEq(JSON.stringify([...LANE_ENV_VARS].sort()), JSON.stringify([...lane].sort()),
+        'LANE_ENV_VARS is the fixture lane_env_strip list');
+
+    const base = { PATH: '/usr/bin', FOO: 'bar', ANTHROPIC_API_KEY: 'test-key' };
+    for (const k of lane) base[k] = 'inherited';
+    base.Anthropic_Base_Url = 'http://127.0.0.1:20131';  // a Windows parent keeps its own spelling
+    const env = buildClaudeSpawnEnv({
+        base, extras: { ANTHROPIC_CUSTOM_HEADERS: 'X-Bravo-Lane: automation' },
+    });
+    assert(lane.every((k) => k === 'ANTHROPIC_CUSTOM_HEADERS' || !(k in env)),
+        'every inherited lane var stripped');
+    assert(!('Anthropic_Base_Url' in env),
+        'mixed-case lane var stripped (Windows env names are case-insensitive)');
+    assertEq(env.ANTHROPIC_CUSTOM_HEADERS, 'X-Bravo-Lane: automation',
+        'extras applied AFTER the strip');
+    assert(!('ANTHROPIC_API_KEY' in env), 'API key still stripped by default');
+    assertEq(env.FOO, 'bar', 'unrelated vars kept');
+    assertEq(base.ANTHROPIC_BASE_URL, 'inherited', 'caller base object not mutated');
+
+    // The default base is process.env: a parent Claude Code session's
+    // entrypoint must not reach the child.
+    const prior = process.env.CLAUDE_CODE_ENTRYPOINT;
+    process.env.CLAUDE_CODE_ENTRYPOINT = 'cli';
+    try {
+        assert(!('CLAUDE_CODE_ENTRYPOINT' in buildClaudeSpawnEnv()),
+            'inherited CLAUDE_CODE_ENTRYPOINT stripped from the process.env copy');
+        assertEq(process.env.CLAUDE_CODE_ENTRYPOINT, 'cli', 'process.env itself untouched');
+    } finally {
+        if (prior === undefined) delete process.env.CLAUDE_CODE_ENTRYPOINT;
+        else process.env.CLAUDE_CODE_ENTRYPOINT = prior;
+    }
+
+    const loose = { anthropic_model: 'x', KEEP: '1' };
+    stripLaneEnv(loose);
+    assert(!('anthropic_model' in loose) && loose.KEEP === '1',
+        'stripLaneEnv strips in place, case-insensitively');
+
+    for (const s of fixture.subscription_limit_must_match) {
+        assertEq(isSubscriptionLimit(s), true, `subscription limit: ${s}`);
+    }
+    for (const s of fixture.subscription_limit_must_not_match) {
+        assertEq(isSubscriptionLimit(s), false, `not a subscription limit: ${s}`);
+    }
+    assertEq(isSubscriptionLimit(''), false, 'empty text is not a limit');
+    assertEq(isSubscriptionLimit(null), false, 'null text is not a limit');
+}
+
+
+// ============================================================
 console.log('\ncheckClaudeAuthPaths — subscription + API key detection');
 // ============================================================
 {

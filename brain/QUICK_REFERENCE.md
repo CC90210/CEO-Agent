@@ -1,7 +1,7 @@
 ---
 description: "Agent routing guide: maps CC's requests (communications, CRM, sales, content, finance, scheduling) to the correct CLI tool and command"
 tags: [reference, tools, routing]
-last_updated: 2026-09-08
+last_updated: 2026-09-12
 freshness_threshold_days: 90
 verified: 2026-06-09
 ---
@@ -128,6 +128,19 @@ verified: 2026-06-09
 | Code review (second opinion — RECORDS the verdict) | `scripts/core/codex_review.py` | `python scripts/core/codex_review.py review [--session <slug>]` — runs codex-companion --wait, prints verbatim, records verdict to task_outcomes (the telemetry loop) |
 | Adversarial review (records verdict) | `scripts/core/codex_review.py` | `python scripts/core/codex_review.py adversarial-review "<focus>"` |
 | First-pass success dashboard | `scripts/core/task_outcomes.py` | `rate` — verdicts (validator self-records since 2026-07-10) + guard-catch counts |
+
+### Claude Spillover (usage-limit failover)
+Automatic: at the Claude Max usage limit, interactive sessions spill from Anthropic to OmniRoute (`bravo-fallback`) until reset. Proxy `127.0.0.1:20131`, OmniRoute `127.0.0.1:20128`. Skill: `skills/claude-spillover/SKILL.md` · ADR-0018.
+```bash
+python scripts/integrations/omniroute_tool.py health --json          # prerequisite: proxy + OmniRoute up
+python scripts/integrations/omniroute_tool.py spillover status        # DIRECT, or SPILLING until <reset>
+python scripts/integrations/omniroute_tool.py doctor --json          # every hardening check
+python scripts/integrations/omniroute_tool.py spillover passthrough   # KILL SWITCH: forward-only, hot reload
+python scripts/integrations/omniroute_tool.py spillover enable        # spilling back on
+python scripts/integrations/omniroute_tool.py rollback                # full rollback; then restart open sessions
+# Claude with no proxy and no Python (Windows):  %LOCALAPPDATA%\bravo-spillover\bin\claude-direct.cmd
+```
+Never stop the proxy as a kill switch — every open session is pointed at it.
 
 ## Routing Priority Rules
 

@@ -109,6 +109,14 @@ except Exception:  # noqa: BLE001 — never block daemon startup on the TLS help
 CHILD_ENV = os.environ.copy()
 CHILD_ENV["SSLKEYLOGFILE"] = ""  # falsy -> ssl.py skips keylog_filename entirely
 
+# Claude Spillover (2026-09-12): no job inherits the lane vars (ANTHROPIC_BASE_URL,
+# CLAUDE_CODE_ENTRYPOINT, model overrides; see lib.claude_auth.LANE_ENV_VARS). A
+# cron child that spawns claude must never be routed into the spillover proxy or
+# a model lane by whatever launched this daemon.
+from lib.claude_auth import strip_lane_env  # noqa: E402
+
+strip_lane_env(CHILD_ENV)
+
 # Boot-blast suppression (2026-06-06): when CC's PC has been off, the
 # scheduler comes back to a backlog of cron rows whose next_run_at is hours
 # old. Without this guard, every due job fires in sequence — CC gets

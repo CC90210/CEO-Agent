@@ -21,6 +21,13 @@ The function returns the model's text, or None if BOTH tiers fail. Callers
 should handle None the same way they handled run_claude_cli returning None —
 degrade gracefully, never crash.
 
+CLIENT-FACING CALLS (email replies, the draft critic, the Instagram DM closer)
+use run_smart_cli_ex(..., require_claude=True), which returns (text, tier,
+model) and never falls back: when Claude cannot answer, the result is
+(None, None, None), the caller holds for CC's review, and CC gets one deduped
+Telegram note. CC's decision, 2026-09-12: client content never goes to the
+OpenCode free models, which log prompts. Everything else keeps run_smart_cli.
+
 TELEMETRY: Every fallback event is logged to stderr with a [model_fallback]
 prefix so PM2 logs / SESSION_LOG captures the event.
 """
@@ -29,6 +36,7 @@ from __future__ import annotations
 import hashlib
 import sys
 import time
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -172,7 +180,57 @@ def _log_telemetry(agent_name: str, fallback_model: str, task_type: str, elapsed
         pass  # Never break caller on telemetry log failure
 
 
-def run_smart_cli(
+# ── Client-facing hold (require_claude) ──────────────────────────────────────
+# CC's decision, 2026-09-12 (Claude Spillover, decision #3): when anything other
+# than Claude would answer, the client-facing automations — email auto-replies,
+# the draft critic, the Instagram DM closer — HOLD for his review instead of
+# sending, and client content never goes to the OpenCode free tier, whose models
+# log prompts and may train on them. require_claude=True is how a call says it
+# is one of those; the caller's existing "no model" path is the hold.
+#
+# One condition, one Telegram note. A hold fires once per held ITEM — every
+# email in a 5-minute sweep, every DM in every poll — so the note is pinned to
+# the CONDITION with a dedup_key, and notify.py's backoff (1h, 2h, 4h ... 24h)
+# turns an outage of any length into a handful of messages instead of a storm.
+CLIENT_HOLD_DEDUP_KEY = "client_facing_hold:claude_unavailable"
+CLIENT_HOLD_MESSAGE = (
+    "Client replies are on HOLD: Claude is limited or unavailable.\n"
+    "Email auto-replies, draft-critic approvals and Instagram DM replies are "
+    "waiting for your review instead of sending, and no client content is going "
+    "to the OpenCode free models. Held emails still reach you here; an Instagram "
+    "thread that misses 3 polls in a row is handed off to you. Sending resumes "
+    "by itself when Claude answers again."
+)
+
+
+def _note_client_hold(agent_name: str) -> None:
+    """Tell CC that client-facing replies are being held, once per dedup window.
+
+    Never raises: the caller is about to take its hold path, and an alerting
+    failure must not turn a safe hold into a crash. Never silent either: the
+    outcome is always written to stderr, because "suppressed" means CC already
+    knows and "failed" means he does not.
+
+    force=True because "system" is in notify.DEFAULT_BLOCKED: unforced, this
+    note would be dropped before dedup even ran, which is the silent discard
+    that hid every cron failure alert (see notify.notify_error). force does not
+    bypass the dedup.
+    """
+    try:
+        from notify import notify_result  # noqa: PLC0415 — scripts/ is on sys.path
+        _ok, reason = notify_result(
+            CLIENT_HOLD_MESSAGE, category="system", force=True,
+            dedup_key=CLIENT_HOLD_DEDUP_KEY)
+        sys.stderr.write(
+            f"[model_fallback] client-facing hold ({agent_name}): "
+            f"Telegram note {reason}\n")
+    except Exception:  # noqa: BLE001 — reported below, never swallowed
+        sys.stderr.write(
+            f"[model_fallback] client-facing hold ({agent_name}): Telegram note "
+            f"FAILED to dispatch:\n{traceback.format_exc()}")
+
+
+def run_smart_cli_ex(
     prompt: str,
     *,
     system: Optional[str] = None,
@@ -182,8 +240,10 @@ def run_smart_cli(
     task_type: str = "default",
     fallback_timeout: int = 120,
     agent_name: str = "bravo",
-) -> Optional[str]:
-    """Try Claude CLI first; fall back to OpenCode CLI on failure.
+    require_claude: bool = False,
+) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Try Claude CLI first; fall back to OpenCode CLI on failure — and report
+    which tier answered.
 
     Parameters
     ----------
@@ -204,11 +264,18 @@ def run_smart_cli(
         Timeout for the OpenCode CLI fallback call (seconds).
     agent_name : str
         Agent identity for telemetry logging.
+    require_claude : bool
+        True for a CLIENT-FACING call. Skips every non-Claude tier: if Claude
+        does not answer, the result is (None, None, None), the caller holds for
+        CC's review, and CC gets one deduped Telegram note (_note_client_hold).
 
     Returns
     -------
-    str or None
-        Model output text, or None if both tiers fail.
+    (text, tier, model)
+        tier is "claude" or "opencode" whenever text is not None, and model is
+        the Claude alias the call asked for or the OpenCode model id that
+        produced the text. (None, None, None) when nothing answered. Never
+        raises.
     """
     # ── Tier 1: Claude CLI (subscription OAuth) ───────────────────────────
     start = time.perf_counter()
@@ -218,7 +285,19 @@ def run_smart_cli(
     elapsed_claude = round(time.perf_counter() - start, 1)
 
     if result is not None:
-        return result
+        return result, "claude", model
+
+    if require_claude:
+        # Client-facing: Claude or nothing. No OpenCode attempt at all, not even
+        # one whose answer is then discarded — the prompt itself is the client
+        # content that must not reach a free model.
+        sys.stderr.write(
+            f"[model_fallback] Claude CLI returned None after {elapsed_claude}s — "
+            f"require_claude=True for agent={agent_name}: OpenCode tier SKIPPED, "
+            f"caller holds for review. Prompt {_prompt_fingerprint(prompt)}\n"
+        )
+        _note_client_hold(agent_name)
+        return None, None, None
 
     # ── Tier 2: OpenCode CLI (free models), ordered by recent health ──────
     # WHY THE ORDERING (2026-08-28): the declared primary/secondary order was
@@ -268,7 +347,7 @@ def run_smart_cli(
             )
             _record_tier_health(task_type, candidate, ok=True)
             _log_telemetry(agent_name, candidate, task_type, elapsed_fb)
-            return result
+            return result, "opencode", candidate
 
         sys.stderr.write(
             f"[model_fallback] fallback {candidate} failed after {elapsed_fb}s\n")
@@ -279,7 +358,34 @@ def run_smart_cli(
         f"[model_fallback] ALL TIERS EXHAUSTED — Claude + OpenCode both "
         f"returned None for agent={agent_name}. Prompt {_prompt_fingerprint(prompt)}\n"
     )
-    return None
+    return None, None, None
+
+
+def run_smart_cli(
+    prompt: str,
+    *,
+    system: Optional[str] = None,
+    model: str = "sonnet",
+    timeout: int = 90,
+    cwd: Optional[Path] = None,
+    task_type: str = "default",
+    fallback_timeout: int = 120,
+    agent_name: str = "bravo",
+) -> Optional[str]:
+    """Try Claude CLI first; fall back to OpenCode CLI on failure.
+
+    run_smart_cli_ex's text, for callers that do not need to know which tier
+    answered. Signature and behaviour are unchanged for every existing caller:
+    it never sets require_claude, so internal automations (daily brief, sleep
+    agent, lead scoring, ...) keep the OpenCode fallback. Returns the model
+    output, or None if both tiers fail. Never raises.
+    """
+    text, _tier, _model = run_smart_cli_ex(
+        prompt, system=system, model=model, timeout=timeout, cwd=cwd,
+        task_type=task_type, fallback_timeout=fallback_timeout,
+        agent_name=agent_name,
+    )
+    return text
 
 
 def is_fallback_available() -> bool:

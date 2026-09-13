@@ -1,7 +1,7 @@
 ---
 description: "Subagent registry mapping tasks to specialized agents (Coder/Reviewer/Architect/Researcher); includes routing rules, complexity tiers, and orchestration matrix"
 tags: [agents, orchestration]
-last_updated: 2026-08-18
+last_updated: 2026-09-12
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -163,6 +163,14 @@ Browser Harness is a shared capability, not a new sovereign agent. Bravo owns th
 | Hermes/client agents | supplier/client portals and browser-only workflows | per-client approval profile and audit trail required |
 
 Outbound communication still goes through `scripts/integrations/send_gateway.py`. Browser domain skills must never store secrets, cookies, tokens, raw coordinates, private screenshots, or task diaries.
+
+## Subagents during a Claude Spillover (2026-09-12)
+
+While [[docs/adr/0018-claude-spillover|Claude Spillover]] is spilling (the Max subscription hit its usage limit), **subagents spawned from an interactive session also run on the OmniRoute fallback combo**, like their parent: they go through the same spillover proxy with the same login, so they are spill-eligible too. Haiku-class requests route to `bravo-fallback-fast`, everything else to `bravo-fallback` (GPT-5.6 first). A persona's declared `model:` (Haiku / Sonnet / Opus) does not hold during a spill.
+
+- Weigh subagent output during a spill as fallback-model output, not Opus: the Validator gate matters more, not less.
+- Daemon automations (`run_claude_cli`) never spill — they are pinned direct to Anthropic — and client-facing ones hold for review when anything other than Claude answers.
+- Before a high-stakes delegation, check: `python scripts/integrations/omniroute_tool.py spillover status`. Skill: [[skills/claude-spillover/SKILL]].
 
 ## Agent Permissions (Claims-Based Access Control)
 
