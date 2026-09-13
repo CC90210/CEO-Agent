@@ -63,7 +63,9 @@ function loadLaneKey() {
 }
 function blankState() { return {schema_version:1,mode:"direct",config_mode:cfg.mode,limit:null,fallback:{healthy:true,checked_at:null,consecutive_failures:0,last_error:null,outage_since:null},last_probe_at:null,counters:{direct:0,fallback:0,limit_passthrough:0,overloaded_529:0,automation:0,errors:0},last_route:null,instance_id:instanceId,pid:process.pid,started_at:nowIso(),version:readVersion()}; }
 function readVersion(){ try{return fs.readFileSync(path.join(__dirname,"VERSION"),"utf8").trim() || "dev";}catch{return "dev";} }
-function loadState(){ try { const old=JSON.parse(fs.readFileSync(path.join(stateDir,"state.json"),"utf8")); return {...blankState(),...old,instance_id:instanceId,pid:process.pid,started_at:nowIso(),config_mode:cfg.mode}; } catch{return blankState();} }
+// Identity fields come from this process, never the persisted file: a state.json written by an older
+// deploy would otherwise make /__spillover/health report that deploy's version.
+function loadState(){ try { const old=JSON.parse(fs.readFileSync(path.join(stateDir,"state.json"),"utf8")); return {...blankState(),...old,instance_id:instanceId,pid:process.pid,started_at:nowIso(),config_mode:cfg.mode,version:readVersion()}; } catch{return blankState();} }
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 async function atomicJson(file,obj){ const tmp=`${file}.${process.pid}.${crypto.randomBytes(4).toString("hex")}.tmp`; await fs.promises.writeFile(tmp,JSON.stringify(obj,null,2)); for(let i=0;i<10;i++){try{await fs.promises.rename(tmp,file);return;}catch(e){if(!["EPERM","EBUSY"].includes(e.code)||i===9)throw e;await sleep(10*(i+1));}} }
 let persistOk=true;

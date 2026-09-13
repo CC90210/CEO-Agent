@@ -149,6 +149,8 @@ In the message, ids (`req_…`, UUIDs, `org…`) are replaced with `<ID>`. Nothi
 ## 7. Health endpoint
 `GET /__spillover/health` → `200 {"ok":true,"instance_id","pid","version","config_mode","mode","reset_at","fallback_healthy"}`
 
+`version` is always the running code's `app/VERSION`. A version persisted in `state.json` by an older worker is ignored (clarification 2026-09-13).
+
 It answers only a loopback peer with a valid Host header. There are no other admin endpoints: every
 control goes through `config.json` and `fault.json`.
 

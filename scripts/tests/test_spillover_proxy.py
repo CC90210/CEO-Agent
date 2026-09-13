@@ -89,6 +89,13 @@ def test_missing_lane_key_keeps_direct_up_and_fallback_down(tmp_path):
         assert health(port)["fallback_healthy"] is False
         assert rows(olog)==[]
 
+def test_health_reports_the_running_version_not_the_persisted_one(tmp_path):
+    # state.json survives redeploys, and its version field is whichever worker wrote it last. Health must
+    # report the code actually running (app/VERSION; "dev" in a repo checkout) or it can't prove a deploy.
+    stale={"schema_version":1,"mode":"direct","version":"stale-from-an-old-deploy"}
+    with rig(tmp_path,[],[],mode="observe",initial_state=stale) as (port,*_):
+        assert health(port)["version"]=="dev"
+
 def test_limit_replayed_without_claude_secret_and_state(tmp_path):
     anth=[{"match":{"path":"/v1/messages"},"status":429,"headers":LIMIT_HEADERS,"body":LIMIT_BODY}]
     omni=[{"match":{"method":"GET","path":"/v1/models"},"status":200,"body":{}},{"match":{"path":"/v1/messages"},"status":200,"headers":{"content-type":"text/event-stream"},"sse_frames":basic_sse()}]
