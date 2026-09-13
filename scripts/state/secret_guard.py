@@ -117,6 +117,32 @@ def _command_traverses_secrets(cmd: str) -> bool:
     return not RECURSIVE_EXCLUDED_RE.search(cmd)
 
 
+# Claude Spillover (scripts/spillover/CONTRACT.md section 9): `lane_key get <name>`
+# decrypts a DPAPI/keychain secret (the OmniRoute lane key, the storage encryption
+# key) and prints it to stdout. The proxy and supervisor call it windowless; an
+# agent never needs to, and the value would land in its transcript. The blob on
+# disk is already covered by `\.key$` above; this closes the decrypt-and-print
+# path, which names no secret file at all. The import alternatives catch the
+# same read done in-process (`python -c "import lane_key; ..."`).
+LANE_KEY_GET_RE = re.compile(
+    r"\blane_key(?:\.py)?[\"']?\s+[\"']?get\b"
+    r"|\bimport\s+lane_key\b"
+    r"|\bfrom\s+lane_key\s+import\b",
+    re.IGNORECASE,
+)
+
+REASON_LANE_KEY = (
+    "BLOCKED by secret_guard: `lane_key get` prints a Claude Spillover secret to stdout.\n"
+    "Only the spillover proxy and supervisor read these values. To check that a secret\n"
+    "is stored, run `lane_key.py exists <name>` (prints true/false, never the value).\n"
+    "To store or replace one, CC runs `lane_key.py set <name>` at a hidden prompt."
+)
+
+
+def _command_reads_lane_key(cmd: str) -> bool:
+    return bool(cmd) and bool(LANE_KEY_GET_RE.search(cmd))
+
+
 def _path_is_secret(path: str | None) -> bool:
     if not path:
         return False
@@ -205,7 +231,10 @@ def main() -> int:
         # `script`).
         cmd = tool_input.get("command", "") or tool_input.get("script", "")
         is_exfil, matched = _command_is_secret_exfil(cmd)
-        if is_exfil:
+        if _command_reads_lane_key(cmd):
+            target = "lane_key get"
+            reason = REASON_LANE_KEY
+        elif is_exfil:
             target = matched
             reason = REASON_EXEC.format(path=matched)
         elif _command_traverses_secrets(cmd):

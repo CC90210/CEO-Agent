@@ -22,8 +22,14 @@ function pick(req) {
 const server = http.createServer(async (req, res) => {
   const body = await collect(req);
   let parsed = null; try { parsed = JSON.parse(body.toString("utf8")); } catch {}
+  // contains_sk_ant_header_value never repeats a header's actual value into the log (the log is
+  // read back into synthetic-only test assertions, but stays in the habit of the real proxy's
+  // events.jsonl, which also never records raw header values) -- it only records whether the
+  // secret-shaped substring the security tests plant made it into any header at all.
+  const containsSkAnt = Object.values(req.headers).some((v) => String(v).includes("sk-ant-"));
   append({ method:req.method, path:req.url, header_names:Object.keys(req.headers).sort(), authorization_sha256:sha(req.headers.authorization),
-    "x-route-model":req.headers["x-route-model"] || null, body_sha256:sha(body), top_level_body_keys:parsed && typeof parsed === "object" ? Object.keys(parsed).sort() : [] });
+    "x-route-model":req.headers["x-route-model"] || null, body_sha256:sha(body), top_level_body_keys:parsed && typeof parsed === "object" ? Object.keys(parsed).sort() : [],
+    contains_sk_ant_header_value: containsSkAnt });
   const step = pick(req);
   if (!step) { res.writeHead(500,{"content-type":"application/json"}); res.end(JSON.stringify({error:{type:"api_error",message:"no scripted response"}})); return; }
   res.socket.setNoDelay(true);

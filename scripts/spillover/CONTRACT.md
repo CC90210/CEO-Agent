@@ -235,3 +235,30 @@ to `omniroute-src`, the pinned git build.
 - **npm install (e.g. `omniroute-npm/node_modules/omniroute`):** `omniroute.next_patched: true` records
   that its bundled Next.js runtime was upgraded to 16.3.3 or later in place. `doctor` still checks the
   real Next.js version on disk.
+
+## 17. Health endpoint reports state-persistence health (clarification 2026-09-12, security review)
+`GET /__spillover/health` also carries `persist_ok` (boolean): whether the most recent write of
+`state/state.json` succeeded. A failure never blocks the request it happened alongside — the proxy
+keeps serving direct or fallback traffic from in-memory state — but each failure is logged (message
+only) to stderr, and at 3 consecutive failures the proxy sends one `state_write_failed` alert,
+rate-limited to once per hour so an ongoing outage does not spam. A later successful write resets
+the consecutive-failure count and flips `persist_ok` back to `true`.
+
+## 18. Fallback headers are allowlisted, not denylisted (clarification 2026-09-12, security review)
+`fallbackHeaders()` (§4/§6) copies only four client headers onto the OmniRoute request:
+`content-type`, `accept`, `anthropic-version`, `anthropic-beta`. Everything else — including any
+header an attacker invents — is dropped by construction; it never reaches the `poisoned()` check,
+which remains as the last line of defense. The proxy then sets its own `authorization` (lane key),
+`x-route-model`, `x-omniroute-compression: off`, `accept-encoding: identity` and `content-length`.
+This replaced a denylist (hop-by-hop headers, `x-bravo-*`, `x-claude-code-*`, `x-stainless-*`,
+`authorization`, `x-api-key`, `cookie`, `host`, `user-agent`, `x-app`, `content-length`,
+`accept-encoding`), which would silently forward any future or attacker-supplied header by default.
+
+## 19. Fallback SSE reassembly is capped (clarification 2026-09-12, security review)
+`proxy.max_sse_frame_bytes` (default `1048576`, applied in code when the key is absent from
+`config.json`) bounds the unflushed remainder of `streamCommitted`'s SSE reassembly buffer. A
+fallback stream with no `\r?\n\r?\n` frame boundary — a malformed or malicious OmniRoute response —
+sends an Anthropic-shaped `{"type":"error","error":{"type":"api_error","message":"fallback stream
+frame too large"}}` event, ends the response, and marks the fallback unhealthy, instead of growing
+the buffer without bound. `config/spillover.json` already enumerates the other `proxy.*` tuning
+keys; adding `max_sse_frame_bytes` there too is a follow-up outside this pass's edit scope.

@@ -1,17 +1,17 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-09-08T08:02:35.553689+00:00",
+  "generated_at": "2026-09-13T03:47:02.344781+00:00",
   "totals": {
-    "skills": 164,
-    "scripts": 207,
+    "skills": 165,
+    "scripts": 209,
     "agents": 31,
-    "mcp_servers": 9,
+    "mcp_servers": 0,
     "workflows": 34,
-    "resources": 14,
+    "resources": 26,
     "runtime_entrypoints": 3,
-    "nodes_total": 462,
-    "edges_total": 224,
+    "nodes_total": 468,
+    "edges_total": 227,
     "drift_count": 0
   },
   "nodes": [
@@ -597,6 +597,52 @@
         "kpi",
         "revenue",
         "pipeline"
+      ],
+      "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:claude-spillover",
+      "kind": "skill",
+      "name": "claude-spillover",
+      "path": "skills/claude-spillover/SKILL.md",
+      "description": "Claude Code usage-limit failover: at the Claude Max account-wide limit, interactive sessions spill to OmniRoute's bravo-fallback combo until reset, then return to Claude. Use for status, doctor, the kill switch (spillover passthrough), claude-direct, rollback and drills.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "usage limit",
+        "claude limit",
+        "claude usage limit",
+        "hit my limit",
+        "hit the limit",
+        "session limit",
+        "switch model",
+        "fallback",
+        "fallback mode",
+        "spillover",
+        "claude spillover",
+        "spillover status",
+        "omniroute",
+        "claude-direct",
+        "is this claude"
+      ],
+      "tags": [
+        "skill",
+        "spillover",
+        "claude-code",
+        "omniroute",
+        "failover",
+        "model-fallback"
       ],
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
@@ -6278,7 +6324,7 @@
       "kind": "script",
       "name": "ensure_cockpit",
       "path": "scripts/ensure_cockpit.py",
-      "description": "Ensure the Bravo Console cockpit terminal is alive.",
+      "description": "Ensure the Bravo Console cockpit is alive.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6928,6 +6974,16 @@
       "name": "provision_maven_telegram",
       "path": "scripts/provision_maven_telegram.py",
       "description": "provision_maven_telegram.py -- give Maven the Telegram recipient it has never had.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:provision_oasis_mailbox",
+      "kind": "script",
+      "name": "provision_oasis_mailbox",
+      "path": "scripts/provision_oasis_mailbox.py",
+      "description": "Provision the shared OASIS sending mailbox, without the secret passing through a shell, a log, or an agent's context.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -8039,6 +8095,30 @@
       }
     },
     {
+      "id": "script:omniroute_tool",
+      "kind": "script",
+      "name": "omniroute_tool",
+      "path": "scripts/integrations/omniroute_tool.py",
+      "description": "omniroute_tool.py \u2014 operator CLI for Bravo's \"Claude Spillover\" system.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "model.fallback",
+      "lifecycle": "active",
+      "risk": "local_write",
+      "triggers": [
+        "claude usage limit",
+        "switch to fallback model",
+        "omniroute",
+        "spillover status",
+        "claude-direct"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
       "id": "script:public_bundle_recover",
       "kind": "script",
       "name": "public_bundle_recover",
@@ -9091,87 +9171,6 @@
       "discovery": "auto-frontmatter"
     },
     {
-      "id": "mcp:sequential-thinking",
-      "kind": "mcp",
-      "name": "sequential-thinking",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:playwright",
-      "kind": "mcp",
-      "name": "playwright",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:context7",
-      "kind": "mcp",
-      "name": "context7",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:memory",
-      "kind": "mcp",
-      "name": "memory",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:github",
-      "kind": "mcp",
-      "name": "github",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:firecrawl",
-      "kind": "mcp",
-      "name": "firecrawl",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:obsidian",
-      "kind": "mcp",
-      "name": "obsidian",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:filesystem",
-      "kind": "mcp",
-      "name": "filesystem",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:knowledge-graph",
-      "kind": "mcp",
-      "name": "knowledge-graph",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
       "id": "workflow:browser-harness",
       "kind": "workflow",
       "name": "browser-harness",
@@ -9786,6 +9785,270 @@
       "discovery": "auto-radar-table"
     },
     {
+      "id": "resource:omniroute-model-router",
+      "kind": "resource",
+      "name": "OmniRoute",
+      "path": "brain/TOOL_SHED.md",
+      "description": "Claude usage-limit failover router (fallback leg of Claude Spillover) \u2014 free tier: MIT, self-hosted \u2014 fallback leg only, behind our own base-URL-only spillover proxy (ADR-0018); never holds a Claude credential. Pinned to unreleased `release/v3.8.51` sha 152d9510 (Next.js 16.3.3):",
+      "capability": "Claude usage-limit failover router (fallback leg of Claude Spillover)",
+      "status": "adopted",
+      "auth": "lane key (scoped OmniRoute API key, DPAPI blob)",
+      "source_url": "https://github.com/diegosouzapw/OmniRoute",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "Claude usage-limit failover router (fallback leg of Claude Spillover)"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "adopted"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:codex-chatgpt-oauth-via-omniroute",
+      "kind": "resource",
+      "name": "OpenAI Codex",
+      "path": "brain/TOOL_SHED.md",
+      "description": "first fallback models (GPT-5.6) during a Claude spill \u2014 free tier: CC's existing ChatGPT plan \u2014 accepted ToS risk R2 (ADR-0018): `cx/` presents itself to OpenAI as the official Codex CLI, and OpenAI reportedly flags subscription-to-API proxying; worst case the ChatGPT account is ",
+      "capability": "first fallback models (GPT-5.6) during a Claude spill",
+      "status": "adopted",
+      "auth": "OAuth (OmniRoute's own grant, never an import of ~/.codex/auth.json)",
+      "source_url": "https://github.com/openai/codex",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "first fallback models (GPT-5.6) during a Claude spill"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "adopted"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:cerebras-free-inference",
+      "kind": "resource",
+      "name": "Cerebras",
+      "path": "brain/TOOL_SHED.md",
+      "description": "no-train fallback models for the bravo-fallback combo \u2014 free tier: free API key \u2014 adopted into bravo-fallback only after the tool-use smoke gate (`omniroute_tool.py smoke --tools --stream --corpus`) passes. Terms fit: \"We do not retain inputs and outputs associated with our train",
+      "capability": "no-train fallback models for the bravo-fallback combo",
+      "status": "candidate",
+      "auth": "apiKey (in OmniRoute's encrypted DB, never .env.agents)",
+      "source_url": "https://www.cerebras.ai/privacy-policy",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "no-train fallback models for the bravo-fallback combo"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:zai-api",
+      "kind": "resource",
+      "name": "Z.AI",
+      "path": "brain/TOOL_SHED.md",
+      "description": "no-train fallback models for the bravo-fallback combo \u2014 free tier: free API key \u2014 same gate as cerebras-free-inference: smoke first, then the combo. Terms fit: content \"is processed in real-time... and is not saved on our servers\", personal data processed in Singapore (privacy po",
+      "capability": "no-train fallback models for the bravo-fallback combo",
+      "status": "candidate",
+      "auth": "apiKey (in OmniRoute's encrypted DB, never .env.agents)",
+      "source_url": "https://docs.z.ai/legal-agreement/privacy-policy",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "no-train fallback models for the bravo-fallback combo"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:cloudflare-workers-ai",
+      "kind": "resource",
+      "name": "Cloudflare Workers AI",
+      "path": "brain/TOOL_SHED.md",
+      "description": "extra no-train fallback model host \u2014 free tier: small free daily allocation \u2014 verify current free allocation \u2014 terms fit: no customer content is used to train models or improve services without consent (data-usage page, 2026-04-21). Stays a candidate: no Workers AI key is wired, ",
+      "capability": "extra no-train fallback model host",
+      "status": "candidate",
+      "auth": "apiKey (account token)",
+      "source_url": "https://developers.cloudflare.com/workers-ai/platform/data-usage/",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "extra no-train fallback model host"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "candidate"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:opencode-free",
+      "kind": "resource",
+      "name": "OpenCode Zen free models",
+      "path": "brain/TOOL_SHED.md",
+      "description": "free models (never for spillover or client content) \u2014 free tier: free, keyless \u2014 NEVER in any spillover combo and never for client content: Zen free models state that \"collected data may be used to improve the model\" (it logs and trains). `oc/` and `opencode/` are forbidden prefi",
+      "capability": "free models (never for spillover or client content)",
+      "status": "policy",
+      "auth": "none",
+      "source_url": "https://opencode.ai/docs/zen/",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "free models (never for spillover or client content)"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "policy"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:omniroute-claude-provider",
+      "kind": "resource",
+      "name": "OmniRoute issue #4118",
+      "path": "brain/TOOL_SHED.md",
+      "description": "Claude as an OmniRoute provider (`cc/`) \u2014 free tier: n/a \u2014 stores and intermediates the Claude login and disguises the traffic as the official CLI. Anthropic's legal page (https://code.claude.com/docs/en/legal-and-compliance) bars tools from collecting, storing or intermediating ",
+      "capability": "Claude as an OmniRoute provider (`cc/`)",
+      "status": "rejected",
+      "auth": "Claude login copied into OmniRoute's DB",
+      "source_url": "https://github.com/diegosouzapw/OmniRoute/issues/4118",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "Claude as an OmniRoute provider (`cc/`)"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "rejected"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:gemini-cli-oauth-proxy",
+      "kind": "resource",
+      "name": "Gemini CLI terms",
+      "path": "brain/TOOL_SHED.md",
+      "description": "Gemini models through a proxied Gemini CLI OAuth login \u2014 free tier: n/a \u2014 individual accounts no longer served \u2014 terms: using its OAuth with third-party software \"is a violation of applicable terms and policies\" and \"may be grounds for suspension or termination\". Google, 2026-02-",
+      "capability": "Gemini models through a proxied Gemini CLI OAuth login",
+      "status": "rejected",
+      "auth": "OAuth (consumer login)",
+      "source_url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/resources/tos-privacy.md",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "Gemini models through a proxied Gemini CLI OAuth login"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "rejected"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:antigravity-oauth",
+      "kind": "resource",
+      "name": "Antigravity terms",
+      "path": "brain/TOOL_SHED.md",
+      "description": "models through a proxied Antigravity OAuth login \u2014 free tier: n/a \u2014 ToS: \"Using third party software, tools, or services to access the Service (e.g. using OpenClaw with Antigravity OAuth) is a breach\"; it can suspend Antigravity and/or Gemini CLI, and interactions may be human-re",
+      "capability": "models through a proxied Antigravity OAuth login",
+      "status": "rejected",
+      "auth": "OAuth (consumer login)",
+      "source_url": "https://antigravity.google/terms",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "models through a proxied Antigravity OAuth login"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "rejected"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:kiro",
+      "kind": "resource",
+      "name": "Kiro data protection",
+      "path": "brain/TOOL_SHED.md",
+      "description": "models through a proxied Kiro login \u2014 free tier: free tier \u2014 OmniRoute's catalog rates it \"avoid\"; suspensions reported (OmniRoute discussion #9216, \"[kiro] All 1 connection(s) banned by upstream\"; 9router #2050). Free-tier and Builder ID content may be used for service improveme",
+      "capability": "models through a proxied Kiro login",
+      "status": "rejected",
+      "auth": "OAuth (Builder ID login)",
+      "source_url": "https://kiro.dev/docs/privacy-and-security/data-protection/",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "models through a proxied Kiro login"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "rejected"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:groq-tool-use",
+      "kind": "resource",
+      "name": "Groq",
+      "path": "brain/TOOL_SHED.md",
+      "description": "fast free inference as a fallback \u2014 free tier: free API key \u2014 every Groq model tried failed inside Claude Code through OmniRoute, each with a different error: e.g. allam-2-7b's 4096-token context against Claude Code's ~20.5K-token baseline of system prompt plus tool schemas (Omni",
+      "capability": "fast free inference as a fallback",
+      "status": "rejected",
+      "auth": "apiKey",
+      "source_url": "https://github.com/diegosouzapw/OmniRoute/issues/12134",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "fast free inference as a fallback"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "rejected"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
+      "id": "resource:glm-cn",
+      "kind": "resource",
+      "name": "Zhipu BigModel (CN)",
+      "path": "brain/TOOL_SHED.md",
+      "description": "GLM models via the mainland-China endpoint \u2014 free tier: n/a \u2014 PRC endpoint (open.bigmodel.cn): session and client content must not route there; `glm-cn/` is a forbidden prefix. For GLM models use zai-api (the international api.z.ai endpoint)",
+      "capability": "GLM models via the mainland-China endpoint",
+      "status": "rejected",
+      "auth": "apiKey",
+      "source_url": "https://open.bigmodel.cn",
+      "verified": "2026-09-12",
+      "owner": "bravo",
+      "triggers": [
+        "GLM models via the mainland-China endpoint"
+      ],
+      "tags": [
+        "free-tier",
+        "radar",
+        "rejected"
+      ],
+      "discovery": "auto-radar-table"
+    },
+    {
       "id": "runtime:bridge_chat_server",
       "name": "bridge_chat_server",
       "path": "bravo_cli/bridge_chat_server.py",
@@ -10062,6 +10325,11 @@
       "from": "script:dashboard_email_consumer",
       "to": "script:email_template",
       "kind": "calls"
+    },
+    {
+      "from": "script:dashboard_email_queue_monitor",
+      "to": "script:dashboard_email_consumer",
+      "kind": "references"
     },
     {
       "from": "script:db_snapshot",
@@ -10666,6 +10934,16 @@
     {
       "from": "skill:ceo-dashboard",
       "to": "script:revenue_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:claude-spillover",
+      "to": "script:omniroute_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:claude-spillover",
+      "to": "script:send_gateway",
       "kind": "uses"
     },
     {

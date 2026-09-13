@@ -913,6 +913,136 @@ def check_python_switch() -> tuple[str, bool, str, str]:
     return ("turso-switch", status.active, status.detail[:80], "" if status.active else fix)
 
 
+def _spillover_home_dir() -> Path:
+    """Claude Spillover HOME_DIR (scripts/spillover/CONTRACT.md section 2).
+
+    Same resolution as scripts/spillover/{lane_key,statusline,ensure_spillover}.py,
+    scripts/audit_mcp_secrets.py and scripts/harness_eval.py: BRAVO_SPILLOVER_HOME
+    overrides everything (tests point it at a temp dir).
+    """
+    override = os.environ.get("BRAVO_SPILLOVER_HOME")
+    if override:
+        return Path(override)
+    if platform.system() == "Darwin":
+        return Path.home() / "Library" / "Application Support" / "bravo-spillover"
+    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+    return Path(base) / "bravo-spillover"
+
+
+def _user_claude_settings_path() -> Path:
+    """~/.claude/settings.json — the USER-level Claude Code config CONTRACT
+    section 12 writes to (distinct from this repo's project-scoped
+    .claude/settings.local.json, which check_hooks already covers). A seam
+    on its own so a test can point it at a temp file."""
+    return Path.home() / ".claude" / "settings.json"
+
+
+# Secrets the supervisor and proxy read via lane_key.py (CONTRACT sections 9, 16).
+_SPILLOVER_SECRET_NAMES = ("omniroute_lane", "storage_encryption", "initial_password",
+                          "jwt_secret", "api_key_secret")
+
+
+def _script_token(cmd: str) -> str | None:
+    """The .py (or .cmd) script path a hook/statusLine command invokes, or None."""
+    toks = _split(cmd)
+    return next((t for t in toks if t.lower().endswith((".py", ".cmd", ".pyw"))), None)
+
+
+def check_claude_spillover() -> tuple[str, bool, str, str]:
+    """Claude Spillover (scripts/spillover/CONTRACT.md): names and paths only —
+    no live probe, no secret value ever touched. `harness_eval.py` owns the
+    live doctor check; this is machine_parity's usual job of "is the wiring
+    actually there, on THIS machine, pointed at files that exist".
+
+    Advisory OK on non-Windows: the deployment story here (DPAPI blobs, icacls
+    ACLs, the Windows-only proxy/supervisor spawn path) is Windows-specific
+    today, the same posture check_fleet_persistence takes for its
+    Windows-only scheduled task.
+    """
+    if platform.system() != "Windows":
+        return ("claude-spillover", True,
+                "not Windows - advisory only (spillover's deployment story is Windows-specific today)", "")
+
+    home = _spillover_home_dir()
+    config_path = home / "config.json"
+    if not config_path.is_file():
+        return ("claude-spillover", True, "not installed (no HOME_DIR/config.json)", "")
+
+    try:
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return ("claude-spillover", False, f"config.json unreadable: {exc}",
+                "python scripts/integrations/omniroute_tool.py deploy")
+    if not isinstance(cfg, dict):
+        return ("claude-spillover", False, "config.json is not a JSON object",
+                "python scripts/integrations/omniroute_tool.py deploy")
+
+    problems: list[str] = []
+    proxy_cfg = cfg.get("proxy") if isinstance(cfg.get("proxy"), dict) else {}
+    host = proxy_cfg.get("host") if isinstance(proxy_cfg.get("host"), str) else "127.0.0.1"
+    port = proxy_cfg.get("port") if isinstance(proxy_cfg.get("port"), int) and not isinstance(proxy_cfg.get("port"), bool) else 20131
+    expected_url = f"http://{host}:{port}"
+
+    routing_enabled = False
+    settings_path = _user_claude_settings_path()
+    if settings_path.is_file():
+        try:
+            user_settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            return ("claude-spillover", False, f"~/.claude/settings.json unreadable: {exc}", "")
+        if not isinstance(user_settings, dict):
+            user_settings = {}
+
+        env = user_settings.get("env") if isinstance(user_settings.get("env"), dict) else {}
+        base_url = env.get("ANTHROPIC_BASE_URL")
+        routing_enabled = bool(base_url)
+        if routing_enabled and base_url != expected_url:
+            problems.append(f"ANTHROPIC_BASE_URL={base_url!r} != proxy URL {expected_url!r}")
+
+        for forbidden in ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY"):
+            if env.get(forbidden):
+                problems.append(f"user settings.json sets {forbidden} - OAuth login would stop being the active credential")
+        if user_settings.get("apiKeyHelper"):
+            problems.append("user settings.json sets apiKeyHelper")
+
+        status_line = user_settings.get("statusLine")
+        status_cmd = status_line.get("command") if isinstance(status_line, dict) else status_line
+        if isinstance(status_cmd, str) and status_cmd.strip():
+            script = _script_token(status_cmd)
+            if not script:
+                problems.append(f"statusLine command has no recognizable script: {status_cmd!r}")
+            elif not Path(script).is_file():
+                problems.append(f"statusLine script not found: {script}")
+
+        hooks = user_settings.get("hooks") if isinstance(user_settings.get("hooks"), dict) else {}
+        session_start = hooks.get("SessionStart") if isinstance(hooks.get("SessionStart"), list) else []
+        ensure_cmds = []
+        for matcher in session_start:
+            for hk in (matcher.get("hooks") or []) if isinstance(matcher, dict) else []:
+                cmd = hk.get("command") if isinstance(hk, dict) else None
+                if cmd and "ensure_spillover" in cmd:
+                    ensure_cmds.append(cmd)
+        if ensure_cmds:
+            for cmd in ensure_cmds:
+                script = _script_token(cmd)
+                if not script:
+                    problems.append(f"SessionStart ensure_spillover command has no recognizable script: {cmd!r}")
+                elif not Path(script).is_file():
+                    problems.append(f"SessionStart ensure_spillover script not found: {script}")
+        elif routing_enabled:
+            problems.append("routing enabled but no SessionStart ensure_spillover hook is wired")
+
+    missing_secrets = [n for n in _SPILLOVER_SECRET_NAMES if not (home / "secrets" / f"{n}.key").is_file()]
+    if missing_secrets:
+        problems.append("missing secret(s): " + ", ".join(missing_secrets))
+
+    if problems:
+        return ("claude-spillover", False, "; ".join(problems),
+                "python scripts/integrations/omniroute_tool.py doctor")
+    detail = "config present, secrets present, " + ("routing enabled" if routing_enabled else "routing not enabled")
+    return ("claude-spillover", True, detail, "")
+
+
 ALL_CHECKS = [
     check_hooks,
     check_python_deps,
@@ -925,6 +1055,7 @@ ALL_CHECKS = [
     check_env_agents,
     check_tls_keylog,
     check_fleet_persistence,
+    check_claude_spillover,
 ]
 
 # Cheap, no-subprocess subset for the SessionStart hook (pure file reads, <5ms).

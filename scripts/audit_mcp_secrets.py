@@ -27,6 +27,22 @@ from typing import Iterable
 _HOME = os.path.expanduser('~')
 _IS_MAC = platform.system() == 'Darwin'
 
+
+def _spillover_home_dir() -> str:
+    """Claude Spillover HOME_DIR (scripts/spillover/CONTRACT.md section 2).
+
+    Same resolution as scripts/spillover/{lane_key,statusline,ensure_spillover}.py:
+    BRAVO_SPILLOVER_HOME overrides everything (tests point it at a temp dir).
+    """
+    override = os.environ.get('BRAVO_SPILLOVER_HOME')
+    if override:
+        return override
+    if _IS_MAC:
+        return os.path.join(_HOME, 'Library', 'Application Support', 'bravo-spillover')
+    base = os.environ.get('LOCALAPPDATA') or os.path.join(_HOME, 'AppData', 'Local')
+    return os.path.join(base, 'bravo-spillover')
+
+
 if _IS_MAC:
     MCP_CONFIG_PATHS = [
         os.path.join(_HOME, '.claude.json'),
@@ -63,6 +79,11 @@ else:
         r'C:\Users\User\Business-Empire-Agent\.mcp.json',
     ]
 
+# Claude Spillover's runtime config (scripts/spillover/CONTRACT.md section 2)
+# lives outside the repo, under HOME_DIR, and must stay credential-free the same
+# way every other MCP config here does.
+MCP_CONFIG_PATHS.append(os.path.join(_spillover_home_dir(), 'config.json'))
+
 # Known live-secret prefixes/patterns. Triggers a hit when found in any
 # scanned config file. Order matters only for human-readable labels.
 LIVE_SECRET_PATTERNS = [
@@ -70,6 +91,16 @@ LIVE_SECRET_PATTERNS = [
     ('stripe-restricted-live', re.compile(r'rk_live_[A-Za-z0-9]{20,}')),
     ('anthropic-api-key',      re.compile(r'sk-ant-[A-Za-z0-9_-]{20,}')),
     ('openai-api-key',         re.compile(r'sk-proj-[A-Za-z0-9_-]{20,}')),
+    # OmniRoute (Claude Spillover fallback, CONTRACT section 1) API keys, format
+    # confirmed against bravo-spillover/omniroute-src/src/shared/utils/apiKey.ts:
+    #   new: sk-{16-hex machineId}-{6-hex keyId}-{8-hex crc}
+    #   old: sk-{8-char random}
+    # The negative lookahead plus the \b boundaries keep this from double-flagging
+    # the sk-ant-... / sk-proj-... families above: neither has 8+ word chars
+    # immediately after "sk-" before its next hyphen, so the old-format
+    # alternative can never reach a word boundary inside either of them.
+    ('omniroute-api-key',      re.compile(r'\bsk-[0-9a-f]{16}-[0-9a-f]{6}-[0-9a-f]{8}\b'
+                                          r'|\bsk-(?!ant-|proj-)[A-Za-z0-9]{8}\b')),
     ('supabase-access-token',  re.compile(r'sbp_[a-f0-9]{40}')),
     ('jwt-bearer',             re.compile(r'eyJhbGciOiJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{40,}\.[A-Za-z0-9_-]{20,}')),
     ('late-api-key',           re.compile(r'(?<![A-Za-z0-9])sk_[a-f0-9]{60,}')),

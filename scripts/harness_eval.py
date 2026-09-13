@@ -916,6 +916,53 @@ def check_fleet_compiles():
                   f"or dead redefinitions{note}")
 
 
+def _spillover_home_dir() -> str:
+    """Claude Spillover HOME_DIR (scripts/spillover/CONTRACT.md section 2).
+
+    Same resolution as scripts/spillover/{lane_key,statusline,ensure_spillover}.py
+    and audit_mcp_secrets.py: BRAVO_SPILLOVER_HOME overrides everything (tests
+    point it at a temp dir), so this stays the fourth copy of one rule instead
+    of a fifth home-dir guess that can drift from the other four.
+    """
+    override = os.environ.get("BRAVO_SPILLOVER_HOME")
+    if override:
+        return override
+    if sys.platform == "darwin":
+        return os.path.join(os.path.expanduser("~"), "Library", "Application Support", "bravo-spillover")
+    base = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
+    return os.path.join(base, "bravo-spillover")
+
+
+def check_claude_spillover():
+    """Is Claude Spillover's OmniRoute fallback actually reachable end-to-end?
+
+    HOME_DIR/config.json absent means the feature was never deployed on this
+    machine (CONTRACT section 2, `omniroute_tool.py deploy` creates it) — an
+    ordinary unconfigured state on any rig that hasn't opted in, not a defect,
+    so it reports ok rather than turning every non-spillover machine red.
+
+    Once config.json exists, the only thing worth asserting is proof the
+    fallback path actually works, not just that files are present:
+    `omniroute_tool.py doctor --json` is that proof. A missing doctor tool on a
+    machine that HAS deployed spillover is a real gap and fails loud rather
+    than being swallowed as "not installed".
+    """
+    home = _spillover_home_dir()
+    config_path = os.path.join(home, "config.json")
+    if not os.path.isfile(config_path):
+        return True, "not installed"
+
+    tool = PROJECT_ROOT / "scripts" / "integrations" / "omniroute_tool.py"
+    if not tool.is_file():
+        return False, "tool missing"
+
+    rc, out, err = _run([sys.executable, str(tool), "doctor", "--json"], timeout=45)
+    if rc == 0:
+        return True, "omniroute_tool.py doctor --json exit 0"
+    tail = (err or out or "").strip().splitlines()[-1:] or ["no output"]
+    return False, f"omniroute_tool.py doctor --json exit {rc}: {tail[0][:160]}"
+
+
 def check_model_call_path():
     # Deliberately probes claude_cli DIRECTLY (not run_smart_cli): this check's
     # job is substrate TRUTH — is the subscription CLI alive right now? Routing
@@ -953,6 +1000,7 @@ CHECKS = [
     ("PM2 fleet online", check_pm2_fleet, False, "live-health"),
     ("fleet compiles (no SyntaxError anywhere)", check_fleet_compiles, False, "live-health"),
     ("model-call path live (claude CLI probe)", check_model_call_path, True, "model-call"),  # --with-model only
+    ("claude spillover sane", check_claude_spillover, False, "model-call"),
 ]
 
 HISTORY_PATH = PROJECT_ROOT / "state" / "harness_eval_history.jsonl"

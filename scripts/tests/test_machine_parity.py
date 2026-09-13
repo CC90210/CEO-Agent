@@ -22,6 +22,7 @@ Run: python -m pytest scripts/tests/test_machine_parity.py -v
 """
 from __future__ import annotations
 
+import json
 import platform
 import sys
 from pathlib import Path
@@ -310,3 +311,181 @@ def test_no_parity_check_shells_out_to_the_pm2_cli():
     src = (REPO_ROOT / "scripts" / "machine_parity.py").read_text(encoding="utf-8")
     for forbidden in ('"pm2", "jlist"', '["pm2"', "'pm2',", 'subprocess.run(["pm2'):
         assert forbidden not in src, f"machine_parity invokes the pm2 CLI: {forbidden}"
+
+
+# --------------------------------------------------- claude-spillover ---
+#
+# CONTRACT.md (scripts/spillover/CONTRACT.md): this check is names-and-paths
+# only (never decrypts a secret, never probes the proxy - that is
+# harness_eval's job). Every test below points BRAVO_SPILLOVER_HOME and the
+# user-level ~/.claude/settings.json seam at tmp_path, so nothing here ever
+# touches the real bravo-spillover install or the real user config.
+
+_ALL_SPILLOVER_SECRETS = ("omniroute_lane", "storage_encryption", "initial_password",
+                          "jwt_secret", "api_key_secret")
+
+
+def _write_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+
+def _touch_all_secrets(home: Path) -> None:
+    sdir = home / "secrets"
+    sdir.mkdir(parents=True, exist_ok=True)
+    for name in _ALL_SPILLOVER_SECRETS:
+        (sdir / f"{name}.key").write_bytes(b"not-a-real-dpapi-blob")
+
+
+@pytest.fixture
+def spillover_home(tmp_path, monkeypatch):
+    home = tmp_path / "bravo-spillover"
+    monkeypatch.setenv("BRAVO_SPILLOVER_HOME", str(home))
+    # No user-level ~/.claude/settings.json unless a test writes one at this path.
+    monkeypatch.setattr(mp, "_user_claude_settings_path", lambda: tmp_path / "user-claude-settings.json")
+    return home
+
+
+def test_spillover_registered_in_all_checks_not_fast_checks():
+    assert mp.check_claude_spillover in mp.ALL_CHECKS
+    assert mp.check_claude_spillover not in mp.FAST_CHECKS
+
+
+def test_spillover_advisory_ok_on_non_windows(monkeypatch):
+    monkeypatch.setattr(mp.platform, "system", lambda: "Darwin")
+    name, ok, detail, _hint = mp.check_claude_spillover()
+    assert name == "claude-spillover"
+    assert ok, detail
+    assert "not Windows" in detail
+
+
+@WINDOWS_ONLY
+def test_spillover_not_installed_when_config_absent(spillover_home):
+    name, ok, detail, _hint = mp.check_claude_spillover()
+    assert name == "claude-spillover"
+    assert ok, detail
+    assert detail == "not installed (no HOME_DIR/config.json)"
+
+
+@WINDOWS_ONLY
+def test_spillover_config_present_with_secrets_no_routing_is_green(spillover_home):
+    _write_json(spillover_home / "config.json", {"proxy": {"host": "127.0.0.1", "port": 20131}})
+    _touch_all_secrets(spillover_home)
+    _name, ok, detail, _hint = mp.check_claude_spillover()
+    assert ok, detail
+    assert "routing not enabled" in detail
+
+
+@WINDOWS_ONLY
+def test_spillover_missing_secrets_is_a_failure(spillover_home):
+    _write_json(spillover_home / "config.json", {})
+    _name, ok, detail, hint = mp.check_claude_spillover()
+    assert not ok
+    assert "missing secret" in detail
+    for secret in _ALL_SPILLOVER_SECRETS:
+        assert secret in detail
+    assert "doctor" in hint
+
+
+@WINDOWS_ONLY
+def test_spillover_unreadable_config_json_is_a_failure(spillover_home):
+    spillover_home.mkdir(parents=True, exist_ok=True)
+    (spillover_home / "config.json").write_text("{not valid json", encoding="utf-8")
+    _name, ok, detail, _hint = mp.check_claude_spillover()
+    assert not ok
+    assert "unreadable" in detail
+
+
+@WINDOWS_ONLY
+def test_spillover_routing_enabled_matching_url_all_files_present_is_green(spillover_home, tmp_path):
+    _write_json(spillover_home / "config.json", {"proxy": {"host": "127.0.0.1", "port": 20131}})
+    _touch_all_secrets(spillover_home)
+
+    bin_dir = spillover_home / "bin"
+    bin_dir.mkdir(parents=True)
+    statusline = bin_dir / "statusline.py"
+    statusline.write_text("# stub", encoding="utf-8")
+    ensure = bin_dir / "ensure_spillover.py"
+    ensure.write_text("# stub", encoding="utf-8")
+
+    # Commands use forward slashes, same convention as the rest of this file's
+    # portable hook templates (_split() runs shlex in posix mode even on
+    # Windows, which treats a bare backslash as an escape character and eats
+    # it - a native Path.__str__() here would mangle "C:\Users\..." into
+    # "C:Users...").
+    _write_json(tmp_path / "user-claude-settings.json", {
+        "env": {"ANTHROPIC_BASE_URL": "http://127.0.0.1:20131"},
+        "statusLine": {"type": "command", "command": f"pythonw -S {statusline.as_posix()}"},
+        "hooks": {"SessionStart": [{"hooks": [{"type": "command",
+                                                "command": f"pythonw -S {ensure.as_posix()}"}]}]},
+    })
+
+    _name, ok, detail, _hint = mp.check_claude_spillover()
+    assert ok, detail
+    assert "routing enabled" in detail
+
+
+@WINDOWS_ONLY
+def test_spillover_mismatched_base_url_is_a_failure(spillover_home, tmp_path):
+    _write_json(spillover_home / "config.json", {"proxy": {"host": "127.0.0.1", "port": 20131}})
+    _touch_all_secrets(spillover_home)
+    _write_json(tmp_path / "user-claude-settings.json",
+               {"env": {"ANTHROPIC_BASE_URL": "https://api.anthropic.com"}})
+    _name, ok, detail, _hint = mp.check_claude_spillover()
+    assert not ok
+    assert "ANTHROPIC_BASE_URL" in detail
+
+
+@WINDOWS_ONLY
+@pytest.mark.parametrize("forbidden", ["ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY"])
+def test_spillover_forbidden_credential_env_is_a_failure(spillover_home, tmp_path, forbidden):
+    _write_json(spillover_home / "config.json", {})
+    _touch_all_secrets(spillover_home)
+    _write_json(tmp_path / "user-claude-settings.json", {"env": {forbidden: "sk-something"}})
+    _name, ok, detail, _hint = mp.check_claude_spillover()
+    assert not ok
+    assert forbidden in detail
+
+
+@WINDOWS_ONLY
+def test_spillover_apikeyhelper_is_a_failure(spillover_home, tmp_path):
+    _write_json(spillover_home / "config.json", {})
+    _touch_all_secrets(spillover_home)
+    _write_json(tmp_path / "user-claude-settings.json", {"apiKeyHelper": "some-script.sh"})
+    _name, ok, detail, _hint = mp.check_claude_spillover()
+    assert not ok
+    assert "apiKeyHelper" in detail
+
+
+@WINDOWS_ONLY
+def test_spillover_statusline_script_missing_is_a_failure(spillover_home, tmp_path):
+    _write_json(spillover_home / "config.json", {})
+    _touch_all_secrets(spillover_home)
+    _write_json(tmp_path / "user-claude-settings.json",
+               {"statusLine": {"command": "pythonw -S C:/nope/statusline.py"}})
+    _name, ok, detail, _hint = mp.check_claude_spillover()
+    assert not ok
+    assert "statusLine script not found" in detail
+
+
+@WINDOWS_ONLY
+def test_spillover_session_start_hook_script_missing_is_a_failure(spillover_home, tmp_path):
+    _write_json(spillover_home / "config.json", {})
+    _touch_all_secrets(spillover_home)
+    _write_json(tmp_path / "user-claude-settings.json", {"hooks": {"SessionStart": [
+        {"hooks": [{"type": "command", "command": "pythonw -S C:/nope/ensure_spillover.py"}]}
+    ]}})
+    _name, ok, detail, _hint = mp.check_claude_spillover()
+    assert not ok
+    assert "SessionStart ensure_spillover script not found" in detail
+
+
+@WINDOWS_ONLY
+def test_spillover_routing_enabled_without_session_start_hook_is_a_failure(spillover_home, tmp_path):
+    _write_json(spillover_home / "config.json", {"proxy": {"host": "127.0.0.1", "port": 20131}})
+    _touch_all_secrets(spillover_home)
+    _write_json(tmp_path / "user-claude-settings.json",
+               {"env": {"ANTHROPIC_BASE_URL": "http://127.0.0.1:20131"}})
+    _name, ok, detail, _hint = mp.check_claude_spillover()
+    assert not ok
+    assert "no SessionStart ensure_spillover hook is wired" in detail
