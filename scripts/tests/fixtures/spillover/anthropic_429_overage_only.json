@@ -1,0 +1,22 @@
+{
+  "_comment": "Synthetic 429 whose only 'rejected' value is the overage-status header. The exact unified-status is 'allowed', so this is NOT a subscription limit (the overage-status false positive). Placeholder ids only.",
+  "status": 429,
+  "headers": {
+    "content-type": "application/json",
+    "anthropic-ratelimit-unified-status": "allowed",
+    "anthropic-ratelimit-unified-representative-claim": "five_hour",
+    "anthropic-ratelimit-unified-reset": "1790000000",
+    "anthropic-ratelimit-unified-overage-status": "rejected",
+    "anthropic-ratelimit-unified-overage-disabled-reason": "out_of_credits",
+    "retry-after": "20",
+    "request-id": "req_PLACEHOLDER"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "rate_limit_error",
+      "message": "Rate limited. Please retry shortly."
+    },
+    "request_id": "req_PLACEHOLDER"
+  }
+}

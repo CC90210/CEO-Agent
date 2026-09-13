@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "min_claude_code": "2.1.268",
+  "deny_claude_code": ["2.1.265", "2.1.266", "2.1.267"],
+  "python_exe": "C:/Users/User/Business-Empire-Agent/.venv/Scripts/python.exe",
+  "proxy": {
+    "host": "127.0.0.1",
+    "port": 20131,
+    "mode": "observe",
+    "anthropic_base": "https://api.anthropic.com",
+    "omniroute_base": "http://127.0.0.1:20128",
+    "spill_entrypoints": ["cli", "claude-vscode"],
+    "probe_interval_sec": 600,
+    "reset_clamp_min_sec": 60,
+    "reset_clamp_max_sec": 691200,
+    "fallback_first_content_timeout_ms": 90000,
+    "fallback_retry_budget_ms": 60000,
+    "fallback_persistent_outage_sec": 300,
+    "fallback_health_fail_threshold": 3,
+    "fallback_health_ttl_ok_ms": 15000,
+    "fallback_health_ttl_fail_ms": 5000,
+    "stream_silence_abort_ms": 180000,
+    "ping_interval_ms": 15000,
+    "max_replay_body_bytes": 33554432,
+    "fallback_window_tokens": 200000,
+    "allow_fault_injection": false,
+    "alerts": { "telegram": true, "toast": true },
+    "route_model_main": "bravo-fallback",
+    "route_model_fast": "bravo-fallback-fast"
+  },
+  "omniroute": {
+    "repo": "https://github.com/diegosouzapw/OmniRoute",
+    "git_sha": "152d95108c9c3d557562311ffed63240a511eb31",
+    "min_next": "16.3.3",
+    "deny_versions": ["3.8.50"],
+    "memory_mb": 1536,
+    "forbidden_model_prefixes": ["cc/", "claude/", "oc/", "opencode/", "kr/", "kiro/", "agy/", "antigravity/", "gemini/", "gemini-cli/", "groq/", "glm-cn/", "qwen-web/", "deepseek-web/"]
+  }
+}

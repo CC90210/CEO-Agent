@@ -1,0 +1,17 @@
+{
+  "_comment": "Synthetic 400 that Claude Code's own thinking-signature recovery must receive verbatim. Placeholder ids only.",
+  "status": 400,
+  "headers": {
+    "content-type": "application/json",
+    "request-id": "req_PLACEHOLDER",
+    "x-should-retry": "false"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "invalid_request_error",
+      "message": "messages.1.content.0: Invalid `signature` in `thinking` block"
+    },
+    "request_id": "req_PLACEHOLDER"
+  }
+}

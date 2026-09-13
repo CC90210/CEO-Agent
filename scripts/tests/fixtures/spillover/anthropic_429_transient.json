@@ -1,0 +1,21 @@
+{
+  "_comment": "Synthetic per-minute (transient) 429: no unified-status rejection, so it must pass through untouched. Placeholder ids only.",
+  "status": 429,
+  "headers": {
+    "content-type": "application/json",
+    "anthropic-ratelimit-requests-limit": "50",
+    "anthropic-ratelimit-requests-remaining": "0",
+    "anthropic-ratelimit-requests-reset": "2026-09-12T20:00:30Z",
+    "retry-after": "30",
+    "request-id": "req_PLACEHOLDER",
+    "x-should-retry": "true"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "rate_limit_error",
+      "message": "Number of requests has exceeded your per-minute rate limit. Please retry shortly."
+    },
+    "request_id": "req_PLACEHOLDER"
+  }
+}

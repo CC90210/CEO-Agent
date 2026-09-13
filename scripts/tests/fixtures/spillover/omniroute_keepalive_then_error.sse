@@ -1,0 +1,9 @@
+: keepalive
+
+: keepalive
+
+: keepalive
+
+event: error
+data: {"error":{"type":"stream_error","message":"all combo targets failed"}}
+

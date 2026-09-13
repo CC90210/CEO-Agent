@@ -1,0 +1,22 @@
+{
+  "_comment": "Synthetic model-scoped usage limit (seven_day_opus claim). Classified model_limit and never spilled. Placeholder ids only.",
+  "status": 429,
+  "headers": {
+    "content-type": "application/json",
+    "anthropic-ratelimit-unified-status": "rejected",
+    "anthropic-ratelimit-unified-representative-claim": "seven_day_opus",
+    "anthropic-ratelimit-unified-reset": "1790000000",
+    "anthropic-ratelimit-unified-overage-status": "rejected",
+    "retry-after": "86400",
+    "request-id": "req_PLACEHOLDER",
+    "x-should-retry": "false"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "rate_limit_error",
+      "message": "This request would exceed your weekly limit for this model."
+    },
+    "request_id": "req_PLACEHOLDER"
+  }
+}
