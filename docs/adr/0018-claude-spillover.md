@@ -149,7 +149,11 @@ What backend-only changes:
 - **No dashboard UI.** Codex connects through OmniRoute's device-code flow, and API-key providers through the management API (`omniroute_tool.py omniroute connect codex` and `connect-key`). Combos and the lane key are created through the same API.
 - **OmniRoute's instrumentation is stubbed**, so its `ensureSecrets()` and background schedulers never run.
   - **Secrets:** the supervisor passes `STORAGE_ENCRYPTION_KEY`, `INITIAL_PASSWORD`, `JWT_SECRET` and `API_KEY_SECRET` from DPAPI blobs on every start (CONTRACT §16). They must stay stable, or the lane key stops validating.
-  - **Still to verify:** whether Codex OAuth tokens still refresh on demand, and how call-log retention is enforced without the cleanup scheduler. Both must be checked in the live smoke test before spilling is switched on.
+  - **Token refresh and log retention don't depend on the stubbed schedulers.** The pinned source shows:
+    - Codex OAuth tokens refresh at request time: `open-sse/executors/base.ts:735` checks `needsRefresh()` before each call, and `CodexExecutor` extends `BaseExecutor` (`codex.ts:801`).
+    - Call-log rotation is triggered on write: `callLogs.ts:638` and `:694` call `scheduleCallLogRotation()`, which runs the day-based delete, the row trim and the file cleanup (`callLogRotation.ts:333-359`).
+  - **No switch turns call-log persistence off.** `deploy` therefore writes privacy-minimal caps into `omniroute.log_env`: 1-day retention, 200 rows, 2 KB text, a 16 KB body limit, no app log file and no debug file.
+  - **Still owed:** both behaviours must be confirmed in the live smoke test before spilling is switched on.
 
 ## Consequences
 
