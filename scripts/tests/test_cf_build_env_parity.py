@@ -50,6 +50,25 @@ def _manifest_keys(slug: str) -> set[str]:
     return {e["key"] for e in json.loads(p.read_text(encoding="utf-8")).get("secrets", [])}
 
 
+def test_oasis_worker_excludes_separated_tenant_bindings() -> None:
+    app = _apps()["oasis-command-center"]
+    excluded = set(app.get("exclude_env_keys") or [])
+    assert excluded, "the OASIS Worker needs an explicit deployment-boundary denylist"
+    active = _manifest_keys("oasis-command-center")
+    assert not (active & excluded), (
+        "separated-tenant keys remain in the OASIS Cloudflare manifest: "
+        f"{sorted(active & excluded)}"
+    )
+    assert app.get("deploy_surface") == "oasis"
+
+
+def test_generated_workflows_stamp_platform_and_surface() -> None:
+    source = (ROOT / "scripts" / "integrations" / "wrangler_tool.py").read_text(encoding="utf-8")
+    assert "--var DEPLOY_PLATFORM:cloudflare" in source
+    assert "--var DEPLOY_SURFACE:" in source
+    assert "app.get('deploy_surface') or slug" in source
+
+
 def _workflow_build_env(app_dir: Path) -> set[str] | None:
     wf = app_dir / ".github" / "workflows" / "deploy-cloudflare.yml"
     if not wf.exists():

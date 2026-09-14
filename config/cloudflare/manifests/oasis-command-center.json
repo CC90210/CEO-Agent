@@ -61,11 +61,6 @@
       "scope": "runtime"
     },
     {
-      "key": "DRIPS_EMAIL_DAILY_CAP_SUNBIZ",
-      "source": "OASIS_COMMAND_CENTER__DRIPS_EMAIL_DAILY_CAP_SUNBIZ",
-      "scope": "runtime"
-    },
-    {
       "key": "DRIPS_EMAIL_HOURLY_CAP_BLUERISE",
       "source": "OASIS_COMMAND_CENTER__DRIPS_EMAIL_HOURLY_CAP_BLUERISE",
       "scope": "runtime"
@@ -226,18 +221,8 @@
       "scope": "both"
     },
     {
-      "key": "NEXT_PUBLIC_OPTINVAULT_DISCLOSURE_SUNBIZ",
-      "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_OPTINVAULT_DISCLOSURE_SUNBIZ",
-      "scope": "both"
-    },
-    {
       "key": "NEXT_PUBLIC_OPTINVAULT_SITE_KEY_BLUERISE",
       "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_OPTINVAULT_SITE_KEY_BLUERISE",
-      "scope": "both"
-    },
-    {
-      "key": "NEXT_PUBLIC_OPTINVAULT_SITE_KEY_SUNBIZ",
-      "source": "OASIS_COMMAND_CENTER__NEXT_PUBLIC_OPTINVAULT_SITE_KEY_SUNBIZ",
       "scope": "both"
     },
     {
@@ -288,26 +273,6 @@
     {
       "key": "SCAN_TRIGGER_SECRET",
       "source": "OASIS_COMMAND_CENTER__SCAN_TRIGGER_SECRET",
-      "scope": "runtime"
-    },
-    {
-      "key": "SUNBIZ_OPS_TELEGRAM_BOT_TOKEN",
-      "source": "OASIS_COMMAND_CENTER__SUNBIZ_OPS_TELEGRAM_BOT_TOKEN",
-      "scope": "runtime"
-    },
-    {
-      "key": "SUNBIZ_OPS_TELEGRAM_CHAT_ID",
-      "source": "OASIS_COMMAND_CENTER__SUNBIZ_OPS_TELEGRAM_CHAT_ID",
-      "scope": "runtime"
-    },
-    {
-      "key": "SUNBIZ_OPS_TELEGRAM_FALLBACK_CHAT_ID",
-      "source": "OASIS_COMMAND_CENTER__SUNBIZ_OPS_TELEGRAM_FALLBACK_CHAT_ID",
-      "scope": "runtime"
-    },
-    {
-      "key": "SUNBIZ_PUBLIC_FORM_ORIGIN",
-      "source": "OASIS_COMMAND_CENTER__SUNBIZ_PUBLIC_FORM_ORIGIN",
       "scope": "runtime"
     },
     {

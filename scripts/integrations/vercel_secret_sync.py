@@ -174,6 +174,10 @@ def main() -> int:
     for slug in slugs:
         vercel_project = apps[slug].get("vercel_project", slug)
         recoverable, sensitive, skipped = _fetch(mod, vercel_project)
+        excluded = set(apps[slug].get("exclude_env_keys") or [])
+        recoverable = [(k, v) for k, v in recoverable if k not in excluded]
+        sensitive = [k for k in sensitive if k not in excluded]
+        skipped = [k for k in skipped if k not in excluded]
         fill = [_namespaced(slug, k) for k in [*sensitive, *skipped]]
         print(f"{slug:25} recoverable={len(recoverable):3} "
               f"sensitive={len(sensitive):2} skipped={len(skipped)}")

@@ -266,7 +266,10 @@ def _manifest(slug: str) -> list[dict]:
     if not p.exists():
         return []
     data = json.loads(p.read_text(encoding="utf-8"))
-    return data.get("secrets") or []
+    excluded = set(
+        ((_registry().get("apps") or {}).get(slug) or {}).get("exclude_env_keys") or []
+    )
+    return [m for m in (data.get("secrets") or []) if m.get("key") not in excluded]
 
 
 def _npx() -> str:
@@ -891,7 +894,16 @@ def cmd_workflow(registry: dict, args: argparse.Namespace) -> int:
         "slug": slug,
         "account_id": registry.get("account_id", "<account id>"),
         "build_cmd": build_cmd,
-        "deploy_cmd": "deploy",  # wrangler-action reads the repo's wrangler.jsonc
+        # Runtime identity is not a secret. It lets the same production-health
+        # gate detect a branch/unknown deploy on Cloudflare as it does on
+        # Vercel; wrangler.jsonc supplies DEPLOY_ENV for direct CLI deploys.
+        "deploy_cmd": (
+            "deploy --var DEPLOY_ENV:production "
+            "--var DEPLOY_PLATFORM:cloudflare "
+            f"--var DEPLOY_SURFACE:{str(app.get('deploy_surface') or slug).strip()} "
+            "--var DEPLOY_GIT_REF:${{ github.ref_name }} "
+            "--var DEPLOY_GIT_SHA:${{ github.sha }}"
+        ),
         "build_label": build_label,
         "build_desc": build_desc,
         "build_env": "\n".join(lines) + "\n",
