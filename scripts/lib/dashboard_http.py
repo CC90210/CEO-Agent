@@ -76,29 +76,68 @@ _CF_BODY_MARKERS = (
 )
 
 
+def _looks_like_cloudflare(text: str) -> bool:
+    return any(marker in text for marker in _CF_BODY_MARKERS)
+
+
+# Cloudflare answers these when it is busy or briefly down, not when it has
+# decided something about us. They clear on their own, so they must stay
+# retryable - treating them as terminal would throw away a finished extraction
+# over a thirty-second throttle (Codex review, 2026-09-15).
+_TRANSIENT_EDGE_STATUSES = (429, 503)
+_TERMINAL_EDGE_STATUSES = (403,)
+
+
 def classify_edge_block(status: int, body: str | None) -> str | None:
     """Return a stable edge-block reason, or None if our app actually answered.
 
     None does NOT mean success - it means the response came from the dashboard
     and the caller's normal status handling applies.
+
+    Pair every use with edge_block_is_transient(): a policy ban needs a human, a
+    throttle needs another attempt, and collapsing the two loses jobs in one
+    direction or hammers a ban in the other.
     """
-    if status not in (403, 429, 503):
+    if status not in _TRANSIENT_EDGE_STATUSES + _TERMINAL_EDGE_STATUSES:
         return None
     text = (body or "").lower()
+
+    if status in _TRANSIENT_EDGE_STATUSES:
+        # Still confirm the EDGE answered rather than our app: our routes can
+        # legitimately return 429 from their own rate limiter, and that is the
+        # dashboard talking, not Cloudflare.
+        if _looks_like_cloudflare(text) or not text.lstrip().startswith("{"):
+            return f"edge_transient_{status}"
+        return None
 
     m = re.search(r"error code:\s*(\d{3,4})", text)
     if m:
         return f"cloudflare_{m.group(1)}"
-    if any(marker in text for marker in _CF_BODY_MARKERS):
+    if _looks_like_cloudflare(text):
         return "cloudflare_challenge"
     # Our routes answer JSON, always. A 403 that is not JSON did not come from us.
-    if status == 403 and not text.lstrip().startswith("{"):
+    if not text.lstrip().startswith("{"):
         return "edge_non_json_403"
     return None
 
 
+def edge_block_is_transient(reason: str | None) -> bool:
+    """True when the edge was busy rather than when it decided something.
+
+    Callers use this to choose between a bounded retry and going terminal. It
+    reads the reason string alone so the decision travels with the reason
+    through a database column and a log line.
+    """
+    return bool(reason) and reason.startswith("edge_transient_")
+
+
 def edge_block_help(reason: str) -> str:
     """Operator-facing sentence for an edge block. Names the action, not the code."""
+    if reason.startswith("edge_transient_"):
+        return (
+            f"Cloudflare was busy or briefly down ({reason}); the dashboard never saw "
+            "the request. This clears by itself - the job stays queued and retries."
+        )
     if reason == "cloudflare_1010":
         return (
             "Cloudflare banned this request by browser signature (1010). Something is "

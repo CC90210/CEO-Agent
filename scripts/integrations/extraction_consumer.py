@@ -60,6 +60,7 @@ from lib.dashboard_http import (  # noqa: E402
     classify_edge_block,
     dashboard_request,
     edge_block_help,
+    edge_block_is_transient,
 )
 
 from lib.claude_auth import (  # noqa: E402
@@ -894,7 +895,10 @@ def _download_doc(env: dict[str, str], job_id: str, storage_path: str) -> tuple[
         # denial with Cloudflare's HTML one.
         edge = classify_edge_block(status, text)
         if edge:
-            return None, f"{BLOCKED_PREFIX}edge_blocked_{edge}"
+            # A ban needs a human; a throttle needs another attempt. Only the
+            # first gets the blocked: prefix that makes the job terminal.
+            prefix = "" if edge_block_is_transient(edge) else BLOCKED_PREFIX
+            return None, f"{prefix}edge_blocked_{edge}"
         if status in (401, 403):
             return None, f"{BLOCKED_PREFIX}dashboard_rejected_signature_{status}"
         # The dashboard could not mint a URL — its own R2 config is broken, or
@@ -945,8 +949,10 @@ def process_job(sb, env: dict[str, str], job: dict) -> str:
         if not ok:
             print(f"[extraction_consumer] re-callback {job_id} failed ({code}): {detail}", file=sys.stderr)
             edge = classify_edge_block(code, detail)
-            if edge:
+            if edge and not edge_block_is_transient(edge):
                 return _fail_or_retry(sb, job_id, attempts + 1, f"{BLOCKED_PREFIX}edge_blocked_{edge}")
+            # Transient falls through: the job stays `extracted` and re-POSTs on
+            # the next tick, which costs nothing and survives a brief throttle.
             return f"callback_retry_failed:{code}"
         return "applied"
 
@@ -1035,7 +1041,7 @@ def process_job(sb, env: dict[str, str], job: dict) -> str:
         # the attempt budget burns out hides a WAF problem behind a generic
         # "callback failed" and loses the extracted fields with it.
         edge = classify_edge_block(code, detail)
-        if edge:
+        if edge and not edge_block_is_transient(edge):
             return _fail_or_retry(sb, job_id, attempts + 1, f"{BLOCKED_PREFIX}edge_blocked_{edge}")
         return f"callback_failed:{code}"  # left as `extracted` → re-POST next tick
     _clear_blocked_alert()

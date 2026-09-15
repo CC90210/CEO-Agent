@@ -56,15 +56,26 @@ def _is_urllib_request_call(node: ast.AST) -> bool:
 def _url_expr_sources(call: ast.Call, tree: ast.AST, src: str) -> list[str]:
     """Source text of everything that could define this call's URL.
 
-    The first argument, plus - when that argument is a bare name - every
-    assignment to that name anywhere in the file. Without the second half a
+    The URL argument - positional OR the `url=` keyword - plus, when that
+    argument is a bare name, every assignment to that name anywhere in the file.
+
+    Both halves are load-bearing. Without name resolution, a
     `url = f"{base}/api/outbound/log"` two lines above the call reads as an
-    opaque variable, which is exactly the shape outbound_log_post.py had when
-    it was silently failing in production.
+    opaque variable, which is exactly the shape outbound_log_post.py had while
+    it was silently failing in production. Without the keyword form,
+    `Request(url=dashboard_url)` walks straight past the guard (Codex review,
+    2026-09-15).
     """
-    if not call.args:
+    first = None
+    if call.args:
+        first = call.args[0]
+    else:
+        for kw in call.keywords:
+            if kw.arg == "url":
+                first = kw.value
+                break
+    if first is None:
         return []
-    first = call.args[0]
     out = [ast.get_source_segment(src, first) or ""]
     if isinstance(first, ast.Name):
         target = first.id
@@ -127,6 +138,13 @@ def test_the_scan_actually_fires(tmp_path, monkeypatch):
                 url = f"{base_url}/api/internal/apply-extraction"
                 req = urllib.request.Request(url, data=body, method="POST")
                 return urllib.request.urlopen(req)
+
+            def post_by_keyword(base_url, body):
+                # Same bug, written the other way round. A guard that only reads
+                # positional arguments waves this straight through.
+                dashboard_url = f"{base_url}/api/outbound/log"
+                req = urllib.request.Request(url=dashboard_url, data=body)
+                return urllib.request.urlopen(req)
             '''
         ).strip()
         + "\n",
@@ -136,9 +154,14 @@ def test_the_scan_actually_fires(tmp_path, monkeypatch):
 
     monkeypatch.setattr(sys.modules[__name__], "SCAN_ROOT", tmp_path)
     bad = _violations()
-    assert any("planted_violation.py" in b for b in bad), (
+    planted = [b for b in bad if "planted_violation.py" in b]
+    assert planted, (
         "The planted violation was NOT detected - the scanner is no longer "
         "catching the bug it exists to catch."
+    )
+    assert len(planted) == 2, (
+        "Both invocation forms must be caught - positional AND url= keyword. "
+        f"Only found: {planted}"
     )
 
 
@@ -167,3 +190,26 @@ def test_the_seam_forces_the_user_agent():
     assert classify_edge_block(403, "error code: 1010") == "cloudflare_1010"
     assert classify_edge_block(403, '{"ok":false,"error":"bad_signature"}') is None
     assert classify_edge_block(401, '{"ok":false,"error":"bad_signature"}') is None
+
+
+def test_a_busy_edge_is_not_a_banned_one():
+    """A throttle must stay retryable; only a policy ban may go terminal.
+
+    Conflating them loses a finished extraction over a thirty-second Cloudflare
+    hiccup, because the caller marks a `blocked:` reason permanently failed.
+    """
+    import sys
+
+    sys.path.insert(0, str(SCAN_ROOT))
+    from lib.dashboard_http import classify_edge_block, edge_block_is_transient
+
+    for status in (429, 503):
+        reason = classify_edge_block(status, "<html>Cloudflare: please try again</html>")
+        assert reason == f"edge_transient_{status}", reason
+        assert edge_block_is_transient(reason), f"{status} must stay retryable"
+
+    ban = classify_edge_block(403, "error code: 1010")
+    assert not edge_block_is_transient(ban), "a 1010 ban must NOT be retried forever"
+
+    # Our own rate limiter answering 429 in JSON is the dashboard, not the edge.
+    assert classify_edge_block(429, '{"ok":false,"error":"rate_limited"}') is None
