@@ -189,11 +189,25 @@ def gate_secrets() -> dict:
     for slug, app in (reg.get("apps") or {}).items():
         if app.get("dropped"):
             continue
-        rc, out = _run([sys.executable, str(ROOT / "scripts" / "integrations" / "wrangler_tool.py"),
-                        "secrets-plan", "--app", slug])
+        manifest_path = app.get("secret_manifest")
+        if not manifest_path:
+            continue
         try:
-            missing = json.loads(out).get("missing_from_env_agents", [])
-        except json.JSONDecodeError:
+            manifest = json.loads((ROOT / manifest_path).read_text(encoding="utf-8"))
+            expected = {
+                item["key"] for item in manifest.get("secrets", [])
+                if item.get("scope", "runtime") in {"runtime", "both"}
+            }
+            rc, out = _run([
+                sys.executable,
+                str(ROOT / "scripts" / "integrations" / "wrangler_tool.py"),
+                "secrets-list", "--app", slug,
+            ])
+            if rc != 0:
+                raise ValueError(f"secrets-list exited {rc}")
+            deployed = {item["name"] for item in json.loads(out)}
+            missing = sorted(expected - deployed)
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
             # FAIL CLOSED. Treating an unparseable answer as "no gaps" would
             # turn a broken check into a PASS on the gate that authorises
             # deleting production deployments.
@@ -233,6 +247,8 @@ EXTERNAL_VERCEL_WATCH = ("breezeadvance.com", "www.breezeadvance.com")
 # retirement of everything else. It does not authorise deleting the Vercel
 # ACCOUNT, which would also take these hostnames down.
 OPERATOR_ACCEPTED = {
+    "breezeadvance.com": "CC 2026-09-15: former Breeze client hostname is outside our Cloudflare account; do not retain our Vercel account for it",
+    "www.breezeadvance.com": "CC 2026-09-15: former Breeze client hostname is outside our Cloudflare account; do not retain our Vercel account for it",
     "sunbizfunding.com": "CC 2026-08-31: registrar change submitted; watcher will cut over on propagation",
     "www.sunbizfunding.com": "CC 2026-08-31: same as apex",
 }

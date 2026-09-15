@@ -121,21 +121,6 @@
       "scope": "both"
     },
     {
-      "key": "PLAID_CLIENT_ID",
-      "source": "BREEZE_PORTAL__PLAID_CLIENT_ID",
-      "scope": "runtime"
-    },
-    {
-      "key": "PLAID_ENV",
-      "source": "BREEZE_PORTAL__PLAID_ENV",
-      "scope": "runtime"
-    },
-    {
-      "key": "PLAID_SECRET",
-      "source": "BREEZE_PORTAL__PLAID_SECRET",
-      "scope": "runtime"
-    },
-    {
       "key": "VPS_BRIDGE_SECRET",
       "source": "BREEZE_PORTAL__VPS_BRIDGE_SECRET",
       "scope": "runtime"
