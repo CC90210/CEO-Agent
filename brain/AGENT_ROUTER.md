@@ -122,7 +122,7 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Update operator dashboard data | emit `<dashboard-action type="…">{…}</dashboard-action>` marker (separate path; not run_script) | `oasis-command-center:lib/agent-actions.ts` |
 | Apply a SQL migration | (off run_script allowlist; surface `python scripts/apply_migration.py <path>` for operator approval) | `database/` for next migration number |
 | Push to Vercel | (off allowlist; `git push` auto-deploys; verify with `npx vercel ls`) | — |
-| Set a Vercel env var | (off allowlist; surface `npx vercel env add NAME production`) | `oasis-command-center:ENV_SETUP.md` |
+| Set a Cloudflare Worker secret | `python scripts/integrations/wrangler_tool.py secrets-push --app <slug>` | `config/cloudflare/manifests/<slug>.json` |
 
 To expose or change a script, add or update its literal `CAPABILITY_META`, then regenerate with `python scripts/build_bridge_manifest.py`. Per-subcommand visibility, fixed arguments, denied arguments, and confirmation policy belong in that contract; do not hand-edit the generated manifest.
 

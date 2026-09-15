@@ -72,7 +72,7 @@ build an approval surface that already existed.
 2. `git status` to confirm what's staged. Add explicitly — never `git add -A` without listing files first.
 3. Compose a commit message: 1-line title, blank, body. End with the standard `Co-Authored-By` trailer.
 4. `git commit -m "$(cat <<'EOF' … EOF)"` (HEREDOC pattern preserves newlines).
-5. `git push`. Vercel deploys automatically; verify green with `npx vercel ls` (look for the topmost deployment to flip from Building → Ready).
+5. `git push`. GitHub Actions deploys to Cloudflare automatically; verify the workflow is green and smoke-test the Worker URL.
 6. Confirm in chat: commit hash, what changed, deploy URL once green.
 
 ---
@@ -89,7 +89,7 @@ Allowed action types: `update_profile`, `toggle_agent_enabled`, `set_primary_age
 
 ## "Schedule / run a cron"
 
-1. For Vercel-hosted crons (the dashboard's): edit `oasis-command-center:vercel.json`'s `crons` array. Push. Vercel picks it up on next deploy.
+1. For Cloudflare-hosted dashboard crons: edit the `oasis-cc-cron` Worker schedule/route registry, push, and verify the Cloudflare deployment plus one authenticated dispatch.
 2. For local-machine crons (most of `scripts/*`): there's no central scheduler. The convention is `python scripts/<name>.py` invoked from the operator's task scheduler / launchd / systemd. Tell them what to schedule, but if they ask you to "automate it," wire it via `oasis-command-center:vercel.json` if it's HTTP-pingable, or surface the OS-specific install command.
 3. Confirm in chat: where it's now scheduled, when next run is.
 
