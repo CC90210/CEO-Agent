@@ -47,20 +47,34 @@ def dashboard_request(
     data: bytes | None = None,
     headers: dict[str, str] | None = None,
     method: str = "POST",
+    user_agent: str | None = None,
 ) -> urllib.request.Request:
     """Build a urllib Request to the dashboard with the User-Agent forced on.
 
     The UA is applied LAST and unconditionally. A caller that passes its own
-    user-agent header does not get to reinstate the banned default by accident,
+    user-agent HEADER does not get to reinstate the banned default by accident,
     and a caller that forgets one cannot ship a request the edge will drop.
+
+    `user_agent` is the one deliberate exception, and it exists for exactly one
+    caller: the canary that checks whether the Cloudflare skip rule still works.
+    That check is only meaningful when it sends the User-Agent Cloudflare BANS -
+    our own would sail through with or without the rule, making it a test that
+    can never fail. Naming the parameter is the point: an override has to be
+    asked for in writing, while the accident this module exists to prevent
+    remains impossible.
     """
     hdrs = dict(headers or {})
     # Header names are case-insensitive over the wire but not in this dict, so
     # drop any caller-supplied spelling before setting ours.
     for k in [k for k in hdrs if k.lower() == "user-agent"]:
         hdrs.pop(k)
-    hdrs["User-Agent"] = OASIS_UA
+    hdrs["User-Agent"] = user_agent or OASIS_UA
     return urllib.request.Request(url, data=data, headers=hdrs, method=method)
+
+
+# The User-Agent Cloudflare bans by signature. Named so the canary reads as what
+# it is, and so nobody has to rediscover which string triggers a 1010.
+BANNED_PROBE_UA = "Python-urllib/3.12"
 
 
 # Markers that mean "Cloudflare answered, our app did not". Checked against the

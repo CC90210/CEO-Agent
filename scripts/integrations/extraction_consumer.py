@@ -57,6 +57,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from lib.subprocess_helpers import safe_run  # noqa: E402
 from lib.dashboard_http import (  # noqa: E402
+    BANNED_PROBE_UA,
     classify_edge_block,
     dashboard_request,
     edge_block_help,
@@ -639,6 +640,67 @@ def _notify_blocked_once(reason: str, job_id: str) -> None:
     )
 
 
+# The edge skip rule is the SECOND layer. Layer one is the identifying
+# User-Agent this daemon now sends, and it is what actually carries traffic
+# today. That is exactly why the rule needs its own canary: if it stops matching
+# - the VPS egress changes, someone edits or deletes it - nothing breaks, so
+# nothing tells us, and we quietly run on one defence until the day Cloudflare
+# changes its mind about User-Agents again. Silent loss of redundancy is the
+# shape of this whole incident.
+EDGE_CANARY_INTERVAL_SEC = 60 * 60
+_edge_canary_due_at = 0.0
+
+
+def _edge_layer_canary(env: dict[str, str]) -> None:
+    """Check that the WAF skip rule still lets a bot-signature client through.
+
+    Deliberately sends the User-Agent Cloudflare BANS - the raw urllib default -
+    because that is the only request the rule can be observed to affect. Sending
+    our own polite User-Agent would pass whether the rule exists or not, and
+    would be a check that can never fail.
+
+    No signature is sent: a 401 from our own route is a PASS, because reaching
+    our route at all is the thing being measured. An HTML body is the edge.
+
+    Never raises, never blocks a tick, and never pages for anything but the
+    condition it tests.
+    """
+    global _edge_canary_due_at
+    now = time.monotonic()
+    if now < _edge_canary_due_at:
+        return
+    _edge_canary_due_at = now + EDGE_CANARY_INTERVAL_SEC
+
+    req = dashboard_request(
+        f"{_dashboard_base(env)}/api/internal/extraction-doc-url",
+        data=b"{}",
+        headers={"content-type": "application/json"},
+        user_agent=BANNED_PROBE_UA,
+    )
+    try:
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                status, body = resp.status, resp.read().decode("utf-8", "replace")[:400]
+        except urllib.error.HTTPError as e:
+            status, body = e.code, e.read().decode("utf-8", "replace")[:400]
+    except Exception as e:  # noqa: BLE001
+        print(f"[extraction_consumer] edge canary inconclusive ({type(e).__name__})", file=sys.stderr)
+        return
+
+    edge = classify_edge_block(status, body)
+    if edge and not edge_block_is_transient(edge):
+        _notify_ops(
+            "DEGRADED - the Cloudflare skip rule for /api/internal/* is no longer letting "
+            f"this server through ({edge}). Application drops still work, because the daemon "
+            "sends an identifying User-Agent, but the second layer is gone. Check that the WAF "
+            "rule still exists and that its IP set matches this box's egress - it changes when "
+            "the VPS does. Run: node scripts/cloudflare_internal_skip_rule.mjs --check"
+        )
+        print(f"[extraction_consumer] edge canary: RULE NOT EFFECTIVE ({edge})", file=sys.stderr)
+    else:
+        print(f"[extraction_consumer] edge canary: rule effective (status {status})", file=sys.stderr)
+
+
 def _clear_blocked_alert() -> None:
     """A job got through, so the blocked conditions are gone. Re-arm the page."""
     if _blocked_alerted:
@@ -1145,6 +1207,29 @@ def doctor(env: dict[str, str]) -> None:
         verdict = f"BROKEN — {probe_status}: {probe_text[:120]}"
     print(f"[extraction_consumer] document read path:          {verdict}")
 
+    # Second layer: is the WAF skip rule still doing anything? Uses the BANNED
+    # User-Agent, since our own would pass with or without the rule.
+    canary_req = dashboard_request(
+        f"{base_url}/api/internal/extraction-doc-url",
+        data=b"{}",
+        headers={"content-type": "application/json"},
+        user_agent=BANNED_PROBE_UA,
+    )
+    try:
+        try:
+            with urllib.request.urlopen(canary_req, timeout=20) as r:
+                c_status, c_body = r.status, r.read().decode("utf-8", "replace")[:400]
+        except urllib.error.HTTPError as e:
+            c_status, c_body = e.code, e.read().decode("utf-8", "replace")[:400]
+        c_edge = classify_edge_block(c_status, c_body)
+        edge_verdict = (
+            f"NOT EFFECTIVE - {c_edge}. {edge_block_help(c_edge)}" if c_edge
+            else f"ok (a banned User-Agent reached our route, status {c_status})"
+        )
+    except Exception as e:  # noqa: BLE001
+        edge_verdict = f"inconclusive ({type(e).__name__})"
+    print(f"[extraction_consumer] edge skip rule (layer 2):   {edge_verdict}")
+
     # ── The free tiers ──────────────────────────────────────────────────────
     # These are what keep applications flowing while the subscription is
     # capped. They were previously unverifiable from here, which is how the
@@ -1248,6 +1333,12 @@ def main() -> None:
             tick(sb, env)
         except Exception as e:  # noqa: BLE001
             print(f"[extraction_consumer] tick error: {e}", file=sys.stderr)
+        # Hourly, and self-limiting. Kept outside the tick try/except on purpose:
+        # a monitoring check must never be able to look like a processing error.
+        try:
+            _edge_layer_canary(env)
+        except Exception as e:  # noqa: BLE001
+            print(f"[extraction_consumer] edge canary error: {e}", file=sys.stderr)
         time.sleep(max(2, args.interval))
 
 

@@ -185,6 +185,18 @@ def test_the_seam_forces_the_user_agent():
     )
     assert r.get_header("User-agent") == OASIS_UA
 
+    # The deliberate override, and the fact that it stays deliberate: omitting
+    # it must still force our own UA, so the canary cannot become the way the
+    # banned default creeps back in.
+    from lib.dashboard_http import BANNED_PROBE_UA
+
+    r = dashboard_request("https://oasisai.work/api/internal/x", data=b"{}",
+                          user_agent=BANNED_PROBE_UA)
+    assert r.get_header("User-agent") == BANNED_PROBE_UA
+    r = dashboard_request("https://oasisai.work/api/internal/x", data=b"{}")
+    assert r.get_header("User-agent") == OASIS_UA
+    assert "urllib" in BANNED_PROBE_UA.lower(), "the probe must use the UA Cloudflare bans"
+
     # An edge denial is HTML from Cloudflare; ours is JSON. They must not be
     # confused, because they call for opposite actions.
     assert classify_edge_block(403, "error code: 1010") == "cloudflare_1010"
