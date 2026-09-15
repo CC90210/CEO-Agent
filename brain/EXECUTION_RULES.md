@@ -207,10 +207,10 @@ Operator-facing CLIs where a visible window IS the intended UX (rare): annotate 
 
 ## 16. EXTERNAL REVIEW SIGNAL IS PART OF THE LOOP (added 2026-07-20)
 
-Every push is reviewed by machines — CodeRabbit reads the diff, Dependabot watches dependencies, Vercel builds + checks the deploy, GitHub Actions runs CI. **That signal is not optional background noise; it is input to the loop.** A CodeRabbit CRITICAL, a red CI check, or a high-severity Dependabot alert is a finding you must see and triage, not a comment that dies in a PR page.
+Every push is reviewed by machines — CodeRabbit reads the diff, Dependabot watches dependencies, Cloudflare builds/checks the deployment, and GitHub Actions runs CI. **That signal is not optional background noise; it is input to the loop.** A CodeRabbit CRITICAL, a red CI check, or a high-severity Dependabot alert is a finding you must see and triage, not a comment that dies in a PR page.
 
 - When you push or open a PR on a bot-reviewed repo, **check the review signal before calling it done** — and **always pass `--repo <owner>/<repo>`** (this workspace's default remote is not the repo you're triaging):
-  - CI / Vercel checks: `gh pr checks <n> --repo <owner>/<repo>`
+  - CI / deployment checks: `gh pr checks <n> --repo <owner>/<repo>`
   - Security: `gh api repos/<owner>/<repo>/dependabot/alerts --paginate`
   - **CodeRabbit / human review — inline threads, not just the top-level comments.** `gh pr view --comments` shows conversation comments but **misses line-level review threads** (the 2026-07-20 bounce-cron CRITICAL lived in an inline thread). Fetch inline findings with `gh api --paginate repos/<owner>/<repo>/pulls/<n>/comments`, and use the GraphQL `reviewThreads` field when you need each thread's *resolved/unresolved* state.
 - A finding a bot already produced that you ignore is worse than one you never had — the reviewer did its job and you dropped it. Surface it, fix it, or explicitly defer it with a reason.
@@ -435,7 +435,7 @@ not permission — it is **awareness, and a review the machines cannot perform.*
 | Layer | Sees | Cannot see |
 |---|---|---|
 | **CodeRabbit** | the diff: null derefs, N+1s, missing guards, security smells | why the code is shaped that way |
-| **Vercel / CI** | that it builds, deploys, and passes tests | whether it should exist |
+| **Cloudflare / CI** | that it builds, deploys, and passes tests | whether it should exist |
 | **The peer agent** | the constraint that is not in the diff | nothing — this is the only layer with history |
 
 A bot finds the null deref. **Only the surface owner knows the field is nullable
