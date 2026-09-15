@@ -1,0 +1,9 @@
+{
+  "secrets": [
+    {
+      "key": "BLOB_READ_WRITE_TOKEN",
+      "source": "SHOWROOM__BLOB_READ_WRITE_TOKEN",
+      "scope": "runtime"
+    }
+  ]
+}

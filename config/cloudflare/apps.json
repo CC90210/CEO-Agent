@@ -48,7 +48,10 @@
       "dir": "C:\\Users\\User\\APPS\\arthrisil-website",
       "kind": "opennext",
       "vercel_project": "arthrisil-website",
-      "custom_domains": [],
+      "custom_domains": [
+        "arthrisil.com",
+        "www.arthrisil.com"
+      ],
       "wave": 2
     },
     "nostalgic-requests": {
@@ -66,7 +69,52 @@
       "vercel_project": "real-estate-marketing-suite",
       "custom_domains": [],
       "wave": 2,
-      "dropped": "2026-08-29 per CC \u2014 stays on Vercel; no secret fill required"
+      "note": "2026-09-15 operator superseded the prior Vercel exception; migrate web runtime and Blob storage to Cloudflare"
+    },
+    "aura-home-agent": {
+      "dir": "C:\\Users\\User\\AURA\\dashboard",
+      "kind": "opennext",
+      "vercel_project": "aura-home-agent",
+      "custom_domains": [],
+      "wave": 4,
+      "note": "AURA dashboard only; Home Assistant and device services remain on the Pi"
+    },
+    "gritly": {
+      "dir": "C:\\Users\\User\\APPS\\gritly",
+      "kind": "opennext",
+      "vercel_project": "gritly",
+      "custom_domains": [],
+      "wave": 4
+    },
+    "revline": {
+      "dir": "C:\\Users\\User\\APPS\\revline",
+      "kind": "opennext",
+      "vercel_project": "revline",
+      "custom_domains": [],
+      "wave": 4
+    },
+    "showroom": {
+      "dir": "C:\\Users\\User\\CMO-Agent\\showroom\\src",
+      "kind": "static-worker",
+      "vercel_project": "showroom",
+      "custom_domains": [],
+      "wave": 4,
+      "note": "Static CMO showroom; no runtime dependency on Vercel Blob"
+    },
+    "on-the-bay-painting": {
+      "dir": "C:\\Users\\User\\APPS\\on-the-bay-painting",
+      "kind": "opennext",
+      "vercel_project": "on-the-bay-painting",
+      "custom_domains": [],
+      "wave": 4,
+      "note": "Legacy client project retained as a Cloudflare replacement before Vercel retirement"
+    },
+    "oasis-vanguard": {
+      "dir": "C:\\Users\\User\\APPS\\OASIS-Vanguard\\web",
+      "kind": "opennext",
+      "vercel_project": "oasis-vanguard",
+      "custom_domains": [],
+      "wave": 4
     },
     "oasis-ai-platform": {
       "dir": "C:\\Users\\User\\APPS\\oasis-ai-platform",
@@ -102,7 +150,7 @@
         "breezeadvance.credit"
       ],
       "wave": 3,
-      "note": "app.breezeadvance.com DNS is in the CLIENT's Cloudflare account \u2014 never touched by us"
+      "note": "Breeze client is no longer retained. Core portal is preserved on Cloudflare; retired client-only Plaid credentials are intentionally not carried forward. app.breezeadvance.com and breezeadvance.com remain outside our Cloudflare account and are not cancellation blockers."
     },
     "oasis-cc-cron": {
       "dir": "C:\\Users\\User\\APPS\\oasis-command-center\\workers\\oasis-cc-cron",
@@ -122,7 +170,7 @@
       ],
       "wave": 3,
       "build_env": {
-        "NODE_OPTIONS": "--max-old-space-size=4096"
+        "NODE_OPTIONS": "--max-old-space-size=4096 --use-system-ca"
       },
       "note": "APEX-shared repo \u2014 coord_claim before editing; 28 crons; native-dep refactors gated on CC decisions. apply.sunbizfunding.com REMOVED 2026-09-07: it has no DNS record at all (NXDOMAIN), 0 personalized form links have ever been minted, and across 487 lead_interactions mentioning sunbizfunding.com it appears in ZERO \u2014 the live funding flow uses the apex and www, which resolve. Binding a hostname that does not exist would fail the Cloudflare cutover. Do not re-add without creating the CNAME first; the Vercel project still lists it (read-only tooling, operator removes it there)."
     }

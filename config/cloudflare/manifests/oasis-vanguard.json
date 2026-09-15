@@ -1,0 +1,14 @@
+{
+  "secrets": [
+    {
+      "key": "TURSO_AUTH_TOKEN",
+      "source": "OASIS_VANGUARD__TURSO_AUTH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_DATABASE_URL",
+      "source": "OASIS_VANGUARD__TURSO_DATABASE_URL",
+      "scope": "runtime"
+    }
+  ]
+}

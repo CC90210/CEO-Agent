@@ -6,11 +6,6 @@
       "scope": "runtime"
     },
     {
-      "key": "BLOB_READ_WRITE_TOKEN",
-      "source": "LISTING_STUDIO__BLOB_READ_WRITE_TOKEN",
-      "scope": "runtime"
-    },
-    {
       "key": "PUBLISH_MODE",
       "source": "LISTING_STUDIO__PUBLISH_MODE",
       "scope": "runtime"
@@ -83,6 +78,11 @@
     {
       "key": "ZILLOW_WORKER_TENANT",
       "source": "LISTING_STUDIO__ZILLOW_WORKER_TENANT",
+      "scope": "runtime"
+    },
+    {
+      "key": "FREE_RENDER_SALT",
+      "source": "LISTING_STUDIO__FREE_RENDER_SALT",
       "scope": "runtime"
     },
     {

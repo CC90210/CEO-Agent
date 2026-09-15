@@ -1,0 +1,84 @@
+{
+  "secrets": [
+    {
+      "key": "BETTER_AUTH_SECRET",
+      "source": "GRITLY__BETTER_AUTH_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "BETTER_AUTH_URL",
+      "source": "GRITLY__BETTER_AUTH_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "FROM_EMAIL",
+      "source": "GRITLY__FROM_EMAIL",
+      "scope": "runtime"
+    },
+    {
+      "key": "FROM_NAME",
+      "source": "GRITLY__FROM_NAME",
+      "scope": "runtime"
+    },
+    {
+      "key": "NEXT_PUBLIC_APP_URL",
+      "source": "GRITLY__NEXT_PUBLIC_APP_URL",
+      "scope": "both"
+    },
+    {
+      "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "source": "GRITLY__NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "scope": "both"
+    },
+    {
+      "key": "SMTP_HOST",
+      "source": "GRITLY__SMTP_HOST",
+      "scope": "runtime"
+    },
+    {
+      "key": "SMTP_PASSWORD",
+      "source": "GRITLY__SMTP_PASSWORD",
+      "scope": "runtime"
+    },
+    {
+      "key": "SMTP_PORT",
+      "source": "GRITLY__SMTP_PORT",
+      "scope": "runtime"
+    },
+    {
+      "key": "SMTP_USER",
+      "source": "GRITLY__SMTP_USER",
+      "scope": "runtime"
+    },
+    {
+      "key": "STRIPE_SECRET_KEY",
+      "source": "GRITLY__STRIPE_SECRET_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_AUTH_TOKEN",
+      "source": "GRITLY__TURSO_AUTH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TURSO_DATABASE_URL",
+      "source": "GRITLY__TURSO_DATABASE_URL",
+      "scope": "runtime"
+    },
+    {
+      "key": "TWILIO_ACCOUNT_SID",
+      "source": "GRITLY__TWILIO_ACCOUNT_SID",
+      "scope": "runtime"
+    },
+    {
+      "key": "TWILIO_AUTH_TOKEN",
+      "source": "GRITLY__TWILIO_AUTH_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "TWILIO_FROM_NUMBER",
+      "source": "GRITLY__TWILIO_FROM_NUMBER",
+      "scope": "runtime"
+    }
+  ]
+}
