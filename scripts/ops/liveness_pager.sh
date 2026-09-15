@@ -49,20 +49,33 @@ log() { printf '%s [liveness_pager] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" 
 
 FAILURES=()
 
-# (a) daemons online — one python pass over jlist (passed via env, not stdin).
-JLIST="$(pm2 jlist 2>/dev/null || echo '[]')"
-DAEMON_FAILS="$(EXPECTED="${EXPECTED_DAEMONS[*]}" JLIST="$JLIST" python3 - <<'PY'
-import os, json
+# (a) daemons online — one python pass over jlist.
+#
+# jlist goes through a TEMP FILE, not an env var. It was an env var until
+# 2026-08-30, and with 18 daemons `pm2 jlist` is ~140KB — past Linux's 128KB
+# MAX_ARG_STRLEN ceiling on a single env entry. execve then failed with
+# "Argument list too long", the command substitution returned the empty string,
+# and empty read as "nothing failing". This check had been fail-OPEN on every
+# run since the daemon list grew: a dead daemon would never have paged anyone.
+JLIST_FILE="$(mktemp)"
+trap 'rm -f "$JLIST_FILE"' EXIT
+pm2 jlist >"$JLIST_FILE" 2>/dev/null || echo '[]' >"$JLIST_FILE"
+DAEMON_FAILS="$(EXPECTED="${EXPECTED_DAEMONS[*]}" JLIST_FILE="$JLIST_FILE" python3 - <<'PY'
+import os, json, sys
 expected = os.environ.get("EXPECTED", "").split()
 try:
-    arr = json.loads(os.environ.get("JLIST") or "[]")
-except Exception:
-    arr = []
+    with open(os.environ["JLIST_FILE"]) as fh:
+        arr = json.load(fh)
+except Exception as exc:
+    # Fail CLOSED. Not knowing the daemon states is itself pageable; the old
+    # code turned exactly this condition into a clean bill of health.
+    print("jlist_unreadable=%s" % type(exc).__name__)
+    sys.exit(0)
 state = {p.get("name"): ((p.get("pm2_env") or {}).get("status")) for p in arr}
 bad = [d + "=" + (state.get(d) or "MISSING") for d in expected if state.get(d) != "online"]
 print(",".join(bad))
 PY
-)"
+)" || DAEMON_FAILS="daemon_check_crashed"
 [ -n "$DAEMON_FAILS" ] && FAILURES+=("daemons[$DAEMON_FAILS]")
 
 # (b) cloudflared tunnel.
