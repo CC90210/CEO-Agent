@@ -56,6 +56,11 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from lib.subprocess_helpers import safe_run  # noqa: E402
+from lib.dashboard_http import (  # noqa: E402
+    classify_edge_block,
+    dashboard_request,
+    edge_block_help,
+)
 
 from lib.claude_auth import (  # noqa: E402
     build_claude_spawn_env,
@@ -600,6 +605,45 @@ def _notify_ops(message: str) -> None:
         print(f"[extraction_consumer] notify unavailable ({type(e).__name__}) — {message}", file=sys.stderr)
 
 
+# Condition -> monotonic deadline. Keyed on the blocked REASON, not on the
+# rendered sentence, so ten jobs hitting one broken dependency page once rather
+# than ten times, and a genuinely different cause is never suppressed behind it.
+_blocked_alerted: dict[str, float] = {}
+BLOCKED_ALERT_COOLDOWN_SEC = 30 * 60
+
+
+def _notify_blocked_once(reason: str, job_id: str) -> None:
+    """Page ops the first time a blocked condition appears, then back off.
+
+    The dropzone already tells the rep "the team has been alerted" when it sees
+    a `blocked:` reason. Until 2026-09-15 nothing actually sent that alert, so
+    the sentence was false and five application drops died unnoticed inside an
+    hour. Alerting here, at the one place a job goes terminal, makes it true for
+    every blocked cause rather than only the ones someone remembered to wire.
+    """
+    key = reason.split(" ", 1)[0][:120]
+    now = time.monotonic()
+    deadline = _blocked_alerted.get(key)
+    if deadline is not None and now < deadline:
+        return
+    _blocked_alerted[key] = now + BLOCKED_ALERT_COOLDOWN_SEC
+    detail = reason[len(BLOCKED_PREFIX):] if reason.startswith(BLOCKED_PREFIX) else reason
+    hint = ""
+    if detail.startswith("edge_blocked_"):
+        hint = " " + edge_block_help(detail[len("edge_blocked_"):])
+    _notify_ops(
+        f"BLOCKED - application drops are failing and a human must act. "
+        f"Reason: {detail[:200]} (job {job_id[:8]}).{hint} "
+        f"Reps see the drop fail; nothing was saved."
+    )
+
+
+def _clear_blocked_alert() -> None:
+    """A job got through, so the blocked conditions are gone. Re-arm the page."""
+    if _blocked_alerted:
+        _blocked_alerted.clear()
+
+
 def _extract_via_opencode(doc_text: str, truncated: bool) -> tuple[bool, dict | None, str]:
     """Free model (OpenCode) over document TEXT. Returns (ok, fields, note)."""
     try:
@@ -762,11 +806,15 @@ def _signed_request(
         return False, 0, "hmac_secret_missing"
     body = json.dumps(payload, separators=(",", ":"))
     sig = hmac.new(secret.encode("utf-8"), body.encode("utf-8"), hashlib.sha256).hexdigest()
-    req = urllib.request.Request(
+    # dashboard_request, never urllib.request.Request directly: it forces the
+    # User-Agent. Cloudflare bans the urllib default by signature and answers
+    # 403 "error code: 1010" before Next.js sees the request, so an unsigned-
+    # looking rejection here is usually the EDGE, not the HMAC. See
+    # scripts/lib/dashboard_http.py.
+    req = dashboard_request(
         f"{_dashboard_base(env)}{path}",
         data=body.encode("utf-8"),
         headers={"content-type": "application/json", "x-oasis-signature": sig},
-        method="POST",
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -839,6 +887,14 @@ def _download_doc(env: dict[str, str], job_id: str, storage_path: str) -> tuple[
     if not ok:
         if text == "hmac_secret_missing":
             return None, f"{BLOCKED_PREFIX}hmac_secret_missing"
+        # EDGE FIRST. A 403 from Cloudflare and a 401 from our own route mean
+        # opposite things, and calling the former a "rejected signature" is what
+        # sent the 2026-09-15 outage chasing a secret that was never wrong.
+        # classify_edge_block reads the BODY, so it cannot confuse our JSON
+        # denial with Cloudflare's HTML one.
+        edge = classify_edge_block(status, text)
+        if edge:
+            return None, f"{BLOCKED_PREFIX}edge_blocked_{edge}"
         if status in (401, 403):
             return None, f"{BLOCKED_PREFIX}dashboard_rejected_signature_{status}"
         # The dashboard could not mint a URL — its own R2 config is broken, or
@@ -888,6 +944,9 @@ def process_job(sb, env: dict[str, str], job: dict) -> str:
         )
         if not ok:
             print(f"[extraction_consumer] re-callback {job_id} failed ({code}): {detail}", file=sys.stderr)
+            edge = classify_edge_block(code, detail)
+            if edge:
+                return _fail_or_retry(sb, job_id, attempts + 1, f"{BLOCKED_PREFIX}edge_blocked_{edge}")
             return f"callback_retry_failed:{code}"
         return "applied"
 
@@ -972,7 +1031,14 @@ def process_job(sb, env: dict[str, str], job: dict) -> str:
     ok, code, detail = _post_apply_callback(env, job_id, fields, signature_box, used_fallback)
     if not ok:
         print(f"[extraction_consumer] callback {job_id} failed ({code}): {detail}", file=sys.stderr)
+        # An edge block is terminal, not transient: re-POSTing every tick until
+        # the attempt budget burns out hides a WAF problem behind a generic
+        # "callback failed" and loses the extracted fields with it.
+        edge = classify_edge_block(code, detail)
+        if edge:
+            return _fail_or_retry(sb, job_id, attempts + 1, f"{BLOCKED_PREFIX}edge_blocked_{edge}")
         return f"callback_failed:{code}"  # left as `extracted` → re-POST next tick
+    _clear_blocked_alert()
     return "applied" + ("(fallback)" if used_fallback else "")
 
 
@@ -983,6 +1049,8 @@ def _fail_or_retry(sb, job_id: str, attempts: int, reason: str) -> str:
     # round trips, and keeps the `blocked:` prefix the health check reads.
     if reason.startswith(BLOCKED_PREFIX) or attempts >= MAX_ATTEMPTS:
         _set_status(sb, job_id, status="failed", error=reason)
+        if reason.startswith(BLOCKED_PREFIX):
+            _notify_blocked_once(reason, job_id)
         return f"failed:{reason}"
     # Back to queued for another pass (bounded by MAX_ATTEMPTS).
     _set_status(sb, job_id, status="queued", error=reason)
@@ -1058,8 +1126,11 @@ def doctor(env: dict[str, str]) -> None:
     probe_ok, probe_status, probe_text = _signed_request(
         env, "/api/internal/extraction-doc-url", {"job_id": "00000000-0000-4000-8000-000000000000"}
     )
+    probe_edge = classify_edge_block(probe_status, probe_text)
     if probe_status == 404 and "job_not_found" in probe_text:
         verdict = "ok (signature accepted)"
+    elif probe_edge:
+        verdict = f"BROKEN AT THE EDGE - {probe_edge}. {edge_block_help(probe_edge)}"
     elif probe_status in (401, 403):
         verdict = f"BROKEN — dashboard rejected the signature ({probe_status}). Check OASIS_OUTBOUND_HMAC_SECRET."
     elif probe_ok:

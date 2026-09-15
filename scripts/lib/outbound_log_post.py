@@ -35,6 +35,16 @@ import urllib.error
 import urllib.request
 from typing import Any, Optional
 
+# The dashboard is behind Cloudflare, which bans the default urllib User-Agent
+# by signature (403 "error code: 1010") before Next.js ever sees the request.
+# On 2026-09-15 that silently dropped every write-back from this module: the
+# email or SMS still went out, the interaction log did not. Routing through the
+# one seam keeps the User-Agent set for good. See scripts/lib/dashboard_http.py.
+try:
+    from lib.dashboard_http import classify_edge_block, dashboard_request
+except ImportError:  # imported as a sibling module rather than via scripts/
+    from dashboard_http import classify_edge_block, dashboard_request
+
 DEFAULT_DASHBOARD_URL = "https://agent-dashboard-cc90210.vercel.app"
 TIMEOUT_SECONDS = 8
 
@@ -106,10 +116,9 @@ def post_outbound_log(
 
     url = f"{base_url}/api/outbound/log"
     body_bytes = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
+    req = dashboard_request(
         url,
         data=body_bytes,
-        method="POST",
         headers={
             "Content-Type": "application/json",
             "x-oasis-profile-id": profile_id,
@@ -127,6 +136,12 @@ def post_outbound_log(
             err_body = e.read().decode("utf-8") or ""
         except Exception:
             err_body = ""
+        # Name an edge rejection for what it is. "http_403" against a Cloudflare
+        # error page reads like the dashboard refused our credentials, which
+        # sends whoever reads this log hunting a secret that is perfectly fine.
+        edge = classify_edge_block(e.code, err_body)
+        if edge:
+            return False, None, f"edge_blocked_{edge}: the dashboard never saw this write-back"
         msg = f"http_{e.code}"
         if err_body:
             msg = f"{msg}: {err_body[:200]}"
