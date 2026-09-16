@@ -828,15 +828,13 @@ SEED_JOBS: list[dict] = [
         # strands a half-written deck.
         "name": "Maven — Carousel Post",
         "description": (
-            "Daily 08:00 — authors carousel specs, renders GEN-9 motion slides (a 26s "
-            "MP4 per slide: the build animates for ~6s, then the finished text holds "
-            "to the last frame so it can actually be read, plus a still exported from "
-            "the same composition), "
-            "queues them, then books TWO posts per day at 13:00 and 19:00 UTC to "
-            "Instagram, LinkedIn and Threads. The cadence decides whether a given day "
-            "books, not this schedule. Rotation guarantees no two consecutive posts "
-            "share a lane or a module shape. Also delivers finished renders to CC's "
-            "Telegram and mirrors pieces into the founders Library."
+            "Daily 08:00 ET — runs the complete GEN-10 posting chain: verify-published, "
+            "watch, author-carousels, unstick, generate, plan, deliver-renders, then "
+            "library-sync. Authors and renders only the six recognized creative families, "
+            "then books up to two posts at 13:00 and 19:00 UTC for Instagram, LinkedIn "
+            "and Threads. Family is selected before lane/system/slug and distinct same-day "
+            "families are preferred; constrained inventory may repeat rather than leave a "
+            "slot empty. Finished renders go to CC's Telegram and the founders Library."
         ),
         "schedule": "0 8 * * *",
         "action_type": "script_run",
@@ -848,6 +846,24 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
 ]
+
+# Durable UI ownership for the Empire scheduler lane. The scheduler continues
+# to execute every row identically; this field answers which C-suite agent owns
+# the work. New definitions default to Bravo unless deliberately added here,
+# while the shape test above forces every imported seed to carry the resolved
+# value before it can be inserted or compared for drift.
+MAVEN_SEED_JOB_NAMES: frozenset[str] = frozenset({
+    "Carousel Media Retention",
+    "Library Post Linker",
+    "Marketing Publish Drain",
+    "Maven — Carousel Post",
+    "Post Analytics Sync",
+    "Training Corpus Ingest",
+})
+for _seed_definition in SEED_JOBS:
+    _seed_definition["owner_agent_key"] = (
+        "maven" if _seed_definition["name"] in MAVEN_SEED_JOB_NAMES else "bravo"
+    )
 
 
 # -- Cron schedule parsing (next-run approximation) ----------------------------
@@ -1176,7 +1192,12 @@ def cmd_seed(client, args, output_json: bool) -> None:
     for adding one newly approved production schedule without inserting other
     definitions that happen to be absent on that machine.
     """
-    existing_result = client.table("cron_jobs").select("name").execute()
+    existing_result = (
+        client.table("cron_jobs")
+        .select("name")
+        .eq("tenant_id", CC_EMPIRE_TENANT_ID)
+        .execute()
+    )
     # Dash-normalized so a row registered as "Bravo - X" is recognised as the
     # same job as SEED_JOBS' "Bravo — X". Exact matching here would not error —
     # it would INSERT A DUPLICATE cron, and the fleet would then run that job
@@ -1263,7 +1284,7 @@ def _seed_by_normalized_name() -> dict:
 # must not ride along with a schedule rewrite, which is the mutation CLAUDE.md
 # says CC reviews first. Prose and behaviour carry different risk and get
 # different switches.
-DRIFT_FIELDS = ("schedule", "action_type", "action_config")
+DRIFT_FIELDS = ("schedule", "action_type", "action_config", "owner_agent_key")
 
 # Fields that change what CC READS rather than what runs.
 #
@@ -1301,7 +1322,14 @@ def _doc_drift_rows(client, only=None) -> list:
             print(f"ERROR: no SEED_JOBS definition named {only!r}", file=sys.stderr)
             raise SystemExit(2)
 
-    live = client.table("cron_jobs").select("*").execute().data or []
+    live = (
+        client.table("cron_jobs")
+        .select("*")
+        .eq("tenant_id", CC_EMPIRE_TENANT_ID)
+        .execute()
+        .data
+        or []
+    )
     out = []
     for row in live:
         definition = by_name.get(_normalize_dash(row.get("name", "")).casefold())
@@ -1344,7 +1372,14 @@ def _drift_rows(client, only=None) -> list:
             print(f"ERROR: no SEED_JOBS definition named {only!r}", file=sys.stderr)
             raise SystemExit(2)
 
-    live = client.table("cron_jobs").select("*").execute().data or []
+    live = (
+        client.table("cron_jobs")
+        .select("*")
+        .eq("tenant_id", CC_EMPIRE_TENANT_ID)
+        .execute()
+        .data
+        or []
+    )
     out = []
     for row in live:
         definition = by_name.get(_normalize_dash(row.get("name", "")).casefold())
