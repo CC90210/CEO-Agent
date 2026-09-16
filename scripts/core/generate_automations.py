@@ -67,18 +67,40 @@ def collect_cron() -> tuple[list[dict], str | None]:
         from integrations.supabase_tool import get_client  # noqa: PLC0415
         from lib.secret_loader import load_env  # noqa: PLC0415
         db = get_client(dict(load_env()))
-        rows = db.table("cron_jobs").select(
-            "name,is_active,schedule,last_result,last_run_at").limit(500).execute().data or []
+        from core.cron_engine import CC_EMPIRE_TENANT_ID  # noqa: PLC0415
+        rows = (db.table("cron_jobs").select(
+            "id,name,is_active,schedule,action_type,action_config,owner_agent_key,"
+            "last_result,last_run_at,fail_count")
+            .eq("tenant_id", CC_EMPIRE_TENANT_ID).limit(500).execute().data or [])
+        tenant_rows = (db.table("tenant_cron_jobs").select(
+            "id,agent_key,name,description,enabled,schedule,action_type,action_payload,"
+            "last_run_at,last_run_status,last_run_error,last_run_output")
+            .eq("tenant_id", CC_EMPIRE_TENANT_ID).limit(500).execute().data or [])
     except Exception as exc:  # noqa: BLE001
         return [], f"{type(exc).__name__}: {exc}"
 
     seeds = {}
     try:
-        from core.cron_engine import SEED_JOBS  # noqa: PLC0415
+        from core.cron_engine import SEED_JOBS, audit_live_inventory  # noqa: PLC0415
         for j in SEED_JOBS:
             seeds[str(j.get("name") or "")] = j
     except Exception:  # noqa: BLE001
         pass
+
+    # A generated register that quietly omits a declared job recreates the same
+    # plausible-partial-inventory failure as the UI. Render the live rows for
+    # diagnosis, but mark the source incomplete and exit non-zero so the daily
+    # register cron turns red instead of blessing the shorter list.
+    contract_error = None
+    try:
+        issues = audit_live_inventory(rows)
+        if issues:
+            summary = "; ".join(
+                f"{issue.get('name')}: {issue.get('kind')}" for issue in issues[:8]
+            )
+            contract_error = f"inventory contract failed ({len(issues)}): {summary}"
+    except Exception as exc:  # noqa: BLE001
+        contract_error = f"inventory contract unavailable: {type(exc).__name__}: {exc}"
 
     # Reuse the harness's OWN suppression rather than re-deriving "failing".
     # The nightly harness eval's row records its own scoreboard, so a run that
@@ -100,16 +122,44 @@ def collect_cron() -> tuple[list[dict], str | None]:
         last = str(r.get("last_result") or "")
         out.append({
             "name": name,
+            "owner": str(r.get("owner_agent_key") or "unknown"),
+            "source": "empire",
             "active": bool(r.get("is_active")),
             "schedule": str(r.get("schedule") or "?"),
             "does": str(seed.get("description") or "").strip(),
             "runs": str(cfg.get("script") or seed.get("action_type") or ""),
             "last_run": str(r.get("last_run_at") or "")[:16],
-            "failing": (last.upper().startswith(("ERROR", "FAILED"))
+            "failing": ((last.upper().startswith(("ERROR", "FAILED"))
+                         or int(r.get("fail_count") or 0) > 0)
                         and not is_self_scored_failure(r)),
             "declared": name in seeds,
         })
-    return sorted(out, key=lambda x: (not x["active"], x["name"])), None
+
+    for r in tenant_rows:
+        payload = r.get("action_payload") or {}
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except (TypeError, ValueError):
+                payload = {}
+        status = str(r.get("last_run_status") or "").strip().casefold()
+        error = str(r.get("last_run_error") or "").strip()
+        output = str(r.get("last_run_output") or "").strip()
+        out.append({
+            "name": str(r.get("name") or ""),
+            "owner": str(r.get("agent_key") or "unknown"),
+            "source": "tenant",
+            "active": bool(r.get("enabled")),
+            "schedule": str(r.get("schedule") or "?"),
+            "does": str(r.get("description") or "").strip(),
+            "runs": str(payload.get("script") or r.get("action_type") or ""),
+            "last_run": str(r.get("last_run_at") or "")[:16],
+            "failing": (status in {"error", "failed", "failure", "fatal", "crashed"}
+                        or bool(error)
+                        or output.upper().startswith(("ERROR", "FAILED"))),
+            "declared": True,
+        })
+    return sorted(out, key=lambda x: (not x["active"], x["name"])), contract_error
 
 
 def collect_daemons() -> tuple[list[dict], str | None]:
@@ -219,7 +269,7 @@ def render(data: dict) -> str:
         f"> Generated at: {now.strftime('%Y-%m-%d %H:%M UTC')}",
         "",
         "Read this to answer *what runs, when, and is it healthy* without running",
-        "anything. Sources: the live `cron_jobs` table, `cron_engine.SEED_JOBS`,",
+        "anything. Sources: live `cron_jobs` + `tenant_cron_jobs`, `cron_engine.SEED_JOBS`,",
         "the fleet manifest, `.claude/settings.local.json`, and Task Scheduler.",
         "",
         "Related: [[EXECUTION_RULES]] · [[DATA_LIFECYCLE]] · [[V6_ARCHITECTURE]]",
@@ -243,16 +293,18 @@ def render(data: dict) -> str:
     if failing:
         L += ["Failing now:", ""] + [f"- `{c['name']}` — last run {c['last_run'] or '?'}"
                                      for c in failing] + [""]
-    L += ["| Job | Schedule | Runs | What it does |", "|---|---|---|---|"]
+    L += ["| Job | Owner | Schedule | Runs | What it does |", "|---|---|---|---|---|"]
     for c in active:
         does = (c["does"][:110] + "…") if len(c["does"]) > 110 else (c["does"] or "—")
         does = does.replace("|", "/").replace("\n", " ")
-        L.append(f"| {'🔴 ' if c['failing'] else ''}{c['name']} | `{c['schedule']}` "
+        L.append(f"| {'🔴 ' if c['failing'] else ''}{c['name']} "
+                 f"| {str(c.get('owner') or 'unknown').title()} | `{c['schedule']}` "
                  f"| `{c['runs'] or '—'}` | {does} |")
     inactive = [c for c in crons if not c["active"]]
     if inactive:
         L += ["", f"<details><summary>{len(inactive)} inactive</summary>", ""]
-        L += [f"- {c['name']} (`{c['schedule']}`)" for c in inactive]
+        L += [f"- {c['name']} — {str(c.get('owner') or 'unknown').title()} "
+              f"(`{c['schedule']}`)" for c in inactive]
         L += ["", "</details>", ""]
 
     L += ["", "## Daemons (long-running)", ""]

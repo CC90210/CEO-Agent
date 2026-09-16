@@ -215,6 +215,7 @@ def test_client_tenant_rows_never_reach_ccs_digest():
     class FakeQ:
         def __init__(self, rows): self._r = rows
         def select(self, *a): return self
+        def eq(self, *a): return self
         def execute(self): return SimpleNamespace(data=self._r)
 
     class FakeDb:
@@ -240,3 +241,65 @@ def test_client_tenant_rows_never_reach_ccs_digest():
     assert not any("SunBiz" in n for n in all_names), (
         "a client-tenant row reached the founder's digest — the scope ruling regressed"
     )
+
+
+def test_stale_skip_cannot_hide_unresolved_scheduler_failures():
+    failed, reason = chc.classify_empire_run(
+        "skipped-stale: next_run_at was 65 min behind threshold", 2,
+    )
+    assert failed is True
+    assert "2 unresolved consecutive" in reason
+
+
+def test_a_real_success_with_zero_fail_count_stays_healthy():
+    assert chc.classify_empire_run("ok: posted 2", 0) == (False, "")
+
+
+def test_tenant_manifest_disabled_drift_is_not_silently_skipped():
+    jobs = [{
+        "name": "Atlas - Pulse Refresh", "enabled": True,
+        "schedule": "0 */4 * * *", "action_type": "script_run",
+        "action_payload": {"script": "tools/pulse_publish.py", "args": ["refresh"]},
+    }]
+    rows = [{
+        "id": "pulse", "tenant_id": "ef8d389e-oasis", "agent_key": "atlas",
+        "name": "Atlas - Pulse Refresh", "enabled": 0,
+        "schedule": "0 */4 * * *", "action_type": "script_run",
+        "action_payload": '{"script":"tools/pulse_publish.py","args":["refresh"]}',
+    }]
+    issues = chc.tenant_manifest_issues(
+        rows, jobs, agent_key="atlas", tenant_prefix="ef8d389e",
+    )
+    assert issues == [{
+        "bucket": "disarmed", "name": "Atlas - Pulse Refresh",
+        "detail": "atlas manifest expects active; live tenant row is disabled",
+    }]
+
+
+def test_tenant_manifest_catches_missing_and_behaviour_drift():
+    jobs = [
+        {
+            "name": "Atlas - Missing", "enabled": True,
+            "schedule": "0 7 * * *", "action_type": "script_run",
+            "action_payload": {"script": "tools/missing.py"},
+        },
+        {
+            "name": "Atlas - Present", "enabled": True,
+            "schedule": "0 8 * * *", "action_type": "script_run",
+            "action_payload": {"script": "tools/present.py"},
+        },
+    ]
+    rows = [{
+        "id": "present", "tenant_id": "ef8d389e-oasis", "agent_key": "atlas",
+        "name": "Atlas - Present", "enabled": 1,
+        "schedule": "0 9 * * *", "action_type": "script_run",
+        "action_payload": {"script": "tools/present.py"},
+    }]
+    issues = chc.tenant_manifest_issues(
+        rows, jobs, agent_key="atlas", tenant_prefix="ef8d389e",
+    )
+    assert [(issue["name"], issue["bucket"]) for issue in issues] == [
+        ("Atlas - Missing", "failing"),
+        ("Atlas - Present", "failing"),
+    ]
+    assert "schedule" in issues[1]["detail"]

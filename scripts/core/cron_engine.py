@@ -408,8 +408,10 @@ SEED_JOBS: list[dict] = [
     {
         # Added 2026-05-22 — meta-monitoring. Catches future broken crons
         # (like the Daily MRR Auto-Sync gap that sat silently failing
-        # for days). Scans cron_jobs nightly for last_result starting with
-        # ERROR / FAILED and Telegrams CC with a consolidated alert.
+        # for days). Reconciles declared-vs-live inventory, result shape,
+        # unresolved fail_count, missed fires, disabled-by-drift rows, Atlas's
+        # tenant manifest and daemon-backed processes, then Telegrams CC with
+        # one consolidated alert.
         # Self-monitoring: if THIS cron fails, its own FAILED row surfaces
         # in the dashboard's red-border treatment.
         # 2026-07-29: promoted from nightly (0 22 * * *) to hourly. A daily scan
@@ -418,7 +420,7 @@ SEED_JOBS: list[dict] = [
         # zero alerts. Hourly + notify.py's 1h dedup means a broken job surfaces
         # within the hour and then pings at most once an hour, not 12x a day.
         "name": "Bravo — Hourly Cron Health Check",
-        "description": "Hourly scan of cron_jobs for last_result starting with ERROR or FAILED. Telegrams CC with the failing job name + snippet. Meta-cron: guards every other cron so silent breakage doesn't sit dead for days.",
+        "description": "Hourly automation canary — reconciles declared vs live Empire rows and Atlas's tenant manifest, then detects unresolved failure counts, error-shaped results, missed fires, disabled-by-drift jobs and dead daemon-backed runners. Telegrams one deduplicated alert so a partial inventory or masked failure cannot look green.",
         "schedule": "0 * * * *",
         "action_type": "script_run",
         "action_config": {"script": "scripts/core/cron_health_check.py", "args": ["--alert"]},
@@ -1286,6 +1288,104 @@ def _seed_by_normalized_name() -> dict:
 # different switches.
 DRIFT_FIELDS = ("schedule", "action_type", "action_config", "owner_agent_key")
 
+
+def audit_live_inventory(
+    live_rows: list[dict], definitions: list[dict] | None = None,
+) -> list[dict]:
+    """Return structural/behavioural gaps between registered and declared jobs.
+
+    ``drift`` historically compared only rows that already existed. That catches
+    a changed schedule, but it cannot catch the more dangerous inventory failure:
+    a declared job disappearing from ``cron_jobs`` entirely. The Automations tab
+    can then return a plausible-looking partial list while every row it *did*
+    receive is valid.
+
+    Unknown live rows remain legitimate (``cron_engine.py add`` supports ad-hoc
+    jobs). This contract is one-way: every declared SEED_JOBS definition must be
+    represented exactly once and its behaviour-bearing fields must match.
+    """
+    declared = definitions if definitions is not None else SEED_JOBS
+    by_name: dict[str, list[dict]] = {}
+    for row in live_rows:
+        key = _normalize_dash(str(row.get("name") or "")).casefold()
+        by_name.setdefault(key, []).append(row)
+
+    issues: list[dict] = []
+    for definition in declared:
+        name = str(definition.get("name") or "")
+        key = _normalize_dash(name).casefold()
+        matches = by_name.get(key, [])
+        if not matches:
+            issues.append({
+                "kind": "missing",
+                "name": name,
+                "detail": "declared in SEED_JOBS but missing from live cron_jobs",
+            })
+            continue
+        if len(matches) > 1:
+            ids = [str(row.get("id") or "?") for row in matches]
+            issues.append({
+                "kind": "duplicate",
+                "name": name,
+                "detail": f"declared job has {len(matches)} live rows: {', '.join(ids)}",
+                "row_ids": ids,
+            })
+            continue
+
+        row = matches[0]
+        diffs: dict[str, dict] = {}
+        for field in DRIFT_FIELDS:
+            want, got = definition.get(field), row.get(field)
+            if field == "action_config":
+                if isinstance(want, str):
+                    try:
+                        want = json.loads(want)
+                    except (TypeError, ValueError):
+                        pass
+                if isinstance(got, str):
+                    try:
+                        got = json.loads(got)
+                    except (TypeError, ValueError):
+                        pass
+            if want is not None and want != got:
+                diffs[field] = {"seed": want, "live": got}
+        if diffs:
+            fields = ", ".join(sorted(diffs))
+            issues.append({
+                "kind": "drift",
+                "name": name,
+                "row_id": row.get("id"),
+                "detail": f"live row disagrees with SEED_JOBS: {fields}",
+                "diffs": diffs,
+            })
+    return issues
+
+
+def _inventory_issues(client, only=None) -> list[dict]:
+    """Read the scoped registry and apply :func:`audit_live_inventory`."""
+    definitions = SEED_JOBS
+    if only:
+        wanted = _normalize_dash(only).casefold()
+        definitions = [
+            definition for definition in SEED_JOBS
+            if _normalize_dash(definition["name"]).casefold() == wanted
+        ]
+        if not definitions:
+            print(f"ERROR: no SEED_JOBS definition named {only!r}", file=sys.stderr)
+            raise SystemExit(2)
+    live = (
+        client.table("cron_jobs")
+        .select("*")
+        .eq("tenant_id", CC_EMPIRE_TENANT_ID)
+        .execute()
+        .data
+        or []
+    )
+    return [
+        issue for issue in audit_live_inventory(live, definitions)
+        if issue.get("kind") in {"missing", "duplicate"}
+    ]
+
 # Fields that change what CC READS rather than what runs.
 #
 # `description` used to be excluded from drift entirely, as "prose drift is
@@ -1412,6 +1512,7 @@ def cmd_drift(client, args, output_json: bool) -> None:
     """
     rows = _drift_rows(client, getattr(args, "only", None))
     docs = _doc_drift_rows(client, getattr(args, "only", None))
+    inventory = _inventory_issues(client, getattr(args, "only", None))
 
     # Descriptions realign under their OWN flag. --fix is the schedule-rewrite
     # switch and must not quietly also rewrite prose, nor the reverse.
@@ -1431,7 +1532,18 @@ def cmd_drift(client, args, output_json: bool) -> None:
             row["fixed"] = True
 
     if output_json:
-        print(json.dumps({"drifted": rows, "doc_drifted": docs}, indent=2, default=str))
+        print(json.dumps({"drifted": rows, "doc_drifted": docs,
+                          "inventory_issues": inventory}, indent=2, default=str))
+    elif inventory:
+        print(f"INVENTORY CONTRACT FAILED on {len(inventory)} job(s):\n")
+        for issue in inventory:
+            print(f"  {issue['name']}: {issue['kind']} — {issue['detail']}")
+        if rows:
+            print(f"\n{len(rows)} existing row(s) also have schedule/action drift.")
+        if docs:
+            print(f"{len(docs)} existing row(s) also have stale descriptions.")
+        print("\nMissing rows require a reviewed seed/reconciliation; duplicates require "
+              "operator review before either trigger is removed.")
     elif not rows and not docs:
         print("No drift: every live cron matches its SEED_JOBS definition.")
     elif not rows:
@@ -1459,7 +1571,7 @@ def cmd_drift(client, args, output_json: bool) -> None:
         if not getattr(args, "fix", False):
             print('Re-align with:  cron_engine.py drift --fix --only "<name>"')
 
-    if rows and not getattr(args, "fix", False):
+    if inventory or (rows and not getattr(args, "fix", False)):
         raise SystemExit(1)
 
 

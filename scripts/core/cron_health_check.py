@@ -261,6 +261,19 @@ def classify_last_result(last_result: str | None) -> tuple[bool, str]:
     return False, ""
 
 
+def classify_empire_run(last_result, fail_count=0) -> tuple[bool, str]:
+    """Classify a cron row without letting a stale-skip hide failed attempts."""
+    is_fail, reason = classify_last_result(last_result)
+    try:
+        unresolved = int(fail_count or 0)
+    except (TypeError, ValueError):
+        unresolved = 0
+    if unresolved > 0 and not is_fail:
+        return True, (f"{unresolved} unresolved consecutive failure(s); latest status text is "
+                      f"{str(last_result or '(empty)')[:120]}")
+    return is_fail, reason
+
+
 def _is_opaque(last_result: str | None) -> bool:
     """A stored result that cannot carry a verdict either way.
 
@@ -403,9 +416,19 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
     # -- empire cron_jobs ----------------------------------------------------
     # Deliberately NOT filtered on is_active. The old query's `.eq("is_active",
     # True)` is precisely why a disarmed-but-expected job could never surface.
-    rows = db.table("cron_jobs").select(
-        "id,name,is_active,schedule,last_result,last_run_at,created_at").execute()
-    for row in rows.data or []:
+    # Scope explicitly to CC's Empire tenant. A service-role read without this
+    # predicate can make another tenant's same-named row satisfy the inventory
+    # contract, or page CC for a client row he does not operate.
+    try:
+        from cron_engine import CC_EMPIRE_TENANT_ID  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"cannot load Empire tenant identity: {exc}") from exc
+    rows = (db.table("cron_jobs").select(
+        "id,name,is_active,schedule,action_type,action_config,owner_agent_key,"
+        "last_result,last_run_at,created_at,fail_count")
+        .eq("tenant_id", CC_EMPIRE_TENANT_ID).execute())
+    live_rows = rows.data or []
+    for row in live_rows:
         name = str(row.get("name") or "")
         active = bool(row.get("is_active"))
         last_result = row.get("last_result")
@@ -429,7 +452,12 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
         # is exactly how the alert and the eval ended up disagreeing.
         self_scored = _is_self_scored_failure(row)
 
-        is_fail, reason = classify_last_result(last_result)
+        is_fail, reason = classify_empire_run(last_result, row.get("fail_count"))
+        # ``skipped-stale`` advances a missed slot without executing and, by
+        # design, does not reset fail_count. That is useful scheduler state but
+        # it used to overwrite the ERROR text and make an unresolved failure
+        # read green. A real successful run resets this counter to zero, so a
+        # positive value means the job has not recovered yet.
         if is_fail and not self_scored:
             findings["failing"].append({
                 "name": name, "source": "cron_jobs",
@@ -456,10 +484,46 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
                 "detail": stale_reason,
             })
 
+    findings = _scan_empire_inventory_contract(live_rows, findings)
+
     if include_tenant:
         findings = _scan_tenant_crons(db, findings, now)
     findings = _scan_daemon_backed(findings)
     findings = _scan_bridge_pairings(db, findings)
+    return findings
+
+
+def _scan_empire_inventory_contract(
+    rows: list[dict], findings: dict[str, list[dict]],
+) -> dict[str, list[dict]]:
+    """Turn missing/duplicate/drifted SEED_JOBS rows into hourly failures.
+
+    The health loop used to inspect only rows returned by the database. If a
+    row disappeared, there was literally nothing to inspect, so the watchdog
+    declared the shortened inventory healthy. Keep the reconciliation logic in
+    cron_engine and only adapt its findings to this watchdog's alert shape.
+    """
+    try:
+        from cron_engine import audit_live_inventory  # noqa: PLC0415
+        issues = audit_live_inventory(rows)
+    except Exception as exc:  # noqa: BLE001
+        findings["failing"].append({
+            "name": "Empire automation inventory contract",
+            "source": "cron_jobs",
+            "last_result": "",
+            "last_run_at": None,
+            "detail": f"inventory reconciliation unavailable: {type(exc).__name__}: {exc}",
+        })
+        return findings
+
+    for issue in issues:
+        findings["failing"].append({
+            "name": str(issue.get("name") or "unknown automation"),
+            "source": "cron_jobs_inventory",
+            "last_result": "",
+            "last_run_at": None,
+            "detail": f"inventory {issue.get('kind', 'mismatch')}: {issue.get('detail', '')}",
+        })
     return findings
 
 
@@ -609,13 +673,17 @@ def _scan_tenant_crons(db, findings: dict[str, list[dict]],
     is the part CC depends on hourly.
     """
     try:
-        rows = db.table("tenant_cron_jobs").select(
-            "id,tenant_id,agent_key,name,enabled,schedule,last_run_at,"
-            "last_run_status,last_run_error,last_run_output,created_at").execute()
+        from cron_engine import CC_EMPIRE_TENANT_ID  # noqa: PLC0415
+        rows = (db.table("tenant_cron_jobs").select(
+            "id,tenant_id,agent_key,name,enabled,schedule,action_type,action_payload,"
+            "last_run_at,last_run_status,last_run_error,last_run_output,created_at")
+            .eq("tenant_id", CC_EMPIRE_TENANT_ID).execute())
     except Exception as exc:  # noqa: BLE001
         print(f"[cron_health_check] WARNING: tenant_cron_jobs scan skipped "
               f"({type(exc).__name__}: {exc})", file=sys.stderr)
         return findings
+
+    findings = _scan_tenant_manifest_contracts(rows.data or [], findings)
 
     for row in rows.data or []:
         # CC'S SCOPE RULING (2026-08-22): Bravo's Telegram digest covers OASIS
@@ -663,6 +731,134 @@ def _scan_tenant_crons(db, findings: dict[str, list[dict]],
                 "last_result": (err or str(output or ""))[:200],
                 "last_run_at": row.get("last_run_at"),
                 "detail": stale_reason,
+            })
+    return findings
+
+
+def tenant_manifest_issues(
+    rows: list[dict], jobs: list[dict], *, agent_key: str, tenant_prefix: str,
+) -> list[dict]:
+    """Compare one agent-owned manifest with its governed tenant registry.
+
+    Tenant jobs do not have SEED_JOBS, so disabled rows were previously skipped
+    with no way to know whether OFF meant "operator decision" or "silent drift".
+    The owning agent's manifest supplies that missing intent without moving
+    ownership into Bravo.
+    """
+    scoped = [
+        row for row in rows
+        if str(row.get("tenant_id") or "").startswith(tenant_prefix)
+        and str(row.get("agent_key") or "").casefold() == agent_key.casefold()
+    ]
+    by_name: dict[str, list[dict]] = {}
+    for row in scoped:
+        by_name.setdefault(_norm_name(str(row.get("name") or "")), []).append(row)
+
+    def meaning(value):
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except (TypeError, ValueError):
+                return value
+        return value
+
+    issues: list[dict] = []
+    for job in jobs:
+        name = str(job.get("name") or "")
+        matches = by_name.get(_norm_name(name), [])
+        if not matches:
+            issues.append({
+                "bucket": "failing", "name": name,
+                "detail": f"missing from tenant_cron_jobs but declared by {agent_key} manifest",
+            })
+            continue
+        if len(matches) > 1:
+            issues.append({
+                "bucket": "failing", "name": name,
+                "detail": f"{len(matches)} live tenant rows share this manifest name",
+            })
+            continue
+        row = matches[0]
+        expected_enabled = bool(job.get("enabled", True))
+        live_enabled = bool(row.get("enabled"))
+        if expected_enabled != live_enabled:
+            if expected_enabled:
+                issues.append({
+                    "bucket": "disarmed", "name": name,
+                    "detail": f"{agent_key} manifest expects active; live tenant row is disabled",
+                })
+            else:
+                issues.append({
+                    "bucket": "failing", "name": name,
+                    "detail": f"{agent_key} manifest expects disabled; live tenant row is active",
+                })
+
+        diffs = []
+        for manifest_field, row_field in (
+            ("schedule", "schedule"),
+            ("action_type", "action_type"),
+            ("action_payload", "action_payload"),
+        ):
+            want, got = meaning(job.get(manifest_field)), meaning(row.get(row_field))
+            if want is not None and want != got:
+                diffs.append(manifest_field)
+        if diffs:
+            issues.append({
+                "bucket": "failing", "name": name,
+                "detail": f"live tenant row disagrees with {agent_key} manifest: "
+                          f"{', '.join(diffs)}",
+            })
+    return issues
+
+
+def _scan_tenant_manifest_contracts(
+    rows: list[dict], findings: dict[str, list[dict]],
+) -> dict[str, list[dict]]:
+    """Load agent-owned declarative manifests and adapt their issues to alerts."""
+    try:
+        from sibling_repos import SIBLING_REPOS  # noqa: PLC0415
+        sources = [
+            {
+                "agent_key": "atlas",
+                "tenant_prefix": "ef8d389e",
+                "path": SIBLING_REPOS["atlas"] / "data" / "atlas_automations.json",
+            },
+        ]
+    except Exception as exc:  # noqa: BLE001
+        findings["failing"].append({
+            "name": "Tenant automation manifest contract",
+            "source": "tenant_cron_jobs",
+            "last_result": "", "last_run_at": None,
+            "detail": f"manifest routing unavailable: {type(exc).__name__}: {exc}",
+        })
+        return findings
+
+    for source in sources:
+        path = source["path"]
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            jobs = payload.get("jobs")
+            if not isinstance(jobs, list):
+                raise ValueError("top-level jobs must be a list")
+            issues = tenant_manifest_issues(
+                rows, jobs, agent_key=source["agent_key"],
+                tenant_prefix=source["tenant_prefix"],
+            )
+        except Exception as exc:  # noqa: BLE001
+            findings["failing"].append({
+                "name": f"{source['agent_key'].title()} automation manifest",
+                "source": "tenant_cron_jobs",
+                "last_result": "", "last_run_at": None,
+                "detail": f"manifest unreadable: {type(exc).__name__}: {exc}",
+            })
+            continue
+
+        for issue in issues:
+            findings[issue["bucket"]].append({
+                "name": issue["name"],
+                "source": "tenant_cron_jobs_manifest",
+                "last_result": "", "last_run_at": None,
+                "detail": issue["detail"],
             })
     return findings
 

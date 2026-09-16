@@ -70,7 +70,7 @@ def test_failing_jobs_are_surfaced_above_the_table():
          "runs": "s.py", "last_run": "2026-08-29T01:00", "failing": True, "declared": True},
     ]))
     assert "currently failing" in out
-    assert out.index("Failing now") < out.index("| Job | Schedule")
+    assert out.index("Failing now") < out.index("| Job | Owner | Schedule")
 
 
 def test_inactive_jobs_are_kept_but_collapsed():
@@ -91,7 +91,7 @@ def test_a_pipe_in_a_description_cannot_break_the_table():
          "does": "does a | b | c", "runs": "s.py", "last_run": "", "failing": False,
          "declared": True}]))
     row = next(l for l in out.splitlines() if l.startswith("| J |"))
-    assert row.count("|") == 5, f"description leaked a pipe into the row: {row}"
+    assert row.count("|") == 6, f"description leaked a pipe into the row: {row}"
 
 
 def test_daemon_states_are_visually_distinct():
@@ -151,6 +151,17 @@ def test_the_committed_register_exists_and_is_non_trivial():
     assert "Scheduled jobs" in text and "Daemons" in text
     assert "INCOMPLETE" not in text, (
         "the committed register was generated while a source was unreadable")
+
+
+def test_live_collector_gates_on_the_seed_inventory_contract():
+    """The daily register must not bless a plausible partial cron list."""
+    source = (REPO / "scripts" / "core" / "generate_automations.py").read_text(
+        encoding="utf-8",
+    )
+    assert "audit_live_inventory(rows)" in source
+    assert "inventory contract failed" in source
+    assert 'db.table("tenant_cron_jobs")' in source
+    assert '"owner": str(r.get("agent_key")' in source
 
 
 # --- duration: the question nothing could answer -----------------------------

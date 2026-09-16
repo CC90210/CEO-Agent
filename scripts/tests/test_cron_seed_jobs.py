@@ -319,6 +319,60 @@ def _row_from(definition, **overrides):
     return row
 
 
+def test_inventory_contract_accepts_one_matching_row_per_definition():
+    rows = [_row_from(j, id=f"row-{i}") for i, j in enumerate(JOBS)]
+    assert ce.audit_live_inventory(rows) == []
+
+
+def test_inventory_contract_catches_a_declared_job_that_disappears():
+    """The exact Automations-tab outage class: a partial list must not look green."""
+    rows = [_row_from(j, id=f"row-{i}") for i, j in enumerate(JOBS[1:])]
+    issues = ce.audit_live_inventory(rows)
+    assert len(issues) == 1
+    assert issues[0]["kind"] == "missing"
+    assert issues[0]["name"] == JOBS[0]["name"]
+
+
+def test_inventory_contract_catches_duplicate_registered_rows():
+    definition = JOBS[0]
+    issues = ce.audit_live_inventory([
+        _row_from(definition, id="first"),
+        _row_from(definition, id="second"),
+    ], [definition])
+    assert issues == [{
+        "kind": "duplicate",
+        "name": definition["name"],
+        "detail": "declared job has 2 live rows: first, second",
+        "row_ids": ["first", "second"],
+    }]
+
+
+def test_inventory_contract_catches_owner_and_schedule_drift():
+    definition = JOBS[0]
+    issues = ce.audit_live_inventory([
+        _row_from(definition, owner_agent_key="maven", schedule="0 0 * * *"),
+    ], [definition])
+    assert len(issues) == 1
+    assert issues[0]["kind"] == "drift"
+    assert set(issues[0]["diffs"]) == {"owner_agent_key", "schedule"}
+
+
+def test_inventory_contract_keeps_ad_hoc_live_jobs_legitimate():
+    definition = JOBS[0]
+    rows = [
+        _row_from(definition),
+        {"id": "adhoc", "name": "Operator one-off", "schedule": "0 0 * * *"},
+    ]
+    assert ce.audit_live_inventory(rows, [definition]) == []
+
+
+def test_inventory_contract_compares_action_config_by_meaning():
+    import json
+    definition = JOBS[0]
+    row = _row_from(definition, action_config=json.dumps(definition["action_config"]))
+    assert ce.audit_live_inventory([row], [definition]) == []
+
+
 def test_no_drift_when_the_live_row_matches():
     definition = JOBS[0]
     assert ce._drift_rows(_FakeClient([_row_from(definition)])) == []
@@ -374,17 +428,33 @@ def test_drift_reports_by_default_and_only_writes_with_fix(capsys):
     stale["args"] = []
 
     client = _FakeClient([_row_from(definition, action_config=stale)])
-    args = type("A", (), {"only": None, "fix": False})()
+    args = type("A", (), {"only": definition["name"], "fix": False})()
     with pytest.raises(SystemExit) as exc:
         ce.cmd_drift(client, args, False)
     assert exc.value.code == 1, "drift must exit non-zero so a caller can gate on it"
     assert client.updates == [], "report mode must not write"
 
     client = _FakeClient([_row_from(definition, action_config=stale)])
-    ce.cmd_drift(client, type("A", (), {"only": None, "fix": True})(), False)
+    ce.cmd_drift(client, type("A", (), {
+        "only": definition["name"], "fix": True,
+    })(), False)
     assert len(client.updates) == 1, "--fix must write exactly one row"
     _, patch = client.updates[0]
     assert isinstance(patch["action_config"], str), "action_config is stored as TEXT"
+
+
+def test_drift_cli_flags_a_declared_job_missing_from_live_registry(capsys):
+    definition = JOBS[0]
+    client = _FakeClient([])
+    args = type("A", (), {
+        "only": definition["name"], "fix": False, "fix_docs": False,
+    })()
+    with pytest.raises(SystemExit) as exc:
+        ce.cmd_drift(client, args, False)
+    assert exc.value.code == 1
+    out = capsys.readouterr().out
+    assert "INVENTORY CONTRACT FAILED" in out
+    assert definition["name"] in out
 
 
 def test_the_harness_eval_actually_runs_the_drift_check():
@@ -393,3 +463,18 @@ def test_the_harness_eval_actually_runs_the_drift_check():
     names = [name for name, *_ in harness_eval.CHECKS]
     assert any("cron definitions match" in n for n in names), (
         "the drift check must be registered in CHECKS, not merely defined")
+
+
+def test_harness_eval_fails_when_a_declared_cron_is_missing(monkeypatch):
+    import json
+    import harness_eval
+    payload = {
+        "drifted": [], "doc_drifted": [],
+        "inventory_issues": [{"kind": "missing", "name": "Missing Job"}],
+    }
+    monkeypatch.setattr(
+        harness_eval, "_run", lambda *_a, **_k: (1, json.dumps(payload), ""),
+    )
+    ok, detail = harness_eval.check_cron_definitions_match_live()
+    assert ok is False
+    assert "Missing Job" in detail
