@@ -43,6 +43,15 @@ ALTER TABLE public.cron_jobs
 CREATE INDEX IF NOT EXISTS idx_cron_jobs_tenant_owner_active
   ON public.cron_jobs (tenant_id, owner_agent_key, is_active);
 
+-- The application inventory is service-role mediated. The legacy table never
+-- needs direct browser-role access, so close the historical grants before the
+-- SECURITY DEFINER toggle function below becomes its only write surface.
+DO $table_permissions$
+BEGIN
+  EXECUTE 'REVOKE ALL ON TABLE public.cron_jobs FROM anon, authenticated';
+END
+$table_permissions$;
+
 CREATE OR REPLACE FUNCTION public.toggle_cron_job_with_audit_v1(
   p_source text,
   p_id uuid,

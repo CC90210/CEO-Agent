@@ -1,3 +1,12 @@
+---
+tags:
+  - automation
+  - cron
+  - implementation-plan
+---
+
+Related: [[scripts/core/cron_engine.py]], [[docs/audits/2026-09-16-command-center-automation-inventory.md]], [[database/turso_migrations/bravo__108_cron_owner_agent_key.sql]]
+
 # Command Center Automation Inventory Repair Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
@@ -35,10 +44,12 @@
 - Modify: `scripts/tests/test_cron_seed_jobs.py`
 
 1. Add `cron_jobs.owner_agent_key TEXT NOT NULL DEFAULT 'bravo'` and a tenant/owner/active index.
-2. Backfill the six verified Maven rows by exact name and update the live Maven carousel description to the GEN-10 contract in the same idempotent migration.
+2. Backfill the six verified Maven rows by exact name and update the live Maven carousel description to the GEN-10 contract in the same ledgered migration.
 3. Add explicit `owner_agent_key` metadata to every seed, with the six Maven jobs assigned to `maven` and all remaining current Empire jobs assigned to `bravo`.
 4. Include ownership in seed inserts and documentation drift so new rows and existing rows cannot diverge silently.
 5. Keep the retired Windows `MavenSchedulePosts` trigger disabled and do not create daemon duplicates.
+
+Migration 108 is one-shot DDL because libSQL does not support `ADD COLUMN IF NOT EXISTS`. A normal rerun with the identical checksum is skipped by `schema_migrations`. If execution is interrupted after the column is added but before the ledger receipt is written, do not blindly rerun the `ADD COLUMN`: verify `owner_agent_key` with `PRAGMA table_info(cron_jobs)`, apply the remaining tenant-scoped updates and index statement individually, verify ownership/description drift is zero, then reconcile the migration ledger with the file's actual checksum and statement count.
 
 ## Task 3: Repair the Command Center read and control paths
 

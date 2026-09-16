@@ -186,6 +186,10 @@ def test_postgres_rollback_migration_has_scoped_owners_and_atomic_toggle_rpc():
     assert "ADD COLUMN IF NOT EXISTS owner_agent_key text" in migration
     assert "ALTER COLUMN owner_agent_key SET NOT NULL" in migration
     assert "CREATE OR REPLACE FUNCTION public.toggle_cron_job_with_audit_v1" in migration
+    assert re.search(
+        r"REVOKE ALL ON TABLE public\.cron_jobs FROM anon, authenticated'",
+        migration,
+    )
     assert migration.count("FOR UPDATE;") == 2
     assert "p_expected_name" in migration
     assert "p_expected_enabled" in migration

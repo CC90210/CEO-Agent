@@ -1,3 +1,12 @@
+---
+tags:
+  - automation
+  - cron
+  - audit
+---
+
+Related: [[scripts/core/cron_engine.py]], [[database/bravo__109_cron_owner_atomic_toggle.sql]], [[database/turso_migrations/bravo__108_cron_owner_agent_key.sql]]
+
 # Command Center Automation Inventory — 2026-09-16
 
 Read-only inventory captured before the ownership migration and missing-seed installation. Times in `cron_jobs` and `tenant_cron_jobs` are interpreted in `America/Toronto` by their local runners unless a row explicitly says UTC.
