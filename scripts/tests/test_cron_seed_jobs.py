@@ -20,6 +20,8 @@ observed to fail.
 """
 from __future__ import annotations
 
+import sqlite3
+import re
 import sys
 from pathlib import Path
 
@@ -34,7 +36,15 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def test_every_job_has_the_required_keys():
-    required = {"name", "description", "schedule", "action_type", "action_config", "is_active"}
+    required = {
+        "name",
+        "description",
+        "schedule",
+        "action_type",
+        "action_config",
+        "is_active",
+        "owner_agent_key",
+    }
     for j in JOBS:
         missing = required - set(j)
         assert not missing, f"{j.get('name', '<unnamed>')} is missing {sorted(missing)}"
@@ -97,6 +107,100 @@ def test_timeouts_are_positive_numbers():
         assert isinstance(t, (int, float)) and t > 0, f"{j['name']}: timeout {t!r} is not a positive number"
 
 
+def test_seed_ownership_matches_the_verified_empire_inventory():
+    """Agent grouping is stored data, not a dashboard name heuristic."""
+    expected_maven = {
+        "Carousel Media Retention",
+        "Library Post Linker",
+        "Marketing Publish Drain",
+        "Maven — Carousel Post",
+        "Post Analytics Sync",
+        "Training Corpus Ingest",
+    }
+    actual_maven = {j["name"] for j in JOBS if j["owner_agent_key"] == "maven"}
+    assert actual_maven == expected_maven
+    assert all(j["owner_agent_key"] in {"bravo", "maven", "atlas", "aura"} for j in JOBS)
+
+
+def test_maven_carousel_seed_describes_gen10_not_gen9():
+    job = next(j for j in JOBS if j["name"] == "Maven — Carousel Post")
+    assert "GEN-10" in job["description"]
+    assert "GEN-9" not in job["description"]
+
+
+def test_owner_migration_never_relabels_a_same_named_row_in_another_tenant():
+    """Name reconciliation must retain the cron table's tenant boundary."""
+    migration = (
+        REPO / "database/turso_migrations/bravo__108_cron_owner_agent_key.sql"
+    ).read_text(encoding="utf-8")
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE cron_jobs ("
+        "id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, name TEXT NOT NULL, "
+        "description TEXT, is_active INTEGER NOT NULL DEFAULT 1)"
+    )
+    cc_tenant = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+    other_tenant = "00000000-0000-4000-8000-000000000002"
+    conn.executemany(
+        "INSERT INTO cron_jobs (id, tenant_id, name, description) VALUES (?, ?, ?, ?)",
+        [
+            ("cc", cc_tenant, "Maven — Carousel Post", "legacy cc"),
+            ("other", other_tenant, "Maven — Carousel Post", "other tenant contract"),
+        ],
+    )
+    conn.executescript(migration)
+    rows = {
+        row[0]: row[1:]
+        for row in conn.execute(
+            "SELECT id, owner_agent_key, description FROM cron_jobs ORDER BY id"
+        )
+    }
+    assert rows["cc"][0] == "maven"
+    assert "GEN-10" in rows["cc"][1]
+    assert rows["other"] == ("bravo", "other tenant contract")
+
+
+def test_postgres_rollback_migration_has_scoped_owners_and_atomic_toggle_rpc():
+    """The explicit Supabase rollback must preserve the Turso control contract."""
+    migration = (
+        REPO / "database/bravo__109_cron_owner_atomic_toggle.sql"
+    ).read_text(encoding="utf-8")
+    owner_backfill = re.search(
+        r"UPDATE public\.cron_jobs\s+SET owner_agent_key = 'maven'(?P<body>.+?);",
+        migration,
+        flags=re.DOTALL,
+    )
+    assert owner_backfill, "Maven owner backfill is missing"
+    body = owner_backfill.group("body")
+    expected_maven = {
+        "Carousel Media Retention",
+        "Library Post Linker",
+        "Marketing Publish Drain",
+        "Maven — Carousel Post",
+        "Post Analytics Sync",
+        "Training Corpus Ingest",
+    }
+    assert expected_maven == set(re.findall(r"^\s+'([^']+)'[,]?$", body, re.MULTILINE))
+    assert "tenant_id = 'ef8d389e-3f15-43f2-ae00-3660f69a1452'::uuid" in body
+
+    assert "ADD COLUMN IF NOT EXISTS owner_agent_key text" in migration
+    assert "ALTER COLUMN owner_agent_key SET NOT NULL" in migration
+    assert "CREATE OR REPLACE FUNCTION public.toggle_cron_job_with_audit_v1" in migration
+    assert migration.count("FOR UPDATE;") == 2
+    assert "p_expected_name" in migration
+    assert "p_expected_enabled" in migration
+    assert "INSERT INTO public.tenant_audit_log" in migration
+    assert "SECURITY DEFINER\nSET search_path = public, pg_temp" in migration
+    assert not re.search(r"\bRETURNING\b", migration, re.IGNORECASE)
+    assert not re.search(r"^\s*(BEGIN|COMMIT)\s*;", migration, re.MULTILINE | re.IGNORECASE)
+    assert re.search(
+        r"REVOKE ALL ON FUNCTION[\s\S]+FROM PUBLIC, anon, authenticated'",
+        migration,
+    )
+    assert re.search(r"GRANT EXECUTE ON FUNCTION[\s\S]+TO service_role'", migration)
+    assert not re.search(r"\bEXECUTE\s+format\b", migration, re.IGNORECASE)
+
+
 # ── SEED_JOBS vs the LIVE registry ───────────────────────────────────────────
 #
 # `seed` skips any job whose name already exists and has no update path, so
@@ -112,6 +216,7 @@ def test_timeouts_are_positive_numbers():
 class _FakeTable:
     def __init__(self, rows, updates):
         self._rows, self._updates, self._patch, self._id = rows, updates, None, None
+        self._filters = {}
 
     def select(self, *_a):
         return self
@@ -123,8 +228,10 @@ class _FakeTable:
         self._patch = patch
         return self
 
-    def eq(self, _col, value):
-        self._id = value
+    def eq(self, col, value):
+        self._filters[col] = value
+        if col == "id":
+            self._id = value
         return self
 
 
@@ -142,16 +249,22 @@ class _FakeClient:
                 if inner._patch is not None:
                     client.updates.append((inner._id, inner._patch))
                     return type("R", (), {"data": []})()
-                return type("R", (), {"data": client.rows})()
+                rows = [
+                    row for row in client.rows
+                    if all(row.get(col) == value for col, value in inner._filters.items())
+                ]
+                return type("R", (), {"data": rows})()
 
         return T(self.rows, self.updates)
 
 
 def _row_from(definition, **overrides):
     row = {"id": "row-1", "name": definition["name"], "is_active": 1,
+           "tenant_id": ce.CC_EMPIRE_TENANT_ID,
            "schedule": definition["schedule"],
            "action_type": definition["action_type"],
-           "action_config": definition["action_config"]}
+           "action_config": definition["action_config"],
+           "owner_agent_key": definition["owner_agent_key"]}
     row.update(overrides)
     return row
 
@@ -170,6 +283,17 @@ def test_drift_detected_when_live_args_differ():
     drift = ce._drift_rows(_FakeClient([_row_from(definition, action_config=stale)]))
     assert len(drift) == 1
     assert "action_config" in drift[0]["diffs"]
+
+
+def test_drift_ignores_a_same_named_row_in_another_tenant():
+    """The Empire fixer must never compare or relabel a peer tenant's row."""
+    definition = next(j for j in JOBS if j["owner_agent_key"] == "maven")
+    other_tenant_row = _row_from(
+        definition,
+        tenant_id="00000000-0000-4000-8000-000000000002",
+        owner_agent_key="bravo",
+    )
+    assert ce._drift_rows(_FakeClient([other_tenant_row])) == []
 
 
 def test_encoding_is_not_mistaken_for_drift():

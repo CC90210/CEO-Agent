@@ -20,6 +20,17 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 
 ## [Unreleased]
 
+### Added
+
+- Added tenant-scoped durable `owner_agent_key` ownership to the Empire cron registry and installed the registered Maven carousel-media retention job that was missing from live Turso.
+- Added the paired Postgres rollback migration and service-role-only atomic cron-toggle RPC so the explicit legacy data plane preserves the same state-plus-audit contract.
+- Added a dated fleet inventory covering both cron tables, seed definitions, hosted schedulers, Windows tasks, and supervised daemons.
+
+### Fixed
+
+- Reconciled the Maven carousel runner's operator-facing description with its verified GEN-10 eight-stage contract and six creative families.
+- Made seed drift checks include ownership so future source/live grouping disagreements fail visibly.
+
 ## [9.2.0] — 2026-08-08
 
 **One version line, fleet-wide.** Four independent numbering schemes were running at
