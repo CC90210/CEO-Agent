@@ -14,13 +14,29 @@ ALTER TABLE public.cron_jobs
 
 DO $owner_backfill$
 BEGIN
+  -- Preserve recognizable non-Bravo ownership before applying the default.
+  -- Existing explicit values always win because every backfill is NULL-only.
   UPDATE public.cron_jobs
-     SET owner_agent_key = 'bravo'
-   WHERE owner_agent_key IS NULL;
+     SET owner_agent_key = 'atlas'
+   WHERE owner_agent_key IS NULL
+     AND (
+       lower(coalesce(name, '')) LIKE 'atlas%'
+       OR lower(coalesce(action_type, '')) LIKE 'atlas\_%' ESCAPE '\'
+     );
+
+  UPDATE public.cron_jobs
+     SET owner_agent_key = 'aura'
+   WHERE owner_agent_key IS NULL
+     AND (
+       lower(coalesce(name, '')) LIKE 'aura%'
+       OR lower(coalesce(name, '')) LIKE '%pow wow%'
+       OR lower(coalesce(action_type, '')) LIKE 'morning\_powwow%' ESCAPE '\'
+     );
 
   UPDATE public.cron_jobs
      SET owner_agent_key = 'maven'
-   WHERE tenant_id = 'ef8d389e-3f15-43f2-ae00-3660f69a1452'::uuid
+   WHERE owner_agent_key IS NULL
+     AND tenant_id = 'ef8d389e-3f15-43f2-ae00-3660f69a1452'::uuid
      AND name IN (
        'Carousel Media Retention',
        'Library Post Linker',
@@ -29,6 +45,27 @@ BEGIN
        'Post Analytics Sync',
        'Training Corpus Ingest'
      );
+
+  UPDATE public.cron_jobs
+     SET owner_agent_key = 'maven'
+   WHERE owner_agent_key IS NULL
+     AND (
+       lower(coalesce(name, '')) LIKE 'maven%'
+       OR lower(coalesce(action_type, '')) LIKE 'maven\_%' ESCAPE '\'
+       OR lower(coalesce(name, '')) LIKE '%marketing%'
+       OR lower(coalesce(name, '')) LIKE '%carousel media retention%'
+       OR lower(coalesce(name, '')) LIKE '%post analytics%'
+       OR lower(coalesce(name, '')) LIKE '%library post%'
+       OR lower(coalesce(name, '')) LIKE '%training corpus%'
+       OR lower(coalesce(name, '')) LIKE '%publish drain%'
+       OR lower(coalesce(name, '')) LIKE '%content%'
+       OR lower(coalesce(name, '')) LIKE '%caption%'
+       OR lower(coalesce(name, '')) LIKE '%exemplar%'
+     );
+
+  UPDATE public.cron_jobs
+     SET owner_agent_key = 'bravo'
+   WHERE owner_agent_key IS NULL;
 
   UPDATE public.cron_jobs
      SET description = 'Daily 08:00 ET — runs the complete GEN-10 posting chain: verify-published, watch, author-carousels, unstick, generate, plan, deliver-renders, then library-sync. Authors and renders only the six recognized creative families, then books up to two posts at 13:00 and 19:00 UTC for Instagram, LinkedIn and Threads. Family is selected before lane/system/slug and distinct same-day families are preferred; constrained inventory may repeat rather than leave a slot empty. Finished renders go to CC''s Telegram and the founders Library.'

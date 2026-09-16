@@ -183,6 +183,13 @@ def test_postgres_rollback_migration_has_scoped_owners_and_atomic_toggle_rpc():
     assert expected_maven == set(re.findall(r"^\s+'([^']+)'[,]?$", body, re.MULTILINE))
     assert "tenant_id = 'ef8d389e-3f15-43f2-ae00-3660f69a1452'::uuid" in body
 
+    atlas_backfill = migration.index("SET owner_agent_key = 'atlas'")
+    aura_backfill = migration.index("SET owner_agent_key = 'aura'")
+    bravo_default = migration.rindex("SET owner_agent_key = 'bravo'")
+    assert atlas_backfill < bravo_default
+    assert aura_backfill < bravo_default
+    assert "owner_agent_key IS NULL" in migration[atlas_backfill:bravo_default]
+
     assert "ADD COLUMN IF NOT EXISTS owner_agent_key text" in migration
     assert "ALTER COLUMN owner_agent_key SET NOT NULL" in migration
     assert "CREATE OR REPLACE FUNCTION public.toggle_cron_job_with_audit_v1" in migration
