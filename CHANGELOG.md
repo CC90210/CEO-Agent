@@ -23,6 +23,7 @@ The numbering encodes the V-major.minor.patch axis used in `brain/STATE.md`:
 ### Added
 
 - Added tenant-scoped durable `owner_agent_key` ownership to the Empire cron registry and installed the registered Maven carousel-media retention job that was missing from live Turso.
+- Added forward Turso migration 110 so recognizable Atlas, Aura, and Maven rows are reconciled without modifying the ledger-locked owner-column migration.
 - Added the paired Postgres rollback migration and service-role-only atomic cron-toggle RPC so the explicit legacy data plane preserves the same state-plus-audit contract.
 - Added a dated fleet inventory covering both cron tables, seed definitions, hosted schedulers, Windows tasks, and supervised daemons.
 

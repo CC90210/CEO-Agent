@@ -160,6 +160,45 @@ def test_owner_migration_never_relabels_a_same_named_row_in_another_tenant():
     assert rows["other"] == ("bravo", "other tenant contract")
 
 
+def test_forward_owner_reconciliation_classifies_recognizable_non_bravo_rows():
+    """Immutable migration 108 is completed by a forward owner reconciliation."""
+    owner_migration = (
+        REPO / "database/turso_migrations/bravo__108_cron_owner_agent_key.sql"
+    ).read_text(encoding="utf-8")
+    reconciliation = (
+        REPO / "database/turso_migrations/bravo__110_cron_owner_reconciliation.sql"
+    ).read_text(encoding="utf-8")
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE cron_jobs ("
+        "id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, name TEXT NOT NULL, "
+        "description TEXT, action_type TEXT, is_active INTEGER NOT NULL DEFAULT 1)"
+    )
+    conn.executemany(
+        "INSERT INTO cron_jobs (id, tenant_id, name, description, action_type) "
+        "VALUES (?, ?, ?, ?, ?)",
+        [
+            ("atlas", "tenant-2", "Atlas — marketing spend", "old", "script_run"),
+            ("aura", "tenant-2", "Morning Pow Wow", "old", "morning_powwow"),
+            ("maven", "tenant-2", "Content analytics", "old", "script_run"),
+            ("bravo", "tenant-2", "Ordinary job", "old", "script_run"),
+            ("explicit", "tenant-2", "Ordinary explicit", "old", "script_run"),
+        ],
+    )
+    conn.executescript(owner_migration)
+    conn.execute("UPDATE cron_jobs SET owner_agent_key = 'aura' WHERE id = 'explicit'")
+    conn.executescript(reconciliation)
+    assert dict(conn.execute(
+        "SELECT id, owner_agent_key FROM cron_jobs ORDER BY id"
+    )) == {
+        "atlas": "atlas",
+        "aura": "aura",
+        "bravo": "bravo",
+        "explicit": "aura",
+        "maven": "maven",
+    }
+
+
 def test_postgres_rollback_migration_has_scoped_owners_and_atomic_toggle_rpc():
     """The explicit Supabase rollback must preserve the Turso control contract."""
     migration = (
