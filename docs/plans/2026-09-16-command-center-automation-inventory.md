@@ -5,7 +5,9 @@ tags:
   - implementation-plan
 ---
 
-Related: [[scripts/core/cron_engine.py]], [[docs/audits/2026-09-16-command-center-automation-inventory.md]], [[database/turso_migrations/bravo__108_cron_owner_agent_key.sql]]
+Related note: [[docs/audits/2026-09-16-command-center-automation-inventory]]
+
+Implementation: [cron engine](../../scripts/core/cron_engine.py), [Turso migration](../../database/turso_migrations/bravo__108_cron_owner_agent_key.sql)
 
 # Command Center Automation Inventory Repair Implementation Plan
 
