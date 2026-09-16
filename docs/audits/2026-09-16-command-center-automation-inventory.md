@@ -24,7 +24,7 @@ Read-only inventory captured before the ownership migration and missing-seed ins
 
 All 36 pre-change Empire rows already carried CC's tenant ID `ef8d389e-3f15-43f2-ae00-3660f69a1452`. No tenant backfill was required. The exact production fault was `OPERATOR_EMAIL` replacing, rather than augmenting, canonical operator identity `conaugh@oasisai.work`; the API consequently skipped the Empire query and returned the four Atlas tenant rows as a plausible success.
 
-The production Turso migration is `bravo__108_cron_owner_agent_key.sql`. The explicit `supabase_legacy` rollback receives the same owner backfill plus a service-role-only, row-locked state-and-audit RPC in `bravo__109_cron_owner_atomic_toggle.sql`; the application deploy depends on that rollback migration being applied first.
+The production Turso migration is `bravo__108_cron_owner_agent_key.sql`. The explicit `supabase_legacy` rollback receives the same owner backfill plus a service-role-only, row-locked state-and-audit RPC in `bravo__109_cron_owner_atomic_toggle.sql`. Selecting that rollback mode depends on migration 109 being applied first. The configured legacy endpoint is currently a retired compatibility placeholder, so it cannot accept the migration; this does not block the active Turso deployment, and the rollback must stay unselected until a real legacy endpoint is restored and migrated.
 
 ## Empire schedules (`SEED_JOBS`)
 
