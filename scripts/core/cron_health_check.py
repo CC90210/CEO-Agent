@@ -486,7 +486,13 @@ EXPECTED_PAIRINGS: dict[str, tuple[str, ...]] = {
     # execute; conflating those two lists is how the Mac poisoned rows for a
     # week.
     "ef8d389e": ("CCPC (Windows)", "192.168.11.27 (Mac)"),
-    "aa04fa1f": ("srv1723601 (Linux)",),      # SunBiz: the VPS only
+    # SunBiz (aa04fa1f) is deliberately absent. Every finding here pages CC's
+    # private chat, and a SunBiz pairing anomaly is SunBiz's operational signal,
+    # not the founder's — the same rule as BRAVO_GOVERNED_TENANTS above. Its
+    # pairing check belongs to the Command Center's SunBiz health check, which
+    # alerts on SunBiz's own lane. The dashboard's executor map still pins
+    # aa04fa1f to "srv1723601 (Linux)": that decides which machine may RUN
+    # SunBiz's jobs, and nothing here changes it.
 }
 
 

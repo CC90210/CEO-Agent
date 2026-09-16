@@ -110,3 +110,54 @@ def test_alert_still_carries_the_detail(monkeypatch):
                          "last_run_at": "2026-08-03T08:35:00Z"}])
     assert "Inbound Email Sweep" in seen["text"]
     assert "SSLCertVerificationError" in seen["text"]
+
+
+# --- pairing scope: CC's watchdog governs OASIS pairings only ------------------
+#
+# Every pairing finding pages CC's private chat. SunBiz's pairing is SunBiz's
+# operational signal and is checked on SunBiz's own lane, never from here.
+
+SUNBIZ_TENANT = "aa04fa1f-ad6a-44b0-ac4b-2ff5d1067110"
+OASIS_TENANT = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+
+
+class _PairingsDB:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def table(self, name):
+        assert name == "bridge_pairings", name
+        rows = self._rows
+
+        class _Q:
+            def select(self, *_a):
+                return self
+
+            def execute(self):
+                return type("R", (), {"data": rows})()
+        return _Q()
+
+
+def _pairing(tenant_id: str, label: str) -> dict:
+    return {"id": "p1", "label": label, "tenant_id": tenant_id,
+            "last_seen_at": "2026-09-11T16:43:00Z", "revoked_at": None}
+
+
+def _no_findings() -> dict:
+    return {"failing": [], "stale": [], "disarmed": [], "opaque": []}
+
+
+def test_a_sunbiz_pairing_never_reaches_ccs_private_chat():
+    out = chc._scan_bridge_pairings(
+        _PairingsDB([_pairing(SUNBIZ_TENANT, "some-unknown-laptop")]), _no_findings())
+    assert out["failing"] == []
+
+
+def test_an_unexpected_oasis_pairing_still_pages_cc():
+    out = chc._scan_bridge_pairings(
+        _PairingsDB([_pairing(OASIS_TENANT, "srv1723601 (Linux)")]), _no_findings())
+    assert [f["name"] for f in out["failing"]] == ["bridge pairing: srv1723601 (Linux)"]
+
+
+def test_the_pairing_check_governs_the_same_tenants_as_the_digest():
+    assert set(chc.EXPECTED_PAIRINGS) == set(chc.BRAVO_GOVERNED_TENANTS)
