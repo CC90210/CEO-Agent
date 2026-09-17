@@ -91,14 +91,31 @@ def collect_cron() -> tuple[list[dict], str | None]:
     # plausible-partial-inventory failure as the UI. Render the live rows for
     # diagnosis, but mark the source incomplete and exit non-zero so the daily
     # register cron turns red instead of blessing the shorter list.
+    #
+    # ONLY `missing` and `duplicate` qualify. Those two mean the register cannot
+    # be complete, which is what the incomplete banner asserts. A `drift` issue
+    # means the opposite: all 37 rows were read and all 37 will be rendered, one
+    # simply disagrees with SEED_JOBS on a field. Treating it as "a source was
+    # unreadable" would (a) write a false statement into a brain doc every agent
+    # reads at boot, (b) turn the daily register cron red through its 5x retry
+    # ladder and Telegram escalation, and (c) fail test_automation_register on
+    # unrelated branches -- all for a condition `drift --fix` repairs in a
+    # second, during a window CLAUDE.md deliberately opens (a SEED_JOBS edit is
+    # not pushed to the live registry until CC reviews it). Drift is surfaced
+    # per-row in the table instead, where it is true and actionable.
     contract_error = None
+    drifted_names: set[str] = set()
     try:
         issues = audit_live_inventory(rows)
-        if issues:
+        blocking = [i for i in issues if i.get("kind") in {"missing", "duplicate"}]
+        drifted_names = {
+            str(i.get("name") or "") for i in issues if i.get("kind") == "drift"
+        }
+        if blocking:
             summary = "; ".join(
-                f"{issue.get('name')}: {issue.get('kind')}" for issue in issues[:8]
+                f"{issue.get('name')}: {issue.get('kind')}" for issue in blocking[:8]
             )
-            contract_error = f"inventory contract failed ({len(issues)}): {summary}"
+            contract_error = f"inventory contract failed ({len(blocking)}): {summary}"
     except Exception as exc:  # noqa: BLE001
         contract_error = f"inventory contract unavailable: {type(exc).__name__}: {exc}"
 
@@ -132,6 +149,10 @@ def collect_cron() -> tuple[list[dict], str | None]:
             "failing": ((last.upper().startswith(("ERROR", "FAILED"))
                          or int(r.get("fail_count") or 0) > 0)
                         and not is_self_scored_failure(r)),
+            # The row runs, and is rendered -- it just disagrees with SEED_JOBS
+            # on a behaviour field. Marked here rather than failing the whole
+            # register; `cron_engine.py drift --fix` is the one-line repair.
+            "drifted": name in drifted_names,
             "declared": name in seeds,
         })
 
@@ -158,6 +179,8 @@ def collect_cron() -> tuple[list[dict], str | None]:
                         or bool(error)
                         or output.upper().startswith(("ERROR", "FAILED"))),
             "declared": True,
+            # Tenant rows have no SEED_JOBS counterpart to drift from.
+            "drifted": False,
         })
     return sorted(out, key=lambda x: (not x["active"], x["name"])), contract_error
 
@@ -293,11 +316,20 @@ def render(data: dict) -> str:
     if failing:
         L += ["Failing now:", ""] + [f"- `{c['name']}` — last run {c['last_run'] or '?'}"
                                      for c in failing] + [""]
+    # Drift is a per-row fact, not a broken source. Named here so the register
+    # stays true and CC gets the one-line repair, instead of the whole document
+    # being stamped INCOMPLETE over a field mismatch.
+    drifted = [c for c in crons if c.get("drifted")]
+    if drifted:
+        L += [f"⚠️ {len(drifted)} row(s) disagree with `SEED_JOBS` on a behaviour field "
+              "(schedule / action / owner). Every job below still ran and is listed; "
+              "realign with `python scripts/core/cron_engine.py drift --fix`.", ""]
     L += ["| Job | Owner | Schedule | Runs | What it does |", "|---|---|---|---|---|"]
     for c in active:
         does = (c["does"][:110] + "…") if len(c["does"]) > 110 else (c["does"] or "—")
         does = does.replace("|", "/").replace("\n", " ")
-        L.append(f"| {'🔴 ' if c['failing'] else ''}{c['name']} "
+        mark = "🔴 " if c["failing"] else ("⚠️ " if c.get("drifted") else "")
+        L.append(f"| {mark}{c['name']} "
                  f"| {str(c.get('owner') or 'unknown').title()} | `{c['schedule']}` "
                  f"| `{c['runs'] or '—'}` | {does} |")
     inactive = [c for c in crons if not c["active"]]

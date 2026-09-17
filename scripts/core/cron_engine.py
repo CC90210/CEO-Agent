@@ -420,7 +420,11 @@ SEED_JOBS: list[dict] = [
         # zero alerts. Hourly + notify.py's 1h dedup means a broken job surfaces
         # within the hour and then pings at most once an hour, not 12x a day.
         "name": "Bravo — Hourly Cron Health Check",
-        "description": "Hourly automation canary — reconciles declared vs live Empire rows and Atlas's tenant manifest, then detects unresolved failure counts, error-shaped results, missed fires, disabled-by-drift jobs and dead daemon-backed runners. Telegrams one deduplicated alert so a partial inventory or masked failure cannot look green.",
+        # Says only what it actually checks. "dead daemon-backed runners" was in
+        # here and could never fire: zero SEED_JOBS carry `daemon_backed`, so
+        # _scan_daemon_backed returns immediately. A description CC reads as the
+        # definition of what is covered must not name a check with no subject.
+        "description": "Hourly automation canary — reconciles declared SEED_JOBS against the live Empire registry (missing, duplicated, drifted) and against each owning agent's tenant manifest, then detects unresolved failure counts, error-shaped results and missed fires. Telegrams one deduplicated alert so a partial inventory or a failure masked by a later scheduler skip cannot look green.",
         "schedule": "0 * * * *",
         "action_type": "script_run",
         "action_config": {"script": "scripts/core/cron_health_check.py", "args": ["--alert"]},

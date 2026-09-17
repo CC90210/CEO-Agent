@@ -255,7 +255,8 @@ def test_a_real_success_with_zero_fail_count_stays_healthy():
     assert chc.classify_empire_run("ok: posted 2", 0) == (False, "")
 
 
-def test_tenant_manifest_disabled_drift_is_not_silently_skipped():
+def _pulse_manifest_vs_disabled_row():
+    """One manifest job declared active against one live row that is disabled."""
     jobs = [{
         "name": "Atlas - Pulse Refresh", "enabled": True,
         "schedule": "0 */4 * * *", "action_type": "script_run",
@@ -267,13 +268,37 @@ def test_tenant_manifest_disabled_drift_is_not_silently_skipped():
         "schedule": "0 */4 * * *", "action_type": "script_run",
         "action_payload": '{"script":"tools/pulse_publish.py","args":["refresh"]}',
     }]
+    return rows, jobs
+
+
+def test_tenant_manifest_disabled_drift_is_not_silently_skipped():
+    rows, jobs = _pulse_manifest_vs_disabled_row()
     issues = chc.tenant_manifest_issues(
         rows, jobs, agent_key="atlas", tenant_prefix="ef8d389e",
+        enabled_authoritative=True,
     )
     assert issues == [{
         "bucket": "disarmed", "name": "Atlas - Pulse Refresh",
         "detail": "atlas manifest expects active; live tenant row is disabled",
     }]
+
+
+def test_enabled_mismatch_is_silent_until_the_owning_agent_opts_in():
+    """The on/off comparison must default OFF, or it is a permanent alarm.
+
+    Atlas's register CLI writes the live row without writing the manifest, so
+    three real Atlas rows sit disabled against a manifest that still says
+    enabled. Comparing them by default puts a "3 disarmed" line in EVERY hourly
+    digest, flips the watchdog's own last_result off "ok: all crons healthy"
+    forever, and trains CC to ignore the alert — which is precisely how the
+    original outage went unseen. Existence and behaviour drift still fire
+    without the flag; only the operator-decidable field waits for an owner who
+    keeps the two in step.
+    """
+    rows, jobs = _pulse_manifest_vs_disabled_row()
+    assert chc.tenant_manifest_issues(
+        rows, jobs, agent_key="atlas", tenant_prefix="ef8d389e",
+    ) == []
 
 
 def test_tenant_manifest_catches_missing_and_behaviour_drift():
@@ -303,3 +328,59 @@ def test_tenant_manifest_catches_missing_and_behaviour_drift():
         ("Atlas - Present", "failing"),
     ]
     assert "schedule" in issues[1]["detail"]
+
+
+def test_find_bad_crons_fails_when_a_declared_job_vanishes():
+    """The wiring, not the helper. Deleting the call must turn this red.
+
+    audit_live_inventory() was unit-tested, but the single line in
+    find_bad_crons that CALLS it was not. Remove that line and all 112 tests
+    still passed — the hourly canary would silently stop checking the inventory
+    contract, and the next time the Automations tab dropped from 41 rows to 4
+    the watchdog would report "ok: all crons healthy" exactly as it did during
+    the outage this guard exists to prevent.
+    """
+    import cron_engine
+    from types import SimpleNamespace
+
+    declared = cron_engine.SEED_JOBS[0]
+    vanished = cron_engine.SEED_JOBS[1]["name"]
+
+    class FakeQ:
+        def __init__(self, rows): self._r = rows
+        def select(self, *a, **k): return self
+        def eq(self, *a, **k): return self
+        def execute(self): return SimpleNamespace(data=self._r)
+
+    class FakeDb:
+        def table(self, name):
+            if name == "cron_jobs":
+                # Exactly one declared row survives. Every other SEED_JOBS entry
+                # -- including `vanished` -- is absent, which is the outage.
+                return FakeQ([{
+                    "id": "only", "name": declared["name"], "is_active": 1,
+                    "schedule": declared["schedule"],
+                    "action_type": declared["action_type"],
+                    "action_config": declared["action_config"],
+                    "owner_agent_key": declared.get("owner_agent_key") or "bravo",
+                    "last_result": "ok", "fail_count": 0,
+                    "last_run_at": datetime.now(timezone.utc).isoformat(),
+                    "created_at": "2026-05-01T00:00:00Z",
+                }])
+            return FakeQ([])
+
+    import unittest.mock as mock
+    with mock.patch.object(chc, "get_client", return_value=FakeDb()), \
+            mock.patch.object(chc, "load_env", return_value={}), \
+            mock.patch.object(chc, "_scan_daemon_backed", side_effect=lambda f: f):
+        findings = chc.find_bad_crons(include_tenant=False)
+
+    inventory = [f for f in findings["failing"]
+                 if f.get("source") == "cron_jobs_inventory"]
+    assert inventory, (
+        "find_bad_crons returned no inventory findings while all but one declared "
+        "SEED_JOBS row was missing — the audit_live_inventory() call is not wired in"
+    )
+    assert any(f["name"] == vanished for f in inventory), (
+        f"the vanished job {vanished!r} was not named in the findings"
+    )

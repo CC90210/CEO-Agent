@@ -737,6 +737,7 @@ def _scan_tenant_crons(db, findings: dict[str, list[dict]],
 
 def tenant_manifest_issues(
     rows: list[dict], jobs: list[dict], *, agent_key: str, tenant_prefix: str,
+    enabled_authoritative: bool = False,
 ) -> list[dict]:
     """Compare one agent-owned manifest with its governed tenant registry.
 
@@ -779,19 +780,37 @@ def tenant_manifest_issues(
             })
             continue
         row = matches[0]
-        expected_enabled = bool(job.get("enabled", True))
-        live_enabled = bool(row.get("enabled"))
-        if expected_enabled != live_enabled:
-            if expected_enabled:
-                issues.append({
-                    "bucket": "disarmed", "name": name,
-                    "detail": f"{agent_key} manifest expects active; live tenant row is disabled",
-                })
-            else:
-                issues.append({
-                    "bucket": "failing", "name": name,
-                    "detail": f"{agent_key} manifest expects disabled; live tenant row is active",
-                })
+        # The on/off comparison is only meaningful when the manifest is actually
+        # maintained as the declaration of intent. Atlas's register CLI writes
+        # the live row WITHOUT writing the manifest, so today the file records
+        # what was true when it was last hand-edited, not what CC decided. Three
+        # Atlas rows are disabled against a manifest that still says enabled --
+        # comparing them would put a permanent "3 disarmed" line in every hourly
+        # digest, which flips the watchdog's own last_result off "ok: all crons
+        # healthy" forever and trains CC to ignore the alert. An alarm nothing
+        # can clear is worse than no alarm: it is the mechanism by which the
+        # next real outage goes unread.
+        #
+        # So the owning agent opts in by setting `enabled_is_authoritative` in
+        # its manifest, which it may only do once its own writer keeps the two
+        # in step. Everything below (existence, duplicates, schedule, action)
+        # needs no such flag -- those cannot drift by an operator's decision.
+        if enabled_authoritative:
+            expected_enabled = bool(job.get("enabled", True))
+            live_enabled = bool(row.get("enabled"))
+            if expected_enabled != live_enabled:
+                if expected_enabled:
+                    issues.append({
+                        "bucket": "disarmed", "name": name,
+                        "detail": f"{agent_key} manifest expects active; "
+                                  f"live tenant row is disabled",
+                    })
+                else:
+                    issues.append({
+                        "bucket": "failing", "name": name,
+                        "detail": f"{agent_key} manifest expects disabled; "
+                                  f"live tenant row is active",
+                    })
 
         diffs = []
         for manifest_field, row_field in (
@@ -821,7 +840,12 @@ def _scan_tenant_manifest_contracts(
             {
                 "agent_key": "atlas",
                 "tenant_prefix": "ef8d389e",
-                "path": SIBLING_REPOS["atlas"] / "data" / "atlas_automations.json",
+                # .get, not [...]: an unmapped agent is a missing sibling, which
+                # the path.exists() skip below handles as a machine fact. A
+                # KeyError here would escape to the outer handler and render as
+                # a failing cron instead.
+                "path": (SIBLING_REPOS.get("atlas") or Path("/nonexistent"))
+                        / "data" / "atlas_automations.json",
             },
         ]
     except Exception as exc:  # noqa: BLE001
@@ -835,6 +859,16 @@ def _scan_tenant_manifest_contracts(
 
     for source in sources:
         path = source["path"]
+        # An absent sibling checkout is a fact about THIS machine, not a broken
+        # cron. The VPS, the Mac and any fresh rig run this same hourly check
+        # without CFO-Agent cloned; paging CC with a red siren because an
+        # optional repo is not installed is the false alarm that gets the whole
+        # digest muted. A manifest that EXISTS and is malformed still fails
+        # loudly below -- that one is a real defect.
+        if not path.exists():
+            print(f"[cron_health_check] WARNING: {source['agent_key']} manifest not on this "
+                  f"machine ({path}) — manifest contract skipped", file=sys.stderr)
+            continue
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
             jobs = payload.get("jobs")
@@ -843,6 +877,7 @@ def _scan_tenant_manifest_contracts(
             issues = tenant_manifest_issues(
                 rows, jobs, agent_key=source["agent_key"],
                 tenant_prefix=source["tenant_prefix"],
+                enabled_authoritative=bool(payload.get("enabled_is_authoritative")),
             )
         except Exception as exc:  # noqa: BLE001
             findings["failing"].append({
@@ -987,6 +1022,13 @@ def compose_alert(buckets: dict[str, list[dict]]) -> str:
             lines.append(f"⏸ {len(disarmed)} cron(s) disarmed but expected active:")
             for b in disarmed[:8]:
                 lines.append(f"• {b['name']}")
+                # A bare name under ⏸ reads as "something I switched off on
+                # purpose". The reason is what makes it actionable -- which
+                # declaration expected it active, and how long it has been dead.
+                # The failing branch already renders detail; this one dropped it.
+                detail = str(b.get("detail") or "").strip()
+                if detail:
+                    lines.append(f"  {detail[:120]}".replace("\n", " "))
             if len(disarmed) > 8:
                 lines.append(f"... and {len(disarmed) - 8} more disarmed.")
     return "\n".join(lines)
