@@ -22,15 +22,26 @@ rows only. That left three blind spots wide enough to drive the fleet through:
      disarmed "just for now" could never surface again. Disarming is how a
      job dies quietly; the watchdog has to be the thing that remembers.
 
-So: three verdicts now, not one.
+So: four verdicts now, not one.
   FAILING  — the result SHAPE says it failed (prefix, JSON error counts,
-             `ok: false`, `status: error`, or a `failures: N>0` in plain text).
+             `ok: false`, `status: error`, or a `failures: N>0` in plain text),
+             or fail_count is positive and a later `skipped-stale` painted over
+             it. A real success resets that counter.
   STALE    — no run in >= STALE_MISSED_FIRES multiples of the row's own cron
              schedule. Computed from the schedule itself, so a */5 job and a
              quarterly job get proportionate patience.
-  DISARMED — SEED_JOBS declares the job should be active and the live row is
+  DISARMED — a declaration says the job should be active and the live row is
              not. Reported in its own bucket, never mixed with crashes: an
              operator toggle is a decision to re-examine, not an incident.
+  CRASHED  — a hard crash dump in tmp/cron_failures/ newer than the job's last
+             run. A crash stamps the row and the job's NEXT run overwrites it,
+             so the evidence was visible for minutes: Review Harvest died with
+             an access violation at 22:16 and read green again by 22:23.
+
+And three things that are REPORTED, NEVER PAGED — see find_bad_crons. Every one
+of them would otherwise be non-empty every hour, and an alert CC cannot clear is
+how a watchdog gets muted, which is the only failure mode worse than not having
+one: `opaque`, `recovered_crashes`, `inventory_drift`.
 
 Two reasons this is the *meta* cron, not just another business cron:
   1. It guards the OTHER crons. A silent break in any of the 14+ active
@@ -397,8 +408,26 @@ def _norm_name(name: str) -> str:
 def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
     """Scan every automation row and bucket it by verdict.
 
-    Returns {"failing": [...], "stale": [...], "disarmed": [...], "opaque": [...]}.
     Each finding carries name / last_result / last_run_at / detail / source.
+
+    PAGING buckets -- these compose `alertable` and reach CC's Telegram:
+      failing   the result SHAPE says it failed, or fail_count is unresolved
+      stale     no run in several multiples of the row's own schedule
+      disarmed  a declaration says active and the live row is not
+      crashed   a dump in tmp/cron_failures/ NEWER than the job's last run
+
+    REPORTED-ONLY keys -- in the JSON, never in an alert. Each one exists
+    because paging on it would put the bucket permanently non-empty, and a
+    watchdog CC mutes is worse than no watchdog:
+      opaque             a result that cannot carry a verdict either way
+      recovered_crashes  a crash dump OLDER than the job's last run, i.e. the
+                         job already came back. 18 of these across 9 jobs in
+                         one 24h window is real instability worth reading, and
+                         exactly the thing nobody should be paged for.
+      inventory_drift    a live row disagrees with SEED_JOBS on a behaviour
+                         field. Realigning is a reviewed production mutation,
+                         so the window where the two differ is operator-
+                         sanctioned. harness_eval fails the nightly eval on it.
 
     NOTE the signature change (2026-08-21): this used to return a bare list of
     failures. It returns buckets now because "crashed", "stopped running" and
