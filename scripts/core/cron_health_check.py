@@ -1031,12 +1031,14 @@ def _scan_tenant_manifest_contracts(
             {
                 "agent_key": "atlas",
                 "tenant_prefix": "ef8d389e",
-                # .get, not [...]: an unmapped agent is a missing sibling, which
-                # the path.exists() skip below handles as a machine fact. A
-                # KeyError here would escape to the outer handler and render as
-                # a failing cron instead.
-                "path": (SIBLING_REPOS.get("atlas") or Path("/nonexistent"))
-                        / "data" / "atlas_automations.json",
+                # The REPO, which may be None. Resolving the manifest path here
+                # would mean inventing a placeholder to represent "no repo", and
+                # a fabricated path is a lie the rest of the function then has to
+                # interpret -- it also collapses two different diagnostics
+                # ("this agent is not mapped at all" and "the file is not on this
+                # machine") into one indistinguishable miss.
+                "repo": SIBLING_REPOS.get("atlas"),
+                "manifest": Path("data") / "atlas_automations.json",
             },
         ]
     except Exception as exc:  # noqa: BLE001
@@ -1049,13 +1051,20 @@ def _scan_tenant_manifest_contracts(
         return findings
 
     for source in sources:
-        path = source["path"]
-        # An absent sibling checkout is a fact about THIS machine, not a broken
-        # cron. The VPS, the Mac and any fresh rig run this same hourly check
-        # without CFO-Agent cloned; paging CC with a red siren because an
-        # optional repo is not installed is the false alarm that gets the whole
-        # digest muted. A manifest that EXISTS and is malformed still fails
-        # loudly below -- that one is a real defect.
+        # Neither of these is a broken cron. The VPS, the Mac and any fresh rig
+        # run this same hourly check without CFO-Agent cloned; paging CC with a
+        # red siren because an optional repo is not installed is the false alarm
+        # that gets the whole digest muted. They are reported separately because
+        # they need different answers: an unmapped agent means sibling_repos has
+        # no entry (fix the map), an absent file means the repo is not on this
+        # machine (clone it, or ignore it on a rig that does not run Atlas).
+        # A manifest that EXISTS and is malformed still fails loudly below --
+        # that one is a real defect.
+        if source["repo"] is None:
+            print(f"[cron_health_check] WARNING: no sibling repo mapped for "
+                  f"{source['agent_key']!r} — manifest contract skipped", file=sys.stderr)
+            continue
+        path = source["repo"] / source["manifest"]
         if not path.exists():
             print(f"[cron_health_check] WARNING: {source['agent_key']} manifest not on this "
                   f"machine ({path}) — manifest contract skipped", file=sys.stderr)

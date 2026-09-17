@@ -753,3 +753,59 @@ def test_dump_slug_matches_the_schedulers_own_transform():
         f"scheduler would no longer correlate to any cron row, and the crashed "
         f"bucket would report empty instead of reporting crashes."
     )
+
+
+# ── the two ways a manifest can be absent, and the one way it can be broken ──
+
+def _no_findings():
+    return {"failing": [], "stale": [], "disarmed": [], "opaque": [],
+            "crashed": [], "recovered_crashes": [], "inventory_drift": []}
+
+
+def test_an_unmapped_agent_is_silent(monkeypatch, capsys):
+    """sibling_repos has no entry for the agent. A machine fact, not a defect."""
+    import sibling_repos
+    monkeypatch.setattr(sibling_repos, "SIBLING_REPOS", {}, raising=False)
+    out = chc._scan_tenant_manifest_contracts([], _no_findings())
+    assert not any(out[k] for k in out), f"an unmapped agent paged CC: {out}"
+    assert "no sibling repo mapped" in capsys.readouterr().err
+
+
+def test_an_absent_manifest_file_is_silent(monkeypatch, tmp_path, capsys):
+    """The repo is mapped but not cloned on this machine -- the VPS, the Mac,
+    any fresh rig. Paging for an optional checkout is how a digest gets muted."""
+    import sibling_repos
+    monkeypatch.setattr(sibling_repos, "SIBLING_REPOS",
+                        {"atlas": tmp_path / "not-cloned"}, raising=False)
+    out = chc._scan_tenant_manifest_contracts([], _no_findings())
+    assert not any(out[k] for k in out), f"an uncloned sibling paged CC: {out}"
+    assert "not on this machine" in capsys.readouterr().err
+
+
+def test_the_two_absences_are_reported_differently(monkeypatch, tmp_path, capsys):
+    """They need different answers -- fix the map vs clone the repo -- so a
+    single indistinguishable 'missing' would send the reader the wrong way."""
+    import sibling_repos
+    monkeypatch.setattr(sibling_repos, "SIBLING_REPOS", {}, raising=False)
+    chc._scan_tenant_manifest_contracts([], _no_findings())
+    unmapped = capsys.readouterr().err
+
+    monkeypatch.setattr(sibling_repos, "SIBLING_REPOS",
+                        {"atlas": tmp_path / "not-cloned"}, raising=False)
+    chc._scan_tenant_manifest_contracts([], _no_findings())
+    uncloned = capsys.readouterr().err
+
+    assert unmapped != uncloned, "both absences produce the same diagnostic"
+
+
+def test_a_manifest_that_exists_and_is_broken_still_fails_loudly(monkeypatch, tmp_path):
+    """The whole point of skipping the absences: so THIS one stays a real page."""
+    import sibling_repos
+    repo = tmp_path / "CFO-Agent"
+    (repo / "data").mkdir(parents=True)
+    (repo / "data" / "atlas_automations.json").write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(sibling_repos, "SIBLING_REPOS", {"atlas": repo}, raising=False)
+
+    out = chc._scan_tenant_manifest_contracts([], _no_findings())
+    assert out["failing"], "a malformed manifest was swallowed along with the absences"
+    assert "unreadable" in out["failing"][0]["detail"]
