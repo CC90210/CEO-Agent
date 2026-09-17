@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-09-08T19:20:38.173723+00:00",
-  "script_count": 167,
-  "entry_count": 350,
+  "generated_at_iso": "2026-09-17T15:41:30.120539+00:00",
+  "script_count": 169,
+  "entry_count": 352,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -2127,6 +2127,14 @@
       "help": "RLHF Outreach -- dataset builder, DPO training skeleton, and fast draft scorer. \u2014 subcommand: evaluate"
     },
     {
+      "key": "run_qlora_train",
+      "path": "scripts/run_qlora_train.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Train, merge, convert, quantize, import, and verify ``bravo-14b-v2``."
+    },
+    {
       "key": "run_sql_via_mgmt_api",
       "path": "scripts/run_sql_via_mgmt_api.py",
       "root": "bravo",
@@ -2385,6 +2393,14 @@
       "subcmd": "feature-importance",
       "mutating": true,
       "help": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting. \u2014 subcommand: feature-importance"
+    },
+    {
+      "key": "train_local_bravo",
+      "path": "scripts/train_local_bravo.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Build and validate the private ChatML dataset for ``bravo-14b-v2``."
     },
     {
       "key": "transcribe",

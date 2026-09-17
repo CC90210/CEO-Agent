@@ -21,8 +21,13 @@
       "scope": "runtime"
     },
     {
-      "key": "LATE_API_KEY",
-      "source": "LATE_API_KEY",
+      "key": "STRIPE_SECRET_KEY",
+      "source": "STRIPE_API_KEY_TRYTAN",
+      "scope": "runtime"
+    },
+    {
+      "key": "STRIPE_WEBHOOK_SECRET",
+      "source": "STRIPE_WEBHOOK_SECRET_TRYTAN",
       "scope": "runtime"
     }
   ]
