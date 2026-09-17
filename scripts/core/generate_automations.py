@@ -324,11 +324,29 @@ def render(data: dict) -> str:
         L += [f"⚠️ {len(drifted)} row(s) disagree with `SEED_JOBS` on a behaviour field "
               "(schedule / action / owner). Every job below still ran and is listed; "
               "realign with `python scripts/core/cron_engine.py drift --fix`.", ""]
+    # An UNDECLARED row is one nothing governs. audit_live_inventory is a one-way
+    # contract -- it proves every declared job exists, and deliberately permits
+    # extra rows so `cron_engine.py add` and the Automations tab's create form
+    # keep working. The cost is that a job added through the UI is invisible to
+    # every gate in the system: no SEED_JOBS entry to drift from, no manifest to
+    # reconcile against. It can die and nothing will say so. Naming them here is
+    # the cheapest honest fix -- the register stops presenting governed and
+    # ungoverned automations as the same thing.
+    undeclared = [c for c in crons if c.get("source") == "empire" and not c.get("declared")]
+    if undeclared:
+        L += [f"🔓 {len(undeclared)} row(s) are NOT declared in `SEED_JOBS`, so no gate "
+              "watches them (marked 🔓 below). Add a seed entry to bring one under the "
+              "inventory contract:", ""]
+        L += [f"- `{c['name']}` — {str(c.get('owner') or 'unknown').title()} "
+              f"(`{c['schedule']}`)" for c in undeclared] + [""]
     L += ["| Job | Owner | Schedule | Runs | What it does |", "|---|---|---|---|---|"]
     for c in active:
         does = (c["does"][:110] + "…") if len(c["does"]) > 110 else (c["does"] or "—")
         does = does.replace("|", "/").replace("\n", " ")
-        mark = "🔴 " if c["failing"] else ("⚠️ " if c.get("drifted") else "")
+        mark = ("🔴 " if c["failing"]
+                else "⚠️ " if c.get("drifted")
+                else "🔓 " if c.get("source") == "empire" and not c.get("declared")
+                else "")
         L.append(f"| {mark}{c['name']} "
                  f"| {str(c.get('owner') or 'unknown').title()} | `{c['schedule']}` "
                  f"| `{c['runs'] or '—'}` | {does} |")

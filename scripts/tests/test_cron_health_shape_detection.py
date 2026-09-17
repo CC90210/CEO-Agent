@@ -384,3 +384,79 @@ def test_find_bad_crons_fails_when_a_declared_job_vanishes():
     assert any(f["name"] == vanished for f in inventory), (
         f"the vanished job {vanished!r} was not named in the findings"
     )
+
+
+# ── crashes that never reach a row ──────────────────────────────────────────
+
+def _dump_dir_with(tmp_path, *names):
+    for n in names:
+        (tmp_path / n).write_text("boom", encoding="utf-8")
+    return tmp_path
+
+
+def test_an_unrecovered_crash_is_reported(tmp_path):
+    """A dump newer than the row's last run means the job has not come back."""
+    now = datetime.now(timezone.utc)
+    crashed = (now - timedelta(minutes=10)).strftime("%Y%m%dT%H%M%SZ")
+    _dump_dir_with(tmp_path, f"scripts-review-loop-py-{crashed}.log")
+
+    rows = [{
+        "name": "Bravo - Review Harvest",
+        "action_config": {"script": "scripts/review_loop.py"},
+        "last_run_at": (now - timedelta(hours=3)).isoformat(),
+        "last_result": "drained=0",
+    }]
+    unrecovered, recovered = chc.scan_crash_dumps(rows, now, dump_dir=tmp_path)
+    assert len(unrecovered) == 1, (unrecovered, recovered)
+    assert not recovered
+    assert "hard crash dump" in unrecovered[0]["detail"]
+    assert unrecovered[0]["source"] == "cron_failures"
+
+
+def test_a_crash_the_job_recovered_from_is_recorded_but_never_paged(tmp_path):
+    """THE ALARM-FATIGUE GUARD.
+
+    24h held 18 dumps from 9 jobs, every row green by the time anyone read them.
+    Paging all of them would leave this bucket non-empty every hour, flipping the
+    watchdog's own last_result off "ok: all crons healthy" permanently -- which
+    is how a digest gets muted, which is the failure this file exists to prevent.
+    """
+    now = datetime.now(timezone.utc)
+    crashed = (now - timedelta(hours=3)).strftime("%Y%m%dT%H%M%SZ")
+    _dump_dir_with(tmp_path, f"scripts-review-loop-py-{crashed}.log")
+
+    rows = [{
+        "name": "Bravo - Review Harvest",
+        "action_config": {"script": "scripts/review_loop.py"},
+        "last_run_at": (now - timedelta(minutes=5)).isoformat(),  # ran AFTER the crash
+        "last_result": "drained=0",
+    }]
+    unrecovered, recovered = chc.scan_crash_dumps(rows, now, dump_dir=tmp_path)
+    assert not unrecovered, f"a recovered crash was paged: {unrecovered}"
+    assert len(recovered) == 1
+    assert "since run again" in recovered[0]["detail"]
+
+
+def test_a_dump_older_than_24h_is_ignored(tmp_path):
+    now = datetime.now(timezone.utc)
+    old = (now - timedelta(days=3)).strftime("%Y%m%dT%H%M%SZ")
+    _dump_dir_with(tmp_path, f"scripts-review-loop-py-{old}.log")
+    rows = [{"name": "X", "action_config": {"script": "scripts/review_loop.py"},
+             "last_run_at": None, "last_result": ""}]
+    assert chc.scan_crash_dumps(rows, now, dump_dir=tmp_path) == ([], [])
+
+
+def test_a_missing_dump_directory_is_healthy_not_an_error(tmp_path):
+    """No dumps dir is the normal state on a fresh machine."""
+    now = datetime.now(timezone.utc)
+    rows = [{"name": "X", "action_config": {"script": "scripts/x.py"},
+             "last_run_at": None, "last_result": ""}]
+    assert chc.scan_crash_dumps(rows, now, dump_dir=tmp_path / "nope") == ([], [])
+
+
+def test_the_dump_slug_matches_the_schedulers_own_transform():
+    """The filename is derived from the SCRIPT PATH, never the job name, so
+    correlating a dump to a row has to go through the same transform."""
+    assert chc.dump_slug_for("scripts/review_loop.py") == "scripts-review-loop-py"
+    assert chc.dump_slug_for("scripts/marketing_publish_drain.py") == \
+        "scripts-marketing-publish-drain-py"

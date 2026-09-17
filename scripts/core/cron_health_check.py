@@ -410,8 +410,10 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
     expectations = _seed_expectations()
 
     findings: dict[str, list[dict]] = {
-        "failing": [], "stale": [], "disarmed": [], "opaque": [],
+        "failing": [], "stale": [], "disarmed": [], "opaque": [], "crashed": [],
     }
+    # Populated alongside `crashed` but never paged — see scan_crash_dumps.
+    findings["_recovered_crashes"] = []
 
     # -- empire cron_jobs ----------------------------------------------------
     # Deliberately NOT filtered on is_active. The old query's `.eq("is_active",
@@ -486,11 +488,127 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
 
     findings = _scan_empire_inventory_contract(live_rows, findings)
 
+    unrecovered, recovered = scan_crash_dumps(live_rows, now)
+    findings["crashed"].extend(unrecovered)
+    findings["_recovered_crashes"].extend(recovered)
+
     if include_tenant:
         findings = _scan_tenant_crons(db, findings, now)
     findings = _scan_daemon_backed(findings)
     findings = _scan_bridge_pairings(db, findings)
     return findings
+
+
+# ── crashes that never reach a row ──────────────────────────────────────────
+# A hard crash writes tmp/cron_failures/<slug>-<ts>.log AND stamps the row. The
+# row is then overwritten by the job's very next run. `Bravo — Review Harvest`
+# crashed at 22:16:03 with exit 3221225480 (0xC0000005, access violation) and
+# empty stdout AND stderr; by 22:23:10 it had run again, fail_count was back to
+# 0, last_result read "drained=0", and the 22:25 health check returned
+# bad_count 0. Total window in which that segfault was visible anywhere CC
+# looks: seven minutes. The same 24h held 18 dumps from 9 distinct jobs, every
+# one of those rows green by the time anyone read them.
+#
+# The nightly harness eval already computes this signal, but its red row is
+# suppressed as a self-score, so in practice nothing hourly ever said it.
+#
+# ONLY UNRECOVERED crashes alert. A bucket that reports all 18 would be
+# non-empty every single hour, which flips the watchdog's own last_result off
+# "ok: all crons healthy" permanently and trains CC to ignore the digest — the
+# exact failure this file exists to prevent. A dump OLDER than the job's last
+# run means the job has since succeeded; that is recorded in the JSON as
+# `recovered_crashes` for anyone asking about instability, and never paged.
+FAILURE_DUMP_DIR = Path(__file__).resolve().parents[2] / "tmp" / "cron_failures"
+_DUMP_NAME_RE = re.compile(r"^(?P<slug>.+)-(?P<ts>\d{8}T\d{6}Z)\.log$")
+# Same banner harness_eval uses to recognise its own scoreboard. Imported when
+# available so there is one definition; the literal is the fallback for a
+# mid-edit or missing harness_eval, matching this file's existing guarded import.
+try:
+    from harness_eval import _SELF_SCORE_MARKER  # noqa: PLC0415
+except Exception:  # noqa: BLE001
+    _SELF_SCORE_MARKER = "HARNESS EVAL"
+
+
+def dump_slug_for(script: str) -> str:
+    """scheduler._slug() applied to a job's action_config["script"].
+
+    The dump filename is derived from the SCRIPT PATH, never the job name, so
+    correlating a dump back to a cron row has to go through the same transform.
+    """
+    return re.sub(r"[^a-z0-9]+", "-", str(script or "").lower()).strip("-")[:48]
+
+
+def scan_crash_dumps(rows, now, dump_dir=None):
+    """Return (unrecovered, recovered) crash findings for the given live rows."""
+    directory = Path(dump_dir) if dump_dir is not None else FAILURE_DUMP_DIR
+    try:
+        names = [e.name for e in os.scandir(directory) if e.is_file()]
+    except (OSError, FileNotFoundError):
+        return [], []          # no dumps dir is the healthy default, not an error
+
+    newest: dict[str, datetime] = {}
+    counts: dict[str, int] = {}
+    for name in names:
+        m = _DUMP_NAME_RE.match(name)
+        if not m:
+            continue
+        try:
+            when = datetime.strptime(m.group("ts"), "%Y%m%dT%H%M%SZ").replace(
+                tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if (now - when).total_seconds() > 24 * 3600:
+            continue
+        # The nightly harness eval writes a dump EVERY time it scores itself
+        # red -- 5 of the 50 dumps on disk right now. Those are a scoreboard,
+        # not a crash, and harness_eval already suppresses them on its own
+        # side. Paging CC for them would put this bucket permanently non-empty
+        # and mute the digest. The banner is what proves the script ran and
+        # scored itself; a genuine crash (import error, OS kill) writes no
+        # banner and still counts, which is the whole point.
+        try:
+            body = (Path(directory) / name).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            body = ""          # unreadable is not benign -- count it
+        if _SELF_SCORE_MARKER in body.upper():
+            continue
+        slug = m.group("slug")
+        counts[slug] = counts.get(slug, 0) + 1
+        if slug not in newest or when > newest[slug]:
+            newest[slug] = when
+
+    unrecovered, recovered = [], []
+    for row in rows:
+        cfg = row.get("action_config")
+        if isinstance(cfg, str):
+            try:
+                cfg = json.loads(cfg)
+            except (TypeError, ValueError):
+                cfg = {}
+        script = (cfg or {}).get("script")
+        if not script:
+            continue
+        slug = dump_slug_for(script)
+        crashed_at = newest.get(slug)
+        if crashed_at is None:
+            continue
+
+        last_run = _parse_ts(row.get("last_run_at"))
+        n = counts.get(slug, 1)
+        entry = {
+            "name": str(row.get("name") or slug),
+            "source": "cron_failures",
+            "last_result": str(row.get("last_result") or ""),
+            "last_run_at": row.get("last_run_at"),
+            "detail": (f"{n} hard crash dump(s) in 24h, newest "
+                       f"{crashed_at.isoformat()} — tmp/cron_failures/{slug}-*.log"),
+        }
+        if last_run is not None and last_run >= crashed_at:
+            entry["detail"] += " (job has since run again; reported, not paged)"
+            recovered.append(entry)
+        else:
+            unrecovered.append(entry)
+    return unrecovered, recovered
 
 
 def _scan_empire_inventory_contract(
@@ -906,8 +1024,10 @@ def _as_buckets(findings) -> dict[str, list[dict]]:
     Coercing here keeps one alert-composition path instead of two that drift.
     """
     if isinstance(findings, dict):
-        return {k: list(findings.get(k) or []) for k in ("failing", "stale", "disarmed", "opaque")}
-    return {"failing": list(findings or []), "stale": [], "disarmed": [], "opaque": []}
+        return {k: list(findings.get(k) or [])
+                for k in ("failing", "stale", "disarmed", "opaque", "crashed")}
+    return {"failing": list(findings or []), "stale": [], "disarmed": [],
+            "opaque": [], "crashed": []}
 
 
 def alert_dedup_key(buckets: dict[str, list[dict]]) -> str:
@@ -1141,10 +1261,12 @@ def main() -> int:
         "stale_count": len(buckets["stale"]),
         "disarmed_count": len(buckets["disarmed"]),
         "opaque_count": len(buckets["opaque"]),
+        "crashed_count": len(buckets["crashed"]),
         "failing": buckets["failing"],
         "stale": buckets["stale"],
         "disarmed": buckets["disarmed"],
         "opaque": buckets["opaque"],
+        "crashed": buckets["crashed"],
         # Kept so any dashboard/consumer reading the old field still works.
         "bad": buckets["failing"],
         "alert_sent": sent,
@@ -1169,7 +1291,8 @@ def main() -> int:
             parts.append(f"{len(buckets['disarmed'])} disarmed")
         print(f"WARN: {', '.join(parts)}")
         for label, key in (("FAILING", "failing"), ("STALE", "stale"),
-                           ("DISARMED", "disarmed"), ("opaque", "opaque")):
+                           ("DISARMED", "disarmed"), ("opaque", "opaque"),
+                           ("CRASHED", "crashed")):
             for b in buckets[key]:
                 print(f"  [{label}] {b['name']}: {str(b.get('detail') or b.get('last_result'))[:120]}")
         if args.alert and not args.dry_run:

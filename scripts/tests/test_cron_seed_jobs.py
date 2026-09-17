@@ -478,3 +478,196 @@ def test_harness_eval_fails_when_a_declared_cron_is_missing(monkeypatch):
     ok, detail = harness_eval.check_cron_definitions_match_live()
     assert ok is False
     assert "Missing Job" in detail
+
+
+def test_every_seed_action_type_reaches_a_dispatcher():
+    """A declared action_type no runner implements is a job that cannot run.
+
+    `Break-Glass Drill (quarterly)` declared action_type "break_glass_drill" and
+    nothing in scheduler.execute_job handled it, so the row's own note -- "arm
+    after one supervised run with CC" -- was an invitation to stamp
+    `ERROR: unknown_action_type:break_glass_drill` into last_result. The
+    disaster-recovery drill would have been the automation that silently never
+    ran, a quarter at a time.
+
+    Parsed out of the dispatcher's source rather than imported, because
+    scheduler.py pulls in the whole integration stack at import time.
+    """
+    import re
+    from pathlib import Path
+
+    scheduler = (Path(__file__).resolve().parent.parent / "scheduler.py").read_text(
+        encoding="utf-8", errors="replace",
+    )
+    handled = set(re.findall(r'action_type == "([a-z_]+)"', scheduler))
+    assert len(handled) > 10, (
+        f"only parsed {len(handled)} action types out of scheduler.py -- the "
+        f"dispatcher's shape changed and this test is reading the wrong thing"
+    )
+
+    orphans = sorted({
+        str(job.get("action_type") or "") for job in ce.SEED_JOBS
+        if str(job.get("action_type") or "") not in handled
+    })
+    assert not orphans, (
+        f"SEED_JOBS declares action_type(s) no dispatcher implements: {orphans}. "
+        f"scheduler.execute_job handles {sorted(handled)}. A job with an orphan "
+        f"type stamps ERROR: unknown_action_type the first time it is armed."
+    )
+
+
+def test_inventory_issues_key_survives_the_process_boundary(capsys, monkeypatch):
+    """Pin the JSON key on BOTH sides with ONE string, not a fixture each.
+
+    cmd_drift emits `inventory_issues` only inside its `if output_json:` branch,
+    and harness_eval reads it with a defaulted `payload.get("inventory_issues",
+    [])`. Rename the key on either side -- or move the block out of the JSON
+    branch -- and the consumer silently gets [], falls through to the drift
+    branch, finds nothing, and affirmatively returns "every declared cron exists
+    exactly once and matches SEED_JOBS". The harness would certify an inventory
+    it never examined, and every test mocking the two sides separately would
+    still pass.
+
+    So: run the real producer, capture its real stdout, and feed that exact
+    string to the real consumer.
+    """
+    import json as _json
+    from types import SimpleNamespace
+
+    vanished = ce.SEED_JOBS[1]["name"]
+    survivor = ce.SEED_JOBS[0]
+
+    class FakeQ:
+        def __init__(self, rows): self._r = rows
+        def select(self, *a, **k): return self
+        def eq(self, *a, **k): return self
+        def execute(self): return SimpleNamespace(data=self._r)
+
+    class FakeDb:
+        def table(self, name):
+            return FakeQ([{
+                "id": "only", "name": survivor["name"], "is_active": 1,
+                "schedule": survivor["schedule"],
+                "action_type": survivor["action_type"],
+                "action_config": survivor["action_config"],
+                "owner_agent_key": survivor.get("owner_agent_key") or "bravo",
+                "description": survivor.get("description"),
+                "last_result": "ok", "fail_count": 0,
+            }])
+
+    # -- producer: the real cmd_drift, real stdout ---------------------------
+    args = SimpleNamespace(only=None, fix=False, fix_docs=False)
+    with pytest.raises(SystemExit):
+        ce.cmd_drift(FakeDb(), args, True)
+    emitted = capsys.readouterr().out
+    payload = _json.loads(emitted)
+    assert payload["inventory_issues"], (
+        "cmd_drift --json emitted no `inventory_issues` key while declared jobs "
+        "were missing — the producer half of the contract is broken"
+    )
+    assert any(i["kind"] == "missing" and i["name"] == vanished
+               for i in payload["inventory_issues"]), payload["inventory_issues"]
+
+    # -- consumer: the real harness check, fed that exact string --------------
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    import harness_eval  # noqa: PLC0415
+
+    monkeypatch.setattr(harness_eval, "_run", lambda *a, **k: (0, emitted, ""))
+    ok, detail = harness_eval.check_cron_definitions_match_live()
+    assert ok is False, (
+        f"harness_eval read the producer's own output and still passed: {detail!r}. "
+        f"The `inventory_issues` key does not survive the process boundary."
+    )
+    assert "missing or duplicated" in detail, detail
+
+
+def test_drift_fix_reports_what_it_wrote_even_when_the_contract_fails(capsys):
+    """Both facts are true at once, so both must be printed.
+
+    The inventory block was an `elif`, so it swallowed the drift rendering
+    entirely: `drift --fix` with one declared job missing DID patch the drifted
+    rows, then printed only "INVENTORY CONTRACT FAILED" and exited 1. The
+    operator could not tell whether the repair applied, and a wrapper gating on
+    exit 0 read a successful repair as a failure.
+    """
+    from types import SimpleNamespace
+
+    survivor, drifted_seed = ce.SEED_JOBS[0], ce.SEED_JOBS[2]
+    updated: list[dict] = []
+
+    class FakeQ:
+        def __init__(self, rows): self._r = rows
+        def select(self, *a, **k): return self
+        def eq(self, *a, **k): return self
+        def update(self, patch): updated.append(patch); return self
+        def execute(self): return SimpleNamespace(data=self._r)
+
+    def row_for(seed, **over):
+        r = {
+            "id": seed["name"], "name": seed["name"], "is_active": 1,
+            "schedule": seed["schedule"], "action_type": seed["action_type"],
+            "action_config": seed["action_config"],
+            "owner_agent_key": seed.get("owner_agent_key") or "bravo",
+            "description": seed.get("description"),
+        }
+        r.update(over)
+        return r
+
+    class FakeDb:
+        def table(self, name):
+            # survivor is clean; drifted_seed's live row has the wrong schedule.
+            # Every OTHER declared job is absent -> the contract fails too.
+            return FakeQ([row_for(survivor),
+                          row_for(drifted_seed, schedule="59 23 31 2 *")])
+
+    args = SimpleNamespace(only=None, fix=True, fix_docs=False)
+    with pytest.raises(SystemExit):
+        ce.cmd_drift(FakeDb(), args, False)
+    out = capsys.readouterr().out
+
+    assert "INVENTORY CONTRACT FAILED" in out, out[:400]
+    assert "Realigned" in out, (
+        "`--fix` patched rows but never said so - the inventory block swallowed "
+        f"the repair confirmation.\n\n{out[:600]}"
+    )
+    assert updated, "no update was actually issued, so the fixture is wrong"
+    assert "No drift" not in out, (
+        "printed a clean bill of health beneath a list of missing jobs"
+    )
+
+
+def test_the_canary_description_matches_what_it_can_actually_check():
+    """A check with no subject must not be named in the description CC reads.
+
+    The hourly canary's description advertised detection of "dead daemon-backed
+    runners". `_scan_daemon_backed` reads the link from `daemon_backed` on a
+    SEED_JOBS entry -- and ZERO entries carry one, so it returns immediately and
+    can never fire. The daemon it was written for (`bravo-ig-dm`) is real and UP
+    in the fleet, but it has no cron row at all any more, so the coupling the
+    check depends on no longer exists; fleet_watchdog covers that process
+    directly.
+
+    CC reads that description as the definition of what is covered. This test
+    keeps the two in step in BOTH directions: if someone wires a real
+    `daemon_backed` seed, the description must start claiming it; while none
+    exists, it must not.
+    """
+    canary = next(j for j in ce.SEED_JOBS
+                  if "Hourly Cron Health Check" in str(j.get("name") or ""))
+    description = str(canary.get("description") or "").lower()
+    has_subject = any(j.get("daemon_backed") for j in ce.SEED_JOBS)
+    claims_daemons = "daemon" in description
+
+    if has_subject and not claims_daemons:
+        subjects = [j["name"] for j in ce.SEED_JOBS if j.get("daemon_backed")]
+        raise AssertionError(
+            f"SEED_JOBS now declares daemon_backed on {subjects}, so the canary "
+            f"DOES watch daemon-backed runners -- say so in its description."
+        )
+    if claims_daemons and not has_subject:
+        raise AssertionError(
+            "the canary's description claims it detects dead daemon-backed "
+            "runners, but no SEED_JOBS entry carries `daemon_backed`, so "
+            "_scan_daemon_backed returns immediately and the check can never "
+            "fire. Either wire a subject or stop claiming the coverage."
+        )

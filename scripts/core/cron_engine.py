@@ -170,13 +170,20 @@ SEED_JOBS: list[dict] = [
         # Fleet V3 P6 — quarterly break-glass drill. Walks BREAK_GLASS.md's
         # preconditions in dry-run (can we stop / revoke / restore?) and reports
         # drift to Telegram. Changes nothing. 09:00 on the 1st of every 3rd month.
-        # n8n handler for action_type 'break_glass_drill' runs
-        # scripts/break_glass_drill.py --json; until that handler ships, run it
-        # manually. NOT seeded to the shared cron registry until CC reviews (production-scheduling mutation).
+        # Dispatched as `script_run`, NOT a bespoke `break_glass_drill` type.
+        # That type was declared here but no runner ever implemented it: it is
+        # absent from scheduler.execute_job's elif chain, so arming this row --
+        # exactly what the note below invites CC to do -- would have stamped
+        # `ERROR: unknown_action_type:break_glass_drill` and never executed.
+        # The disaster-recovery drill, the one automation whose whole purpose is
+        # proving the emergency runbook still works, would have been the one that
+        # silently never ran, a quarter at a time. run_script_action already
+        # executes action_config["script"], and the script has a __main__ guard.
+        # NOT seeded to the shared cron registry until CC reviews (production-scheduling mutation).
         "name": "Break-Glass Drill (quarterly)",
         "description": "Dry-run the emergency runbook; report drift between BREAK_GLASS.md and reality.",
         "schedule": "0 9 1 */3 *",
-        "action_type": "break_glass_drill",
+        "action_type": "script_run",
         "action_config": {"script": "scripts/break_glass_drill.py", "notify_channel": "telegram"},
         # NEVER RUN. A restore drill's first execution should be supervised, not a
         # 3am surprise — arm after one supervised run with CC.
@@ -1538,18 +1545,35 @@ def cmd_drift(client, args, output_json: bool) -> None:
     if output_json:
         print(json.dumps({"drifted": rows, "doc_drifted": docs,
                           "inventory_issues": inventory}, indent=2, default=str))
-    elif inventory:
+        if inventory or (rows and not getattr(args, "fix", False)):
+            raise SystemExit(1)
+        return
+
+    # An UNCONDITIONAL pre-block, deliberately not part of the elif chain below.
+    # As an `elif` it swallowed everything after it: `drift --fix` with one job
+    # missing patched the drifted rows, printed only "INVENTORY CONTRACT FAILED",
+    # never said "Realigned N cron job(s)", and exited 1. The operator could not
+    # tell whether the repair had applied, and any wrapper gating on exit 0 read
+    # a successful repair as a failure. Both facts are true at once and both are
+    # reported: the contract failed AND here is what --fix wrote.
+    if inventory:
         print(f"INVENTORY CONTRACT FAILED on {len(inventory)} job(s):\n")
         for issue in inventory:
             print(f"  {issue['name']}: {issue['kind']} — {issue['detail']}")
-        if rows:
-            print(f"\n{len(rows)} existing row(s) also have schedule/action drift.")
-        if docs:
-            print(f"{len(docs)} existing row(s) also have stale descriptions.")
         print("\nMissing rows require a reviewed seed/reconciliation; duplicates require "
               "operator review before either trigger is removed.")
-    elif not rows and not docs:
-        print("No drift: every live cron matches its SEED_JOBS definition.")
+        if rows or docs:
+            print()
+
+    if not rows and not docs:
+        # Only claim a clean bill of health when the inventory agreed too --
+        # otherwise this prints "every live cron matches its SEED_JOBS
+        # definition" directly beneath a list of jobs that are missing from it.
+        if not inventory:
+            print("No drift: every live cron matches its SEED_JOBS definition.")
+        else:
+            print("Every row that IS present matches its definition; the "
+                  "failures above are rows that are absent or duplicated.")
     elif not rows:
         # Behaviour is aligned; only the prose the operator reads is stale.
         verb = "Realigned" if getattr(args, "fix_docs", False) else "STALE DESCRIPTION"
