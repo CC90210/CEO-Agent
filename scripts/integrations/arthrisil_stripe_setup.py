@@ -48,7 +48,16 @@ WEBHOOK_SECRET_KEY = "STRIPE_WEBHOOK_SECRET_TRYTAN"
 ENV_FILE = PROJECT_ROOT / ".env.agents"
 PRICING_TS = Path(r"C:\Users\User\APPS\arthrisil-website\lib\pricing.ts")
 WEBHOOK_URL = "https://arthrisil.com/api/stripe/webhook"
-WEBHOOK_EVENTS = ["checkout.session.completed"]
+WEBHOOK_EVENTS = [
+    "checkout.session.completed",
+    # Without these the site hears about a subscription exactly once, at birth:
+    # renewals are charged and recorded nowhere, and a cancellation is invisible
+    # — and you cannot make a retention offer to a churn you never learn about.
+    "customer.subscription.created",
+    "customer.subscription.updated",
+    "customer.subscription.deleted",
+    "invoice.paid",
+]
 
 
 class StripeError(RuntimeError):
@@ -457,8 +466,28 @@ def cmd_webhook(_args) -> int:
     """
     existing = find_webhook(WEBHOOK_URL)
     if existing:
+        current = set(existing.get("enabled_events", []))
+        wanted = set(WEBHOOK_EVENTS)
+        if current != wanted:
+            # Subscribe to any events added since the endpoint was created.
+            # Updating never touches the signing secret, so this is safe to
+            # re-run and does not invalidate the key already in .env.agents.
+            updated = call(
+                "POST",
+                f"/webhook_endpoints/{existing['id']}",
+                {"enabled_events[]": sorted(wanted)},
+            )
+            added = sorted(wanted - current)
+            removed = sorted(current - wanted)
+            print(f"endpoint UPDATED: {updated['id']}")
+            if added:
+                print(f"  + {', '.join(added)}")
+            if removed:
+                print(f"  - {', '.join(removed)}")
+            print("  (signing secret unchanged)")
+            return 0
         print(f"endpoint exists : {existing['id']}  status={existing.get('status')}")
-        print(f"events          : {', '.join(existing.get('enabled_events', []))}")
+        print(f"events          : {', '.join(sorted(current))}")
         print(
             "\nIts signing secret is shown only at creation, so it cannot be re-read here.\n"
             f"If {WEBHOOK_SECRET_KEY} is not already set, roll the secret in the Stripe\n"
