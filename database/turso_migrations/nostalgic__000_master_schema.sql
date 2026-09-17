@@ -10,6 +10,19 @@
 --   FKs dropped as unenforceable in SQLite (0) — parent columns not unique in the emitted schema; enforce in the DAL
 --   defaults dropped (2) and non-btree/expression indexes skipped (0): see turso_migrations/nostalgic__transpile_report.json
 --
+-- GAP — THIS FILE CANNOT REBUILD A WORKING DATABASE (noted 2026-09-13):
+--   The live nostalgic database holds 13 tables; this file emits 8. The five it
+--   does not describe are the auth and storage tables that arrived outside the
+--   transpiler: _supabase_auth_users, _supabase_auth_identities,
+--   _storage_archive_manifest, _storage_url_rewrites, and profiles' companions.
+--   _supabase_auth_users is the one that matters — it is where every DJ's email
+--   and bcrypt password hash lives, and lib/turso-auth.ts authenticates against
+--   it. Rebuilding from this file alone produces a site nobody can log into,
+--   silently, because the login route would simply find no rows.
+--   The live unique index idx_auth_users_email_lower is likewise NOT mirrored
+--   here, for the same reason: its table is absent, so the DDL would fail.
+--   Do not treat this file as a complete backup of the nostalgic database.
+--
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS "custom_agreements" (
   "id" TEXT NOT NULL DEFAULT (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random())%4+1,1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6)))),
@@ -58,6 +71,13 @@ CREATE TABLE IF NOT EXISTS "dj_profiles" (
   "created_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "updated_at" TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   "username" TEXT,
+  -- Added 2026-09-13. These two exist on the LIVE nostalgic database (applied
+  -- by ALTER) but were missing here, so the next rebuild from this file would
+  -- have silently dropped a DJ's payout wiring: stripe_account_id is the
+  -- destination every fan's payment is routed to, and checkout refuses to sell
+  -- anything unless stripe_onboarding_complete is set.
+  "stripe_account_id" TEXT,
+  "stripe_onboarding_complete" INTEGER DEFAULT 0,
   PRIMARY KEY ("id")
 );
 
@@ -205,6 +225,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS "dj_profiles_pkey" ON "dj_profiles" (id);
 CREATE UNIQUE INDEX IF NOT EXISTS "dj_profiles_user_id_key" ON "dj_profiles" (user_id);
 CREATE INDEX IF NOT EXISTS "idx_dj_profiles_user_id" ON "dj_profiles" (user_id);
 CREATE INDEX IF NOT EXISTS "idx_dj_profiles_email" ON "dj_profiles" (email);
+-- Added 2026-09-13, mirroring an index already applied to the LIVE nostalgic
+-- database. Checkout routes a fan's payment at dj_profiles.stripe_account_id
+-- and nothing else in the stack enforces that the id belongs to one DJ, so two
+-- rows sharing an account id means one DJ collects the other's money.
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_dj_profiles_stripe_account" ON "dj_profiles" (stripe_account_id) WHERE stripe_account_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS "custom_agreements_pkey" ON "custom_agreements" (id);
 CREATE INDEX IF NOT EXISTS "idx_custom_agreements_email" ON "custom_agreements" (client_email);
 CREATE INDEX IF NOT EXISTS "idx_custom_agreements_status" ON "custom_agreements" (status);

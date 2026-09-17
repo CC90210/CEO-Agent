@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SunBiz × OASIS AI — What We've Built, What's Next</title>
+<style>
+  :root {
+    --navy: #0a1628;
+    --navy-2: #101f38;
+    --gold: #d4af37;
+    --gold-soft: #e8cf7a;
+    --white: #f5f7fa;
+    --muted: #9fb0c7;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: var(--navy); font-family: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif; color: var(--white); overflow: hidden; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: none; flex-direction: column; justify-content: center; align-items: center;
+    padding: 6vh 8vw; text-align: center;
+    background: radial-gradient(ellipse at 50% 30%, var(--navy-2) 0%, var(--navy) 70%);
+  }
+  .slide.active { display: flex; }
+
+  .kicker {
+    text-transform: uppercase; letter-spacing: 0.35em; font-size: clamp(0.65rem, 1.2vw, 0.85rem);
+    color: var(--gold); margin-bottom: 2.5vh; font-weight: 600;
+  }
+  h1 { font-size: clamp(2rem, 5vw, 4rem); line-height: 1.1; font-weight: 800; margin-bottom: 2.5vh; }
+  h2 { font-size: clamp(1.6rem, 3.6vw, 2.9rem); line-height: 1.15; font-weight: 800; margin-bottom: 3vh; max-width: 1100px; }
+  h2 .gold, h1 .gold { color: var(--gold); }
+  p.sub { font-size: clamp(1rem, 1.8vw, 1.35rem); color: var(--muted); max-width: 900px; line-height: 1.5; }
+
+  .cols { display: flex; gap: 3vw; max-width: 1200px; width: 100%; justify-content: center; flex-wrap: wrap; }
+  .card {
+    background: rgba(212, 175, 55, 0.06); border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: 14px; padding: 3vh 2vw; flex: 1 1 280px; max-width: 380px; text-align: left;
+  }
+  .card h3 { color: var(--gold); font-size: clamp(1rem, 1.6vw, 1.25rem); margin-bottom: 1.2vh; }
+  .card p, .card li { color: var(--white); font-size: clamp(0.9rem, 1.4vw, 1.05rem); line-height: 1.55; }
+  .card ul { list-style: none; }
+  .card li { padding-left: 1.3em; position: relative; margin-bottom: 0.7vh; }
+  .card li::before { content: "—"; color: var(--gold); position: absolute; left: 0; }
+
+  ul.plain { list-style: none; max-width: 950px; text-align: left; }
+  ul.plain li {
+    font-size: clamp(1rem, 1.9vw, 1.4rem); line-height: 1.5; margin-bottom: 1.6vh;
+    padding-left: 1.6em; position: relative; color: var(--white);
+  }
+  ul.plain li::before { content: "▸"; color: var(--gold); position: absolute; left: 0.3em; }
+  ul.plain li s { color: var(--muted); }
+  ul.plain li .dim { color: var(--muted); font-size: 0.85em; display: block; }
+
+  .stats { display: flex; gap: 4vw; flex-wrap: wrap; justify-content: center; margin-top: 4vh; }
+  .stat { text-align: center; }
+  .stat .num { font-size: clamp(2.2rem, 5vw, 3.8rem); font-weight: 800; color: var(--gold); line-height: 1; }
+  .stat .lbl { font-size: clamp(0.75rem, 1.3vw, 0.95rem); color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; margin-top: 0.8vh; }
+
+  .flow { display: flex; align-items: center; gap: 1.2vw; flex-wrap: wrap; justify-content: center; margin-top: 2vh; }
+  .flow .step {
+    background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.35);
+    border-radius: 10px; padding: 2vh 1.4vw; font-size: clamp(0.85rem, 1.4vw, 1.1rem); max-width: 240px;
+  }
+  .flow .arrow { color: var(--gold); font-size: clamp(1.2rem, 2.4vw, 2rem); font-weight: 700; }
+
+  .quote {
+    font-size: clamp(1.3rem, 2.8vw, 2.1rem); font-weight: 600; line-height: 1.4;
+    max-width: 1000px; color: var(--white);
+  }
+  .quote .gold { color: var(--gold); }
+
+  .vs { display: flex; gap: 3vw; max-width: 1150px; width: 100%; align-items: stretch; justify-content: center; flex-wrap: wrap; }
+  .vs .side { flex: 1 1 340px; max-width: 520px; border-radius: 14px; padding: 3.5vh 2.2vw; text-align: left; }
+  .vs .bad { background: rgba(200, 60, 60, 0.07); border: 1px solid rgba(200, 60, 60, 0.3); }
+  .vs .good { background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.4); }
+  .vs h3 { font-size: clamp(1.1rem, 1.9vw, 1.5rem); margin-bottom: 1.8vh; }
+  .vs .bad h3 { color: #e08a8a; }
+  .vs .good h3 { color: var(--gold); }
+  .vs ul { list-style: none; }
+  .vs li { font-size: clamp(0.9rem, 1.5vw, 1.1rem); line-height: 1.55; margin-bottom: 1vh; padding-left: 1.4em; position: relative; }
+  .vs .bad li::before { content: "✕"; color: #e08a8a; position: absolute; left: 0; }
+  .vs .good li::before { content: "✓"; color: var(--gold); position: absolute; left: 0; }
+
+  .ask {
+    font-size: clamp(1.8rem, 4.2vw, 3.4rem); font-weight: 800; line-height: 1.25; max-width: 1050px;
+  }
+  .ask .gold { color: var(--gold); }
+
+  #counter {
+    position: fixed; bottom: 2.2vh; right: 2.5vw; color: var(--muted);
+    font-size: 0.85rem; letter-spacing: 0.1em; z-index: 10;
+  }
+  #hint {
+    position: fixed; bottom: 2.2vh; left: 2.5vw; color: rgba(159,176,199,0.5);
+    font-size: 0.75rem; letter-spacing: 0.08em; z-index: 10;
+  }
+  #bar { position: fixed; top: 0; left: 0; height: 3px; background: var(--gold); width: 0%; transition: width 0.3s; z-index: 10; }
+  .brand { position: fixed; top: 2.5vh; left: 2.5vw; color: var(--gold); font-weight: 700; letter-spacing: 0.25em; font-size: 0.8rem; z-index: 10; opacity: 0.8; }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div class="brand">SUNBIZ × OASIS AI</div>
+
+<!-- 1 — TITLE -->
+<section class="slide">
+  <div class="kicker">A look at your system</div>
+  <h1>Everything we've <span class="gold">built together</span>.<br>Everything that's <span class="gold">next</span>.</h1>
+  <p class="sub">SunBiz doesn't run on rented software. It runs on a system built for SunBiz — and it's just getting started.</p>
+</section>
+
+<!-- 2 — THE OLD WAY -->
+<section class="slide">
+  <div class="kicker">Remember this?</div>
+  <h2>The old way of running a <span class="gold">cash advance</span> shop</h2>
+  <ul class="plain">
+    <li>Merchant sends an application → someone <s>types it into a spreadsheet by hand</s></li>
+    <li>Reading bank statements line by line to guess <s>real revenue and existing positions</s></li>
+    <li>Shopping a deal = <s>emailing lenders one at a time</s>, attachments by hand, no tracking</li>
+    <li>Follow-ups live in <s>someone's head</s> — a rep leaves, the pipeline leaves with them</li>
+    <li>A new CRM every year → <s>your data starts from zero every time</s></li>
+  </ul>
+</section>
+
+<!-- 3 — TODAY -->
+<section class="slide">
+  <div class="kicker">Today</div>
+  <h2>SunBiz runs on <span class="gold">its own system</span></h2>
+  <p class="sub">Not a subscription someone else owns. A platform built around how your shop actually works.</p>
+  <div class="stats">
+    <div class="stat"><div class="num">4,868</div><div class="lbl">applications submitted</div></div>
+    <div class="stat"><div class="num">46</div><div class="lbl">lenders in your catalog</div></div>
+    <div class="stat"><div class="num">8</div><div class="lbl">automations running 24/7</div></div>
+    <div class="stat"><div class="num">1</div><div class="lbl">system that holds it all</div></div>
+  </div>
+</section>
+
+<!-- 4 — AUTOFILL -->
+<section class="slide">
+  <div class="kicker">Feature — built for you</div>
+  <h2>Drop in an application. <span class="gold">It fills itself in.</span></h2>
+  <div class="flow">
+    <div class="step">Merchant's application arrives — PDF or a photo</div>
+    <div class="arrow">→</div>
+    <div class="step">AI reads it and maps every field into the CRM</div>
+    <div class="arrow">→</div>
+    <div class="step">Finds the signature box, regenerates a branded SunBiz PDF</div>
+  </div>
+  <p class="sub" style="margin-top:4vh;">What used to be 15 minutes of typing per deal is now seconds. And if the AI ever can't read it, a backup parser still fills in the basics — your team never hits a wall.</p>
+</section>
+
+<!-- 5 — UNDERWRITING -->
+<section class="slide">
+  <div class="kicker">Feature — built for you</div>
+  <h2>AI underwriting that reads <span class="gold">bank statements</span></h2>
+  <ul class="plain">
+    <li>Calculates <strong>true revenue</strong> — deposits minus transfers and noise</li>
+    <li>Detects existing MCA positions and flags the ones that kill a deal</li>
+    <li>Grades every file <strong>A / B / C / D</strong> and recommends: fund, consolidate, work out, or decline</li>
+    <li><span class="dim">Proven on live deals — e.g. a real file processed end-to-end: $134,626 true revenue, zero verified positions detected, graded and recommended automatically.</span></li>
+  </ul>
+</section>
+
+<!-- 6 — SHOP-OUT -->
+<section class="slide">
+  <div class="kicker">Feature — built for you</div>
+  <h2>One deal → <span class="gold">shopped to the right lenders</span> in one click</h2>
+  <ul class="plain">
+    <li>One application goes out to up to <strong>12 matched lenders</strong> — attachments packed automatically</li>
+    <li>An AI recommender scores every lender: <strong>strong fit, moderate, long shot</strong> — and warns you before a bad send</li>
+    <li>Lender replies are read, classified, and logged — you build a record of <strong>who funds what</strong></li>
+    <li>Every send is signed by the right person on your team — never the wrong identity</li>
+  </ul>
+</section>
+
+<!-- 7 — AUTOMATIONS -->
+<section class="slide">
+  <div class="kicker">Feature — built for you</div>
+  <h2>The machine that <span class="gold">never sleeps</span></h2>
+  <div class="cols">
+    <div class="card"><h3>While you sleep</h3><ul>
+      <li>Follow-up sequences send themselves — and stop the moment a merchant replies</li>
+      <li>Any lead silent for 24 hours gets re-engaged automatically</li>
+      <li>Renewal alerts hit your phone when a funded deal hits 40–50% paid down</li>
+    </ul></div>
+    <div class="card"><h3>While you work</h3><ul>
+      <li>6:30am: your priority list for the day, generated and waiting</li>
+      <li>Approve or deny a deal <strong>straight from Telegram</strong> — you've already done it live</li>
+      <li>Every call, text, and email logged to one timeline per merchant</li>
+    </ul></div>
+  </div>
+  <p class="sub" style="margin-top:3.5vh;">All of it runs on your own dedicated server, around the clock. Not on someone's laptop.</p>
+</section>
+
+<!-- 8 — WEBSITE -->
+<section class="slide">
+  <div class="kicker">Feature — built for you</div>
+  <h2>Your website. Your brand. <span class="gold">Our hosting.</span></h2>
+  <ul class="plain">
+    <li>Rebuilt your old WordPress site as a <strong>fast, modern website</strong> — we host and maintain it</li>
+    <li>Every Apply button feeds <strong>straight into your system</strong> — no lead ever lands in an inbox black hole</li>
+    <li><strong>12 conversion-built email templates</strong> and <strong>5 ad creatives</strong> in SunBiz navy &amp; gold, ready to send</li>
+  </ul>
+</section>
+
+<!-- 9 — HONEST SLIDE -->
+<section class="slide">
+  <div class="kicker">The honest part</div>
+  <h2>Some things broke. <span class="gold">Here's what changed.</span></h2>
+  <ul class="plain">
+    <li>An email once went out from the wrong address → <strong>permanently fixed</strong>: the system now physically cannot send from the wrong identity</li>
+    <li>Automations went quiet when they lived on a laptop → <strong>moved to an always-on server</strong> with monitoring</li>
+    <li>The application reader went down once → rebuilt with <strong>layers of fallback</strong> so it can't hard-fail again</li>
+    <li>Communication was slow at times — on both sides. That's ours to own too, and it's fixed by having <strong>one system worth talking about</strong></li>
+  </ul>
+  <p class="sub" style="margin-top:3vh;">Every break made the system stronger. None of them happen twice.</p>
+</section>
+
+<!-- 10 — COST OF SWITCHING -->
+<section class="slide">
+  <div class="kicker">The decision in front of you</div>
+  <h2>A new CRM means <span class="gold">starting from zero</span></h2>
+  <div class="vs">
+    <div class="side bad"><h3>Switching to another CRM</h3><ul>
+      <li>Your 46-lender catalog and who-funds-what history: gone</li>
+      <li>4,868 submissions of merchant data: left behind</li>
+      <li>Your automations, templates, underwriting: rebuilt from scratch, if ever</li>
+      <li>In 3 months, another rep suggests another CRM — and it happens again</li>
+    </ul></div>
+    <div class="side good"><h3>Staying with your own system</h3><ul>
+      <li>Every deal, reply, and data point compounds in one place</li>
+      <li>Like something about another CRM? Tell us — <strong>we build it into yours</strong></li>
+      <li>The system gets smarter every month it's alive</li>
+      <li>It's yours. It grows with SunBiz, not with a vendor's roadmap</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- 11 — NEXT 30 DAYS -->
+<section class="slide">
+  <div class="kicker">What one more month buys</div>
+  <h2>The lead machine is built. <span class="gold">It's time to switch it on.</span></h2>
+  <ul class="plain">
+    <li><strong>Cold outreach engine</strong> — built, tested, and ready to send at scale</li>
+    <li><strong>Lead qualification pipeline</strong> — new leads scored and pushed to your Telegram for a one-tap yes/no</li>
+    <li><strong>Your own inbound funnel</strong> — website forms + ad creatives already made, ready to run</li>
+    <li>Thirty days of this running = the first real picture of <strong>SunBiz generating its own leads</strong></li>
+  </ul>
+</section>
+
+<!-- 12 — GPU -->
+<section class="slide">
+  <div class="kicker">New — partners only</div>
+  <h2>We just got our own <span class="gold">AI hardware</span></h2>
+  <p class="sub" style="margin-bottom:3vh;">A dedicated machine with a top-tier AI chip (96 GB of AI memory) — and partners get first access.</p>
+  <div class="cols">
+    <div class="card"><h3>Private AI on your data</h3><p>Your underwriting and document reading can run on models that live on our hardware — your merchants' data never touches an outside service.</p></div>
+    <div class="card"><h3>AI video ads for SunBiz</h3><p>The same machine generates professional video creative — ads for your marketing without a production budget.</p></div>
+  </div>
+  <p class="sub" style="margin-top:3.5vh;">This is where the industry is going. As a partner, SunBiz is already at the front of the line.</p>
+</section>
+
+<!-- 13 — THE ASK -->
+<section class="slide">
+  <div class="kicker">The ask</div>
+  <p class="ask">Don't walk away from something that's <span class="gold">shown it works</span> — right before it gets to show <span class="gold">what it can really do</span>.</p>
+  <p class="sub" style="margin-top:4vh; font-size:clamp(1.2rem,2.4vw,1.8rem); color:var(--white);">Give it <strong style="color:var(--gold);">one more month</strong>. The machine turns on, the leads come in, and the decision makes itself.</p>
+</section>
+
+<div id="counter"></div>
+<div id="hint">← → arrow keys to navigate</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let i = 0;
+  const counter = document.getElementById('counter');
+  const bar = document.getElementById('bar');
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    counter.textContent = (i + 1) + ' / ' + slides.length;
+    bar.style.width = ((i + 1) / slides.length * 100) + '%';
+  }
+  document.addEventListener('keydown', e => {
+    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); show(i + 1); }
+    if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); show(i - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+  });
+  document.addEventListener('click', e => {
+    if (e.clientX > window.innerWidth / 2) show(i + 1); else show(i - 1);
+  });
+  show(0);
+</script>
+</body>
+</html>

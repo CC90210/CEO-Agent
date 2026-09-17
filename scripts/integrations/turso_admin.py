@@ -62,6 +62,7 @@ EMPIRE_DATABASES = {
     "nostalgic-requests": "NOSTALGIC_TURSO_DATABASE_URL",
     "propflow": "PROPFLOW_TURSO_DATABASE_URL",
     "oasis-platform": "OASIS_TURSO_DATABASE_URL",
+    "arthrisil-studio": "ARTHRISIL_TURSO_DATABASE_URL",
 }
 TOKEN_VAR = {name: url_var.replace("DATABASE_URL", "AUTH_TOKEN")
              for name, url_var in EMPIRE_DATABASES.items()}

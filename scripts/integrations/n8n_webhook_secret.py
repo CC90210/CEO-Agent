@@ -265,7 +265,7 @@ def main() -> int:
     )
     p_issue.add_argument(
         "--dashboard-url",
-        default="https://agent-dashboard-cc90210.vercel.app",
+        default="https://oasisai.work",
         help="OASIS_DASHBOARD_URL value to write when --save-env is used",
     )
     p_issue.set_defaults(func=cmd_issue)

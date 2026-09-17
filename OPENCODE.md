@@ -115,7 +115,9 @@ OpenCode is the move when speed beats breadth:
 4. Act AS CC inside CC's logged-in session → Browser Harness (`scripts/browser/browser_harness_doctor.py` first)
 5. Interactive flow / visual snapshot on unprotected site → Playwright MCP
 
-Intent → tool routing: `brain/QUICK_REFERENCE.md`. Capability registry: `brain/CAPABILITY_GRAPH.json` (auto-built by `scripts/build_capability_graph.py`).
+Intent → tool routing: `brain/QUICK_REFERENCE.md`.
+
+**GPU video generation (LIVE 2026-09-17):** `python scripts/gpu/oasisgpu.py {smoke|bootstrap|stack|run|push|tunnel|pull}` drives the Hostinger GPU box (RTX PRO 6000, 94GB VRAM); `wan_gen.py {t2v|i2v|s2v}` renders. Replaces Higgsfield/HeyGen spend. Wan 2.2 is Apache-2.0 → client-safe. **Maven owns the content; Bravo owns the box. One GPU, one queue — claim it before submitting.** Traps + full routing: `brain/QUICK_REFERENCE.md`. Capability registry: `brain/CAPABILITY_GRAPH.json` (auto-built by `scripts/build_capability_graph.py`).
 
 ---
 

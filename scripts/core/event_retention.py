@@ -53,6 +53,16 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 DEFAULT_DAYS = 30
 TERMINAL = "dead"
 
+# Rows per UPDATE. One request per row is what put this job on the scheduler's
+# 900s wall: the 2026-09-13 sweep had 2,098 stale rows and four consecutive runs
+# were killed at exactly 900.0s (state/cron_timings.jsonl), each having marked a
+# little more before dying, so it crawled to completion across four attempts.
+# The scheduler executes due jobs SERIALLY on a 60s tick, so those 900s also
+# stalled every job queued behind them — that is the whole 07:30-08:48 incident,
+# the harness eval's five "failures" included. Chunked, 2,098 rows is 11
+# requests. 200 keeps the bound variables well under SQLite's 999 default.
+UPDATE_CHUNK = 200
+
 
 def _client():
     from integrations.supabase_tool import get_client  # noqa: PLC0415
@@ -102,16 +112,27 @@ def sweep(days: int = DEFAULT_DAYS, event_type: str | None = None,
 
     marked, failed = 0, 0
     if apply:
-        for r in stale:
+        patch = {
+            "status": TERMINAL,
+            "last_error": "aged out by event_retention: no consumer "
+                          f"claimed it within {days}d",
+        }
+        ids = [r["id"] for r in stale if r.get("id") is not None]
+        for i in range(0, len(ids), UPDATE_CHUNK):
+            chunk = ids[i:i + UPDATE_CHUNK]
             try:
-                db.table("agent_events").update({
-                    "status": TERMINAL,
-                    "last_error": "aged out by event_retention: no consumer "
-                                  f"claimed it within {days}d",
-                }).eq("id", r["id"]).eq("status", "pending").execute()
-                marked += 1
+                # in_() carries the scope. An UPDATE that reaches execute()
+                # with only the status filter marks EVERY pending row in
+                # agent_events dead — the Bravo<->APEX channel included.
+                db.table("agent_events").update(patch).in_(
+                    "id", chunk).eq("status", "pending").execute()
+                marked += len(chunk)
             except Exception:  # noqa: BLE001
-                failed += 1
+                # Coarser attribution than the per-row loop: a failed chunk
+                # counts all of its ids as failed. The guard means a row that
+                # a consumer claimed mid-sweep was never going to be counted
+                # accurately anyway — "marked" was always rows-attempted.
+                failed += len(chunk)
 
     return {
         "cutoff_days": days,

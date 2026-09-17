@@ -1,18 +1,18 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-09-08T08:02:35.553689+00:00",
+  "generated_at": "2026-09-17T08:03:01.019463+00:00",
   "totals": {
     "skills": 164,
-    "scripts": 207,
+    "scripts": 214,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 462,
-    "edges_total": 224,
-    "drift_count": 0
+    "nodes_total": 469,
+    "edges_total": 225,
+    "drift_count": 4
   },
   "nodes": [
     {
@@ -5673,6 +5673,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:bravo_cli",
+      "kind": "script",
+      "name": "bravo_cli",
+      "path": "scripts/bravo_cli.py",
+      "description": "Bravo Terminal IDE Harness (Local LLM CLI) ------------------------------------------ Interactive terminal interface for CC's local Bravo AI model (`bravo-14b`). Loads full Business-Empire-Agent context (SOUL.md, AGENTS.md, scripts inventory), supports file inspection, and stream",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:bravo_sleep",
       "kind": "script",
       "name": "bravo_sleep",
@@ -6278,7 +6288,7 @@
       "kind": "script",
       "name": "ensure_cockpit",
       "path": "scripts/ensure_cockpit.py",
-      "description": "Ensure the Bravo Console cockpit terminal is alive.",
+      "description": "Ensure the Bravo Console cockpit is alive.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6933,6 +6943,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:provision_oasis_mailbox",
+      "kind": "script",
+      "name": "provision_oasis_mailbox",
+      "path": "scripts/provision_oasis_mailbox.py",
+      "description": "Provision the shared OASIS sending mailbox, without the secret passing through a shell, a log, or an agent's context.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:provision_secrets",
       "kind": "script",
       "name": "provision_secrets",
@@ -7198,6 +7218,16 @@
       "bridge": {
         "visible": false
       }
+    },
+    {
+      "id": "script:run_qlora_train",
+      "kind": "script",
+      "name": "run_qlora_train",
+      "path": "scripts/run_qlora_train.py",
+      "description": "Train, merge, convert, quantize, import, and verify ``bravo-14b-v2``.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:run_reseed_sunbiz_forms",
@@ -7576,6 +7606,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:train_local_bravo",
+      "kind": "script",
+      "name": "train_local_bravo",
+      "path": "scripts/train_local_bravo.py",
+      "description": "Build and validate the private ChatML dataset for ``bravo-14b-v2``.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:transcribe",
       "kind": "script",
       "name": "transcribe",
@@ -7856,6 +7896,52 @@
       }
     },
     {
+      "id": "script:oasisgpu",
+      "kind": "script",
+      "name": "oasisgpu",
+      "path": "scripts/gpu/oasisgpu.py",
+      "description": "oasisgpu.py \u2014 local driver for the Hostinger GPU box (OasisGPU).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "infra.gpu",
+      "lifecycle": "active",
+      "risk": "remote_exec",
+      "triggers": [
+        "connect to the gpu server",
+        "bootstrap the gpu box",
+        "open comfyui from the gpu instance",
+        "check what gpu the server has"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:wan_gen",
+      "kind": "script",
+      "name": "wan_gen",
+      "path": "scripts/gpu/wan_gen.py",
+      "description": "wan_gen.py \u2014 Wan 2.2 video generation on ComfyUI. Text-to-video and image-to-video.",
+      "tier": "tool",
+      "owner": "maven",
+      "discovery": "auto-capability-meta",
+      "category": "content.video_generation",
+      "lifecycle": "active",
+      "risk": "local_compute",
+      "triggers": [
+        "generate a video clip on the gpu",
+        "animate a product screenshot into video",
+        "render a wan 2.2 shot",
+        "make ugc footage without higgsfield credits"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
       "id": "script:book_discovery_call",
       "kind": "script",
       "name": "book_discovery_call",
@@ -7921,6 +8007,30 @@
         "which client secret goes with this google oauth client",
         "find the matching google client secret",
         "verify a google oauth client id and secret pair"
+      ],
+      "project": "empire",
+      "bridge": {
+        "visible": false
+      }
+    },
+    {
+      "id": "script:hostinger_tool",
+      "kind": "script",
+      "name": "hostinger_tool",
+      "path": "scripts/integrations/hostinger_tool.py",
+      "description": "hostinger_tool.py \u2014 Hostinger account/VPS/GPU read + controlled mutation for the fleet.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-capability-meta",
+      "category": "infra.hostinger",
+      "lifecycle": null,
+      "risk": "external_write",
+      "triggers": [
+        "list the hostinger vps fleet",
+        "find the gpu instance ip address",
+        "check hostinger billing, credits, or subscriptions",
+        "look up a hostinger server's connection details",
+        "register an ssh public key on the hostinger account"
       ],
       "project": "empire",
       "bridge": {
@@ -10064,6 +10174,11 @@
       "kind": "calls"
     },
     {
+      "from": "script:dashboard_email_queue_monitor",
+      "to": "script:dashboard_email_consumer",
+      "kind": "references"
+    },
+    {
       "from": "script:db_snapshot",
       "to": "runtime:bridge_chat_server",
       "kind": "exposed_via"
@@ -10944,5 +11059,22 @@
       "kind": "uses"
     }
   ],
-  "drift": []
+  "drift": [
+    {
+      "node": "script:oasisgpu",
+      "issue": "invalid CAPABILITY_META: risk must be one of ['destructive', 'external_write', 'local_write', 'read_only']"
+    },
+    {
+      "node": "script:wan_gen",
+      "issue": "invalid CAPABILITY_META: risk must be one of ['destructive', 'external_write', 'local_write', 'read_only']"
+    },
+    {
+      "node": "script:hostinger_tool",
+      "issue": "invalid CAPABILITY_META: missing fields: lifecycle"
+    },
+    {
+      "node": "script:hostinger_tool",
+      "issue": "invalid CAPABILITY_META: lifecycle must be one of ['active', 'deprecated', 'manual', 'one_off']"
+    }
+  ]
 }

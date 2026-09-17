@@ -470,12 +470,13 @@ def _slug(label: str) -> str:
 def failure_dump_hint(job_name: str, job: Optional[dict] = None) -> str:
     """Return the 'Full traceback: …' line ONLY when a dump actually exists.
 
-    run_script_action() — the `script_run` path — never calls persist_failure()
-    (only run_script() does, at its two failure exits). So for every script_run
-    job this line pointed whoever was debugging at a directory that is never
-    written for that job. An alert that cites evidence which does not exist costs
-    a round-trip and quietly teaches people to distrust the alert. Name the file
-    when there is one, say nothing when there isn't.
+    Until 2026-09-13 run_script_action() — the `script_run` path — never called
+    persist_failure() (only run_script() did, at its two failure exits). So for
+    every script_run job this line pointed whoever was debugging at a directory
+    that is never written for that job. An alert that cites evidence which does
+    not exist costs a round-trip and quietly teaches people to distrust the
+    alert. Both paths dump now, but the existence check STAYS: persist_failure
+    is best-effort by design and still returns None when the write fails.
     """
     try:
         if not FAILURE_DUMP_DIR.exists():
@@ -1142,9 +1143,12 @@ def run_script_action(config: dict) -> str:
     if not full_path.exists():
         return f"ERROR: script_run target not found: {script}"
 
+    # Hoisted so the failure branches below can record what was actually run —
+    # persist_failure writes the command line into the dump header.
+    cmd = [PYTHON, str(full_path), *[str(a) for a in args]]
     try:
         result = subprocess.run(
-            [PYTHON, str(full_path), *[str(a) for a in args]],
+            cmd,
             capture_output=True,
             # Load-bearing on Windows, not hygiene — see STDIN_INHERITANCE note
             # above run_script.
@@ -1165,14 +1169,35 @@ def run_script_action(config: dict) -> str:
             env=CHILD_ENV,
             creationflags=CREATE_NO_WINDOW,
         )
-    except subprocess.TimeoutExpired:
-        return f"ERROR: script_run timed out ({timeout_s}s): {script}"
+    except subprocess.TimeoutExpired as exc:
+        # Mirror of run_script's timeout branch (2026-09-13). Until today ONLY
+        # run_script dumped, and every job in the registry that fails is a
+        # script_run — so four failing jobs produced a combined zero bytes of
+        # evidence and the Marketing Publish Drain's cause was unknowable.
+        partial_out = _as_text(exc.stdout)
+        partial_err = _as_text(exc.stderr)
+        dump = persist_failure(
+            script, cmd, "TIMEOUT",
+            f"No exception — killed after {timeout_s}s with no exit.\n"
+            f"A hang produces no traceback; the partial output below is all\n"
+            f"the child emitted before the wall.\n\n{partial_err}",
+            partial_out,
+        )
+        hint = f" [full: {Path(dump).name}]" if dump else ""
+        return f"ERROR: script_run timed out ({timeout_s}s):{hint} {script}"
     except Exception as exc:  # noqa: BLE001
         return f"ERROR: script_run failed: {exc}"
 
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
-        return f"ERROR: script_run exit {result.returncode}: {err}"
+        dump = persist_failure(script, cmd, result.returncode,
+                               result.stderr or "", result.stdout or "")
+        # Hint BEFORE the error text, not after. This string is clipped to
+        # RESULT_LIMIT on its way into cron_jobs.last_result and `err` alone is
+        # already 300 chars, so a pointer appended at the end is a pointer that
+        # gets cut off — the exact failure mode _clip_result exists to announce.
+        hint = f" [full: {Path(dump).name}]" if dump else ""
+        return f"ERROR: script_run exit {result.returncode}:{hint} {err}"
     return summarize_stdout(result.stdout)
 
 

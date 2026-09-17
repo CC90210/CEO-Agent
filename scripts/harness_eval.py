@@ -502,6 +502,41 @@ FAILURE_DUMP_DIR = PROJECT_ROOT / "tmp" / "cron_failures"
 _DUMP_NAME_RE = re.compile(r"^(?P<slug>.+)-(?P<ts>\d{8}T\d{6}Z)\.log$")
 _DUMP_FRESH_SECONDS = 24 * 3600
 
+# scheduler._slug() applied to THIS eval's own script path. The label
+# run_script_action hands persist_failure is action_config["script"]
+# ("scripts/harness_eval.py") — the cron row's NAME never reaches the filename.
+# Derived from __file__ so moving this file cannot silently un-skip it.
+try:
+    _SELF_REL = Path(__file__).resolve().relative_to(PROJECT_ROOT).as_posix()
+except ValueError:  # pragma: no cover — only if this file leaves the repo
+    _SELF_REL = "scripts/harness_eval.py"
+_SELF_DUMP_SLUG = re.sub(r"[^a-z0-9]+", "-", _SELF_REL.lower()).strip("-")[:48]
+
+
+def _is_self_scored_dump(entry, slug: str) -> bool:
+    """Mirror of is_self_scored_failure(), for a dump file instead of a row.
+
+    From 2026-09-13 run_script_action dumps on every non-zero exit. That closes
+    a real blind spot — four failing script_run jobs had produced zero bytes of
+    evidence between them — but it also arms a deadlock of exactly the
+    2026-07-28 shape: a red check makes this eval exit 1, the non-zero exit
+    writes a dump, the fresh dump makes THIS check red, which exits 1 again.
+    Forever, with no path back to green.
+
+    So the eval's own self-score is skipped — and ONLY when the body carries the
+    banner that proves the script ran and scored itself. A genuine crash of
+    harness_eval.py (import error, OS kill) writes no banner and still counts,
+    which is the whole point of the check.
+    """
+    if slug != _SELF_DUMP_SLUG:
+        return False
+    try:
+        body = Path(entry.path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        # Unreadable is not benign — count it rather than assume a self-score.
+        return False
+    return _SELF_SCORE_MARKER in body.upper()
+
 
 def check_no_recent_cron_failure_dumps():
     """Has any cron crashed hard in the last 24h?
@@ -565,6 +600,10 @@ def check_no_recent_cron_failure_dumps():
             except OSError:
                 continue
         if (now - when).total_seconds() > _DUMP_FRESH_SECONDS:
+            continue
+        if _is_self_scored_dump(e, slug):
+            # This eval's own "I scored myself red" exit. Counting it would
+            # make the check permanently red — see _is_self_scored_dump.
             continue
         fresh[slug] = fresh.get(slug, 0) + 1
         if newest is None or when > newest[0]:

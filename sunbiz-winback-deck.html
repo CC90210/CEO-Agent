@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SunBiz × OasisAI — Building for the Long Term</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --navy-deep: #04081a;
+            --navy: #0a1128;
+            --navy-light: #1a2744;
+            --gold: #d4a843;
+            --gold-bright: #f0c75e;
+            --gold-dim: rgba(212, 168, 67, 0.25);
+            --gold-glow: rgba(212, 168, 67, 0.12);
+            --white: #eef2f7;
+            --white-dim: #8899b0;
+            --glass: rgba(255, 255, 255, 0.04);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --red-muted: #c0392b;
+            --green-muted: #27ae60;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--navy-deep);
+            color: var(--white);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* ═══ Ambient background ═══ */
+        .ambient {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .ambient .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.35;
+            animation: drift 20s ease-in-out infinite alternate;
+        }
+        .orb-1 { width: 600px; height: 600px; background: #0d1f4d; top: -15%; left: -10%; animation-delay: 0s; }
+        .orb-2 { width: 500px; height: 500px; background: rgba(212,168,67,0.15); bottom: -20%; right: -5%; animation-delay: -7s; }
+        .orb-3 { width: 400px; height: 400px; background: #0b1a3a; top: 40%; left: 50%; animation-delay: -14s; }
+        @keyframes drift {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(40px, -30px) scale(1.15); }
+        }
+
+        /* ═══ Grid overlay ═══ */
+        .grid-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+            background-size: 80px 80px;
+        }
+
+        /* ═══ Progress ═══ */
+        .progress {
+            position: fixed;
+            top: 0; left: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+            width: 0%;
+            z-index: 1000;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ═══ Top bar ═══ */
+        .top-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 3rem;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .brand-logo {
+            height: 26px;
+            width: auto;
+            border-radius: 4px;
+            object-fit: contain;
+        }
+        .brand-x {
+            font-weight: 300;
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.2);
+        }
+        .slide-counter {
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 3px;
+            color: rgba(255,255,255,0.2);
+        }
+
+        /* ═══ Slides ═══ */
+        .slide {
+            position: fixed;
+            top: 60px; left: 0;
+            width: 100%;
+            height: calc(100% - 60px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            z-index: 1;
+            transition: opacity 0.7s ease, visibility 0.7s ease;
+        }
+        .slide.active { opacity: 1; visibility: visible; z-index: 10; }
+
+        .slide-inner {
+            width: 100%;
+            max-width: 1100px;
+            padding: 0 3rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ═══ Animated entrance ═══ */
+        .slide .up {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .slide.active .up { opacity: 1; transform: translateY(0); }
+        .slide.active .up.d1 { transition-delay: 0.1s; }
+        .slide.active .up.d2 { transition-delay: 0.2s; }
+        .slide.active .up.d3 { transition-delay: 0.35s; }
+        .slide.active .up.d4 { transition-delay: 0.5s; }
+        .slide.active .up.d5 { transition-delay: 0.65s; }
+
+        /* ═══ Typography ═══ */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 1.75rem;
+        }
+        .tag::before {
+            content: '';
+            width: 24px;
+            height: 1px;
+            background: var(--gold);
+        }
+
+        h1.hero {
+            font-family: 'Playfair Display', serif;
+            font-size: 5.5rem;
+            font-weight: 900;
+            line-height: 1.05;
+            letter-spacing: -2px;
+            margin-bottom: 1.5rem;
+        }
+        h1.hero .em { color: var(--gold); }
+
+        h2.title {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: -1px;
+            margin-bottom: 1rem;
+        }
+        h2.title .em { color: var(--gold); }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--white-dim);
+            line-height: 1.7;
+            max-width: 560px;
+        }
+
+        /* ═══ Stat strip ═══ */
+        .stats {
+            display: flex;
+            gap: 3.5rem;
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .stat-val {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: var(--gold);
+            line-height: 1;
+        }
+        .stat-lbl {
+            font-size: 0.7rem;
+            color: var(--white-dim);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-top: 0.4rem;
+        }
+
+        /* ═══ Cards ═══ */
+        .cards { display: grid; gap: 1.25rem; margin-top: 2.5rem; }
+        .cols-2 { grid-template-columns: 1fr 1fr; }
+        .cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+        .card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 1.75rem;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.3s ease, transform 0.3s ease;
+        }
+        .card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .card:hover {
+            border-color: rgba(212,168,67,0.2);
+            transform: translateY(-3px);
+        }
+        .card:hover::after { opacity: 1; }
+
+        .card-accent {
+            border-color: rgba(212,168,67,0.15);
+            background: linear-gradient(135deg, rgba(212,168,67,0.06), rgba(255,255,255,0.02));
+        }
+
+        .card .icon {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .card h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+            color: var(--white);
+        }
+        .card-accent h3 { color: var(--gold); }
+
+        .card p, .card li {
+            font-size: 0.9rem;
+            color: var(--white-dim);
+            line-height: 1.65;
+        }
+        .card ul { list-style: none; padding: 0; }
+        .card li {
+            padding: 0.35rem 0 0.35rem 1.25rem;
+            position: relative;
+        }
+        .card li::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0.75rem;
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: var(--gold-dim);
+        }
+
+        /* ═══ Comparison ═══ */
+        .compare {
+            display: grid;
+            grid-template-columns: 1fr 40px 1fr;
+            gap: 1.5rem;
+            align-items: stretch;
+            margin-top: 2.5rem;
+        }
+        .compare-sep {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .compare-sep::before {
+            content: '';
+            position: absolute;
+            width: 1px;
+            height: 100%;
+            background: linear-gradient(180deg, transparent 10%, var(--gold-dim) 50%, transparent 90%);
+        }
+        .compare-sep span {
+            background: var(--navy);
+            color: var(--gold);
+            font-size: 0.6rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            padding: 0.4rem 0.3rem;
+            border-radius: 4px;
+            border: 1px solid var(--gold-dim);
+            position: relative;
+            z-index: 1;
+        }
+
+        .cmp-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 2rem;
+        }
+        .cmp-card.bad { border-color: rgba(192,57,43,0.2); }
+        .cmp-card.good { border-color: rgba(39,174,96,0.2); }
+
+        .cmp-card h3 {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 1.25rem;
+        }
+        .cmp-card.bad h3 { color: var(--red-muted); }
+        .cmp-card.good h3 { color: var(--green-muted); }
+
+        .cmp-card li {
+            font-size: 0.9rem;
+            color: var(--white-dim);
+            padding: 0.4rem 0 0.4rem 1.5rem;
+            position: relative;
+            list-style: none;
+            line-height: 1.5;
+        }
+        .cmp-card.bad li::before {
+            content: '×';
+            position: absolute;
+            left: 0;
+            color: var(--red-muted);
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+        .cmp-card.good li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--green-muted);
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        /* ═══ Center ═══ */
+        .centered {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .centered .subtitle { max-width: 680px; }
+
+        /* ═══ Closing CTA ═══ */
+        .cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 2.5rem;
+            padding: 1rem 2.5rem;
+            background: var(--gold);
+            color: var(--navy-deep);
+            font-weight: 800;
+            font-size: 1rem;
+            border-radius: 10px;
+            letter-spacing: 0.5px;
+        }
+        .cta .arrow {
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+
+        /* ═══ Quote ═══ */
+        .quote {
+            margin-top: 2rem;
+            font-style: italic;
+            color: var(--gold);
+            font-size: 1rem;
+            max-width: 680px;
+            line-height: 1.6;
+            position: relative;
+            padding-left: 1.5rem;
+            border-left: 2px solid var(--gold-dim);
+        }
+
+        /* ═══ Controls ═══ */
+        .controls {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.5rem;
+            z-index: 1000;
+        }
+        .controls button {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.5);
+            padding: 0.6rem 1.4rem;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+        .controls button:hover:not(:disabled) {
+            background: var(--gold);
+            color: var(--navy-deep);
+            border-color: var(--gold);
+        }
+        .controls button:disabled {
+            opacity: 0.15;
+            cursor: not-allowed;
+        }
+
+        /* ═══ Dot nav ═══ */
+        .dots {
+            position: fixed;
+            right: 2.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            z-index: 1000;
+        }
+        .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .dot.on {
+            background: var(--gold);
+            box-shadow: 0 0 8px rgba(212,168,67,0.4);
+            transform: scale(1.4);
+        }
+
+        /* ═══ Decorative line accents ═══ */
+        .line-accent {
+            position: absolute;
+            width: 200px;
+            height: 1px;
+            background: linear-gradient(90deg, var(--gold-dim), transparent);
+        }
+        .line-accent.top-right {
+            top: 0; right: 0;
+        }
+        .line-accent.bottom-left {
+            bottom: 0; left: 0;
+            background: linear-gradient(90deg, transparent, var(--gold-dim));
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient bg -->
+    <div class="ambient">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+    <div class="grid-overlay"></div>
+
+    <div class="progress" id="progress"></div>
+
+    <!-- Top bar -->
+    <div class="top-bar">
+        <div class="brand">
+            <img src="sunbiz-deck-assets/sunbiz-logo.png" alt="SunBiz" class="brand-logo">
+            <span class="brand-x">×</span>
+            <img src="sunbiz-deck-assets/oasis-logo.jpg" alt="OasisAI" class="brand-logo">
+        </div>
+        <div class="slide-counter" id="counter">01 / 08</div>
+    </div>
+
+    <div class="dots" id="dots"></div>
+
+    <!-- ═══════════════════════ SLIDE 1: HERO ═══════════════════════ -->
+    <div class="slide active" id="s0">
+        <div class="slide-inner centered">
+            <div class="tag up">Prepared for Ezra · September 2026</div>
+            <h1 class="hero up d1">Building for the<br><span class="em">Long Term.</span></h1>
+            <p class="subtitle up d2">Great systems aren't built in 30 days. They're built by choosing to stay — every month — until the compound effect is undeniable.</p>
+            <div class="stats up d3">
+                <div>
+                    <div class="stat-val">4,868</div>
+                    <div class="stat-lbl">Form Submissions</div>
+                </div>
+                <div>
+                    <div class="stat-val">8</div>
+                    <div class="stat-lbl">Live Automations</div>
+                </div>
+                <div>
+                    <div class="stat-val">12</div>
+                    <div class="stat-lbl">Email Templates</div>
+                </div>
+                <div>
+                    <div class="stat-val">1</div>
+                    <div class="stat-lbl">Dedicated System</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════ SLIDE 2: CRM HOPPING ═══════════════════════ -->
+    <div class="slide" id="s1">
+        <div class="slide-inner">
+            <div class="tag up">The Reality</div>
+            <h2 class="title up d1">CRM Hopping Is the Most<br>Expensive Habit in <span class="em">Cash Advance.</span></h2>
+            <div class="compare up d2">
+                <div class="cmp-card bad">
+                    <h3>⛔ Switching CRMs</h3>
+                    <ul>
+                        <li>Lose historical deal data & pipeline</li>
+                        <li>Re-train your entire team from scratch</li>
+                        <li>No custom underwriting — generic fields</li>
+                        <li>You adapt to their system, not yours</li>
+                        <li>In 3 months, a new rep suggests another CRM</li>
+                        <li>Never build a catalogue or organisation</li>
+                    </ul>
+                </div>
+                <div class="compare-sep"><span>VS</span></div>
+                <div class="cmp-card good">
+                    <h3>✦ Your Own System</h3>
+                    <ul>
+                        <li>Every deal, every interaction, permanently yours</li>
+                        <li>Custom-built for MCA workflows, not generic</li>
+                        <li>AI underwriting no off-the-shelf CRM offers</li>
+                        <li>The system adapts to you, not the other way</li>
+                        <li>Need a feature? We build it. That's the retainer.</li>
+                        <li>Long-term data = long-term competitive edge</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════ SLIDE 3: AI FEATURES ═══════════════════════ -->
+    <div class="slide" id="s2">
+        <div class="slide-inner">
+            <div class="tag up">AI-Powered Features</div>
+            <h2 class="title up d1">Features No Off-the-Shelf<br>CRM Will <span class="em">Ever Have.</span></h2>
+            <p class="subtitle up d2">Built specifically for the cash advance industry — not adapted from a generic SaaS template.</p>
+            <div class="cards cols-3 up d3">
+                <div class="card">
+                    <span class="icon">📋</span>
+                    <h3>Paste-to-CRM</h3>
+                    <p>Drop a PDF or photo of any MCA application. AI auto-maps every field, finds the signature box, and regenerates a branded SunBiz PDF. Zero manual entry.</p>
+                </div>
+                <div class="card">
+                    <span class="icon">🏦</span>
+                    <h3>AI Underwriting</h3>
+                    <p>Reads bank statements, calculates TRUE revenue (not stated), detects existing MCA positions, and grades deals A/B/C/D with fund or decline.</p>
+                </div>
+                <div class="card">
+                    <span class="icon">📤</span>
+                    <h3>Lender Shop-Out</h3>
+                    <p>One application triggers batched emails to up to 12 matched lenders with attachments. AI recommender scores lender fit. Reply classifier logs outcomes.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════ SLIDE 4: COMMAND CENTRE ═══════════════════════ -->
+    <div class="slide" id="s3">
+        <div class="slide-inner">
+            <div class="tag up">Your Command Centre</div>
+            <h2 class="title up d1">The Complete Operational<br>Backbone — <span class="em">Already Live.</span></h2>
+            <div class="cards cols-2 up d2">
+                <div class="card">
+                    <span class="icon">🎯</span>
+                    <h3>Custom CRM</h3>
+                    <ul>
+                        <li>Dual-pipeline kanban boards</li>
+                        <li>6 public intake forms (4,868+ submissions)</li>
+                        <li>Built-in e-signature</li>
+                        <li>SMS + click-to-call</li>
+                        <li>Per-operator email identities</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <span class="icon">⚡</span>
+                    <h3>Always-On Automations</h3>
+                    <ul>
+                        <li>8 automations running 24/7 on a dedicated VPS</li>
+                        <li>Drip sequences & 24h no-contact monitor</li>
+                        <li>Renewal alerts & morning priority plans</li>
+                        <li>Approve/deny deals from Telegram</li>
+                        <li>12 conversion-built email templates</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════ SLIDE 5: WEBSITE & BRANDING ═══════════════════════ -->
+    <div class="slide" id="s4">
+        <div class="slide-inner">
+            <div class="tag up">Digital Presence</div>
+            <h2 class="title up d1">Website, Branding &<br><span class="em">Marketing Assets.</span></h2>
+            <p class="subtitle up d2">We didn't just build a CRM — we rebuilt your entire digital presence from the ground up.</p>
+            <div class="cards cols-3 up d3">
+                <div class="card">
+                    <span class="icon">🌐</span>
+                    <h3>Modern Website</h3>
+                    <p>Rebuilt from GoDaddy/WordPress to a blazing-fast Next.js site. Fully hosted, DNS managed, and maintained by OasisAI.</p>
+                </div>
+                <div class="card">
+                    <span class="icon">🎨</span>
+                    <h3>Brand Assets</h3>
+                    <p>12 conversion-built email templates + 5 ad creatives, all in SunBiz navy & gold branding. Ready to deploy.</p>
+                </div>
+                <div class="card">
+                    <span class="icon">📊</span>
+                    <h3>Data Ownership</h3>
+                    <p>Every lead, every interaction, every document — stored in your own database. Not rented. Not shared. Permanently yours.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════ SLIDE 6: LEAD-GEN ═══════════════════════ -->
+    <div class="slide" id="s5">
+        <div class="slide-inner">
+            <div class="tag up">The Next Phase</div>
+            <h2 class="title up d1">The Lead-Gen Machinery Is Built.<br>It Just Needs to Be <span class="em">Turned On.</span></h2>
+            <p class="subtitle up d2">The cold-outreach and marketing pipeline has been fully built since August. Setup is done. The engine is ready to generate your own leads.</p>
+            <div class="cards cols-2 up d3">
+                <div class="card">
+                    <span class="icon">🚀</span>
+                    <h3>What's Ready</h3>
+                    <ul>
+                        <li>Cold-outreach pipeline (built, tested, parked since Aug 6)</li>
+                        <li>Email sequences & follow-up cadences</li>
+                        <li>Lead scoring & qualification engine</li>
+                        <li>Automated prospect research</li>
+                    </ul>
+                </div>
+                <div class="card card-accent">
+                    <span class="icon">💰</span>
+                    <h3>Why It Matters</h3>
+                    <p>Right now, you're buying leads from brokers. With one more month, you can generate your own — cutting acquisition cost and building a lead catalogue that compounds over time.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════ SLIDE 7: ABSORB FEATURES ═══════════════════════ -->
+    <div class="slide" id="s6">
+        <div class="slide-inner">
+            <div class="tag up">The Retainer Advantage</div>
+            <h2 class="title up d1">Like a Feature From Another CRM?<br>We'll Build It Into <span class="em">Yours.</span></h2>
+            <p class="subtitle up d2">That's the entire point of a custom system. You don't abandon your platform — you upgrade it.</p>
+            <div class="cards cols-3 up d3">
+                <div class="card card-accent">
+                    <span class="icon">🔍</span>
+                    <h3>We Study It</h3>
+                    <p>Show us any CRM you're interested in. We'll break down exactly which features caught your eye and why they work.</p>
+                </div>
+                <div class="card card-accent">
+                    <span class="icon">🛠️</span>
+                    <h3>We Build It</h3>
+                    <p>We take those features and implement them directly into your SunBiz portal — tailored to your MCA workflow, not a generic template.</p>
+                </div>
+                <div class="card card-accent">
+                    <span class="icon">🏆</span>
+                    <h3>You Own It</h3>
+                    <p>Unlike a subscription CRM, these features are permanently yours. No monthly fee per seat, no locked tiers, no vendor lock-in. Ever.</p>
+                </div>
+            </div>
+            <div class="quote up d4">"Why buy someone else's CRM when we can take the features you like and build them into a system that's genuinely yours?"</div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════ SLIDE 8: CLOSING ═══════════════════════ -->
+    <div class="slide" id="s7">
+        <div class="slide-inner centered">
+            <div class="tag up">The Decision</div>
+            <h1 class="hero up d1">Don't give up on<br>what <span class="em">works.</span></h1>
+            <p class="subtitle up d2" style="font-size: 1.15rem;">We had some slow communication — and we own that. But the technology is unmatched, the foundation is laid, and the marketing engine is ready to turn on.</p>
+            <p class="subtitle up d3" style="font-size: 1.15rem; margin-top: 1rem;">Switching CRMs means starting from zero — again. Every feature you liked? We'll build it. Staying means unlocking what's already been built, on a system that is genuinely yours.</p>
+            <div class="cta up d4">Ezra, let's keep building <span class="arrow">→</span></div>
+            <div class="stats up d5" style="margin-top: 3rem; border-top-color: rgba(255,255,255,0.06);">
+                <div>
+                    <div class="stat-val">∞</div>
+                    <div class="stat-lbl">Custom Features</div>
+                </div>
+                <div>
+                    <div class="stat-val">100%</div>
+                    <div class="stat-lbl">Your Data</div>
+                </div>
+                <div>
+                    <div class="stat-val">0</div>
+                    <div class="stat-lbl">Vendor Lock-in</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <button id="prev" onclick="go(-1)" disabled>← Prev</button>
+        <button id="next" onclick="go(1)">Next →</button>
+    </div>
+
+    <script>
+        let cur = 0;
+        const slides = document.querySelectorAll('.slide');
+        const total = slides.length;
+        const prev = document.getElementById('prev');
+        const next = document.getElementById('next');
+        const prog = document.getElementById('progress');
+        const cnt = document.getElementById('counter');
+        const dotsEl = document.getElementById('dots');
+
+        for (let i = 0; i < total; i++) {
+            const d = document.createElement('div');
+            d.className = 'dot' + (i === 0 ? ' on' : '');
+            d.onclick = () => { cur = i; render(); };
+            dotsEl.appendChild(d);
+        }
+
+        function render() {
+            slides.forEach((s, i) => s.classList.toggle('active', i === cur));
+            prev.disabled = cur === 0;
+            next.disabled = cur === total - 1;
+            next.style.visibility = cur === total - 1 ? 'hidden' : 'visible';
+            prog.style.width = `${((cur + 1) / total) * 100}%`;
+            cnt.textContent = `${String(cur + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
+            dotsEl.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('on', i === cur));
+        }
+
+        function go(d) { cur = Math.max(0, Math.min(total - 1, cur + d)); render(); }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(1); }
+            if (e.key === 'ArrowLeft') go(-1);
+        });
+
+        render();
+    </script>
+</body>
+</html>

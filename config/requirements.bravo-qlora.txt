@@ -1,0 +1,10 @@
+# Install a CUDA-enabled PyTorch wheel compatible with the training host first.
+# These pins match the API contract used by scripts/run_qlora_train.py.
+transformers==4.57.6
+datasets==5.0.1
+accelerate==1.15.0
+peft==0.20.0
+trl==1.13.0
+bitsandbytes==0.50.2
+safetensors==0.8.0
+sentencepiece==0.2.2

@@ -156,6 +156,14 @@ SERVICES: dict[str, tuple[list[list[str]], str]] = {
                    "python scripts/integrations/cloudflare_admin.py <verb>  (DNS TXT/tunnels)  |  "
                    "python scripts/integrations/wrangler_tool.py <verb>  (Workers deploys/secrets; "
                    "run `whoami` first - key presence does not prove the right ACCOUNT)"),
+    # Accept the typo'd key name CC's .env.agents carried first (HOSTSTINGER_KEY)
+    # alongside the standard one — the alternatives list is an OR. Probing only
+    # the tidy name would report UNAVAILABLE for a token that demonstrably works.
+    # GPU instances are NOT in the Hostinger API (all /api/gpu/* → 404 as of
+    # 2026-09-16); reaching that box is scripts/gpu/oasisgpu.py over SSH.
+    "hostinger": ([["HOSTINGER_API_TOKEN", "HOSTSTINGER_KEY", "HOSTINGER_KEY", "HOSTINGER_TOKEN"]],
+                  "python scripts/integrations/hostinger_tool.py whoami  (VPS fleet, billing, DNS)  |  "
+                  "python scripts/gpu/oasisgpu.py smoke  (the GPU box - SSH only, no API)"),
     # notify.py gates on TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_USERS. It does NOT
     # read TELEGRAM_CHAT_ID — requiring that key here produced a false negative on
     # a service that works, which is the failure this whole tool exists to prevent.

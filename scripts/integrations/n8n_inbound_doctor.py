@@ -108,7 +108,7 @@ def _rows(client, build) -> list[dict]:
 
 
 def _check_webhook_route(env: dict) -> tuple[bool, str]:
-    base = env.get("BRAVO_DASHBOARD_URL", "https://agent-dashboard-cc90210.vercel.app")
+    base = env.get("BRAVO_DASHBOARD_URL", "https://oasisai.work")
     url = base.rstrip("/") + "/api/inbound/n8n"
     try:
         req = urllib.request.Request(url, method="GET")

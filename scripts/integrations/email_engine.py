@@ -25,6 +25,7 @@ import json
 import os
 import re
 import socket
+import threading
 import time
 import sys
 from datetime import datetime, timedelta, timezone
@@ -118,6 +119,69 @@ def _retry_transient(label: str, fn, attempts: int = CONNECT_ATTEMPTS,
                   f"{type(exc).__name__}: {exc} — retry {attempt}/{attempts - 1}",
                   file=sys.stderr)
             time.sleep(sleep_s)
+
+
+# Bound on the IMAP TLS handshake itself, in seconds. imaplib.IMAP4_SSL()
+# connects inside its CONSTRUCTOR, so the imap.socket().settimeout() call that
+# follows it governs only traffic on a connection that already exists — a
+# handshake that never completes was bounded by nothing but the scheduler's
+# 300s kill. tmp/cron_failures/integrations-email-engine-py-20260912T211625Z.log
+# is exactly that: exit TIMEOUT, both streams empty, one attempt having eaten
+# the entire wall so _retry_transient's other two never got to run. Three
+# bounded attempts fit inside 300s with room left for the sweep itself.
+IMAP_CONNECT_TIMEOUT = 30
+
+# --- bounded Turso connect (2026-09-13) --------------------------------------
+# state/email_sweep.log settles what actually killed the 2026-09-12 run: pid
+# 32776 logged `start` at 21:11:33 and NEVER logged `db_connected`. The dump is
+# stamped 21:16:25 — ~292s later, the scheduler's 300s kill. So the sweep hung
+# on get_supabase(), not on IMAP, and every stage after it is unreached code.
+#
+# The hang is unbounded on both of its phases: lib/db_turso.TursoDB.__init__
+# calls libsql.connect() with no timeout parameter, then _discover_tenant_tables(),
+# whose slow path issues 206 sequential remote PRAGMA round trips (measured at
+# 38 of 43 seconds). db_turso.py is shared substrate every agent in the fleet
+# reads (Rule 10) — changing its connect semantics for one cron job would change
+# them fleet-wide — so the bound lives here, at this call site.
+#
+# BUDGET: TimeoutError is transient per _is_transient(), so _retry_transient
+# spends up to 3 x 60s + 2 x 2s sleep = 184s of the wall. That wall is 300s and
+# it is NOT in cron_engine.SEED_JOBS — the "Inbound Email Sweep" row carries an
+# empty action_config and action_type "email_inbox_check", so the number lives
+# in scheduler.run_email_inbox_check:
+#     run_script("integrations/email_engine.py", ["--json", "check-inbox"],
+#                timeout=300)
+# A healthy sweep is 1-4s end to end, so the remaining ~116s is ample. Raising
+# this without raising that timeout re-creates the silent kill it exists to
+# prevent; test_email_engine_bounded_connect.py pins the arithmetic.
+DB_CONNECT_TIMEOUT = 60
+
+
+def _bounded(label: str, fn, seconds: int):
+    """Run fn() on a daemon thread; raise TimeoutError if it outlives `seconds`.
+
+    The thread is NOT killed on timeout — Python cannot interrupt a blocking
+    socket read on another thread. It is abandoned, and being a daemon it does
+    not hold up interpreter exit. That leaks at most one thread in a process
+    that exits moments later, which is strictly cheaper than a wedged sweep
+    eating the scheduler's entire wall and taking every job behind it with it.
+    """
+    box = {}
+
+    def _run():
+        try:
+            box["value"] = fn()
+        except BaseException as exc:  # noqa: BLE001 — re-raised on the caller's thread
+            box["error"] = exc
+
+    worker = threading.Thread(target=_run, name=f"bounded-{label}", daemon=True)
+    worker.start()
+    worker.join(seconds)
+    if worker.is_alive():
+        raise TimeoutError(f"{label} exceeded {seconds}s")
+    if "error" in box:
+        raise box["error"]
+    return box["value"]
 
 
 def load_env():
@@ -1734,14 +1798,22 @@ def cmd_check_inbox(env_vars, args, output_json=False):
     # Both of these are network connects and both have failed transiently in
     # production (tmp/cron_failures/): the Turso connect with os error 10060,
     # the Gmail TLS handshake with WinError 10054.
-    db = _retry_transient("turso connect", lambda: get_supabase(env_vars))
+    # Bounded: this connect is where the 2026-09-12 run died silently, and the
+    # breadcrumb pair is what makes a repeat legible instead of a blank dump.
+    _log_sweep_progress("db_connect_start", _run_started)
+    db = _retry_transient(
+        "turso connect",
+        lambda: _bounded("turso connect",
+                         lambda: get_supabase(env_vars), DB_CONNECT_TIMEOUT))
     _log_sweep_progress("db_connected", _run_started)
     imap = None
     found_emails = []
 
     try:
         imap = _retry_transient(
-            "imap connect", lambda: imaplib.IMAP4_SSL("imap.gmail.com", 993))
+            "imap connect",
+            lambda: imaplib.IMAP4_SSL("imap.gmail.com", 993,
+                                      timeout=IMAP_CONNECT_TIMEOUT))
         imap.socket().settimeout(30)
         imap.login(address, password)
         imap.select("INBOX")

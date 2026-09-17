@@ -46,6 +46,11 @@ class FakeQuery:
         self._eq[col] = val
         return self
 
+    def in_(self, col, vals):
+        # Recorded like eq so the write assertions can read the id set back.
+        self._eq[col] = list(vals)
+        return self
+
     def limit(self, _n):
         return self
 
@@ -128,6 +133,27 @@ def test_update_is_guarded_on_still_being_pending(db):
     er.sweep(days=30, apply=True)
     _, _, where = d.calls[0]
     assert where.get("status") == "pending"
+
+
+def test_the_write_is_scoped_to_the_ids_it_selected(db):
+    """The batching rewrite's one catastrophic failure mode. Marking is now a
+    chunked UPDATE instead of one per row; if the id filter were ever dropped,
+    the remaining status filter would mark EVERY pending row in agent_events
+    dead — the shared audit trail and the APEX coordination channel with it."""
+    d = db([_row(90, rid="a"), _row(90, rid="b")])
+    er.sweep(days=30, apply=True)
+    _, _, where = d.calls[0]
+    assert set(where.get("id") or []) == {"a", "b"}
+
+
+def test_marking_is_batched_not_one_request_per_row(db):
+    """One HTTP UPDATE per row is what hit the scheduler's 900s kill four
+    Sundays running on 2,098 stale rows, stalling every job behind it on the
+    serial tick. 250 rows must be 2 requests, not 250."""
+    d = db([_row(90, rid=str(i)) for i in range(250)])
+    res = er.sweep(days=30, apply=True)
+    assert res["marked"] == 250
+    assert len(d.calls) == 2, f"expected 2 chunked writes, got {len(d.calls)}"
 
 
 # --- window correctness -------------------------------------------------------

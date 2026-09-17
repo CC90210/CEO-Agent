@@ -265,6 +265,11 @@ evals/reports/
 
 output/
 
+# Local LLM training artifacts (multi-gigabyte adapters, checkpoints, and GGUFs)
+/models/
+/outputs/
+/wandb/
+
 # Retired Supabase CLI local session state (Turso is primary DB since 2026-08-09)
 supabase/.temp/
 

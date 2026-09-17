@@ -3791,7 +3791,7 @@ def send(
                 pixel_base = (
                     os.environ.get("EMAIL_TRACKING_BASE_URL")
                     or os.environ.get("DASHBOARD_BASE_URL")
-                    or "https://agent-dashboard-cc90210.vercel.app"
+                    or "https://oasisai.work"
                 ).rstrip("/")
                 pixel = (
                     f'<img src="{pixel_base}/api/track/open/{reservation["reservation_id"]}" '

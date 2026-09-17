@@ -378,6 +378,77 @@ def cmd_apply(_args) -> int:
     return 0
 
 
+def cmd_portal(args) -> int:
+    """Configure the Stripe Customer Portal — the cancellation mechanism.
+
+    Two things make this the right vehicle rather than a page we build:
+
+    1. IDENTITY. The site has no customer accounts, so "let me cancel" has to
+       prove it is them. `login_page.enabled` gives a hosted page where the
+       customer enters their email and STRIPE emails them the link. That works
+       today, while our own outbound email does not.
+
+    2. COMPLIANCE. The FTC's negative-option rule requires cancelling be no
+       harder than subscribing. A vendor-hosted flow built for that rule is far
+       easier to defend than a bespoke funnel, and it cannot drift into one.
+
+    mode=at_period_end with proration_behavior=none is the "runs to the end of
+    what they paid for" choice: no further charges, no refund, no surprise.
+    """
+    existing = [
+        c for c in call("GET", "/billing_portal/configurations?limit=100&is_default=true").get("data", [])
+    ]
+    fields = {
+        "business_profile[headline]": "Trytan Health — manage your Arthrisil subscription",
+        "business_profile[privacy_policy_url]": "https://arthrisil.com/#faq",
+        "business_profile[terms_of_service_url]": "https://arthrisil.com/#faq",
+        "features[subscription_cancel][enabled]": "true",
+        "features[subscription_cancel][mode]": "at_period_end",
+        "features[subscription_cancel][proration_behavior]": "none",
+        # The exit survey. It does NOT gate the cancel — it is asked alongside
+        # it — so it stays the right side of "no harder than signing up", and it
+        # is the only churn data this business would otherwise have.
+        "features[subscription_cancel][cancellation_reason][enabled]": "true",
+        "features[subscription_cancel][cancellation_reason][options][0]": "too_expensive",
+        "features[subscription_cancel][cancellation_reason][options][1]": "unused",
+        "features[subscription_cancel][cancellation_reason][options][2]": "low_quality",
+        "features[subscription_cancel][cancellation_reason][options][3]": "switched_service",
+        "features[subscription_cancel][cancellation_reason][options][4]": "other",
+        # Customers expect to see what they were charged and to fix a dead card.
+        # A portal that only cancels is a portal that only gets used to cancel.
+        "features[invoice_history][enabled]": "true",
+        "features[payment_method_update][enabled]": "true",
+        "features[customer_update][enabled]": "true",
+        "features[customer_update][allowed_updates][0]": "email",
+        "features[customer_update][allowed_updates][1]": "address",
+        "features[customer_update][allowed_updates][2]": "phone",
+        "login_page[enabled]": "true",
+    }
+
+    if existing:
+        config = call("POST", f"/billing_portal/configurations/{existing[0]['id']}", fields)
+        action = "UPDATED"
+    else:
+        config = call("POST", "/billing_portal/configurations", fields)
+        action = "CREATED"
+
+    login_url = (config.get("login_page") or {}).get("url")
+    if getattr(args, "json", False):
+        print(json.dumps({
+            "action": action.lower(), "id": config["id"], "is_default": config.get("is_default"),
+            "login_url": login_url,
+            "cancel_mode": ((config.get("features") or {}).get("subscription_cancel") or {}).get("mode"),
+        }, indent=2))
+        return 0
+
+    print(f"portal {action}: {config['id']}  (default={config.get('is_default')})")
+    print(f"cancel mode   : {((config.get('features') or {}).get('subscription_cancel') or {}).get('mode')}"
+          f", prorate={((config.get('features') or {}).get('subscription_cancel') or {}).get('proration_behavior')}")
+    print(f"login page    : {login_url or '(not generated)'}")
+    print("\nPut that login URL in the site's SUBSCRIPTION_PORTAL_URL so /manage can link to it.")
+    return 0
+
+
 def cmd_webhook(_args) -> int:
     """Create the webhook endpoint and store its signing secret, unseen.
 
@@ -428,9 +499,13 @@ def main() -> int:
     sub.add_parser("plan", parents=[common], help="read-only: what exists, and does it match lib/pricing.ts")
     sub.add_parser("apply", parents=[common], help="create anything missing (never deletes)")
     sub.add_parser("webhook", parents=[common], help="create the webhook endpoint and store its secret")
+    sub.add_parser("portal", parents=[common], help="configure the customer portal (the cancel path)")
     args = parser.parse_args()
     try:
-        return {"plan": cmd_plan, "apply": cmd_apply, "webhook": cmd_webhook}[args.cmd](args)
+        return {
+            "plan": cmd_plan, "apply": cmd_apply,
+            "webhook": cmd_webhook, "portal": cmd_portal,
+        }[args.cmd](args)
     except StripeError as exc:
         print(f"Stripe error:\n{exc}", file=sys.stderr)
         return 1

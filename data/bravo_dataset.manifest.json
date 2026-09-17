@@ -1,0 +1,3431 @@
+{
+  "dataset": "bravo_dataset.jsonl",
+  "dataset_sha256": "a1adf858a8809e51464e908cb7a35c2444ffcf8ae07c145c6f75145fd3fe79ca",
+  "max_sample_chars": 2497,
+  "provenance": [
+    {
+      "kind": "backend_code",
+      "line": 1,
+      "source": "curated/backend_patterns",
+      "source_sha256": "13cadac1b96f39980f3cad43eb07cf9e21d6841cb84dc9042091173902fdd602"
+    },
+    {
+      "kind": "backend_code",
+      "line": 2,
+      "source": "curated/backend_patterns",
+      "source_sha256": "ff713809a611b9d11ff119751e5d6dd28c1ad06da0a0672185bf71af14800cbf"
+    },
+    {
+      "kind": "backend_code",
+      "line": 3,
+      "source": "curated/backend_patterns",
+      "source_sha256": "14553f2145be215822bbb290a8a4ce353b0ce2d751b1245f5a542634c8523c99"
+    },
+    {
+      "kind": "backend_code",
+      "line": 4,
+      "source": "curated/backend_patterns",
+      "source_sha256": "4ebb5a761be621520f405705770f7aca96f5c121a59c2da0bdb0b4910a97cfb8"
+    },
+    {
+      "kind": "backend_code",
+      "line": 5,
+      "source": "curated/backend_patterns",
+      "source_sha256": "85f54c641431f46525c33087a0c655c19075f067fdedb12023d75d7a4100a2c8"
+    },
+    {
+      "kind": "backend_code",
+      "line": 6,
+      "source": "curated/backend_patterns",
+      "source_sha256": "fdae6f246c4a972c18b4b9f789e21f7b11771f6f49b4bfc92b678188f9c91e9e"
+    },
+    {
+      "kind": "backend_code",
+      "line": 7,
+      "source": "curated/backend_patterns",
+      "source_sha256": "90436b4ac7b67594ddc839c81edf3968f38bc96202f7d6c2ebde9c53b61970c1"
+    },
+    {
+      "kind": "backend_code",
+      "line": 8,
+      "source": "curated/backend_patterns",
+      "source_sha256": "410cd8ea7cef3f8026f7e4a4305705f46c8170cebe73584cc7d8d8ea1c354336"
+    },
+    {
+      "kind": "backend_code",
+      "line": 9,
+      "source": "curated/backend_patterns",
+      "source_sha256": "9da7c81ea855bfbf40ac3025e54baab0968b408cf12324c9c1923bffb274f724"
+    },
+    {
+      "kind": "backend_code",
+      "line": 10,
+      "source": "curated/backend_patterns",
+      "source_sha256": "d70e9c93163e282e80fb00f0b421a9fa2d228af969451cd96cf041a043c26e6b"
+    },
+    {
+      "kind": "direct_execution",
+      "line": 11,
+      "source": "curated/backend_patterns",
+      "source_sha256": "fda2a6827807965ffdd262cb32e7f2e4639adc0bf31899f96093b4947c0b2f29"
+    },
+    {
+      "kind": "identity",
+      "line": 12,
+      "source": "curated/backend_patterns",
+      "source_sha256": "572fb40a73e5dffa75e55372414ce8aa5771182caad17b74b88ebdff4a420808"
+    },
+    {
+      "kind": "network_concepts",
+      "line": 13,
+      "source": "curated/backend_patterns",
+      "source_sha256": "75a30a7453937705672279481f56fff207069a6c4f541de6c522d622b649a1ee"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 14,
+      "source": "AGENTS.md",
+      "source_sha256": "035766ec5caf1703cfeb67aa140fbbea30879af1ac16629e83cae75375c25da4"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 15,
+      "source": "AGENTS.md",
+      "source_sha256": "035766ec5caf1703cfeb67aa140fbbea30879af1ac16629e83cae75375c25da4"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 16,
+      "source": "AGENTS.md",
+      "source_sha256": "035766ec5caf1703cfeb67aa140fbbea30879af1ac16629e83cae75375c25da4"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 17,
+      "source": "AGENTS.md",
+      "source_sha256": "035766ec5caf1703cfeb67aa140fbbea30879af1ac16629e83cae75375c25da4"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 18,
+      "source": "AGENTS.md",
+      "source_sha256": "035766ec5caf1703cfeb67aa140fbbea30879af1ac16629e83cae75375c25da4"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 19,
+      "source": "AGENTS.md",
+      "source_sha256": "035766ec5caf1703cfeb67aa140fbbea30879af1ac16629e83cae75375c25da4"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 20,
+      "source": "AGENTS.md",
+      "source_sha256": "035766ec5caf1703cfeb67aa140fbbea30879af1ac16629e83cae75375c25da4"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 21,
+      "source": "AGENTS.md",
+      "source_sha256": "035766ec5caf1703cfeb67aa140fbbea30879af1ac16629e83cae75375c25da4"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 22,
+      "source": "brain/SOUL.md",
+      "source_sha256": "71e88cc29e1259643cbccce0ac18140c2c07fa58955f28de61b596680163921b"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 23,
+      "source": "brain/SOUL.md",
+      "source_sha256": "71e88cc29e1259643cbccce0ac18140c2c07fa58955f28de61b596680163921b"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 24,
+      "source": "brain/SOUL.md",
+      "source_sha256": "71e88cc29e1259643cbccce0ac18140c2c07fa58955f28de61b596680163921b"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 25,
+      "source": "brain/SOUL.md",
+      "source_sha256": "71e88cc29e1259643cbccce0ac18140c2c07fa58955f28de61b596680163921b"
+    },
+    {
+      "kind": "persona_rule",
+      "line": 26,
+      "source": "brain/SOUL.md",
+      "source_sha256": "71e88cc29e1259643cbccce0ac18140c2c07fa58955f28de61b596680163921b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 27,
+      "source": "scripts/_bootstrap/sitecustomize.py",
+      "source_sha256": "bd771322c8c7e29a2c55cedec2ffcecd64b8f99c9499f08c06aca8277c0b5245"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 28,
+      "source": "scripts/_outbound_log_post.py",
+      "source_sha256": "81c362182cf4ce9a4ea38e2fea1e238139806ae426edb161f3223a589afbb703"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 29,
+      "source": "scripts/_subprocess_helpers.py",
+      "source_sha256": "ba8a0012c574f9fa3d4ff183434724ba0b5a8e8c101f2e9aff724439d2559acd"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 30,
+      "source": "scripts/add_future_annotations.py",
+      "source_sha256": "588d58d155ccb7975fe6f31ec5c83762ae7de30f92ac8af20b99e97bfed11946"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 31,
+      "source": "scripts/agent_genome.py",
+      "source_sha256": "715acce2a938afb71d5479e606fedb60b63aa0a7c80085cd3b72a29933c4a714"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 32,
+      "source": "scripts/apply_migration.py",
+      "source_sha256": "5054c1dae79f1d0dcbed7c9e45bc2253f26b6f29ca6959eb9a8e318a6e7a9ccd"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 33,
+      "source": "scripts/apply_missing_tables.py",
+      "source_sha256": "c05923022ae8be5daa793220c6a8f2f955d4095b480f1c7b3661f56b1ff99509"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 34,
+      "source": "scripts/apply_turso_migration.py",
+      "source_sha256": "fca3fe77422fca00506bc40a03ccfb630e4b9e365416f66a67505c28e8263983"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 35,
+      "source": "scripts/audit_mcp_secrets.py",
+      "source_sha256": "bd47578c30c28da362b7ec790d6eb4a1ae7b05e822b98f76cc6e02b81cf69956"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 36,
+      "source": "scripts/audit_no_visible_subprocess.py",
+      "source_sha256": "bbf18d6b324db203ad9c4595fbb822375d9130b5f644d7b371fe5dacf288eea8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 37,
+      "source": "scripts/audit_rls_coverage.py",
+      "source_sha256": "480d609c29a9ab283e03c0fb77856496b593c43e6aa32f67f92dd3ec5937188d"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 38,
+      "source": "scripts/audit_suppression_coverage.py",
+      "source_sha256": "cc5ea40156405c3405062d66e09f700597b9e1379a09ea7dac2202ace7e510f6"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 39,
+      "source": "scripts/aura/__init__.py",
+      "source_sha256": "dcc62b1eead55c7fcb8cd729d0b2e1285e5acee745d3afc3b7f0765c12ea5376"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 40,
+      "source": "scripts/aura/_env.py",
+      "source_sha256": "ed8ab8dbfb898750661e1ddec28822e62d870f33eb90417585f17afb9dc4568b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 41,
+      "source": "scripts/aura/brain.py",
+      "source_sha256": "f9959dda341763e222797fbdf5596295a349b02fc82235a99cf347a24f9c3208"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 42,
+      "source": "scripts/aura/morning_powwow.py",
+      "source_sha256": "47d5150d138eec7e2e2cef5f132f87e851004ae3926716dbdf3358019dbbfe7a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 43,
+      "source": "scripts/aura/voice.py",
+      "source_sha256": "f89273ae5a62b9ee669f9592b60a495dedecf0cf6439f8271d66640559c392ef"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 44,
+      "source": "scripts/auto_dream.py",
+      "source_sha256": "288b15ede3462c9b6ef89415ecee78843e0a29da8e0d790c7b717aebeba0981c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 45,
+      "source": "scripts/auto_score_leads.py",
+      "source_sha256": "b73ef12f3a227cd6abfd51868648eae3ff0699d5b9e18c675b4a270ab36608ad"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 46,
+      "source": "scripts/autonomous_agent.py",
+      "source_sha256": "128d0a1ffba0217980035b299636a2a7afec51bf453bc4b8ac35ea9dae389641"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 47,
+      "source": "scripts/backfill_financial_labels.py",
+      "source_sha256": "64e3f373aecd853d0585072edf0624fa2d108cddf15c2bb699719c89b5f3436c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 48,
+      "source": "scripts/booking_engine.py",
+      "source_sha256": "e0ecdbf8a8c8119b98d9ff9b67a27a56322762f669629968c367da815f669838"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 49,
+      "source": "scripts/bravo_cli.py",
+      "source_sha256": "2fa650fb13c1971412c000328b8f19cd6a7862d1d39f3e2774ed0788515f9845"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 50,
+      "source": "scripts/bravo_sleep.py",
+      "source_sha256": "21d90c0b9314549760405adf76238ff3b7642321253a2682acf8b2abdee8d655"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 51,
+      "source": "scripts/break_glass_drill.py",
+      "source_sha256": "e996b23cbf30ca23e4bec46da3926997eba3817e4bb837f405278ddc84341499"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 52,
+      "source": "scripts/breeze_live_watch.py",
+      "source_sha256": "fb6eb071cd5b667fe2c96c3a7254474edcb693a634966326a5a483e675ed41b9"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 53,
+      "source": "scripts/breeze_set_tenant_email.py",
+      "source_sha256": "90ef3b1e65ef0ff73bf9d081f7bdcb0b8ad4bcf2b915265f1772c1e49ba9ba7a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 54,
+      "source": "scripts/bridge_lock.py",
+      "source_sha256": "2a21a8aabe354f2f88484da36c53cecf17e4ad894008ac0ca6ca48eb0cea9f0b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 55,
+      "source": "scripts/browser/browse_and_capture.py",
+      "source_sha256": "016b285ab1007e97de557e54acda30e11c0373ccaab284074074e577f0a612fe"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 56,
+      "source": "scripts/browser/browser_connect.py",
+      "source_sha256": "92a2bfdc9b4149ebab3cc89a03d0622aaf765c60a24694ed574b397220d58250"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 57,
+      "source": "scripts/browser/browser_harness_cli.py",
+      "source_sha256": "f6b21b66b909628d332c125e61992fcc0c7c420afd7860f87c32037909c77259"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 58,
+      "source": "scripts/browser/browser_harness_doctor.py",
+      "source_sha256": "d537421764369cdbc4dfa00976b1d5bec74c424cad320f24aafa4c847bc9f95c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 59,
+      "source": "scripts/browser/cloak_browser_tool.py",
+      "source_sha256": "9789c6dec2f902afca459aa9393ba67586f23fe180a24fa3eed06f618c13de79"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 60,
+      "source": "scripts/build_bridge_manifest.py",
+      "source_sha256": "699f55df478194da8037549982f10e06239798a60e0447de8c507b7eb10d6abf"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 61,
+      "source": "scripts/build_capability_graph.py",
+      "source_sha256": "d82a8934d14be7b5e5974a36e479c9dd20fa01e4665be2c8ec5d760d964e7ed9"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 62,
+      "source": "scripts/build_maven_env.py",
+      "source_sha256": "9b209e68af6c500b781d842faadcb074d372d41c37f194f7681815f696dfe83b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 63,
+      "source": "scripts/capability_probe.py",
+      "source_sha256": "2d4ea7544ebadcace544810d6020beec84c188f29eb163fbf4c0ecdd38deba98"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 64,
+      "source": "scripts/capability_query.py",
+      "source_sha256": "fe7f855bd9311007f43aad9c336be5221eef3065aebf552c95e5dbae80e5ba74"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 65,
+      "source": "scripts/casl_compliance.py",
+      "source_sha256": "5846145066cc1cc5c87ece9e5bfd358535d87dabe77c841e24609467bda10991"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 66,
+      "source": "scripts/catalog_sync.py",
+      "source_sha256": "6f102891468c24eb9a21c762d1629b1d24ee6de5a71797898aca9ceb7713cbd9"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 67,
+      "source": "scripts/ceo_dashboard.py",
+      "source_sha256": "df621bc6866aab54d66105677a57188887d161d0ab329ef27740d7ab4456892d"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 68,
+      "source": "scripts/check_brain_freshness.py",
+      "source_sha256": "054f1bcb057c32494b139cf4d7b55d63d470e62780687fbe38e7f5a93b51dc9a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 69,
+      "source": "scripts/check_bridge_manifest.py",
+      "source_sha256": "77e819af76edf672a8509ae39672c048ecdf3824a9ba805ecfc6cc4d3996db2a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 70,
+      "source": "scripts/check_migration_collision.py",
+      "source_sha256": "5a725714a2af902a66e589bf673bffe93975d1beeea7b6b31ad16f1be3c470fd"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 71,
+      "source": "scripts/check_vercel_deployments.py",
+      "source_sha256": "87cd6539221270b62ecf7c067ce36d87fdb76f1f86293ab4f63a86d1c319c384"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 72,
+      "source": "scripts/cli_templates/__init__.py",
+      "source_sha256": "de1a17b2828194b367b831caecc6cd326cc4484193a83c4cd71f82a55a4c321d"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 73,
+      "source": "scripts/cli_templates/backend_template.py",
+      "source_sha256": "23532eae75eb2681c07f10247da5da76f53baa939c63c2329dfce88e52589a13"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 74,
+      "source": "scripts/cli_templates/repl_skin.py",
+      "source_sha256": "4c044529fc43936c0d349e53c30ec69dfcd0e8da64d662b75c62e3340a4317cb"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 75,
+      "source": "scripts/cli_templates/setup_template.py",
+      "source_sha256": "d5b0dc1acd8889990a9307dea909a1e38e0b5002566219430a3c09f9c59c25a8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 76,
+      "source": "scripts/client_health.py",
+      "source_sha256": "dae721dbc886ed3aebcc26eecce626dc2ff266e1dc64dab1fd8c4ecb6a746587"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 77,
+      "source": "scripts/codex_health.py",
+      "source_sha256": "b28951cb48865e251f122e6964f49e131e4fbf79e3f586b11ff0f78aa23072e3"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 78,
+      "source": "scripts/competitive_intel.py",
+      "source_sha256": "583a015f9adbb183070176b5603714b5359a770f2a499e1d8b3272b522ab74b4"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 79,
+      "source": "scripts/computer_control.py",
+      "source_sha256": "2d176ebf810a99508c55c00dbcb674a4a6a22f0d61cdc1b99cd149d9c3745956"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 80,
+      "source": "scripts/conftest.py",
+      "source_sha256": "e4ad8946a92a9f425e0ecc4edbb32665705caeb80ac4dca9bdd1732310972707"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 81,
+      "source": "scripts/consolidate_mca_phone_sheet.py",
+      "source_sha256": "ddd2dc144dd58e7d0bc4103d0cc092d10132ee8e591d471df9d157cccb64f442"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 82,
+      "source": "scripts/contract_generator/__init__.py",
+      "source_sha256": "502d0980420c459e90a5bada6e4adc8990792ad61b3483a4d3258e3afb15d0a7"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 83,
+      "source": "scripts/core/abstract_backfill.py",
+      "source_sha256": "db5a5fb7371ecef07aa4a6ca070f5c955e7128b38efbb730404a44a411614fb0"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 84,
+      "source": "scripts/core/accuracy_trend.py",
+      "source_sha256": "ed3d13476579ee5ec03a24bf46f180b4af8cd07250da2d178a75797f483d0b85"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 85,
+      "source": "scripts/core/agent_heartbeat.py",
+      "source_sha256": "e86edbfb0b48e7e14509547203f1387339b529d37409135af0c2eb41886a4fba"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 86,
+      "source": "scripts/core/agent_inbox.py",
+      "source_sha256": "f39b2544e3a46082b8325ba799ee216d8badec3225e6ba4fa2456fbd875000c3"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 87,
+      "source": "scripts/core/agent_self_improvement.py",
+      "source_sha256": "0ec15c3f557dc15db4a8845b90b3aee7233557830c2b3448d02f7a2a5519cc92"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 88,
+      "source": "scripts/core/auto_heal.py",
+      "source_sha256": "97fdeff78abf47c8d5d8b1847301b08105d13bc943d4b328ff7860994c7df442"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 89,
+      "source": "scripts/core/codex_review.py",
+      "source_sha256": "05ed421d5915419ba2b498dfd73bdecdf830c13b60c3559f04fb4290c996051f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 90,
+      "source": "scripts/core/context_builder.py",
+      "source_sha256": "3cc1444f25e2b3229c0d498a75646aaef227feef233de61fa3c9ce31de9aa7b8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 91,
+      "source": "scripts/core/context_manager.py",
+      "source_sha256": "ebdbced7acdb10b05547c1977c980d8ba5be067b24409464fa0aee4825ae2d0e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 92,
+      "source": "scripts/core/cron_dispatcher.py",
+      "source_sha256": "644402e7a230abc7a088fbc847d693c85192c2b4c5bbbd8d7f25c61b4546b666"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 93,
+      "source": "scripts/core/cron_engine.py",
+      "source_sha256": "37ec0e36a901aa97752a1cfcc3dc6a4663fd608d3478a7994611a9f3bb22cef2"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 94,
+      "source": "scripts/core/cron_health_check.py",
+      "source_sha256": "aff7613c7405272afd221f1738a554cc3d2658069d625695b91cdd3a8aa311df"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 95,
+      "source": "scripts/core/cross_agent_ping.py",
+      "source_sha256": "13fb1fe19b970f4fc509e7c43c2ad3b14e5a597c185092e220b059a07eab5d92"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 96,
+      "source": "scripts/core/doc_sweep.py",
+      "source_sha256": "85fd3d8085bdc48e705c32846a02d814e49f67c257b9ead9858b9dc2bb4cdf4f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 97,
+      "source": "scripts/core/error_knowledge_pipeline.py",
+      "source_sha256": "27bd86e1793d5f71b5dec323cab447138786c4d053c4935cf2b5469d0f9773e1"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 98,
+      "source": "scripts/core/event_bus.py",
+      "source_sha256": "015ea17c3dfe30547c009e29ffd39523a4b3945bd7d4e3cbe8577bf910378325"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 99,
+      "source": "scripts/core/event_retention.py",
+      "source_sha256": "4deb21ec5e060c1015cf7a476aaa9d33e50999473e0f44605d4f63b398f9e9df"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 100,
+      "source": "scripts/core/event_router.py",
+      "source_sha256": "1ae1d32e93d2ae99a2db335e5fe5c0eba5be16165e626fc55e1f0531a3f0369f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 101,
+      "source": "scripts/core/evolve.py",
+      "source_sha256": "68916cbeb15b9a185f9ae67765da57efc8c0852175ec28a8f0749edfbb833381"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 102,
+      "source": "scripts/core/generate_automations.py",
+      "source_sha256": "743c7edad99a0e7f13d00e826471cb98f741ea406b793a6314227bb76b8f583f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 103,
+      "source": "scripts/core/generate_inventory.py",
+      "source_sha256": "7167c953cdf2338d25b75246a07e5e38e3a8ea1ab2d477c3f747f91fba39ea85"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 104,
+      "source": "scripts/core/graph_activation.py",
+      "source_sha256": "d21d4c5f1fc5625ccc927f292af1eded64e3c45f0414fff81a0716c9b412b92e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 105,
+      "source": "scripts/core/memory_aging.py",
+      "source_sha256": "d72c4f877fb376f7135beeed5931eb027d6f3ed93e59c32bfbfe0ab89223a009"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 106,
+      "source": "scripts/core/memory_chunker.py",
+      "source_sha256": "fd03afc48c62e5a676f3bcb720fb6508ce36303749b6ca4f2cfbb967a2fff167"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 107,
+      "source": "scripts/core/memory_consolidation.py",
+      "source_sha256": "12cd96ff4753d1879e527ddf8013b72e2be9c97f2f4b4d5294d59f4d4ea3389c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 108,
+      "source": "scripts/core/memory_index.py",
+      "source_sha256": "de38c64f4aef38efef7d0d0711e338c7b9e774b98213e6218b9f6ca1a7c2874c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 109,
+      "source": "scripts/core/memory_ingest.py",
+      "source_sha256": "9ad194467f6dfe2729e0e72fa5de9d077bb13af05fb6442f96ab9b03ab842298"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 110,
+      "source": "scripts/core/memory_query.py",
+      "source_sha256": "2339b137a837f01acc10c209811eac0768039dee7804cedb5ff048da5c4e1140"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 111,
+      "source": "scripts/core/memory_retriever.py",
+      "source_sha256": "8b894b378a19fdb6dc04786cb8b84fd2f6e65b552653d2e3926e6b6ef93f10aa"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 112,
+      "source": "scripts/core/refine.py",
+      "source_sha256": "b3f0ebed7de9acf2d31eec0043e30c5842dd500682b990d4a5390d07692dbf7d"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 113,
+      "source": "scripts/core/self_audit.py",
+      "source_sha256": "02dd45a67af1a59c06655ee3d731fb4c688f707287bdcd1d58d6b55d5c7e778a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 114,
+      "source": "scripts/core/state_compact.py",
+      "source_sha256": "d3336353c6a1f99d5cab5b635e0604379bee0bfff274076a4c91f601d2e36712"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 115,
+      "source": "scripts/core/sync_entry_points.py",
+      "source_sha256": "eaefddd625704d14b7631fdfa8b2cbb9735948005305118b437e27e35719705f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 116,
+      "source": "scripts/core/sync_mrr.py",
+      "source_sha256": "9b207f7cc986c36a06a982c0fd5b2d0729f025f2d5f30d10cf80618e7fe49f65"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 117,
+      "source": "scripts/core/sync_slash_commands.py",
+      "source_sha256": "321827107641e459416d052ccf2fa1b921d127aff77e9c22f61a60c5cd421611"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 118,
+      "source": "scripts/core/system_cleanup.py",
+      "source_sha256": "2f62caba2e4e38fbf448a26eb3bcc306ba07c7ee034bdd0fdf52fba816bd6ca0"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 119,
+      "source": "scripts/core/system_health_check.py",
+      "source_sha256": "5fd8a33ccc9149adab262f47ea3ff6550fdeb12bf77574c171b122a5d76646f5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 120,
+      "source": "scripts/core/task_outcomes.py",
+      "source_sha256": "a916f4cb9c6c49eb6baeaf47c33f653261280ae8947f0dc2f32c6cfcf8c501f5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 121,
+      "source": "scripts/core/turso_schema_transpiler.py",
+      "source_sha256": "4a526129fed7cdff46f9254471d25a2792326b79434acfed507df96b3e8a5e3e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 122,
+      "source": "scripts/cost_audit.py",
+      "source_sha256": "df286a302444ac6b82c359bc71f18e6b747bc8f40553c6f0af35c3508aadacc5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 123,
+      "source": "scripts/cost_tracker.py",
+      "source_sha256": "85d3701dfc7219c1f0bd27b49448d6cd44df1d6dddb79adee0e6d6bcb2861039"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 124,
+      "source": "scripts/create_turso_indexes.py",
+      "source_sha256": "f57da2a836766a12394463a26f8ab1ddb42b53b49b8308688d95ff463a408f7b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 125,
+      "source": "scripts/critic_template_check.py",
+      "source_sha256": "9777d02bde6628605193daa22d371f12ed8a91105c0add622f5a3343aeeb79ca"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 126,
+      "source": "scripts/crm_reset.py",
+      "source_sha256": "5a09edabb0848de9f5bb5598e209033ce5eb907425efa9249844f65020d03612"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 127,
+      "source": "scripts/cross_agent_review.py",
+      "source_sha256": "1d4ab74241a083fef8cafce8dfbd5f1a900342f652bdb03a763150fa45981052"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 128,
+      "source": "scripts/daily_brief.py",
+      "source_sha256": "1ebbf964efd191d35f68114b518502777d4693d45820dd7dbffe0fb683515de4"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 129,
+      "source": "scripts/dashboard_email_consumer.py",
+      "source_sha256": "d892395903d3148a84abad4dda5307ef8d146149f93fae36fb18a19570586bd9"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 130,
+      "source": "scripts/dashboard_email_queue_monitor.py",
+      "source_sha256": "07c567a0427b333bfa586602c8b61ca2d6724f2b063ad495348d0b25e1845384"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 131,
+      "source": "scripts/db_snapshot.py",
+      "source_sha256": "6ec9416781a2c1003ac24d60f26ff22e3dcc2f5d8dccffc8b289c92d85ad41f3"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 132,
+      "source": "scripts/deploy/__init__.py",
+      "source_sha256": "b6fb9978af5ab2c1e85286481973cdb50f1a349ec9fdc3964ea5c195514a9ec1"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 133,
+      "source": "scripts/deploy/sync_vercel_env.py",
+      "source_sha256": "780184e65b74d208b69978153bf630a702350bc388b9b4b99b4b71d66fc09baa"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 134,
+      "source": "scripts/deploy/verify_deploy.py",
+      "source_sha256": "94891afc658787f7e8690e3fa9db79114394282b6d6571ab90fc5b29f737389e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 135,
+      "source": "scripts/deploy_oasis_cc_phase2.py",
+      "source_sha256": "4c4e2885b7514c8280b2fff9091b8637c9bade8f4fe315d6fef045b76c717cff"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 136,
+      "source": "scripts/deploy_refinement.py",
+      "source_sha256": "b4306569d769120418b2020112e8f5d2b929d2e785e4daa1df66727910f38e76"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 137,
+      "source": "scripts/detect_shared_repos.py",
+      "source_sha256": "f3b4911fed3470322db18152b4e2dd191a87fccd13f9faa00c45aea84969cbad"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 138,
+      "source": "scripts/dns_reputation.py",
+      "source_sha256": "ecb281223f27085e66a79a15b7393266b710255c1635b743c01e1c7b79c057eb"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 139,
+      "source": "scripts/draft_critic.py",
+      "source_sha256": "1bf07364f148259a505306f5548dfa82b4fd241202f4d151e9a9d184a6b90c8c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 140,
+      "source": "scripts/drift_autofix.py",
+      "source_sha256": "31976ef65ccaa134b02c3958c7b9f60e82ce41eed7cb13ce2729a0f6ea61a8bf"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 141,
+      "source": "scripts/email_brain.py",
+      "source_sha256": "8ce467510e5d43bb42221144e8cb91cdce98085f6cd2a014d54e91e2ac6a090d"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 142,
+      "source": "scripts/email_doctor.py",
+      "source_sha256": "34e49a091052905140b0c86e9371a1519f1222d87f68d2b625bf7d9a83888a86"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 143,
+      "source": "scripts/email_draft_action.py",
+      "source_sha256": "4e44fdfa234f11666e3b47f59fddef960faab4c3ec1084f5a3b57bfb5e9b8036"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 144,
+      "source": "scripts/email_playbook.py",
+      "source_sha256": "515ae005d2cc030beafad26b0baee205ce10f9808e81ad226f6f0f48501e6eb0"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 145,
+      "source": "scripts/email_template.py",
+      "source_sha256": "82b235180f617f8a5078b45b2379510b80d3f56aaeed4c86ac3bb0a870d6e124"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 146,
+      "source": "scripts/enrich_oasis_leads.py",
+      "source_sha256": "81877efd95b04e51b6d0adc35883fff9fee892d9e6c495f3737ad3017fb96d70"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 147,
+      "source": "scripts/enrich_sheet_inplace.py",
+      "source_sha256": "e70b356ee950df82118fb3f960511c21a9b819c9a7d06b1ee707b9c0633be407"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 148,
+      "source": "scripts/ensure_cockpit.py",
+      "source_sha256": "e8e3f40c1f1c34ab3b299074ccd0c99a325d248008b32d28ecab850c6f05a2cf"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 149,
+      "source": "scripts/etl_auth_to_turso.py",
+      "source_sha256": "4a9060a8789aacc25cfedb1ef226d71f98dad27789e6898a1c3d010684b572f5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 150,
+      "source": "scripts/etl_storage_archive.py",
+      "source_sha256": "e9942e6d4ab0d3e79c2a369cbab08dc737aee7d76e373fa4648e5a134e22fb9b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 151,
+      "source": "scripts/etl_storage_to_r2.py",
+      "source_sha256": "8b28971def3a082be2d080712cc6c4564979154ff1d996bc2a527c560239e4ee"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 152,
+      "source": "scripts/etl_supabase_to_turso.py",
+      "source_sha256": "9f3198e259e273a74a64bdbe462f13bbd893976a727a2c00da84d36b91d1602f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 153,
+      "source": "scripts/financial_model.py",
+      "source_sha256": "a19ac2644694b67815ce88a67e32af291869072ec922b19909d08b08ade72615"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 154,
+      "source": "scripts/fix_cc_leads_records.py",
+      "source_sha256": "004c359cf8936ba34e3385557147997d91abf382b885097ae59fef21f4740c90"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 155,
+      "source": "scripts/fix_cc_leads_tenant_move.py",
+      "source_sha256": "a47df5b8c3d19021bb70b6f5865042d45decd95d2431bdbe9585ba0d192612f6"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 156,
+      "source": "scripts/fix_trade_leads_enrichment.py",
+      "source_sha256": "32084ea52f90120ffd19466fe3d763725a7cda5622ae759e5387747f5d7e93d4"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 157,
+      "source": "scripts/fleet_health.py",
+      "source_sha256": "f1f57398d5a586f4e32a981a8d41372363d69e0768ae0af6b5d0ddddabe2aa53"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 158,
+      "source": "scripts/fleet_health_check.py",
+      "source_sha256": "0fd10d6ba4edc6358c044bf30c640fd9d5ecb46efa0b22e75d2f0bc2a8b70d1b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 159,
+      "source": "scripts/frontmatter_doctor.py",
+      "source_sha256": "a207f22c659f4732ab7e86fb9b81da4f8de2c6296c24dc212ee8d7ad6112fb3d"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 160,
+      "source": "scripts/funnel_nurture.py",
+      "source_sha256": "0695c570a602d29a7de1176eb007e4294b474f1eba5d226d1c12407a48fec024"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 161,
+      "source": "scripts/funnel_sync.py",
+      "source_sha256": "f2c868e8a4d6581ba0cbe9848614abb5c76919b018cef2666590663014d929a1"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 162,
+      "source": "scripts/gateway_admin.py",
+      "source_sha256": "00fb993ba51e12d9b8658991b2dd8f7cd2c8b8c9279a4381acb0f1b4be105174"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 163,
+      "source": "scripts/generate_changelog.py",
+      "source_sha256": "ec3a491ce2b2b4dac65b826193229313f6baf1d8c10375e1c7f1ef76293d1574"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 164,
+      "source": "scripts/generate_contractor_agreement.py",
+      "source_sha256": "cc19b506d5728b9dcb43e3af02b79c9d0428327e3833710746b4f9986580bda8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 165,
+      "source": "scripts/generate_covers.py",
+      "source_sha256": "cbb78933a66ae46568f644324f7b3a2826e986b1972bd55ab8c1c3372b893a68"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 166,
+      "source": "scripts/generate_sales_doc.py",
+      "source_sha256": "1535fb188acc6643e27f7ac81ee8b2900c8971ca539fccadf2d1d11d7e6dc6d1"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 167,
+      "source": "scripts/genome_sync.py",
+      "source_sha256": "da664168827d59e335833cf6089653231dad56e1c2d70f7f3122068227c8dc6c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 168,
+      "source": "scripts/git_push_tool.py",
+      "source_sha256": "2dcc095489738f5b6368c65e6ab4b1c92922167eef67f7d7f103df26d3912ba9"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 169,
+      "source": "scripts/gnn_skill_router.py",
+      "source_sha256": "f1ab757eb3a01d69a90b71944880a4c1bc8ee7e4c832e26d6a36f7104926be7f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 170,
+      "source": "scripts/harness_eval.py",
+      "source_sha256": "6964831c1d1f6d2c5bd37cd3b2785e34927ee15d929502e553f608edde63bca6"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 171,
+      "source": "scripts/hooks/anti_pattern_hook.py",
+      "source_sha256": "59093bbf5780f35cadde774991b8c25b58525d1d6b78bb606d02bcae39cf4f9e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 172,
+      "source": "scripts/hooks/pre_compact.py",
+      "source_sha256": "66dfdfffc7d5ead9a593beaa07966c26f27c969b5f4c91075bc49857ccb67776"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 173,
+      "source": "scripts/hooks/rotate_logs.py",
+      "source_sha256": "9dbff3704b57e24d4616d4773ce02d677bee14ea10ccbad40556ccf4408890b5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 174,
+      "source": "scripts/hooks/session_start.py",
+      "source_sha256": "86263bee90173db1f7bbf5e88864b6877665d042c35e5888314c4a39ba8460c4"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 175,
+      "source": "scripts/hooks/subagent_stop_validator.py",
+      "source_sha256": "22aab2e980299d565463bbaa25e5ae459c10ced097715fac2c42d60cad800f07"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 176,
+      "source": "scripts/hooks/subprocess_guard.py",
+      "source_sha256": "6b0dc18ae346da99032660c3b03e982deb2ca0e0b4f4a6c81ee0bbe7f2f371b8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 177,
+      "source": "scripts/hooks/user_prompt_submit.py",
+      "source_sha256": "879bdcee494cc3cb34f1bcd3f519faebe355d6fd4132b7416945418f5ae89e30"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 178,
+      "source": "scripts/hooks/webhook_listener.py",
+      "source_sha256": "ad56c431ab1750064ec2fca2f8950289331b33cef704fb1f145642b57587d0c3"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 179,
+      "source": "scripts/inbound_classifier.py",
+      "source_sha256": "6ecdaa712d83fd50f7bf80bd56d88e725e35beceba8d7df3dc121dddf848700e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 180,
+      "source": "scripts/ingest_training_link.py",
+      "source_sha256": "f02ee9c39b50e9703c937f15977cd46443722cca1b7953d247af3a3b850d65e1"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 181,
+      "source": "scripts/install_python_switch.py",
+      "source_sha256": "dce9a0a163d68f9081958e1c1df5f13dbfaeb429c9d2b91e05a1d2ea92ac21d9"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 182,
+      "source": "scripts/integration_health.py",
+      "source_sha256": "dd97f5a3edaa42f534b307430c55ef1c062c02065fed7db71b3bcd1d7874d139"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 183,
+      "source": "scripts/integrations/_breeze_final_sweep.py",
+      "source_sha256": "b4a28f3aaff725ed3c0820a85c902a9906ab6cbc8ced7d3f6a2aee2916435f2b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 184,
+      "source": "scripts/integrations/_breeze_onboard_watch.py",
+      "source_sha256": "57158335f841a83948a1124973e0c37a96267d8862bc2af41ee0745b4c171b4c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 185,
+      "source": "scripts/integrations/agent_activity.py",
+      "source_sha256": "9da83a2fbf282f3f8d87e7bc9664381c7ad0ea58bfadee3d272434936dc9950b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 186,
+      "source": "scripts/integrations/book_discovery_call.py",
+      "source_sha256": "d34575ed9f53d1094b839a6f3d196776fe190ea5f1ba79942dda2a7c823ff450"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 187,
+      "source": "scripts/integrations/breeze_access_watch.py",
+      "source_sha256": "a2a12c52f8eb77ea328827858c8f51d507fdb8ed860a85f00e538b2aa6401539"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 188,
+      "source": "scripts/integrations/breeze_apply_sql.py",
+      "source_sha256": "b0ebd8a58a729712123a2a5226122d3239b887236972aee8f71bbc415aff1446"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 189,
+      "source": "scripts/integrations/breeze_auth_config.py",
+      "source_sha256": "dc5ed86d02c5a8c87f3117056c21637c212fc10cb8c16aa8764f32515341e431"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 190,
+      "source": "scripts/integrations/breeze_dns_setup.py",
+      "source_sha256": "2af7af4b5368897a3691cced064fe8d664764430a52688889df268c7460e0f26"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 191,
+      "source": "scripts/integrations/breeze_mint_confirm_link.py",
+      "source_sha256": "16b134f8bfb5870c7c2d023776b19d8440c12e88e2c4ff38f14d0e359353c0d6"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 192,
+      "source": "scripts/integrations/breeze_run_script.py",
+      "source_sha256": "33115bd47aa8e701a44928f3fe565702759a66853565ccf85afe71281b79d3b7"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 193,
+      "source": "scripts/integrations/breeze_seed_users.py",
+      "source_sha256": "2fddc8e13ca98ca2ffcff4fbb1956325a659a47fa25195fed97fb05ecad67b77"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 194,
+      "source": "scripts/integrations/breeze_send_via_tenant.py",
+      "source_sha256": "09f8a1c42fa079ff662a726c7d3c34b4c31c2728cc935698040d768c72951e4b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 195,
+      "source": "scripts/integrations/cloudflare_admin.py",
+      "source_sha256": "6c5db9e269681520f902bd236e427dbcedcce3cdb6262a7194ffe1147ab0a5a8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 196,
+      "source": "scripts/integrations/contract_tool.py",
+      "source_sha256": "255369fab19c05f1dadfa4e56b63f129cbbb3b9e38c313663aa811aedff40a94"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 197,
+      "source": "scripts/integrations/coord_claim.py",
+      "source_sha256": "5b8d9a2154ba3fa50c01d48d395865a8a477700c64bfa19731b8b273e389f4a1"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 198,
+      "source": "scripts/integrations/email_engine.py",
+      "source_sha256": "290367bc7fc31ff9854fc7e082bae87b688cf4784b8f8ffe9fabb6638019e223"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 199,
+      "source": "scripts/integrations/email_validate_tool.py",
+      "source_sha256": "82c2ca3a75dea43e8be7b90e604cfa68d3adae9fc790a7fd1c08423e9aa14568"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 200,
+      "source": "scripts/integrations/extraction_consumer.py",
+      "source_sha256": "319fcb75cc4b8f3f2a16f7e13b5b44ec75b6788d7e1771ee7adeeb5b9b74d48e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 201,
+      "source": "scripts/integrations/field_encryption.py",
+      "source_sha256": "2094d66e85fcaa0bbe8d1edb4b99fbe5d2c81c94b9b66a5a8651a08fe1dd34a5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 202,
+      "source": "scripts/integrations/firecrawl_tool.py",
+      "source_sha256": "d050c3270a595d87cc4a702db6c2815be271305f5b22c65a4ce1b3d8242e0cc4"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 203,
+      "source": "scripts/integrations/google_client_pair_probe.py",
+      "source_sha256": "66a74a82d17007fe950a56c17acd2ddbb60cab37749f8b697ae28389a3862e48"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 204,
+      "source": "scripts/integrations/google_tool.py",
+      "source_sha256": "b0e704ca33c1284d14ef7bd08b26da31516f3b1147d6aa9acbce41b3c15efda5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 205,
+      "source": "scripts/integrations/gws_docs_edit.py",
+      "source_sha256": "ed4972e14d733fa1a23b40789eecc954525462ec4c5a1f69f99dd6e8db835c20"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 206,
+      "source": "scripts/integrations/ig_closer.py",
+      "source_sha256": "c0e20394a2cd8023534395afe6560091c557639d2dab175f93be887027d8b7dc"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 207,
+      "source": "scripts/integrations/ig_conversation_brain.py",
+      "source_sha256": "0ffe1ca2041cb1d39d868ae066145d224c398bbf9160559cb36a6c80bb6b8e0d"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 208,
+      "source": "scripts/integrations/ig_dm_daemon.py",
+      "source_sha256": "c9d31415c71e9dd0e0c5ef9f8cc40a51b4b367ada802a202912139a2937ab8e2"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 209,
+      "source": "scripts/integrations/ig_dm_state.py",
+      "source_sha256": "1dec3fc941460d0287afba3ffb3b2efb7a8aa0688a8ab8ad4627f5c901023c30"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 210,
+      "source": "scripts/integrations/instagram_dm_poller.py",
+      "source_sha256": "905fddda1c369c867077ec994c52424ce661d5e7406e25e120a52985661fb8c3"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 211,
+      "source": "scripts/integrations/lendsaas_tool.py",
+      "source_sha256": "33a75527057dfae418b7d55ba26e286af6943605c2d4f0cac1a3708428561939"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 212,
+      "source": "scripts/integrations/mem0_tool.py",
+      "source_sha256": "386bd1e7619ddbdc8166339ce93df10f166c1365955a27d60d69e3d630d755b5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 213,
+      "source": "scripts/integrations/n8n_inbound_doctor.py",
+      "source_sha256": "a59eff38891e0cdd9133a279106c319ea13e9787c110a41b6be77b821f84b2a1"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 214,
+      "source": "scripts/integrations/n8n_tool.py",
+      "source_sha256": "b48772900cc11949d3d070f4ce00169c1eea5f186d188cec017706a129018d10"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 215,
+      "source": "scripts/integrations/n8n_webhook_secret.py",
+      "source_sha256": "6a9e7f50cd0db56e3455e10d27a6909f722dc68748bc3b5038e1fa074ac6f495"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 216,
+      "source": "scripts/integrations/notebooklm_tool.py",
+      "source_sha256": "e421acd6640ca80402be72ee78688e525dda6047b8e5f1daef4556ac5995ba6b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 217,
+      "source": "scripts/integrations/public_bundle_recover.py",
+      "source_sha256": "e6e1ee132a1d695f5cf79add821c1281983f07c71fca819646332c7a269be26e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 218,
+      "source": "scripts/integrations/scrapegraph_tool.py",
+      "source_sha256": "cc550b40f911e2f68ab7b5b0551935c39384baa0b339a0a6f3c4a0e54c7e7133"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 219,
+      "source": "scripts/integrations/secret_apply_authorized.py",
+      "source_sha256": "ffe41c4b5954d89adcc93ecf65f31f055ef9a3e050f9f36ff9475fe837ef008b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 220,
+      "source": "scripts/integrations/secret_disk_hunt.py",
+      "source_sha256": "5322e4fb01fe3e66a995923b4a1e0bb0bda200fd61cfbfeeecd126cf776943bb"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 221,
+      "source": "scripts/integrations/secret_fuzzy_match.py",
+      "source_sha256": "b1ff5a36122bda20890231c186ccfa855fa24fad819fdd7f9e04e2089655bf58"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 222,
+      "source": "scripts/integrations/secret_identity_check.py",
+      "source_sha256": "8892d2297d266331ce9f93ea298300dbf22ce5765d7cfe85003107142701d46d"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 223,
+      "source": "scripts/integrations/secret_name_export.py",
+      "source_sha256": "5c4e99a8b60c34c2e5b1bed009e229c476396e9fbd63602fe9d0ebc31ee18d7f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 224,
+      "source": "scripts/integrations/secret_store_restructure.py",
+      "source_sha256": "710c1ac032ccffd451296934bfe3803515d2d6f33f1d20e8dce680d0210092a5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 225,
+      "source": "scripts/integrations/send_gateway.py",
+      "source_sha256": "56c5a626affcae39b3d36820d6da15f4cc98ef69e8a904b551f6f24f16dfbbf8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 226,
+      "source": "scripts/integrations/send_guards.py",
+      "source_sha256": "adc17b262e56f186033af71fab1920f9cdeeb7f29774ef1779919aa4292d009b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 227,
+      "source": "scripts/integrations/shared_gmail_creds.py",
+      "source_sha256": "39b3356b7221a63ebbe094e5fbfc60140522d96ea0a05830b97627e5ff6af74c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 228,
+      "source": "scripts/integrations/stripe_tool.py",
+      "source_sha256": "717132b1dce286e2d6fe96f440aa55e9e29f4ffc53394b8fc5bb7ae503270c60"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 229,
+      "source": "scripts/integrations/supabase_admin.py",
+      "source_sha256": "a350fc63053c84da7aab63373624ddd1540791dcb776a7b9d4e524a96f6be91a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 230,
+      "source": "scripts/integrations/supabase_tool.py",
+      "source_sha256": "dab0b3ddb2fe4d3edd8a6d737f5c9551c7e040ad5348448f72609b86baf724db"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 231,
+      "source": "scripts/integrations/turso_admin.py",
+      "source_sha256": "9f8ea3cc0b152ce6cad917d9343300722acfa172126792109e004b61f2b552a4"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 232,
+      "source": "scripts/integrations/turso_tool.py",
+      "source_sha256": "822e2ff112b4c9d5d16d7265b2012976247bbc81ada0ad5f00b787200a6fcd0b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 233,
+      "source": "scripts/integrations/user_gmail_oauth.py",
+      "source_sha256": "2c073b48cff47b59fddf91c78f9da9872466a910f6061a7bdb925c338992baac"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 234,
+      "source": "scripts/integrations/vercel_deploy_tool.py",
+      "source_sha256": "71afd9f10c94e8adcfa6f726d83435619e6d4fcf36e140ac46094b45c09930dd"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 235,
+      "source": "scripts/integrations/vercel_env_pull_sync.py",
+      "source_sha256": "bb0dab79f40d899186479d2bac85606cf9b53814623ffd6cd334760ccf4d2a1b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 236,
+      "source": "scripts/integrations/vercel_env_tool.py",
+      "source_sha256": "d5f1ba4b5bbd2d7a1eaa10296e992a6930643355772111d7061a6f62fee0945f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 237,
+      "source": "scripts/integrations/vercel_relink_command_center.py",
+      "source_sha256": "205bff47099c54d39e04bd0098df6aa9d4c4416977d4075a10ae4079b76dff88"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 238,
+      "source": "scripts/integrations/vercel_secret_sync.py",
+      "source_sha256": "e61c61e50286d386189b6a8cb65315ea68f4a883c0653a676b9b478f16342190"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 239,
+      "source": "scripts/integrations/vercel_turso_sync.py",
+      "source_sha256": "51cd1cfb744e9a2b4fd8af95e2ec587eca6458ebc26be9deb7dc260df07633fc"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 240,
+      "source": "scripts/integrations/wrangler_tool.py",
+      "source_sha256": "5f82566cda6920fa31293a03f59315877ad9b3e814fdea2824cde5272bf9a031"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 241,
+      "source": "scripts/join_multiline_classnames.py",
+      "source_sha256": "677df4d14348b639d8eba90c069883b1a93461204058b5d70d2ae2af5f389ee4"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 242,
+      "source": "scripts/lead_engine.py",
+      "source_sha256": "2b4ba9a1f96c1b27dd461894d0e495eaeb282d6c7699239143e2c35b1251ec3f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 243,
+      "source": "scripts/lead_generation/enrich_owner_names.py",
+      "source_sha256": "e92771d1da6be3de71a1459afd73309c1958d9536a149df9fe0ce5cc3ad3b870"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 244,
+      "source": "scripts/lead_generation/owner_operator_scraper.py",
+      "source_sha256": "a3764f208c9fd8d36cfabfc7e4260028bdfc542ee681dc288a57368befee1456"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 245,
+      "source": "scripts/lead_generation/small_town_scraper.py",
+      "source_sha256": "058b0b316bc62e0e11ce49a18fa61f1859f164145fc71d4c757301c3d1949911"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 246,
+      "source": "scripts/lib/agent_roots.py",
+      "source_sha256": "3a11f0843938ce93d14c58ee381cf33e8cc77330af437f57f2bdca9c7b0efb76"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 247,
+      "source": "scripts/lib/application_fields.py",
+      "source_sha256": "a6fecdfa1073e1acfbbbe2c2d78279e71e0a2b2d56efcb3a96252daa3caa59ba"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 248,
+      "source": "scripts/lib/capability_metadata.py",
+      "source_sha256": "bb517f4f426cdb6309eb1c72b4d83608ab9e84b7617e4f53b67b43afade8ac76"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 249,
+      "source": "scripts/lib/claude_auth.py",
+      "source_sha256": "0250e1ab6a36f5f77bb623c536ad9d3943ebcea5a9d7cdc078fb30ffc3ba9487"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 250,
+      "source": "scripts/lib/claude_cli.py",
+      "source_sha256": "82d126255fdeea2b45f5cfeed90e4a87986ef328c1c3bb3c8b8c27eb5c33ad8a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 251,
+      "source": "scripts/lib/custom_llm_client.py",
+      "source_sha256": "067deebf976ccded678b97da6cc58fd183b352fe64220f12a93e62b670eec35a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 252,
+      "source": "scripts/lib/db_resilience.py",
+      "source_sha256": "e42b918feac2cb311fb852ae0cadaab6e5bd58b13686bbe64d02b48be8192098"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 253,
+      "source": "scripts/lib/db_turso.py",
+      "source_sha256": "0c2f41a56d9eda6f2726dd90a2076ad2c38c3af8d529506e69a9f5dcfc7a475e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 254,
+      "source": "scripts/lib/doc_text.py",
+      "source_sha256": "10fc9f29eb84e8ec422624fc30ddcdf73c451cd4f5dac932c0fd1a57e5ab37e4"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 255,
+      "source": "scripts/lib/env_store.py",
+      "source_sha256": "275beba14184e44f172fc7eb4c51d9eb933d6912228897e8b36966cfb777b091"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 256,
+      "source": "scripts/lib/financial_labels.py",
+      "source_sha256": "1126a05a3134534db84f039b89ac91f2bb08740bdf6b8d10c888a1b9109cf94a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 257,
+      "source": "scripts/lib/frontmatter.py",
+      "source_sha256": "98b76582fea3c4c608da263a4a0936fe1455e99e617372a934cb687cd7708e24"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 258,
+      "source": "scripts/lib/gh_auth.py",
+      "source_sha256": "7c09adfccf51f61eaf34e2b977c4a5c9f7711888c888cb23b1eee30bae3ae181"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 259,
+      "source": "scripts/lib/git_auth.py",
+      "source_sha256": "13596d6d1d134d6d68528fc5b960d936bd4b7e9dc2183018e0af4876618e96b8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 260,
+      "source": "scripts/lib/gmail_labels.py",
+      "source_sha256": "1344fae75455f626268d08606fee1d861aa6b512e7d572332f0e4fab962f4f94"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 261,
+      "source": "scripts/lib/hook_runtime.py",
+      "source_sha256": "f8aa6a38ec7846229a151d5c4af49b9d202314c3c8c4c7969f1e39d463cb52bb"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 262,
+      "source": "scripts/lib/http_probe.py",
+      "source_sha256": "e097481d75a2f01eafa1e059f9afc74ecce7e083b9575d2a147774b789d2356f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 263,
+      "source": "scripts/lib/json_ledger.py",
+      "source_sha256": "ec502b338f28c97679ecd72dbe48907dbb819d5c2e0b7e9fbba8917b433be94c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 264,
+      "source": "scripts/lib/lead_contract.py",
+      "source_sha256": "5af3079cdee22ee74b59d1fc6cd8a0880f5c0e3fee5dcdc9234a085707f7ea09"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 265,
+      "source": "scripts/lib/lead_sync.py",
+      "source_sha256": "7e997462388a74d47a0b8e2c1f322cfdc3bfbf50a386b2578fae41edc400c0e1"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 266,
+      "source": "scripts/lib/model_fallback.py",
+      "source_sha256": "451629521af712b69dc6fa3c640494810d22b0a8c47cc5cd332aaa400153d349"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 267,
+      "source": "scripts/lib/model_registry.py",
+      "source_sha256": "c6a8f0b23ebf168a531919df40e6347d780ff8a3fdaa0325804cdd1e0f7b6de8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 268,
+      "source": "scripts/lib/opencode_cli.py",
+      "source_sha256": "1081a292755da6246ec4082950d114b18121d1b80b3f0856b197add19d4bce20"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 269,
+      "source": "scripts/lib/outbound_log_post.py",
+      "source_sha256": "f053cb7dd33b07e526759d39c8e595ae33eaa16c57554adc1270c336a03e62d7"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 270,
+      "source": "scripts/lib/ownership.py",
+      "source_sha256": "9b99b1777150dc54d876efac00fe7833ed258d93e0a304491b7ce84bc92ecaff"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 271,
+      "source": "scripts/lib/r2_storage.py",
+      "source_sha256": "9fded89c7826e621680438e118c75ba0c492751d4da315473267c01e83780cdf"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 272,
+      "source": "scripts/lib/rate_limiter.py",
+      "source_sha256": "f726fa56edc9550c5a82191a00858c088029b1b07ba14ee1eb21850787d17361"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 273,
+      "source": "scripts/lib/redact.py",
+      "source_sha256": "03f4b808abed013254e0400ccd84cc6726866f8929e12929a5fb9a6e56acb0ca"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 274,
+      "source": "scripts/lib/repo_paths.py",
+      "source_sha256": "4cbd230e1a1643b48cb2ddcf295ae6ef4249b6beeae3171af38f02b8fe96b890"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 275,
+      "source": "scripts/lib/retry.py",
+      "source_sha256": "254ab4c7ea34d72b51ac050755f22527eb26545ea28f323d07830f63705c2bb6"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 276,
+      "source": "scripts/lib/secret_loader.py",
+      "source_sha256": "5cd9359b32bfeda8d951b77377c40cc283f309a4ed0ad186f90161f33dc42f0c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 277,
+      "source": "scripts/lib/smtp_send.py",
+      "source_sha256": "cfe6c36ca22a1cb52c04e8d4ceb91f3fd5636e743aff2c8d07f1a5d6c309f088"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 278,
+      "source": "scripts/lib/structured_log.py",
+      "source_sha256": "e7a2e5ba4136120eee2756e0d63c1105811d94c72a474feb26546dd5fd52550c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 279,
+      "source": "scripts/lib/subprocess_ast.py",
+      "source_sha256": "4972dfc102bb9d1273b9add146c21065ae916b2af8e59adfcf1033b3cbfce3e5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 280,
+      "source": "scripts/lib/subprocess_helpers.py",
+      "source_sha256": "7f5c3308be506a7477c68c14dac5bb754c4359bb24662ca33a5e5a4a553b1b03"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 281,
+      "source": "scripts/lib/tenant_brand.py",
+      "source_sha256": "7f91e4140af1c696a02a7b1edddb3da2701c620d06250fab894b36fe6a18f4b5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 282,
+      "source": "scripts/lib/timeutil.py",
+      "source_sha256": "0c8e027924778f5b84cb6cc45606d4785c8b6ccd7d6bf2b57135e7ee69baf935"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 283,
+      "source": "scripts/lib/tls_trust.py",
+      "source_sha256": "ef16eb2994ee64e064062eb5d3bee5cbdb4b6e1f54abac659de8795f83af554b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 284,
+      "source": "scripts/lib/turso_supabase_compat.py",
+      "source_sha256": "c8674d6ad8827c0d30435cb116e80d3291c93e33484b695b1aa5cada2710fe21"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 285,
+      "source": "scripts/lib/turso_switch.py",
+      "source_sha256": "672c332b6dd155ecd7e18a472082a61ae40ca253ee8fe312e797d06cdb62dc44"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 286,
+      "source": "scripts/lib/vault_scope.py",
+      "source_sha256": "573802d489cf3506733b3d3dd5d54d011d11d1b28a6198b50b7bd2509ff79bb9"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 287,
+      "source": "scripts/link_library_to_posts.py",
+      "source_sha256": "153083b031c683f066e80f96905f4051e8d5d42fcc9d53a10aa62c02cee07ed1"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 288,
+      "source": "scripts/machine_parity.py",
+      "source_sha256": "085ea72ecc7fc1ad7898a324d88bb0afcf2fc770aeafc4b772f87f6edc3c343d"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 289,
+      "source": "scripts/macos_control.py",
+      "source_sha256": "c3af30b19aa4209de9a373123f75492042b04f7fe4fb6bd4b136f0ac0efa32f2"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 290,
+      "source": "scripts/maml_onboard.py",
+      "source_sha256": "b79b16a65fb8a3c61b1056b74067ee76ba8547b454eee0aad04b1cbe75922d35"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 291,
+      "source": "scripts/marketing_publish_drain.py",
+      "source_sha256": "02b25b07413f47b67afd5e726f64bd3182be660850c949603961c8f2327aa9dc"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 292,
+      "source": "scripts/md_to_gdoc.py",
+      "source_sha256": "22e26706209a8d1dc563a4714e6eac656c4da6e6a8bf1e47f181e64bc2b75c83"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 293,
+      "source": "scripts/merge_assets_to_carousel.py",
+      "source_sha256": "8a617a4aa91475efb19a0c4564139a8e76173c1240e35cfb151a650a99cd3451"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 294,
+      "source": "scripts/migrate_carousels.py",
+      "source_sha256": "7a526d54e1e9828cf36a1f1ca0b17edd383333a38a9887d0c07a0bc005827724"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 295,
+      "source": "scripts/migrate_lender_industry_restrictions_key.py",
+      "source_sha256": "0665721c390d7b99eac5d9001fa3710684a9427136e4363309ad9e8def6814bd"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 296,
+      "source": "scripts/migrate_subprocess_calls.py",
+      "source_sha256": "67dd33437257533c162e065044cd646711a59baed6ff5377ad239ca4364a9f65"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 297,
+      "source": "scripts/migration_completeness_audit.py",
+      "source_sha256": "71fbef9fa7270de9fd8b8e3447480ad468c7c34a906fbfca126393655354f021"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 298,
+      "source": "scripts/model_router.py",
+      "source_sha256": "ee5736faa03a2581d4b109bc5973f36d8d2789e0771055f838e5b09f50e97f1c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 299,
+      "source": "scripts/music_control.py",
+      "source_sha256": "71f4c0668fb773f8f9af71722b01c4700cbda042e42b6a15fb9a85a05dd797a7"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 300,
+      "source": "scripts/name_utils.py",
+      "source_sha256": "e7de5b217224580c384784c22d69b6db7c792d274eed0d8fc3dd16506c92526f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 301,
+      "source": "scripts/neural_memory.py",
+      "source_sha256": "444adad1b1e00df39d5ceedd5eab8c110b05373ef9a41d7ee694c020f3c5d974"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 302,
+      "source": "scripts/neuro_symbolic_gate.py",
+      "source_sha256": "351ba938e63c3a7bac2de7b85c11db062b1f877973cb7d60d3b7e8e665df8be8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 303,
+      "source": "scripts/notify.py",
+      "source_sha256": "58307627483bdeda7c2c5af910386e8f35ce76091bbfaf287028420e457c29ad"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 304,
+      "source": "scripts/oasis_embed_server.py",
+      "source_sha256": "7b64406cfbb24536f011046eacb202fc03cd3b94fcee8ea31cd4cd8cd3a5510e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 305,
+      "source": "scripts/obsidian_graph_doctor.py",
+      "source_sha256": "ece4e70e254a0e9fea9b26bf33248c4afc494801523c7827e1f7961577dcb891"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 306,
+      "source": "scripts/onboarding_diagnostics.py",
+      "source_sha256": "e90115b0a4de39ce9240a6fc0903f6b317d73e3b63d47ade8646b0a45a43e273"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 307,
+      "source": "scripts/ops/_supabase_backup.py",
+      "source_sha256": "f252c48d9033f801c9f4c1f80b5665a0962f6dca2e153fe362add26f5db86ce3"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 308,
+      "source": "scripts/ops/fleet_watchdog.py",
+      "source_sha256": "cd1e09fb0b1901067b6d6f7c2cd7b3aa0c32c015657646f68ad8240b5d47bc0d"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 309,
+      "source": "scripts/outbound/__init__.py",
+      "source_sha256": "7d635592bc18054a9bfe20bdb64898cd30d7c80a44bf9cacea70453667fb6511"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 310,
+      "source": "scripts/outbound/shop_out.py",
+      "source_sha256": "f4957401cc464cde918a5c2df57de449e7c497c92cbf569aff9f5172a3d9c550"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 311,
+      "source": "scripts/outbound/shop_out_track.py",
+      "source_sha256": "dd315f9795ea7eafc5cad0faa3e39da91365c27989ce18311f85d3d93654f9fd"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 312,
+      "source": "scripts/outreach_eligible.py",
+      "source_sha256": "b4af1777d483c2b23f3631bc01e9ee48cc5124ee3c6996ffd7129dc7a152bf38"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 313,
+      "source": "scripts/outreach_engine.py",
+      "source_sha256": "85570e57b205f3bceaac9152d2f0a9ee9cf4a079dad2e91463627132e4606d5c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 314,
+      "source": "scripts/pause_controller.py",
+      "source_sha256": "27ebc4eb21e712100a9dbd9039083d89aa33014bb554563f7c62d3956cf8c825"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 315,
+      "source": "scripts/personalize.py",
+      "source_sha256": "a92079addf9ee559785b3e37dcba8cd367a6277a3934c4596e3f0b48612f1d86"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 316,
+      "source": "scripts/pii_scrubber.py",
+      "source_sha256": "5f8d1fe663aaf642ee0b525ca1df0019f9764ceb81a3daf86493cb6135b1581e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 317,
+      "source": "scripts/pii_sweep.py",
+      "source_sha256": "f62607f5af7ba6fc543c81a52b041d012b15e4f4405048129b78aa3608f386bb"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 318,
+      "source": "scripts/proposal_generator.py",
+      "source_sha256": "573b600b53bb68a65a42be5195a7af24af1e53e91e8d6ce06d019afefd69fdc4"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 319,
+      "source": "scripts/provision_client_tenant.py",
+      "source_sha256": "015ec083e95a227a23ae93ebddb9ab0a5d893987168ff9b32b8eb1a33dc4ee0e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 320,
+      "source": "scripts/provision_maven_telegram.py",
+      "source_sha256": "747623a7fd17fe312414b028908ef840ab4438be9b66513bd74e6cddb0541737"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 321,
+      "source": "scripts/provision_oasis_mailbox.py",
+      "source_sha256": "3d3aecb4762ae4830d57f702f2f896e75094ef3ed679b82a872569e090f1bc17"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 322,
+      "source": "scripts/provision_secrets.py",
+      "source_sha256": "2a66eda67b9239ff455f388714cea40c199cc253e66e62f4e2ea805ea3f016a5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 323,
+      "source": "scripts/prune_merged_branches.py",
+      "source_sha256": "b2ce8c3740ed0331643156e675350d0ae49daf352eda369724ac9619f208601c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 324,
+      "source": "scripts/publish_ownership_map.py",
+      "source_sha256": "78f313d2bb95ef7dad040accad46324bd4f3eb99378aaa7bfeb06e40b300488d"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 325,
+      "source": "scripts/pulse_publish.py",
+      "source_sha256": "6d6f7d567f144264b54e56b905dff51021c1b9a516f04e8bc954b5b4de1a17b7"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 326,
+      "source": "scripts/purge_junk_leads.py",
+      "source_sha256": "8e257c461ca577b0e0a7c23b35a7846d9d6543e1e1bbf7bf09becf021f857717"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 327,
+      "source": "scripts/quest_publisher.py",
+      "source_sha256": "85a0149b3f22183499703715595bb6268991bcd57c2193985692f7674e84aa7a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 328,
+      "source": "scripts/r2_split_public_bucket.py",
+      "source_sha256": "af67cbe70cd9e26b2d9e08187774938b1ee5bd08ea1cfe62388f098811a901bd"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 329,
+      "source": "scripts/reap_orphan_mcps.py",
+      "source_sha256": "7e1d674e0b98e05232e197df08ec7269912dece519097017fc0f8c009f995983"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 330,
+      "source": "scripts/receipts_audit.py",
+      "source_sha256": "a24be8a81af0b9a057de06ee90bae100f82cc14642a9bb91d76e8ff0385c565c"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 331,
+      "source": "scripts/region_inference.py",
+      "source_sha256": "58683a2b5ee844e389cfaf62281faffcae62d16b0024eb91dac8f22a10459865"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 332,
+      "source": "scripts/register.py",
+      "source_sha256": "29b4b85422fcb7962d6ef24a54021ef601b1952ca6e25e1d37139623a2020c20"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 333,
+      "source": "scripts/register_skill.py",
+      "source_sha256": "704e37694f9305a1f6acac846c7e301e39df4a68955b91e5f0550651a84eb0f5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 334,
+      "source": "scripts/repair_turso_fk_actions.py",
+      "source_sha256": "7894c7c114df6559b80bb76069e9e55ff494c6f128845fad2df78b145d229a80"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 335,
+      "source": "scripts/repo_census.py",
+      "source_sha256": "aa7483c5e85ba425f3ad5ca291426f340c169ed68acab959168ca7ad2a8fce1a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 336,
+      "source": "scripts/research_fetch.py",
+      "source_sha256": "44aa6c4b17eb344b149b6672219228947fd5228a4e5cb8927688fa5379daddd9"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 337,
+      "source": "scripts/retriever_postedit.py",
+      "source_sha256": "411ad1a1c80bd738be294dedf5607e8a22271db28f094aedd48c69b59cac373a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 338,
+      "source": "scripts/revenue_engine.py",
+      "source_sha256": "d9c3d5629d8c100b80bb0e4ab371bd239944b4510ea6c80edcd79ca14030a519"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 339,
+      "source": "scripts/review_fix.py",
+      "source_sha256": "893e30dad64c5ea8bf8c821dbc493d86819a6cafcf99de91eccaf05a0cbd9a52"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 340,
+      "source": "scripts/review_harvest.py",
+      "source_sha256": "602c2f3f7e54558d928423b038db2eb267b68755c90fbca726049594a2ddbd7e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 341,
+      "source": "scripts/review_loop.py",
+      "source_sha256": "e46e94cc2774a3c1e828a036b7b7e1cb55f83747d36792423ade8cbf697f2237"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 342,
+      "source": "scripts/rewrite_image_pointers.py",
+      "source_sha256": "4dba3409a082f6e9a2f88080c312cbbf3a29e4e54f601027b3b0efaccf6bf470"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 343,
+      "source": "scripts/rlhf_outreach.py",
+      "source_sha256": "240be29dc4164e0b81a1ae904b63d65af34b2e02a2d595d72b7ff93908b9afb5"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 344,
+      "source": "scripts/run_dashboard_script.py",
+      "source_sha256": "6270e6f9f69a9ef2c8fc443aa61533b22ccd5b9981d72d2986cb2a7fafa343c9"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 345,
+      "source": "scripts/run_qlora_train.py",
+      "source_sha256": "8e7e1074ae8fce863400b498d28c089affa91e9a290f7f5929b074472e32aff0"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 346,
+      "source": "scripts/run_reseed_sunbiz_forms.py",
+      "source_sha256": "b6ca4c7fd1656254f5e7999e898021c79862d9c07ace227626136428134888a8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 347,
+      "source": "scripts/run_seed_oasis_forms.py",
+      "source_sha256": "29f345c6ebb885d5c46cb9f23af4757231a2f7714499dd83ea7e6517d5d74ffb"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 348,
+      "source": "scripts/run_sql_via_mgmt_api.py",
+      "source_sha256": "34f9016f23173e3333097c582c67cf3f1ee4479fcc43b71451d7c5a7a334f43a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 349,
+      "source": "scripts/run_tests.py",
+      "source_sha256": "e40b97ea45464d40174db2e2a7a3594f7210e4d38cb247dca99de7ca21133a18"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 350,
+      "source": "scripts/scaffold.py",
+      "source_sha256": "4acd2bf7c0c7e2ddc5216898faefaa2ebaebc63b03aaa5311787e056fe5894f1"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 351,
+      "source": "scripts/scan_secrets.py",
+      "source_sha256": "dbf583f97cf19752cac4654a0abb72db0a92dcaef991d02f380b8d6a7977f125"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 352,
+      "source": "scripts/schedule_helpers.py",
+      "source_sha256": "8f3ac3451304d1c1128bdaa0146cf38d8b39755385e715a69d3d01e955622304"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 353,
+      "source": "scripts/scheduler.py",
+      "source_sha256": "c74c0102a73bb43073ca99d7ec9de3b579e5d83fbdb7f2df35d456561adc9f94"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 354,
+      "source": "scripts/scrape_cc_trade_leads.py",
+      "source_sha256": "2fa86f3826c5581ec6a7a26e302f4201618aaa98eb144b60c4e18e880c3ccc47"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 355,
+      "source": "scripts/scrape_firecrawl_leads.py",
+      "source_sha256": "ee41eae455586feabb5ab89b4ff01a4ac54d9a5bfafcca3e7aea6548975b6a21"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 356,
+      "source": "scripts/scrape_website_sales_leads.py",
+      "source_sha256": "0d9911945c0efb56d540c08bb611420c82f8decdb1462430c48b742ea0eda5c6"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 357,
+      "source": "scripts/security_audit.py",
+      "source_sha256": "672d4da5b93686d7d4ba8e7bc9ff7875f2bc279096483e24f50e245a7ec55458"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 358,
+      "source": "scripts/seed_cc_leads_turso.py",
+      "source_sha256": "26c673db6bc0dfe942863096e3aa07d4d0d573b1e1ffc132190fbbac4679cbeb"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 359,
+      "source": "scripts/seed_plan_template.py",
+      "source_sha256": "8ce49aef87306ff61e14cd9d9af4989409833368f4ecc81d0a1190589fd6520b"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 360,
+      "source": "scripts/seed_profile.py",
+      "source_sha256": "b54891f63adc582fa2b45c07317b8e148de42c30b83ff03d79c69a84db4e9894"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 361,
+      "source": "scripts/seed_sunbiz_application_form_fields.py",
+      "source_sha256": "903ba6f5a6595184c28c1c89349ff73788bcd0dc2621e44c210578f427bd7ed3"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 362,
+      "source": "scripts/set_secret.py",
+      "source_sha256": "f88e8887d6a9512e40fc0236a995ccb7fadd763a0132a8fe9d30235b70598dbd"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 363,
+      "source": "scripts/set_vercel_calendar_env.py",
+      "source_sha256": "b14853785fab6d977932d6438d2cfec9c6755397137cf61066a63149c094cf63"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 364,
+      "source": "scripts/setup_wizard.py",
+      "source_sha256": "c7c2e584bacc4d07be0399800ccc93d6e349588eb4940ce45156984fbaa67cfe"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 365,
+      "source": "scripts/sibling_repos.py",
+      "source_sha256": "eb1b538edd7c422ddeaeaee17011536252b2842c617a48e3c86143d1a2ee8899"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 366,
+      "source": "scripts/skill_metrics.py",
+      "source_sha256": "f40c6f48937ec3d416fa6a569eea6a0a6929bdf757fd2ef2ec33818ebc05d2f4"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 367,
+      "source": "scripts/skill_spector.py",
+      "source_sha256": "b4d15ee523e1e4fbb35d1dd7b606c9c29a2948e81c7b9f15f9c7d459c784a6df"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 368,
+      "source": "scripts/skill_synthesizer.py",
+      "source_sha256": "6404e75bebe2fb26408f80ee65666fa15793f1d2aac1ea96da3e459a78199853"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 369,
+      "source": "scripts/smoke_n8n_inbound_rpc.py",
+      "source_sha256": "0ec22957b2266685eb97849404f03c92007e62b503b09407bab5fb4ecce302eb"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 370,
+      "source": "scripts/snapshots/__init__.py",
+      "source_sha256": "7e524da15924087c608f3d0b3ce94a36a1dd8121799a6777ce42b92c2d9c804e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 371,
+      "source": "scripts/snapshots/briefing_snapshot.py",
+      "source_sha256": "f09b7c4e421b8acf1961b175e2d08781fe0626e84030a3a203fb4b4837bc6586"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 372,
+      "source": "scripts/snapshots/client_alerts_snapshot.py",
+      "source_sha256": "671f069968557df885a0fc788053c9d5a566bce37593cade2cf7d18963bb5f81"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 373,
+      "source": "scripts/snapshots/leads_snapshot.py",
+      "source_sha256": "99b72d1ebce0e2c19da2f34ef351b892575d93d55df1035c541accbd81adae10"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 374,
+      "source": "scripts/state/assert_rls_baseline.py",
+      "source_sha256": "3f5a593f1bb72286d75ee0e4d2b8d62372dd37c28cd71b7bb40e63a66c4b8edf"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 375,
+      "source": "scripts/state/backup_db.py",
+      "source_sha256": "2021be19dfefe4bd19645d7c15f6ca28dcc89504a30e717ee9c02a0cd6df65e6"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 376,
+      "source": "scripts/state/coord_guard.py",
+      "source_sha256": "0023fa37d2976c9a6452754884d197e06e6a13094d191f6a0269cd234a64ae60"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 377,
+      "source": "scripts/state/exec_guard.py",
+      "source_sha256": "13476fd0020d4cb10bf29980b6c9a355ae2c01d4b5b1a603cf6f2773cfc27246"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 378,
+      "source": "scripts/state/health_aggregator.py",
+      "source_sha256": "3a610093acb3f7dae961c5ef5872e601a536e735d3135292fca62d1584427694"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 379,
+      "source": "scripts/state/powershell_flash_suppressor.py",
+      "source_sha256": "1cea2708e64fb190fcb8c0a1b4d34886952eee018f0f296ef9a339db015f1101"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 380,
+      "source": "scripts/state/secret_guard.py",
+      "source_sha256": "6a51da48513631a9a440085fe9f6851674aeb54224ad3571d8ffb47993266139"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 381,
+      "source": "scripts/state/state_api.py",
+      "source_sha256": "bab95240cbdae0ac4bcd7eaa4b2b3b42bdc3180dd41f4845801116af096d1517"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 382,
+      "source": "scripts/state/state_guard.py",
+      "source_sha256": "d67663a2f3c7bf31fbef9efd3a27b917e8008f2dc899606efc65b2787d10fe94"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 383,
+      "source": "scripts/state/state_manager.py",
+      "source_sha256": "9cbb2aea511416a32bf631baeccfabe859c612e5f3b53f4b6f78b488723f57ec"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 384,
+      "source": "scripts/state/state_sync.py",
+      "source_sha256": "dfdaf984159f47b633b6196bcc545e87516a27d688afaa19800380ba6f500769"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 385,
+      "source": "scripts/sunbiz_cutover_watch.py",
+      "source_sha256": "6002791109d323ccd14b9761652a94d785d00de89787c828b0b36125968b0f74"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 386,
+      "source": "scripts/supabase_cancellation_gate.py",
+      "source_sha256": "eb41bce3e4ba9abd960bd907ba895730b65e4c9fadf7d26d737c6b15dc3ed6c8"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 387,
+      "source": "scripts/sync_post_analytics.py",
+      "source_sha256": "b797f90ec39e78535f5f85207bf53adc0139cbbaf395d589866754bee8032e90"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 388,
+      "source": "scripts/system_health.py",
+      "source_sha256": "e4c4e22d315daca08685e6ded73481ba56f3683994afb21f6446b9c005ac8182"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 389,
+      "source": "scripts/telegram_identity_audit.py",
+      "source_sha256": "3a8cebbb3fef791f036c9f82d7d7025b1f9ab1e656f55cd9538887c642c8d3cb"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 390,
+      "source": "scripts/tft_forecast.py",
+      "source_sha256": "181f12f686b615c25c25b7fce158323e468a218cae43eb9c5ae525abaa797a1f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 391,
+      "source": "scripts/tmp/check_outbound.py",
+      "source_sha256": "b670f400a9803b0d71ae5333181c65ca02ffaf5b2914e7f7eb0d7b2fcbbb6aec"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 392,
+      "source": "scripts/tmp/patch_outbound_gate.py",
+      "source_sha256": "5c179b427ad211da8b28f0ea39877deb191421ce29178a08991d2ca1df20f53a"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 393,
+      "source": "scripts/train_local_bravo.py",
+      "source_sha256": "d5de8945059a52d86226877e9253e94c504a99551c4e50dfe17356b7d50ae7ab"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 394,
+      "source": "scripts/transcribe.py",
+      "source_sha256": "5b0fd5a0dc518ed8f6f3d335047f5c8919438893a7fc177447b9bb27b7fd370f"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 395,
+      "source": "scripts/turso_cred_fingerprint.py",
+      "source_sha256": "60d79c58c0118d9bdadd26a5d8e5bdc04fd4b541b46d2bb0d98ecd0faa492aaa"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 396,
+      "source": "scripts/turso_lossy_audit.py",
+      "source_sha256": "eb6eddd86ed82bfd32280ed0690e88b598c8282f2d90a1f7faae8a36f422ea26"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 397,
+      "source": "scripts/turso_vps_bundle.py",
+      "source_sha256": "28137f4c21dca22b89fbe4a533ec077c800b5da565975a6531cdc11c2791e720"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 398,
+      "source": "scripts/update_readme_stats.py",
+      "source_sha256": "ae3feedb5478e7092c4f6534e8eb4a4e638bea20c0bbd374fb1f0d1643af824e"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 399,
+      "source": "scripts/utilities/tmp_hygiene.py",
+      "source_sha256": "aef4b4dc9f3d000596d6c9d667e2389c2370271d71b68895894919f651d6a252"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 400,
+      "source": "scripts/vercel_exit_report.py",
+      "source_sha256": "92b89e23bd05a5f05472feab1573a7db6b07824781728543fd6892df918ac953"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 401,
+      "source": "scripts/vercel_turso_cutover.py",
+      "source_sha256": "11d1b975a66e2cc67efdff9c3bdfb656ab1d7893773f8e5fef4b4e303cceeff7"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 402,
+      "source": "scripts/weekly_truth_digest.py",
+      "source_sha256": "27bea429f6cb5f062565150b86b0d0a8b1f2a09349658b8e1e582745f587dbcc"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 403,
+      "source": "scripts/wiki_link_auditor.py",
+      "source_sha256": "42a446d2021ad4d48bea03b47cadfe1774aa1e7349a209e82deecef2cb3b69e2"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 404,
+      "source": "scripts/windows_control.py",
+      "source_sha256": "8760a07f7c4089e38f2fc1df8971d19e339f054a887234e43f89350d253ffee2"
+    },
+    {
+      "kind": "script_catalog",
+      "line": 405,
+      "source": "scripts/wire_all_templates.py",
+      "source_sha256": "1a677c49a864234c9ab5b34494caf9fe7806d123bd6eb42469ccb9720f0a95e7"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 406,
+      "source": "skills/agent-forge/SKILL.md",
+      "source_sha256": "215d5b43c58a11c8dc3c540eec43afee47cd98ba9cf3356d3dcca6bee49a5c6a"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 407,
+      "source": "skills/agent-inbox/SKILL.md",
+      "source_sha256": "3429d7505a4e6f7a5e814ec45826e6a4dbe8e7118507d96f437f450503e58289"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 408,
+      "source": "skills/agent-permissions/SKILL.md",
+      "source_sha256": "21d40bbab504cc44d5792b70309dac04e14e340094a28ef6896504e3d4af694a"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 409,
+      "source": "skills/agent-runtime-packaging/SKILL.md",
+      "source_sha256": "7d4692e8287f158b79a24159199fb577a20af0238fee133ffb2ca95e4d2a562a"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 410,
+      "source": "skills/agent-teams/SKILL.md",
+      "source_sha256": "7945ccfcd11f62ea405256ae05453176fa459a70b932c65f2067d751ec229d15"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 411,
+      "source": "skills/ai-integration/SKILL.md",
+      "source_sha256": "a02348c39efa3e519b1ff3b90bded37e5c54734cb1656360a6461639ec6e275b"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 412,
+      "source": "skills/algorithmic-art/SKILL.md",
+      "source_sha256": "c30d170690274fcc954cecb609d58b979a252526355d1278554cde8e6cacd0e5"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 413,
+      "source": "skills/anti-drift/SKILL.md",
+      "source_sha256": "1c44feacc6a0e3fa5dcb66a503d2c077f060a487c3ec61696ad2e5ba2d793974"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 414,
+      "source": "skills/architecture-migration-gate/SKILL.md",
+      "source_sha256": "e202e594f42f67377ed95f74610c2cc6d0aefef504faa2fc5b5ff6dc7d630b00"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 415,
+      "source": "skills/auto-generated/score-b2b-lead-quality/SKILL.md",
+      "source_sha256": "efaf6a7d845bcd023cf2629bec3386edcf8efee0b2a450491295fc882ebd8766"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 416,
+      "source": "skills/auto-generated/SKILL.md",
+      "source_sha256": "212c3da1aa047b1a220da2a3a10b54dadf859226286e66641afdb1fe7f48a3a4"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 417,
+      "source": "skills/background-workers/SKILL.md",
+      "source_sha256": "66e4b600d6d425729c01eaa65e6f09fb19bd88cea33383e2f26bcd400a288f85"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 418,
+      "source": "skills/booking-management/SKILL.md",
+      "source_sha256": "d898a6bf17cde681abbb38d5e305334ac7b69f89b357c26fb83a16979e921dc4"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 419,
+      "source": "skills/brainstorming/SKILL.md",
+      "source_sha256": "6532363618b107e9dd8c9102be62ebba920ba8ed3e965a1a5b8b05f8ef73c6b7"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 420,
+      "source": "skills/browser-automation/SKILL.md",
+      "source_sha256": "e95b8eba07be1531bdbfc6983442f34e360e8249f06b1f621454df4d52173178"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 421,
+      "source": "skills/browser-harness/SKILL.md",
+      "source_sha256": "56fc46e9809abbb865d03edb34c21cc2b616039028f0b59ecb9ff87271081057"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 422,
+      "source": "skills/canvas-design/SKILL.md",
+      "source_sha256": "d86a04aa8a4ed0790400f13c60a5ce7f7991fbff3fc988c9ea74ca87ab05229b"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 423,
+      "source": "skills/ceo-briefing/SKILL.md",
+      "source_sha256": "7530be2aa0ce3e32cf69c1847eb40e918bc8ecb8e1cc795aab32b807b09ba22d"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 424,
+      "source": "skills/ceo-dashboard/SKILL.md",
+      "source_sha256": "b48e3a2a198f0035e31950dd88558f462b9b87b1b0f25049813ed5e50edaf7f1"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 425,
+      "source": "skills/cli-anything/SKILL.md",
+      "source_sha256": "99a1596c441d69436a8041350014afa04edce71e0edfec543805c9c846f95b89"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 426,
+      "source": "skills/client-success/SKILL.md",
+      "source_sha256": "fff5d76789e9cd8af9b5a39d5506d903c7f34f068a2f26489b8a4deaa20e4d62"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 427,
+      "source": "skills/cloak-browser/SKILL.md",
+      "source_sha256": "3f2d82e12f901e506e376abe3461807a2e0f779b591c17e3fc0382b86f9dcd53"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 428,
+      "source": "skills/code-review/SKILL.md",
+      "source_sha256": "bf3c53aa97c72d4e75ab1c2b5b618ac14aa504a6623ef9d413e38acd12f5241f"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 429,
+      "source": "skills/codex-delegation/SKILL.md",
+      "source_sha256": "3ad1f2ef77fcc68d888de86ceb5b962a483c644ff93c19d8997f2d22b3d84f61"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 430,
+      "source": "skills/computer-control/SKILL.md",
+      "source_sha256": "9af726070dd8c44ce4c498afab37ded3df9ffeea5b68bdaa1a1277434d9e4a20"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 431,
+      "source": "skills/context-optimization/SKILL.md",
+      "source_sha256": "1ff3ddae2ef87e9f7d35ebacb9e73f56d0938be22713be7a0426c8cd447484d8"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 432,
+      "source": "skills/crisis-response/SKILL.md",
+      "source_sha256": "7df786c55245d85bae9b2b5acaac4c6aa456532c94a34737f83eb0d315e436ac"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 433,
+      "source": "skills/cross-agent-coordination/SKILL.md",
+      "source_sha256": "5fcfdb32000cada96fa3331632f080aa2deb8b68dcb96fc309920d0395424677"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 434,
+      "source": "skills/currency-audit/SKILL.md",
+      "source_sha256": "53a1fb50a5f5da6579968c65b6ce9eb4f3b8d81254d02f3bcb4d6d6ccc5db3f5"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 435,
+      "source": "skills/daily-planner/SKILL.md",
+      "source_sha256": "105bb7bb7bf058d6bbb89c0896b4b262a88bbc5510d474f7b9ffbdb72f26bbe6"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 436,
+      "source": "skills/decisions/SKILL.md",
+      "source_sha256": "9c31316a040bb929028244520bd9418a26a1a54e9e32b78f4f57de051be09755"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 437,
+      "source": "skills/dispatching-parallel-agents/SKILL.md",
+      "source_sha256": "4a09f72550c07b61f5797064226d4b4abf61ff3442960cb9c76d1aebc97673d5"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 438,
+      "source": "skills/doc-coauthoring/SKILL.md",
+      "source_sha256": "2249106818347c855eff5a4a0e0e7a7bf49ecb513ada6246ec169caba71aff4d"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 439,
+      "source": "skills/docx/SKILL.md",
+      "source_sha256": "91b6acf6a9e9eb1110d00a848f4de4592c41ef5e3428eae01e7874357b7f1de2"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 440,
+      "source": "skills/e2e-testing/SKILL.md",
+      "source_sha256": "7cd0cadfa4c3d55efcd63fd8d77c059db7422a22b845421271d4eae7e16094a2"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 441,
+      "source": "skills/email-safety/SKILL.md",
+      "source_sha256": "0641078642f9858c942c1e8e4a09aa1f40074fdede98486f8f4be9561abf708c"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 442,
+      "source": "skills/ethical-hacking/SKILL.md",
+      "source_sha256": "fa91fab4b0f49a060bbaa2f5c83641312042a683449d7575aa67dff8a947a401"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 443,
+      "source": "skills/executing-plans/SKILL.md",
+      "source_sha256": "eeb77079b77e2994ef160228c4b23e03b7d4898b38c0880ec244dfd700f500f4"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 444,
+      "source": "skills/financial-modeling/SKILL.md",
+      "source_sha256": "9bd0be11fc0c89cc556b814c4af650b72e5f92786dfcb4a73694d8636f80a838"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 445,
+      "source": "skills/finishing-a-development-branch/SKILL.md",
+      "source_sha256": "02abc9507d311b2af9082504c8283ee6672d056c2b3c977c8b90c317060400e0"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 446,
+      "source": "skills/frontend-design/SKILL.md",
+      "source_sha256": "482a0058d805003e481421331a9a321155f3c73917b1e6191fb45721fbdcbc1f"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 447,
+      "source": "skills/google-workspace-recipes/SKILL.md",
+      "source_sha256": "33d5c4344317aff4bbd0469b77444cedfd24aeaca75bbd80e037ac1a40012a10"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 448,
+      "source": "skills/gws-admin-reports/SKILL.md",
+      "source_sha256": "04809bb735c4325ae58b893ee0cf374fd2546fc15344c3b71bb184f77948548e"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 449,
+      "source": "skills/gws-calendar-agenda/SKILL.md",
+      "source_sha256": "06798cceecf952b5f4373fad750725b67bbf8d29c5425095a05bd1e216f8ae63"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 450,
+      "source": "skills/gws-calendar-insert/SKILL.md",
+      "source_sha256": "d9db0c2fc30abad39d49dae84ed224651876db108d9269c2660daf41c605564b"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 451,
+      "source": "skills/gws-calendar/SKILL.md",
+      "source_sha256": "fa4db8f6b2614da162f9cfef6b03638090d3ca9922d8cf026da217e1e365db5a"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 452,
+      "source": "skills/gws-chat-send/SKILL.md",
+      "source_sha256": "93509a21e98cbef25200f88f9857351d49940d86186ee097661639be158822f5"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 453,
+      "source": "skills/gws-chat/SKILL.md",
+      "source_sha256": "2ea84998c28b8e8e68d95c0e671c710dbcd31ff534848143c677df77f99c2561"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 454,
+      "source": "skills/gws-classroom/SKILL.md",
+      "source_sha256": "9c0dc0c77a4a94dd4952a646ed74810ba84b98cca34d2406acf3f0a0949bc526"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 455,
+      "source": "skills/gws-docs-edit/SKILL.md",
+      "source_sha256": "f96dbff21ddc08062dd4e7b26096d9b199e3715344854843175658645cee29b6"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 456,
+      "source": "skills/gws-docs-write/SKILL.md",
+      "source_sha256": "207e49d358b4cb7064e105cdb3bd19874601944b9e4565f6c9c18773e9e633ef"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 457,
+      "source": "skills/gws-docs/SKILL.md",
+      "source_sha256": "d62f9db2987c65abec2f4ab83ce2c30d0032d8bf293c4c9a0895a4f32cc13a62"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 458,
+      "source": "skills/gws-drive-upload/SKILL.md",
+      "source_sha256": "260a3da56c5cd99a12a277d33f6b3740f2b90bcaa8b1d9c267fde3c5698eb140"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 459,
+      "source": "skills/gws-drive/SKILL.md",
+      "source_sha256": "ebd52cc2aa3ab22f1f1ff43f587dec037347893e96367b16eac13d49e6f316a4"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 460,
+      "source": "skills/gws-events-renew/SKILL.md",
+      "source_sha256": "ea5498c60082a29c132925739983f014b048b95d6ef3f777b2e859b2bf3b6b96"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 461,
+      "source": "skills/gws-events-subscribe/SKILL.md",
+      "source_sha256": "94c8077925adb5654cc22c73c3c72dd280465e9c1780972f88d35be642d88c9f"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 462,
+      "source": "skills/gws-events/SKILL.md",
+      "source_sha256": "88b2c535029edc7d2bb233a93a2ed567fbe38db641c65204fe1cdecc094caf15"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 463,
+      "source": "skills/gws-forms/SKILL.md",
+      "source_sha256": "899e82bbc4392189f10af780b35f6a2989b15ca02daa2c490a0c7d2bf3ebe9dc"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 464,
+      "source": "skills/gws-gmail-forward/SKILL.md",
+      "source_sha256": "c73eba6d50a56ea0a129aea7390fcbad912be2c3ebe40ec6a39a266963a9d14e"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 465,
+      "source": "skills/gws-gmail-read/SKILL.md",
+      "source_sha256": "0af2cc5eaad3ac7f1561dc861e8a29d6211e80c6aafa08dc6faf302eea16aca4"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 466,
+      "source": "skills/gws-gmail-reply-all/SKILL.md",
+      "source_sha256": "e881d131bbef52ffb3d5b78168935b6dbbf5cc052771bcaef8a303c6bbaafbe9"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 467,
+      "source": "skills/gws-gmail-reply/SKILL.md",
+      "source_sha256": "2bbf11dc4653186fb0df5be96c1aedd60b8b69b5700f49d556291089960d33af"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 468,
+      "source": "skills/gws-gmail-send/SKILL.md",
+      "source_sha256": "46f92a23b54bd0cb80cad59454250a888f796221c3bbf0508922e042c1eb89ee"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 469,
+      "source": "skills/gws-gmail-triage/SKILL.md",
+      "source_sha256": "cb5eb025de215ee2845c72b1de5d2f38d15600078e756754ee5a477e2057a3f5"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 470,
+      "source": "skills/gws-gmail-watch/SKILL.md",
+      "source_sha256": "d44cb34ac9593ce1623484bdbbaa16669e85658b3950e90515acc955669f2b33"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 471,
+      "source": "skills/gws-gmail/SKILL.md",
+      "source_sha256": "d0d6a69a9473e7d4589241f4b80d5dfc339faf2fc9b42f3bfe61ac79966dc2ce"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 472,
+      "source": "skills/gws-keep/SKILL.md",
+      "source_sha256": "d20dc09d88676f7708f194b4d97747c1f5fe3b7d605d0728e64d11dd9550bc32"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 473,
+      "source": "skills/gws-meet/SKILL.md",
+      "source_sha256": "162d80f5cf51137f45bc5125b2ab327e6bc8d881e27f888cf710b220fdbed665"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 474,
+      "source": "skills/gws-modelarmor-create-template/SKILL.md",
+      "source_sha256": "0e0a93f8d9bb8d54e7e95b2a1a83bd1c69e53863b169481bda7a3659e72a1580"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 475,
+      "source": "skills/gws-modelarmor-sanitize-prompt/SKILL.md",
+      "source_sha256": "22cbcd9457b187c59b8c50e95ad49291540d40275e89029444ad52921d4f7841"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 476,
+      "source": "skills/gws-modelarmor-sanitize-response/SKILL.md",
+      "source_sha256": "29740e2426c639341c0c7b4807f8d77cf69f2ba546a4929db323714f47f65264"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 477,
+      "source": "skills/gws-modelarmor/SKILL.md",
+      "source_sha256": "efdc36ceee40e5afbaf34cc6b8e62190b5d7763184e79b378c3b93d3842b7694"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 478,
+      "source": "skills/gws-people/SKILL.md",
+      "source_sha256": "a4c6d144e220f5e008597706f56ba5d934d9500c14245a788b4031203ac420a5"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 479,
+      "source": "skills/gws-shared/SKILL.md",
+      "source_sha256": "0e5498e5e67a9a32095b5ae9ea0d457fe89cf743f9e5a67e46effda2a8699252"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 480,
+      "source": "skills/gws-sheets-append/SKILL.md",
+      "source_sha256": "0a3cf4d4d9405093614fe2a34a0bc2fb62bbeee35f0e4225718ec0b1bc4b9a6b"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 481,
+      "source": "skills/gws-sheets-read/SKILL.md",
+      "source_sha256": "cfd5537948b5ed96ebb0d6644d2d09c3db9df263afca7a83c93a6a59b3d12a62"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 482,
+      "source": "skills/gws-sheets/SKILL.md",
+      "source_sha256": "7128ea80d2de5e50f68ca92c96fbdb8191645acf0fa25b133bcb797788105d55"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 483,
+      "source": "skills/gws-slides/SKILL.md",
+      "source_sha256": "8fc6bb453eeaa000099e6c45e979fa45dd9bc93a14e99c13fcc5a2b11883b9f8"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 484,
+      "source": "skills/gws-tasks/SKILL.md",
+      "source_sha256": "1b425c42031db0e157aeee6e883ee18e1e1e9af6dd8fb61fafb863f8c9294bd7"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 485,
+      "source": "skills/gws-workflow-email-to-task/SKILL.md",
+      "source_sha256": "c8ebfd4fb0e3668b29a2c77b418f5d783447ba73411407efff976ce0e2daf634"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 486,
+      "source": "skills/gws-workflow-file-announce/SKILL.md",
+      "source_sha256": "4890277086dab44051ed42781414cbe5a55b98c811edcd387f23209ea8c79ed8"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 487,
+      "source": "skills/gws-workflow-meeting-prep/SKILL.md",
+      "source_sha256": "823bf17e5f2a7fb190bc3df95e56dff356eceb690458ff4c16b89e1c7ec94419"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 488,
+      "source": "skills/gws-workflow-standup-report/SKILL.md",
+      "source_sha256": "b6c1120052545865e8511f6621ca0486e4fdd598a3f27b33431bea5efb135185"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 489,
+      "source": "skills/gws-workflow-weekly-digest/SKILL.md",
+      "source_sha256": "eee0e1800eb5036e36ecb411671968661c41d6c9557a19bb8666f4e2338daf21"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 490,
+      "source": "skills/gws-workflow/SKILL.md",
+      "source_sha256": "40a9a1883e0d39645132614d976fdaa63324be0d3d5cba9e11388b0dc528cd47"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 491,
+      "source": "skills/handoff/SKILL.md",
+      "source_sha256": "8a7d8e004ec4351be0256df2e49454e197ae77cad14f62c61a46e8b62e3bcf7e"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 492,
+      "source": "skills/harness-refinement/SKILL.md",
+      "source_sha256": "585e1e73a02a9ed89704ebb3898b7c60e60745c5d11d2c75b1668dfa31b9ce2f"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 493,
+      "source": "skills/heartbeat/SKILL.md",
+      "source_sha256": "f9b841d8fe7f49f4d38f4f89f85bdb8c549ffa1008e7c399cf824122fde9a83c"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 494,
+      "source": "skills/hooks-automation/SKILL.md",
+      "source_sha256": "3963767e0be61f3d78e61b97af9dc18bc9ca34c07a668a81843908b0a4290537"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 495,
+      "source": "skills/hyperthink/SKILL.md",
+      "source_sha256": "f939f653f151f8594c7b07c423d0e454618e68345b68b3ecdac5714491b68bc9"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 496,
+      "source": "skills/integrations-sync/SKILL.md",
+      "source_sha256": "e45521f73cb0c1944692669ad074dfa6ec69d232f26b6cf5add8ca8c637beb5e"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 497,
+      "source": "skills/internal-comms/SKILL.md",
+      "source_sha256": "169e7024c33de05369edfdfa107eabf49ed9d42da4ecba70265aa32a5a25c2a0"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 498,
+      "source": "skills/investor-communications/SKILL.md",
+      "source_sha256": "758d417980b5edbc1879b3a7a2550703e6db0af7aeaf0084ab7ada4018677fbf"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 499,
+      "source": "skills/investor-materials/SKILL.md",
+      "source_sha256": "8888bff1ec2543cd4afcf949edcbb5454c6ea8e09e6b4e151faff9fc8d2a470b"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 500,
+      "source": "skills/knowledge-compilation/SKILL.md",
+      "source_sha256": "27b42c75188c923a44823e9f592e4aa53bbe8b092489a70e1fa61a4387af1474"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 501,
+      "source": "skills/knowledge-graph/SKILL.md",
+      "source_sha256": "175e316e9cf0c6807c6d9192fa2e7eac2f05c7b791068a9780a344fb26c37349"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 502,
+      "source": "skills/knowledge-management/SKILL.md",
+      "source_sha256": "9ba941b580b50517d26003133abaaa096a0878539e16ee462225b45b099bdb66"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 503,
+      "source": "skills/manifest-ai-editor/SKILL.md",
+      "source_sha256": "a4240d1fe6a97bd220920aea9cb4160d1e6dc2f1fba4c4163a38b798ae82325f"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 504,
+      "source": "skills/market-research/SKILL.md",
+      "source_sha256": "b43de298fd47c2cda90df94f9244248adc574188996fd4c09ad5b8577dfaa1b3"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 505,
+      "source": "skills/mcp-builder/SKILL.md",
+      "source_sha256": "b1a74c57e622a794930dee97d1ae9b261cafd3b394f74828e4da6788f6dce898"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 506,
+      "source": "skills/mcp-operations/SKILL.md",
+      "source_sha256": "ece52cb25e19a6b0c4ae8cb63218ea233e288404593e1398347ae2b57e43b2f9"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 507,
+      "source": "skills/meeting-automation/SKILL.md",
+      "source_sha256": "00fb33e06bec0fc560891b492685c285e8fae619ca1c9f895bf5a8296d98342d"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 508,
+      "source": "skills/memory-compression/SKILL.md",
+      "source_sha256": "5d7e3eec87ac1bbca2fd430cff3ac4e45c38480ab8669be05752d0544bcad941"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 509,
+      "source": "skills/memory-journaling/SKILL.md",
+      "source_sha256": "91d651ac0ef15add1ff8857779054222ba2f66d59e0f3fc6fbbec5d02977582d"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 510,
+      "source": "skills/memory-management/SKILL.md",
+      "source_sha256": "6f96ad47f3dd174445f629f607e46a4cdb7e3d1a89f514539b9adf3edc7a7c03"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 511,
+      "source": "skills/n8n-mcp-integration/SKILL.md",
+      "source_sha256": "55140d664898bd95d01432c9ae63a83c068bd6db6366c6dfe323829d0a200d3d"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 512,
+      "source": "skills/n8n-patterns/SKILL.md",
+      "source_sha256": "88a6dc26f52a4d045c132d8baf9ac52e0b81978263bad34ea44b28b5e79418fb"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 513,
+      "source": "skills/notebooklm/SKILL.md",
+      "source_sha256": "0cce28789442df54a8c3513b1fb5cf30784b23aabb82f9e3654aefd65d073696"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 514,
+      "source": "skills/opencli/SKILL.md",
+      "source_sha256": "6af96d28790746b840f98b8529e1d840a6efb5f6cc36b6a868d011136f62d8ac"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 515,
+      "source": "skills/outreach-send/SKILL.md",
+      "source_sha256": "3ce21fae485f1f4a7d14497892dee665b30f21e695ece9008d04bd83831bc8a3"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 516,
+      "source": "skills/pdf/SKILL.md",
+      "source_sha256": "11e1054f9246ddaad93b7a206fb3c6767d8b1e6dc9658be2d2d8ae93cab78ca3"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 517,
+      "source": "skills/pptx/SKILL.md",
+      "source_sha256": "e278a75604a4f8421455515db37a6bb9d0d03e00fa4a57808e5b857691e73646"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 518,
+      "source": "skills/project-management/SKILL.md",
+      "source_sha256": "43b787472d6b71b2425c72d53fed95eb20cc35ffc0745d643942685520d128ce"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 519,
+      "source": "skills/proposal-generation/SKILL.md",
+      "source_sha256": "d57db06100e2c6e68897f6979721e9c7ead46c2bb79555f48546f1fd3c1afca5"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 520,
+      "source": "skills/python-daemon-automation/SKILL.md",
+      "source_sha256": "c4d243310594eecb34560557b3097d895af7fe4dc4a5c77dc5578292cf8ad877"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 521,
+      "source": "skills/receiving-code-review/SKILL.md",
+      "source_sha256": "1b82d98d3d95b800dc93d7425814ebffbe4ee454e3157c22f9e37ca69fffe939"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 522,
+      "source": "skills/requesting-code-review/SKILL.md",
+      "source_sha256": "00011755e6ef69e95285cfe00bfc08f76799f922dfed80c6d298838997ff73b1"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 523,
+      "source": "skills/research-fetch/SKILL.md",
+      "source_sha256": "c6563c729f581fb8987825f23236c0b790a00bd5ca5b377b116c71762ca93b31"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 524,
+      "source": "skills/resource-radar/SKILL.md",
+      "source_sha256": "da38c8392728ff24a4765c7de0259733c37654d339dfc008f4bee99ef97ef6bc"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 525,
+      "source": "skills/retro/SKILL.md",
+      "source_sha256": "1a22a9081f447450048aab8629f7e60045db8a541ba99cfc79c2e6dde365218c"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 526,
+      "source": "skills/revenue-operations/SKILL.md",
+      "source_sha256": "1c4ce2c5dd45fa6b0b8ceed25a223373249594f000fc7c6a5dc4bf7e1d3e16f1"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 527,
+      "source": "skills/review-harvest/SKILL.md",
+      "source_sha256": "574c13139f5c53c3b6f96fc9afbcbae75484c8e819d0315058b7b51d74a63aec"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 528,
+      "source": "skills/risk-management/SKILL.md",
+      "source_sha256": "c5b282ee07f15d143dfb03c4f53f8017fffcd540a8b3ea4bc7c0df6785b7be55"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 529,
+      "source": "skills/sales-closing/SKILL.md",
+      "source_sha256": "0746d3402c810f7499ba0c6a397bd0668959cb861bb64918c8fe69949f8ab4c9"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 530,
+      "source": "skills/sales-methodology/SKILL.md",
+      "source_sha256": "d39cc5ae252b350fdf1aee71f884c74df4002849b75dcb5039416750d7201660"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 531,
+      "source": "skills/scaling-playbook/SKILL.md",
+      "source_sha256": "d490f6bac8ac33e8cfac34e138c7a175c160f96f40be29e64b43ba89ee015bee"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 532,
+      "source": "skills/score-b2b-lead-quality/SKILL.md",
+      "source_sha256": "e97b39d4ce4601e6266ef4ad7cb97563e3aa99d24d27b829334096989acc0b6d"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 533,
+      "source": "skills/scrapegraph-ai/SKILL.md",
+      "source_sha256": "17f17161324adea1c7c02690da0b2782a4d68ec446c1b2136d1658acf4e51aac"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 534,
+      "source": "skills/security-protocol/SKILL.md",
+      "source_sha256": "664816787a8ca6beb7cc25563b3edbb6aa969743fef2e11d7fc071ab9d47dbf5"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 535,
+      "source": "skills/self-evolution/SKILL.md",
+      "source_sha256": "f9107fa59d6d78d53e04c760be385d110477b5f75e2b108fc597d7f6161de8f3"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 536,
+      "source": "skills/self-healing/SKILL.md",
+      "source_sha256": "14f51a5edc4654a6c4b72b391aef57e9f26669088675e4b92e7155b498e4e34a"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 537,
+      "source": "skills/self-improvement-protocol/SKILL.md",
+      "source_sha256": "476fb1f1e548ccedccfe8888b3a712a10d615889e8679840533fe43cc7feac00"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 538,
+      "source": "skills/semantic-memory/SKILL.md",
+      "source_sha256": "1303012ae9ae68fee1f82cee5f1e165bd9c2ace7273d515c57a16925208c0341"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 539,
+      "source": "skills/send-gateway/SKILL.md",
+      "source_sha256": "7e57c78138b09cd5b1cbf19a228439e453801a0f029e6f807486ee82d0a48e68"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 540,
+      "source": "skills/sequential-reasoning/SKILL.md",
+      "source_sha256": "522cf5784f71bdf680cab7a4d29dcfcecbfeaffdc23c2cf819ce819bf81697c1"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 541,
+      "source": "skills/setup-help/SKILL.md",
+      "source_sha256": "54ce81c132b3d0c5a9a54844524cea6daa2c2752fdc48c45f8323c4e0f5a4e6e"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 542,
+      "source": "skills/ship/SKILL.md",
+      "source_sha256": "d82ff4772b3a691a5298d2cd28e6009d904591ca9c4143c8f12d7be1e928b1b5"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 543,
+      "source": "skills/silver-platter/SKILL.md",
+      "source_sha256": "d786db430a4f24600ae6bf5535193e16e41e3ee50f65ac0715a7b3044e91544c"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 544,
+      "source": "skills/skill-creator/SKILL.md",
+      "source_sha256": "40fd67ba5f7131aff869eae8a14c8c1f190ceab3a2ce3fc1dc9a8b1af6df161b"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 545,
+      "source": "skills/slack-gif-creator/SKILL.md",
+      "source_sha256": "0093f8453acfd68cce12452feec6dea921e36832714aef5d6c226373b733e6cc"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 546,
+      "source": "skills/sop-breakdown/SKILL.md",
+      "source_sha256": "b2a5b2dd33b1a79c42446a61d1aedea5d1757bdb9181dac5f66ac4d2637c3e61"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 547,
+      "source": "skills/sparc-methodology/SKILL.md",
+      "source_sha256": "b5b0e0f3e81641f21288f47f0329b9aaf7f40bd73ea599c4a5ab6c2c21be40b9"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 548,
+      "source": "skills/strategic-compact/SKILL.md",
+      "source_sha256": "3c627f623e7fe95a446e41e5a18173fab42358c9d67275dc717e53083e9be8ce"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 549,
+      "source": "skills/strategic-planning/SKILL.md",
+      "source_sha256": "668a4274f0a0634ef3527098c871ffe9bdd2fac049f56d01c86a96279108b8ac"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 550,
+      "source": "skills/subagent-driven-development/SKILL.md",
+      "source_sha256": "7741e08c094793f8a64b9fc2b20631964462989b1d32c24b04c52c36af0a5335"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 551,
+      "source": "skills/supabase-patterns/SKILL.md",
+      "source_sha256": "9298354ca3441ed4b57c715978edb03393f918fdc962bd1159d31a5ec2ae77ac"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 552,
+      "source": "skills/systematic-debugging/SKILL.md",
+      "source_sha256": "8925aac5ed2f1d269b0a10b9c4a5fb00ee1df1d7f454472c50067360a4378211"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 553,
+      "source": "skills/task-routing/SKILL.md",
+      "source_sha256": "85157c4e3cdf49633012c4dd1286719aaac07e3a7af9d2b55baccbc9725e8760"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 554,
+      "source": "skills/team-management/SKILL.md",
+      "source_sha256": "be9d1bfa283f063e9d7dfc893bb2cf16a64ca9014ecf6f45ab903585cce67001"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 555,
+      "source": "skills/telegram-demo-workflows/SKILL.md",
+      "source_sha256": "f5efacd3feb389df98198d9b1ad174f6b95a9a1cf111e13b511802701cd09f10"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 556,
+      "source": "skills/test-driven-development/SKILL.md",
+      "source_sha256": "f082e0f31c63831d62549878927286455e41698052adc858a25048f15bdc6f5d"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 557,
+      "source": "skills/theme-factory/SKILL.md",
+      "source_sha256": "98111678d626eeba25c910fa9f598f7f985adfc32581915cc3436fce005f1f43"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 558,
+      "source": "skills/turso-patterns/SKILL.md",
+      "source_sha256": "78481973f4b0f99a6dd979be27ab764b84f25b2b1c71c147bdc4428e72b77463"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 559,
+      "source": "skills/using-git-worktrees/SKILL.md",
+      "source_sha256": "7f0e59d52d2197bb02a955efc95f45d38df415b163768b3068f973e0faa3ea37"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 560,
+      "source": "skills/using-superpowers/SKILL.md",
+      "source_sha256": "ed4e8f28cdd0e88a4a3f0e671718a0e15b0b1e686b5caeeb8eab659198870a95"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 561,
+      "source": "skills/verification-before-completion/SKILL.md",
+      "source_sha256": "4d522bd32b7325a55b636508cac25d0282fae48ec1a3f6c9a90158f2ca434724"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 562,
+      "source": "skills/verticals/SKILL.md",
+      "source_sha256": "62ea0603152057e62229c52832765edea73bbeb59a073f2283de2bf4ff1c6e3d"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 563,
+      "source": "skills/vibe-to-execution/SKILL.md",
+      "source_sha256": "7c171a1cd8c8f1100027c3a70c4f5e744b9b44b9ab34300fc0c1cd52002d4493"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 564,
+      "source": "skills/web-artifacts-builder/SKILL.md",
+      "source_sha256": "a7f916930af6e27bc5ad783a4bf0d46f019b2834ffbb8f0657d704bd86118181"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 565,
+      "source": "skills/web-scraping/SKILL.md",
+      "source_sha256": "407e8c745e1c0b705938e51d12cb219687218941d413ad6e1e610f60063aa2fc"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 566,
+      "source": "skills/webapp-testing/SKILL.md",
+      "source_sha256": "14ea66df61a14422a6b74801bafe66c948f60452fe2c074ddbaef59336cdcaf2"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 567,
+      "source": "skills/webgl-product-render/SKILL.md",
+      "source_sha256": "3261871590ef99ae7bf278ab9e698c7a972f417d8accec7c86d4e789f5af83e0"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 568,
+      "source": "skills/writing-plans/SKILL.md",
+      "source_sha256": "2dd18307dc4cac0abadad610f0c735f9cbe3055d9116422f9632f29874043426"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 569,
+      "source": "skills/writing-skills/SKILL.md",
+      "source_sha256": "50ce0dc6facaa2c63bb23e23e02525fff010d58d19d4e5f34285276a8363a3d4"
+    },
+    {
+      "kind": "skill_catalog",
+      "line": 570,
+      "source": "skills/xlsx/SKILL.md",
+      "source_sha256": "3080e0731bcae09d36b43e871cae78386105863b5e7b42622a61ef609750250f"
+    }
+  ],
+  "repo_root_name": "Business-Empire-Agent",
+  "samples": 570,
+  "schema_version": 1,
+  "system_prompt_sha256": "929e321b1e7273c85b143216ef2c939df5bd4c55847e7d779fc083618ef73d4c"
+}

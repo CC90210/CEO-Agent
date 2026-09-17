@@ -156,6 +156,8 @@ If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE se
 For n8n, Late/Zernio, Supabase, and Stripe — the Python CLI tools in `scripts/` are the PRIMARY integration method. There are no MCP servers for these services.
 
 - `scripts/integrations/wrangler_tool.py` — **PRIMARY deployment engine** (Cloudflare Workers): `build|preview|deploy|secrets-push|secrets-plan|tail --app <slug>`. Registry `config/cloudflare/apps.json`; run `whoami` first (a present key ≠ the right account). DNS remains `cloudflare_admin.py`.
+
+**GPU video generation (LIVE 2026-09-17):** `python scripts/gpu/oasisgpu.py {smoke|bootstrap|stack|run|push|tunnel|pull}` drives the Hostinger GPU box (RTX PRO 6000, 94GB VRAM); `wan_gen.py {t2v|i2v|s2v}` renders. Replaces Higgsfield/HeyGen spend. Wan 2.2 is Apache-2.0 → client-safe. **Maven owns the content; Bravo owns the box. One GPU, one queue — claim it before submitting.** Traps + full routing: `brain/QUICK_REFERENCE.md`.
 - `scripts/integrations/n8n_tool.py` — n8n workflow management (list, get, execute, activate/deactivate)
 - `../CMO-Agent/scripts/late_tool.py` (owned by Maven) — social media posting (accounts, posts, create, cross-post)
 - `scripts/integrations/supabase_tool.py` — database CRUD (select, insert, update, delete, sql)

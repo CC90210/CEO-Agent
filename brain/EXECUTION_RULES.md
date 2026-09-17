@@ -3,7 +3,7 @@ name: EXECUTION RULES
 description: Non-negotiables for the chat agent. Never tell the operator to run commands you can run yourself. Self-execute, audit, confirm.
 mutability: IMMUTABLE
 tags: [brain, agent-only, iron-law]
-last_updated: 2026-08-15
+last_updated: 2026-09-16
 freshness_threshold_days: 30
 verified: 2026-08-15
 ---

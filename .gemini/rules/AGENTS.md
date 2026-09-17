@@ -133,6 +133,8 @@ The `scripts/` directory contains 165 top-level production CLI tools (415 script
 | Apply a SQL migration | `python scripts/apply_migration.py database/NNN_...sql` |
 | Classify an inbound message | `python scripts/inbound_classifier.py classify --channel email ...` |
 | **Deploy an app / push worker secrets / tail worker logs (PRIMARY deploy engine)** | `python scripts/integrations/wrangler_tool.py {build\|preview\|deploy\|secrets-push\|tail} --app <slug>` (registry `config/cloudflare/apps.json`; run `whoami` first) |
+
+**GPU video generation (LIVE 2026-09-17):** `python scripts/gpu/oasisgpu.py {smoke|bootstrap|stack|run|push|tunnel|pull}` drives the Hostinger GPU box (RTX PRO 6000, 94GB VRAM); `wan_gen.py {t2v|i2v|s2v}` renders. Replaces Higgsfield/HeyGen spend. Wan 2.2 is Apache-2.0 → client-safe. **Maven owns the content; Bravo owns the box. One GPU, one queue — claim it before submitting.** Traps + full routing: `brain/QUICK_REFERENCE.md`.
 | Turso / Database query | `python scripts/integrations/turso_tool.py select <table>` |
 | Stripe operations | `python scripts/integrations/stripe_tool.py <command>` |
 | Google Workspace | `python scripts/integrations/google_tool.py <subcommand>` |

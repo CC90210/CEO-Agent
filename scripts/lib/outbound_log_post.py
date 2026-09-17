@@ -11,7 +11,7 @@ route validates HMAC, resolves tenant from the profile, and atomically writes
 lead_interactions + agent_events. One call, both surfaces light up.
 
 Auth env vars (read from .env.agents):
-    OASIS_DASHBOARD_URL          — e.g. https://agent-dashboard-cc90210.vercel.app
+    OASIS_DASHBOARD_URL          — e.g. https://oasisai.work
     OASIS_PROFILE_ID             — operator's user_profiles.id (uuid)
     OASIS_OUTBOUND_HMAC_SECRET   — raw secret issued by n8n_webhook_secret.py
 
@@ -35,7 +35,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Optional
 
-DEFAULT_DASHBOARD_URL = "https://agent-dashboard-cc90210.vercel.app"
+DEFAULT_DASHBOARD_URL = "https://oasisai.work"
 TIMEOUT_SECONDS = 8
 
 _warned_missing_env = False
@@ -52,7 +52,7 @@ def _hint_once(reason: str) -> None:
         f"[outbound_log] write-back disabled ({reason}). To enable:\n"
         f"  1. python scripts/integrations/n8n_webhook_secret.py issue --profile-email <you> --label outbound\n"
         f"  2. Add to .env.agents:\n"
-        f"     OASIS_DASHBOARD_URL=https://agent-dashboard-cc90210.vercel.app\n"
+        f"     OASIS_DASHBOARD_URL=https://oasisai.work\n"
         f"     OASIS_PROFILE_ID=<from issue output>\n"
         f"     OASIS_OUTBOUND_HMAC_SECRET=<raw secret from issue output>",
         file=sys.stderr,
