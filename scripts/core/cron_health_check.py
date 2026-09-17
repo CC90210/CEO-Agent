@@ -413,7 +413,13 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
         "failing": [], "stale": [], "disarmed": [], "opaque": [], "crashed": [],
     }
     # Populated alongside `crashed` but never paged — see scan_crash_dumps.
-    findings["_recovered_crashes"] = []
+    # ONE name, not an underscore-prefixed twin: main() consumes this dict
+    # directly while telegram_alert() reads it through _as_buckets, so a private
+    # key that only one of the two translated left `recovered_crash_count`
+    # silently 0 in the JSON while the finding existed.
+    findings["recovered_crashes"] = []
+    # Reported, never paged -- see _scan_empire_inventory_contract.
+    findings["inventory_drift"] = []
 
     # -- empire cron_jobs ----------------------------------------------------
     # Deliberately NOT filtered on is_active. The old query's `.eq("is_active",
@@ -490,7 +496,7 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
 
     unrecovered, recovered = scan_crash_dumps(live_rows, now)
     findings["crashed"].extend(unrecovered)
-    findings["_recovered_crashes"].extend(recovered)
+    findings["recovered_crashes"].extend(recovered)
 
     if include_tenant:
         findings = _scan_tenant_crons(db, findings, now)
@@ -635,13 +641,34 @@ def _scan_empire_inventory_contract(
         return findings
 
     for issue in issues:
-        findings["failing"].append({
+        kind = str(issue.get("kind") or "mismatch")
+        entry = {
             "name": str(issue.get("name") or "unknown automation"),
             "source": "cron_jobs_inventory",
             "last_result": "",
             "last_run_at": None,
-            "detail": f"inventory {issue.get('kind', 'mismatch')}: {issue.get('detail', '')}",
-        })
+            "detail": f"inventory {kind}: {issue.get('detail', '')}",
+        }
+        # MISSING and DUPLICATE mean the inventory itself is wrong -- a declared
+        # job has no trigger, or has two. That is the 4-of-41 outage, and it
+        # pages.
+        #
+        # DRIFT does not. The job exists, runs, and is rendered; one behaviour
+        # field disagrees with SEED_JOBS. Paging on it would be an alarm CC
+        # cannot clear on his own: realigning means pushing to the shared cron
+        # registry, which CLAUDE.md makes a reviewed production mutation, so the
+        # gap between editing a seed and CC approving the push is operator-
+        # sanctioned and can last days. An hourly page through that window is
+        # how the digest gets muted. It is also inconsistent with the two other
+        # places this branch already decided drift is not blocking:
+        # generate_automations renders it as a per-row marker, and cmd_drift
+        # exits non-zero only on missing/duplicate.
+        #
+        # Drift is still caught, on the surface that suits a config-hygiene
+        # check rather than an incident: harness_eval.check_cron_definitions_
+        # match_live fails the nightly eval on it.
+        findings["failing" if kind in {"missing", "duplicate"} else "inventory_drift"
+                 ].append(entry)
     return findings
 
 
@@ -1023,11 +1050,21 @@ def _as_buckets(findings) -> dict[str, list[dict]]:
     called by tests (and possibly by an out-of-tree caller) with the old list.
     Coercing here keeps one alert-composition path instead of two that drift.
     """
+    # `recovered_crashes` rides along deliberately. It is NOT a bucket -- nothing
+    # alerts on it, it never enters the dedup key and it is excluded from
+    # `alertable` -- but dropping it here is what made it dead weight: it was
+    # populated by the scan and then silently discarded before anything could
+    # read it. Carried through, it answers "is this fleet actually stable?"
+    # without paging anyone for a job that already came back.
     if isinstance(findings, dict):
-        return {k: list(findings.get(k) or [])
-                for k in ("failing", "stale", "disarmed", "opaque", "crashed")}
+        out = {k: list(findings.get(k) or [])
+               for k in ("failing", "stale", "disarmed", "opaque", "crashed")}
+        out["recovered_crashes"] = list(findings.get("recovered_crashes") or [])
+        out["inventory_drift"] = list(findings.get("inventory_drift") or [])
+        return out
     return {"failing": list(findings or []), "stale": [], "disarmed": [],
-            "opaque": [], "crashed": []}
+            "opaque": [], "crashed": [], "recovered_crashes": [],
+            "inventory_drift": []}
 
 
 def alert_dedup_key(buckets: dict[str, list[dict]]) -> str:
@@ -1050,6 +1087,12 @@ def alert_dedup_key(buckets: dict[str, list[dict]]) -> str:
         if buckets["stale"] else []
     if buckets["disarmed"]:
         extra.append("disarmed=" + ",".join(sorted(str(b["name"]) for b in buckets["disarmed"])))
+    # Crashes get their own segment for the same reason stale and disarmed do: a
+    # process that died is a NEW condition and must page now, not inherit the
+    # backoff window an unrelated failing job already opened. Omitting it here
+    # would let a fresh segfault be swallowed by someone else's 8h ladder.
+    if buckets.get("crashed"):
+        extra.append("crashed=" + ",".join(sorted(str(b["name"]) for b in buckets["crashed"])))
     return key + (";" + ";".join(extra) if extra else "")
 
 
@@ -1176,7 +1219,8 @@ def _deliverable(text: str, buckets: dict[str, list[dict]]) -> str:
     if pattern is None or not pattern.search(text):
         return text
 
-    names = [b["name"] for k in ("failing", "stale", "disarmed") for b in buckets[k]]
+    names = [b["name"] for k in ("failing", "stale", "disarmed", "crashed")
+             for b in buckets.get(k) or []]
     stripped = ("🚨 Cron trouble (details withheld — a result snippet matched the "
                 "APEX-domain filter and would have been dropped):\n"
                 + "\n".join(f"• {n}" for n in names[:12])
@@ -1248,7 +1292,13 @@ def main() -> int:
 
     # `opaque` is diagnostics, never a page: it means "this row cannot tell us
     # anything", not "this row is broken". Only the three real verdicts alert.
-    alertable = buckets["failing"] + buckets["stale"] + buckets["disarmed"]
+    # `crashed` alerts; `opaque` and `recovered_crashes` do not. An unrecovered
+    # hard crash is the loudest thing this watchdog can find -- a process that
+    # died and has not come back -- so leaving it out of `alertable` would have
+    # made the whole bucket a JSON field nobody is paged by, which is the exact
+    # wired-to-nothing shape this branch exists to remove.
+    alertable = (buckets["failing"] + buckets["stale"] + buckets["disarmed"]
+                 + buckets["crashed"])
 
     sent = False
     send_detail = "not_attempted"
@@ -1267,6 +1317,13 @@ def main() -> int:
         "disarmed": buckets["disarmed"],
         "opaque": buckets["opaque"],
         "crashed": buckets["crashed"],
+        # Reported, never paged — a crash the job has already come back from.
+        # 18 of these across 9 jobs in one 24h window is the instability signal
+        # that was invisible; alerting on it would mute the digest.
+        "recovered_crash_count": len(buckets.get("recovered_crashes") or []),
+        "recovered_crashes": buckets.get("recovered_crashes") or [],
+        "inventory_drift_count": len(buckets.get("inventory_drift") or []),
+        "inventory_drift": buckets.get("inventory_drift") or [],
         # Kept so any dashboard/consumer reading the old field still works.
         "bad": buckets["failing"],
         "alert_sent": sent,
