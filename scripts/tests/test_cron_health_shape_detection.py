@@ -698,3 +698,58 @@ def test_inventory_drift_is_surfaced_and_excluded_from_alertable(monkeypatch, ca
     assert payload["bad_count"] == 0, (
         "a drifted field would page CC hourly until a reviewed seed push clears it"
     )
+
+
+def test_dump_slug_matches_the_schedulers_own_transform():
+    """PIN THE PRODUCER/CONSUMER COPY.
+
+    scheduler._slug NAMES the dump files; chc.dump_slug_for reads them back.
+    Two copies of one transform, because importing scheduler pulls the whole
+    integration stack and this watchdog has to stay cheap enough to run hourly.
+
+    If they ever diverge, every dump correlates to nothing and the `crashed`
+    bucket goes quietly EMPTY while reporting healthy -- a green that means
+    "I looked at nothing". So extract _slug from scheduler's SOURCE (no import,
+    no stack) and assert the two agree on the paths that actually appear in
+    SEED_JOBS action_configs.
+    """
+    import ast
+    import re as _re
+
+    scheduler_src = (Path(__file__).resolve().parent.parent / "scheduler.py").read_text(
+        encoding="utf-8", errors="replace")
+    tree = ast.parse(scheduler_src)
+    fn = next((n for n in ast.walk(tree)
+               if isinstance(n, ast.FunctionDef) and n.name == "_slug"), None)
+    assert fn is not None, (
+        "scheduler._slug is gone or renamed — dump filenames are produced by "
+        "something else now and dump_slug_for is correlating against a ghost"
+    )
+
+    ns: dict = {"re": _re}
+    exec(compile(ast.Module(body=[fn], type_ignores=[]), "<scheduler._slug>", "exec"), ns)
+    scheduler_slug = ns["_slug"]
+
+    # The real shapes: every script a SEED_JOBS entry actually dispatches, plus
+    # the awkward ones (nested dirs, a Windows absolute path from a sibling repo).
+    import cron_engine as ce_mod
+    paths = {
+        str((j.get("action_config") or {}).get("script") or "")
+        for j in ce_mod.SEED_JOBS
+    } - {""}
+    paths |= {
+        "scripts/review_loop.py",
+        "scripts/core/event_bus.py",
+        "scripts/integrations/email_engine.py",
+        r"C:\Users\User\CMO-Agent\scripts\prune_carousel_media.py",
+    }
+    assert len(paths) > 10, f"only {len(paths)} script paths to compare — fixture is thin"
+
+    mismatched = [p for p in sorted(paths)
+                  if chc.dump_slug_for(p) != scheduler_slug(p)]
+    assert not mismatched, (
+        "dump_slug_for and scheduler._slug disagree on "
+        f"{len(mismatched)} path(s): {mismatched[:3]}. Crash dumps named by the "
+        f"scheduler would no longer correlate to any cron row, and the crashed "
+        f"bucket would report empty instead of reporting crashes."
+    )

@@ -554,13 +554,16 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
 # run means the job has since succeeded; that is recorded in the JSON as
 # `recovered_crashes` for anyone asking about instability, and never paged.
 FAILURE_DUMP_DIR = Path(__file__).resolve().parents[2] / "tmp" / "cron_failures"
-_DUMP_NAME_RE = re.compile(r"^(?P<slug>.+)-(?P<ts>\d{8}T\d{6}Z)\.log$")
-# Same banner harness_eval uses to recognise its own scoreboard. Imported when
-# available so there is one definition; the literal is the fallback for a
-# mid-edit or missing harness_eval, matching this file's existing guarded import.
+# The dump-name grammar and the self-score banner both belong to harness_eval,
+# which reads the same directory nightly. Imported so there is ONE definition of
+# each; the literals are the fallback for a mid-edit or missing harness_eval,
+# matching this file's existing guarded-import idiom. A second copy of the
+# filename regex is how the nightly check and the hourly one would quietly stop
+# agreeing about which files are dumps.
 try:
-    from harness_eval import _SELF_SCORE_MARKER  # noqa: PLC0415
+    from harness_eval import _DUMP_NAME_RE, _SELF_SCORE_MARKER  # noqa: PLC0415
 except Exception:  # noqa: BLE001
+    _DUMP_NAME_RE = re.compile(r"^(?P<slug>.+)-(?P<ts>\d{8}T\d{6}Z)\.log$")
     _SELF_SCORE_MARKER = "HARNESS EVAL"
 
 
@@ -569,6 +572,20 @@ def dump_slug_for(script: str) -> str:
 
     The dump filename is derived from the SCRIPT PATH, never the job name, so
     correlating a dump back to a cron row has to go through the same transform.
+
+    DUPLICATED ON PURPOSE, AND PINNED. scheduler._slug (scheduler.py) is the
+    PRODUCER -- it names the files this function reads back -- so the honest
+    move would be to import it. But importing scheduler pulls the entire
+    integration stack at module load, and this watchdog must stay cheap enough
+    to run hourly and keep working when a sibling module is mid-edit.
+
+    A silent divergence here is the nastiest failure this file can have: the
+    transform stops matching, every dump correlates to nothing, and the crashed
+    bucket goes quietly EMPTY while reporting healthy -- a green that means
+    "I looked at nothing", which is the exact defect this branch exists to
+    remove. So the copy is pinned by
+    test_dump_slug_matches_the_schedulers_own_transform, which extracts _slug
+    from scheduler's source and asserts both agree on real script paths.
     """
     return re.sub(r"[^a-z0-9]+", "-", str(script or "").lower()).strip("-")[:48]
 
