@@ -210,9 +210,44 @@ def catalogue(p: dict) -> list[tuple[str, str, int]]:
     ]
 
 
-def cmd_plan(_args) -> int:
+def cmd_plan(args) -> int:
     p = read_pricing()
     who = whoami()
+
+    if getattr(args, "json", False):
+        # Machine-readable drift report. RULE 2: every CLI tool speaks --json,
+        # so a cron or another agent can act on this without scraping columns.
+        rows = []
+        for kind, identity, expected in catalogue(p):
+            obj = find_price(identity) if kind == "price" else find_shipping_rate(identity, expected)
+            live = None
+            if obj is not None:
+                live = obj.get("unit_amount") if kind == "price" else (obj.get("fixed_amount") or {}).get("amount")
+            rows.append({
+                "kind": kind, "identity": identity, "expected": expected,
+                "live": live, "id": obj["id"] if obj else None,
+                "status": "missing" if obj is None else ("ok" if live == expected else "drift"),
+            })
+        promo = find_promo("WELCOME10")
+        hook = find_webhook(WEBHOOK_URL)
+        payload = {
+            "account": who,
+            "pricing_source": str(PRICING_TS),
+            "expected": p,
+            "objects": rows,
+            "promo": {"code": "WELCOME10", "present": bool(promo),
+                      "id": promo["id"] if promo else None,
+                      "active": promo["active"] if promo else None},
+            "webhook": {"url": WEBHOOK_URL, "present": bool(hook),
+                        "id": hook["id"] if hook else None,
+                        "status": hook.get("status") if hook else None},
+            "drift": [r["identity"] for r in rows if r["status"] == "drift"],
+            "missing": [r["identity"] for r in rows if r["status"] == "missing"],
+        }
+        payload["ok"] = not payload["drift"]
+        print(json.dumps(payload, indent=2))
+        return 1 if payload["drift"] else 0
+
     print(f"account : {who['id']}  {who['name']}  ({who['country']}, "
           f"{'LIVE' if who['livemode'] else 'TEST'}, charges={who['charges_enabled']})")
     print(f"pricing : bottle {p['unit']}  monthly {p['subscription']}  "
@@ -384,10 +419,15 @@ def cmd_webhook(_args) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    # Registered on the top-level parser AND each subparser, the way the other
+    # tools here do it: argparse otherwise rejects `plan --json` outright.
+    parser.add_argument("--json", action="store_true", help="machine-readable output")
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--json", action="store_true")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("plan", help="read-only: what exists, and does it match lib/pricing.ts")
-    sub.add_parser("apply", help="create anything missing (never deletes)")
-    sub.add_parser("webhook", help="create the webhook endpoint and store its secret")
+    sub.add_parser("plan", parents=[common], help="read-only: what exists, and does it match lib/pricing.ts")
+    sub.add_parser("apply", parents=[common], help="create anything missing (never deletes)")
+    sub.add_parser("webhook", parents=[common], help="create the webhook endpoint and store its secret")
     args = parser.parse_args()
     try:
         return {"plan": cmd_plan, "apply": cmd_apply, "webhook": cmd_webhook}[args.cmd](args)
