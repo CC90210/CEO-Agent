@@ -46,7 +46,22 @@ API_VERSION = "2026-08-26.dahlia"
 KEY_NAME = "Trytan_Health_Secret_key"
 WEBHOOK_SECRET_KEY = "STRIPE_WEBHOOK_SECRET_TRYTAN"
 ENV_FILE = PROJECT_ROOT / ".env.agents"
-PRICING_TS = Path(r"C:\Users\User\APPS\arthrisil-website\lib\pricing.ts")
+REGISTRY_PATH = PROJECT_ROOT / "config" / "cloudflare" / "apps.json"
+APP_SLUG = "arthrisil-website"
+
+
+def pricing_ts() -> Path:
+    """lib/pricing.ts, located via the fleet registry rather than a typed path.
+
+    config/cloudflare/apps.json already records this app's directory and
+    wrangler_tool.py resolves it the same way. An absolute path here would be a
+    second copy of that answer, and would be wrong on the Mac.
+    """
+    apps = json.loads(REGISTRY_PATH.read_text(encoding="utf-8")).get("apps", {})
+    entry = apps.get(APP_SLUG)
+    if not entry or not entry.get("dir"):
+        raise SystemExit(f"{APP_SLUG} has no 'dir' in {REGISTRY_PATH}")
+    return Path(entry["dir"]) / "lib" / "pricing.ts"
 WEBHOOK_URL = "https://arthrisil.com/api/stripe/webhook"
 WEBHOOK_EVENTS = [
     "checkout.session.completed",
@@ -73,9 +88,10 @@ def read_pricing() -> dict[str, int]:
     drift from the site silently, and the drift would only surface as a customer
     being charged one amount while reading another.
     """
-    if not PRICING_TS.exists():
-        raise SystemExit(f"cannot find {PRICING_TS} — is the site repo checked out?")
-    text = PRICING_TS.read_text(encoding="utf-8")
+    path = pricing_ts()
+    if not path.exists():
+        raise SystemExit(f"cannot find {path} — is the site repo checked out?")
+    text = path.read_text(encoding="utf-8")
 
     def const(name: str) -> int:
         match = re.search(rf"export const {name}\s*=\s*([0-9_]+)\s*;", text)
@@ -241,7 +257,7 @@ def cmd_plan(args) -> int:
         hook = find_webhook(WEBHOOK_URL)
         payload = {
             "account": who,
-            "pricing_source": str(PRICING_TS),
+            "pricing_source": str(pricing_ts()),
             "expected": p,
             "objects": rows,
             "promo": {"code": "WELCOME10", "present": bool(promo),
