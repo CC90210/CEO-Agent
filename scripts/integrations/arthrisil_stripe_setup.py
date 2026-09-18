@@ -39,6 +39,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
+from lib.app_registry import app_dir  # noqa: E402
 from lib.secret_loader import load_env  # noqa: E402
 
 API = "https://api.stripe.com/v1"
@@ -46,22 +47,12 @@ API_VERSION = "2026-08-26.dahlia"
 KEY_NAME = "Trytan_Health_Secret_key"
 WEBHOOK_SECRET_KEY = "STRIPE_WEBHOOK_SECRET_TRYTAN"
 ENV_FILE = PROJECT_ROOT / ".env.agents"
-REGISTRY_PATH = PROJECT_ROOT / "config" / "cloudflare" / "apps.json"
 APP_SLUG = "arthrisil-website"
 
 
 def pricing_ts() -> Path:
-    """lib/pricing.ts, located via the fleet registry rather than a typed path.
-
-    config/cloudflare/apps.json already records this app's directory and
-    wrangler_tool.py resolves it the same way. An absolute path here would be a
-    second copy of that answer, and would be wrong on the Mac.
-    """
-    apps = json.loads(REGISTRY_PATH.read_text(encoding="utf-8")).get("apps", {})
-    entry = apps.get(APP_SLUG)
-    if not entry or not entry.get("dir"):
-        raise SystemExit(f"{APP_SLUG} has no 'dir' in {REGISTRY_PATH}")
-    return Path(entry["dir"]) / "lib" / "pricing.ts"
+    """lib/pricing.ts, located via the fleet registry rather than a typed path."""
+    return app_dir(APP_SLUG) / "lib" / "pricing.ts"
 WEBHOOK_URL = "https://arthrisil.com/api/stripe/webhook"
 WEBHOOK_EVENTS = [
     "checkout.session.completed",

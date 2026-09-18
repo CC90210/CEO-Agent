@@ -38,25 +38,15 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
+from lib.app_registry import app_dir  # noqa: E402
 from lib.secret_loader import load_env  # noqa: E402
 
-REGISTRY_PATH = PROJECT_ROOT / "config" / "cloudflare" / "apps.json"
 APP_SLUG = "arthrisil-website"
 
 
 def site_repo() -> Path:
-    """Where the site lives, per the fleet registry — not a path typed in here.
-
-    config/cloudflare/apps.json already records every app's directory and
-    wrangler_tool.py reads it the same way. Hardcoding the absolute path would
-    make this a second place the answer is written down, and would break on the
-    Mac, where the same repo sits somewhere else entirely.
-    """
-    apps = json.loads(REGISTRY_PATH.read_text(encoding="utf-8")).get("apps", {})
-    entry = apps.get(APP_SLUG)
-    if not entry or not entry.get("dir"):
-        raise SystemExit(f"{APP_SLUG} has no 'dir' in {REGISTRY_PATH}")
-    return Path(entry["dir"])
+    """Where the site lives, per the fleet registry — not a path typed in here."""
+    return app_dir(APP_SLUG)
 
 
 def _endpoint_and_token() -> tuple[str, str | None]:
