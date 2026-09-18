@@ -696,15 +696,21 @@ def check_cron_definitions_match_live():
     if not out.strip():
         return False, f"cron drift check produced no output: {(err or '')[:160]}"
     try:
-        drifted = json.loads(out).get("drifted", [])
+        payload = json.loads(out)
+        drifted = payload.get("drifted", [])
+        inventory = payload.get("inventory_issues", [])
     except json.JSONDecodeError:
         return False, "cron drift check returned non-JSON"
+    if inventory:
+        names = ", ".join(d.get("name", "?") for d in inventory[:4])
+        return False, (f"{len(inventory)} declared cron(s) are missing or duplicated: {names}"
+                       + (" …" if len(inventory) > 4 else ""))
     if drifted:
         names = ", ".join(d.get("name", "?") for d in drifted[:4])
         return False, (f"{len(drifted)} live cron(s) disagree with SEED_JOBS: {names}"
                        + (" …" if len(drifted) > 4 else "")
                        + " — realign with `cron_engine.py drift --fix`")
-    return True, "every live cron matches its SEED_JOBS definition"
+    return True, "every declared cron exists exactly once and matches SEED_JOBS"
 
 
 def check_pm2_fleet():

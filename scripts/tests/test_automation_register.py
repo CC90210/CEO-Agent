@@ -70,7 +70,7 @@ def test_failing_jobs_are_surfaced_above_the_table():
          "runs": "s.py", "last_run": "2026-08-29T01:00", "failing": True, "declared": True},
     ]))
     assert "currently failing" in out
-    assert out.index("Failing now") < out.index("| Job | Schedule")
+    assert out.index("Failing now") < out.index("| Job | Owner | Schedule")
 
 
 def test_inactive_jobs_are_kept_but_collapsed():
@@ -91,7 +91,7 @@ def test_a_pipe_in_a_description_cannot_break_the_table():
          "does": "does a | b | c", "runs": "s.py", "last_run": "", "failing": False,
          "declared": True}]))
     row = next(l for l in out.splitlines() if l.startswith("| J |"))
-    assert row.count("|") == 5, f"description leaked a pipe into the row: {row}"
+    assert row.count("|") == 6, f"description leaked a pipe into the row: {row}"
 
 
 def test_daemon_states_are_visually_distinct():
@@ -151,6 +151,87 @@ def test_the_committed_register_exists_and_is_non_trivial():
     assert "Scheduled jobs" in text and "Daemons" in text
     assert "INCOMPLETE" not in text, (
         "the committed register was generated while a source was unreadable")
+
+
+def _fake_cron_db(empire_rows, tenant_rows=()):
+    """Minimal stand-in for the Turso client collect_cron() talks to."""
+    from types import SimpleNamespace
+
+    class FakeQ:
+        def __init__(self, rows): self._r = list(rows)
+        def select(self, *a, **k): return self
+        def eq(self, *a, **k): return self
+        def limit(self, *a, **k): return self
+        def execute(self): return SimpleNamespace(data=self._r)
+
+    class FakeDb:
+        def table(self, name):
+            return FakeQ(empire_rows if name == "cron_jobs" else tenant_rows)
+
+    return FakeDb()
+
+
+def _seed_row(seed, **over):
+    row = {
+        "id": seed["name"], "name": seed["name"], "is_active": 1,
+        "schedule": seed["schedule"], "action_type": seed["action_type"],
+        "action_config": seed["action_config"],
+        "owner_agent_key": seed.get("owner_agent_key") or "bravo",
+        "last_result": "ok", "last_run_at": "2026-09-16T00:00:00Z", "fail_count": 0,
+    }
+    row.update(over)
+    return row
+
+
+def test_live_collector_gates_on_the_seed_inventory_contract(monkeypatch):
+    """The daily register must not bless a plausible partial cron list.
+
+    This was four `in source` string assertions, which pass against a guard that
+    has been gutted — put `audit_live_inventory(rows)` behind `if False:`, or
+    discard `contract_error` at the return, and the register happily writes
+    "4 active jobs" and exits 0 while every substring is still in the file.
+    Exercise the collector instead.
+    """
+    sys.path.insert(0, str(REPO / "scripts" / "core"))
+    import cron_engine
+
+    seeds = cron_engine.SEED_JOBS
+    monkeypatch.setattr(
+        ga, "is_self_scored_failure", lambda _r: False, raising=False,
+    )
+
+    # Complete registry -> no contract error.
+    full = _fake_cron_db([_seed_row(s) for s in seeds])
+    monkeypatch.setattr("integrations.supabase_tool.get_client", lambda _e: full)
+    monkeypatch.setattr("lib.secret_loader.load_env", lambda *a, **k: {})
+    rows, err = ga.collect_cron()
+    assert err is None, f"a complete registry must not report a contract error: {err}"
+    assert len(rows) == len(seeds)
+
+    # The outage: all but one declared job vanishes -> contract error, loudly.
+    thin = _fake_cron_db([_seed_row(seeds[0])])
+    monkeypatch.setattr("integrations.supabase_tool.get_client", lambda _e: thin)
+    rows, err = ga.collect_cron()
+    assert err and err.startswith("inventory contract failed"), (
+        "collect_cron blessed a registry missing every declared job but one — "
+        f"the inventory gate is not wired into the return value (got {err!r})"
+    )
+
+    # A repairable field drift must NOT claim the source was unreadable. It is
+    # marked per-row instead; see the comment in collect_cron.
+    drifted = _fake_cron_db(
+        [_seed_row(s, schedule="59 23 31 2 *") if i == 0 else _seed_row(s)
+         for i, s in enumerate(seeds)]
+    )
+    monkeypatch.setattr("integrations.supabase_tool.get_client", lambda _e: drifted)
+    rows, err = ga.collect_cron()
+    assert err is None, (
+        "a schedule drift turned the daily register red and stamped a false "
+        f"'source was unreadable' banner into a committed brain doc: {err!r}"
+    )
+    assert any(r.get("drifted") for r in rows), (
+        "the drifted row was neither blocked nor marked — it is now invisible"
+    )
 
 
 # --- duration: the question nothing could answer -----------------------------

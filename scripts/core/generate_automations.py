@@ -67,18 +67,57 @@ def collect_cron() -> tuple[list[dict], str | None]:
         from integrations.supabase_tool import get_client  # noqa: PLC0415
         from lib.secret_loader import load_env  # noqa: PLC0415
         db = get_client(dict(load_env()))
-        rows = db.table("cron_jobs").select(
-            "name,is_active,schedule,last_result,last_run_at").limit(500).execute().data or []
+        from core.cron_engine import CC_EMPIRE_TENANT_ID  # noqa: PLC0415
+        rows = (db.table("cron_jobs").select(
+            "id,name,is_active,schedule,action_type,action_config,owner_agent_key,"
+            "last_result,last_run_at,fail_count")
+            .eq("tenant_id", CC_EMPIRE_TENANT_ID).limit(500).execute().data or [])
+        tenant_rows = (db.table("tenant_cron_jobs").select(
+            "id,agent_key,name,description,enabled,schedule,action_type,action_payload,"
+            "last_run_at,last_run_status,last_run_error,last_run_output")
+            .eq("tenant_id", CC_EMPIRE_TENANT_ID).limit(500).execute().data or [])
     except Exception as exc:  # noqa: BLE001
         return [], f"{type(exc).__name__}: {exc}"
 
     seeds = {}
     try:
-        from core.cron_engine import SEED_JOBS  # noqa: PLC0415
+        from core.cron_engine import SEED_JOBS, audit_live_inventory  # noqa: PLC0415
         for j in SEED_JOBS:
             seeds[str(j.get("name") or "")] = j
     except Exception:  # noqa: BLE001
         pass
+
+    # A generated register that quietly omits a declared job recreates the same
+    # plausible-partial-inventory failure as the UI. Render the live rows for
+    # diagnosis, but mark the source incomplete and exit non-zero so the daily
+    # register cron turns red instead of blessing the shorter list.
+    #
+    # ONLY `missing` and `duplicate` qualify. Those two mean the register cannot
+    # be complete, which is what the incomplete banner asserts. A `drift` issue
+    # means the opposite: all 37 rows were read and all 37 will be rendered, one
+    # simply disagrees with SEED_JOBS on a field. Treating it as "a source was
+    # unreadable" would (a) write a false statement into a brain doc every agent
+    # reads at boot, (b) turn the daily register cron red through its 5x retry
+    # ladder and Telegram escalation, and (c) fail test_automation_register on
+    # unrelated branches -- all for a condition `drift --fix` repairs in a
+    # second, during a window CLAUDE.md deliberately opens (a SEED_JOBS edit is
+    # not pushed to the live registry until CC reviews it). Drift is surfaced
+    # per-row in the table instead, where it is true and actionable.
+    contract_error = None
+    drifted_names: set[str] = set()
+    try:
+        issues = audit_live_inventory(rows)
+        blocking = [i for i in issues if i.get("kind") in {"missing", "duplicate"}]
+        drifted_names = {
+            str(i.get("name") or "") for i in issues if i.get("kind") == "drift"
+        }
+        if blocking:
+            summary = "; ".join(
+                f"{issue.get('name')}: {issue.get('kind')}" for issue in blocking[:8]
+            )
+            contract_error = f"inventory contract failed ({len(blocking)}): {summary}"
+    except Exception as exc:  # noqa: BLE001
+        contract_error = f"inventory contract unavailable: {type(exc).__name__}: {exc}"
 
     # Reuse the harness's OWN suppression rather than re-deriving "failing".
     # The nightly harness eval's row records its own scoreboard, so a run that
@@ -100,16 +139,50 @@ def collect_cron() -> tuple[list[dict], str | None]:
         last = str(r.get("last_result") or "")
         out.append({
             "name": name,
+            "owner": str(r.get("owner_agent_key") or "unknown"),
+            "source": "empire",
             "active": bool(r.get("is_active")),
             "schedule": str(r.get("schedule") or "?"),
             "does": str(seed.get("description") or "").strip(),
             "runs": str(cfg.get("script") or seed.get("action_type") or ""),
             "last_run": str(r.get("last_run_at") or "")[:16],
-            "failing": (last.upper().startswith(("ERROR", "FAILED"))
+            "failing": ((last.upper().startswith(("ERROR", "FAILED"))
+                         or int(r.get("fail_count") or 0) > 0)
                         and not is_self_scored_failure(r)),
+            # The row runs, and is rendered -- it just disagrees with SEED_JOBS
+            # on a behaviour field. Marked here rather than failing the whole
+            # register; `cron_engine.py drift --fix` is the one-line repair.
+            "drifted": name in drifted_names,
             "declared": name in seeds,
         })
-    return sorted(out, key=lambda x: (not x["active"], x["name"])), None
+
+    for r in tenant_rows:
+        payload = r.get("action_payload") or {}
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except (TypeError, ValueError):
+                payload = {}
+        status = str(r.get("last_run_status") or "").strip().casefold()
+        error = str(r.get("last_run_error") or "").strip()
+        output = str(r.get("last_run_output") or "").strip()
+        out.append({
+            "name": str(r.get("name") or ""),
+            "owner": str(r.get("agent_key") or "unknown"),
+            "source": "tenant",
+            "active": bool(r.get("enabled")),
+            "schedule": str(r.get("schedule") or "?"),
+            "does": str(r.get("description") or "").strip(),
+            "runs": str(payload.get("script") or r.get("action_type") or ""),
+            "last_run": str(r.get("last_run_at") or "")[:16],
+            "failing": (status in {"error", "failed", "failure", "fatal", "crashed"}
+                        or bool(error)
+                        or output.upper().startswith(("ERROR", "FAILED"))),
+            "declared": True,
+            # Tenant rows have no SEED_JOBS counterpart to drift from.
+            "drifted": False,
+        })
+    return sorted(out, key=lambda x: (not x["active"], x["name"])), contract_error
 
 
 def collect_daemons() -> tuple[list[dict], str | None]:
@@ -219,7 +292,7 @@ def render(data: dict) -> str:
         f"> Generated at: {now.strftime('%Y-%m-%d %H:%M UTC')}",
         "",
         "Read this to answer *what runs, when, and is it healthy* without running",
-        "anything. Sources: the live `cron_jobs` table, `cron_engine.SEED_JOBS`,",
+        "anything. Sources: live `cron_jobs` + `tenant_cron_jobs`, `cron_engine.SEED_JOBS`,",
         "the fleet manifest, `.claude/settings.local.json`, and Task Scheduler.",
         "",
         "Related: [[EXECUTION_RULES]] · [[DATA_LIFECYCLE]] · [[V6_ARCHITECTURE]]",
@@ -243,16 +316,45 @@ def render(data: dict) -> str:
     if failing:
         L += ["Failing now:", ""] + [f"- `{c['name']}` — last run {c['last_run'] or '?'}"
                                      for c in failing] + [""]
-    L += ["| Job | Schedule | Runs | What it does |", "|---|---|---|---|"]
+    # Drift is a per-row fact, not a broken source. Named here so the register
+    # stays true and CC gets the one-line repair, instead of the whole document
+    # being stamped INCOMPLETE over a field mismatch.
+    drifted = [c for c in crons if c.get("drifted")]
+    if drifted:
+        L += [f"⚠️ {len(drifted)} row(s) disagree with `SEED_JOBS` on a behaviour field "
+              "(schedule / action / owner). Every job below still ran and is listed; "
+              "realign with `python scripts/core/cron_engine.py drift --fix`.", ""]
+    # An UNDECLARED row is one nothing governs. audit_live_inventory is a one-way
+    # contract -- it proves every declared job exists, and deliberately permits
+    # extra rows so `cron_engine.py add` and the Automations tab's create form
+    # keep working. The cost is that a job added through the UI is invisible to
+    # every gate in the system: no SEED_JOBS entry to drift from, no manifest to
+    # reconcile against. It can die and nothing will say so. Naming them here is
+    # the cheapest honest fix -- the register stops presenting governed and
+    # ungoverned automations as the same thing.
+    undeclared = [c for c in crons if c.get("source") == "empire" and not c.get("declared")]
+    if undeclared:
+        L += [f"🔓 {len(undeclared)} row(s) are NOT declared in `SEED_JOBS`, so no gate "
+              "watches them (marked 🔓 below). Add a seed entry to bring one under the "
+              "inventory contract:", ""]
+        L += [f"- `{c['name']}` — {str(c.get('owner') or 'unknown').title()} "
+              f"(`{c['schedule']}`)" for c in undeclared] + [""]
+    L += ["| Job | Owner | Schedule | Runs | What it does |", "|---|---|---|---|---|"]
     for c in active:
         does = (c["does"][:110] + "…") if len(c["does"]) > 110 else (c["does"] or "—")
         does = does.replace("|", "/").replace("\n", " ")
-        L.append(f"| {'🔴 ' if c['failing'] else ''}{c['name']} | `{c['schedule']}` "
+        mark = ("🔴 " if c["failing"]
+                else "⚠️ " if c.get("drifted")
+                else "🔓 " if c.get("source") == "empire" and not c.get("declared")
+                else "")
+        L.append(f"| {mark}{c['name']} "
+                 f"| {str(c.get('owner') or 'unknown').title()} | `{c['schedule']}` "
                  f"| `{c['runs'] or '—'}` | {does} |")
     inactive = [c for c in crons if not c["active"]]
     if inactive:
         L += ["", f"<details><summary>{len(inactive)} inactive</summary>", ""]
-        L += [f"- {c['name']} (`{c['schedule']}`)" for c in inactive]
+        L += [f"- {c['name']} — {str(c.get('owner') or 'unknown').title()} "
+              f"(`{c['schedule']}`)" for c in inactive]
         L += ["", "</details>", ""]
 
     L += ["", "## Daemons (long-running)", ""]

@@ -22,15 +22,26 @@ rows only. That left three blind spots wide enough to drive the fleet through:
      disarmed "just for now" could never surface again. Disarming is how a
      job dies quietly; the watchdog has to be the thing that remembers.
 
-So: three verdicts now, not one.
+So: four verdicts now, not one.
   FAILING  — the result SHAPE says it failed (prefix, JSON error counts,
-             `ok: false`, `status: error`, or a `failures: N>0` in plain text).
+             `ok: false`, `status: error`, or a `failures: N>0` in plain text),
+             or fail_count is positive and a later `skipped-stale` painted over
+             it. A real success resets that counter.
   STALE    — no run in >= STALE_MISSED_FIRES multiples of the row's own cron
              schedule. Computed from the schedule itself, so a */5 job and a
              quarterly job get proportionate patience.
-  DISARMED — SEED_JOBS declares the job should be active and the live row is
+  DISARMED — a declaration says the job should be active and the live row is
              not. Reported in its own bucket, never mixed with crashes: an
              operator toggle is a decision to re-examine, not an incident.
+  CRASHED  — a hard crash dump in tmp/cron_failures/ newer than the job's last
+             run. A crash stamps the row and the job's NEXT run overwrites it,
+             so the evidence was visible for minutes: Review Harvest died with
+             an access violation at 22:16 and read green again by 22:23.
+
+And three things that are REPORTED, NEVER PAGED — see find_bad_crons. Every one
+of them would otherwise be non-empty every hour, and an alert CC cannot clear is
+how a watchdog gets muted, which is the only failure mode worse than not having
+one: `opaque`, `recovered_crashes`, `inventory_drift`.
 
 Two reasons this is the *meta* cron, not just another business cron:
   1. It guards the OTHER crons. A silent break in any of the 14+ active
@@ -261,6 +272,19 @@ def classify_last_result(last_result: str | None) -> tuple[bool, str]:
     return False, ""
 
 
+def classify_empire_run(last_result, fail_count=0) -> tuple[bool, str]:
+    """Classify a cron row without letting a stale-skip hide failed attempts."""
+    is_fail, reason = classify_last_result(last_result)
+    try:
+        unresolved = int(fail_count or 0)
+    except (TypeError, ValueError):
+        unresolved = 0
+    if unresolved > 0 and not is_fail:
+        return True, (f"{unresolved} unresolved consecutive failure(s); latest status text is "
+                      f"{str(last_result or '(empty)')[:120]}")
+    return is_fail, reason
+
+
 def _is_opaque(last_result: str | None) -> bool:
     """A stored result that cannot carry a verdict either way.
 
@@ -384,8 +408,26 @@ def _norm_name(name: str) -> str:
 def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
     """Scan every automation row and bucket it by verdict.
 
-    Returns {"failing": [...], "stale": [...], "disarmed": [...], "opaque": [...]}.
     Each finding carries name / last_result / last_run_at / detail / source.
+
+    PAGING buckets -- these compose `alertable` and reach CC's Telegram:
+      failing   the result SHAPE says it failed, or fail_count is unresolved
+      stale     no run in several multiples of the row's own schedule
+      disarmed  a declaration says active and the live row is not
+      crashed   a dump in tmp/cron_failures/ NEWER than the job's last run
+
+    REPORTED-ONLY keys -- in the JSON, never in an alert. Each one exists
+    because paging on it would put the bucket permanently non-empty, and a
+    watchdog CC mutes is worse than no watchdog:
+      opaque             a result that cannot carry a verdict either way
+      recovered_crashes  a crash dump OLDER than the job's last run, i.e. the
+                         job already came back. 18 of these across 9 jobs in
+                         one 24h window is real instability worth reading, and
+                         exactly the thing nobody should be paged for.
+      inventory_drift    a live row disagrees with SEED_JOBS on a behaviour
+                         field. Realigning is a reviewed production mutation,
+                         so the window where the two differ is operator-
+                         sanctioned. harness_eval fails the nightly eval on it.
 
     NOTE the signature change (2026-08-21): this used to return a bare list of
     failures. It returns buckets now because "crashed", "stopped running" and
@@ -397,15 +439,33 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
     expectations = _seed_expectations()
 
     findings: dict[str, list[dict]] = {
-        "failing": [], "stale": [], "disarmed": [], "opaque": [],
+        "failing": [], "stale": [], "disarmed": [], "opaque": [], "crashed": [],
     }
+    # Populated alongside `crashed` but never paged — see scan_crash_dumps.
+    # ONE name, not an underscore-prefixed twin: main() consumes this dict
+    # directly while telegram_alert() reads it through _as_buckets, so a private
+    # key that only one of the two translated left `recovered_crash_count`
+    # silently 0 in the JSON while the finding existed.
+    findings["recovered_crashes"] = []
+    # Reported, never paged -- see _scan_empire_inventory_contract.
+    findings["inventory_drift"] = []
 
     # -- empire cron_jobs ----------------------------------------------------
     # Deliberately NOT filtered on is_active. The old query's `.eq("is_active",
     # True)` is precisely why a disarmed-but-expected job could never surface.
-    rows = db.table("cron_jobs").select(
-        "id,name,is_active,schedule,last_result,last_run_at,created_at").execute()
-    for row in rows.data or []:
+    # Scope explicitly to CC's Empire tenant. A service-role read without this
+    # predicate can make another tenant's same-named row satisfy the inventory
+    # contract, or page CC for a client row he does not operate.
+    try:
+        from cron_engine import CC_EMPIRE_TENANT_ID  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"cannot load Empire tenant identity: {exc}") from exc
+    rows = (db.table("cron_jobs").select(
+        "id,name,is_active,schedule,action_type,action_config,owner_agent_key,"
+        "last_result,last_run_at,created_at,fail_count")
+        .eq("tenant_id", CC_EMPIRE_TENANT_ID).execute())
+    live_rows = rows.data or []
+    for row in live_rows:
         name = str(row.get("name") or "")
         active = bool(row.get("is_active"))
         last_result = row.get("last_result")
@@ -429,7 +489,12 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
         # is exactly how the alert and the eval ended up disagreeing.
         self_scored = _is_self_scored_failure(row)
 
-        is_fail, reason = classify_last_result(last_result)
+        is_fail, reason = classify_empire_run(last_result, row.get("fail_count"))
+        # ``skipped-stale`` advances a missed slot without executing and, by
+        # design, does not reset fail_count. That is useful scheduler state but
+        # it used to overwrite the ERROR text and make an unresolved failure
+        # read green. A real successful run resets this counter to zero, so a
+        # positive value means the job has not recovered yet.
         if is_fail and not self_scored:
             findings["failing"].append({
                 "name": name, "source": "cron_jobs",
@@ -456,10 +521,200 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
                 "detail": stale_reason,
             })
 
+    findings = _scan_empire_inventory_contract(live_rows, findings)
+
+    unrecovered, recovered = scan_crash_dumps(live_rows, now)
+    findings["crashed"].extend(unrecovered)
+    findings["recovered_crashes"].extend(recovered)
+
     if include_tenant:
         findings = _scan_tenant_crons(db, findings, now)
     findings = _scan_daemon_backed(findings)
     findings = _scan_bridge_pairings(db, findings)
+    return findings
+
+
+# ── crashes that never reach a row ──────────────────────────────────────────
+# A hard crash writes tmp/cron_failures/<slug>-<ts>.log AND stamps the row. The
+# row is then overwritten by the job's very next run. `Bravo — Review Harvest`
+# crashed at 22:16:03 with exit 3221225480 (0xC0000005, access violation) and
+# empty stdout AND stderr; by 22:23:10 it had run again, fail_count was back to
+# 0, last_result read "drained=0", and the 22:25 health check returned
+# bad_count 0. Total window in which that segfault was visible anywhere CC
+# looks: seven minutes. The same 24h held 18 dumps from 9 distinct jobs, every
+# one of those rows green by the time anyone read them.
+#
+# The nightly harness eval already computes this signal, but its red row is
+# suppressed as a self-score, so in practice nothing hourly ever said it.
+#
+# ONLY UNRECOVERED crashes alert. A bucket that reports all 18 would be
+# non-empty every single hour, which flips the watchdog's own last_result off
+# "ok: all crons healthy" permanently and trains CC to ignore the digest — the
+# exact failure this file exists to prevent. A dump OLDER than the job's last
+# run means the job has since succeeded; that is recorded in the JSON as
+# `recovered_crashes` for anyone asking about instability, and never paged.
+FAILURE_DUMP_DIR = Path(__file__).resolve().parents[2] / "tmp" / "cron_failures"
+# The dump-name grammar and the self-score banner both belong to harness_eval,
+# which reads the same directory nightly. Imported so there is ONE definition of
+# each; the literals are the fallback for a mid-edit or missing harness_eval,
+# matching this file's existing guarded-import idiom. A second copy of the
+# filename regex is how the nightly check and the hourly one would quietly stop
+# agreeing about which files are dumps.
+try:
+    from harness_eval import _DUMP_NAME_RE, _SELF_SCORE_MARKER  # noqa: PLC0415
+except Exception:  # noqa: BLE001
+    _DUMP_NAME_RE = re.compile(r"^(?P<slug>.+)-(?P<ts>\d{8}T\d{6}Z)\.log$")
+    _SELF_SCORE_MARKER = "HARNESS EVAL"
+
+
+def dump_slug_for(script: str) -> str:
+    """scheduler._slug() applied to a job's action_config["script"].
+
+    The dump filename is derived from the SCRIPT PATH, never the job name, so
+    correlating a dump back to a cron row has to go through the same transform.
+
+    DUPLICATED ON PURPOSE, AND PINNED. scheduler._slug (scheduler.py) is the
+    PRODUCER -- it names the files this function reads back -- so the honest
+    move would be to import it. But importing scheduler pulls the entire
+    integration stack at module load, and this watchdog must stay cheap enough
+    to run hourly and keep working when a sibling module is mid-edit.
+
+    A silent divergence here is the nastiest failure this file can have: the
+    transform stops matching, every dump correlates to nothing, and the crashed
+    bucket goes quietly EMPTY while reporting healthy -- a green that means
+    "I looked at nothing", which is the exact defect this branch exists to
+    remove. So the copy is pinned by
+    test_dump_slug_matches_the_schedulers_own_transform, which extracts _slug
+    from scheduler's source and asserts both agree on real script paths.
+    """
+    return re.sub(r"[^a-z0-9]+", "-", str(script or "").lower()).strip("-")[:48]
+
+
+def scan_crash_dumps(rows, now, dump_dir=None):
+    """Return (unrecovered, recovered) crash findings for the given live rows."""
+    directory = Path(dump_dir) if dump_dir is not None else FAILURE_DUMP_DIR
+    try:
+        names = [e.name for e in os.scandir(directory) if e.is_file()]
+    except (OSError, FileNotFoundError):
+        return [], []          # no dumps dir is the healthy default, not an error
+
+    newest: dict[str, datetime] = {}
+    counts: dict[str, int] = {}
+    for name in names:
+        m = _DUMP_NAME_RE.match(name)
+        if not m:
+            continue
+        try:
+            when = datetime.strptime(m.group("ts"), "%Y%m%dT%H%M%SZ").replace(
+                tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if (now - when).total_seconds() > 24 * 3600:
+            continue
+        # The nightly harness eval writes a dump EVERY time it scores itself
+        # red -- 5 of the 50 dumps on disk right now. Those are a scoreboard,
+        # not a crash, and harness_eval already suppresses them on its own
+        # side. Paging CC for them would put this bucket permanently non-empty
+        # and mute the digest. The banner is what proves the script ran and
+        # scored itself; a genuine crash (import error, OS kill) writes no
+        # banner and still counts, which is the whole point.
+        try:
+            body = (Path(directory) / name).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            body = ""          # unreadable is not benign -- count it
+        if _SELF_SCORE_MARKER in body.upper():
+            continue
+        slug = m.group("slug")
+        counts[slug] = counts.get(slug, 0) + 1
+        if slug not in newest or when > newest[slug]:
+            newest[slug] = when
+
+    unrecovered, recovered = [], []
+    for row in rows:
+        cfg = row.get("action_config")
+        if isinstance(cfg, str):
+            try:
+                cfg = json.loads(cfg)
+            except (TypeError, ValueError):
+                cfg = {}
+        script = (cfg or {}).get("script")
+        if not script:
+            continue
+        slug = dump_slug_for(script)
+        crashed_at = newest.get(slug)
+        if crashed_at is None:
+            continue
+
+        last_run = _parse_ts(row.get("last_run_at"))
+        n = counts.get(slug, 1)
+        entry = {
+            "name": str(row.get("name") or slug),
+            "source": "cron_failures",
+            "last_result": str(row.get("last_result") or ""),
+            "last_run_at": row.get("last_run_at"),
+            "detail": (f"{n} hard crash dump(s) in 24h, newest "
+                       f"{crashed_at.isoformat()} — tmp/cron_failures/{slug}-*.log"),
+        }
+        if last_run is not None and last_run >= crashed_at:
+            entry["detail"] += " (job has since run again; reported, not paged)"
+            recovered.append(entry)
+        else:
+            unrecovered.append(entry)
+    return unrecovered, recovered
+
+
+def _scan_empire_inventory_contract(
+    rows: list[dict], findings: dict[str, list[dict]],
+) -> dict[str, list[dict]]:
+    """Turn missing/duplicate/drifted SEED_JOBS rows into hourly failures.
+
+    The health loop used to inspect only rows returned by the database. If a
+    row disappeared, there was literally nothing to inspect, so the watchdog
+    declared the shortened inventory healthy. Keep the reconciliation logic in
+    cron_engine and only adapt its findings to this watchdog's alert shape.
+    """
+    try:
+        from cron_engine import audit_live_inventory  # noqa: PLC0415
+        issues = audit_live_inventory(rows)
+    except Exception as exc:  # noqa: BLE001
+        findings["failing"].append({
+            "name": "Empire automation inventory contract",
+            "source": "cron_jobs",
+            "last_result": "",
+            "last_run_at": None,
+            "detail": f"inventory reconciliation unavailable: {type(exc).__name__}: {exc}",
+        })
+        return findings
+
+    for issue in issues:
+        kind = str(issue.get("kind") or "mismatch")
+        entry = {
+            "name": str(issue.get("name") or "unknown automation"),
+            "source": "cron_jobs_inventory",
+            "last_result": "",
+            "last_run_at": None,
+            "detail": f"inventory {kind}: {issue.get('detail', '')}",
+        }
+        # MISSING and DUPLICATE mean the inventory itself is wrong -- a declared
+        # job has no trigger, or has two. That is the 4-of-41 outage, and it
+        # pages.
+        #
+        # DRIFT does not. The job exists, runs, and is rendered; one behaviour
+        # field disagrees with SEED_JOBS. Paging on it would be an alarm CC
+        # cannot clear on his own: realigning means pushing to the shared cron
+        # registry, which CLAUDE.md makes a reviewed production mutation, so the
+        # gap between editing a seed and CC approving the push is operator-
+        # sanctioned and can last days. An hourly page through that window is
+        # how the digest gets muted. It is also inconsistent with the two other
+        # places this branch already decided drift is not blocking:
+        # generate_automations renders it as a per-row marker, and cmd_drift
+        # exits non-zero only on missing/duplicate.
+        #
+        # Drift is still caught, on the surface that suits a config-hygiene
+        # check rather than an incident: harness_eval.check_cron_definitions_
+        # match_live fails the nightly eval on it.
+        findings["failing" if kind in {"missing", "duplicate"} else "inventory_drift"
+                 ].append(entry)
     return findings
 
 
@@ -609,13 +864,17 @@ def _scan_tenant_crons(db, findings: dict[str, list[dict]],
     is the part CC depends on hourly.
     """
     try:
-        rows = db.table("tenant_cron_jobs").select(
-            "id,tenant_id,agent_key,name,enabled,schedule,last_run_at,"
-            "last_run_status,last_run_error,last_run_output,created_at").execute()
+        from cron_engine import CC_EMPIRE_TENANT_ID  # noqa: PLC0415
+        rows = (db.table("tenant_cron_jobs").select(
+            "id,tenant_id,agent_key,name,enabled,schedule,action_type,action_payload,"
+            "last_run_at,last_run_status,last_run_error,last_run_output,created_at")
+            .eq("tenant_id", CC_EMPIRE_TENANT_ID).execute())
     except Exception as exc:  # noqa: BLE001
         print(f"[cron_health_check] WARNING: tenant_cron_jobs scan skipped "
               f"({type(exc).__name__}: {exc})", file=sys.stderr)
         return findings
+
+    findings = _scan_tenant_manifest_contracts(rows.data or [], findings)
 
     for row in rows.data or []:
         # CC'S SCOPE RULING (2026-08-22): Bravo's Telegram digest covers OASIS
@@ -667,6 +926,178 @@ def _scan_tenant_crons(db, findings: dict[str, list[dict]],
     return findings
 
 
+def tenant_manifest_issues(
+    rows: list[dict], jobs: list[dict], *, agent_key: str, tenant_prefix: str,
+    enabled_authoritative: bool = False,
+) -> list[dict]:
+    """Compare one agent-owned manifest with its governed tenant registry.
+
+    Tenant jobs do not have SEED_JOBS, so disabled rows were previously skipped
+    with no way to know whether OFF meant "operator decision" or "silent drift".
+    The owning agent's manifest supplies that missing intent without moving
+    ownership into Bravo.
+    """
+    scoped = [
+        row for row in rows
+        if str(row.get("tenant_id") or "").startswith(tenant_prefix)
+        and str(row.get("agent_key") or "").casefold() == agent_key.casefold()
+    ]
+    by_name: dict[str, list[dict]] = {}
+    for row in scoped:
+        by_name.setdefault(_norm_name(str(row.get("name") or "")), []).append(row)
+
+    def meaning(value):
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except (TypeError, ValueError):
+                return value
+        return value
+
+    issues: list[dict] = []
+    for job in jobs:
+        name = str(job.get("name") or "")
+        matches = by_name.get(_norm_name(name), [])
+        if not matches:
+            issues.append({
+                "bucket": "failing", "name": name,
+                "detail": f"missing from tenant_cron_jobs but declared by {agent_key} manifest",
+            })
+            continue
+        if len(matches) > 1:
+            issues.append({
+                "bucket": "failing", "name": name,
+                "detail": f"{len(matches)} live tenant rows share this manifest name",
+            })
+            continue
+        row = matches[0]
+        # The on/off comparison is only meaningful when the manifest is actually
+        # maintained as the declaration of intent. Atlas's register CLI writes
+        # the live row WITHOUT writing the manifest, so today the file records
+        # what was true when it was last hand-edited, not what CC decided. Three
+        # Atlas rows are disabled against a manifest that still says enabled --
+        # comparing them would put a permanent "3 disarmed" line in every hourly
+        # digest, which flips the watchdog's own last_result off "ok: all crons
+        # healthy" forever and trains CC to ignore the alert. An alarm nothing
+        # can clear is worse than no alarm: it is the mechanism by which the
+        # next real outage goes unread.
+        #
+        # So the owning agent opts in by setting `enabled_is_authoritative` in
+        # its manifest, which it may only do once its own writer keeps the two
+        # in step. Everything below (existence, duplicates, schedule, action)
+        # needs no such flag -- those cannot drift by an operator's decision.
+        if enabled_authoritative:
+            expected_enabled = bool(job.get("enabled", True))
+            live_enabled = bool(row.get("enabled"))
+            if expected_enabled != live_enabled:
+                if expected_enabled:
+                    issues.append({
+                        "bucket": "disarmed", "name": name,
+                        "detail": f"{agent_key} manifest expects active; "
+                                  f"live tenant row is disabled",
+                    })
+                else:
+                    issues.append({
+                        "bucket": "failing", "name": name,
+                        "detail": f"{agent_key} manifest expects disabled; "
+                                  f"live tenant row is active",
+                    })
+
+        diffs = []
+        for manifest_field, row_field in (
+            ("schedule", "schedule"),
+            ("action_type", "action_type"),
+            ("action_payload", "action_payload"),
+        ):
+            want, got = meaning(job.get(manifest_field)), meaning(row.get(row_field))
+            if want is not None and want != got:
+                diffs.append(manifest_field)
+        if diffs:
+            issues.append({
+                "bucket": "failing", "name": name,
+                "detail": f"live tenant row disagrees with {agent_key} manifest: "
+                          f"{', '.join(diffs)}",
+            })
+    return issues
+
+
+def _scan_tenant_manifest_contracts(
+    rows: list[dict], findings: dict[str, list[dict]],
+) -> dict[str, list[dict]]:
+    """Load agent-owned declarative manifests and adapt their issues to alerts."""
+    try:
+        from sibling_repos import SIBLING_REPOS  # noqa: PLC0415
+        sources = [
+            {
+                "agent_key": "atlas",
+                "tenant_prefix": "ef8d389e",
+                # The REPO, which may be None. Resolving the manifest path here
+                # would mean inventing a placeholder to represent "no repo", and
+                # a fabricated path is a lie the rest of the function then has to
+                # interpret -- it also collapses two different diagnostics
+                # ("this agent is not mapped at all" and "the file is not on this
+                # machine") into one indistinguishable miss.
+                "repo": SIBLING_REPOS.get("atlas"),
+                "manifest": Path("data") / "atlas_automations.json",
+            },
+        ]
+    except Exception as exc:  # noqa: BLE001
+        findings["failing"].append({
+            "name": "Tenant automation manifest contract",
+            "source": "tenant_cron_jobs",
+            "last_result": "", "last_run_at": None,
+            "detail": f"manifest routing unavailable: {type(exc).__name__}: {exc}",
+        })
+        return findings
+
+    for source in sources:
+        # Neither of these is a broken cron. The VPS, the Mac and any fresh rig
+        # run this same hourly check without CFO-Agent cloned; paging CC with a
+        # red siren because an optional repo is not installed is the false alarm
+        # that gets the whole digest muted. They are reported separately because
+        # they need different answers: an unmapped agent means sibling_repos has
+        # no entry (fix the map), an absent file means the repo is not on this
+        # machine (clone it, or ignore it on a rig that does not run Atlas).
+        # A manifest that EXISTS and is malformed still fails loudly below --
+        # that one is a real defect.
+        if source["repo"] is None:
+            print(f"[cron_health_check] WARNING: no sibling repo mapped for "
+                  f"{source['agent_key']!r} — manifest contract skipped", file=sys.stderr)
+            continue
+        path = source["repo"] / source["manifest"]
+        if not path.exists():
+            print(f"[cron_health_check] WARNING: {source['agent_key']} manifest not on this "
+                  f"machine ({path}) — manifest contract skipped", file=sys.stderr)
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            jobs = payload.get("jobs")
+            if not isinstance(jobs, list):
+                raise ValueError("top-level jobs must be a list")
+            issues = tenant_manifest_issues(
+                rows, jobs, agent_key=source["agent_key"],
+                tenant_prefix=source["tenant_prefix"],
+                enabled_authoritative=bool(payload.get("enabled_is_authoritative")),
+            )
+        except Exception as exc:  # noqa: BLE001
+            findings["failing"].append({
+                "name": f"{source['agent_key'].title()} automation manifest",
+                "source": "tenant_cron_jobs",
+                "last_result": "", "last_run_at": None,
+                "detail": f"manifest unreadable: {type(exc).__name__}: {exc}",
+            })
+            continue
+
+        for issue in issues:
+            findings[issue["bucket"]].append({
+                "name": issue["name"],
+                "source": "tenant_cron_jobs_manifest",
+                "last_result": "", "last_run_at": None,
+                "detail": issue["detail"],
+            })
+    return findings
+
+
 def _as_buckets(findings) -> dict[str, list[dict]]:
     """Accept either the new bucket dict or the legacy bare list of failures.
 
@@ -674,9 +1105,21 @@ def _as_buckets(findings) -> dict[str, list[dict]]:
     called by tests (and possibly by an out-of-tree caller) with the old list.
     Coercing here keeps one alert-composition path instead of two that drift.
     """
+    # `recovered_crashes` rides along deliberately. It is NOT a bucket -- nothing
+    # alerts on it, it never enters the dedup key and it is excluded from
+    # `alertable` -- but dropping it here is what made it dead weight: it was
+    # populated by the scan and then silently discarded before anything could
+    # read it. Carried through, it answers "is this fleet actually stable?"
+    # without paging anyone for a job that already came back.
     if isinstance(findings, dict):
-        return {k: list(findings.get(k) or []) for k in ("failing", "stale", "disarmed", "opaque")}
-    return {"failing": list(findings or []), "stale": [], "disarmed": [], "opaque": []}
+        out = {k: list(findings.get(k) or [])
+               for k in ("failing", "stale", "disarmed", "opaque", "crashed")}
+        out["recovered_crashes"] = list(findings.get("recovered_crashes") or [])
+        out["inventory_drift"] = list(findings.get("inventory_drift") or [])
+        return out
+    return {"failing": list(findings or []), "stale": [], "disarmed": [],
+            "opaque": [], "crashed": [], "recovered_crashes": [],
+            "inventory_drift": []}
 
 
 def alert_dedup_key(buckets: dict[str, list[dict]]) -> str:
@@ -699,6 +1142,12 @@ def alert_dedup_key(buckets: dict[str, list[dict]]) -> str:
         if buckets["stale"] else []
     if buckets["disarmed"]:
         extra.append("disarmed=" + ",".join(sorted(str(b["name"]) for b in buckets["disarmed"])))
+    # Crashes get their own segment for the same reason stale and disarmed do: a
+    # process that died is a NEW condition and must page now, not inherit the
+    # backoff window an unrelated failing job already opened. Omitting it here
+    # would let a fresh segfault be swallowed by someone else's 8h ladder.
+    if buckets.get("crashed"):
+        extra.append("crashed=" + ",".join(sorted(str(b["name"]) for b in buckets["crashed"])))
     return key + (";" + ";".join(extra) if extra else "")
 
 
@@ -791,6 +1240,13 @@ def compose_alert(buckets: dict[str, list[dict]]) -> str:
             lines.append(f"⏸ {len(disarmed)} cron(s) disarmed but expected active:")
             for b in disarmed[:8]:
                 lines.append(f"• {b['name']}")
+                # A bare name under ⏸ reads as "something I switched off on
+                # purpose". The reason is what makes it actionable -- which
+                # declaration expected it active, and how long it has been dead.
+                # The failing branch already renders detail; this one dropped it.
+                detail = str(b.get("detail") or "").strip()
+                if detail:
+                    lines.append(f"  {detail[:120]}".replace("\n", " "))
             if len(disarmed) > 8:
                 lines.append(f"... and {len(disarmed) - 8} more disarmed.")
     return "\n".join(lines)
@@ -818,7 +1274,8 @@ def _deliverable(text: str, buckets: dict[str, list[dict]]) -> str:
     if pattern is None or not pattern.search(text):
         return text
 
-    names = [b["name"] for k in ("failing", "stale", "disarmed") for b in buckets[k]]
+    names = [b["name"] for k in ("failing", "stale", "disarmed", "crashed")
+             for b in buckets.get(k) or []]
     stripped = ("🚨 Cron trouble (details withheld — a result snippet matched the "
                 "APEX-domain filter and would have been dropped):\n"
                 + "\n".join(f"• {n}" for n in names[:12])
@@ -890,7 +1347,13 @@ def main() -> int:
 
     # `opaque` is diagnostics, never a page: it means "this row cannot tell us
     # anything", not "this row is broken". Only the three real verdicts alert.
-    alertable = buckets["failing"] + buckets["stale"] + buckets["disarmed"]
+    # `crashed` alerts; `opaque` and `recovered_crashes` do not. An unrecovered
+    # hard crash is the loudest thing this watchdog can find -- a process that
+    # died and has not come back -- so leaving it out of `alertable` would have
+    # made the whole bucket a JSON field nobody is paged by, which is the exact
+    # wired-to-nothing shape this branch exists to remove.
+    alertable = (buckets["failing"] + buckets["stale"] + buckets["disarmed"]
+                 + buckets["crashed"])
 
     sent = False
     send_detail = "not_attempted"
@@ -903,10 +1366,19 @@ def main() -> int:
         "stale_count": len(buckets["stale"]),
         "disarmed_count": len(buckets["disarmed"]),
         "opaque_count": len(buckets["opaque"]),
+        "crashed_count": len(buckets["crashed"]),
         "failing": buckets["failing"],
         "stale": buckets["stale"],
         "disarmed": buckets["disarmed"],
         "opaque": buckets["opaque"],
+        "crashed": buckets["crashed"],
+        # Reported, never paged — a crash the job has already come back from.
+        # 18 of these across 9 jobs in one 24h window is the instability signal
+        # that was invisible; alerting on it would mute the digest.
+        "recovered_crash_count": len(buckets.get("recovered_crashes") or []),
+        "recovered_crashes": buckets.get("recovered_crashes") or [],
+        "inventory_drift_count": len(buckets.get("inventory_drift") or []),
+        "inventory_drift": buckets.get("inventory_drift") or [],
         # Kept so any dashboard/consumer reading the old field still works.
         "bad": buckets["failing"],
         "alert_sent": sent,
@@ -931,7 +1403,8 @@ def main() -> int:
             parts.append(f"{len(buckets['disarmed'])} disarmed")
         print(f"WARN: {', '.join(parts)}")
         for label, key in (("FAILING", "failing"), ("STALE", "stale"),
-                           ("DISARMED", "disarmed"), ("opaque", "opaque")):
+                           ("DISARMED", "disarmed"), ("opaque", "opaque"),
+                           ("CRASHED", "crashed")):
             for b in buckets[key]:
                 print(f"  [{label}] {b['name']}: {str(b.get('detail') or b.get('last_result'))[:120]}")
         if args.alert and not args.dry_run:
