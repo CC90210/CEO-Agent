@@ -30,6 +30,10 @@ from lib.secret_loader import load_env  # noqa: E402
 
 KEY_NAME = "OASIS_STORE_STRIPE_SECRET_KEY"
 WEBHOOK_KEY_NAME = "OASIS_STORE_STRIPE_WEBHOOK_SECRET"
+# Set when the store rides an existing empire account through an ORGANIZATION key.
+# An org key authenticates as the org, not an account, so every call must name the
+# account in a Stripe-Context header — without it Stripe answers 401.
+ACCOUNT_KEY_NAME = "OASIS_STORE_STRIPE_ACCOUNT"
 API = "https://api.stripe.com/v1"
 API_VERSION = "2026-08-26.dahlia"
 WEBHOOK_EVENTS = [
@@ -53,14 +57,17 @@ def _key() -> str:
     return key
 
 
+def _account_context() -> str | None:
+    return load_env().get(ACCOUNT_KEY_NAME) or None
+
+
 def stripe(method: str, path: str, data: dict | None = None) -> dict:
     body = urllib.parse.urlencode(_flatten(data or {}), doseq=True).encode() if data else None
-    req = urllib.request.Request(
-        f"{API}{path}",
-        data=body,
-        method=method,
-        headers={"Authorization": f"Bearer {_key()}", "Stripe-Version": API_VERSION, "Content-Type": "application/x-www-form-urlencoded"},
-    )
+    headers = {"Authorization": f"Bearer {_key()}", "Stripe-Version": API_VERSION, "Content-Type": "application/x-www-form-urlencoded"}
+    context = _account_context()
+    if context:
+        headers["Stripe-Context"] = context
+    req = urllib.request.Request(f"{API}{path}", data=body, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             return json.load(r)
@@ -124,6 +131,72 @@ def cmd_gen_secrets(args) -> int:
         return 0
     written = _write_env(pairs)
     print(f"wrote {', '.join(written)} to the agents env (values not shown)")
+    return 0
+
+
+def cmd_adopt_account(args) -> int:
+    """Point the store at an EXISTING empire Stripe account instead of a dedicated one.
+
+    CC's call on 2026-09-19: ship on the OASIS AI Solutions account rather than wait
+    on a new sole-prop KYC. This copies the source key to KEY_NAME inside the process
+    — the value is never printed, never returned, and never enters an agent's context.
+    It verifies the key against Stripe's /account first, so a typo'd source name fails
+    here rather than at a shopper's checkout.
+    """
+    source = args.source
+    env = load_env()
+    value = env.get(source)
+    if not value:
+        raise SystemExit(f"{source} is not set in the agents env — nothing to adopt.")
+    # No prefix whitelist. Stripe has sk_, rk_ and organization-key formats, and a
+    # whitelist that predates a format rejects a key that works perfectly well — which
+    # is what happened here. The /account probe below is the authoritative check.
+    if len(value) < 20 or any(c.isspace() for c in value):
+        raise SystemExit(f"{source} is not a plausible API key (too short, or contains whitespace).")
+
+    existing = env.get(KEY_NAME)
+    if existing and existing != value and not args.force:
+        raise SystemExit(f"{KEY_NAME} is already set to a different key. Re-run with --force to replace it.")
+
+    context = args.context or env.get("STRIPE_OASIS_ACCT_ID")
+
+    def probe(ctx: str | None) -> tuple[dict | None, str]:
+        headers = {"Authorization": f"Bearer {value}", "Stripe-Version": API_VERSION}
+        if ctx:
+            headers["Stripe-Context"] = ctx
+        try:
+            with urllib.request.urlopen(urllib.request.Request(f"{API}/account", headers=headers), timeout=30) as r:
+                return json.loads(r.read().decode()), ""
+        except urllib.error.HTTPError as e:
+            return None, f"HTTP {e.code}"
+
+    # An organization key 401s on its own and only works with a context; a plain
+    # account key works bare. Try bare first so we store the context only if it is
+    # load-bearing — a stray context header would silently retarget every call.
+    acct, err = probe(None)
+    used_context = None
+    if acct is None and context:
+        acct, err2 = probe(context)
+        if acct is not None:
+            used_context = context
+        else:
+            err = f"{err} bare, {err2} with context {context}"
+    if acct is None:
+        raise SystemExit(f"{source} was rejected by Stripe ({err}) — not adopting a key that cannot authenticate.")
+
+    pairs = {KEY_NAME: value}
+    pairs[ACCOUNT_KEY_NAME] = used_context or ""
+    _write_env(pairs)
+
+    live = bool(acct.get("charges_enabled")) and "test" not in value[:8]
+    name = (acct.get("settings") or {}).get("dashboard", {}).get("display_name") or acct.get("business_profile", {}).get("name")
+    print(f"adopted {source} -> {KEY_NAME} (value not shown)")
+    print(f"  account: {acct.get('id')}  name: {name}")
+    print(f"  auth mode: {'ORGANIZATION key + Stripe-Context ' + used_context if used_context else 'direct account key'}")
+    print(f"  LIVE MODE: {live}")
+    if live:
+        print("  This account takes REAL money. Disputes here hit the same balance as the rest of")
+        print("  this account's revenue. Set a statement descriptor that names the product line.")
     return 0
 
 
@@ -262,6 +335,10 @@ def main(argv=None) -> int:
     p = sub.add_parser("whoami")
     p.add_argument("--allow-shared-account", action="store_true", dest="allow_shared_account",
                    help="proceed even if the key belongs to an existing empire account (speed over isolation)")
+    p = sub.add_parser("adopt-account", help="copy an existing empire Stripe key into the store's key name")
+    p.add_argument("--source", default="STRIPE_SECRET_KEY", help="agents-env key name to copy FROM (default: STRIPE_SECRET_KEY, the OASIS account)")
+    p.add_argument("--context", help="acct_... to send as Stripe-Context; required when --source is an ORGANIZATION key")
+    p.add_argument("--force", action="store_true", help="replace an existing store key")
     p = sub.add_parser("gen-secrets"); p.add_argument("--app-url")
     sub.add_parser("plan")
     p = sub.add_parser("webhook"); p.add_argument("--url")
@@ -269,7 +346,7 @@ def main(argv=None) -> int:
     sub.add_parser("tax-check")
     p = sub.add_parser("promo"); p.add_argument("--code"); p.add_argument("--pct", type=int)
     args = parser.parse_args(argv)
-    return {"whoami": cmd_whoami, "gen-secrets": cmd_gen_secrets, "plan": cmd_plan, "webhook": cmd_webhook, "portal": cmd_portal, "tax-check": cmd_tax_check, "promo": cmd_promo}[args.cmd](args)
+    return {"adopt-account": cmd_adopt_account, "whoami": cmd_whoami, "gen-secrets": cmd_gen_secrets, "plan": cmd_plan, "webhook": cmd_webhook, "portal": cmd_portal, "tax-check": cmd_tax_check, "promo": cmd_promo}[args.cmd](args)
 
 
 if __name__ == "__main__":

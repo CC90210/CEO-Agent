@@ -50,12 +50,47 @@ def py(script: str, *args: str) -> list[str]:
 
 # ----------------------------------------------------------------- readiness
 
+def _stripe_livemode(env: dict) -> bool:
+    """Stripe's own answer to 'will real cards work here'. Never the key's prefix."""
+    import json as _json
+    import urllib.error
+    import urllib.request
+
+    headers = {
+        "Authorization": f"Bearer {env['OASIS_STORE_STRIPE_SECRET_KEY']}",
+        "Stripe-Version": "2026-08-26.dahlia",
+    }
+    context = env.get("OASIS_STORE_STRIPE_ACCOUNT")
+    if context:
+        headers["Stripe-Context"] = context
+    try:
+        req = urllib.request.Request("https://api.stripe.com/v1/products?limit=1", headers=headers)
+        with urllib.request.urlopen(req, timeout=15) as r:
+            body = _json.load(r)
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        return False
+    data = body.get("data") or []
+    # A list response carries livemode on the objects; an empty catalogue tells us
+    # nothing, so fall back to the account probe.
+    if data:
+        return bool(data[0].get("livemode"))
+    try:
+        req = urllib.request.Request("https://api.stripe.com/v1/account", headers=headers)
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return bool(_json.load(r).get("charges_enabled"))
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        return False
+
+
 def check(verbose: bool = True) -> dict:
     env = load_env()
     state: dict = {}
 
     state["stripe_key"] = bool(env.get("OASIS_STORE_STRIPE_SECRET_KEY"))
-    state["stripe_live_mode"] = (env.get("OASIS_STORE_STRIPE_SECRET_KEY") or "").startswith("sk_live_")
+    # Ask Stripe rather than pattern-match the key. An sk_live_ prefix test called a
+    # working ORGANIZATION key "TEST" while it was minting cs_live_ sessions — a
+    # false alarm on the one fact that decides whether real cards work.
+    state["stripe_live_mode"] = _stripe_livemode(env) if state["stripe_key"] else False
     state["webhook_secret"] = bool(env.get("OASIS_STORE_STRIPE_WEBHOOK_SECRET"))
     state["turso"] = bool(env.get("OASIS_STORE_TURSO_DATABASE_URL"))
     state["app_url"] = env.get("OASIS_STORE__APP_URL", "")

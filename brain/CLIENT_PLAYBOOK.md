@@ -1,7 +1,7 @@
 ---
 name: CLIENT PLAYBOOK
 description: Website-first sales scripts and fulfillment SOP for OASIS.
-last_updated: 2026-08-19
+last_updated: 2026-09-19
 freshness_threshold_days: 30
 ---
 # OASIS WEBSITE APPOINTMENT-SETTING PLAYBOOK V5

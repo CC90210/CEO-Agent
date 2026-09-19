@@ -1,16 +1,16 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-09-17T08:03:01.019463+00:00",
+  "generated_at": "2026-09-19T08:03:32.479870+00:00",
   "totals": {
     "skills": 164,
-    "scripts": 214,
+    "scripts": 215,
     "agents": 31,
     "mcp_servers": 9,
     "workflows": 34,
     "resources": 14,
     "runtime_entrypoints": 3,
-    "nodes_total": 469,
+    "nodes_total": 470,
     "edges_total": 225,
     "drift_count": 4
   },
@@ -6494,6 +6494,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:github_repo_tool",
+      "kind": "script",
+      "name": "github_repo_tool",
+      "path": "scripts/github_repo_tool.py",
+      "description": "Create or inspect a GitHub repository with the PAT from the agents env.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:gnn_skill_router",
       "kind": "script",
       "name": "gnn_skill_router",
@@ -7923,7 +7933,7 @@
       "kind": "script",
       "name": "wan_gen",
       "path": "scripts/gpu/wan_gen.py",
-      "description": "wan_gen.py \u2014 Wan 2.2 video generation on ComfyUI. Text-to-video and image-to-video.",
+      "description": "wan_gen.py \u2014 Wan 2.2 video generation on ComfyUI. Text, image and audio driven.",
       "tier": "tool",
       "owner": "maven",
       "discovery": "auto-capability-meta",

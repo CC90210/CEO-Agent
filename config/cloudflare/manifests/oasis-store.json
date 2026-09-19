@@ -6,6 +6,7 @@
     { "key": "SESSION_SECRET", "source": "OASIS_STORE__SESSION_SECRET", "scope": "runtime" },
     { "key": "WORKER_SHARED_SECRET", "source": "OASIS_STORE__WORKER_SHARED_SECRET", "scope": "runtime" },
     { "key": "STRIPE_SECRET_KEY", "source": "OASIS_STORE_STRIPE_SECRET_KEY", "scope": "runtime" },
+    { "key": "STRIPE_ACCOUNT_CONTEXT", "source": "OASIS_STORE_STRIPE_ACCOUNT", "scope": "runtime", "optional": true },
     { "key": "STRIPE_WEBHOOK_SECRET", "source": "OASIS_STORE_STRIPE_WEBHOOK_SECRET", "scope": "runtime" }
   ]
 }
