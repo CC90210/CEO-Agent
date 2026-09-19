@@ -120,6 +120,17 @@ Before flipping an app that queries from the browser, prove the tenant boundary:
 | `STRIPE_API_KEY_KONA` | Conaugh McKenna brand |
 | `STRIPE_API_KEY_NOSTALGIC` | Nostalgic Requests brand |
 
+## nomad-store (subscription storefront — its OWN Stripe account)
+
+| Variable | Notes |
+|----------|-------|
+| `NOMAD_TURSO_DATABASE_URL` / `NOMAD_TURSO_AUTH_TOKEN` | Written by `turso_admin.py create --db nomad-store --write-env` |
+| `NOMAD_STORE__APP_URL` | Public origin (workers.dev until the domain is bound) |
+| `NOMAD_STORE__SESSION_SECRET` / `NOMAD_STORE__WORKER_SHARED_SECRET` | Written by `nomad_stripe_setup.py gen-secrets` |
+| `NOMAD_STRIPE_SECRET_KEY` | The store's dedicated Stripe account — `nomad_stripe_setup.py whoami` refuses OASIS/PropFlow/Nostalgic ids |
+| `NOMAD_STRIPE_WEBHOOK_SECRET` | Written by `nomad_stripe_setup.py webhook`, never printed |
+| Daemon-only (VPS): `NOMAD_MAIL_USER`, `NOMAD_MAIL_APP_PASSWORD`, `TELEGRAM_CHAT_ID`, `CJ_API_EMAIL`, `CJ_API_KEY`, `NOMAD_LLM`, `OPS_MODE` | See `APPS/nomad-store/docs/ENV_KEYS.md` |
+
 ## Google Workspace
 
 | Variable | Notes |
