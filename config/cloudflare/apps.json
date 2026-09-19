@@ -158,7 +158,7 @@
       "vercel_project": "agent-dashboard",
       "custom_domains": [],
       "wave": 3,
-      "note": "companion cron worker (28 jobs) \u2014 DRY until CRON_FORWARD=on; NEVER attach a custom domain (it shares agent-dashboard's vercel_project only for secret lookup)"
+      "note": "companion cron worker (28 jobs) — DRY until CRON_FORWARD=on; NEVER attach a custom domain (it shares agent-dashboard's vercel_project only for secret lookup)"
     },
     "oasis-command-center": {
       "dir": "C:\\Users\\User\\APPS\\oasis-command-center",
@@ -172,7 +172,15 @@
       "build_env": {
         "NODE_OPTIONS": "--max-old-space-size=4096 --use-system-ca"
       },
-      "note": "APEX-shared repo \u2014 coord_claim before editing; 28 crons; native-dep refactors gated on CC decisions. apply.sunbizfunding.com REMOVED 2026-09-07: it has no DNS record at all (NXDOMAIN), 0 personalized form links have ever been minted, and across 487 lead_interactions mentioning sunbizfunding.com it appears in ZERO \u2014 the live funding flow uses the apex and www, which resolve. Binding a hostname that does not exist would fail the Cloudflare cutover. Do not re-add without creating the CNAME first; the Vercel project still lists it (read-only tooling, operator removes it there)."
+      "note": "APEX-shared repo — coord_claim before editing; 28 crons; native-dep refactors gated on CC decisions. apply.sunbizfunding.com REMOVED 2026-09-07: it has no DNS record at all (NXDOMAIN), 0 personalized form links have ever been minted, and across 487 lead_interactions mentioning sunbizfunding.com it appears in ZERO — the live funding flow uses the apex and www, which resolve. Binding a hostname that does not exist would fail the Cloudflare cutover. Do not re-add without creating the CNAME first; the Vercel project still lists it (read-only tooling, operator removes it there)."
+    },
+    "nomad-store": {
+      "dir": "C:\\Users\\User\\APPS\\nomad-store",
+      "kind": "opennext",
+      "vercel_project": null,
+      "custom_domains": [],
+      "wave": 2,
+      "note": "Brand-agnostic multi-product subscription storefront (codename). Own Turso DB nomad-store, own R2 bucket nomad-store-media, own KV STORE_KV, own dedicated Stripe account (CC opens it; never OASIS/PropFlow/Nostalgic keys). Custom domain bound at naming; workers.dev preview until then. Daemon: PM2 nomad-ops on the VPS."
     }
   }
 }
