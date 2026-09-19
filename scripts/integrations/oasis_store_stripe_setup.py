@@ -133,9 +133,17 @@ def cmd_whoami(args) -> int:
     print(f"account: {acct.get('id')}  name: {(acct.get('settings') or {}).get('dashboard', {}).get('display_name') or acct.get('business_profile', {}).get('name')}  livemode_key: {livemode}")
     known = {v for k, v in load_env().items() if k in ("STRIPE_OASIS_ACCT_ID", "STRIPE_PROPFLOW_ACCT_ID", "STRIPE_NOSTALGIC_ACCT_ID")}
     if acct.get("id") in known:
-        print("REFUSING: this key belongs to an existing empire account. The store must run on its OWN Stripe account.")
-        return 1
-    print("ok: dedicated account")
+        if not getattr(args, "allow_shared_account", False):
+            print("REFUSING: this key belongs to an existing empire account (agency/PropFlow/Nostalgic).")
+            print("  Why this default exists: dropship shipping times and auto-renew are the two biggest")
+            print("  chargeback drivers, Stripe risk-reviews per account, and a dispute spike can put a")
+            print("  rolling reserve on the funds in THIS account — which is where your agency gets paid.")
+            print("  If you have weighed that and want the speed anyway, re-run with --allow-shared-account.")
+            return 1
+        print("WARNING --allow-shared-account: the consumer store will share an account with existing")
+        print("  empire revenue. Set a per-product statement descriptor so card statements name the")
+        print("  product line, and plan to split before ad spend scales volume.")
+    print("ok: dedicated account" if acct.get("id") not in known else "ok: shared account (override acknowledged)")
     return 0
 
 
@@ -251,7 +259,9 @@ def cmd_tax_check(args) -> int:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("whoami")
+    p = sub.add_parser("whoami")
+    p.add_argument("--allow-shared-account", action="store_true", dest="allow_shared_account",
+                   help="proceed even if the key belongs to an existing empire account (speed over isolation)")
     p = sub.add_parser("gen-secrets"); p.add_argument("--app-url")
     sub.add_parser("plan")
     p = sub.add_parser("webhook"); p.add_argument("--url")
