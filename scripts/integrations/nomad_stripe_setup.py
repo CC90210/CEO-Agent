@@ -35,6 +35,7 @@ API_VERSION = "2026-08-26.dahlia"
 WEBHOOK_EVENTS = [
     "checkout.session.completed",
     "checkout.session.async_payment_succeeded",
+    "checkout.session.expired",
     "invoice.paid",
     "invoice.payment_failed",
     "customer.subscription.created",
@@ -207,6 +208,23 @@ def cmd_portal(args) -> int:
     return 0
 
 
+def cmd_promo(args) -> int:
+    """Create the first-order promotion code (settings.capture_code / capture_pct) in Stripe, once."""
+    from nomad_db import query  # noqa: E402
+
+    rows = {r["key"]: r["value"] for r in query("SELECT key, value FROM settings WHERE key IN ('capture_code','capture_pct')")}
+    code = (args.code or rows.get("capture_code") or "WELCOME10").upper()
+    pct = int(args.pct or rows.get("capture_pct") or 10)
+    existing = stripe("GET", f"/promotion_codes?code={code}&limit=1").get("data", [])
+    if existing:
+        print(f"promotion code {code} exists: {existing[0]['id']} (active={existing[0].get('active')})")
+        return 0
+    coupon = stripe("POST", "/coupons", {"percent_off": pct, "duration": "once", "name": f"First order {pct}% off"})
+    promo = stripe("POST", "/promotion_codes", {"promotion_code": code, "coupon": coupon["id"], "restrictions": {"first_time_transaction": True}})
+    print(f"created coupon {coupon['id']} + promotion code {code} ({promo['id']}), first-time customers only")
+    return 0
+
+
 def cmd_tax_check(args) -> int:
     settings = stripe("GET", "/tax/settings")
     regs = stripe("GET", "/tax/registrations?limit=100").get("data", [])
@@ -228,8 +246,9 @@ def main(argv=None) -> int:
     p = sub.add_parser("webhook"); p.add_argument("--url")
     sub.add_parser("portal")
     sub.add_parser("tax-check")
+    p = sub.add_parser("promo"); p.add_argument("--code"); p.add_argument("--pct", type=int)
     args = parser.parse_args(argv)
-    return {"whoami": cmd_whoami, "gen-secrets": cmd_gen_secrets, "plan": cmd_plan, "webhook": cmd_webhook, "portal": cmd_portal, "tax-check": cmd_tax_check}[args.cmd](args)
+    return {"whoami": cmd_whoami, "gen-secrets": cmd_gen_secrets, "plan": cmd_plan, "webhook": cmd_webhook, "portal": cmd_portal, "tax-check": cmd_tax_check, "promo": cmd_promo}[args.cmd](args)
 
 
 if __name__ == "__main__":
