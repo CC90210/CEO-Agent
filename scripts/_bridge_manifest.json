@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-09-18T18:13:32.675371+00:00",
-  "script_count": 169,
-  "entry_count": 352,
+  "generated_at_iso": "2026-09-19T03:07:18.357874+00:00",
+  "script_count": 170,
+  "entry_count": 354,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1010,6 +1010,22 @@
       "subcmd": null,
       "mutating": true,
       "help": "git_push_tool \u2014 push a branch using the PAT from `.env.agents`, without the"
+    },
+    {
+      "key": "github_repo_tool_create",
+      "path": "scripts/github_repo_tool.py",
+      "root": "bravo",
+      "subcmd": "create",
+      "mutating": true,
+      "help": "Create or inspect a GitHub repository with the PAT from the agents env. \u2014 subcommand: create"
+    },
+    {
+      "key": "github_repo_tool_get",
+      "path": "scripts/github_repo_tool.py",
+      "root": "bravo",
+      "subcmd": "get",
+      "mutating": true,
+      "help": "Create or inspect a GitHub repository with the PAT from the agents env. \u2014 subcommand: get"
     },
     {
       "key": "gnn_skill_router_export_graph",
