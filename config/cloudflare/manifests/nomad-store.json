@@ -1,0 +1,11 @@
+{
+  "secrets": [
+    { "key": "NOMAD_TURSO_DATABASE_URL", "source": "NOMAD_TURSO_DATABASE_URL", "scope": "runtime" },
+    { "key": "NOMAD_TURSO_AUTH_TOKEN", "source": "NOMAD_TURSO_AUTH_TOKEN", "scope": "runtime" },
+    { "key": "APP_URL", "source": "NOMAD_STORE__APP_URL", "scope": "runtime" },
+    { "key": "SESSION_SECRET", "source": "NOMAD_STORE__SESSION_SECRET", "scope": "runtime" },
+    { "key": "WORKER_SHARED_SECRET", "source": "NOMAD_STORE__WORKER_SHARED_SECRET", "scope": "runtime" },
+    { "key": "STRIPE_SECRET_KEY", "source": "NOMAD_STRIPE_SECRET_KEY", "scope": "runtime" },
+    { "key": "STRIPE_WEBHOOK_SECRET", "source": "NOMAD_STRIPE_WEBHOOK_SECRET", "scope": "runtime" }
+  ]
+}
