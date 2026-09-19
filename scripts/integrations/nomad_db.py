@@ -235,55 +235,25 @@ def cmd_queues(args) -> int:
 
 
 def cmd_seed_demo(args) -> int:
-    """Seed one complete demo product (draft) so the storefront can be reviewed. Idempotent on slug."""
-    import uuid
+    """Run the app's own seed (scripts/seed-demo.ts) against the live DB, credentials injected.
 
-    slug = "demo-product"
-    if query("SELECT id FROM products WHERE slug = ?", [slug]):
-        print(f"demo product exists: /p/{slug}")
-        return 0
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    pid = "prd_" + uuid.uuid4().hex[:21]
-    sections = [
-        ("benefits", {"heading": "Built for the daily ritual", "items": [
-            {"title": "Small-batch, every month", "body": "Made in small runs and shipped fresh on your schedule, so what arrives is what it should be."},
-            {"title": "One less thing to remember", "body": "You'll never run out again. It shows up before you need it, and you can skip a month in two taps."},
-            {"title": "Stop whenever", "body": "Pause, skip, change frequency or cancel from your account. No calls, no forms, no guilt."}]}),
-        ("how_it_works", {"heading": "How it works", "steps": [
-            {"title": "Pick your plan", "body": "One, two or three — subscribe and save, or buy once."},
-            {"title": "We ship it", "body": "Leaves a US warehouse within 1–3 business days with tracking."},
-            {"title": "Adjust anytime", "body": "Skip, pause, change frequency, cancel — all from your account."}]}),
-        ("comparison", {"heading": "Why people switch", "usLabel": "Here", "themLabel": "Elsewhere", "rows": [
-            {"label": "Delivery", "us": "Monthly, free", "them": "Reorder manually"},
-            {"label": "Guarantee", "us": "30 days, no return", "them": "Restocking fees"},
-            {"label": "Cancel", "us": "Two taps", "them": "Phone during business hours"}]}),
-        ("specs", {"heading": "What's in the box", "rows": [{"label": "Quantity", "value": "1 unit (30-day supply)"}, {"label": "Ships from", "value": "United States"}]}),
-        ("guarantee", {"heading": "Love it or we make it right", "body": ""}),
-        ("reviews", {"heading": "What customers say"}),
-        ("faq", {"heading": "Questions", "items": [
-            {"q": "How does the subscription work?", "a": "You're charged today and then the same amount monthly until you cancel. Subscribers get the lower price and free shipping."},
-            {"q": "How do I cancel?", "a": "From your account in two taps, or reply 'cancel' to any email from us. No fees, no minimum term."},
-            {"q": "When will it arrive?", "a": "Orders leave within 1–3 business days and typically arrive in 3–8. You get a tracking link by email."}]}),
-        ("cta", {"heading": "Ready when you are", "body": "Start with one. Pause or cancel any time."}),
-    ]
-    tiers = [(1, "Starter", None, 3900, None, 3100, 0), (2, "Most popular", "Most popular", 6900, 7800, 5500, 1), (3, "Best value", "Save 25%", 8900, 11700, 7100, 0)]
-    stmts = ["INSERT INTO products (id, slug, status, name, tagline, hero_headline, hero_subhead, hero_bullets_json, unit_label, supplier_json, created_at, updated_at) VALUES (?, ?, 'draft', ?, ?, ?, ?, ?, 'bag', ?, ?, ?)"]
-    argv = [[pid, slug, "Demo Product", "A month of something good, on repeat.", "The one you'll actually keep using.",
-             "A demo landing page showing every section, tier and the subscribe-and-save offer. Replace this copy with the real product.",
-             json.dumps(["Ships free on subscription", "30-day guarantee, no return needed", "Pause or cancel in two taps"]),
-             json.dumps({"adapter": "manual", "warehouse": "US"}), now, now]]
-    for i, (t, data) in enumerate(sections):
-        stmts.append("INSERT INTO product_sections (id, product_id, position, type, enabled, data_json, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)")
-        argv.append(["sec_" + uuid.uuid4().hex[:21], pid, i, t, json.dumps(data), now])
-    for i, (units, label, badge, one, cmp, sub, dflt) in enumerate(tiers):
-        stmts.append("INSERT INTO product_tiers (id, product_id, position, units, label, badge, onetime_cents, compare_at_cents, subscribe_cents, is_default, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        argv.append(["tier_" + uuid.uuid4().hex[:21], pid, i, units, label, badge, one, cmp, sub, dflt, now])
-    for author, rating, title, body in [("Maya", 5, "Exactly what it says.", "Second month in and it just shows up. Skipped one when I was travelling — took two taps."), ("Daniel", 4, "Good, honest product.", "Quality is consistent. Wish the box were smaller, but that's a nitpick."), ("Priya", 5, "Cancelled and came back.", "Cancelled after month one because I overbought, resubscribed a month later. No drama either way.")]:
-        stmts.append("INSERT INTO reviews (id, product_id, author, rating, title, body, verified, incentivized, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'approved', ?)")
-        argv.append(["rev_" + uuid.uuid4().hex[:21], pid, author, rating, title, body, now])
-    execute(stmts, argv)
-    print(f"seeded demo product {pid} at /p/{slug} (draft). Demo reviews are unverified placeholders — delete before launch.")
-    return 0
+    One source of truth for the demo content: the TypeScript seed the local-dev
+    path already uses. This verb only supplies the Turso credentials the TS
+    script cannot read on this machine (they live in the agents env store).
+    """
+    import os
+    import subprocess
+
+    sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "integrations"))
+    from wrangler_tool import _npx  # noqa: E402
+
+    env = load_env()
+    child = {**os.environ, URL_KEY: env[URL_KEY], TOKEN_KEY: env.get(TOKEN_KEY, "")}
+    proc = subprocess.run([_npx(), "tsx", "scripts/seed-demo.ts"], cwd=str(site_repo()), env=child,
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
+    out = (proc.stdout + proc.stderr).strip()
+    print(out[-800:] if out else "(no output)")
+    return proc.returncode
 
 
 def cmd_set_status(args) -> int:

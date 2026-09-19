@@ -162,7 +162,18 @@ def cmd_plan(args) -> int:
             print(f"  {'ok   ' if ok else 'DRIFT'} {t['slug']} {t['label']} {mode}: db={want} stripe={have} active={price.get('active')} recurring={is_rec}")
             if not ok:
                 drift += 1
-    print(f"\n{len(tiers)} tiers checked, {drift} drift" if tiers else "no live/unlisted tiers to check")
+    # The first-order code is shown to shoppers by the capture modal; if it does not exist in
+    # Stripe, Checkout rejects it in front of the customer. That is drift, not a to-do.
+    settings = {r["key"]: r["value"] for r in query("SELECT key, value FROM settings WHERE key IN ('capture_enabled','capture_code')")}
+    if settings.get("capture_enabled", "1") == "1":
+        code = (settings.get("capture_code") or "WELCOME10").upper()
+        found = stripe("GET", f"/promotion_codes?code={code}&limit=1").get("data", [])
+        if found and found[0].get("active"):
+            print(f"  ok    promo {code} exists and is active")
+        else:
+            print(f"  DRIFT promo {code}: {'inactive' if found else 'missing'} in Stripe — run: nomad_stripe_setup.py promo")
+            drift += 1
+    print(f"\n{len(tiers)} tiers checked, {drift} drift" if tiers else f"no live/unlisted tiers to check, {drift} drift")
     return 1 if drift else 0
 
 
