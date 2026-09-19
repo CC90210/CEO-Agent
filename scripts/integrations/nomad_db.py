@@ -58,13 +58,26 @@ def _endpoint_and_token() -> tuple[str, str | None]:
     return url.replace("libsql://", "https://").rstrip("/") + "/v2/pipeline", env.get(TOKEN_KEY)
 
 
+def _typed(v) -> dict:
+    """A bound argument in Turso's pipeline wire format, typed rather than stringified."""
+    if v is None:
+        return {"type": "null"}
+    if isinstance(v, bool):
+        return {"type": "integer", "value": "1" if v else "0"}
+    if isinstance(v, int):
+        return {"type": "integer", "value": str(v)}
+    if isinstance(v, float):
+        return {"type": "float", "value": v}
+    return {"type": "text", "value": str(v)}
+
+
 def execute(statements: list[str], args_per: list[list] | None = None) -> list[dict]:
     endpoint, token = _endpoint_and_token()
     reqs = []
     for i, s in enumerate(statements):
         stmt: dict = {"sql": s}
         if args_per and args_per[i]:
-            stmt["args"] = [{"type": "text", "value": str(v)} if v is not None else {"type": "null"} for v in args_per[i]]
+            stmt["args"] = [_typed(v) for v in args_per[i]]
         reqs.append({"type": "execute", "stmt": stmt})
     reqs.append({"type": "close"})
     req = urllib.request.Request(
