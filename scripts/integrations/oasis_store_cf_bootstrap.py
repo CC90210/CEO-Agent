@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-"""Create nomad-store's Cloudflare resources (R2 bucket + KV namespace) and stamp the KV id.
+"""Create oasis-store's Cloudflare resources (R2 bucket + KV namespace) and stamp the KV id.
 
-    python scripts/integrations/nomad_cf_bootstrap.py
+    python scripts/integrations/oasis_store_cf_bootstrap.py
 
 Reuses wrangler_tool's token injection (_wrangler_env) so the Cloudflare token
 never leaves the child process. Idempotent: an existing bucket/namespace is
@@ -22,8 +22,8 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "integrations"))
 import wrangler_tool as wt  # noqa: E402
 from lib.app_registry import app_dir  # noqa: E402
 
-SLUG = "nomad-store"
-BUCKET = "nomad-store-media"
+SLUG = "oasis-store"
+BUCKET = "oasis-store-media"
 KV_TITLE = "STORE_KV"
 
 

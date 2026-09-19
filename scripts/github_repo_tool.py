@@ -89,13 +89,26 @@ def cmd_create(args) -> int:
     return 0
 
 
+def cmd_rename(args) -> int:
+    """Rename a repo. GitHub redirects the old URL, but a stale `origin` still says the old name."""
+    login = owner()
+    status, repo = gh("PATCH", f"/repos/{login}/{args.name}", {"name": args.to})
+    if status != 200:
+        print(f"rename failed: HTTP {status} {repo.get('message')}")
+        return 1
+    print(f"renamed: {login}/{args.name} -> {repo['full_name']} ({repo['clone_url']})")
+    print(f"update the local remote: git -C <repo> remote set-url origin {repo['clone_url']}")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("create"); p.add_argument("--name", required=True); p.add_argument("--public", action="store_true"); p.add_argument("--description")
     p = sub.add_parser("get"); p.add_argument("--name", required=True)
+    p = sub.add_parser("rename"); p.add_argument("--name", required=True); p.add_argument("--to", required=True)
     args = parser.parse_args(argv)
-    return {"create": cmd_create, "get": cmd_get}[args.cmd](args)
+    return {"create": cmd_create, "get": cmd_get, "rename": cmd_rename}[args.cmd](args)
 
 
 if __name__ == "__main__":

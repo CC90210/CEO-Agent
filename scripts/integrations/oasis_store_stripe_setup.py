@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-"""Provision the nomad-store Stripe account (its OWN account — never OASIS/PropFlow/Nostalgic).
+"""Provision the oasis-store Stripe account (its OWN account — never OASIS/PropFlow/Nostalgic).
 
-    python scripts/integrations/nomad_stripe_setup.py whoami                  # which account the key belongs to
-    python scripts/integrations/nomad_stripe_setup.py plan                    # diff catalog tiers (Turso) vs live Stripe Prices; exit 1 on drift
-    python scripts/integrations/nomad_stripe_setup.py webhook [--url URL]     # create the endpoint; writes NOMAD_STRIPE_WEBHOOK_SECRET into the agents env (never printed)
-    python scripts/integrations/nomad_stripe_setup.py portal                  # Customer Portal: payment-method + invoices only; cancellation runs in our UI
-    python scripts/integrations/nomad_stripe_setup.py tax-check               # Stripe Tax status + registrations
+    python scripts/integrations/oasis_store_stripe_setup.py whoami                  # which account the key belongs to
+    python scripts/integrations/oasis_store_stripe_setup.py plan                    # diff catalog tiers (Turso) vs live Stripe Prices; exit 1 on drift
+    python scripts/integrations/oasis_store_stripe_setup.py webhook [--url URL]     # create the endpoint; writes OASIS_STORE_STRIPE_WEBHOOK_SECRET into the agents env (never printed)
+    python scripts/integrations/oasis_store_stripe_setup.py portal                  # Customer Portal: payment-method + invoices only; cancellation runs in our UI
+    python scripts/integrations/oasis_store_stripe_setup.py tax-check               # Stripe Tax status + registrations
 
-Key: NOMAD_STRIPE_SECRET_KEY in the agents env. The webhook secret is written
+Key: OASIS_STORE_STRIPE_SECRET_KEY in the agents env. The webhook secret is written
 straight from Stripe's creation response into .env.agents via the same
 _write_env pattern arthrisil_stripe_setup uses — key NAMES only on stdout.
 """
@@ -28,8 +28,8 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 from lib.secret_loader import load_env  # noqa: E402
 
-KEY_NAME = "NOMAD_STRIPE_SECRET_KEY"
-WEBHOOK_KEY_NAME = "NOMAD_STRIPE_WEBHOOK_SECRET"
+KEY_NAME = "OASIS_STORE_STRIPE_SECRET_KEY"
+WEBHOOK_KEY_NAME = "OASIS_STORE_STRIPE_WEBHOOK_SECRET"
 API = "https://api.stripe.com/v1"
 API_VERSION = "2026-08-26.dahlia"
 WEBHOOK_EVENTS = [
@@ -113,14 +113,14 @@ def cmd_gen_secrets(args) -> int:
 
     env = load_env()
     pairs: dict[str, str] = {}
-    if not env.get("NOMAD_STORE__SESSION_SECRET"):
-        pairs["NOMAD_STORE__SESSION_SECRET"] = _secrets.token_urlsafe(48)
-    if not env.get("NOMAD_STORE__WORKER_SHARED_SECRET"):
-        pairs["NOMAD_STORE__WORKER_SHARED_SECRET"] = _secrets.token_urlsafe(48)
-    if not env.get("NOMAD_STORE__APP_URL"):
-        pairs["NOMAD_STORE__APP_URL"] = args.app_url or "https://nomad-store.oasisaisolutions.workers.dev"
+    if not env.get("OASIS_STORE__SESSION_SECRET"):
+        pairs["OASIS_STORE__SESSION_SECRET"] = _secrets.token_urlsafe(48)
+    if not env.get("OASIS_STORE__WORKER_SHARED_SECRET"):
+        pairs["OASIS_STORE__WORKER_SHARED_SECRET"] = _secrets.token_urlsafe(48)
+    if not env.get("OASIS_STORE__APP_URL"):
+        pairs["OASIS_STORE__APP_URL"] = args.app_url or "https://oasis-store.oasisaisolutions.workers.dev"
     if not pairs:
-        print("all present: NOMAD_STORE__SESSION_SECRET, NOMAD_STORE__WORKER_SHARED_SECRET, NOMAD_STORE__APP_URL")
+        print("all present: OASIS_STORE__SESSION_SECRET, OASIS_STORE__WORKER_SHARED_SECRET, OASIS_STORE__APP_URL")
         return 0
     written = _write_env(pairs)
     print(f"wrote {', '.join(written)} to the agents env (values not shown)")
@@ -140,7 +140,7 @@ def cmd_whoami(args) -> int:
 
 
 def cmd_plan(args) -> int:
-    from nomad_db import query  # noqa: E402  (same folder)
+    from oasis_store_db import query  # noqa: E402  (same folder)
 
     tiers = query(
         "SELECT p.slug, t.id, t.label, t.units, t.onetime_cents, t.subscribe_cents, t.stripe_onetime_price_id, t.stripe_subscribe_price_id "
@@ -171,26 +171,26 @@ def cmd_plan(args) -> int:
         if found and found[0].get("active"):
             print(f"  ok    promo {code} exists and is active")
         else:
-            print(f"  DRIFT promo {code}: {'inactive' if found else 'missing'} in Stripe — run: nomad_stripe_setup.py promo")
+            print(f"  DRIFT promo {code}: {'inactive' if found else 'missing'} in Stripe — run: oasis_store_stripe_setup.py promo")
             drift += 1
     print(f"\n{len(tiers)} tiers checked, {drift} drift" if tiers else f"no live/unlisted tiers to check, {drift} drift")
     return 1 if drift else 0
 
 
 def cmd_webhook(args) -> int:
-    url = args.url or f"{load_env().get('NOMAD_STORE__APP_URL', 'https://nomad-store.oasisaisolutions.workers.dev').rstrip('/')}/api/stripe/webhook"
+    url = args.url or f"{load_env().get('OASIS_STORE__APP_URL', 'https://oasis-store.oasisaisolutions.workers.dev').rstrip('/')}/api/stripe/webhook"
     existing = stripe("GET", "/webhook_endpoints?limit=100").get("data", [])
     for e in existing:
         if e.get("url") == url:
             print(f"webhook already exists: {e['id']} → {url} (secret only shown at creation; delete it in the dashboard to rotate)")
             return 0
-    created = stripe("POST", "/webhook_endpoints", {"url": url, "enabled_events": WEBHOOK_EVENTS, "api_version": API_VERSION, "description": "nomad-store"})
+    created = stripe("POST", "/webhook_endpoints", {"url": url, "enabled_events": WEBHOOK_EVENTS, "api_version": API_VERSION, "description": "oasis-store"})
     secret = created.get("secret")
     if not secret:
         raise SystemExit("Stripe returned no signing secret")
     written = _write_env({WEBHOOK_KEY_NAME: secret})
     print(f"created {created['id']} → {url}")
-    print(f"wrote {', '.join(written)} to the agents env (value not shown). Next: wrangler_tool.py secrets-push --app nomad-store")
+    print(f"wrote {', '.join(written)} to the agents env (value not shown). Next: wrangler_tool.py secrets-push --app oasis-store")
     return 0
 
 
@@ -207,7 +207,7 @@ def cmd_portal(args) -> int:
             "subscription_cancel": {"enabled": False},
             "subscription_update": {"enabled": False},
         },
-        "default_return_url": f"{load_env().get('NOMAD_STORE__APP_URL', 'https://nomad-store.oasisaisolutions.workers.dev').rstrip('/')}/account",
+        "default_return_url": f"{load_env().get('OASIS_STORE__APP_URL', 'https://oasis-store.oasisaisolutions.workers.dev').rstrip('/')}/account",
     }
     target = next((c for c in cfgs if c.get("is_default")), None)
     if target:
@@ -221,7 +221,7 @@ def cmd_portal(args) -> int:
 
 def cmd_promo(args) -> int:
     """Create the first-order promotion code (settings.capture_code / capture_pct) in Stripe, once."""
-    from nomad_db import query  # noqa: E402
+    from oasis_store_db import query  # noqa: E402
 
     rows = {r["key"]: r["value"] for r in query("SELECT key, value FROM settings WHERE key IN ('capture_code','capture_pct')")}
     code = (args.code or rows.get("capture_code") or "WELCOME10").upper()

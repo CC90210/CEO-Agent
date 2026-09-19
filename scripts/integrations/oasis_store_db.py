@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-"""Operate on the nomad-store Turso database (migrations, invites, ops reads).
+"""Operate on the oasis-store Turso database (migrations, invites, ops reads).
 
-    python scripts/integrations/nomad_db.py migrate            # apply every database/*.sql not yet in the ledger
-    python scripts/integrations/nomad_db.py tables
-    python scripts/integrations/nomad_db.py invite             # mint a 24h admin invite link (prints the URL)
-    python scripts/integrations/nomad_db.py orders  [--limit 20] [--json]
-    python scripts/integrations/nomad_db.py subs    [--json]
-    python scripts/integrations/nomad_db.py queues  [--json]   # outbox / fulfilment / pending approvals
-    python scripts/integrations/nomad_db.py set-status --slug <slug> --status draft|unlisted|live|retired
+    python scripts/integrations/oasis_store_db.py migrate            # apply every database/*.sql not yet in the ledger
+    python scripts/integrations/oasis_store_db.py tables
+    python scripts/integrations/oasis_store_db.py invite             # mint a 24h admin invite link (prints the URL)
+    python scripts/integrations/oasis_store_db.py orders  [--limit 20] [--json]
+    python scripts/integrations/oasis_store_db.py subs    [--json]
+    python scripts/integrations/oasis_store_db.py queues  [--json]   # outbox / fulfilment / pending approvals
+    python scripts/integrations/oasis_store_db.py set-status --slug <slug> --status draft|unlisted|live|retired
 
 Same ledger shape as the app's own scripts/migrate.ts (schema_migrations: filename,
 checksum, applied_at, statements) so the two paths never disagree. Checksum
@@ -41,9 +41,9 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from lib.app_registry import app_dir  # noqa: E402
 from lib.secret_loader import load_env  # noqa: E402
 
-APP_SLUG = "nomad-store"
-URL_KEY = "NOMAD_TURSO_DATABASE_URL"
-TOKEN_KEY = "NOMAD_TURSO_AUTH_TOKEN"
+APP_SLUG = "oasis-store"
+URL_KEY = "OASIS_STORE_TURSO_DATABASE_URL"
+TOKEN_KEY = "OASIS_STORE_TURSO_AUTH_TOKEN"
 
 
 def site_repo() -> Path:
@@ -54,7 +54,7 @@ def _endpoint_and_token() -> tuple[str, str | None]:
     env = load_env()
     url = env.get(URL_KEY)
     if not url:
-        raise SystemExit(f"{URL_KEY} is not set in the agents env store (run turso_admin.py create --db nomad-store --write-env)")
+        raise SystemExit(f"{URL_KEY} is not set in the agents env store (run turso_admin.py create --db oasis-store --write-env)")
     return url.replace("libsql://", "https://").rstrip("/") + "/v2/pipeline", env.get(TOKEN_KEY)
 
 
@@ -83,7 +83,7 @@ def execute(statements: list[str], args_per: list[list] | None = None) -> list[d
     req = urllib.request.Request(
         endpoint,
         data=json.dumps({"requests": reqs}).encode(),
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": "nomad-db/1.0"},
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": "oasis-store-db/1.0"},
         method="POST",
     )
     try:
@@ -193,7 +193,7 @@ def cmd_invite(args) -> int:
         ["INSERT INTO admin_invites (invite_hash, expires_at) VALUES (?, datetime('now', '+1 day'))"],
         [[digest]],
     )
-    origin = load_env().get("NOMAD_STORE__APP_URL", "https://nomad-store.oasisaisolutions.workers.dev").rstrip("/")
+    origin = load_env().get("OASIS_STORE__APP_URL", "https://oasis-store.oasisaisolutions.workers.dev").rstrip("/")
     print(f"{origin}/admin/invite/{code}")
     print("(valid 24h, single use — creates the OWNER account)")
     return 0

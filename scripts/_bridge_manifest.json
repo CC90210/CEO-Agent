@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-09-19T03:21:52.541522+00:00",
+  "generated_at_iso": "2026-09-19T17:28:51.957115+00:00",
   "script_count": 170,
-  "entry_count": 354,
+  "entry_count": 355,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1026,6 +1026,14 @@
       "subcmd": "get",
       "mutating": true,
       "help": "Create or inspect a GitHub repository with the PAT from the agents env. \u2014 subcommand: get"
+    },
+    {
+      "key": "github_repo_tool_rename",
+      "path": "scripts/github_repo_tool.py",
+      "root": "bravo",
+      "subcmd": "rename",
+      "mutating": true,
+      "help": "Create or inspect a GitHub repository with the PAT from the agents env. \u2014 subcommand: rename"
     },
     {
       "key": "gnn_skill_router_export_graph",
