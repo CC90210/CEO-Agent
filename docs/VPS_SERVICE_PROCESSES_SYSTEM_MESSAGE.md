@@ -47,6 +47,41 @@ Verified without shell access, so these are facts rather than assumptions:
 - The other twelve PM2 daemons **cannot be seen from here at all.** Do not
   assume they are running because the consumer is.
 
+## THE BRIDGE ON THIS BOX IS DOWN, AND IT IS THE FIRST THING TO FIX
+
+`bridge_pairings` for tenant `aa04fa1f`:
+
+    label            srv1723601 (Linux)
+    last_seen_at     2026-09-15T17:39:28.835Z
+    last_seen_ip     2.25.159.226
+    revoked_at       null
+
+That pairing is not revoked. It simply stopped polling, four days ago, and
+**every SunBiz tenant cron has been dead since that minute** — Shop-Out Sender
+(scheduled every single minute), Cold Outreach Runner, Health Check, Renewal
+Reminder, Daily Plan Generator, Follow-up Generator. All `enabled = 1`. All
+`last_run_status = success`, because the last time they ran they succeeded and
+nothing has updated the row since. A green status column on a dead process.
+
+The architecture is why nothing else could cover for it: `/api/cron-jobs/poll`
+only DELIVERS the spec. The bridge on this box resolves the jobs into the local
+`cron_engine.py` and ticks them here, then POSTs the outcome back, which is what
+stamps `last_run_at`. No bridge, no execution — and the Cloudflare cron Worker
+knows nothing about tenant crons, so fixing the Empire side (which I did on
+2026-09-19; it had been 401ing for the same four days) does not touch these.
+
+Both halves died on 2026-09-15, hours apart. Treat that as one event until you
+can prove otherwise — a credential rotation that day fits both symptoms, and if
+the bridge is failing AUTH rather than simply stopped, a restart will not fix
+it and it needs re-pairing instead.
+
+First two commands after you get in:
+
+```bash
+pm2 list                      # is the bridge process even there
+pm2 logs <bridge> --lines 200 # 401s mean re-pair; a crash loop means something else
+```
+
 ## A dead consumer now pages, with no SSH
 
 `forms.extraction_queue_stalled` (oasis-command-center, `lib/health/form-checks.ts`)
