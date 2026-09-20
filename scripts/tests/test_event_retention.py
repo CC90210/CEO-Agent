@@ -23,6 +23,17 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
 from core import event_retention as er  # noqa: E402
+from lib.event_scope import box_scope  # noqa: E402
+
+# These rows are Bravo's own tenantless events, so they are the OASIS box's to
+# retire. Which box retires which company's rows is pinned in
+# test_event_company_scope.py.
+OASIS_BOX = box_scope({"GMAIL_USER": "conaugh@oasisai.work"})
+
+
+@pytest.fixture(autouse=True)
+def _on_the_oasis_box(monkeypatch):
+    monkeypatch.setattr(er, "_host_scope", lambda: OASIS_BOX)
 
 
 class FakeQuery:
@@ -37,6 +48,7 @@ class FakeQuery:
     def __init__(self, rows, recorder):
         self._rows, self._rec = rows, recorder
         self._eq = {}
+        self._in = {}
         self._pending_write = None
 
     def select(self, *_a, **_k):
@@ -44,6 +56,10 @@ class FakeQuery:
 
     def eq(self, col, val):
         self._eq[col] = val
+        return self
+
+    def in_(self, col, vals):
+        self._in[col] = list(vals)
         return self
 
     def limit(self, _n):
@@ -64,7 +80,8 @@ class FakeQuery:
             return type("R", (), {"data": []})()
         rows = [r for r in self._rows
                 if all(r.get(k) == v for k, v in self._eq.items()
-                       if k in ("status", "event_type"))]
+                       if k in ("status", "event_type"))
+                and all(r.get(k) in vals for k, vals in self._in.items())]
         return type("R", (), {"data": rows})()
 
 
@@ -79,6 +96,7 @@ class FakeDB:
 def _row(days_old: float, etype="X", rid="1"):
     ts = datetime.now(timezone.utc) - timedelta(days=days_old)
     return {"id": rid, "event_type": etype, "status": "pending",
+            "publisher_agent": "bravo",
             "published_at": ts.isoformat(), "created_at": None}
 
 
@@ -145,7 +163,7 @@ def test_only_rows_older_than_the_cutoff_are_selected(db):
 
 def test_undateable_rows_are_left_alone(db):
     """Never guess that a row with no usable timestamp is old."""
-    db([{"id": "x", "event_type": "X", "status": "pending",
+    db([{"id": "x", "event_type": "X", "status": "pending", "publisher_agent": "bravo",
          "published_at": None, "created_at": None}])
     assert er.sweep(days=30, apply=True)["stale_found"] == 0
 
@@ -154,7 +172,7 @@ def test_created_at_is_used_when_published_at_is_missing(db):
     """Producers populate these inconsistently — an external producer may set
     only one, and ignoring created_at would make those rows immortal."""
     ts = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
-    db([{"id": "x", "event_type": "X", "status": "pending",
+    db([{"id": "x", "event_type": "X", "status": "pending", "publisher_agent": "bravo",
          "published_at": None, "created_at": ts}])
     assert er.sweep(days=30, apply=False)["stale_found"] == 1
 

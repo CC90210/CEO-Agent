@@ -66,6 +66,10 @@ except Exception:
         def critical(self, *_a, **_k): pass
     _slog = _StubSlog()
 
+# Which rows are this box's company's. A hard import on purpose: a router that
+# cannot tell the companies apart must not start, rather than log everyone's.
+from lib.event_scope import BoxScope, box_scope, event_belongs_to  # noqa: E402
+
 
 def _env_int(name: str, default: int) -> int:
     """Operator tunable. A typo must be loud, not silently reinterpreted — a
@@ -420,18 +424,77 @@ def _admit(keys: dict, key: str, event_type: str, severity: str, now: datetime) 
     return False
 
 
+_SCOPE_WARNED: set[str] = set()
+
+
+def _host_scope() -> BoxScope:
+    """The company this box works for, from the env the DB client reads.
+
+    Never raises: a box that cannot tell its company routes nothing, and says
+    so, rather than logging every company's events.
+    """
+    try:
+        from lib.secret_loader import load_env
+        return box_scope(load_env())
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write("[event_router] cannot read this box's env to find its "
+                         f"company: {type(e).__name__}: {e}\n")
+        _slog.error("host_scope_unavailable", error=f"{type(e).__name__}: {e}"[:200])
+        return BoxScope(None, "", frozenset())
+
+
+def _key_tenant(key: str) -> str | None:
+    """The tenant a suppression key names, if its identity includes one."""
+    for part in key.split("|")[1:]:
+        if part.startswith("tenant_id="):
+            value = part[len("tenant_id="):].strip().lower()
+            return value if value not in ("", "-") else None
+    return None
+
+
+def _drop_other_company_windows(keys: dict, scope: BoxScope) -> int:
+    """Forget suppression windows opened for another company's tenant.
+
+    Windows opened before this router was scoped carry the other company's
+    tenant and phone number in their key. Closing one the normal way would
+    write a last rollup about that company into this box's log, so they are
+    dropped without one: this box owes that company no report.
+    """
+    dropped = 0
+    for key in list(keys):
+        tenant = _key_tenant(key)
+        if tenant is not None and tenant not in scope.tenants:
+            del keys[key]
+            dropped += 1
+    return dropped
+
+
 def tick(verbose: bool = False) -> int:
     """One poll cycle. Returns count of events routed.
 
-    Every row still advances the cursor and still counts as routed — suppression
-    governs only how many of them get their own line in the tail.
+    Only rows that belong to this box's company are routed (lib/event_scope).
+    Every row, routed or passed over, advances the cursor, so another company's
+    rows are skipped once and never re-read. Suppression governs only how many
+    routed rows get their own line in the tail.
     """
     now = datetime.now(timezone.utc)
+    scope = _host_scope()
+    if scope.company is None:
+        mailbox = scope.mailbox or "<unset>"
+        if mailbox not in _SCOPE_WARNED:
+            _SCOPE_WARNED.add(mailbox)
+            sys.stderr.write(
+                f"[event_router] REFUSING TO ROUTE: host mailbox {mailbox!r} belongs "
+                "to no registered company, so no event on the bus is this box's to "
+                "log. Point GMAIL_USER at a mailbox on a domain in "
+                "lib/tenant_brand.BRAND_SENDING_DOMAIN.\n")
+        return 0
     suppress = _load_suppress_state()
+    dirty = _drop_other_company_windows(suppress, scope) > 0
     # Sweep first, before anything that can fail: a closed window's rollup is
     # owed to the operator even on a tick with no rows and even while the DB is
     # unreachable, which is exactly when a flood tends to stop.
-    dirty = _sweep_suppress_windows(suppress, now) > 0
+    dirty = _sweep_suppress_windows(suppress, now) > 0 or dirty
 
     client = _client()
     if client is None:
@@ -447,7 +510,7 @@ def tick(verbose: bool = False) -> int:
             client.table("agent_events")
             .select(
                 "id, event_type, source_agent, publisher_agent, target_agent, "
-                "severity, payload, published_at, created_at, status",
+                "severity, payload, correlation_id, published_at, created_at, status",
             )
             .gt("created_at", cursor)
             .order("created_at", desc=False)
@@ -471,9 +534,18 @@ def tick(verbose: bool = False) -> int:
 
     routed = 0
     withheld = 0
+    passed_over = 0
     latest = cursor
     for ev in rows:
+        # The cursor passes every row, including the ones skipped below: a
+        # skipped row that held it back would be re-read on every tick.
+        ts = ev.get("created_at") or ""
+        if ts > latest:
+            latest = ts
         payload = _payload_dict(ev)
+        if not event_belongs_to(ev, scope, payload):
+            passed_over += 1
+            continue
         projected = _project(ev, payload)
         if _admit(suppress, _suppress_key(ev, payload),
                   projected["event_type"], projected["severity"], now):
@@ -484,15 +556,15 @@ def tick(verbose: bool = False) -> int:
                       flush=True)
         else:
             withheld += 1
-        ts = ev.get("created_at") or ""
-        if ts > latest:
-            latest = ts
         routed += 1
 
     _save_suppress_state(suppress)
     if verbose and withheld:
         sys.stderr.write(f"[event_router] {withheld} line(s) withheld this tick "
                          f"(see `suppressed` for open windows)\n")
+    if verbose and passed_over:
+        sys.stderr.write(f"[event_router] {passed_over} row(s) belong to another "
+                         f"company or to none; passed over\n")
     _write_cursor(latest)
     return routed
 
