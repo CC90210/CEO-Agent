@@ -2,11 +2,66 @@
 
 Paste everything below into the agent running on `srv1723601`.
 
-Written 2026-09-18 by Bravo, from CC's box. **I could not verify any of it
-live** — `ssh sunbiz-vps` returns `Permission denied (publickey)` from my
-session. Every VPS fact here is from `reference_sunbiz_extraction_vps_deploy_facts`
-and the repo, and is dated. **Verify before acting on it.** Where a claim is
-stale, correct this file rather than working around it.
+Written 2026-09-18 by Bravo, from CC's box. Updated 2026-09-19 with what could
+be established **without** shell access — see "What is known from outside"
+below. Every claim about the inside of the box is from
+`reference_sunbiz_extraction_vps_deploy_facts` and the repo, and is dated.
+**Verify before acting on it.** Where a claim is stale, correct this file
+rather than working around it.
+
+## The one thing CC has to do: re-authorize the key
+
+`ssh sunbiz-vps` returns `Permission denied (publickey)` for both keys on this
+machine. This is not a network problem and not a rebuild:
+
+- DNS and the Hostinger API agree on the address (`2.25.159.226`).
+- The host keys are **byte-identical** to what `known_hosts` recorded before.
+  Same machine, same sshd, same install. Nothing was reimaged.
+- sshd answers on 22 and offers `publickey`. The key is offered and refused, so
+  it is simply no longer in root's `authorized_keys`.
+
+Hostinger's account has exactly one key registered — `oasisgpu-automation`,
+which is the GPU box's key, not this one. The fix is to put this public key
+back on the VPS, via hPanel → VPS `srv1723601` → SSH keys, or by pasting it
+into `/root/.ssh/authorized_keys` from the browser console:
+
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJfsU7i77XWUOxqQyH+Nqdk9oHFLyRg1QLYpoYudz8RM user@CCPC
+```
+
+I did not do this through the Hostinger API on purpose. The only endpoint that
+attaches a key to an existing machine is a write against a box that runs other
+clients' processes, and on some plans it takes effect by reimaging. That is not
+a thing to discover empirically on production.
+
+## What is known from outside, as of 2026-09-19
+
+Verified without shell access, so these are facts rather than assumptions:
+
+- **The extraction consumer is alive.** It applied a job at
+  `2026-09-18T19:50:34Z`, and `document_extraction_jobs` for tenant
+  `aa04fa1f` holds **0** rows in `queued`, `processing` or `extracted`. It has
+  nothing to do, not nothing working.
+- **nginx is up** on port 80 (default page; no app bound to it).
+- 443, 3000, 8000 and 8080 are closed or filtered from outside.
+- The other twelve PM2 daemons **cannot be seen from here at all.** Do not
+  assume they are running because the consumer is.
+
+## A dead consumer now pages, with no SSH
+
+`forms.extraction_queue_stalled` (oasis-command-center, `lib/health/form-checks.ts`)
+counts jobs that have not reached a terminal state in 30 minutes, on the
+15-minute health cron, in SunBiz's lane. The check that existed before it
+counted jobs that FAILED — and a consumer that has died does not fail anything,
+it just stops taking work, so the failure count goes to zero and the board goes
+green. That is the exact shape this box's silence would make.
+
+It is deliberately unbounded in age: a window would let stuck rows age out and
+the check would go green while the daemon was still dead.
+
+**Extend the same idea to whatever else you own here.** A daemon whose liveness
+can only be established by logging in is a daemon nobody is watching. Every
+process on this box should leave a trace in Turso that CC's side can grade.
 
 ---
 
@@ -156,3 +211,9 @@ Work top to bottom. Stop and report at the first thing you cannot prove.
 7. [ ] `pm2 save` so the process list survives a reboot
 8. [ ] A liveness signal exists that fails CLOSED — a check that cannot run must
        read as broken, never as healthy
+9. [ ] Every OTHER daemon on this box writes something CC's side can grade, the
+       way the consumer does through `document_extraction_jobs`. Report which
+       ones currently leave no trace at all; those are the ones that will die
+       unnoticed. One row with a timestamp is enough — an empty table and a
+       dead process must not look the same, so the check reads the freshness of
+       the last row, never merely its existence.
