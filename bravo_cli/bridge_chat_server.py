@@ -3925,6 +3925,47 @@ _OASIS_DIR = Path.home() / ".oasis"
 _BRIDGE_TOKEN_PATH = _OASIS_DIR / "bridge_token"
 
 
+def _dashboard_request(url: str, *, method: str = "POST",
+                       data: bytes | None = None,
+                       headers: dict[str, str] | None = None):
+    """Build a dashboard request carrying a User-Agent the edge will accept.
+
+    The dashboard sits behind Cloudflare, which bans Python's DEFAULT urllib
+    User-Agent by signature and answers 403 "error code: 1010" before Next.js
+    ever sees the request. On 2026-09-15 that took this bridge down for four
+    days: the heartbeat read the edge's 403 as "token revoked", deleted
+    ~/.oasis/bridge_token, and with no token the cron loop could not tick, so
+    EVERY SunBiz tenant cron stopped while its last_run_status still read
+    "success". Falls back to a plain Request only if the shared seam cannot be
+    imported -- a bridge that serves /chat with no heartbeat beats one that
+    will not start. See scripts/lib/dashboard_http.py.
+    """
+    try:
+        from lib.dashboard_http import dashboard_request
+    except Exception:
+        return urllib.request.Request(url, data=data, headers=dict(headers or {}),
+                                      method=method)
+    return dashboard_request(url, data=data, headers=headers, method=method)
+
+
+def _edge_reason(exc: "urllib.error.HTTPError") -> str | None:
+    """Name a Cloudflare denial for what it is, or None if our app answered.
+
+    A 403 from the edge and a 403 from our own auth look identical in a log
+    line, and the difference is the whole diagnosis: one means the credential
+    is wrong, the other means the credential was never presented.
+    """
+    try:
+        from lib.dashboard_http import classify_edge_block
+    except Exception:
+        return None
+    try:
+        body = exc.read().decode("utf-8", errors="replace")
+    except Exception:
+        body = ""
+    return classify_edge_block(exc.code, body)
+
+
 def _machine_fingerprint() -> str:
     """Stable per-machine identifier for the bridge_pairings row.
     Operator can connect multiple machines (Windows + Mac + Linux);
@@ -3948,6 +3989,38 @@ def _machine_label() -> str:
         platform.system(), platform.system() or "Machine"
     )
     return f"{host} ({os_name})"
+
+
+def _auth_user_id_for(profile_id: str) -> str | None:
+    """The auth user behind this profile, so pairing can identify itself by a
+    stable id instead of by an email string.
+
+    /api/auth/pair looks the profile up by auth_user_id FIRST and only falls
+    back to email. That fallback lowercases the address it just read off our
+    own profile row and then demands an exact match, so a profile whose stored
+    email carries a capital letter -- Submissions@sunbizfunding.com, the only
+    one of sixty on this fleet -- can never be found by it, and pairing answers
+    404 "no user_profiles row for this email". Sending auth_user_id takes the
+    branch that works. Env first so the lookup can be pinned without a DB hop;
+    None simply means we send no hint and the old path applies.
+    """
+    env_value = _read_env_value("OASIS_AUTH_USER_ID").strip()
+    if env_value:
+        return env_value
+    try:
+        from lib.db_turso import get_db
+        rows = get_db().query(
+            "select auth_user_id from user_profiles where id = ?",
+            (profile_id,),
+            allow_unscoped=True,
+            reason="bridge self-pair: resolve auth_user_id",
+        )
+    except Exception:
+        return None
+    if not rows:
+        return None
+    value = rows[0].get("auth_user_id")
+    return str(value) if value else None
 
 
 def _self_pair_if_needed() -> str | None:
@@ -3986,8 +4059,11 @@ def _self_pair_if_needed() -> str | None:
             "fingerprint": _machine_fingerprint(),
         },
     }
+    auth_user_id = _auth_user_id_for(profile_id)
+    if auth_user_id:
+        payload["auth_user_id"] = auth_user_id
     body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
+    req = _dashboard_request(
         f"{dashboard_url}/api/auth/pair",
         method="POST",
         data=body,
@@ -4000,6 +4076,15 @@ def _self_pair_if_needed() -> str | None:
     try:
         with urllib.request.urlopen(req, timeout=_PAIR_TIMEOUT_S) as resp:
             data = json.loads(resp.read().decode("utf-8") or "{}")
+    except urllib.error.HTTPError as exc:
+        reason = _edge_reason(exc)
+        if reason:
+            # Not a credential problem: the dashboard never saw the request.
+            print(f"[bridge] self-pair blocked at the edge ({reason}) — "
+                  f"the dashboard never saw our credentials.", file=sys.stderr)
+        else:
+            print(f"[bridge] self-pair failed: {exc}", file=sys.stderr)
+        return None
     except Exception as exc:
         print(f"[bridge] self-pair failed: {exc}", file=sys.stderr)
         return None
@@ -4143,8 +4228,9 @@ def _fetch_registry_map() -> dict:
     ).rstrip("/")
     dash_map: dict = {}
     try:
-        req = urllib.request.Request(
+        req = _dashboard_request(
             f"{dashboard_url}/api/integrations/registry",
+            method="GET",
             headers={"accept": "application/json"},
         )
         with urllib.request.urlopen(req, timeout=5) as resp:
@@ -4407,7 +4493,7 @@ def _heartbeat_once(token: str) -> bool:
     services.update(_services_from_local_installs())
     services.update(_services_from_cli_inventory())
     body = json.dumps({"services": services}).encode("utf-8")
-    req = urllib.request.Request(
+    req = _dashboard_request(
         f"{dashboard_url}/api/bridge/ping",
         method="POST",
         data=body,
@@ -4420,6 +4506,16 @@ def _heartbeat_once(token: str) -> bool:
         with urllib.request.urlopen(req, timeout=_PAIR_TIMEOUT_S) as resp:
             return resp.status == 200
     except urllib.error.HTTPError as exc:
+        # An edge denial is NOT a verdict on our token — Cloudflare answered and
+        # the dashboard never read the Authorization header. Deleting the token
+        # here is what turned one blocked request into a four-day outage on
+        # 2026-09-15, because re-pairing then hit the same block and the cron
+        # loop has no token to run with. Only our own app may revoke.
+        reason = _edge_reason(exc)
+        if reason:
+            print(f"[bridge] heartbeat blocked at the edge ({reason}) — "
+                  f"keeping the existing token.", file=sys.stderr)
+            return False
         if exc.code in (401, 403):
             # Token revoked or rotated — drop it so next loop self-pairs again.
             try:

@@ -1665,6 +1665,24 @@ def _bridge_token() -> str:
         return ""
 
 
+def _dash_ua(headers: dict[str, str]) -> dict[str, str]:
+    """Add the User-Agent Cloudflare will accept to a dashboard request.
+
+    Cloudflare bans Python's default urllib User-Agent by signature and answers
+    403 "error code: 1010" before the dashboard sees the request. The pair-code
+    redeem below is the operator's rescue path when self-pairing is broken, so
+    it is the one call that must not fail this way. See
+    scripts/lib/dashboard_http.py for the canonical seam.
+    """
+    hdrs = {k: v for k, v in headers.items() if k.lower() != "user-agent"}
+    try:
+        from lib.dashboard_http import OASIS_UA
+        hdrs["User-Agent"] = OASIS_UA
+    except Exception:
+        hdrs["User-Agent"] = "oasis-vps-agent/1.0 (+https://oasisai.work; internal-hmac)"
+    return hdrs
+
+
 def _post_bridge_services(dashboard_url: str, services: dict[str, dict]) -> bool:
     token = _bridge_token()
     if not token or not services:
@@ -1673,10 +1691,10 @@ def _post_bridge_services(dashboard_url: str, services: dict[str, dict]) -> bool
         f"{dashboard_url}/api/bridge/ping",
         method="POST",
         data=json.dumps({"services": services}).encode("utf-8"),
-        headers={
+        headers=_dash_ua({
             "content-type": "application/json",
             "authorization": f"Bearer {token}",
-        },
+        }),
     )
     try:
         with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310
@@ -2585,7 +2603,7 @@ def _try_pair_code_flow(dashboard_url: str) -> bool:
         f"{dashboard_url}/api/auth/pair-code/redeem",
         method="POST",
         data=_json.dumps(body).encode("utf-8"),
-        headers={"content-type": "application/json"},
+        headers=_dash_ua({"content-type": "application/json"}),
     )
     try:
         with _ureq.urlopen(req, timeout=15) as r:
