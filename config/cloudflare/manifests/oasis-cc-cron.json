@@ -1,0 +1,9 @@
+{
+  "secrets": [
+    {
+      "key": "CRON_SECRET",
+      "source": "OASIS_COMMAND_CENTER__CRON_SECRET",
+      "scope": "runtime"
+    }
+  ]
+}
