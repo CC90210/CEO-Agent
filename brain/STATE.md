@@ -164,11 +164,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-19
+- **Date:** 2026-09-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** oasis-store: GTM research landed — US de minimis suspension (verified vs CBP/Fed Reg) kills per-parcel China->US dropship; recommendation pivots from pet wipes to hydrocolloid month-kit, Canada-first from Montreal, bulk import for US in wk3-4. All audit findings fixed; store clean. Blocked on CC: Stripe key, mailbox, product go/no-go.
+- **Result:** Found and fixed a four-day total cron outage: oasis-cc-cron was forwarding every minute and the app 401'd 100% of calls since 2026-09-15 because the Worker's hand-set CRON_SECRET had no manifest and had diverged from the app's. Added config/cloudflare/manifests/oasis-cc-cron.json and re-pushed; ok 0/2 -> 8/9, health cron wrote its first row since 09-15 (24 checks, 9 alerted). SunBiz tenant crons are a SEPARATE fleet and are still dead: the bridge on srv1723601 stopped polling 2026-09-15T17:39Z and I cannot SSH in. Independent audit of #454 found two of my six fixes were inert in production (favicon, neutral landing); both fixed in #455 with three more.
 
-*Last updated: 2026-09-19*
+*Last updated: 2026-09-20*
 
 ## Manifest
 
@@ -200,24 +200,24 @@ _Last synced: 2026-09-19T08:02:33.198780+00:00_
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-19
+- **Date:** 2026-09-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** oasis-store: GTM research landed — US de minimis suspension (verified vs CBP/Fed Reg) kills per-parcel China->US dropship; recommendation pivots from pet wipes to hydrocolloid month-kit, Canada-first from Montreal, bulk import for US in wk3-4. All audit findings fixed; store clean. Blocked on CC: Stripe key, mailbox, product go/no-go.
+- **Result:** Found and fixed a four-day total cron outage: oasis-cc-cron was forwarding every minute and the app 401'd 100% of calls since 2026-09-15 because the Worker's hand-set CRON_SECRET had no manifest and had diverged from the app's. Added config/cloudflare/manifests/oasis-cc-cron.json and re-pushed; ok 0/2 -> 8/9, health cron wrote its first row since 09-15 (24 checks, 9 alerted). SunBiz tenant crons are a SEPARATE fleet and are still dead: the bridge on srv1723601 stopped polling 2026-09-15T17:39Z and I cannot SSH in. Independent audit of #454 found two of my six fixes were inert in production (favicon, neutral landing); both fixed in #455 with three more.
 
-*Last updated: 2026-09-19*
+*Last updated: 2026-09-20*
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-19
+- **Date:** 2026-09-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** oasis-store: GTM research landed — US de minimis suspension (verified vs CBP/Fed Reg) kills per-parcel China->US dropship; recommendation pivots from pet wipes to hydrocolloid month-kit, Canada-first from Montreal, bulk import for US in wk3-4. All audit findings fixed; store clean. Blocked on CC: Stripe key, mailbox, product go/no-go.
+- **Result:** Found and fixed a four-day total cron outage: oasis-cc-cron was forwarding every minute and the app 401'd 100% of calls since 2026-09-15 because the Worker's hand-set CRON_SECRET had no manifest and had diverged from the app's. Added config/cloudflare/manifests/oasis-cc-cron.json and re-pushed; ok 0/2 -> 8/9, health cron wrote its first row since 09-15 (24 checks, 9 alerted). SunBiz tenant crons are a SEPARATE fleet and are still dead: the bridge on srv1723601 stopped polling 2026-09-15T17:39Z and I cannot SSH in. Independent audit of #454 found two of my six fixes were inert in production (favicon, neutral landing); both fixed in #455 with three more.
 
-*Last updated: 2026-09-19*
+*Last updated: 2026-09-20*
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-19
+- **Date:** 2026-09-20
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** oasis-store: GTM research landed — US de minimis suspension (verified vs CBP/Fed Reg) kills per-parcel China->US dropship; recommendation pivots from pet wipes to hydrocolloid month-kit, Canada-first from Montreal, bulk import for US in wk3-4. All audit findings fixed; store clean. Blocked on CC: Stripe key, mailbox, product go/no-go.
+- **Result:** Found and fixed a four-day total cron outage: oasis-cc-cron was forwarding every minute and the app 401'd 100% of calls since 2026-09-15 because the Worker's hand-set CRON_SECRET had no manifest and had diverged from the app's. Added config/cloudflare/manifests/oasis-cc-cron.json and re-pushed; ok 0/2 -> 8/9, health cron wrote its first row since 09-15 (24 checks, 9 alerted). SunBiz tenant crons are a SEPARATE fleet and are still dead: the bridge on srv1723601 stopped polling 2026-09-15T17:39Z and I cannot SSH in. Independent audit of #454 found two of my six fixes were inert in production (favicon, neutral landing); both fixed in #455 with three more.
 
-*Last updated: 2026-09-19*
+*Last updated: 2026-09-20*
