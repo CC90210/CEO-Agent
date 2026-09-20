@@ -235,25 +235,23 @@ def cmd_queues(args) -> int:
 
 
 def cmd_seed_demo(args) -> int:
-    """Run the app's own seed (scripts/seed-demo.ts) against the live DB, credentials injected.
+    """Retired 2026-09-19. Demo content must not be written to the live store.
 
-    One source of truth for the demo content: the TypeScript seed the local-dev
-    path already uses. This verb only supplies the Turso credentials the TS
-    script cannot read on this machine (they live in the agents env store).
+    This verb existed to review the storefront before a real product existed. It
+    injected production Turso credentials into scripts/seed-demo.ts, which plants
+    placeholder copy AND invented reviews. The store now sells a real product on
+    a live Stripe account, so seed-demo.ts refuses any non-local database — and
+    this verb would fail deep inside Node with a stack trace that explains
+    nothing. It refuses here instead, where the operator typed the command.
     """
-    import os
-    import subprocess
-
-    sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "integrations"))
-    from wrangler_tool import _npx  # noqa: E402
-
-    env = load_env()
-    child = {**os.environ, URL_KEY: env[URL_KEY], TOKEN_KEY: env.get(TOKEN_KEY, "")}
-    proc = subprocess.run([_npx(), "tsx", "scripts/seed-demo.ts"], cwd=str(site_repo()), env=child,
-                          capture_output=True, text=True, encoding="utf-8", errors="replace")
-    out = (proc.stdout + proc.stderr).strip()
-    print(out[-800:] if out else "(no output)")
-    return proc.returncode
+    print("seed-demo is retired: it writes invented reviews and placeholder copy,")
+    print("and the live store sells a real product on a live Stripe account.")
+    print()
+    print("  Load a written product page:  python scripts/integrations/oasis_store_seed_product.py <page.json>")
+    print("  Build one by hand:            /admin/products")
+    print("  Review the storefront locally: point OASIS_STORE_TURSO_DATABASE_URL at a file: DB,")
+    print("                                 then `npx tsx scripts/seed-demo.ts` in the app repo.")
+    return 1
 
 
 def cmd_set_status(args) -> int:
