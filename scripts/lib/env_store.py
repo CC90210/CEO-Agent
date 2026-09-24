@@ -28,7 +28,7 @@ import subprocess
 import threading
 import time
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -630,6 +630,32 @@ def update_env_values(
         mode=mode,
         lock_timeout=lock_timeout,
     )
+
+
+def remove_env_keys(
+    path: Path,
+    keys: Iterable[str],
+    *,
+    encoding: str = "utf-8",
+    mode: int = 0o600,
+    lock_timeout: float = DEFAULT_LOCK_TIMEOUT_SECONDS,
+) -> bool:
+    """Drop every assignment of `keys`, under the same lock as update_env_values.
+
+    For retiring a duplicate copy of a secret (e.g. a bare name left beside the
+    namespaced key a manifest actually deploys) so two values can never drift.
+    Returns True when the file changed. Values are never read into the caller.
+    """
+    targets = set(keys)
+    for key in targets:
+        if not isinstance(key, str) or not _ENV_KEY_RE.fullmatch(key):
+            raise EnvStoreValidationError(f"Invalid env key: {key!r}")
+
+    def drop(current: str) -> str:
+        kept = [raw for raw in current.splitlines() if _assignment_key(raw) not in targets]
+        return ("\n".join(kept).rstrip() + "\n") if kept else ""
+
+    return locked_update_text(path, drop, encoding=encoding, mode=mode, lock_timeout=lock_timeout)
 
 
 def ensure_env_file(

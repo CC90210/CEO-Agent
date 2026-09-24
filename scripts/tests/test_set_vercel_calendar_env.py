@@ -237,18 +237,47 @@ def test_store_flag_persists_the_verified_bundle_to_the_env_store(tmp_path: Path
         gws_loader=lambda _values: ("encrypted gws credential store", gws_bundle),
         app_dir=tmp_path,
         stdout=output,
-        storer=lambda bundle: calendar_env.store_bundle(bundle, env_file, manifest),
+        storer=lambda bundle: calendar_env.store_bundle(
+            bundle, env_file, manifest,
+            current={
+                "GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN": "stale",
+                "OASIS_COMMAND_CENTER__GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN": "stale",
+            },
+        ),
     )
 
     assert result == 0
     stored = env_file.read_text(encoding="utf-8")
     assert "UNRELATED_KEY=keep-me" in stored, "peer keys must survive"
-    assert "\nGOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN=live-gws-refresh" in stored
     # The key the Worker push actually reads — the one the first version missed.
     assert "OASIS_COMMAND_CENTER__GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN=live-gws-refresh" in stored
+    # ...and exactly one copy: the bare duplicate is removed so two can't drift.
+    assert "\nGOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN=" not in stored
     assert "=stale" not in stored
     assert "live-gws" not in output.getvalue(), "values never reach the output"
     assert "secrets-push --app oasis-command-center" in output.getvalue()
+
+
+def test_store_is_a_no_op_when_the_store_already_holds_the_bundle(tmp_path: Path) -> None:
+    bundle = calendar_env.CalendarCredentialBundle.from_mapping({
+        "GOOGLE_SYSTEM_CALENDAR_CLIENT_ID": "live.apps.googleusercontent.com",
+        "GOOGLE_SYSTEM_CALENDAR_CLIENT_SECRET": "s",
+        "GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN": "r",
+        "GOOGLE_SYSTEM_CALENDAR_ADDRESS": "owner@oasisai.work",
+        "GOOGLE_CALENDAR_ID": "primary",
+    })
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps([
+        {"key": k, "source": f"NS__{k}"} for k, _ in bundle.vercel_items()
+    ]), encoding="utf-8")
+    missing_file = tmp_path / "never-written.env"
+    # Everything already matches and no bare copy exists: nothing may be written
+    # (a no-change write re-hardens the ACL, which fails on CC's machine).
+    calendar_env.store_bundle(
+        bundle, missing_file, manifest,
+        current={f"NS__{k}": v for k, v in bundle.vercel_items()},
+    )
+    assert not missing_file.exists()
 
 
 def test_gws_export_is_captured_unmasked_without_secret_output(

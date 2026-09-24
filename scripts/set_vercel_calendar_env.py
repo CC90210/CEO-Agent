@@ -128,7 +128,9 @@ def load_environment() -> Mapping[str, Any]:
     """Load audited candidate keys without parser warning side channels."""
 
     try:
-        return _load_secret_env(_audit_keys=CANDIDATE_VARIABLES)
+        return _load_secret_env(
+            _audit_keys=CANDIDATE_VARIABLES + tuple(sorted(set(worker_source_keys().values())))
+        )
     except (OSError, SecretLoaderRefused) as exc:
         raise BundleValidationError(
             f"canonical credential loader refused or failed ({type(exc).__name__})"
@@ -140,13 +142,26 @@ def calendar_bundle_candidates(
 ) -> list[tuple[str, CalendarCredentialBundle]]:
     """Build only complete client/secret/token pairings from the root store."""
 
+    src = worker_source_keys()
     address = str(
-        values.get("GOOGLE_SYSTEM_CALENDAR_ADDRESS")
+        values.get(src.get("GOOGLE_SYSTEM_CALENDAR_ADDRESS", ""))
+        or values.get("GOOGLE_SYSTEM_CALENDAR_ADDRESS")
         or values.get("GMAIL_USER")
         or ""
     ).strip()
-    calendar_id = str(values.get("GOOGLE_CALENDAR_ID") or "primary").strip()
+    calendar_id = str(
+        values.get(src.get("GOOGLE_CALENDAR_ID", ""))
+        or values.get("GOOGLE_CALENDAR_ID")
+        or "primary"
+    ).strip()
     pairings = (
+        # The keys the Worker is actually deployed from (manifest sources) —
+        # checked first so a working deployed credential is found as-is.
+        (
+            src.get("GOOGLE_SYSTEM_CALENDAR_CLIENT_ID", "GOOGLE_SYSTEM_CALENDAR_CLIENT_ID"),
+            src.get("GOOGLE_SYSTEM_CALENDAR_CLIENT_SECRET", "GOOGLE_SYSTEM_CALENDAR_CLIENT_SECRET"),
+            src.get("GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN", "GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN"),
+        ),
         (
             "GOOGLE_SYSTEM_CALENDAR_CLIENT_ID",
             "GOOGLE_SYSTEM_CALENDAR_CLIENT_SECRET",
@@ -453,6 +468,7 @@ def store_bundle(
     bundle: CalendarCredentialBundle,
     env_file: Path | None = None,
     manifest_path: Path = MANIFEST_PATH,
+    current: Mapping[str, Any] | None = None,
 ) -> None:
     """Persist the verified bundle into the canonical env store, values unseen.
 
@@ -461,18 +477,32 @@ def store_bundle(
     only; the Worker kept the rejected one and booking stayed down. A credential
     fixed anywhere but its source of truth is reverted by the next routine push.
 
-    Writes BOTH the Worker's source keys (from the manifest) and the bare names
-    this tool itself scans as its first candidate.
+    Writes ONLY the keys the Worker is deployed from (the manifest's sources),
+    and removes a bare-name copy of any of them, so the store holds exactly one
+    value per secret and the two can never drift apart.
     """
-    from lib.env_store import update_env_values
+    from lib.env_store import remove_env_keys, update_env_values
     from lib.secret_loader import ENV_FILE
 
+    target = env_file or ENV_FILE
+    # Only touch what differs. A no-change write still re-hardens the store's
+    # ACL, and on CC's machine that step fails (PowerShell exit 1, 2026-09-24),
+    # so an idempotent re-run must not issue a write at all.
+    existing = current if current is not None else load_environment()
     sources = worker_source_keys(manifest_path)
-    updates: dict[str, str] = {}
-    for name, value in bundle.vercel_items():
-        updates[name] = value
-        updates[sources.get(name, name)] = value
-    update_env_values(env_file or ENV_FILE, updates)
+    updates = {
+        sources.get(name, name): value
+        for name, value in bundle.vercel_items()
+        if str(existing.get(sources.get(name, name)) or "") != value
+    }
+    if updates:
+        update_env_values(target, updates)
+    duplicates = [
+        name for name, _ in bundle.vercel_items()
+        if sources.get(name, name) != name and existing.get(name) is not None
+    ]
+    if duplicates:
+        remove_env_keys(target, duplicates)
 
 
 def main(

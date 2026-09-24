@@ -192,6 +192,26 @@ def test_update_env_values_collapses_duplicates_and_preserves_other_lines(
     assert "BRAVO_KEY=added" in text
 
 
+def test_remove_env_keys_drops_every_copy_and_keeps_the_rest(
+    tmp_path: Path,
+    bypass_platform_acl: None,
+) -> None:
+    target = tmp_path / ".env.agents"
+    target.write_text(
+        "# keep\nDUP=a\nKEEP=yes\nexport DUP=b\nNS__DUP=canonical\n",
+        encoding="utf-8",
+    )
+
+    assert env_store.remove_env_keys(target, ["DUP"]) is True
+    text = target.read_text(encoding="utf-8")
+    assert "DUP=a" not in text and "DUP=b" not in text
+    assert "NS__DUP=canonical" in text, "only the named key goes, never a prefix match"
+    assert "KEEP=yes" in text and "# keep" in text
+    assert env_store.remove_env_keys(target, ["DUP"]) is False, "idempotent"
+    with pytest.raises(env_store.EnvStoreValidationError):
+        env_store.remove_env_keys(target, ["bad key"])
+
+
 @pytest.mark.parametrize("relative_path", ENV_STORE_MUTATORS)
 def test_env_store_mutators_hold_one_lock_across_read_modify_write(
     relative_path: str,
