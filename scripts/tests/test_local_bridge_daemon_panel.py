@@ -65,6 +65,47 @@ class TestDaemonPanelOnEachPlatform(unittest.TestCase):
         self.assertIn("duplicate", row["metadata"]["pm2_status"])
         self.assertEqual(row["metadata"]["root_pids"], [100, 200])
 
+    def test_on_windows_a_failed_fleet_read_is_a_down_row_not_an_absence(self):
+        # 2026-09-23: status() raised inside the long-running bridge, the pm2.*
+        # rows silently dropped out of the ping, and the panel showed twelve
+        # running daemons as "Down" for a day. The failure must be a row.
+        with mock.patch.object(lb, "_IS_WINDOWS", True), \
+             mock.patch.object(lb, "_log") as log, \
+             mock.patch("ops.fleet_watchdog.status",
+                        side_effect=RuntimeError("process table unreadable")), \
+             contextlib.redirect_stderr(io.StringIO()):
+            out = lb.detect_pm2_daemons()
+        self.assertEqual([k for k in out if k.startswith("pm2.")], [])
+        row = out["fleet_watchdog"]
+        self.assertEqual(row["status"], "down")
+        self.assertEqual(row["metadata"]["reason"], "status_source_unavailable")
+        self.assertIn("process table unreadable", row["metadata"]["error"])
+        # Written to the bridge log file, which survives a detached process.
+        self.assertIn("fleet status unavailable", log.call_args.args[0])
+
+    def test_on_windows_a_good_fleet_read_reports_its_source_healthy(self):
+        rows = [{"name": "bravo-scheduler", "ident": "scheduler.py"},
+                {"name": "event-router", "ident": "event_router.py"}]
+        with mock.patch.object(lb, "_IS_WINDOWS", True), \
+             mock.patch("ops.fleet_watchdog.status", return_value=rows), \
+             mock.patch("ops.fleet_watchdog.classify", return_value="running"):
+            out = lb.detect_pm2_daemons()
+        self.assertEqual(out["fleet_watchdog"]["status"], "healthy")
+        self.assertEqual(out["fleet_watchdog"]["metadata"]["workers_reported"], 2)
+
+    def test_fleet_module_is_reloaded_when_its_file_changes(self):
+        # The bridge runs for days; a fix to fleet_watchdog.py must reach it
+        # without a restart.
+        lb._fleet_watchdog_module()
+        lb._FLEET_MODULE_STATE["mtime"] = -1.0  # pretend the file changed
+        with mock.patch("importlib.reload", side_effect=lambda m: m) as reload, \
+             mock.patch.object(lb, "_log"):
+            lb._fleet_watchdog_module()
+        reload.assert_called_once()
+        with mock.patch("importlib.reload") as reload_again:
+            lb._fleet_watchdog_module()
+        reload_again.assert_not_called()
+
     def test_a_failed_pm2_read_on_linux_is_reported_not_silent(self):
         err = io.StringIO()
         with mock.patch.object(lb, "_IS_WINDOWS", False), \

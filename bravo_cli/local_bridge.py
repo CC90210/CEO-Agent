@@ -401,6 +401,35 @@ def _pm2_jlist_services() -> dict[str, dict]:
     return out
 
 
+_FLEET_MODULE_STATE: dict = {}
+
+
+def _fleet_watchdog_module():
+    """ops.fleet_watchdog, reloaded whenever its file changes on disk.
+
+    This loop runs for days. A plain import pins whatever fleet_watchdog.py
+    looked like when the bridge started, so fixes to it never reach the
+    heartbeat — on 2026-09-23 the copy loaded two days earlier began raising
+    while the file on disk worked fine. Keyed on mtime so an unchanged file
+    costs one stat() per tick.
+    """
+    import importlib
+
+    scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    path = scripts_dir / "ops" / "fleet_watchdog.py"
+    mtime = path.stat().st_mtime
+    module = _FLEET_MODULE_STATE.get("module")
+    if module is None:
+        module = importlib.import_module("ops.fleet_watchdog")
+    elif _FLEET_MODULE_STATE.get("mtime") != mtime:
+        module = importlib.reload(module)
+        _log(f"RELOAD fleet_watchdog (mtime {mtime})")
+    _FLEET_MODULE_STATE.update(module=module, mtime=mtime)
+    return module
+
+
 def detect_pm2_daemons() -> dict[str, dict]:
     """Snapshot the operator's PM2 process table — surfaces background
     workers (sequence-runner, event-router, claude-bridge,
@@ -444,19 +473,33 @@ def detect_pm2_daemons() -> dict[str, dict]:
         # name, so it answers the same question — which daemons are alive — without
         # touching pm2 at all. Keys stay `pm2.<name>` so the dashboard's
         # /automations page and any stored integrations_health rows keep working.
+        #
+        # The fleet read below is reported as its own `fleet_watchdog` service,
+        # healthy or down, on EVERY tick (2026-09-24). Before this, a failed read
+        # simply left the twelve pm2.* rows out of the ping: the dashboard kept
+        # showing their last values going stale and rendered twelve "Down"
+        # tiles for daemons that were all running. That ran for a day unseen —
+        # the reason only went to stderr, and this process is detached, so
+        # stderr went nowhere. Now the failure is a row the panel can name.
         try:
-            _fw = Path(__file__).resolve().parent.parent / "scripts"
-            if str(_fw) not in sys.path:
-                sys.path.insert(0, str(_fw))
-            from ops.fleet_watchdog import classify as _classify
-            from ops.fleet_watchdog import status as _fleet_status
+            fw = _fleet_watchdog_module()
+            rows = fw.status()
 
             # One definition of daemon state — see fleet_watchdog.classify. This
             # maps it onto the dashboard's integrations_health vocabulary.
             _HEALTH = {"running": "healthy", "disabled": "degraded",
                        "unrunnable": "down", "duplicate": "down",
                        "down": "down"}
-            for row in _fleet_status():
+            from ops.fleet_watchdog import classify as _classify
+
+            out["fleet_watchdog"] = {
+                "status": "healthy",
+                "metadata": {
+                    "workers_reported": len(rows),
+                    "module_mtime": _FLEET_MODULE_STATE.get("mtime"),
+                },
+            }
+            for row in rows:
                 name = row.get("name") or "unnamed"
                 kind = _classify(row)
                 health = _HEALTH[kind]
@@ -481,9 +524,19 @@ def detect_pm2_daemons() -> dict[str, dict]:
         except Exception as exc:  # noqa: BLE001
             # Still non-fatal — a heartbeat must not die over a dashboard panel —
             # but no longer SILENT. The silence is what let the orphan leak run.
-            sys.stderr.write(
-                f"[local_bridge] fleet status unavailable ({type(exc).__name__}: {exc}); "
-                "dashboard will show no daemon data this tick\n")
+            reason = f"{type(exc).__name__}: {exc}"
+            out["fleet_watchdog"] = {
+                "status": "down",
+                "metadata": {
+                    "reason": "status_source_unavailable",
+                    "error": reason[:500],
+                    "module_mtime": _FLEET_MODULE_STATE.get("mtime"),
+                },
+            }
+            msg = (f"fleet status unavailable ({reason}); "
+                   "dashboard will show no daemon data this tick")
+            sys.stderr.write(f"[local_bridge] {msg}\n")
+            _log(f"WARN {msg}")
 
     # Standalone Skool daemon — runs outside PM2 (DaemonLock conflict per
     # ecosystem.config.js). Detect via its lock file under the project root.
