@@ -13,6 +13,7 @@ tool never sees a value; `secrets-plan` reports key NAMES and presence only.
     python scripts/integrations/wrangler_tool.py secrets-push --app tiktik
     python scripts/integrations/wrangler_tool.py secrets-list --app tiktik
     python scripts/integrations/wrangler_tool.py build|preview|upload|deploy|tail --app tiktik
+    python scripts/integrations/wrangler_tool.py deploy --app tiktik --dir <git worktree of its repo>
 
 Registry:  config/cloudflare/apps.json          (dirs, worker names, kinds, domains)
 Manifests: config/cloudflare/manifests/<app>.json (secret KEY NAMES only + scope)
