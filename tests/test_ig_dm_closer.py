@@ -135,7 +135,19 @@ CONV_ID = "conv_test_0001"
 ACCOUNT_ID = "699c92828ab8ae478b3ee83a"
 
 AUDIT_URL = "https://oasisai.work/f/oasis-ai-cc/ai-audit"
-CALENDAR_URL = "https://calendar.app.google/tpfvJYBGircnGu8G8"
+# Deleted 2026-09-09 and still handed to a prospect on 2026-09-24. Kept here only
+# so the tests can prove it is refused; it is no longer on the allowlist.
+RETIRED_CALENDAR_URL = "https://calendar.app.google/tpfvJYBGircnGu8G8"
+
+# Two real-shaped offered slots, as book_discovery_call.offer_slots() returns
+# them: Friday 25 Sep 09:00 and Monday 28 Sep 14:00, Toronto.
+OFFER = (
+    {"start": "2026-09-25T09:00-04:00", "end": "2026-09-25T09:30-04:00",
+     "label": "Fri 25 Sep, 9:00 AM"},
+    {"start": "2026-09-28T14:00-04:00", "end": "2026-09-28T14:30-04:00",
+     "label": "Mon 28 Sep, 2:00 PM"},
+)
+FRI_ID, MON_ID = "2026-09-25T09:00", "2026-09-28T14:00"
 
 # The normative DDL from the contract. Used only when the migration file has
 # not landed yet, so the state tests do not have to wait on another builder.
@@ -257,6 +269,7 @@ def decision_json(**over) -> str:
                    "summary": None},
         "handoff_reason": None,
         "confidence": 0.7,
+        "slot": None,
     }
     payload.update(over)
     return json.dumps(payload)
@@ -329,6 +342,14 @@ def no_production_db(monkeypatch):
     monkeypatch.setattr(dbt, "get_db", _boom, raising=True)
     if not isinstance(state, _NotBuiltYet) and hasattr(state, "get_db_handle"):
         monkeypatch.setattr(state, "get_db_handle", _boom, raising=True)
+
+    # The poller's calendar seam shells out to google_tool and reads CC's REAL
+    # calendar. Stubbed for every test (no slots) and the per-run cache cleared,
+    # so a poll can never reach it and one test's slots never leak into the next.
+    from integrations import instagram_dm_poller as poller  # noqa: PLC0415
+
+    monkeypatch.setattr(poller, "_offered_slots", lambda: ())
+    monkeypatch.setattr(poller, "_RUN_SLOTS", None)
 
 
 def new_row(db, conv_id: str = CONV_ID, **over) -> dict:
@@ -491,14 +512,19 @@ def test_url_not_on_the_allowlist_is_rejected():
 
 
 def test_two_urls_are_rejected_even_when_both_are_allowlisted():
-    hits = _v(f"Form: {AUDIT_URL} or book direct: {CALENDAR_URL}", stage="qualified")
+    hits = _v(f"Form: {AUDIT_URL} or the site: https://oasisai.work", stage="qualified")
     assert has(hits, "multiple_urls"), hits
 
 
-def test_calendar_link_before_qualified_is_a_cta_ladder_violation():
-    assert has(_v(f"Book here {CALENDAR_URL}", stage="engaged"), "cta_ladder")
-    assert has(_v(f"Book here {CALENDAR_URL}", stage="new"), "cta_ladder")
-    assert not has(_v(f"Book here {CALENDAR_URL}", stage="qualified"), "cta_ladder")
+@pytest.mark.parametrize("stage", ["new", "engaged", "qualified", "booking"])
+def test_the_retired_link_is_rejected_at_every_stage(stage):
+    """It replaced the cta_ladder test, whose subject no longer exists: there is
+    no stage at which a booking link may be sent. The dead link is named on its
+    own, with or without its scheme, so the audit log says what happened."""
+    for text in (f"Book here {RETIRED_CALENDAR_URL}",
+                 "grab a slot at calendar.app.google/tpfvJYBGircnGu8G8"):
+        assert has(_v(text, stage=stage), "retired_booking_link"), (stage, text)
+    assert has(_v(f"Book here {RETIRED_CALENDAR_URL}", stage=stage), "url_not_allowed")
 
 
 def test_reply_over_the_char_cap_is_rejected():
@@ -1793,6 +1819,8 @@ def closer_env(monkeypatch):
     behaviour: dict = {"book": None, "send": None}
 
     monkeypatch.setattr(closer, "verify_calendar_readable", lambda **kw: True)
+    # A caller-chosen slot is re-read against the calendar before the claim.
+    monkeypatch.setattr(closer, "verify_slot_free", lambda slot: (True, "free"))
     monkeypatch.setattr(closer, "resolve_meet_link", lambda: MEET)
     monkeypatch.setattr(closer, "choose_slot", lambda **kw: dict(SLOT))
 
@@ -2532,7 +2560,14 @@ def dm(monkeypatch):
     monkeypatch.setattr(p, "_request", _no_network)
 
     def _run(*, live, decision=None, fake_state=None, msgs=None, deadline=None,
-             model_calls_spent=0, closer=None, book=False, only_handle=None):
+             model_calls_spent=0, closer=None, book=False, only_handle=None,
+             slots=()):
+        # The calendar seam. A callable replaces it outright (e.g. one that
+        # raises); anything else is the tuple of slots it returns. Never the
+        # real read: that shells out to google_tool against CC's calendar.
+        monkeypatch.setattr(p, "_offered_slots",
+                            slots if callable(slots) else (lambda: tuple(slots)))
+        monkeypatch.setattr(p, "_RUN_SLOTS", None)
         st = fake_state if fake_state is not None else FakeState()
         br = FakeBrain(decision)
         thread = msgs if msgs is not None else [
@@ -2850,18 +2885,23 @@ def test_a_failed_booking_is_queued_for_a_human(dm):
     result = types.SimpleNamespace(
         ok=False, applied=False, slot_label=None, email_status=None,
         stage_of_failure="calendar_unverified", error="calendar read failed")
-    closer = types.SimpleNamespace(close=lambda *a, **k: result)
+    calls: list[dict] = []
+    closer = types.SimpleNamespace(
+        close=lambda *a, **k: calls.append(k) or result)
     bumped: dict[str, int] = {}
 
     p._run_close(
         db="fake-db", row=dict(st.row), decision=a_decision(
-            action="book", stage="booking", reply="Invite is on its way.",
+            action="book", stage="booking", slot=FRI_ID,
+            reply="Locked, Fri 25 Sep, 9:00 AM ET. The invite is heading to your email.",
             extracted=brain.Extracted(email="sam@example.com")),
         state=st, closer=closer, handle="adonyess", conv_id=CONV_ID,
         args=types.SimpleNamespace(live=True, book=True, only_handle=None),
         bump=lambda name, n=1: bumped.update({name: bumped.get(name, 0) + n}),
+        offered_slots=OFFER,
     )
 
+    assert calls, "the close loop was never reached, so this proves nothing"
     assert "request_handoff" in st.writes, (
         "a booking that failed after the prospect was promised an invite left no "
         "row in the handoff queue"
@@ -3926,3 +3966,457 @@ def test_the_tenant_cap_is_rechecked_before_each_model_call(fair):
     assert not run.state.was_examined("second"), (
         "the capped-out prospect was watermarked as handled, so the next tick "
         "will skip them until they message again")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 19. REAL SLOTS, NO DEAD LINK, NO INVENTED TIME (2026-09-24)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# 16:24:35Z, a real prospect: "Next week right not today. I can't today." The bot:
+# "All good, next week works even better anyway. I've got room Tuesday or
+# Wednesday, grab whatever slot fits you here: <the booking link deleted on
+# 2026-09-09>". The days were invented (the model cannot see the calendar), the
+# link was dead, and the only day/time check ran on `book` turns. Now: the
+# poller reads real slots, the brain may name nothing else on ANY sent copy, a
+# book turn books the offered slot the prospect picked, and an unarmed book never
+# claims the invite is already on its way.
+
+INCIDENT_REPLY = (
+    "All good, next week works even better anyway. I've got room Tuesday or "
+    "Wednesday, grab whatever slot fits you here: "
+    "https://calendar.app.google/tpfvJYBGircnGu8G8"
+)
+BOOK_UNARMED = ("Locked, Fri 25 Sep, 9:00 AM ET. Conaugh will send the invite to "
+                "that email.")
+BOOK_ARMED = ("Locked, Fri 25 Sep, 9:00 AM ET. The Google Meet invite is heading to "
+              "your email.")
+PICKED_WITH_EMAIL = "the friday one works. sam@example.com"
+
+
+def _vs(reply, *, stage="qualified", slots=OFFER, action="reply", chosen=None,
+        armed=False):
+    return brain.validate_reply(
+        reply, inbound_texts_=["hi"], canary="deadbeefdeadbeef", stage=stage,
+        action=action, offered_slots=slots, chosen_slot=chosen, booking_armed=armed)
+
+
+def _email(addr="sam@example.com"):
+    return {"name": None, "email": addr, "phone": None, "business": None,
+            "need": None, "timeline": None}
+
+
+# ── 19a. the incident, and the time guard on every sent copy ───────────────
+
+def test_the_2026_09_24_reply_is_rejected():
+    hits = _vs(INCIDENT_REPLY)
+    assert "retired_booking_link" in hits, hits
+    assert "names_unoffered_time:tuesday" in hits, hits
+    assert "names_unoffered_time:wednesday" in hits, hits
+    assert hits.index("retired_booking_link") < next(
+        i for i, h in enumerate(hits) if h.startswith("url_not_allowed")), (
+        "the retired link is named before the generic allowlist rejection")
+
+
+def test_the_incident_reply_reaches_nobody_end_to_end():
+    runner = Runner(decision_json(stage="qualified", reply=INCIDENT_REPLY),
+                    decision_json(stage="qualified", reply=INCIDENT_REPLY))
+    d = brain.decide(inbound_turns("Next week right not today. I can't today."),
+                     current_stage="engaged", participant_display_name="P",
+                     runner=runner, offered_slots=OFFER)
+    assert d.ok is False and d.failure == "guardrail_reject" and d.reply is None
+    assert "names_unoffered_time:tuesday" in d.violations
+
+
+def test_an_offer_of_two_offered_slots_passes():
+    assert _vs("30 min on Google Meet, I'll show you the backend live. "
+               "Fri 25 Sep, 9:00 AM or Mon 28 Sep, 2:00 PM ET?") == []
+    assert _vs("fri 25 sep 9am or mon 28 sep 2pm et?") == []
+
+
+def test_french_days_and_times_are_rejected_unless_offered():
+    fr = "On peut faire ça mardi ou mercredi à 14h, ça te va?"
+    hits = _vs(fr, slots=OFFER[:1])          # only Fri 25 Sep, 9:00 on offer
+    for token in ("mardi", "mercredi", "14h"):
+        assert f"names_unoffered_time:{token}" in hits, hits
+    # Mon 28 Sep at 14:00 backs "14h" on its own, never the days, and never
+    # "mercredi à 14h" as a pair.
+    assert set(_vs(fr)) == {"names_unoffered_time:mardi",
+                            "names_unoffered_time:mercredi",
+                            "names_unoffered_time:mercredi+14h"}, _vs(fr)
+    tue_wed = (
+        {"start": "2026-09-29T14:00-04:00", "end": "2026-09-29T14:30-04:00",
+         "label": "Tue 29 Sep, 2:00 PM"},
+        {"start": "2026-09-30T14:00-04:00", "end": "2026-09-30T14:30-04:00",
+         "label": "Wed 30 Sep, 2:00 PM"},
+    )
+    assert not has(_vs(fr, slots=tue_wed), "names_unoffered_time")
+
+
+@pytest.mark.parametrize("text,token", [
+    ("Does Thursday work?", "thursday"),
+    ("How about tomorrow?", "tomorrow"),
+    ("Free at 2pm?", "2pm"),
+    ("Does 2 p.m. work?", "2 p.m."),
+    ("14:00 works?", "14:00"),
+    ("On se parle demain?", "demain"),
+    ("On se parle jeudi à 9h30?", "9h30"),
+    ("¿Hablamos mañana?", "mañana"),
+    ("¿El martes?", "martes"),
+    ("Fri 25 Sep, 9:00 AM ET?", "fri 25"),
+])
+def test_any_day_or_time_with_no_slots_offered_is_rejected(text, token):
+    assert f"names_unoffered_time:{token}" in _vs(text, slots=()), _vs(text, slots=())
+
+
+@pytest.mark.parametrize("text", [
+    "It answers your DMs 24h a day.",
+    "Most people see it running inside 48h.",
+    "I sat down with the numbers.",
+    "C'est mon site, pas le leur.",
+    "Te escribo por la mañana si quieres.",
+    "sun's out, content's out",
+])
+def test_ordinary_words_are_not_time_claims(text):
+    """Hours outside 0-23 are not times; bare "sat"/"sun"/"mon" are words (and
+    "mon" is French for "my"); "por la mañana" is "in the morning"."""
+    assert not has(_vs(text, slots=()), "names_unoffered_time"), _vs(text, slots=())
+
+
+def test_a_day_number_must_match_the_offered_day_too():
+    assert "names_unoffered_time:fri 2" in _vs("Fri 2 Oct, 9:00 AM ET?")
+
+
+@pytest.mark.parametrize("text", [
+    "friday at 2pm?",            # Friday is offered at 9:00, 2pm only on Monday
+    "monday 9am?",
+    "Fri 25 Sep, 2:00 PM ET?",
+    "vendredi 14h?",
+])
+def test_a_day_and_a_time_must_be_the_same_offered_slot(text):
+    """Each token alone is backed by SOME offered slot; the pair is backed by
+    none, so the phrase names a time that does not exist."""
+    assert has(_vs(text), "names_unoffered_time"), _vs(text)
+
+
+def test_two_alternatives_are_checked_one_phrase_at_a_time():
+    assert _vs("friday 9am or monday 2pm ET?") == []
+    assert _vs("the 25th at 9am or the 28th at 2pm?") == []
+    assert has(_vs("friday 2pm or monday 9am?"), "names_unoffered_time")
+
+
+@pytest.mark.parametrize("text,token", [
+    ("how about the 29th?", "the 29th"),
+    ("Sept 30 works?", "sept 30"),
+    ("On fait ça le 30 septembre?", "30 septembre"),
+    ("¿El 29 de septiembre?", "29 de septiembre"),
+    ("tomorrow at 10?", "at 10"),
+])
+def test_dates_and_bare_hours_are_claims_too(text, token, monkeypatch):
+    monkeypatch.setattr(brain, "_now",
+                        lambda: datetime(2026, 9, 24, 16, 0, tzinfo=timezone.utc))
+    assert f"names_unoffered_time:{token}" in _vs(text), _vs(text)
+
+
+@pytest.mark.parametrize("text,word", [
+    ("All good, next week works.", "all good"),
+    ("Haha fair. Fri 25 Sep, 9:00 AM ET?", "haha"),
+    ("cool, backend's ready.", "cool"),
+    ("Nice, what do you run?", "nice"),
+])
+def test_a_filler_opener_is_rejected(text, word):
+    assert f"filler_opener:{word}" in _vs(text), _vs(text)
+
+
+def test_filler_words_later_in_the_reply_are_fine():
+    assert not has(_vs("what do you run? the backend is pretty cool live."), "filler_opener")
+
+
+def test_a_time_rejection_retry_names_the_real_slots_and_says_drop_the_ask():
+    """Replayed on the real model: "thursday at 4?" got "thursday's booked" twice
+    under the bare code, and the turn went silent."""
+    bad = decision_json(stage="qualified", reply="thursday's booked. Fri 25 Sep, 9:00 AM ET?")
+    good = decision_json(stage="qualified", reply="Fri 25 Sep, 9:00 AM or Mon 28 Sep, 2:00 PM ET?")
+    runner = Runner(bad, good)
+    d = brain.decide(inbound_turns("can we do thursday at 4?"), current_stage="qualified",
+                     participant_display_name="P", runner=runner, offered_slots=OFFER)
+    assert d.ok and d.attempts == 2
+    retry_prompt = runner.calls[1]["prompt"]
+    assert "do not say it is taken" in retry_prompt
+    assert "Fri 25 Sep, 9:00 AM ET | Mon 28 Sep, 2:00 PM ET" in retry_prompt
+
+
+def test_offered_dates_and_ordinary_numbers_pass():
+    assert _vs("Sep 25 or Sep 28?") == []
+    assert _vs("25 septembre ou 28 septembre?") == []
+    assert not has(_vs("we run it at 2 locations"), "names_unoffered_time")
+    assert not has(_vs("you may want to see it live"), "names_unoffered_time")
+
+
+def test_tomorrow_is_allowed_only_when_an_offered_slot_is_tomorrow(monkeypatch):
+    text = "Tomorrow, Fri 25 Sep, 9:00 AM ET?"
+    monkeypatch.setattr(brain, "_now",
+                        lambda: datetime(2026, 9, 24, 16, 24, tzinfo=timezone.utc))
+    assert not has(_vs(text), "names_unoffered_time")
+    monkeypatch.setattr(brain, "_now",
+                        lambda: datetime(2026, 9, 22, 16, 0, tzinfo=timezone.utc))
+    assert "names_unoffered_time:tomorrow" in _vs(text)
+
+
+def test_an_answered_handoff_is_held_to_the_time_guard_too():
+    runner = Runner(
+        decision_json(stage="handed_off", action="handoff",
+                      reply="Conaugh can do Thursday at 3pm.", handoff_reason="press"),
+        decision_json(stage="handed_off", action="handoff",
+                      reply="Conaugh handles press himself.", handoff_reason="press"))
+    d = brain.decide(inbound_turns("I write for a magazine"), current_stage="engaged",
+                     participant_display_name="P", runner=runner, offered_slots=OFFER)
+    assert d.ok and d.attempts == 2 and "Thursday" not in d.reply
+
+
+# ── 19b. a book turn books the OFFERED slot the prospect picked ───────────
+
+def test_a_book_on_an_offered_slot_carries_that_slot():
+    runner = Runner(decision_json(stage="booking", action="book", slot=FRI_ID,
+                                  reply=BOOK_UNARMED, extracted=_email()))
+    d = brain.decide(inbound_turns(PICKED_WITH_EMAIL), current_stage="engaged",
+                     participant_display_name="P", runner=runner, offered_slots=OFFER)
+    assert d.ok is True and d.action == "book" and d.stage == "booking"
+    assert d.slot == FRI_ID and d.as_dict()["slot"] == FRI_ID
+    assert d.extracted.email == "sam@example.com"
+
+
+@pytest.mark.parametrize("bad", ["2026-09-30T09:00", None, FRI_ID + ":00-04:00x"])
+def test_a_book_with_a_slot_we_never_offered_is_rejected(bad):
+    reply = decision_json(stage="booking", action="book", slot=bad,
+                          reply=BOOK_UNARMED, extracted=_email())
+    runner = Runner(reply, reply)
+    d = brain.decide(inbound_turns(PICKED_WITH_EMAIL), current_stage="qualified",
+                     participant_display_name="P", runner=runner, offered_slots=OFFER)
+    assert d.ok is False and d.failure == "guardrail_reject" and d.reply is None
+    assert d.slot is None
+    assert has(d.violations, "book_slot_not_offered"), d.violations
+    assert runner.n == 2, "retried once, like every guardrail reject"
+    assert f"must be {FRI_ID} or {MON_ID}" in runner.calls[1]["prompt"], (
+        "the retry must name the ids that were actually offered")
+
+
+def test_a_book_with_no_slots_on_offer_is_rejected():
+    reply = decision_json(stage="booking", action="book", slot=FRI_ID,
+                          reply=BOOK_UNARMED, extracted=_email())
+    d = brain.decide(inbound_turns(PICKED_WITH_EMAIL), current_stage="qualified",
+                     participant_display_name="P", runner=Runner(reply, reply))
+    assert d.ok is False and has(d.violations, "book_slot_not_offered")
+
+
+def test_a_slot_on_a_non_book_turn_is_dropped():
+    d = brain.decide(inbound_turns(), current_stage="engaged",
+                     participant_display_name="P",
+                     runner=Runner(decision_json(slot=FRI_ID)), offered_slots=OFFER)
+    assert d.ok is True and d.action == "reply" and d.slot is None
+
+
+def test_the_slot_key_is_part_of_the_strict_schema():
+    payload = json.loads(decision_json())
+    del payload["slot"]
+    with pytest.raises(brain.MalformedDecisionError) as exc:
+        brain.parse_decision(json.dumps(payload))
+    assert exc.value.code == "schema_invalid" and "slot" in exc.value.detail
+    with pytest.raises(brain.MalformedDecisionError):
+        brain.parse_decision(decision_json(slot=["2026-09-25T09:00"]))
+
+
+def test_a_book_reply_naming_the_other_offered_slot_is_rejected():
+    hits = _vs("Locked, Mon 28 Sep, 2:00 PM ET. Conaugh will send the invite to "
+               "that email.", stage="booking", action="book", chosen=FRI_ID)
+    assert has(hits, "names_unchosen_time"), hits
+    assert _vs(BOOK_UNARMED, stage="booking", action="book", chosen=FRI_ID) == []
+
+
+def test_a_book_reply_may_not_carry_a_link():
+    hits = _vs(f"{BOOK_UNARMED} {AUDIT_URL}", stage="booking", action="book",
+               chosen=FRI_ID)
+    assert "book_reply_url" in hits
+
+
+# ── 19c. unarmed, the invite is not "on its way" ───────────────────────────
+
+@pytest.mark.parametrize("claim", [
+    "The invite is on its way.",
+    "Just sent it, check your inbox.",
+    "It's in your inbox now.",
+    "Je t'ai envoyé l'invitation.",
+    "La invitación ya está en camino.",
+    "Te lo envié.",
+])
+def test_an_unarmed_book_may_not_claim_the_invite_was_sent(claim):
+    hits = _vs(f"Locked, Fri 25 Sep, 9:00 AM ET. {claim}", stage="booking",
+               action="book", chosen=FRI_ID)
+    assert "unarmed_invite_claim" in hits, hits
+
+
+def test_an_armed_book_may_say_the_invite_is_heading_their_way():
+    assert _vs(BOOK_ARMED, stage="booking", action="book", chosen=FRI_ID,
+               armed=True) == []
+    assert "unarmed_invite_claim" in _vs(BOOK_ARMED, stage="booking", action="book",
+                                         chosen=FRI_ID, armed=False)
+
+
+def test_neither_may_echo_the_address():
+    for armed in (True, False):
+        hits = _vs(f"{BOOK_UNARMED} (sam@example.com)", stage="booking",
+                   action="book", chosen=FRI_ID, armed=armed)
+        assert "email_in_reply" in hits
+
+
+# ── 19d. what the model is shown ──────────────────────────────────────────
+
+def _slot_prompt(**kw):
+    return brain.build_user_prompt(
+        inbound_turns(), current_stage="engaged", participant_display_name="P",
+        extracted_so_far=brain.Extracted(), replies_left_today=3, **kw)
+
+
+def test_the_trusted_block_renders_booking_armed_and_the_slots():
+    head = _slot_prompt(offered_slots=OFFER, booking_armed=True).split(
+        brain.MEMORY_BEGIN, 1)[0]
+    assert "booking_armed: yes" in head
+    assert "open_call_slots (Eastern Time, read from Conaugh's calendar just now):" in head
+    assert f"{FRI_ID} = Fri 25 Sep, 9:00 AM ET" in head
+    assert f"{MON_ID} = Mon 28 Sep, 2:00 PM ET" in head
+
+
+def test_no_slots_render_as_none_and_forbid_naming_a_time():
+    head = _slot_prompt().split(brain.MEMORY_BEGIN, 1)[0]
+    assert "booking_armed: no" in head
+    assert ("open_call_slots: none (calendar unavailable: do not name any day "
+            "or time)") in head
+
+
+def test_a_full_offer_keeps_the_trusted_block_short():
+    eight = [dict(OFFER[0], start=f"2026-10-0{d}T10:00-04:00") for d in range(1, 9)]
+    head = _slot_prompt(offered_slots=eight).split(brain.TRANSCRIPT_BEGIN)[0]
+    assert len(head) < 2000
+
+
+def test_the_system_prompt_sells_the_real_product_and_books_real_slots():
+    p = brain.build_system_prompt(canary="cafebabecafebabe")
+    assert "calendar.app.google" not in p.lower()
+    assert "hand over the link" not in p and "then hand" not in p
+    assert "Sign off" not in p and 'Sign "Conaugh"' not in p, (
+        "Conaugh never signs his DMs; the email sign-off must not reach this channel")
+    assert "cannot go from engaged straight to booking" not in p
+    for truth in ("DM automation", "replaces a setter", "editing and the posting",
+                  "SMS text back", "does NOT sell AI"):
+        assert truth in p, truth
+    for wiring in ("open_call_slots", "booking_armed", '"slot": null',
+                   "eight top-level keys"):
+        assert wiring in p, wiring
+
+
+def test_engaged_to_booking_is_legal():
+    """A prospect who picks an offered slot AND types an email in one message
+    has agreed to a call. Gate E and the closer's own stage check still hold."""
+    assert brain.is_legal_transition("engaged", "booking") is True
+    assert state.is_legal_transition("engaged", "booking") is True
+    assert "booking" in brain._legal_next_display("engaged")
+    assert brain.is_legal_transition("new", "booking") is False
+
+
+def test_the_brain_reads_slots_in_the_calendar_zone():
+    import book_discovery_call  # noqa: PLC0415
+
+    assert brain.CALL_TZ.key == book_discovery_call.TZ.key
+
+
+# ── 19e. the poller: one read, fail closed, the pick reaches the closer ────
+
+def test_the_poller_hands_decide_the_offer_and_the_arming(dm):
+    run = dm(live=False, slots=OFFER)
+    kw = run.brain.decide_kwargs[-1]
+    assert tuple(kw["offered_slots"]) == OFFER
+    assert kw["booking_armed"] is False
+
+    run = dm(live=True, book=True, slots=OFFER)
+    assert run.brain.decide_kwargs[-1]["booking_armed"] is True
+
+
+def test_a_failing_slot_seam_leaves_decide_with_nothing_and_the_tick_alive(dm, capsys):
+    def _broken():
+        raise RuntimeError("google_tool exploded")
+
+    run = dm(live=True, slots=_broken)
+
+    assert tuple(run.brain.decide_kwargs[-1]["offered_slots"]) == ()
+    assert run.delta.get("slots_unavailable") == 1
+    assert run.delta.get("replied") == 1, "the prospect must still get an answer"
+    assert "google_tool exploded" in capsys.readouterr().err, "a failure must be loud"
+
+
+def test_the_calendar_is_read_once_per_run_and_only_for_offer_stages(monkeypatch):
+    from integrations import instagram_dm_poller as p  # noqa: PLC0415
+
+    reads: list[int] = []
+    monkeypatch.setattr(p, "_offered_slots", lambda: reads.append(1) or OFFER)
+    bumped: dict[str, int] = {}
+
+    def bump(name, n=1):
+        bumped[name] = bumped.get(name, 0) + n
+
+    assert p._slots_for_turn("booked", bump) == ()
+    assert reads == [], "a stage that can never be offered a call paid for a read"
+    assert p._slots_for_turn("engaged", bump) == OFFER
+    assert p._slots_for_turn("qualified", bump) == OFFER
+    assert len(reads) == 1 and bumped == {}
+
+
+def test_one_poll_reads_the_calendar_once_for_every_prospect(fair, monkeypatch):
+    from integrations import instagram_dm_poller as p  # noqa: PLC0415
+
+    reads: list[int] = []
+    monkeypatch.setattr(p, "_offered_slots", lambda: reads.append(1) or OFFER)
+    run = fair([waiter("first", 60), waiter("second", 30)], max_model_calls=2)
+    assert len(run.sends) == 2
+    assert len(reads) == 1, f"one run, one calendar read, not {len(reads)}"
+
+
+def test_an_armed_pick_books_exactly_the_slot_the_prospect_chose(dm):
+    calls: list[dict] = []
+    result = types.SimpleNamespace(
+        ok=True, applied=True, slot_label="Mon 28 Sep, 2:00 PM", email_status="sent",
+        stage_of_failure=None, error=None)
+    closer = types.SimpleNamespace(close=lambda *a, **k: calls.append(k) or result)
+
+    run = dm(live=True, book=True, closer=closer, slots=OFFER, decision=a_decision(
+        action="book", stage="booking", slot=MON_ID,
+        reply="Locked, Mon 28 Sep, 2:00 PM ET. The invite is heading to your email.",
+        extracted=brain.Extracted(email="sam@example.com")))
+
+    assert run.delta.get("bookings_applied") == 1
+    assert calls and calls[0]["slot"] == dict(OFFER[1]), calls
+    assert calls[0]["apply"] is True
+
+
+def test_an_unarmed_pick_hands_cc_the_one_line_that_books_it(dm):
+    run = dm(live=True, book=False, slots=OFFER, decision=a_decision(
+        action="book", stage="booking", slot=FRI_ID, reply=BOOK_UNARMED,
+        extracted=brain.Extracted(email="sam@example.com")))
+
+    assert "request_handoff" in run.state.writes
+    body = next(text for text, _key in run.notes if "not armed" in text)
+    assert "Fri 25 Sep, 9:00 AM ET" in body
+    assert (f"python scripts/integrations/ig_closer.py close --conversation-id "
+            f'{CONV_ID} --start "{FRI_ID}" --apply') in body
+    assert (f"python scripts/integrations/ig_dm_state.py resume --conversation-id "
+            f"{CONV_ID} --stage booking") in body, (
+        "the handoff parks the row at handed_off, which close() refuses")
+    assert "sam@example.com" not in body, "no email address in the Telegram text"
+
+
+def test_an_armed_book_that_names_no_offered_slot_books_nothing(dm):
+    calls: list[dict] = []
+    closer = types.SimpleNamespace(close=lambda *a, **k: calls.append(k))
+    run = dm(live=True, book=True, closer=closer, slots=OFFER, decision=a_decision(
+        action="book", stage="booking", slot=None, reply=BOOK_UNARMED,
+        extracted=brain.Extracted(email="sam@example.com")))
+    assert calls == [], "a booking with no offered slot reached the closer"
+    assert "request_handoff" in run.state.writes

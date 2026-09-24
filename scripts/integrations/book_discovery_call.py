@@ -207,9 +207,34 @@ def busy_windows(days: int) -> list[tuple[datetime, datetime]]:
 
 
 def free_slots(days: int = 5, limit: int = 12) -> list[dict[str, str]]:
-    """Bookable 30-minute windows inside working hours, weekdays only."""
-    busy = busy_windows(days)
-    now = datetime.now(TZ)
+    """Bookable 30-minute windows inside working hours, weekdays only.
+
+    Fails OPEN on a failed read (busy_windows answers [] for it), so a caller
+    that shows these to a stranger must use offer_slots() instead.
+    """
+    return free_slots_from(busy_windows(days), days=days, limit=limit)
+
+
+def _local(now: Optional[datetime]) -> datetime:
+    """`now` as Toronto wall time; None means the real clock."""
+    if now is None:
+        return datetime.now(TZ)
+    return now.replace(tzinfo=TZ) if now.tzinfo is None else now.astimezone(TZ)
+
+
+def _clashes(start: datetime, busy: list[tuple[datetime, datetime]]) -> bool:
+    """The one clash predicate: a call plus BUFFER_MINUTES either side."""
+    slot_end = start + timedelta(minutes=CALL_MINUTES)
+    pad = timedelta(minutes=BUFFER_MINUTES)
+    return any(not (slot_end + pad <= b0 or start - pad >= b1) for b0, b1 in busy)
+
+
+def free_slots_from(busy: list[tuple[datetime, datetime]], *, days: int,
+                    limit: int, now: Optional[datetime] = None
+                    ) -> list[dict[str, str]]:
+    """free_slots() without the read: pure over (busy, now), so it is testable
+    and so offer_slots() can reuse the ONE read it already made."""
+    now = _local(now)
     earliest = now + timedelta(hours=LEAD_TIME_HOURS)
 
     out: list[dict[str, str]] = []
@@ -225,10 +250,7 @@ def free_slots(days: int = 5, limit: int = 12) -> list[dict[str, str]]:
             if cursor < earliest:
                 cursor += timedelta(minutes=CALL_MINUTES)
                 continue
-            pad = timedelta(minutes=BUFFER_MINUTES)
-            clash = any(not (slot_end + pad <= b0 or cursor - pad >= b1)
-                        for b0, b1 in busy)
-            if not clash:
+            if not _clashes(cursor, busy):
                 out.append({
                     "start": cursor.isoformat(timespec="minutes"),
                     "end": slot_end.isoformat(timespec="minutes"),
@@ -240,6 +262,76 @@ def free_slots(days: int = 5, limit: int = 12) -> list[dict[str, str]]:
                     return out
             cursor += timedelta(minutes=CALL_MINUTES)
     return out
+
+
+# ── offering times to a prospect ─────────────────────────────────────────────
+#
+# 2026-09-24T16:24:35Z: a prospect said "next week", and the DM bot answered "I've
+# got room Tuesday or Wednesday" plus a dead booking link. The days were
+# INVENTED: the model could not see the calendar. The DM setter now offers real
+# slots read from it, and these helpers are where they come from.
+
+# Days read for an offer. 8 calendar days covers the next full working week
+# whichever weekday the prospect writes on.
+OFFER_DAYS_HORIZON = 8
+# Anchors for spreading the offer across a day: one late-morning slot and one
+# afternoon slot, so "morning or afternoon" is always a real choice.
+_OFFER_ANCHORS_H = (10, 14)
+
+
+def offer_slots(*, days: int = OFFER_DAYS_HORIZON, per_day: int = 2, limit: int = 8,
+                now: Optional[datetime] = None) -> tuple[bool, list[dict[str, str]]]:
+    """(read_ok, slots) to put in front of a prospect. FAILS CLOSED.
+
+    Exactly one read_calendar(). A failed read is (False, []): free_slots()
+    fails OPEN on a failed read and offers every working hour, and offering a
+    stranger times from an unread calendar is the 2026-09-24 incident again.
+
+    Spread, not packed: per weekday the first free slot at/after 10:00 and the
+    first at/after 14:00 (the earliest remaining when an anchor has nothing),
+    at most `per_day` per day, chronological, capped at `limit`. Deterministic
+    for a given busy list and `now`.
+    """
+    ok, busy = read_calendar(days)
+    if not ok:
+        return False, []
+    per_hour = 60 // CALL_MINUTES
+    every = free_slots_from(busy, days=days, now=now,
+                            limit=(WORK_END_H - WORK_START_H) * per_hour * (days + 1))
+
+    by_day: dict[str, list[dict[str, str]]] = {}
+    for slot in every:
+        by_day.setdefault(slot["start"][:10], []).append(slot)
+
+    out: list[dict[str, str]] = []
+    for day in sorted(by_day):
+        day_slots = by_day[day]
+        chosen: list[dict[str, str]] = []
+        for anchor_h in _OFFER_ANCHORS_H:
+            if len(chosen) >= max(0, per_day):
+                break
+            pick = next((s for s in day_slots
+                         if _parse_iso_local(s["start"]).hour >= anchor_h), None)
+            if pick is None or pick in chosen:
+                pick = next((s for s in day_slots if s not in chosen), None)
+            if pick is not None:
+                chosen.append(pick)
+        out.extend(sorted(chosen, key=lambda s: s["start"]))
+    return True, out[:max(0, limit)]
+
+
+def slot_is_free(start_iso: str, busy: list[tuple[datetime, datetime]], *,
+                 now: Optional[datetime] = None) -> bool:
+    """Can a CALL_MINUTES call still start at `start_iso`? Pure.
+
+    Not yet started, and no clash with `busy` under the same buffer free_slots
+    uses. Working hours and lead time are NOT re-applied: the slot was offered
+    inside them, and a prospect who picks it hours later has not made it worse.
+    """
+    start = _parse_iso_local(start_iso)
+    if start <= _local(now):
+        return False
+    return not _clashes(start, busy)
 
 
 # ── lead + brief ─────────────────────────────────────────────────────────────

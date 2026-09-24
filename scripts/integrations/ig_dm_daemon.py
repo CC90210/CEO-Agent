@@ -33,6 +33,7 @@ Usage:
     python scripts/integrations/ig_dm_daemon.py                 # run the loop
     python scripts/integrations/ig_dm_daemon.py --interval 20
     python scripts/integrations/ig_dm_daemon.py --once          # one tick, then exit
+    python scripts/integrations/ig_dm_daemon.py --book          # armed: books picked slots
     python scripts/integrations/ig_dm_daemon.py --check-conflict # is the cron row armed?
 """
 
@@ -271,6 +272,13 @@ def main() -> int:
                    help="report whether the cron row is armed, then exit")
     p.add_argument("--limit", type=int, default=100)
     p.add_argument("--max-model-calls", type=int, default=3)
+    # Off by default: letting the setter put strangers on CC's calendar and mail
+    # them a Google invite is his call, and he made it on 2026-09-24 (the flag is
+    # in ecosystem.config.js). Unarmed, a picked slot is handed to him with the
+    # one line that books it. Arming is this flag in the fleet args, nothing else.
+    p.add_argument("--book", action="store_true",
+                   help="pass --book to the poller: book the slot a prospect picks "
+                        "(real calendar event + Google invite). Default OFF.")
     p.add_argument("--allow-cron-conflict", action="store_true",
                    help=argparse.SUPPRESS)  # escape hatch; never use in production
     args = p.parse_args()
@@ -289,12 +297,15 @@ def main() -> int:
         return 1
 
     extra = ["--limit", str(args.limit), "--max-model-calls", str(args.max_model_calls)]
+    if args.book:
+        extra.append("--book")
 
     if args.once:
         return run_tick(extra)
 
     _log(f"Instagram DM setter daemon up — every {args.interval}s, "
-         f"{args.max_model_calls} model turn(s) per tick")
+         f"{args.max_model_calls} model turn(s) per tick, booking "
+         f"{'ARMED' if args.book else 'off (picked slots go to CC)'}")
     while True:
         started = time.monotonic()
         try:
