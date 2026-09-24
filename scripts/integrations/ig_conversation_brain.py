@@ -1483,8 +1483,9 @@ def _time_claims(body: str) -> list[tuple[str, TimeCheck, int, bool]]:
         # "por la mañana" is "in the morning", not tomorrow.
         if m.group(1).lower() != "demain" and re.search(r"\b(la|las|esta)\s+$", before):
             continue
-        # "après-demain" / "pasado mañana" is the day AFTER tomorrow.
-        offset = 2 if re.search(r"(apr[eè]s[- ]|pasado\s+)$", before) else 1
+        # "après-demain" / "pasado mañana" / "the day after tomorrow" is the day
+        # AFTER tomorrow.
+        offset = 2 if re.search(r"(apr[eè]s[- ]|pasado\s+|day\s+after\s+)$", before) else 1
         claims.append((m.group(0).lower(),
                        lambda s, today, off=offset: s.date() == today + timedelta(days=off),
                        m.start(), False))
@@ -2070,6 +2071,14 @@ def decide(
         if action == "handoff" and stage != "handed_off":
             violations.append(f"stage_coerced:{stage}->handed_off")
             stage = "handed_off"
+        # Same for a booking. A book turn DMs the prospect their time BEFORE the
+        # closer runs, and the closer refuses any row not at qualified/booking
+        # (CLOSEABLE_STAGES). "book" with stage "engaged" therefore sent a
+        # promise the closer then declined (independent review, 2026-09-24).
+        # Gate A below still refuses the move if booking is not legal from here.
+        if action == "book" and stage != "booking":
+            violations.append(f"stage_coerced:{stage}->booking")
+            stage = "booking"
 
         # Gate A — the stage machine. "booked" is barred separately: only the
         # closer, holding a real calendar event, may write it.
