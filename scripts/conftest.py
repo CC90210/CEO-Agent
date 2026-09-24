@@ -11,8 +11,18 @@ import statements at module top).
 from __future__ import annotations
 
 import sys
+import importlib
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
+REPO_ROOT = SCRIPTS_DIR.parent
+
+# `scripts/bravo_cli.py` is a legacy executable whose basename collides with
+# the real `bravo_cli/` package. Keep the repository root ahead of scripts and
+# pin the package before individual legacy tests prepend scripts/ themselves.
+for path in reversed((REPO_ROOT, SCRIPTS_DIR)):
+    value = str(path)
+    if value in sys.path:
+        sys.path.remove(value)
+    sys.path.insert(0, value)
+importlib.import_module("bravo_cli")

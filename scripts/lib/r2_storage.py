@@ -70,6 +70,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from lib.structured_log import get_logger  # noqa: E402
+from lib.tls_trust import ensure_os_trust  # noqa: E402
 
 log = get_logger("r2_storage")
 
@@ -165,6 +166,7 @@ def _s3():
     global _S3
     if _S3 is None:
         try:
+            ensure_os_trust()
             _S3 = _etl()._client(_creds())
         except SystemExit as exc:  # etl exits on a missing boto3; not fatal here
             raise R2StorageError(str(exc)) from exc

@@ -273,11 +273,11 @@ fi
 step "Adding 'oasis' command to PATH"
 BIN_DIR="$OASIS_HOME/bin"
 mkdir -p "$BIN_DIR"
-WIZARD_ENTRY="$WIZARD_REPO/bravo_cli/main.py"
 
 cat > "$BIN_DIR/oasis" <<EOF
 #!/usr/bin/env bash
-exec "$VENV_PY" "$WIZARD_ENTRY" "\$@"
+cd "$WIZARD_REPO"
+exec "$VENV_PY" -m bravo_cli.main "\$@"
 EOF
 chmod +x "$BIN_DIR/oasis"
 
@@ -304,8 +304,8 @@ if [ "$SKIP_WIZARD" -eq 0 ]; then
     # curl ... | bash gives this script a piped stdin. Hand the wizard the
     # real terminal instead, or its first input() will see EOF and exit.
     if [ -r /dev/tty ]; then
-        "$VENV_PY" "$WIZARD_ENTRY" setup </dev/tty
+        "$VENV_PY" -m bravo_cli.main setup </dev/tty
     else
-        "$VENV_PY" "$WIZARD_ENTRY" setup
+        "$VENV_PY" -m bravo_cli.main setup
     fi
 fi

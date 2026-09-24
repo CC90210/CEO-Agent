@@ -36,6 +36,7 @@ from pathlib import Path
 
 CAPABILITY_META = {
     "category": "infra.hostinger",
+    "lifecycle": "active",
     # external_write, not external_read: `add-key` POSTs a public key to the
     # account. The fleet routes on this field, so leaving it at read would let
     # a mutation run through a read-only path.

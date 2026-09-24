@@ -135,11 +135,17 @@ def main() -> int:
           "keys, leaves everything else alone):")
     print("""
   cd /srv/sunbiz/ceo-agent
-  cp .env.agents .env.agents.bak.$(date +%s)
-  grep -v -E '^(TURSO_DATABASE_URL|TURSO_AUTH_TOKEN)=' .env.agents > .env.agents.new
-  cat turso_vps_credentials.env >> .env.agents.new
-  mv .env.agents.new .env.agents
-  chmod 600 .env.agents
+  .venv/bin/python - <<'PY'
+from pathlib import Path
+from scripts.lib.env_store import parse_file, update_env_values
+
+target = Path('.env.agents')
+incoming = parse_file(Path('turso_vps_credentials.env'))
+keys = {'TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN'}
+if set(incoming) != keys:
+    raise SystemExit('credential bundle does not contain the two expected keys')
+update_env_values(target, {key: incoming[key] for key in sorted(keys)})
+PY
   shred -u turso_vps_credentials.env 2>/dev/null || rm -f turso_vps_credentials.env
 """)
     print("Then re-run step 1 of the cutover — the fingerprints must match the "

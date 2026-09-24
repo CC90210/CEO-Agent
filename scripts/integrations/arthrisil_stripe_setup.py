@@ -27,7 +27,6 @@ _write_env — the agent running this never sees it, which is the point.
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
 import json
 import re
 import sys
@@ -40,6 +39,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 from lib.app_registry import app_dir  # noqa: E402
+from lib.env_store import locked_update_text  # noqa: E402
 from lib.secret_loader import load_env  # noqa: E402
 
 API = "https://api.stripe.com/v1"
@@ -188,27 +188,24 @@ def _write_env(pairs: dict[str, str]) -> list[str]:
     The caller gets key names only. This is the same contract as
     turso_admin._write_env and exists for the same reason: the alternative is
     printing a live signing secret into a transcript and asking a human to paste
-    it back. A timestamped backup is written first.
+    it back. The canonical store is replaced atomically without another copy.
     """
-    stamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-    existing = ENV_FILE.read_text(encoding="utf-8").splitlines() if ENV_FILE.exists() else []
-    if existing:
-        ENV_FILE.with_suffix(f".agents.bak.{stamp}").write_text(
-            "\n".join(existing) + "\n", encoding="utf-8"
-        )
-    out: list[str] = []
-    replaced: set[str] = set()
-    for line in existing:
-        key = line.split("=", 1)[0].strip() if "=" in line else ""
-        if key in pairs:
-            out.append(f"{key}={pairs[key]}")
-            replaced.add(key)
-        else:
-            out.append(line)
-    for key, value in pairs.items():
-        if key not in replaced:
-            out.append(f"{key}={value}")
-    ENV_FILE.write_text("\n".join(out) + "\n", encoding="utf-8")
+    def merge(current: str) -> str:
+        out: list[str] = []
+        replaced: set[str] = set()
+        for line in current.splitlines():
+            key = line.split("=", 1)[0].strip() if "=" in line else ""
+            if key in pairs:
+                out.append(f"{key}={pairs[key]}")
+                replaced.add(key)
+            else:
+                out.append(line)
+        for key, value in pairs.items():
+            if key not in replaced:
+                out.append(f"{key}={value}")
+        return "\n".join(out) + "\n"
+
+    locked_update_text(ENV_FILE, merge)
     return sorted(pairs)
 
 

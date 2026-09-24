@@ -16,6 +16,7 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 $TmpDir = Join-Path $RepoRoot "tmp"
 $JsonPath = Join-Path $TmpDir "ai_workstation_report.json"
 $MdPath = Join-Path $TmpDir "AI_WORKSTATION_REPORT.md"
+$FleetWatchdog = Join-Path $RepoRoot "scripts\ops\fleet_watchdog.py"
 
 function Convert-BytesToGb {
     param([Nullable[UInt64]]$Bytes)
@@ -68,21 +69,35 @@ function Get-WslState {
     }
 }
 
-function Get-Pm2Snapshot {
-    $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
-    if (-not $pm2) { return @() }
+function Get-FleetSnapshot {
+    $python = Join-Path $RepoRoot ".venv\Scripts\python.exe"
+    if (-not (Test-Path -LiteralPath $python)) {
+        $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+        if (-not $pythonCommand) { return @() }
+        $python = $pythonCommand.Source
+    }
+    if (-not (Test-Path -LiteralPath $FleetWatchdog)) { return @() }
     try {
-        $raw = pm2 jlist 2>$null
-        if (-not $raw) { return @() }
-        return @($raw | ConvertFrom-Json | ForEach-Object {
+        $fleetArgs = @("status", "--json")
+        $raw = & $python $FleetWatchdog @fleetArgs 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $raw) { return @() }
+        return @(($raw | Out-String | ConvertFrom-Json) | ForEach-Object {
+            $state = if ([int]$_.root_count -gt 1) {
+                "duplicate"
+            } elseif ($_.disabled) {
+                "disabled"
+            } elseif ($_.running) {
+                "running"
+            } elseif ($_.unrunnable) {
+                "unrunnable"
+            } else {
+                "down"
+            }
             [pscustomobject]@{
                 name = $_.name
-                pid = $_.pid
-                status = $_.pm2_env.status
-                restarts = $_.pm2_env.restart_time
-                uptime_ms = if ($_.pm2_env.pm_uptime) { [int64](([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()) - $_.pm2_env.pm_uptime) } else { $null }
-                memory_mb = if ($_.monit.memory) { [math]::Round($_.monit.memory / 1MB, 1) } else { $null }
-                cpu = $_.monit.cpu
+                status = $state
+                script = $_.script
+                identity = $_.ident
             }
         })
     } catch {
@@ -120,7 +135,7 @@ $powerSchemes = (powercfg /L 2>$null | Out-String).Trim()
 $activePower = (($powerSchemes -split "`n") | Where-Object { $_ -match "Power Scheme GUID:.*\*" } | Select-Object -First 1).Trim()
 $longPaths = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -ErrorAction SilentlyContinue).LongPathsEnabled
 $defenderPref = Get-MpPreference | Select-Object EnableControlledFolderAccess, DisableRealtimeMonitoring
-$tools = @("python", "node", "npm", "pm2", "git", "winget", "wsl", "uv", "bun", "claude", "gemini", "ollama", "nvidia-smi") | ForEach-Object { Get-CommandVersion $_ }
+$tools = @("python", "node", "npm", "git", "winget", "wsl", "uv", "bun", "claude", "gemini", "ollama", "nvidia-smi") | ForEach-Object { Get-CommandVersion $_ }
 $topCpu = @(Get-Process | Sort-Object CPU -Descending | Select-Object -First 12 ProcessName, Id, CPU, @{Name="memory_mb";Expression={[math]::Round($_.WorkingSet64 / 1MB, 1)}}, Path)
 $topMem = @(Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 12 ProcessName, Id, CPU, @{Name="memory_mb";Expression={[math]::Round($_.WorkingSet64 / 1MB, 1)}}, Path)
 
@@ -148,7 +163,7 @@ $report = [pscustomobject]@{
     windows = [pscustomobject]@{ long_paths_enabled = $longPaths; wsl = Get-WslState }
     defender = [pscustomobject]@{ preferences = $defenderPref; recent_blocks = Get-DefenderEvents }
     tools = $tools
-    pm2 = Get-Pm2Snapshot
+    fleet = Get-FleetSnapshot
     top_cpu_processes = $topCpu
     top_memory_processes = $topMem
     findings = @($findings)
@@ -180,9 +195,9 @@ if (-not $NoWrite) {
         $md += "- $($tool.name): $state $($tool.version)"
     }
     $md += ""
-    $md += "## PM2"
-    foreach ($proc in $report.pm2) {
-        $md += "- $($proc.name): $($proc.status), pid $($proc.pid), restarts $($proc.restarts), mem $($proc.memory_mb) MB"
+    $md += "## Fleet Watchdog"
+    foreach ($proc in $report.fleet) {
+        $md += "- $($proc.name): $($proc.status), $($proc.script)"
     }
     $md | Set-Content -LiteralPath $MdPath -Encoding UTF8
 }

@@ -100,7 +100,15 @@ def main() -> int:
         return 2
 
     proc = safe_run(
-        ["node", "--conditions=react-server", "--import", "tsx", script, *forwarded],
+        [
+            "node",
+            "--use-system-ca",
+            "--conditions=react-server",
+            "--import",
+            "tsx",
+            script,
+            *forwarded,
+        ],
         cwd=str(DASHBOARD_DIR),
         env=env,
     )

@@ -3,6 +3,8 @@ const TelegramBot = require('node-telegram-bot-api');
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { createTelegramTransportHealth } = require('./scripts/lib/telegram_transport_health.js');
+const { createSettlement } = require('./scripts/lib/settle_once.js');
 
 // ============================================================
 // BRAVO TELEGRAM BRIDGE V15.8
@@ -200,6 +202,13 @@ const bot = new TelegramBot(TELEGRAM_TOKEN, {
     },
     request: { timeout: 60000 }
 });
+const transportHealth = createTelegramTransportHealth({
+    bot,
+    filePath: path.join(__dirname, 'state', 'telegram_transport_health.json'),
+    name: 'bravo-telegram',
+    log,
+});
+transportHealth.start();
 
 log(`Bravo Telegram Bridge V15.8 (${IS_MAC ? 'macOS' : 'Windows'} - guarded autonomy) starting...`);
 
@@ -275,61 +284,43 @@ if (!IS_MAC && !fs.existsSync(CLAUDE_EXE)) {
     log(`[WARN] Claude exe not found: ${CLAUDE_EXE}`);
 }
 
-// OpenCode CLI — fallback for when Claude subscription quota/auth fails.
-// SECURITY: resolve a DIRECTLY EXECUTABLE binary only (.exe / native), never
-// the .cmd/.ps1 npm shims — spawning those requires cmd.exe (shell:true),
-// which re-opens the arg-injection door. Prompt travels via stdin, never argv.
-const OPENCODE_EXE = IS_MAC
-    ? 'opencode'
-    : path.join(process.env.APPDATA || '', 'npm', 'node_modules', 'opencode-ai', 'bin', 'opencode.exe');
-const HAS_OPENCODE = (() => {
-    try {
-        if (IS_MAC) {
-            const { execSync } = require('child_process');
-            execSync('which opencode', { stdio: 'ignore' });
-            return true;
-        }
-        return fs.existsSync(OPENCODE_EXE);
-    } catch (_) { return false; }
-})();
-if (HAS_OPENCODE) {
-    log(`[OPENCODE] Fallback available: ${OPENCODE_EXE}`);
-} else {
-    log(`[OPENCODE] Fallback NOT available — opencode not found`);
-}
+// Codex CLI — independent subscription fallback for Claude quota/auth failures.
+// The Python wrapper bypasses Windows npm shims and sends prompts via stdin.
+const CODEX_FALLBACK_SCRIPT = path.join(__dirname, 'scripts', 'lib', 'model_fallback.py');
+const HAS_CODEX_FALLBACK = fs.existsSync(CODEX_FALLBACK_SCRIPT);
+log(HAS_CODEX_FALLBACK
+    ? '[CODEX] Subscription fallback wrapper available'
+    : `[CODEX] Subscription fallback wrapper missing: ${CODEX_FALLBACK_SCRIPT}`);
 
 // ---- CONFIG ----
 const GEMINI_TIMEOUT = 300000; // 5 min — MCP tools need time to load
 const CLAUDE_TIMEOUT = 600000; // 10 min — Claude handles complex tasks
-const OPENCODE_TIMEOUT = 180000; // 3 min — free model fallback
-
-// Default fallback model (free/unlimited through OpenCode)
-const OPENCODE_FALLBACK_MODEL = 'opencode/big-pickle';
+const CODEX_FALLBACK_TIMEOUT = 600000; // 10 min, aligned with Claude
 
 /**
- * executeOpenCodeFallback — spawn OpenCode CLI with a free model when
- * Claude subscription quota/auth fails. Returns the model's text or a
- * human-readable error string. This ensures CC's Telegram messages always
- * get a response, even when Claude is down.
+ * executeCodexFallback — invoke a second subscription when Claude fails.
+ * Only exit-zero, non-empty output is returned to Telegram.
  */
-const executeOpenCodeFallback = (userPrompt, chatId, model = OPENCODE_FALLBACK_MODEL) => {
+const executeCodexFallback = (userPrompt, chatId) => {
     return new Promise((resolve) => {
-        if (!HAS_OPENCODE) {
-            resolve('Claude quota/auth failed and OpenCode fallback is not installed. Run: npm i -g opencode');
+        if (!HAS_CODEX_FALLBACK) {
+            resolve(null);
             return;
         }
-        log(`[OPENCODE FALLBACK] Spawning ${model} for chat ${chatId}`);
-        // SECURITY: prompt goes via STDIN (never argv) and the restricted
-        // bravo-oneshot agent (.opencode/agents/bravo-oneshot.md, all tools
-        // denied) — same posture as scripts/lib/opencode_cli.py.
+        log(`[CODEX FALLBACK] Spawning subscription CLI for chat ${chatId}`);
+        // SECURITY: prompt goes via stdin, never argv. The wrapper strips all
+        // metered API keys and runs ephemerally inside the workspace sandbox.
         const args = [
-            'run',
-            '--model', model,
-            '--agent', 'bravo-oneshot',
-            '--format', 'default',
-            '--dir', __dirname,
+            'scripts/lib/model_fallback.py',
+            '--force-fallback',
+            '--stdin',
+            '--workspace-write',
+            '--respect-rules',
+            '--operator-trusted',
+            '--cwd', __dirname,
+            '--timeout', String(Math.floor(CODEX_FALLBACK_TIMEOUT / 1000)),
         ];
-        const child = spawn(OPENCODE_EXE, args, {
+        const child = spawn(PYTHON, args, {
             env: {
                 ...process.env,
                 CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat',
@@ -347,54 +338,45 @@ const executeOpenCodeFallback = (userPrompt, chatId, model = OPENCODE_FALLBACK_M
         child.stdout.on('data', (d) => { stdout += d.toString(); });
         child.stderr.on('data', (d) => { stderr += d.toString(); });
         const timer = setTimeout(() => {
-            log(`[OPENCODE FALLBACK] Timed out after ${OPENCODE_TIMEOUT / 1000}s`);
+            log(`[CODEX FALLBACK] Timed out after ${CODEX_FALLBACK_TIMEOUT / 1000}s`);
             if (child.pid) killTree(child.pid);
-            resolve(stdout.trim() ? cleanOutput(stdout.trim()) : 'OpenCode fallback timed out.');
-        }, OPENCODE_TIMEOUT);
+            resolve(null);
+        }, CODEX_FALLBACK_TIMEOUT);
         child.on('close', (code) => {
             clearTimeout(timer);
             activeChildren.delete(child);
-            log(`[OPENCODE FALLBACK] code=${code} stdout=${stdout.length}b model=${model}`);
-            const raw = (stdout.trim() || stderr.trim());
-            if (!raw) {
-                resolve(code === 0 ? 'Done (OpenCode).' : `OpenCode fallback error (code ${code}).`);
+            log(`[CODEX FALLBACK] code=${code} stdout=${stdout.length}b`);
+            if (code !== 0) {
+                log(`[CODEX FALLBACK] failed: ${cleanOutput(stderr).substring(0, 300)}`);
+                resolve(null);
                 return;
             }
-            resolve(cleanOutput(raw));
+            const result = cleanOutput(stdout.trim());
+            resolve(result || null);
         });
         child.on('error', (err) => {
             clearTimeout(timer);
             activeChildren.delete(child);
-            log(`[OPENCODE FALLBACK ERROR] ${err.message}`);
-            resolve(`OpenCode fallback error: ${err.message}`);
+            log(`[CODEX FALLBACK ERROR] ${err.message}`);
+            resolve(null);
         });
     });
 };
 
-// SECURITY: Only CC's Telegram user ID can interact with this bot.
-// Auto-registers first user if TELEGRAM_ALLOWED_USERS is empty in .env.agents.
-// After first message, the ID is saved and all other users are blocked.
-const ENV_FILE = path.join(__dirname, '.env.agents');
-let ALLOWED_USERS = (process.env.TELEGRAM_ALLOWED_USERS || '')
+// SECURITY: Only explicitly provisioned Telegram user IDs can interact.
+// A missing allowlist is a configuration outage, never an enrollment flow:
+// public bots are reachable by anyone, so "first sender wins" grants an
+// attacker ownership when a key is missing or malformed.
+const ALLOWED_USERS = (process.env.TELEGRAM_ALLOWED_USERS || '')
     .split(',')
     .map(id => id.trim())
     .filter(Boolean);
-
-const autoRegisterUser = (userId) => {
-    try {
-        let envContent = fs.readFileSync(ENV_FILE, 'utf8');
-        if (envContent.includes('TELEGRAM_ALLOWED_USERS=')) {
-            envContent = envContent.replace(/TELEGRAM_ALLOWED_USERS=.*/, `TELEGRAM_ALLOWED_USERS=${userId}`);
-        } else {
-            envContent += `\nTELEGRAM_ALLOWED_USERS=${userId}\n`;
-        }
-        fs.writeFileSync(ENV_FILE, envContent);
-        ALLOWED_USERS = [String(userId)];
-        log(`[SECURITY] Auto-registered owner: ${userId}. All other users now blocked.`);
-    } catch (e) {
-        log(`[SECURITY] Failed to save user ID: ${e.message}`);
-    }
-};
+const isAuthorizedUser = (userId) => (
+    ALLOWED_USERS.length > 0 && ALLOWED_USERS.includes(String(userId))
+);
+if (ALLOWED_USERS.length === 0) {
+    log('[SECURITY] TELEGRAM_ALLOWED_USERS is empty; bridge is fail-closed until an operator provisions it.');
+}
 
 // Static prompt for Gemini (Gemini reads brain files via MCP anyway)
 const buildGeminiPrompt = (chatId) => {
@@ -759,6 +741,7 @@ const HAS_MCP_CONFIG = fs.existsSync(MCP_CONFIG_PATH);
 
 const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
     return new Promise((resolve) => {
+        const settlement = createSettlement(resolve);
         const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId, userPrompt)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
         const tier = classifyTier(userPrompt);
         const timeout = tool === 'claude' ? (tier === 0 ? 300000 : CLAUDE_TIMEOUT) : GEMINI_TIMEOUT; // T0: 5min, others: 10min
@@ -827,6 +810,7 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
         let stdout = '';
         let stderr = '';
         let hasOutput = false;
+        let fallbackInFlight = false;
         child.stdout.on('data', (d) => { stdout += d.toString(); hasOutput = true; });
         child.stderr.on('data', (d) => { stderr += d.toString(); });
 
@@ -847,12 +831,14 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
 
         const timer = setTimeout(() => {
             log(`[TIMEOUT] ${tool} killed after ${timeout / 1000}s`);
+            clearInterval(progressTimer);
+            activeChildren.delete(child);
             if (child.pid) killTree(child.pid);
             const partial = cleanOutput(stdout.trim());
             if (partial && partial.length > 20) {
-                resolve(`(Partial — timed out after ${timeout / 1000}s)\n\n${partial}`);
+                settlement.settle(`(Partial — timed out after ${timeout / 1000}s)\n\n${partial}`);
             } else {
-                resolve(`Timed out after ${timeout / 1000}s. The task may be too complex for Telegram. Try ${tool === 'claude' ? '!gemini' : '!claude'} or run it directly.`);
+                settlement.settle(`Timed out after ${timeout / 1000}s. The task may be too complex for Telegram. Try ${tool === 'claude' ? '!gemini' : '!claude'} or run it directly.`);
             }
         }, timeout);
 
@@ -860,6 +846,7 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
             clearTimeout(timer);
             clearInterval(progressTimer);
             activeChildren.delete(child);
+            if (settlement.isSettled() || fallbackInFlight) return;
             const elapsed = Math.round((Date.now() - startTime) / 1000);
             log(`[DONE] ${tool} code=${code} stdout=${stdout.length}b stderr=${stderr.length}b time=${elapsed}s`);
 
@@ -889,57 +876,60 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
 
             const raw = (stdout.trim() || stderr.trim());
             if (!raw) {
-                resolve(code === 0 ? 'Done.' : `Error (code ${code}). Try !claude for complex tasks.`);
+                settlement.settle(code === 0 ? 'Done.' : `Error (code ${code}). Try !claude for complex tasks.`);
                 return;
             }
 
-            // Fall back on ANY claude failure, not only a recognised quota
-            // phrase (2026-09-03). This block used to require
-            // isClaudeAuthOrQuotaFailure() to return true before it would try
-            // OpenCode — the same shape that took the SunBiz application reader
-            // down, where Claude printed "You've hit your session limit", the
-            // matcher did not know the phrase, and the fallback that existed
-            // was never reached. A matcher over an open-ended vendor message
-            // always has a next miss; it must choose WORDING, never whether a
-            // fallback exists. See config/claude_auth_signals.json.
+            // Replay through a second agent only for a provider stop that
+            // happens before work begins (quota/auth). Retrying an arbitrary
+            // failed run can duplicate a mutation or outbound call Claude
+            // completed before returning non-zero. The shared signal fixture
+            // includes the real "session limit" incident and is parity-tested.
             const looksLikeQuotaOrAuth = isClaudeAuthOrQuotaFailure(raw, code);
-            if (code !== 0 && tool === 'claude') {
-                log(`[FALLBACK] claude exit ${code}${looksLikeQuotaOrAuth ? ' (quota/auth)' : ''} — trying OpenCode: ${raw.substring(0, 200)}`);
-                if (HAS_OPENCODE) {
-                    bot.sendMessage(chatId, looksLikeQuotaOrAuth
-                        ? '⚡ Claude quota hit — routing through OpenCode fallback...'
-                        : '⚡ Claude errored — routing through OpenCode fallback...').catch(() => {});
-                    const fallbackResult = await executeOpenCodeFallback(userPrompt, chatId);
-                    // Run state_sync after successful OpenCode fallback too
+            if (code !== 0 && tool === 'claude' && looksLikeQuotaOrAuth) {
+                log(`[FALLBACK] claude exit ${code}${looksLikeQuotaOrAuth ? ' (quota/auth)' : ''} — trying Codex subscription: ${raw.substring(0, 200)}`);
+                if (HAS_CODEX_FALLBACK) {
+                    bot.sendMessage(chatId, '⚡ Claude unavailable (quota/auth) — routing through Codex subscription fallback...').catch(() => {});
+                    const fallbackResult = await executeCodexFallback(userPrompt, chatId);
+                    // Record only an actual exit-0 model answer as a success.
                     if (fallbackResult && tier > 0) {
                         const { execFile: execFileTrack } = require('child_process');
                         execFileTrack(PYTHON, [
                             'scripts/state/state_sync.py',
-                            '--note', `telegram T${tier} (opencode-fallback): ${userPrompt.substring(0, 140)}`
+                            '--note', `telegram T${tier} (codex-fallback): ${userPrompt.substring(0, 140)}`
                         ], { cwd: __dirname, windowsHide: true, timeout: 8000 }, () => {});
                     }
-                    // If the fallback produced nothing, DO NOT resolve empty —
-                    // fall through to the original error below. Now that this
-                    // path triggers on any non-zero exit (not just quota), a
-                    // silent resolve would turn every ordinary claude error
-                    // into a blank reply.
-                    if (fallbackResult) { resolve(fallbackResult); return; }
-                    log('[FALLBACK] OpenCode returned nothing — surfacing the original claude error');
-                } else if (looksLikeQuotaOrAuth) {
-                    resolve('Claude subscription quota or auth failure, and OpenCode fallback is not installed. If quota: wait for the window to reset. If auth: run `claude setup-token`, then: pm2 restart bravo-telegram');
+                    // If fallback produced nothing, surface Claude's original
+                    // provider-stop error rather than inventing success.
+                    if (fallbackResult) { settlement.settle(fallbackResult); return; }
+                    log('[FALLBACK] Codex returned no successful answer — surfacing the original Claude error');
+                } else {
+                    settlement.settle('Claude and Codex subscriptions are unavailable. Check authentication, then run: python scripts/ops/fleet_watchdog.py restart bravo-telegram');
                     return;
                 }
             }
 
-            resolve(cleanOutput(raw));
+            settlement.settle(cleanOutput(raw));
         });
 
-        child.on('error', (err) => {
+        child.on('error', async (err) => {
             clearTimeout(timer);
             clearInterval(progressTimer);
             activeChildren.delete(child);
+            if (settlement.isSettled()) return;
+            fallbackInFlight = true;
             log(`[ERROR] ${tool}: ${err.message}`);
-            resolve(`Error: ${err.message}`);
+            // A spawn error occurs before Claude can emit text or invoke a
+            // tool, so replaying this authenticated Telegram turn is safe.
+            if (tool === 'claude' && HAS_CODEX_FALLBACK) {
+                bot.sendMessage(chatId, '⚡ Claude could not start — routing through Codex subscription fallback...').catch(() => {});
+                const fallbackResult = await executeCodexFallback(userPrompt, chatId);
+                if (fallbackResult) {
+                    settlement.settle(fallbackResult);
+                    return;
+                }
+            }
+            settlement.settle(`Error: ${err.message}`);
         });
     });
 };
@@ -952,7 +942,7 @@ const cleanOutput = (raw) => {
 
     const noise = [
         /^[█▓░▀▄▐▌]+/,
-        /^>\s*\w[\w.-]*\s*·\s*\S/, // opencode run status header: "> agent · model"
+        /^>\s*\w[\w.-]*\s*·\s*\S/, // generic CLI status header
         /logged in with/i,
         /waiting for mcp/i,
         /^Gemini CLI/i,
@@ -1131,12 +1121,12 @@ bot.on('message', async (msg) => {
     const userId = String(msg.from.id);
     const user = msg.from.username || msg.from.first_name || '?';
 
-    // SECURITY FIREWALL: Auto-register first user, block all others
-    if (ALLOWED_USERS.length === 0) {
-        autoRegisterUser(userId);
-        log(`[SECURITY] First user registered as owner: ${user} (${userId})`);
-    } else if (!ALLOWED_USERS.includes(userId)) {
-        log(`[BLOCKED] Unauthorized user: ${user} (ID: ${userId})`);
+    // SECURITY FIREWALL: fail closed when the allowlist is absent or the user
+    // is not explicitly listed. Configuration is changed only by a trusted
+    // local operator, never by an inbound Telegram message.
+    if (!isAuthorizedUser(userId)) {
+        const reason = ALLOWED_USERS.length === 0 ? 'allowlist not configured' : 'user not allowlisted';
+        log(`[BLOCKED] Unauthorized user: ${user} (ID: ${userId}; ${reason})`);
         return bot.sendMessage(chatId, 'Unauthorized.').catch(() => {});
     }
 
@@ -1410,9 +1400,9 @@ bot.on('message', async (msg) => {
 
         // V9.0: Default to Claude (CC has Max plan), !gemini for fallback
         // V15.7: !opus / !sonnet / !haiku select the model for this turn
-        // V16.0: !opencode directly triggers OpenCode CLI fallback for testing / on-demand free tier
+        // !codex directly invokes the independent subscription fallback.
         const isGemini = text.startsWith('!gemini');
-        const isOpenCode = text.startsWith('!opencode');
+        const isCodex = text.startsWith('!codex');
         let modelOverride = null;
         let workingText = text;
         const modelMatch = workingText.match(/^!(opus|sonnet|haiku)\s+/i);
@@ -1420,19 +1410,20 @@ bot.on('message', async (msg) => {
             modelOverride = modelMatch[1].toLowerCase();
             workingText = workingText.replace(/^!(opus|sonnet|haiku)\s+/i, '');
         }
-        const prompt = workingText.replace(/^!(claude|gemini|bravo|opencode)\s+/, '');
+        const prompt = workingText.replace(/^!(claude|gemini|bravo|codex)\s+/, '');
 
         // Store user message in history
         addToHistory(chatId, 'user', prompt);
 
         await bot.sendChatAction(chatId, 'typing');
 
-        if (isOpenCode) {
-            await bot.sendMessage(chatId, 'Bravo thinking... (OpenCode fallback)');
-            const result = await executeOpenCodeFallback(prompt, chatId);
-            log(`[RESULT] opencode returned ${(result || '').length} chars`);
-            addToHistory(chatId, 'assistant', result || 'Done (OpenCode).');
-            const chunks = (result || 'Done.').match(/[\s\S]{1,4000}/g) || ['Done.'];
+        if (isCodex) {
+            await bot.sendMessage(chatId, 'Bravo thinking... (Codex subscription)');
+            const result = await executeCodexFallback(prompt, chatId);
+            log(`[RESULT] codex returned ${(result || '').length} chars`);
+            const reply = result || 'Codex is unavailable; no fallback result was recorded.';
+            if (result) addToHistory(chatId, 'assistant', result);
+            const chunks = reply.match(/[\s\S]{1,4000}/g) || [reply];
             for (const c of chunks) await bot.sendMessage(chatId, c);
             return;
         }
@@ -1612,6 +1603,7 @@ let shuttingDown = false;
 const shutdown = async (sig) => {
     if (shuttingDown) return; // prevent double-shutdown
     shuttingDown = true;
+    transportHealth.stop();
     log(`[SHUTDOWN] ${sig} — stopping polling...`);
     for (const c of activeChildren) killTree(c.pid);
     try {
@@ -1656,13 +1648,16 @@ function scheduleResumeAfterConflict() {
         try {
             await bot.startPolling({ restart: true });
             log('[POLL] Resumed polling after 409 backoff.');
+            const conflictCountAtResume = pollConflictCount;
             setTimeout(() => {
-                if (Date.now() - lastPollOkAt > 4.5 * 60 * 1000) {
+                if (pollConflictCount === conflictCountAtResume) {
                     pollConflictCount = 0;
+                    void transportHealth.clearFailure();
                     log('[POLL] 5 min stable since last 409 — backoff counter reset.');
                 }
             }, 5 * 60 * 1000);
         } catch (err) {
+            transportHealth.markFailure('poll_start_failed');
             log(`[POLL] startPolling after backoff failed: ${err.message || err}. Will retry on next polling_error.`);
         }
     }, delay);
@@ -1673,11 +1668,13 @@ bot.on('polling_error', (e) => {
     const msg = e.message || String(e);
     if (msg.includes('409') || msg.includes('Conflict')) {
         pollConflictCount++;
+        transportHealth.markFailure('polling_conflict', { sticky: true });
         bot.stopPolling().catch(() => {});
         scheduleResumeAfterConflict();
         return;
     }
     if (msg.includes('401')) {
+        transportHealth.markFailure('unauthorized', { sticky: true });
         log('[POLL] 401 — TELEGRAM_BOT_TOKEN invalid or revoked. Exiting.');
         process.exit(1);
         return;
@@ -1685,27 +1682,33 @@ bot.on('polling_error', (e) => {
     if (pollErrorCount === 1 || pollErrorCount % 50 === 0) {
         log(`[POLL] EFATAL: ${msg} (count: ${pollErrorCount})`);
     }
+    transportHealth.markFailure('polling_error');
 });
 // Track successful polls so the conflict counter can reset after sustained
 // healthy polling. node-telegram-bot-api emits 'message' for any update.
-bot.on('message', () => { lastPollOkAt = Date.now(); });
+bot.on('message', () => {
+    lastPollOkAt = Date.now();
+    transportHealth.markSuccess('update_received');
+});
 
 // Catch unhandled rejections to prevent crash
 process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log(`Bridge V15.8 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds). Auth: subscription-first, API-key fallback.`);
+log(`Bridge V15.8 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds). Auth: Claude subscription + Codex subscription fallback.`);
 
 try {
     const pollingStart = bot.startPolling();
     log('[POLL] Polling requested.');
     if (pollingStart && typeof pollingStart.catch === 'function') {
         pollingStart.catch((err) => {
+            transportHealth.markFailure('poll_start_failed');
             log(`[POLL] Failed to start polling: ${err.message || err}`);
         });
     }
 } catch (err) {
+    transportHealth.markFailure('poll_start_failed');
     log(`[POLL] Failed to start polling: ${err.message || err}`);
 }
 
@@ -1728,6 +1731,6 @@ setTimeout(() => {
     if (auth.hasOAuth) {
         log(`[HEALTH] Claude Code subscription OAuth: present at ${auth.oauthPath} (sole auth path — no metered fallback)`);
     } else {
-        log(`[HEALTH] Claude Code subscription OAuth: NOT FOUND at ${auth.claudeDir} — run \`claude setup-token\`, then: pm2 restart bravo-telegram. Claude calls WILL fail until then (no metered fallback). (Telegram notification suppressed; check log only.)`);
+        log(`[HEALTH] Claude Code subscription OAuth: NOT FOUND at ${auth.claudeDir} — run \`claude setup-token\`, then: python scripts/ops/fleet_watchdog.py restart bravo-telegram. Claude calls will use Codex only while unavailable. (Telegram notification suppressed; check log only.)`);
     }
 }, 5000);

@@ -1648,7 +1648,7 @@ def decide(
 
         raw = runner(user_prompt, system=system_prompt, model=model, timeout=timeout)
         if raw is None:
-            failure_code, failure_detail = "model_unavailable", "run_smart_cli returned None (Claude + OpenCode both failed)"
+            failure_code, failure_detail = "model_unavailable", "tool-denied Claude unavailable; Codex withheld for untrusted DM content"
             reasons = ["the model produced no output"]
             _log_failure(attempt, failure_code, failure_detail)
             continue

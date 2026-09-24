@@ -414,7 +414,11 @@ def _keyword_fallback(content: str) -> dict:
     """Cheap fallback when Haiku is unavailable. Degraded mode."""
     lower = (content or "").lower()
     positive = any(kw in lower for kw in ("yes", "interested", "book", "schedule", "sounds good", "let's do"))
-    negative = any(kw in lower for kw in ("not interested", "unsubscribe", "no thanks", "stop", "remove me"))
+    from email_playbook import has_explicit_opt_out
+    explicit_opt_out = has_explicit_opt_out("", content or "")
+    negative = explicit_opt_out or any(
+        kw in lower for kw in ("not interested", "no thanks")
+    )
     ooo = any(kw in lower for kw in ("out of office", "on vacation", "i'm away"))
     bounce = any(kw in lower for kw in ("mailer-daemon", "delivery status", "undeliverable"))
 
@@ -428,7 +432,7 @@ def _keyword_fallback(content: str) -> dict:
                 "priority": "cold", "stage_signal": "hold",
                 "suggested_action": "ignore", "confidence": 0.5,
                 "fallback": True}
-    if negative and ("unsubscribe" in lower or "stop" in lower):
+    if explicit_opt_out:
         return {"sentiment": "negative", "intent": "unsubscribe",
                 "priority": "low", "stage_signal": "mark_lost",
                 "suggested_action": "mark_unsubscribed", "confidence": 0.7,
@@ -548,7 +552,7 @@ Output ONLY a JSON object, no prose, no markdown:
 
 def _default_category_runner(prompt: str, system: Optional[str] = None,
                              model: str = "haiku", timeout: int = 60) -> Optional[str]:
-    """Subscription Claude CLI first, OpenCode fallback — never the metered ANTHROPIC_API_KEY."""
+    """Tool-free Claude; deterministic fallback if its subscription is capped."""
     from lib.model_fallback import run_smart_cli
     return run_smart_cli(
         prompt, system=system, model=model, timeout=timeout,
@@ -1077,7 +1081,7 @@ def _classify_via_haiku(content: str, channel: str,
     text = run_smart_cli(user_msg, system=CLASSIFY_SYSTEM_PROMPT, model="haiku", timeout=90,
                          task_type="classify", agent_name="inbound_classifier")
     if text is None:
-        raise RuntimeError("claude subscription CLI unavailable (run `claude setup-token`)")
+        raise RuntimeError("Claude subscription classifier unavailable; safe deterministic mode active")
     parsed = json.loads(strip_code_fence(text))
     return parsed
 

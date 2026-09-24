@@ -124,9 +124,9 @@ def decide_action(
     # the gate, independent of the number.
     if degraded:
         d.update(action="review",
-                 reason=("classifier was in degraded keyword mode (model "
-                         "unavailable) — held for review; no auto-reply, no "
-                         "ledger hand-off, no silent archive."))
+                 reason=("safe deterministic classifier active while the "
+                         "subscription model is unavailable — held for review; "
+                         "no auto-reply, no ledger hand-off, no silent archive."))
         return d
 
     # A financial document is NEVER discarded on a low_priority read.

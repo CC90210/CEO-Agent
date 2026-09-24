@@ -3,7 +3,7 @@ name: INTENTS
 description: Verb-by-verb playbook. For each kind of operator request, the exact sequence the agent should run.
 mutability: SEMI-MUTABLE
 tags: [brain, agent-only, playbook]
-last_updated: 2026-08-22
+last_updated: 2026-09-22
 freshness_threshold_days: 30
 verified: 2026-08-22
 ---

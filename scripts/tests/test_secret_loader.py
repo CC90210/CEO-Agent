@@ -80,8 +80,16 @@ def test_record_stays_small_enough_that_rotation_can_keep_up():
     assert size < 512, f"whole-env audit record grew back to {size} B/record"
 
 
-def test_every_access_still_produces_exactly_one_record():
-    """Shrinking the record must not mean dropping the audit trail."""
+def test_repeated_identical_access_is_logged_once_per_process():
+    """A polling daemon must not write the same audit fact every second."""
+    secret_loader.get("EMPIRE_DEBUG", "0")
+    secret_loader.get("EMPIRE_DEBUG", "0")
+    secret_loader.get("EMPIRE_DEBUG", "0")
+    assert len(_records()) == 1
+
+
+def test_distinct_access_scopes_each_keep_an_audit_record():
+    """Deduplication may collapse repetition, never different permissions."""
     secret_loader.load_env()
     secret_loader.get("EMPIRE_DEBUG", "0")
     secret_loader.load_env(required=["TURSO_DATABASE_URL"])

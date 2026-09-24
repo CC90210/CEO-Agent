@@ -2,27 +2,31 @@
 """
 Generate Maven's clean .env.agents:
 - Copy shared-infra keys from Bravo
-- Drop SunBiz-specific keys (those stay in SunBiz-Marketing repo)
+- Keep unclassified existing keys unless a reviewed destructive override drops them
 - Add empty placeholders for Maven-specific OASIS/PropFlow/Nostalgic ad creds
 
-Run once to migrate. Safe to re-run — backs up existing file.
+Run once to migrate. Safe to re-run; unknown existing keys are preserved unless
+``--allow-drop-unknown`` is explicitly combined with ``--apply``.
 """
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Pull sibling-repo locations from the canonical resolver so this script
 # works on both Mac and Windows without hardcoded paths.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.env_store import atomic_write_text  # noqa: E402
 from sibling_repos import SIBLING_REPOS  # noqa: E402
 
 BRAVO_ENV = SIBLING_REPOS["bravo"] / ".env.agents"
 MAVEN_ENV = SIBLING_REPOS["maven"] / ".env.agents"
 
-# Default to rehearsing. This script's write is destructive-by-construction (it
-# rewrites the file whole from the key list below), so the safe mode is the one
-# you get by accident. Pass --apply to actually write.
+# Default to rehearsing. The script rewrites the file whole, but preserves keys
+# outside its schema unless the operator explicitly requests their removal.
+# Pass --apply to write; add --allow-drop-unknown only after reviewing the
+# key-only dry-run manifest.
 DRY_RUN = "--apply" not in sys.argv
+ALLOW_DROP_UNKNOWN = "--allow-drop-unknown" in sys.argv
 
 
 def parse_env(path: Path) -> dict:
@@ -44,7 +48,7 @@ def main():
 
     header = f"""# ═══════════════════════════════════════════════════════════════════════
 # MAVEN (CMO-Agent) — Environment Credentials
-# Generated: {datetime.utcnow().strftime('%Y-%m-%d')}
+# Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}
 # ═══════════════════════════════════════════════════════════════════════
 #
 # SCOPE: Credentials for Maven's work on CC's portfolio only:
@@ -167,37 +171,38 @@ NOSTALGIC_SHOPIFY_ACCESS_TOKEN=
 # TIKTOK_ACCESS_TOKEN=
 """)
 
+    candidate_env = "\n".join(sections)
+    managed_keys = {
+        l.split("=", 1)[0]
+        for l in candidate_env.split("\n")
+        if l and not l.startswith("#") and "=" in l
+    }
+    unknown = sorted(k for k in maven_old if k not in managed_keys)
+    dropped = unknown if ALLOW_DROP_UNKNOWN else []
+    if unknown and not ALLOW_DROP_UNKNOWN:
+        sections.append("\n# --- Existing Maven keys preserved outside the managed schema ---")
+        sections.append("# Review and classify these keys before removing them.")
+        for key in unknown:
+            sections.append(f"{key}={maven_old[key]}")
     new_env = "\n".join(sections)
 
-    # 2026-08-21: this script writes the file WHOLE from the hardcoded key list
-    # above, so any key not listed is dropped. That is a one-way action, and it
-    # ran blind for a year. --dry-run makes the blast radius readable BEFORE the
-    # write, and is the only safe way to verify a change to the key list.
-    dropped = sorted(k for k in maven_old if k not in {
-        l.split("=", 1)[0]
-        for l in new_env.split("\n")
-        if l and not l.startswith("#") and "=" in l
-    })
     if DRY_RUN:
         print(f"\n[dry-run] would rewrite: {MAVEN_ENV}")
         print(f"[dry-run] keys after write : {len([l for l in new_env.split(chr(10)) if l and not l.startswith('#') and '=' in l])}")
         if dropped:
-            print(f"[dry-run] WOULD DROP {len(dropped)} existing key(s): {dropped}")
+            print(f"[dry-run] WOULD DROP {len(dropped)} existing key(s); key-only manifest: {dropped}")
+        elif unknown:
+            print(f"[dry-run] WOULD PRESERVE {len(unknown)} unknown key(s): {unknown}")
         else:
             print("[dry-run] would drop nothing")
         print("[dry-run] no file was written.")
         return
 
     if dropped:
-        print(f"WARNING: dropping {len(dropped)} key(s) present today: {dropped}")
+        print(f"DESTRUCTIVE OVERRIDE: dropping {len(dropped)} key(s); "
+              f"key-only manifest: {dropped}")
 
-    # Backup old env if it exists
-    if MAVEN_ENV.exists():
-        backup = MAVEN_ENV.parent / ".env.agents.sunbiz_inherited_backup"
-        backup.write_text(MAVEN_ENV.read_text(encoding="utf-8"), encoding="utf-8")
-        print(f"Backup saved: {backup}")
-
-    MAVEN_ENV.write_text(new_env, encoding="utf-8")
+    atomic_write_text(MAVEN_ENV, new_env)
 
     new_keys = [
         l.split("=")[0]
@@ -220,7 +225,8 @@ NOSTALGIC_SHOPIFY_ACCESS_TOKEN=
     print(f"  Total keys: {len(new_keys)}")
     print(f"  Populated with live values: {populated}")
     print(f"  Empty placeholders: {placeholders}")
-    print(f"  SunBiz-specific keys removed: {len(removed)}")
+    print(f"  Unknown existing keys preserved: {len(unknown) - len(removed)}")
+    print(f"  Explicitly removed by override: {len(removed)}")
     if removed:
         print(f"  Removed: {sorted(removed)}")
 

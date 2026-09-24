@@ -16,7 +16,9 @@ a suppression marker that silences real drift is worse than the false positive.
 """
 from __future__ import annotations
 
+import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -75,6 +77,157 @@ def test_live_repo_has_no_path_drift():
     """The actual condition CC was paged about."""
     r = sh.check_path_drift()
     assert r["status"] == sh.GREEN, r["items"]
+
+
+def test_fleet_health_uses_the_current_supervisor_not_pm2(monkeypatch):
+    """A read-only probe must not wake the retired PM2 daemon."""
+    monkeypatch.setattr(sh, "_is_windows_host", lambda: True)
+    monkeypatch.setattr(
+        sh,
+        "_pm2_snapshot",
+        lambda: (_ for _ in ()).throw(AssertionError("Windows probe invoked PM2")),
+    )
+    monkeypatch.setattr(
+        sh,
+        "_fleet_snapshot",
+        lambda: [
+            {"name": "bravo-telegram", "state": "running"},
+            {"name": "bravo-scheduler", "state": "running"},
+        ],
+    )
+    result = sh.check_fleet_supervisor()
+    assert result["status"] == sh.GREEN
+    assert result["check"] == "fleet-supervisor"
+
+
+def test_fleet_health_reports_only_real_down_rows(monkeypatch):
+    monkeypatch.setattr(sh, "_is_windows_host", lambda: True)
+    monkeypatch.setattr(
+        sh,
+        "_fleet_snapshot",
+        lambda: [
+            {"name": "operator-stopped", "state": "disabled"},
+            {"name": "broken", "state": "down"},
+        ],
+    )
+    result = sh.check_fleet_supervisor()
+    assert result["status"] == sh.RED
+    assert result["items"] == ["broken"]
+
+
+def test_fleet_health_reports_duplicate_roots_as_red(monkeypatch):
+    monkeypatch.setattr(sh, "_is_windows_host", lambda: True)
+    monkeypatch.setattr(
+        sh,
+        "_fleet_snapshot",
+        lambda: [{"name": "bravo-scheduler", "state": "duplicate"}],
+    )
+
+    result = sh.check_fleet_supervisor()
+
+    assert result["status"] == sh.RED
+    assert result["items"] == ["bravo-scheduler"]
+    assert "duplicate" in result["detail"].lower()
+
+
+def test_non_windows_fleet_health_retains_pm2_path_audit(tmp_path, monkeypatch):
+    root = tmp_path / "Business-Empire-Agent"
+    root.mkdir()
+    missing = root / "scripts" / "gone.py"
+    monkeypatch.setattr(sh, "PROJECT_ROOT", root)
+    monkeypatch.setattr(sh, "_is_windows_host", lambda: False)
+    monkeypatch.setattr(
+        sh,
+        "_fleet_snapshot",
+        lambda: (_ for _ in ()).throw(AssertionError("POSIX probe invoked Windows watchdog")),
+    )
+    monkeypatch.setattr(
+        sh,
+        "_pm2_snapshot",
+        lambda: [{
+            "name": "extraction-consumer",
+            "pm2_env": {"pm_exec_path": str(missing), "status": "online"},
+        }],
+    )
+
+    result = sh.check_fleet_supervisor()
+
+    assert result["status"] == sh.RED
+    assert result["check"] == "fleet-supervisor"
+    assert result["items"] == [f"extraction-consumer: {missing}"]
+    assert "PM2" in result["detail"]
+
+
+def test_telegram_transport_requires_fresh_success(tmp_path, monkeypatch):
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    heartbeat = tmp_path / "telegram.json"
+    heartbeat.write_text(json.dumps({
+        "ok": True,
+        "checked_at": now.isoformat(),
+        "detail": "get_me_ok",
+    }), encoding="utf-8")
+    monkeypatch.setattr(sh, "BRIDGE_TRANSPORT_HEALTH_FILES", {"bravo-telegram": heartbeat})
+    monkeypatch.setattr(sh, "_now_utc", lambda: now)
+
+    result = sh.check_telegram_transport()
+
+    assert result["status"] == sh.GREEN, result
+
+
+def test_telegram_transport_is_red_when_failed_stale_or_missing(tmp_path, monkeypatch):
+    now = datetime(2026, 9, 23, 12, 0, tzinfo=timezone.utc)
+    failed = tmp_path / "failed.json"
+    stale = tmp_path / "stale.json"
+    missing = tmp_path / "missing.json"
+    failed.write_text(json.dumps({
+        "ok": False,
+        "checked_at": now.isoformat(),
+        "detail": "polling_conflict",
+    }), encoding="utf-8")
+    stale.write_text(json.dumps({
+        "ok": True,
+        "checked_at": (now - timedelta(hours=1)).isoformat(),
+        "detail": "get_me_ok",
+    }), encoding="utf-8")
+    monkeypatch.setattr(sh, "BRIDGE_TRANSPORT_HEALTH_FILES", {
+        "failed": failed,
+        "stale": stale,
+        "missing": missing,
+    })
+    monkeypatch.setattr(sh, "_now_utc", lambda: now)
+
+    result = sh.check_telegram_transport()
+
+    assert result["status"] == sh.RED
+    assert any("failed: polling_conflict" in item for item in result["items"])
+    assert any("stale:" in item for item in result["items"])
+    assert any("missing:" in item for item in result["items"])
+
+
+def test_installed_maven_bridge_is_in_the_transport_health_surface():
+    maven_root = Path.home() / "CMO-Agent"
+    if maven_root.is_dir():
+        assert sh.BRIDGE_TRANSPORT_HEALTH_FILES["maven-telegram"] == (
+            maven_root / "tmp" / "maven_telegram_health.json"
+        )
+
+
+@pytest.mark.parametrize(
+    "snapshot",
+    [
+        [],
+        [{"name": "operator-stopped", "state": "disabled"}],
+    ],
+)
+def test_fleet_health_reports_an_empty_enabled_fleet_as_red(monkeypatch, snapshot):
+    """Zero enabled daemons is missing supervision, never a healthy 0/0 fleet."""
+    monkeypatch.setattr(sh, "_is_windows_host", lambda: True)
+    monkeypatch.setattr(sh, "_fleet_snapshot", lambda: snapshot)
+
+    result = sh.check_fleet_supervisor()
+
+    assert result["status"] == sh.RED
+    assert "no enabled daemons" in result["detail"].lower()
 
 
 # ── the alert identity ───────────────────────────────────────────────────────

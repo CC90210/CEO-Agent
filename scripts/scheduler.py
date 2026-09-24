@@ -1,16 +1,17 @@
 """
 Bravo Scheduler - Autonomous Business Operations Daemon
 
-This is the heartbeat of the business agent. It runs 24/7 via PM2 and
-executes cron jobs defined in Turso on schedule.
+This is the heartbeat of the business agent. It runs under the Windows Fleet
+Watchdog and executes cron jobs defined in Turso on schedule. PM2 is retired;
+ecosystem.config.js remains a compatibility manifest, not the supervisor.
 
 What it does every 60 seconds:
   1. Checks which cron jobs are due (next_run_at <= now)
   2. Executes the action for each due job
   3. Updates last_run_at and schedules the next run
 
-Start: pm2 start scripts/scheduler.py --name bravo-scheduler --interpreter python
-Stop:  pm2 stop bravo-scheduler
+Start: python scripts/ops/fleet_watchdog.py start bravo-scheduler
+Stop:  python scripts/ops/fleet_watchdog.py stop bravo-scheduler
 
 All credentials loaded from .env.agents (never hardcoded).
 """
@@ -108,6 +109,29 @@ except Exception:  # noqa: BLE001 — never block daemon startup on the TLS help
 
 CHILD_ENV = os.environ.copy()
 CHILD_ENV["SSLKEYLOGFILE"] = ""  # falsy -> ssl.py skips keylog_filename entirely
+
+# Windows occasionally rejects a console-less child before its Python module
+# executes.  The signature is exact and measured: STATUS_INVALID_HANDLE with
+# both pipes empty.  It is safe to retry ONLY that before-start shape; retrying
+# a child that emitted anything could replay a send or publish side effect.
+WINDOWS_STATUS_INVALID_HANDLE = 0xC0000008
+
+
+def _run_scheduled_child(cmd: list[str], **kwargs):
+    """Run once, then retry one proven before-start Windows handle fault.
+
+    One retry closes the transient gap without turning the scheduler into a
+    generic retry engine.  Real application exits, timeouts, and even the same
+    NTSTATUS after the child emitted a breadcrumb are returned untouched.
+    """
+    result = subprocess.run(cmd, **kwargs)
+    if (
+        result.returncode == WINDOWS_STATUS_INVALID_HANDLE
+        and not (result.stdout or "").strip()
+        and not (result.stderr or "").strip()
+    ):
+        return subprocess.run(cmd, **kwargs)
+    return result
 
 # Boot-blast suppression (2026-06-06): when CC's PC has been off, the
 # scheduler comes back to a backlog of cron rows whose next_run_at is hours
@@ -534,7 +558,14 @@ def persist_failure(label: str, cmd: List[str], returncode: "int | str",
         )
         path.write_text(body, encoding="utf-8")
 
-        dumps = sorted(FAILURE_DUMP_DIR.glob("*.log"))
+        # Cross-repo labels produce very different slugs (for example
+        # ``c-users-...`` versus ``scripts-...``). Filename order used to
+        # evict a brand-new Maven failure while keeping week-old local dumps.
+        # The ring is chronological; the filename only breaks mtime ties.
+        dumps = sorted(
+            FAILURE_DUMP_DIR.glob("*.log"),
+            key=lambda dump: (dump.stat().st_mtime_ns, dump.name),
+        )
         for stale in dumps[:-FAILURE_DUMP_KEEP]:
             stale.unlink(missing_ok=True)
         return str(path)
@@ -708,7 +739,7 @@ def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
     """Run a Python script from the scripts/ directory and return its output."""
     cmd = [PYTHON, str(SCRIPTS_DIR / script_name)] + args
     try:
-        result = subprocess.run(
+        result = _run_scheduled_child(
             cmd,
             capture_output=True,
             # Load-bearing on Windows, not hygiene — see STDIN_INHERITANCE note
@@ -749,6 +780,12 @@ def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
         hint = f" [full: {Path(dump).name}]" if dump else ""
         return f"FAILED (timeout after {timeout}s):{hint} {partial_err[:1000]}"
     output = (result.stdout or "").strip()
+    if result.returncode == 75:
+        # EX_TEMPFAIL-style cooperative deferral. Keep the run visibly
+        # non-green and retry it without producing a failure dump or page.
+        deferred = (result.stdout or result.stderr or "DEFERRED: retry requested").strip()
+        line = deferred.splitlines()[-1] if deferred else "DEFERRED: retry requested"
+        return line if line.upper().startswith("DEFERRED:") else f"DEFERRED: {line}"
     if result.returncode != 0:
         error = result.stderr.strip()
         dump = persist_failure(script_name, cmd, result.returncode, error, output)
@@ -1070,7 +1107,7 @@ def run_snapshot(config: dict) -> str:
         return f"ERROR: snapshot_run script not found: {script}"
 
     try:
-        result = subprocess.run(
+        result = _run_scheduled_child(
             [PYTHON, str(full_path), *[str(a) for a in args]],
             capture_output=True,
             # Load-bearing on Windows, not hygiene — see STDIN_INHERITANCE note
@@ -1097,6 +1134,10 @@ def run_snapshot(config: dict) -> str:
     except Exception as exc:  # noqa: BLE001
         return f"ERROR: snapshot_run failed: {exc}"
 
+    if result.returncode == 75:
+        deferred = (result.stdout or result.stderr or "DEFERRED: retry requested").strip()
+        line = deferred.splitlines()[-1] if deferred else "DEFERRED: retry requested"
+        return line if line.upper().startswith("DEFERRED:") else f"DEFERRED: {line}"
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
         return f"ERROR: snapshot_run exit {result.returncode}: {err}"
@@ -1147,7 +1188,7 @@ def run_script_action(config: dict) -> str:
     # persist_failure writes the command line into the dump header.
     cmd = [PYTHON, str(full_path), *[str(a) for a in args]]
     try:
-        result = subprocess.run(
+        result = _run_scheduled_child(
             cmd,
             capture_output=True,
             # Load-bearing on Windows, not hygiene — see STDIN_INHERITANCE note
@@ -1188,6 +1229,10 @@ def run_script_action(config: dict) -> str:
     except Exception as exc:  # noqa: BLE001
         return f"ERROR: script_run failed: {exc}"
 
+    if result.returncode == 75:
+        deferred = (result.stdout or result.stderr or "DEFERRED: retry requested").strip()
+        line = deferred.splitlines()[-1] if deferred else "DEFERRED: retry requested"
+        return line if line.upper().startswith("DEFERRED:") else f"DEFERRED: {line}"
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
         dump = persist_failure(script, cmd, result.returncode,
@@ -1675,6 +1720,60 @@ def _scan_for_failure(node, depth: int = 0, trusted: bool = True) -> bool:
     return False
 
 
+# Deterministic preflight failures should wait for their underlying state to
+# change instead of rerunning an expensive pipeline five times. The Maven job
+# takes about 19 minutes; on 2026-09-22 the generic five-minute retry loop ran
+# it five times and repeated 28 R2 uploads on every attempt.
+_NON_RETRYABLE_MARKERS_BY_JOB: dict[str, tuple[str, ...]] = {
+    "Maven — Carousel Post": (
+        "carousel bank empty",
+    ),
+}
+_FULL_DUMP_HINT_RE = re.compile(r"\[full:\s*([^\]]+)\]", re.IGNORECASE)
+
+
+def failure_is_retryable(job: dict, result_msg: str) -> tuple[bool, str]:
+    """Return whether a failed job should spend the automatic retry budget.
+
+    Jobs can declare additional lowercase-insensitive markers in
+    ``action_config.non_retryable_markers``. Evidence may live in the bounded,
+    redacted failure dump because ``last_result`` is intentionally clipped; the
+    filename is reduced to a basename before reading from the fixed dump root.
+    """
+    job_name = str(job.get("name") or "")
+    markers = list(_NON_RETRYABLE_MARKERS_BY_JOB.get(job_name, ()))
+    config = job.get("action_config") or job.get("action_payload") or {}
+    if isinstance(config, str):
+        try:
+            config = json.loads(config)
+        except (TypeError, ValueError):
+            config = {}
+    if isinstance(config, dict):
+        extra = config.get("non_retryable_markers") or []
+        if isinstance(extra, list):
+            markers.extend(str(item).strip().lower() for item in extra if str(item).strip())
+    if not markers:
+        return True, ""
+
+    evidence = result_msg or ""
+    hint = _FULL_DUMP_HINT_RE.search(evidence)
+    if hint:
+        safe_name = Path(hint.group(1)).name
+        dump_path = FAILURE_DUMP_DIR / safe_name
+        try:
+            with dump_path.open("r", encoding="utf-8", errors="replace") as handle:
+                evidence += "\n" + handle.read(65_536)
+        except OSError:
+            pass
+
+    lowered = evidence.lower()
+    for marker in markers:
+        normalized = marker.lower()
+        if normalized in lowered:
+            return False, normalized
+    return True, ""
+
+
 def _is_nothing_happened(result_msg: str) -> bool:
     """True when a structured result reports zero of everything it counts.
 
@@ -1906,6 +2005,7 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         # made a healthy Inbound Email Sweep burn its whole retry budget and
         # corrupt its own failure counter, every time such a mail arrived.
         result_is_error = _looks_like_failure(result_msg)
+        result_is_deferred = result_msg.strip().upper().startswith("DEFERRED:")
         new_count = (job.get("run_count") or 0) + 1
         fail_count = (job.get("fail_count") or 0) if hasattr(job, "get") else 0
 
@@ -1914,10 +2014,37 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         job_period = parse_cron_schedule(job.get("schedule", "") or "")
         job_is_fast = job_period is not None and job_period <= FAST_JOB_PERIOD
         escalate_at = escalation_threshold(job_period)
+        retryable, nonretryable_reason = failure_is_retryable(job, result_msg)
 
-        if result_is_error:
+        if result_is_deferred:
+            retry_hint = re.search(r"\bretry_after=(\d+)\b", result_msg, re.IGNORECASE)
+            retry_seconds = int(retry_hint.group(1)) if retry_hint else 300
+            retry_seconds = max(60, min(retry_seconds, 1800))
+            if job_period:
+                retry_seconds = min(retry_seconds, max(60, int(job_period.total_seconds())))
+            next_run = (datetime.now(timezone.utc) + timedelta(seconds=retry_seconds)).isoformat()
+            log(f"  DEFERRED on {job_name}; quiet retry in {retry_seconds}s")
+            # Preserve fail_count. A skipped call is not the real success that
+            # closes a prior outage.
+        elif result_is_error:
             fail_count += 1
-            if fail_count < 5:
+            if not retryable:
+                next_run = calculate_next_run(job.get("schedule", ""))
+                log(
+                    f"  NON-RETRYABLE on {job_name} ({nonretryable_reason}); "
+                    "circuit open until the next regular schedule"
+                )
+                notify_error(
+                    job_name,
+                    f"non-retryable preflight failure ({nonretryable_reason}) — "
+                    f"{result_msg[:220]}{failure_dump_hint(job_name, job)}",
+                    stage="non_retryable",
+                    agent=agent_for_action(job.get("action_type", "")),
+                )
+                # One deterministic failure has already been surfaced. Do not
+                # carry it into the consecutive transient-retry ladder.
+                fail_count = 0
+            elif fail_count < 5:
                 # Retry sooner than the schedule — but NEVER later than it.
                 # A flat 5-minute retry is a rescue for a daily job and a
                 # PUNISHMENT for a */1 job: on 2026-07-30 one transient 30s
@@ -1947,7 +2074,7 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             # Fires at exactly 2 and at the give-up boundary, not on every tick;
             # notify.py's disk-persisted dedup then collapses repeats of the
             # same text to one per hour.
-            if fail_count == escalate_at or fail_count == 0:
+            if retryable and (fail_count == escalate_at or fail_count == 0):
                 stage = (f"failing repeatedly ({fail_count} consecutive)"
                          if fail_count == escalate_at
                          else "gave up after 5 attempts")
@@ -2060,6 +2187,7 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             # doesn't fire the handler. No reason to notify CC about
             # the skip.
             "skipped-stale:",
+            "deferred:",
             # 2026-06-06: Bravo Sleep Agent output is structured
             # "[bravo_sleep] wrote N, skipped M ..." — routine.
             "[bravo_sleep]",
@@ -2100,6 +2228,12 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         owner = agent_for_action(action_type)
 
         if is_error:
+            # Deterministic failures were already surfaced above with the
+            # ``non_retryable`` stage. Slow jobs normally page on their first
+            # failure here, which otherwise sends the same failure twice in
+            # one scheduler pass.
+            if not retryable:
+                log(f"  (non-retryable failure on {job_name} already surfaced)")
             # Don't page CC for ONE bad tick of a fast job. A */1 or */5 cron
             # that fails once self-heals before he could act, and 130 lines
             # above there is already a deliberate "escalate at 2 consecutive
@@ -2110,7 +2244,7 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             # will not retry for a day, so its first failure IS the signal.
             # The cutoff is "will it try again before CC could reasonably
             # act", not an arbitrary severity call.
-            if job_is_fast:
+            elif job_is_fast:
                 log(f"  (transient failure on fast job {job_name} — "
                     f"escalation at {ESCALATE_AFTER_FAST} consecutive owns this alert)")
             else:

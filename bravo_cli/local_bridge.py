@@ -454,7 +454,8 @@ def detect_pm2_daemons() -> dict[str, dict]:
             # One definition of daemon state — see fleet_watchdog.classify. This
             # maps it onto the dashboard's integrations_health vocabulary.
             _HEALTH = {"running": "healthy", "disabled": "degraded",
-                       "unrunnable": "down", "down": "down"}
+                       "unrunnable": "down", "duplicate": "down",
+                       "down": "down"}
             for row in _fleet_status():
                 name = row.get("name") or "unnamed"
                 kind = _classify(row)
@@ -462,6 +463,10 @@ def detect_pm2_daemons() -> dict[str, dict]:
                 detail = (f"unrunnable: {row['unrunnable']}" if kind == "unrunnable"
                           else {"running": "running",
                                 "disabled": "disabled by operator",
+                                "duplicate": (
+                                    "duplicate roots: "
+                                    f"{row.get('root_pids', [])}"
+                                ),
                                 "down": "not running"}[kind])
                 out[f"pm2.{name}"] = {
                     "status": health,
@@ -469,6 +474,8 @@ def detect_pm2_daemons() -> dict[str, dict]:
                         "pm2_status": detail,
                         "supervisor": "fleet_watchdog",
                         "ident": row.get("ident") or "",
+                        "root_count": row.get("root_count", 0),
+                        "root_pids": row.get("root_pids", []),
                     },
                 }
         except Exception as exc:  # noqa: BLE001

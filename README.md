@@ -1,6 +1,6 @@
 ---
 tags: [root]
-last_updated: 2026-07-23
+last_updated: 2026-09-23
 ---
 
    <img width="640" height="640" alt="image" src="https://github.com/user-attachments/assets/dc1786b4-f90c-49bf-b424-b8ad3ce459f1" />
@@ -98,7 +98,7 @@ Everything below is the deep tour of those pieces.
 | Version | Date | Primary deliverable | Critical files |
 |---|---|---|---|
 | **V6.0** | 2026-05-10 | Four pillars: state DB (SQLite/WAL), FTS5 retrieval, exec/secret/state guards, scoped secret loader | `state/empire_state.db`, `scripts/{state_manager,memory_retriever,exec_guard,secret_guard,state_guard}.py` |
-| **V6.0 Phase 2** | 2026-05-10 | Productized deployment: setup wizard `step_v6_init`, `infra/docker-compose.{local,cloud}.yml`, `state-api` FastAPI, `/system-health` + `/playbook/onboarding` Command Center pages, scoped env fan-out (`.env.agents.{core,webhook,dashboard}`) | `infra/docker-compose.*.yml`, [`app/(internal)/system-health/page.tsx`](https://github.com/CC90210/oasis-command-center/blob/main/app/system-health/page.tsx) |
+| **V6.0 Phase 2** | 2026-05-10 | Productized deployment: setup wizard `step_v6_init`, `infra/docker-compose.{local,cloud}.yml`, `state-api` FastAPI, `/system-health` + `/playbook/onboarding` Command Center pages. The original scoped plaintext env fan-out was retired in 2026-09 in favor of the single canonical env store. | `infra/docker-compose.*.yml`, [`app/(internal)/system-health/page.tsx`](https://github.com/CC90210/oasis-command-center/blob/main/app/system-health/page.tsx) |
 | **V6 Apex** | 2026-05-10 | Cross-agent event bus (Postgres `agent_events` with LISTEN/NOTIFY + `claim_events` SKIP LOCKED), hybrid semantic memory (FTS5 + LanceDB RRF), `/feed` view. ~~Dashboard override approvals~~ deleted 2026-05-22 per CC — exec_guard still blocks destructive commands; the block IS the protection. | `brain/EVENT_BUS_CONTRACT.md`, `scripts/core/event_router.py`, [`app/(internal)/feed/page.tsx`](https://github.com/CC90210/oasis-command-center/blob/main/app/feed/page.tsx) |
 | **Command Center split** | 2026-05-18 | `apps/command-center/` extracted to its own GitHub repo + Vercel project (preserves 366 commits); parent repo refocused on Python/agent intelligence | [oasis-command-center](https://github.com/CC90210/oasis-command-center), `~/APPS/oasis-command-center` |
 | **V6.5** | 2026-04-20 | Multi-machine bridge arbitration replacing silent-409 dormancy | `scripts/bridge_lock.py` |

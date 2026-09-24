@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 SCRIPTS_STATE = Path(__file__).resolve().parents[1] / "state"
@@ -61,6 +62,48 @@ def test_explicit_repair_is_atomic_and_preserves_entry_count(tmp_path, monkeypat
     repaired = path.read_text(encoding="utf-8")
     assert repaired.count("tags: [daily]") == 1
     assert not path.with_suffix(".md.repair.tmp").exists()
+
+
+def test_state_heartbeat_normalizer_collapses_repeated_sections():
+    original = (
+        "# Current State\n\n"
+        "Keep this operating context.\n\n"
+        "## Last Heartbeat\n\n- **Date:** 2026-09-01\n"
+        "- **Agent:** old\n- **Result:** first\n\n"
+        "*Last updated: 2026-09-01*\n\n"
+        "## Last Heartbeat\n\n- **Date:** 2026-09-02\n"
+        "- **Agent:** old\n- **Result:** second\n\n"
+        "*Last updated: 2026-09-02*\n"
+    )
+
+    normalized, removed = ss.normalize_state_heartbeat(
+        original,
+        "## Last Heartbeat\n\nreplacement heartbeat\n\n"
+        "*Last updated: 2026-09-23*",
+    )
+
+    assert removed == 2
+    assert normalized.count("## Last Heartbeat") == 1
+    assert "replacement heartbeat" in normalized
+    assert "Keep this operating context." in normalized
+
+
+def test_concurrent_heartbeat_writers_use_unique_temps_and_leave_one_section(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "STATE.md"
+    path.write_text("# State\n\n", encoding="utf-8")
+    monkeypatch.setattr(ss, "STATE_FILE", path)
+    monkeypatch.setattr(ss, "now_str", lambda: "2026-09-23")
+    monkeypatch.setattr(ss, "get_agent_label", lambda _name: "BRAVO")
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        outcomes = list(pool.map(lambda i: ss.update_state_heartbeat(f"note-{i}"), range(16)))
+
+    assert outcomes == [True] * 16
+    result = path.read_text(encoding="utf-8")
+    assert result.count("## Last Heartbeat") == 1
+    assert not list(tmp_path.glob(".STATE.md.*.tmp"))
 
 
 def test_append_session_log_repairs_frontmatter_even_when_note_is_deduped(tmp_path, monkeypatch):

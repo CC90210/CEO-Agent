@@ -595,13 +595,13 @@ SEED_JOBS: list[dict] = [
     {
         # Added 2026-06-06 (Phase 4 of system re-engineering). After the
         # one-shot tmp/ purge that recovered 6.0 GB, this keeps tmp/ bounded.
-        # Allowlist preserves pm2-*.log, events_offline.jsonl, *.lock*, *.pid,
-        # *.heartbeat, *.env. Anything else past the cutoff gets purged.
+        # Allowlist preserves events_offline.jsonl, *.lock*, *.pid,
+        # *.heartbeat, *.env. Retired PM2 logs age out like other tmp output.
         # Tightened 30d -> 7d on 2026-08-30: CC found 309 files / 52 MB of
         # 7-30 day junk accumulating between runs; the job WAS firing, the
         # policy was just too lax.
         "name": "Weekly tmp/ Hygiene",
-        "description": "Sunday 03:00 ET — purge orphan files in tmp/ older than 7 days. Allowlists active lock/log/env files. Recovered 6.0 GB on the initial run; cutoff tightened 30d->7d 2026-08-30 after manual purge found 52 MB of sub-30-day drift.",
+        "description": "Sunday 03:00 ET — move orphan files in tmp/ older than 7 days into a recoverable 7-day quarantine, then purge only expired quarantine entries. Allowlists active IPC/env files; retired PM2 logs age out normally.",
         "schedule": "0 3 * * SUN",
         "action_type": "script_run",
         "action_config": {"script": "scripts/utilities/tmp_hygiene.py", "args": ["--apply", "--json", "--days", "7"]},
@@ -652,11 +652,12 @@ SEED_JOBS: list[dict] = [
     {
         # Added 2026-06-06. Belt-and-braces over the SessionStart-fired
         # rotate_logs.py (12h idempotency). If CC goes a few days without
-        # opening a session, this still keeps state/*.log under 5 MB.
+        # opening a session, this still keeps state/*.log and the active bridge
+        # logs under memory/ below 5 MB.
         # --force bypasses the 12h stamp; rotation itself only fires on
         # files that exceeded MAX_BYTES, so daily runs are cheap when idle.
         "name": "Daily Log Rotation Audit",
-        "description": "Daily 04:00 ET — force-run rotate_logs.py to keep state/*.log under 5 MB even when SessionStart hasn't fired in days. Discovered 2026-06-06: secret_access.log had reached 16 MB unrotated.",
+        "description": "Daily 04:00 ET — force-run rotate_logs.py to keep state/*.log plus the Telegram and coordination bridge logs under 5 MB even when SessionStart hasn't fired in days. Discovered 2026-06-06: secret_access.log had reached 16 MB unrotated.",
         "schedule": "0 4 * * *",
         "action_type": "script_run",
         "action_config": {"script": "scripts/hooks/rotate_logs.py", "args": ["--force"]},
@@ -828,15 +829,13 @@ SEED_JOBS: list[dict] = [
         # strands a half-written deck.
         "name": "Maven — Carousel Post",
         "description": (
-            "Daily 08:00 — authors carousel specs, renders GEN-9 motion slides (a 26s "
-            "MP4 per slide: the build animates for ~6s, then the finished text holds "
-            "to the last frame so it can actually be read, plus a still exported from "
-            "the same composition), "
-            "queues them, then books TWO posts per day at 13:00 and 19:00 UTC to "
-            "Instagram, LinkedIn and Threads. The cadence decides whether a given day "
-            "books, not this schedule. Rotation guarantees no two consecutive posts "
-            "share a lane or a module shape. Also delivers finished renders to CC's "
-            "Telegram and mirrors pieces into the founders Library."
+            "Daily 08:00 ET — runs the complete GEN-10 posting chain: verify-published, "
+            "watch, author-carousels, unstick, generate, plan, deliver-renders, then "
+            "library-sync. Authors and renders only the six recognized creative families, "
+            "then books up to two posts at 13:00 and 19:00 UTC for Instagram, LinkedIn "
+            "and Threads. Family is selected before lane/system/slug and distinct same-day "
+            "families are preferred; constrained inventory may repeat rather than leave a "
+            "slot empty. Finished renders go to CC's Telegram and the founders Library."
         ),
         "schedule": "0 8 * * *",
         "action_type": "script_run",

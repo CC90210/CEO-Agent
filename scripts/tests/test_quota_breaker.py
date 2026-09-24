@@ -60,6 +60,66 @@ def test_a_message_without_a_hint_still_opens_the_breaker(isolated_marker):
     assert json.loads(isolated_marker.read_text(encoding="utf-8"))["reset_hint"] is None
 
 
+def test_breaker_never_persists_raw_provider_text_or_credentials(isolated_marker):
+    secret = "sk-live-sensitive-provider-token"
+    cc._open_quota_breaker(f"usage limit; diagnostic token={secret}")
+    payload = json.loads(isolated_marker.read_text(encoding="utf-8"))
+    rendered = json.dumps(payload)
+    assert secret not in rendered
+    assert "raw" not in payload
+    assert payload["signal_sha256"].startswith("sha256:")
+
+
+def test_quota_and_auth_are_distinct_for_defer_policy():
+    assert cc._classify_provider_stop("You've hit your session limit - resets 8pm", 1) == "quota"
+    assert cc._classify_provider_stop("Invalid bearer token; please run /login", 1) == "auth"
+    assert cc._classify_provider_stop("TypeError: boom", 1) is None
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Your limit resets at 8pm",
+        "Please try again in 12 minutes",
+        "Insufficient credit remaining",
+        "rate_limit_error",
+        "quota_exceeded",
+        "429 Too Many Requests",
+        "529 Overloaded",
+        "Upgrade to a paid plan",
+    ],
+)
+def test_shared_limit_signals_remain_quota_deferrals(message):
+    assert cc._classify_provider_stop(message, 1) == "quota"
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Please obtain a new token",
+        "run `claude login`",
+        "invalid_api_key",
+        "401 Unauthorized",
+        "403 Forbidden",
+    ],
+)
+def test_shared_auth_signals_never_open_the_quota_breaker(message):
+    assert cc._classify_provider_stop(message, 1) == "auth"
+
+
+def test_quota_on_stdout_is_not_masked_by_a_stderr_warning(monkeypatch):
+    class Result:
+        returncode = 1
+        stderr = "warning: optional launcher update available"
+        stdout = "You've hit your session limit - resets 8pm"
+
+    monkeypatch.setattr(cc, "resolve_claude_bin", lambda: "claude")
+    monkeypatch.setattr(cc.subprocess, "run", lambda *args, **kwargs: Result())
+
+    assert cc.run_claude_cli("hello") is None
+    assert cc._quota_cooldown_remaining() > 0
+
+
 # --- open (the safety property) -----------------------------------------------
 
 def test_success_closes_the_breaker():
@@ -122,3 +182,24 @@ def test_it_uses_the_shared_json_ledger_rather_than_a_private_copy():
     src = (Path(cc.__file__)).read_text(encoding="utf-8")
     assert "json_ledger" in src
     assert "os.replace(tmp" not in src, "private atomic-write copy reintroduced"
+
+
+def test_pure_text_cli_loads_no_settings_and_never_loads_project_hooks(monkeypatch):
+    seen: dict[str, object] = {}
+
+    class Result:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    def fake_run(args, **kwargs):
+        seen["args"] = list(args)
+        return Result()
+
+    monkeypatch.setattr(cc, "resolve_claude_bin", lambda: "claude")
+    monkeypatch.setattr(cc.subprocess, "run", fake_run)
+    assert cc.run_claude_cli("hello") == "ok"
+    args = seen["args"]
+    assert "--bare" not in args
+    index = args.index("--setting-sources")
+    assert args[index + 1] == ""

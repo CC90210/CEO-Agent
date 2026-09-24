@@ -11,15 +11,17 @@ Targets:
   - Orphaned .scaffold-backup/ snapshots older than --tmp-age days.
   - Old node_modules/ in non-active project subdirectories.
 
-Safe by default: --dry-run lists everything, --apply actually deletes.
-Always shows a size summary BEFORE deleting so you can pick what to nuke.
+Safe by default: a plain run lists everything. ``--apply`` moves recoverable
+repo/tmp/backup artifacts into the same seven-day quarantine used by scheduled
+hygiene; only regenerable package and bytecode caches are permanently removed.
+Always shows a size summary before acting.
 
 USAGE
 -----
     python scripts/core/system_cleanup.py                   # dry-run, full report
     python scripts/core/system_cleanup.py --json            # machine-readable
-    python scripts/core/system_cleanup.py --apply           # delete (with confirm)
-    python scripts/core/system_cleanup.py --apply --yes     # delete, no prompts
+    python scripts/core/system_cleanup.py --apply           # quarantine/clean (confirm)
+    python scripts/core/system_cleanup.py --apply --yes     # apply, no prompts
     python scripts/core/system_cleanup.py --tmp-age 14      # tmp older than 14d
     python scripts/core/system_cleanup.py --skip pip,npm    # leave those alone
 
@@ -35,6 +37,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -93,7 +96,14 @@ def _is_oasis_repo(path: Path) -> bool:
 
 
 def find_redundant_clones() -> list[dict[str, Any]]:
-    """Find OASIS clones that duplicate the active project."""
+    """Find verified OASIS clones that duplicate the active project.
+
+    A reserved directory name is not proof that its parent is disposable.  Old
+    versions reported ``~/.oasis/wizard`` when only ``repo`` had been examined,
+    so applying the report could erase sibling operator state.  Fail closed:
+    only a repository with a recognizable OASIS remote is actionable, and the
+    exact repository directory is the target.
+    """
     candidates = [
         HOME / ".bravo" / "repo",
         HOME / ".oasis" / "wizard" / "repo",
@@ -114,13 +124,15 @@ def find_redundant_clones() -> list[dict[str, Any]]:
         except OSError:
             pass
         is_repo = _is_oasis_repo(c)
-        size = _dir_size(c.parent)  # include venv + bin + repo
+        if not is_repo:
+            continue
+        size = _dir_size(c)
         results.append({
-            "path": str(c.parent),
+            "path": str(c),
             "is_oasis_clone": is_repo,
             "size_bytes": size,
             "size_human": _human(size),
-            "reason": "redundant OASIS clone (active is " + str(active) + ")" if is_repo else "non-OASIS dir at OASIS path",
+            "reason": "redundant OASIS clone (active is " + str(active) + ")",
         })
     return results
 
@@ -157,19 +169,23 @@ def find_old_tmp(repo: Path, age_days: int) -> dict[str, Any]:
     tmp = repo / "tmp"
     if not tmp.exists():
         return {"path": str(tmp), "exists": False, "files": 0, "size_bytes": 0, "size_human": "0 B"}
+    # Use the same top-level, newest-descendant, allowlist semantics as the
+    # scheduled tmp hygiene job.  The previous recursive file walk counted
+    # quarantine contents as immediately reclaimable and could detach an old
+    # child from a directory that also contained active work.
+    from utilities import tmp_hygiene
+
     cutoff = datetime.now(timezone.utc).timestamp() - (age_days * 86400)
     old_files: list[Path] = []
     total = 0
-    for root, _, files in os.walk(tmp):
-        for f in files:
-            p = Path(root) / f
-            try:
-                mtime = p.stat().st_mtime
-                if mtime < cutoff:
-                    old_files.append(p)
-                    total += p.stat().st_size
-            except OSError:
-                pass
+    for entry in tmp.iterdir():
+        if entry.name.startswith(".") or tmp_hygiene._is_allowlisted(entry.name):
+            continue
+        newest = tmp_hygiene._newest_mtime(entry)
+        if newest is None or newest >= cutoff:
+            continue
+        old_files.append(entry)
+        total += tmp_hygiene._bytes_for(entry)
     return {"path": str(tmp), "exists": True, "files": len(old_files),
             "size_bytes": total, "size_human": _human(total),
             "_paths": old_files}
@@ -259,7 +275,7 @@ def render_human(report: dict[str, Any]) -> str:
         f"  __pycache__ trees:  {report['pycache_trees']['size_human']:>10}  ({report['pycache_trees'].get('count', 0)} dirs)",
         f"  Scaffold backups:   {report['scaffold_backups']['size_human']:>10}  ({report['scaffold_backups'].get('snapshots', 0)} snapshots)",
         "",
-        "  Re-run with --apply to delete the items above.",
+        "  Re-run with --apply to quarantine recoverable items and clear caches.",
         "  Or --skip <items> to leave specific categories alone.",
         "  Or --apply --yes to skip individual confirmations.",
         "=" * 64,
@@ -269,6 +285,7 @@ def render_human(report: dict[str, Any]) -> str:
 
 def apply_cleanup(report: dict[str, Any], skip: set[str], assume_yes: bool) -> dict[str, Any]:
     deleted: list[dict[str, Any]] = []
+    quarantined: list[dict[str, Any]] = []
 
     def confirm(label: str, size: str) -> bool:
         if assume_yes:
@@ -292,10 +309,35 @@ def apply_cleanup(report: dict[str, Any], skip: set[str], assume_yes: bool) -> d
             except Exception as exc:  # noqa: BLE001
                 deleted.append({"label": label, "path": str(path), "error": str(exc)[:120]})
 
+    def quarantine(path: Path, label: str, size_bytes: int):
+        """Move a recoverable artifact into tmp's bounded hygiene quarantine."""
+        if not path.exists():
+            return
+        source = path.resolve()
+        project = PROJECT_ROOT.resolve()
+        if source == project or source in project.parents:
+            raise ValueError(f"refusing to quarantine active repo/ancestor: {source}")
+        qroot = project / "tmp" / ".hygiene_quarantine"
+        qroot.mkdir(parents=True, exist_ok=True)
+        safe_label = "".join(ch if ch.isalnum() or ch in "._-" else "-" for ch in label)
+        destination = qroot / f"{time.time_ns()}--{safe_label}--{source.name}"
+        shutil.move(str(source), str(destination))
+        # Retention starts when the item enters quarantine, not at its old
+        # source mtime; otherwise the next weekly sweep could purge it at once.
+        os.utime(destination, None)
+        quarantined.append({
+            "label": label,
+            "path": str(source),
+            "quarantine_path": str(destination),
+            "size_bytes": size_bytes,
+            "size_human": _human(size_bytes),
+            "recoverable": True,
+        })
+
     if "redundant" not in skip:
         for r in report["redundant_clones"]:
-            if confirm(f"redundant clone {r['path']}", r["size_human"]):
-                remove(Path(r["path"]), "redundant_clone", r["size_bytes"])
+            if confirm(f"quarantine redundant clone {r['path']}", r["size_human"]):
+                quarantine(Path(r["path"]), "redundant_clone", r["size_bytes"])
 
     if "pip" not in skip and report["pip_cache"]["exists"]:
         if confirm(f"pip cache {report['pip_cache']['path']}", report["pip_cache"]["size_human"]):
@@ -307,14 +349,12 @@ def apply_cleanup(report: dict[str, Any], skip: set[str], assume_yes: bool) -> d
 
     if "tmp" not in skip:
         old_paths = report.get("_internal", {}).get("tmp_paths", [])
-        if old_paths and confirm(f"{len(old_paths)} old tmp/ files", report["tmp_old"]["size_human"]):
+        if old_paths and confirm(f"quarantine {len(old_paths)} old tmp/ files", report["tmp_old"]["size_human"]):
             for p in old_paths:
                 try:
-                    p.unlink()
+                    quarantine(Path(p), "tmp_old_file", Path(p).stat().st_size)
                 except OSError:
-                    pass
-            deleted.append({"label": "tmp_old_files", "count": len(old_paths),
-                            "size_human": report["tmp_old"]["size_human"]})
+                    continue
 
     if "pycache" not in skip:
         cache_paths = report.get("_internal", {}).get("pycache_paths", [])
@@ -326,18 +366,24 @@ def apply_cleanup(report: dict[str, Any], skip: set[str], assume_yes: bool) -> d
 
     if "backups" not in skip:
         backup_paths = report.get("_internal", {}).get("backup_paths", [])
-        if backup_paths and confirm(f"{len(backup_paths)} scaffold backups", report["scaffold_backups"]["size_human"]):
+        if backup_paths and confirm(f"quarantine {len(backup_paths)} scaffold backups", report["scaffold_backups"]["size_human"]):
             for p in backup_paths:
-                shutil.rmtree(p, ignore_errors=True)
-            deleted.append({"label": "scaffold_backups", "count": len(backup_paths),
-                            "size_human": report["scaffold_backups"]["size_human"]})
+                quarantine(Path(p), "scaffold_backup", _dir_size(Path(p)))
 
-    return {"deleted": deleted, "count": len(deleted)}
+    return {
+        "deleted": deleted,
+        "quarantined": quarantined,
+        "count": len(deleted) + len(quarantined),
+    }
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description="OASIS System Cleanup — find and remove redundant install artifacts.")
-    p.add_argument("--apply", action="store_true", help="Actually delete (default: dry-run)")
+    p.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply cleanup; recoverable artifacts are quarantined first (default: dry-run)",
+    )
     p.add_argument("--yes", "-y", action="store_true", help="Skip per-item confirmations")
     p.add_argument("--json", dest="output_json", action="store_true")
     p.add_argument("--tmp-age", type=int, default=7, help="Treat tmp/ files older than N days as cleanable (default: 7)")
@@ -361,7 +407,11 @@ def main() -> int:
         if args.output_json:
             print(json.dumps(result, indent=2, default=str))
         else:
-            print(f"\n  Deleted {result['count']} items.")
+            print(
+                f"\n  Processed {result['count']} items: "
+                f"{len(result['quarantined'])} quarantined, "
+                f"{len(result['deleted'])} regenerable cache item(s) deleted."
+            )
         return 0
 
     return 0

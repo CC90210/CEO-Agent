@@ -39,7 +39,6 @@ SAFETY CONTRACT (this file is the reason the operation is allowed at all):
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
 import json
 import os
 import shutil
@@ -63,6 +62,7 @@ CAPABILITY_META = {
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from lib.secret_loader import load_env  # noqa: E402
+from lib.env_store import locked_update_text  # noqa: E402
 from lib.subprocess_helpers import safe_run  # noqa: E402
 
 ENV_FILE = REPO_ROOT / ".env.agents"
@@ -172,17 +172,24 @@ def main() -> int:
             print("\nplan only — re-run with `apply` to write these into the store.")
             return 0
 
-        stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        shutil.copy2(ENV_FILE, ENV_FILE.with_name(f".env.agents.bak.{stamp}"))
         written = 0
-        for k in fills:
-            v = pulled[k]
-            if not v or "\n" in v or "\r" in v:
-                continue
-            text = text.replace(f"# FILL {_ns(args.app, k)}=", f"{_ns(args.app, k)}={v}", 1)
-            written += 1
-        ENV_FILE.write_text(text, encoding="utf-8", newline="\n")
-        print(f"\nwrote {written} value(s) into the agents env store (backup taken).")
+
+        def fill_placeholders(current: str) -> str:
+            nonlocal written
+            for k, v in pulled.items():
+                placeholder = f"# FILL {_ns(args.app, k)}="
+                if placeholder not in current or not v or "\n" in v or "\r" in v:
+                    continue
+                current = current.replace(
+                    placeholder,
+                    f"{_ns(args.app, k)}={v}",
+                    1,
+                )
+                written += 1
+            return current
+
+        locked_update_text(ENV_FILE, fill_placeholders)
+        print(f"\nwrote {written} value(s) into the agents env store atomically.")
         return 0
     finally:
         _shred(target)

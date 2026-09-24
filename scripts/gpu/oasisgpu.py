@@ -30,7 +30,9 @@ from pathlib import Path
 CAPABILITY_META = {
     "category": "infra.gpu",
     "lifecycle": "active",
-    "risk": "remote_exec",
+    # The driver can bootstrap services, upload code, and run commands on the
+    # GPU host, so it belongs in the graph's external-mutation lane.
+    "risk": "external_write",
     "triggers": [
         "connect to the gpu server",
         "bootstrap the gpu box",

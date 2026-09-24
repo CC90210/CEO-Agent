@@ -20,7 +20,6 @@
 set -euo pipefail
 
 ENV_FILE="/srv/sunbiz/ceo-agent/.env.agents"
-BACKUP_FILE="/srv/sunbiz/ceo-agent/.env.agents.bak.$(date -u +%Y%m%dT%H%M%SZ)"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "ERROR: $ENV_FILE missing — clone CEO-Agent first." >&2
@@ -58,21 +57,31 @@ if [[ "${#TOKEN}" -lt 24 ]]; then
   echo "WARNING: token is only ${#TOKEN} chars; double-check this is the right value." >&2
 fi
 
-cp -p "$ENV_FILE" "$BACKUP_FILE"
-echo "[info] backed up to $BACKUP_FILE"
+# Idempotent single-copy write. The token stays in the child environment, never
+# argv; env_store flushes a same-directory temp before one atomic replacement.
+BRIDGE_BEARER_TOKEN_VALUE="$TOKEN" .venv/bin/python - "$ENV_FILE" <<'PY'
+import os
+import sys
+from pathlib import Path
 
-# Idempotent write: replace the existing key, or append if missing.
-if grep -q '^BRIDGE_BEARER_TOKEN=' "$ENV_FILE"; then
-  # Escape any &/\/ for sed safety; embed via | delim.
-  ESC_TOKEN="$(printf '%s' "$TOKEN" | sed -e 's/[\/&|]/\\&/g')"
-  sed -i "s|^BRIDGE_BEARER_TOKEN=.*|BRIDGE_BEARER_TOKEN=$ESC_TOKEN|" "$ENV_FILE"
-  echo "[info] replaced BRIDGE_BEARER_TOKEN in $ENV_FILE"
-else
-  printf '\nBRIDGE_BEARER_TOKEN=%s\n' "$TOKEN" >> "$ENV_FILE"
-  echo "[info] appended BRIDGE_BEARER_TOKEN to $ENV_FILE"
-fi
+from scripts.lib.env_store import atomic_write_text
 
-chmod 600 "$ENV_FILE"
+path = Path(sys.argv[1])
+token = os.environ["BRIDGE_BEARER_TOKEN_VALUE"]
+lines = path.read_text(encoding="utf-8").splitlines()
+prefix = "BRIDGE_BEARER_TOKEN="
+for index, line in enumerate(lines):
+    if line.startswith(prefix):
+        lines[index] = prefix + token
+        action = "replaced"
+        break
+else:
+    lines.append(prefix + token)
+    action = "appended"
+atomic_write_text(path, "\n".join(lines) + "\n")
+print(f"[info] {action} BRIDGE_BEARER_TOKEN atomically")
+PY
+unset TOKEN BRIDGE_BEARER_TOKEN_VALUE
 
 # Restart the bridge so the new env is picked up.
 if command -v pm2 >/dev/null 2>&1; then

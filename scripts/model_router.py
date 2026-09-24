@@ -428,8 +428,9 @@ def call(messages: list[dict], agent: str | None = None, model: str | None = Non
             )
             if text is None:
                 raise RuntimeError(
-                    f"claude subscription CLI + opencode fallback both failed for '{chosen_model}' "
-                    "(claude CLI missing/timed out/unauthenticated AND opencode unavailable)"
+                    f"claude subscription CLI failed for '{chosen_model}'; Codex was not "
+                    "attempted because model_router does not establish operator-authenticated "
+                    "provenance for this payload"
                 )
             tokens_in = tokens_out = 0
         else:

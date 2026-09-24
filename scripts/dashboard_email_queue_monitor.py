@@ -11,8 +11,9 @@ Nothing alerted — the only reason it surfaced was a manual audit.
 This monitor closes that blind spot. It watches TWO independent signals so a
 failure can't hide behind an empty queue the way the original bug did:
 
-  1. LIVENESS   — the `dashboard-email-consumer` pm2 process is `online`.
-                  (Catches "daemon down" even when no emails are queued.)
+  1. LIVENESS   — the fleet supervisor sees exactly one live
+                  `dashboard-email-consumer` process. (Catches "daemon down"
+                  even when no emails are queued.)
   2. BACKPRESSURE — no dashboard email row sits status='queued' older than
                   STALE_MINUTES. (Catches "daemon up but wedged / not draining".)
 
@@ -32,9 +33,7 @@ only observes and alerts. Held rows (status='held') are ignored by design.
 
 RUN
 ---
-    pm2 start scripts/dashboard_email_queue_monitor.py \\
-        --name dashboard-email-queue-monitor \\
-        --interpreter <py> -- loop --interval 300
+    python scripts/ops/fleet_watchdog.py up --only dashboard-email-queue-monitor
 CLI:
     python scripts/dashboard_email_queue_monitor.py once   # single check, exit
     python scripts/dashboard_email_queue_monitor.py loop    # poll forever
@@ -240,10 +239,21 @@ def _consumer_online() -> bool | None:
         if row.get("name") == CONSUMER_PROC:
             # One definition of daemon state — see fleet_watchdog.classify.
             kind = classify(row)
-            if kind == "disabled":
-                return None  # deliberately stopped — not an outage to alert on
-            return kind == "running"
-    return False  # fleet readable but process absent ⇒ definitively down
+            if kind == "running":
+                return True
+            if kind == "down":
+                return False
+            # Disabled, unrunnable and duplicate are supervisor states with
+            # their own remediation. None of them proves this consumer is a
+            # single declared process that has stopped.
+            return None
+    # The supervisor could read the OS process table but did not return a
+    # declaration for this daemon. That is a manifest/configuration problem,
+    # not proof that the live process is down. Treating an omitted row as
+    # False is what turned the retired PM2 snapshot into a false DOWN alert
+    # after dump.pm2 was removed. The fleet's own coverage check owns missing
+    # declarations; this monitor only judges a row the live supervisor owns.
+    return None
 
 
 def _stale_queued(env: dict[str, str], tenant_ids: list[str]) -> tuple[int, str | None]:
@@ -314,7 +324,7 @@ def check(env: dict[str, str]) -> dict:
         problems.append("this box's mailbox belongs to no registered company, so no "
                         "dashboard email queue is being sent or watched here")
     if online is False:
-        problems.append(f"consumer pm2 process '{CONSUMER_PROC}' is DOWN")
+        problems.append(f"supervised process '{CONSUMER_PROC}' is DOWN")
     if stale_count > 0:
         problems.append(
             f"{stale_count} dashboard email(s) stuck queued >{STALE_MINUTES}m "

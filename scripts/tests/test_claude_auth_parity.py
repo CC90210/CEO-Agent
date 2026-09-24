@@ -95,6 +95,11 @@ def test_the_incident_string(label, impl):
     )
 
 
+def test_text_only_cli_uses_the_shared_predicate_not_a_private_substring_list():
+    source = (REPO / "scripts" / "lib" / "claude_cli.py").read_text(encoding="utf-8")
+    assert "is_claude_auth_or_quota_failure" in source
+
+
 def test_python_impls_agree_with_each_other():
     """Not just 'both pass the fixture' — identical verdicts on every sample."""
     impls = _py_impls()

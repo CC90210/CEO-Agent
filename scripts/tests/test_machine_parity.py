@@ -199,6 +199,16 @@ def test_a_down_daemon_is_a_failure(fleet):
 
 
 @WINDOWS_ONLY
+def test_duplicate_daemon_roots_are_a_failure(fleet):
+    fleet["rows"].append({"name": "bravo-scheduler", "running": True,
+                          "root_count": 2, "root_pids": [100, 200],
+                          "disabled": False, "unrunnable": ""})
+    ok, detail = _check(fleet)
+    assert not ok
+    assert "DUPLICATE" in detail
+
+
+@WINDOWS_ONLY
 def test_an_operator_stop_is_not_an_outage(fleet):
     """Paging about a deliberate `fleet_watchdog disable` is how a gate teaches
     people to ignore it. The distinction lives in fleet_watchdog.classify(), and

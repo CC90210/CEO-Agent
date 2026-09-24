@@ -23,11 +23,15 @@ This is the MANDATORY end-of-session sync.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
+import tempfile
+import threading
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -53,6 +57,63 @@ _FRONTMATTER_BLOCK = re.compile(
     r"---[ \t]*\r?\n(?P<body>.*?)^---[ \t]*(?:\r?\n|\Z)",
     flags=re.DOTALL | re.MULTILINE,
 )
+
+_STATE_HEARTBEAT_BLOCK = re.compile(
+    r"^## Last Heartbeat[ \t]*\r?\n.*?^\*Last updated:.*?\*[ \t]*(?:\r?\n)?",
+    flags=re.DOTALL | re.MULTILINE,
+)
+_IN_PROCESS_WRITE_LOCK = threading.RLock()
+
+
+@contextmanager
+def _exclusive_path_lock(target: Path):
+    """Serialize read/modify/replace across threads and local processes."""
+    identity = hashlib.sha256(str(target.resolve()).casefold().encode()).hexdigest()[:24]
+    with _IN_PROCESS_WRITE_LOCK:
+        if os.name == "nt":
+            import ctypes  # noqa: PLC0415
+            kernel32 = ctypes.windll.kernel32
+            create_mutex = kernel32.CreateMutexW
+            create_mutex.argtypes = [ctypes.c_void_p, ctypes.c_bool, ctypes.c_wchar_p]
+            create_mutex.restype = ctypes.c_void_p
+            mutex = create_mutex(None, False, f"Local\\BravoStateSync-{identity}")
+            if not mutex:
+                raise OSError("could not create state-sync mutex")
+            wait_code = kernel32.WaitForSingleObject(mutex, 0xFFFFFFFF)
+            if wait_code not in (0x00000000, 0x00000080):
+                kernel32.CloseHandle(mutex)
+                raise OSError(f"state-sync mutex wait failed: {wait_code}")
+            try:
+                yield
+            finally:
+                kernel32.ReleaseMutex(mutex)
+                kernel32.CloseHandle(mutex)
+        else:
+            import fcntl  # type: ignore  # noqa: PLC0415
+            lock_path = Path(tempfile.gettempdir()) / f"bravo-state-sync-{identity}.lock"
+            with lock_path.open("a+b") as handle:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _atomic_replace_text(target: Path, text: str) -> None:
+    """Durably replace a text mirror using a unique same-directory temp."""
+    fd, raw_temp = tempfile.mkstemp(
+        dir=target.parent, prefix=f".{target.name}.", suffix=".tmp"
+    )
+    temporary = Path(raw_temp)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, target)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def _resolve_v6_mode(cli_override: str | None) -> str:
@@ -163,15 +224,25 @@ def repair_session_log_frontmatter(path: Path | None = None) -> tuple[int, int]:
     entry_count = len(re.findall(r"(?m)^###\s+", original))
     normalized, removed = normalize_session_log_frontmatter(original, now_str())
     if normalized != original:
-        temporary = target.with_suffix(target.suffix + ".repair.tmp")
-        temporary.write_text(normalized, encoding="utf-8")
-        temporary.replace(target)
+        _atomic_replace_text(target, normalized)
     preserved = len(re.findall(r"(?m)^###\s+", normalized))
     if preserved != entry_count:
         raise RuntimeError(
             f"SESSION_LOG repair changed entry count ({entry_count} -> {preserved})"
         )
     return removed, preserved
+
+
+def normalize_state_heartbeat(content: str, heartbeat: str) -> tuple[str, int]:
+    """Return STATE.md with exactly one heartbeat section.
+
+    Every old heartbeat block is removed before the replacement is appended.
+    ``re.sub`` previously replaced each duplicate with another duplicate, so
+    each sync preserved the structural corruption forever.
+    """
+    without_old, removed = _STATE_HEARTBEAT_BLOCK.subn("", content)
+    without_old = re.sub(r"(?:\r?\n){3,}", "\n\n", without_old).rstrip()
+    return f"{without_old}\n\n{heartbeat.strip()}\n", removed
 
 
 def get_agent_label(agent_name: str = "bravo") -> str:
@@ -214,25 +285,19 @@ def get_agent_label(agent_name: str = "bravo") -> str:
 
 def update_state_heartbeat(note: str, agent_name: str = "bravo"):
     """Update the Last Heartbeat section in STATE.md."""
-    content = STATE_FILE.read_text(encoding="utf-8")
+    with _exclusive_path_lock(STATE_FILE):
+        content = STATE_FILE.read_text(encoding="utf-8")
 
-    new_heartbeat = (
-        f"## Last Heartbeat\n\n"
-        f"- **Date:** {now_str()}\n"
-        f"- **Agent:** {get_agent_label(agent_name)}\n"
-        f"- **Result:** {note}\n\n"
-        f"*Last updated: {now_str()}*"
-    )
+        new_heartbeat = (
+            f"## Last Heartbeat\n\n"
+            f"- **Date:** {now_str()}\n"
+            f"- **Agent:** {get_agent_label(agent_name)}\n"
+            f"- **Result:** {note}\n\n"
+            f"*Last updated: {now_str()}*"
+        )
 
-    # Replace existing heartbeat block
-    pattern = r"## Last Heartbeat\n.*?\*Last updated:.*?\*"
-    updated = re.sub(pattern, new_heartbeat, content, flags=re.DOTALL)
-
-    if updated == content:
-        # Append if pattern not found
-        updated = content.rstrip() + "\n\n" + new_heartbeat + "\n"
-
-    STATE_FILE.write_text(updated, encoding="utf-8")
+        updated, _removed = normalize_state_heartbeat(content, new_heartbeat)
+        _atomic_replace_text(STATE_FILE, updated)
     return True
 
 
@@ -262,15 +327,15 @@ def append_session_log(note: str, agent_name: str = "bravo") -> str:
     recent_block = content[: recent_block_end if recent_block_end > 0 else len(content)]
     if dedupe_marker in recent_block and note_marker in recent_block:
         if content != original:
-            SESSION_LOG.write_text(content, encoding="utf-8")
+            _atomic_replace_text(SESSION_LOG, content)
         return "deduped"
 
     # Insert after the header block (before first ### entry)
     insert_at = content.find("\n### ")
     if insert_at == -1:
-        SESSION_LOG.write_text(content.rstrip() + entry + "\n", encoding="utf-8")
+        _atomic_replace_text(SESSION_LOG, content.rstrip() + entry + "\n")
     else:
-        SESSION_LOG.write_text(content[:insert_at] + entry + content[insert_at:], encoding="utf-8")
+        _atomic_replace_text(SESSION_LOG, content[:insert_at] + entry + content[insert_at:])
     return "appended"
 
 

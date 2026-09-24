@@ -27,10 +27,8 @@ CONFIDENCE, and what each tier is allowed to do:
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
 import json
 import re
-import shutil
 import sys
 from pathlib import Path
 
@@ -47,6 +45,7 @@ CAPABILITY_META = {
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
+
 STORE = ROOT / ".env.agents"
 REGISTRY = ROOT / "config" / "cloudflare" / "apps.json"
 MANIFESTS = ROOT / "config" / "cloudflare" / "manifests"
@@ -216,12 +215,25 @@ def main() -> int:
     if not auto:
         print("\nno exact-alias matches to apply.")
         return 0
-    stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    shutil.copy2(STORE, STORE.with_name(f".env.agents.bak.{stamp}"))
-    for src, (_k, v, _s) in auto.items():
-        text = text.replace(f"# FILL {src}=", f"{src}={v}", 1)
-    STORE.write_text(text, encoding="utf-8", newline="\n")
-    print(f"\napplied {len(auto)} exact-alias value(s); backup taken.")
+    applied = 0
+
+    def fill_exact_aliases(current: str) -> str:
+        nonlocal applied
+        candidate = current
+        current_populated = env_store.parse_text(current)
+        for src, (source, _stale_value, _stale_shape) in auto.items():
+            marker = f"# FILL {src}="
+            value = current_populated.get(source)
+            if marker not in candidate or value is None:
+                continue
+            if shape(value) not in expected(g[src]):
+                continue
+            candidate = candidate.replace(marker, f"{src}={value}", 1)
+            applied += 1
+        return candidate
+
+    env_store.locked_update_text(STORE, fill_exact_aliases)
+    print(f"\napplied {applied} exact-alias value(s) atomically.")
     return 0
 
 

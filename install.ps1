@@ -337,7 +337,7 @@ if (Test-Tool 'claudekit-hooks') {
         Write-Warn "claudekit-hooks still not on PATH after install — run `npm i -g claudekit` manually"
     }
 } else {
-    Write-Warn "npm not on PATH — install Node.js then run `npm i -g claudekit`"
+    Write-Warn "npm not on PATH — install Node.js then run: npm i -g claudekit"
 }
 
 # ── Docker check (V6.0) ──────────────────────────────────────────────────────
@@ -371,20 +371,21 @@ if (Test-Tool 'docker') {
 Write-Step "Adding 'oasis' command to PATH"
 $binDir = Join-Path $OasisHome 'bin'
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
-$wizardEntry = Join-Path $WizardRepo 'bravo_cli\main.py'
 
 $shimCmd = Join-Path $binDir 'oasis.cmd'
-@"
+$shimBody = @"
 @echo off
-"$venvPy" "$wizardEntry" %*
-"@ | Set-Content -Path $shimCmd -Encoding ASCII
+pushd "$WizardRepo" >nul || exit /b 1
+"$venvPy" -m bravo_cli.main %*
+set "OASIS_EXIT_CODE=%ERRORLEVEL%"
+popd
+exit /b %OASIS_EXIT_CODE%
+"@
+$shimBody | Set-Content -Path $shimCmd -Encoding ASCII
 
 # Backwards-compat: 'bravo' alias
 $bravoCmd = Join-Path $binDir 'bravo.cmd'
-@"
-@echo off
-"$venvPy" "$wizardEntry" %*
-"@ | Set-Content -Path $bravoCmd -Encoding ASCII
+$shimBody | Set-Content -Path $bravoCmd -Encoding ASCII
 
 Write-Ok "Wrote $shimCmd (and 'bravo' alias)"
 
@@ -402,5 +403,5 @@ if (-not $SkipWizard) {
     Write-Host "============================================" -ForegroundColor Green
     Write-Host ""
     Set-Location $WizardRepo
-    & $venvPy $wizardEntry 'setup'
+    & $venvPy -m bravo_cli.main 'setup'
 }

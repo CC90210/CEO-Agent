@@ -40,7 +40,9 @@ import argparse
 import hashlib
 import json
 import os
+import ssl
 import sys
+import tempfile
 from pathlib import Path
 
 import requests
@@ -320,6 +322,43 @@ def ensure_bucket(creds: dict) -> tuple[bool, str]:
         return False, f"bucket {bucket}: could not create — {str(exc)[:160]}"
 
 
+_R2_CA_BUNDLE: str | None = None
+
+
+def _r2_ca_bundle() -> str | bool:
+    """Return a file-backed CA bundle for botocore on Windows.
+
+    ``truststore.inject_into_ssl`` fixes requests/httpx, but botocore loads a
+    CA *file* explicitly and therefore bypasses that injected OS context.  The
+    local TLS proxy's root lives in the Windows store, so combine that store
+    with certifi into one bounded temp file.  The path is stable and replaced
+    atomically, preventing per-run bundle buildup.
+    """
+    global _R2_CA_BUNDLE
+    if _R2_CA_BUNDLE and Path(_R2_CA_BUNDLE).is_file():
+        return _R2_CA_BUNDLE
+    if os.name != "nt" or not hasattr(ssl, "enum_certificates"):
+        return True
+    try:
+        import certifi  # noqa: PLC0415
+
+        pem = Path(certifi.where()).read_text(encoding="ascii")
+        roots: list[str] = []
+        for certificate, encoding, _trust in ssl.enum_certificates("ROOT"):
+            if encoding == "x509_asn":
+                roots.append(ssl.DER_cert_to_PEM_cert(certificate))
+        if not roots:
+            return certifi.where()
+        target = Path(tempfile.gettempdir()) / "oasis-python-system-ca.pem"
+        staged = target.with_name(f"{target.name}.{os.getpid()}.tmp")
+        staged.write_text(pem.rstrip() + "\n" + "".join(roots), encoding="ascii")
+        os.replace(staged, target)
+        _R2_CA_BUNDLE = str(target)
+        return _R2_CA_BUNDLE
+    except Exception:  # noqa: BLE001 - fall back to botocore defaults
+        return True
+
+
 def _client(creds: dict):
     """S3-compatible client for R2. boto3 is optional until this actually runs."""
     try:
@@ -336,6 +375,7 @@ def _client(creds: dict):
         aws_secret_access_key=creds["R2_SECRET_ACCESS_KEY"],
         config=Config(signature_version="s3v4", retries={"max_attempts": 5}),
         region_name="auto",
+        verify=_r2_ca_bundle(),
     )
 
 

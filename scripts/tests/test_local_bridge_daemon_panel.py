@@ -52,6 +52,19 @@ class TestDaemonPanelOnEachPlatform(unittest.TestCase):
         self.assertEqual(out["pm2.bravo-scheduler"]["status"], "healthy")
         self.assertEqual(out["pm2.bravo-scheduler"]["metadata"]["supervisor"], "fleet_watchdog")
 
+    def test_on_windows_duplicate_roots_are_visible_as_down(self):
+        rows = [{"name": "bravo-scheduler", "ident": "scheduler.py",
+                 "root_count": 2, "root_pids": [100, 200]}]
+        with mock.patch.object(lb, "_IS_WINDOWS", True), \
+             mock.patch.object(lb, "safe_run", side_effect=AssertionError("pm2 called on Windows")), \
+             mock.patch("ops.fleet_watchdog.status", return_value=rows), \
+             mock.patch("ops.fleet_watchdog.classify", return_value="duplicate"):
+            out = lb.detect_pm2_daemons()
+        row = out["pm2.bravo-scheduler"]
+        self.assertEqual(row["status"], "down")
+        self.assertIn("duplicate", row["metadata"]["pm2_status"])
+        self.assertEqual(row["metadata"]["root_pids"], [100, 200])
+
     def test_a_failed_pm2_read_on_linux_is_reported_not_silent(self):
         err = io.StringIO()
         with mock.patch.object(lb, "_IS_WINDOWS", False), \

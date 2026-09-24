@@ -6,11 +6,11 @@ group, with unprefixed/global keys in their own section.
 THIS REWRITES THE FILE EVERY OTHER TOOL DEPENDS ON, so it is built to fail
 rather than corrupt:
 
-  * A timestamped backup is taken before anything is written.
+  * The candidate is verified before one atomic single-copy replacement.
   * The rewrite is verified by re-parsing the RESULT and asserting the
     key -> value mapping is byte-identical to the original. Any difference —
-    a lost key, a changed value, a duplicate collapsing — ABORTS and restores
-    the backup. Comparison is on values, not on a digest of the file, because
+    a lost key, a changed value, a duplicate collapsing — ABORTS before the
+    write. Comparison is on values, not on a digest of the file, because
     reordering legitimately changes the file digest.
   * `# FILL` placeholder lines are preserved verbatim and kept with their group,
     so the outstanding-gap tooling keeps working.
@@ -26,8 +26,6 @@ No value is printed. Output is counts and group names only.
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
-import shutil
 import sys
 from pathlib import Path
 
@@ -42,6 +40,9 @@ CAPABILITY_META = {
 }
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts"))
+from lib.env_store import locked_update_text  # noqa: E402
+
 STORE = ROOT / ".env.agents"
 
 APP_PREFIXES = (
@@ -71,12 +72,8 @@ def group_of(key: str) -> str:
     return GLOBAL
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--apply", action="store_true")
-    args = ap.parse_args()
-
-    original = STORE.read_text(encoding="utf-8")
+def _prepare_rebuild(original: str) -> tuple[str, dict[str, str]] | None:
+    """Build and validate one replacement from the lock-held store text."""
     before = parse_pairs(original)
 
     # Walk the file, attaching any run of comment/blank lines to the entry that
@@ -132,25 +129,38 @@ def main() -> int:
             print(f"   {len(lost)} key(s) would be LOST: {', '.join(lost[:8])}")
         if changed:
             print(f"   {len(changed)} value(s) would CHANGE: {', '.join(changed[:8])}")
-        return 1
+        return None
     print(f"\nverified: {len(after)} keys, all values byte-identical to the original")
+    return rebuilt, before
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--apply", action="store_true")
+    args = ap.parse_args()
 
     if not args.apply:
+        prepared = _prepare_rebuild(STORE.read_text(encoding="utf-8"))
+        if prepared is None:
+            return 1
         print("preview only — re-run with --apply to write it.")
         return 0
-    stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    backup = STORE.with_name(f".env.agents.bak.{stamp}")
-    shutil.copy2(STORE, backup)
-    STORE.write_text(rebuilt, encoding="utf-8", newline="\n")
 
-    # Re-read from disk — verifying the in-memory string is not the same as
-    # verifying what actually landed.
-    final = parse_pairs(STORE.read_text(encoding="utf-8"))
-    if final != before:
-        shutil.copy2(backup, STORE)
-        print("POST-WRITE VERIFY FAILED — backup restored, store unchanged.")
+    result: dict[str, int | bool] = {"failed": False, "keys": 0}
+
+    def restructure(current: str) -> str:
+        prepared = _prepare_rebuild(current)
+        if prepared is None:
+            result["failed"] = True
+            return current
+        rebuilt, before = prepared
+        result["keys"] = len(before)
+        return rebuilt
+
+    locked_update_text(STORE, restructure)
+    if result["failed"]:
         return 1
-    print(f"written and re-verified from disk ({len(final)} keys). Backup taken.")
+    print(f"written atomically after validation ({result['keys']} keys).")
     return 0
 
 

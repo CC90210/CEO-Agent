@@ -25,10 +25,13 @@ Run: python -m pytest scripts/tests/test_cf_build_env_parity.py -v
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
 import pytest
+
+from integrations import wrangler_tool
 
 yaml = pytest.importorskip("yaml")
 
@@ -77,3 +80,36 @@ def test_ci_build_env_covers_every_manifest_key(slug: str) -> None:
         f"`wrangler_tool.py workflow --app {slug}` — the local builder injects "
         f"every manifest key and CI must match, or the build fails only in CI."
     )
+
+
+def test_oasis_workflow_generator_preserves_runtime_identity_vars(
+    tmp_path: Path,
+) -> None:
+    """Regeneration must not silently strip the health surface's deploy vars."""
+    registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    app = registry["apps"]["oasis-command-center"]
+    command = app.get("deploy_command")
+    required = {
+        "DEPLOY_ENV:production",
+        "DEPLOY_PLATFORM:cloudflare",
+        "DEPLOY_SURFACE:oasis",
+        "DEPLOY_GIT_REF:${{ github.ref_name }}",
+        "DEPLOY_GIT_SHA:${{ github.sha }}",
+    }
+    assert command and required <= set(command.split(" --var "))
+
+    # The committed registry contains operator-machine paths. Generate into a
+    # temporary app root so this contract also runs on GitHub's Linux workers.
+    app["dir"] = str(tmp_path)
+    assert wrangler_tool.cmd_workflow(
+        registry, argparse.Namespace(app="oasis-command-center")
+    ) == 0
+
+    workflow = tmp_path / ".github" / "workflows" / "deploy-cloudflare.yml"
+    doc = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+    deploy = next(
+        step
+        for step in doc["jobs"]["deploy"]["steps"]
+        if step.get("name") == "Deploy to Cloudflare Workers"
+    )
+    assert deploy["with"]["command"] == command

@@ -136,6 +136,15 @@ def test_bare_closing_brace_is_opaque_not_healthy(monkeypatch):
     assert "2 OPAQUE" in detail
 
 
+def test_structured_deferral_is_legible_not_a_failed_gate(monkeypatch):
+    _rows(monkeypatch, "DEFERRED: claude_quota retry_after=420 no memory files changed")
+
+    ok, detail = he.check_cron_results_legible()
+
+    assert ok is True
+    assert "0 opaque, 0 truncated" in detail
+
+
 def test_truncated_json_is_reported_as_its_own_category(monkeypatch):
     _rows(monkeypatch, _TRUNCATED_200)
 

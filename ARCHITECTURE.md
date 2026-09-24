@@ -90,7 +90,7 @@ V5.x cross-agent coordination ran through three flat JSON files (`ceo_pulse.json
 
 **Canonical event-type registry:** [brain/EVENT_BUS_CONTRACT.md](brain/EVENT_BUS_CONTRACT.md). Adding a new event type requires updating that file before merging.
 
-### Pillar 4 — Secret isolation (`scripts/lib/secret_loader.py` + scoped env fan-out)
+### Pillar 4 — Secret isolation (`secret_loader.py` + canonical `env_store.py`)
 
 `.env.agents` is no longer LLM-readable. The hook layer (above) blocks every direct read; the in-process loader (`scripts/lib/secret_loader.py`) is the only path scripts use to access credentials. The loader:
 
@@ -99,15 +99,16 @@ V5.x cross-agent coordination ran through three flat JSON files (`ceo_pulse.json
 - Logs every access to `state/secret_access.log` with `{ts, caller_path, keys_accessed}` so we can audit which scripts touched which keys.
 - Exposes `load_env(required=[…])` which raises on missing required keys and `get(key, default)` for ad-hoc access.
 
-The setup wizard (`bravo_cli/wizard.py:step_v6_init`) fans out the master `.env.agents` into three per-service scoped files at install time:
+There is exactly one plaintext credential store: the repo-root `.env.agents`.
+`scripts/lib/env_store.py` serializes every dashboard/setup mutation under a
+cross-process lock, uses a same-directory fsynced atomic replacement, and
+enforces owner-only permissions (POSIX `0600`; explicit owner/SYSTEM/
+Administrators ACLs on Windows). The setup wizard never generates service
+copies. Encrypted off-box recovery artifacts are the only supported backups.
 
-| File | Keys included | Used by |
-|------|---------------|---------|
-| `.env.agents.core` | All keys | `bravo-core` daemon (autonomous loop) |
-| `.env.agents.webhook` | Stripe webhook + Supabase + Telegram + EMPIRE_* (no Anthropic, no service-role) | `bravo-webhook` (FastAPI) |
-| `.env.agents.dashboard` | Public Supabase anon key + STATE_API_URL only (zero secrets) | `command-center` Next.js |
-
-Defense in depth: a single-service RCE in `bravo-webhook` cannot exfiltrate the full credential set because `bravo-webhook`'s container only has `.env.agents.webhook` mounted — the master file is never copied into any container layer (`.dockerignore` excludes it; `env_file:` in compose injects ONLY the scoped variables).
+This single-copy policy removes stale plaintext drift. Service isolation is
+provided by the loader/tool boundary and the container restrictions; it is not
+implemented by duplicating subsets of the credential file.
 
 ### Surrounding infrastructure
 
@@ -115,7 +116,7 @@ Defense in depth: a single-service RCE in `bravo-webhook` cannot exfiltrate the 
 - **`infra/docker-compose.cloud.yml`** — `include:`s the prod stack (5 daemons + pgbouncer + Caddy) and adds `command-center` (Next.js standalone) + `state-api` (read-only FastAPI).
 - **`infra/Dockerfile.commandcenter`** — Next.js 15 multi-stage build, non-root UID 10001, `output: 'standalone'`, `/api/health` healthcheck.
 - **`infra/Caddyfile`** — TLS-terminated dashboard endpoint with basic auth + `/api/health` carve-out for probes.
-- **Setup wizard (`bravo_cli/wizard.py`)** — `step_environment` detects local vs cloud; `step_v6_init` writes hook-mode defaults, bootstraps both DBs, builds the FTS5 index, fans out scoped env files, and optionally runs `docker compose build`.
+- **Setup wizard (`bravo_cli/wizard.py`)** — `step_environment` detects local vs cloud; `step_v6_init` writes hook-mode defaults, bootstraps both DBs, builds the FTS5 index, and optionally runs `docker compose build`.
 - **Command Center modules** — `oasis-command-center:app/system-health/page.tsx` (DB stats + agent ticks + 3 guard cards live), `app/playbook/onboarding/page.tsx` (markdown SOPs from `docs/playbooks/`).
 - **Two-tier `/api/state-health` read path (2026-05-10)** — `oasis-command-center:app/api/state-health/route.ts` tries `state-api:8500/status` first; on Vercel where that hostname is not routable, it falls back to a Supabase mirror that synthesizes the same `StateHealthResponse` shape from `agent_state_snapshot` + `agent_events` + `session_logs` via `getServiceSupabase()`. The response carries `source: "state-api" | "supabase-mirror"` so operators can see which path served the payload (rendered as a tag in the page header). Local-only fields (FTS5 stats, jsonl guard tails) are omitted in the fallback — the page already renders those sections conditionally.
 - **~~Dashboard-driven override approvals (Apex Phase 2)~~** — DELETED 2026-05-22. See §9 "Operator-Approval Override Flow" for the deprecation rationale.
@@ -606,15 +607,19 @@ Scripts that need credentials no longer parse `.env.agents` themselves. They imp
 
 The CLI tool wrappers (`stripe_tool.py`, `supabase_tool.py`, `google_tool.py`, `n8n_tool.py`, `late_tool.py`, etc.) are the only path the agent uses to touch credentials. They load via the secret_loader, make their API call, and return ONLY a sanitized JSON payload — never the raw key, never an `Authorization` header, never a refresh token. Errors run through `lib/safe_error.scrub_traceback()` before display.
 
-### Scoped Env Fan-Out (Defense in Depth)
+### Canonical Env Store (Single Plaintext Copy)
 
-The setup wizard generates three per-service env files at install time, each containing only the keys that service needs:
+The setup wizard and dashboard both update the one repo-root `.env.agents`
+through `scripts/lib/env_store.py`. Read-modify-write happens while the same
+thread/process lock is held, so simultaneous key saves cannot erase each
+other. Crash temps have one exact name pattern and are pruned only when old
+and when a safe canonical file already exists; if the canonical file is
+missing, recovery candidates are preserved and writes stop for manual review.
 
-- `.env.agents.core` — every key (Bravo's autonomous loop needs the full set)
-- `.env.agents.webhook` — Stripe webhook secret + Supabase + Telegram + EMPIRE_* (no Anthropic, no service-role)
-- `.env.agents.dashboard` — public Supabase anon key + STATE_API_URL only (zero secrets)
-
-Docker Compose mounts the per-service file via `env_file:`. A single-service RCE in `bravo-webhook` cannot exfiltrate Anthropic or service-role keys because they're not in that container's environment. The master `.env.agents` is excluded from `.dockerignore` and never copied into any container layer.
+Docker Compose references the canonical store at runtime. The file remains
+excluded from image build contexts and git. Do not create plaintext copies for
+individual services; use encrypted `scripts/ops/env_backup.sh` snapshots for
+disaster recovery.
 
 ### Regression Suite (`tests/test_hook_regression.py`)
 

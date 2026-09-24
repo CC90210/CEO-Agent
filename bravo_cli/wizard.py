@@ -37,12 +37,22 @@ while _p.parent != _p and not (_p / "scripts" / "_subprocess_helpers.py").exists
     _p = _p.parent
 sys.path.insert(0, str(_p / "scripts"))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.env_store import (  # noqa: E402
+    _secure_file_permissions as _secure_private_file,
+    ensure_env_file as ensure_canonical_env_file,
+    update_env_values,
+)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ENV_PATH = REPO_ROOT / ".env.agents"          # Single source of truth.
 BRAVO_HOME = Path(os.path.expanduser("~/.bravo"))  # Still used for profiles / sessions.
+_ENV_INITIAL_TEXT = (
+    "# Bravo .env.agents — managed by `bravo setup`.\n"
+    "# One KEY=value per line. Never commit this file.\n"
+    "# Scripts in scripts/ load directly from here.\n\n"
+)
 
 # Tracks which keys the user saved in this session (for final summary).
 _SAVED_THIS_SESSION: list[str] = []
@@ -52,7 +62,6 @@ _ENV_EXCLUDE_PATTERNS = [
     ".env.*",
     "*.env",
     ".env.agents",
-    ".env.agents.local",
 ]
 
 # Force UTF-8 output on Windows.
@@ -1072,42 +1081,6 @@ def _ensure_env_is_git_safe(path: Path) -> None:
         raise RuntimeError(f"Could not git-ignore secret env file: {path}")
 
 
-def _chmod_secret_file(path: Path) -> None:
-    """Tighten ACLs on a credential file so only the owner can read it.
-
-    POSIX: chmod 0o600.
-    Windows: icacls /inheritance:r + grant the current user Full Control.
-    Disabling inheritance removes any inherited ACEs from a parent
-    directory that might grant other Users group members read access.
-    """
-    if os.name == "nt":
-        try:
-            import subprocess
-            user = os.environ.get("USERNAME") or os.environ.get("USER")
-            if not user:
-                return
-            # /inheritance:r removes all existing ACLs (including inherited
-            # ACEs from %USERPROFILE% which may include the Users group).
-            # /grant:r replaces (not appends) any ACE for the current user.
-            for argv in (
-                ["icacls", str(path), "/inheritance:r"],
-                ["icacls", str(path), "/grant:r", f"{user}:F"],
-            ):
-                subprocess.run(argv, capture_output=True, timeout=10,
-                               check=False, creationflags=WINDOWLESS_FLAGS)
-        except Exception:
-            # icacls is built-in on every supported Windows version; if it
-            # fails we silently fall back to default ACLs rather than
-            # blocking the wizard. The user's HOME usually inherits an
-            # owner-only ACL anyway.
-            pass
-        return
-    try:
-        os.chmod(path, 0o600)
-    except Exception:
-        pass
-
-
 def _clean_env_value(key: str, value: str) -> str:
     if not _ENV_KEY_RE.fullmatch(key):
         raise ValueError(f"Invalid env key: {key!r}")
@@ -1122,14 +1095,7 @@ def ensure_env_file() -> None:
     # .env.agents lives in the repo; create if absent.
     ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
     _ensure_env_is_git_safe(ENV_PATH)
-    if not ENV_PATH.exists():
-        ENV_PATH.write_text(
-            "# Bravo .env.agents — managed by `bravo setup`.\n"
-            "# One KEY=value per line. Never commit this file.\n"
-            "# Scripts in scripts/ load directly from here.\n\n",
-            encoding="utf-8",
-        )
-    _chmod_secret_file(ENV_PATH)
+    ensure_canonical_env_file(ENV_PATH, initial_text=_ENV_INITIAL_TEXT)
 
 def write_env(key: str, value: str, announce: bool = True) -> None:
     """Write KEY=value to the repo's .env.agents.
@@ -1140,37 +1106,7 @@ def write_env(key: str, value: str, announce: bool = True) -> None:
     """
     ensure_env_file()
     value = _clean_env_value(key, value)
-    text = ENV_PATH.read_text(encoding="utf-8", errors="ignore")
-    out_lines: list[str] = []
-    replaced = False
-    for raw in text.splitlines():
-        s = raw.strip()
-        # Preserve comments and blanks as-is.
-        if not s or s.startswith("#"):
-            out_lines.append(raw)
-            continue
-        if "=" not in s:
-            out_lines.append(raw)
-            continue
-        k = s.split("=", 1)[0].strip()
-        if k == key:
-            if replaced:
-                # Drop any duplicate occurrences after the first replacement.
-                continue
-            out_lines.append(f"{key}={value}")
-            replaced = True
-            continue
-        out_lines.append(raw)
-    if not replaced:
-        # Key didn't exist — append it.
-        out_lines.append(f"{key}={value}")
-    # Rejoin; keep a single trailing newline.
-    new_text = "\n".join(out_lines).rstrip() + "\n"
-    tmp_path = ENV_PATH.with_name(f"{ENV_PATH.name}.tmp")
-    tmp_path.write_text(new_text, encoding="utf-8")
-    _chmod_secret_file(tmp_path)
-    tmp_path.replace(ENV_PATH)
-    _chmod_secret_file(ENV_PATH)
+    update_env_values(ENV_PATH, {key: value}, initial_text=_ENV_INITIAL_TEXT)
     if key not in _SAVED_THIS_SESSION:
         _SAVED_THIS_SESSION.append(key)
     if announce:
@@ -1247,7 +1183,7 @@ def _write_setup_profile(profile: str) -> Path:
     }
     path = profiles_dir / f"{profile}.setup.json"
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    _chmod_secret_file(path)
+    _secure_private_file(path, owner_source=path)
     return path
 
 
@@ -2194,31 +2130,6 @@ _post_doctor_rc: list[int] = [0]
 
 # ── V6.0 deployment + sandbox steps ───────────────────────────────────────────
 
-V6_SCOPED_ENV_FILES = {
-    # service → list of env keys it needs. Anything not in the list is
-    # withheld from that service's container — defense in depth against
-    # one-service-RCE pulling every credential.
-    "core": None,  # bravo-core gets everything; it's the autonomous loop
-    "webhook": [
-        "BRAVO_SUPABASE_URL", "BRAVO_SUPABASE_ANON_KEY",
-        "STRIPE_WEBHOOK_SECRET", "WEBHOOK_HMAC_KEY",
-        "N8N_WEBHOOK_TOKEN", "TELEGRAM_BOT_TOKEN",
-        "EMPIRE_V6_MODE", "EMPIRE_HOOK_SECRET_GUARD", "EMPIRE_HOOK_EXEC_GUARD",
-        "EMPIRE_HOOK_STATE_GUARD", "EMPIRE_DEPLOY_TARGET",
-        "EMPIRE_DATA_BACKEND", "BRIDGE_PAIRING_TOKEN",
-    ],
-    "dashboard": [
-        # Public Supabase only — no service-role, no Stripe secret, no Anthropic.
-        "BRAVO_SUPABASE_URL", "BRAVO_SUPABASE_ANON_KEY",
-        "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-        "STATE_API_URL", "DASHBOARD_DOMAIN",
-        "EMPIRE_DEPLOY_TARGET",
-        # Data sovereignty: Turso reads when the tenant opts for local libSQL
-        "EMPIRE_DATA_BACKEND", "TURSO_DB_PATH", "TURSO_DB_URL", "TURSO_AUTH_TOKEN",
-    ],
-}
-
-
 def _detect_deploy_target() -> str:
     """Best-effort local-vs-cloud detection. Operator gets the final say."""
     if os.environ.get("EMPIRE_DEPLOY_TARGET"):
@@ -2247,60 +2158,6 @@ def _docker_available() -> tuple[bool, str]:
         return (False, "docker daemon not responding (start Docker Desktop?)")
     except (subprocess.TimeoutExpired, OSError) as e:
         return (False, f"docker probe failed: {e}")
-
-
-def _read_master_env() -> dict[str, str]:
-    """Parse the master .env.agents into a dict (in-memory, never echoed)."""
-    out: dict[str, str] = {}
-    if not ENV_PATH.exists():
-        return out
-    for raw in ENV_PATH.read_text(encoding="utf-8", errors="ignore").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, _, v = line.partition("=")
-        out[k.strip()] = v.strip().strip('"').strip("'")
-    return out
-
-
-def _write_scoped_env_file(path: Path, allowed_keys: list[str] | None,
-                           master: dict[str, str]) -> int:
-    """Write a per-service .env.agents.<service> file. Returns key count.
-
-    `allowed_keys=None` means "every key the master has" (used by bravo-core).
-    """
-    if allowed_keys is None:
-        keys = sorted(master.keys())
-    else:
-        keys = [k for k in allowed_keys if k in master]
-
-    lines = [
-        f"# {path.name} — scoped env, written by `bravo setup`.",
-        "# Per-service subset of the master .env.agents.",
-        "# Keys NOT listed here are deliberately withheld from this service",
-        "# so a one-service compromise cannot exfiltrate the full credential set.",
-        "",
-    ]
-    for k in keys:
-        v = master[k]
-        if v and ("\n" in v or " " in v or v != v.strip()):
-            v = '"' + v.replace('"', '\\"') + '"'
-        lines.append(f"{k}={v}")
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    _chmod_secret_file(path)
-    return len(keys)
-
-
-def _fan_out_scoped_env_files() -> dict[str, int]:
-    """Generate .env.agents.{core,webhook,dashboard} from the master file."""
-    master = _read_master_env()
-    if not master:
-        return {}
-    counts: dict[str, int] = {}
-    for service, allowed in V6_SCOPED_ENV_FILES.items():
-        target = REPO_ROOT / f".env.agents.{service}"
-        counts[service] = _write_scoped_env_file(target, allowed, master)
-    return counts
 
 
 def step_environment(step_num: int, total: int) -> None:
@@ -2405,7 +2262,7 @@ def step_data_sovereignty(profile: str, step_num: int, total: int) -> None:
 
 
 def step_v6_init(profile: str, step_num: int, total: int) -> None:
-    """Bootstrap V6.0: write hook defaults, init state DB, build retrieval index, fan out env."""
+    """Bootstrap V6.0: write hook defaults, init state DB, build retrieval index."""
     if profile == "sunbiz":
         step_header(step_num, total, "Setting up Solara's local brain",
                     "Preparing records, memory, and safety checks behind the scenes.")
@@ -2478,15 +2335,6 @@ def step_v6_init(profile: str, step_num: int, total: int) -> None:
                 print(f"  {GREEN(OK)} Memory retriever ready.")
         else:
             print(f"  {YELLOW('memory_retriever.py build exited ' + str(rc) + '.')}")
-
-    # Scoped env file fan-out — defense in depth.
-    counts = _fan_out_scoped_env_files()
-    if counts:
-        if profile == "sunbiz":
-            print(f"  {GREEN(OK)} Solara's background setup is finished.")
-        else:
-            per = ", ".join(f"{svc}={n}" for svc, n in counts.items())
-            print(f"  {GREEN(OK)} Scoped env files written: {CYAN(per)} keys")
 
     # Optional Docker build prompt.
     docker_ok, docker_msg = _docker_available()
@@ -3164,7 +3012,7 @@ def run_wizard(profile_override: str | None = None) -> int:
         if profile == "sunbiz":
             step += 1; step_sunbiz_experience_handoff(step, total)
         # V6.0 sandbox: write hook defaults, boot state DB, build FTS5 index,
-        # fan out scoped env files, optional docker build. Runs RIGHT BEFORE
+        # and optionally build Docker. Runs RIGHT BEFORE
         # finalize so the post-install `bravo doctor` sees a healthy V6.0 stack.
         step += 1; step_v6_init(profile, step, total)
         step += 1; step_finalize(profile, step, total)

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { createTelegramTransportHealth } = require('./scripts/lib/telegram_transport_health.js');
 
 // ============================================================
 // BRAVO COORDINATION BRIDGE V1 — the OASIS boardroom channel
@@ -52,30 +53,13 @@ const CLAUDE_EXE = process.env.BRAVO_CLAUDE_EXE
     || (IS_WIN ? path.join(process.env.USERPROFILE || '', '.local', 'bin', 'claude.exe')
         : 'claude');   // Mac + Linux resolve `claude` on PATH
 
-// OpenCode CLI — fallback when Claude subscription quota/auth fails (2026-08-26).
-// Same posture as telegram_agent.js + scripts/lib/opencode_cli.py: native
-// binary only (never .cmd/.ps1 shims — those need cmd.exe), prompt via stdin,
+// Codex subscription CLI — fallback when Claude subscription quota/auth fails.
+// Same posture as telegram_agent.js + scripts/lib/codex_cli.py: prompt via stdin,
 // restricted bravo-oneshot agent (all tools denied). The fallback is always
 // TEXT-ONLY: even trusted-tier questions get reasoning, never tool access.
-const OPENCODE_EXE = IS_MAC
-    ? 'opencode'
-    : path.join(process.env.APPDATA || '', 'npm', 'node_modules', 'opencode-ai', 'bin', 'opencode.exe');
-const HAS_OPENCODE = (() => {
-    try {
-        if (IS_MAC) {
-            const { execSync } = require('child_process');
-            execSync('which opencode', { stdio: 'ignore' });
-            return true;
-        }
-        if (IS_WIN) return fs.existsSync(OPENCODE_EXE);
-        const { execSync } = require('child_process');
-        execSync('which opencode', { stdio: 'ignore' });
-        return true;
-    } catch (_) { return false; }
-})();
-const OPENCODE_FALLBACK_MODEL = 'opencode/big-pickle';
-const OPENCODE_TIMEOUT = 180000; // 3 min — free model fallback
-// (availability logged after `log` is defined below — see OPENCODE boot line)
+const CODEX_FALLBACK_SCRIPT = path.join(__dirname, 'scripts', 'lib', 'model_fallback.py');
+const HAS_CODEX_FALLBACK = fs.existsSync(CODEX_FALLBACK_SCRIPT);
+const CODEX_FALLBACK_TIMEOUT = 600000;
 
 const LOG_FILE = path.join(__dirname, 'memory', 'coordination_bridge.log');
 const LOCK_FILE = path.join(__dirname, 'tmp', 'bravo_coord.lock.json');
@@ -169,9 +153,9 @@ if (CC_IDS.length === 0) {
     log('[WARN] CC_TELEGRAM_USER_ID is not set. The mutation gate has NO operator — ALL triggers are untrusted (read-only) and NOTHING can be approved. Set CC_TELEGRAM_USER_ID to your Telegram user id.'
         + (CC_IDS_FALLBACK.length ? ' (TELEGRAM_ALLOWED_USERS is intentionally NOT used for operator authority.)' : ''));
 }
-log(HAS_OPENCODE
-    ? `[OPENCODE] Fallback available: ${OPENCODE_EXE}`
-    : '[OPENCODE] Fallback NOT available — opencode not found (npm i -g opencode-ai)');
+log(HAS_CODEX_FALLBACK
+    ? '[CODEX] Subscription fallback wrapper available'
+    : `[CODEX] Subscription fallback wrapper missing: ${CODEX_FALLBACK_SCRIPT}`);
 
 // ---- SINGLE-INSTANCE LOCK ----
 const isPidAlive = (pid) => {
@@ -229,6 +213,13 @@ const bot = new TelegramBot(SEND_TOKEN, {
     polling: { autoStart: false, params: { timeout: 30 } },
     request: { timeout: 60000 },
 });
+const transportHealth = createTelegramTransportHealth({
+    bot,
+    filePath: path.join(__dirname, 'state', 'coordination_transport_health.json'),
+    name: 'bravo-coord',
+    log,
+});
+transportHealth.start();
 let BOT_ID = null;
 let BOT_USERNAME = null;
 
@@ -441,17 +432,21 @@ function safeBaseEnv() {
 }
 
 /**
- * spawnOpenCodeFallback — text-only OpenCode reply when the Claude spawn
- * fails (quota / auth / missing CLI). Returns the model's text, or null.
- * Always runs the tool-denied bravo-oneshot agent regardless of trust tier:
- * a degraded answer beats no answer, and it can never mutate anything.
+ * spawnCodexFallback — operator-trusted Codex reply when Claude fails.
+ * The read-only Codex sandbox prevents writes but still has file/shell reads,
+ * so spawnClaude never invokes this function for peer or partner content.
  */
-const spawnOpenCodeFallback = (prompt) => new Promise((resolve) => {
-    if (!HAS_OPENCODE) { resolve(null); return; }
-    log(`[OPENCODE FALLBACK] spawning ${OPENCODE_FALLBACK_MODEL}`);
-    const args = ['run', '--model', OPENCODE_FALLBACK_MODEL, '--agent', 'bravo-oneshot', '--format', 'default', '--dir', __dirname];
-    const child = spawn(OPENCODE_EXE, args, {
-        env: { ...process.env, CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' },
+const spawnCodexFallback = (prompt) => new Promise((resolve) => {
+    if (!HAS_CODEX_FALLBACK) { resolve(null); return; }
+    log('[CODEX FALLBACK] spawning subscription CLI (read-only)');
+    const args = [
+        'scripts/lib/model_fallback.py', '--force-fallback', '--stdin',
+        '--operator-trusted',
+        '--cwd', UNTRUSTED_CWD,
+        '--timeout', String(Math.floor(CODEX_FALLBACK_TIMEOUT / 1000)),
+    ];
+    const child = spawn(PYTHON, args, {
+        env: safeBaseEnv(),
         stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true, cwd: __dirname,
     });
     child.stdin.write(prompt);
@@ -461,18 +456,18 @@ const spawnOpenCodeFallback = (prompt) => new Promise((resolve) => {
     child.stderr.on('data', (d) => { err += d.toString(); });
     const timer = setTimeout(() => {
         try { if (child.pid) { IS_WIN ? spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, shell: false }) : process.kill(child.pid, 'SIGKILL'); } } catch (_) {}
-        log('[OPENCODE FALLBACK] timed out');
+        log('[CODEX FALLBACK] timed out');
         resolve(null);
-    }, OPENCODE_TIMEOUT);
+    }, CODEX_FALLBACK_TIMEOUT);
     child.on('close', (code) => {
         clearTimeout(timer);
-        log(`[OPENCODE FALLBACK] code=${code} out=${out.length}b`);
+        log(`[CODEX FALLBACK] code=${code} out=${out.length}b`);
         if (code !== 0) { resolve(null); return; }
-        // Strip the `> agent · model` status header `opencode run` prepends.
+        // Defensively strip a legacy runner status header if one is present.
         const cleaned = out.split('\n').filter((ln) => !/^>\s*\w[\w.-]*\s*·\s*\S/.test(ln.trim())).join('\n').trim();
         resolve(cleaned || null);
     });
-    child.on('error', (e) => { clearTimeout(timer); log(`[OPENCODE FALLBACK ERR] ${e.message}`); resolve(null); });
+    child.on('error', (e) => { clearTimeout(timer); log(`[CODEX FALLBACK ERR] ${e.message}`); resolve(null); });
 });
 
 const spawnClaude = (prompt, { trusted }) => new Promise((resolve) => {
@@ -510,32 +505,49 @@ const spawnClaude = (prompt, { trusted }) => new Promise((resolve) => {
     const spawnCwd = trusted ? __dirname : UNTRUSTED_CWD;
     const child = spawn(CLAUDE_EXE, args, { env, stdio: ['ignore', 'pipe', 'pipe'], shell: false, windowsHide: true, cwd: spawnCwd });
     let out = '', err = '';
+    let settled = false;
+    const settle = (value) => {
+        if (settled) return false;
+        settled = true;
+        resolve(value);
+        return true;
+    };
     child.stdout.on('data', d => out += d.toString());
     child.stderr.on('data', d => err += d.toString());
     const timer = setTimeout(() => {
         try { if (child.pid) { IS_WIN ? spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, shell: false }) : process.kill(child.pid, 'SIGKILL'); } } catch (_) {}
-        resolve('(timed out)');
+        settle('(timed out)');
     }, CLAUDE_TIMEOUT);
     child.on('close', async (code) => {
         clearTimeout(timer);
+        if (settled) return;
         const raw = out.trim() || err.trim();
         log(`[SPAWN DONE] code=${code} out=${out.length}b`);
         if (code !== 0) {
             // Never relay a raw CLI error blob to the group (2026-08-03: a failed
             // spawn's 61-byte error string was posted as Bravo's reply). Log the
-            // full output; fall back to OpenCode (quota/auth outage) before
+            // full output; fall back to Codex (quota/auth outage) before
             // sending the group one clean line.
             log(`[SPAWN FAIL] code=${code} full output: ${TRUNC(raw, 2000)}`);
-            const fb = await spawnOpenCodeFallback(prompt);
+            const quotaOrAuth = Boolean(
+                cSuite && cSuite.isClaudeAuthOrQuotaFailure
+                && cSuite.isClaudeAuthOrQuotaFailure(raw, code)
+            );
+            const fb = trusted && quotaOrAuth ? await spawnCodexFallback(prompt) : null;
+            if (!trusted) log('[SPAWN FAIL] untrusted trigger: Codex fallback withheld because its CLI has read tools');
+            else if (!quotaOrAuth) log('[SPAWN FAIL] no replay: failure was not a pre-work quota/auth stop');
             resolve(fb || "Bravo's brain hiccupped answering that — logged, will retry on the next ping.");
             return;
         }
-        resolve(cleanOutput(raw) || 'Done.');
+        settle(cleanOutput(raw) || 'Done.');
     });
     child.on('error', async (e) => {
         clearTimeout(timer);
+        if (settled) return;
+        settled = true; // reserve resolution; a following close event is ignored
         log(`[SPAWN ERR] ${e.message}`);
-        const fb = await spawnOpenCodeFallback(prompt);
+        const fb = trusted ? await spawnCodexFallback(prompt) : null;
+        if (!trusted) log('[SPAWN ERR] untrusted trigger: Codex fallback withheld because its CLI has read tools');
         resolve(fb || `Error: ${e.message}`);
     });
 });
@@ -588,6 +600,7 @@ let busy = false;
 let lastBusyNotice = 0;
 bot.on('message', async (msg) => {
     try {
+        transportHealth.markSuccess('update_received');
         if (String(msg.chat.id) !== GROUP_ID) return;          // group-scoped only
         const text = msg.text || '';
         if (!text) return;
@@ -847,6 +860,7 @@ const scheduleNextPoll = () => setTimeout(async () => {
 
 // ---- 409 BACKOFF (in-process; never exit) ----
 let pollConflicts = 0, resumeTimer = null, lastConflictResolvedCheck = null;
+let pollErrorCount = 0;
 const scheduleResume = () => {
     if (resumeTimer) return;
     const delays = [60000, 90000, 120000, 180000, 300000];
@@ -859,18 +873,31 @@ const scheduleResume = () => {
             await bot.startPolling({ restart: true });
             log('[POLL] resumed after backoff.');
             // Reset the counter only if we stay conflict-free for 5 min.
-            const startedAt = Date.now();
+            const conflictCountAtResume = pollConflicts;
             if (lastConflictResolvedCheck) clearTimeout(lastConflictResolvedCheck);
             lastConflictResolvedCheck = setTimeout(() => {
-                if (Date.now() - startedAt >= 300000) { pollConflicts = 0; log('[POLL] 5 min conflict-free — backoff counter reset.'); }
+                lastConflictResolvedCheck = null;
+                if (pollConflicts === conflictCountAtResume) {
+                    pollConflicts = 0;
+                    void transportHealth.clearFailure();
+                    log('[POLL] 5 min conflict-free — backoff counter reset.');
+                }
             }, 300000);
-        } catch (e) { log(`[POLL] resume failed: ${e.message}`); }
+        } catch (e) {
+            transportHealth.markFailure('poll_start_failed');
+            log(`[POLL] resume failed: ${e.message}`);
+        }
     }, delay);
 };
 bot.on('polling_error', (e) => {
     const m = e.message || String(e);
     if (m.includes('409') || m.includes('Conflict')) {
+        if (lastConflictResolvedCheck) {
+            clearTimeout(lastConflictResolvedCheck);
+            lastConflictResolvedCheck = null;
+        }
         pollConflicts++;
+        transportHealth.markFailure('polling_conflict', { sticky: true });
         // Name ourselves at every conflict so the log proves WHICH token/host is
         // being fought over — 2026-08-03: daily 409 churn from an unidentified
         // second poller on CC_AGENT_BOT_TOKEN.
@@ -879,11 +906,22 @@ bot.on('polling_error', (e) => {
         scheduleResume();
         return;
     }
-    log(`[POLL] error: ${m}`);
+    if (m.includes('401')) {
+        transportHealth.markFailure('unauthorized', { sticky: true });
+        log('[POLL] 401 — coordination bot token invalid or revoked. Exiting.');
+        process.exit(1);
+        return;
+    }
+    pollErrorCount++;
+    transportHealth.markFailure('polling_error');
+    if (pollErrorCount === 1 || pollErrorCount % 50 === 0) {
+        log(`[POLL] error: ${m} (count: ${pollErrorCount})`);
+    }
 });
 
 // ---- BOOT ----
 const shutdown = async () => {
+    transportHealth.stop();
     log('Shutting down — stopping polling.');
     try { await bot.stopPolling(); } catch (_) {}
     setTimeout(() => process.exit(0), 500);
@@ -896,15 +934,25 @@ process.on('unhandledRejection', (err) => log(`[UNHANDLED] ${err && err.message 
     try {
         const me = await bot.getMe();
         BOT_ID = me.id; BOT_USERNAME = me.username;
+        transportHealth.markSuccess('get_me_ok');
         log(`[BOT] @${me.username} (${me.id})${TABLE_ONLY ? ' — send-only' : `, can_read_all_group_messages=${me.can_read_all_group_messages}`}.`);
         if (!TABLE_ONLY && me.can_read_all_group_messages === false) {
             log('[WARN] Group Privacy is ON for this bot — it will only see @mentions/replies/commands, not general chatter. Turn it OFF in BotFather (Bot Settings → Group Privacy → Turn off), then remove + re-add the bot to the group.');
         }
-    } catch (e) { log(`[BOT] getMe failed: ${e.message}`); }
+    } catch (e) {
+        transportHealth.markFailure('get_me_failed');
+        log(`[BOT] getMe failed: ${e.message}`);
+    }
     if (TABLE_ONLY) {
         log('[MODE] TABLE-ONLY — agent↔agent via agent_activity; group posts go out through the existing bot (send-only). NOT receiving human chat. To let CC/Adon spark Bravo live, set a dedicated CC_AGENT_BOT_TOKEN (Group Privacy OFF) and restart.');
     } else {
-        try { await bot.startPolling(); log('[POLL] started.'); } catch (e) { log(`[POLL] start failed: ${e.message}`); }
+        try {
+            await bot.startPolling();
+            log('[POLL] started.');
+        } catch (e) {
+            transportHealth.markFailure('poll_start_failed');
+            log(`[POLL] start failed: ${e.message}`);
+        }
     }
     scheduleNextPoll();
     log('Coordination bridge ready.');

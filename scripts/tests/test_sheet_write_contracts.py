@@ -91,9 +91,12 @@ def test_enrichment_defaults_to_no_sheet_or_checkpoint_writes(monkeypatch, tmp_p
     monkeypatch.setattr(
         module, "write_row", lambda *args, **kwargs: writes.append((args, kwargs))
     )
-    from lib import claude_cli
+    from lib import model_fallback
 
-    monkeypatch.setattr(claude_cli, "run_claude_cli", lambda *_args, **_kwargs: "ok")
+    # Patch the boundary the script actually calls. Patching claude_cli leaves
+    # model_fallback's already-imported function bound to the live quota state,
+    # which makes this contract test depend on the operator's provider cooldown.
+    monkeypatch.setattr(model_fallback, "run_smart_cli", lambda *_args, **_kwargs: "ok")
     monkeypatch.setattr(
         sys, "argv", ["enrich_sheet_inplace.py", "--workers", "1", "--limit", "1"]
     )
@@ -124,9 +127,9 @@ def test_enrichment_apply_writes_and_checkpoints(monkeypatch, tmp_path):
     monkeypatch.setattr(
         module, "write_row", lambda *args, **kwargs: writes.append((args, kwargs))
     )
-    from lib import claude_cli
+    from lib import model_fallback
 
-    monkeypatch.setattr(claude_cli, "run_claude_cli", lambda *_args, **_kwargs: "ok")
+    monkeypatch.setattr(model_fallback, "run_smart_cli", lambda *_args, **_kwargs: "ok")
     monkeypatch.setattr(
         sys,
         "argv",
@@ -155,9 +158,9 @@ def test_enrichment_apply_does_not_write_or_checkpoint_failed_rows(monkeypatch, 
     monkeypatch.setattr(
         module, "write_row", lambda *args, **kwargs: writes.append((args, kwargs))
     )
-    from lib import claude_cli
+    from lib import model_fallback
 
-    monkeypatch.setattr(claude_cli, "run_claude_cli", lambda *_args, **_kwargs: "ok")
+    monkeypatch.setattr(model_fallback, "run_smart_cli", lambda *_args, **_kwargs: "ok")
     monkeypatch.setattr(
         sys,
         "argv",

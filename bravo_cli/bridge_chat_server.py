@@ -504,21 +504,123 @@ def _script_runtime_args(spec: dict, extra_args: list) -> list[str]:
 # build_bridge_manifest all agree on where to look.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from lib.agent_roots import resolve_sunbiz_root as _resolve_sunbiz_root  # noqa: E402
+from lib.env_store import EnvStoreValidationError, update_env_values  # noqa: E402
 
 
-def _opencode_fallback_text(prompt_text: str, timeout: int = 180) -> str | None:
-    """One-shot OpenCode fallback for chat turns when the Claude subscription
-    is quota/auth-dead (2026-08-26). Text-only via the tool-denied
-    bravo-oneshot agent — a degraded answer beats a dead-ended chat, and it
-    can never mutate anything. Returns the model's text, or None."""
+def _codex_fallback_text(
+    prompt_text: str,
+    *,
+    root: Path,
+    chat_mode: str = "build",
+    timeout: int = 600,
+    operator_trusted: bool = False,
+) -> str | None:
+    """Use Codex only for a request authenticated as an operator turn."""
+    if not operator_trusted:
+        return None
     try:
-        from lib.opencode_cli import run_opencode_cli
-        return run_opencode_cli(
-            prompt_text, model="opencode/big-pickle", timeout=timeout, task_type="reasoning",
+        from lib.codex_cli import run_codex_cli
+        return run_codex_cli(
+            prompt_text,
+            timeout=timeout,
+            cwd=root,
+            sandbox="read-only" if chat_mode == "plan" else "workspace-write",
+            respect_rules=True,
+            operator_trusted=operator_trusted,
         )
     except Exception as e:  # noqa: BLE001 — fallback must never crash the SSE turn
-        print(f"[bridge] opencode fallback failed: {e}", file=sys.stderr)
+        print(f"[bridge] codex fallback failed: {type(e).__name__}", file=sys.stderr)
         return None
+
+
+def _is_trusted_operator_session(
+    *,
+    bridge_bearer_present: bool,
+    team_role: str,
+    disallowed_tools: list[str] | None,
+) -> bool:
+    """Return whether a Command Center turn may enter tool-capable Codex.
+
+    Direct localhost traffic is the operator lane. Proxied traffic has an
+    identity asserted by the bearer-authenticated server, but only owner/admin
+    roles with the full-power tool policy are operator-equivalent.
+    """
+    if not bridge_bearer_present:
+        return True
+    return team_role in {"owner", "admin"} and not (disallowed_tools or [])
+
+
+def _is_quota_diagnostic_candidate(text: str) -> bool:
+    """Identify an initial block that may be Claude CLI quota UI.
+
+    Claude currently emits subscription exhaustion as assistant text followed
+    by a successful result with zero output tokens. We buffer only a short
+    initial candidate; that zero-token result is required before fallback.
+    """
+    value = str(text or "").strip()
+    if not value or len(value) > 2000:
+        return False
+    if _is_auth_failure(value, None):
+        return True
+    lowered = value.lower()
+    prefixes = (
+        "you've hit your",
+        "you have hit your",
+        "usage limit",
+        "weekly limit",
+        "session limit",
+        "quota exceeded",
+        "oauth token",
+        "authentication error",
+        "invalid api key",
+    )
+    return any(
+        lowered.startswith(prefix) or (len(lowered) >= 5 and prefix.startswith(lowered))
+        for prefix in prefixes
+    )
+
+
+def _try_emit_codex_fallback(
+    prompt_text: str,
+    *,
+    root: Path,
+    chat_mode: str,
+    operator_trusted: bool,
+    auth_failure: bool,
+    emitted_any_text: bool,
+    emitted_any_tool: bool,
+    emitted_session: bool,
+    emit: Callable[[str, dict], None],
+    done_data: dict | None = None,
+) -> bool:
+    """Emit one safe Codex recovery turn, or return False without side effects.
+
+    A second agent may run only when Claude was stopped by quota/auth before it
+    produced assistant text or invoked a tool. This prevents duplicate sends,
+    writes, and other mutations after an ambiguous Claude exit.
+    """
+    if (
+        not operator_trusted
+        or not auth_failure
+        or emitted_any_text
+        or emitted_any_tool
+    ):
+        return False
+    fallback_text = _codex_fallback_text(
+        prompt_text,
+        root=root,
+        chat_mode=chat_mode,
+        operator_trusted=True,
+    )
+    if not fallback_text:
+        return False
+    if not emitted_session:
+        emit("session", {"session_id": "codex-fallback"})
+    emit("delta", {"text": fallback_text})
+    terminal = dict(done_data or {})
+    terminal.update({"auth_failure": True, "fallback": "codex"})
+    emit("done", terminal)
+    return True
 
 _SCRIPT_ROOTS: dict[str, Path | None] = {
     "sunbiz": _resolve_sunbiz_root(),
@@ -1291,30 +1393,26 @@ class _ChatHandler(BaseHTTPRequestHandler):
         repo_root = Path(__file__).resolve().parent.parent
         env_path = repo_root / ".env.agents"
         try:
-            existing = env_path.read_text(encoding="utf-8").splitlines() if env_path.is_file() else []
-            out: list[str] = []
-            seen = False
-            for line in existing:
-                if "=" in line and not line.strip().startswith("#"):
-                    k = line.split("=", 1)[0].strip()
-                    if k == key:
-                        out.append(f"{key}={value}")
-                        seen = True
-                        continue
-                out.append(line)
-            if not seen:
-                if out and out[-1].strip() != "":
-                    out.append("")
-                out.append(f"# Added via dashboard key-paste modal")
-                out.append(f"{key}={value}")
-            env_path.write_text("\n".join(out) + "\n", encoding="utf-8")
-            try:
-                if os.name != "nt":
-                    os.chmod(env_path, 0o600)
-            except Exception:
-                pass
+            update_env_values(
+                env_path,
+                {key: value},
+                initial_text=(
+                    "# Bravo .env.agents — canonical credential store.\n"
+                    "# One KEY=value per line. Never commit this file.\n\n"
+                ),
+            )
+        except EnvStoreValidationError:
+            self._json(400, {"ok": False, "error": "unsafe env value"})
+            return
         except Exception as e:
-            self._json(500, {"ok": False, "error": f"write_failed: {e}"})
+            print(
+                f"[bridge] env-store write failed: {type(e).__name__}",
+                file=sys.stderr,
+            )
+            self._json(
+                500,
+                {"ok": False, "error": f"write_failed: {type(e).__name__}"},
+            )
             return
 
         # Best-effort ping so the dashboard's green dot flips immediately.
@@ -1860,6 +1958,12 @@ class _ChatHandler(BaseHTTPRequestHandler):
             # list empty regardless of what (if anything) was sent.
             disallowed_tools = []
 
+        operator_trusted = _is_trusted_operator_session(
+            bridge_bearer_present=bool(bridge_bearer),
+            team_role=team_role,
+            disallowed_tools=disallowed_tools,
+        )
+
         # Defense-in-depth: a restricted role (non-empty disallowed_tools) MUST
         # run on Claude Code — the only runtime whose --disallowed-tools flag
         # enforces the no-shell wall. The proxy already forces this; pin it here
@@ -2012,6 +2116,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 warm_path_succeeded = self._run_chat_via_warm_pool(
                     agent, root, messages, emit, resume_session_id, tab_id,
                     chat_mode=chat_mode, disallowed_tools=disallowed_tools,
+                    operator_trusted=operator_trusted,
                 )
             except Exception as e:
                 # Warm path crashed — log to stderr, fall through to cold.
@@ -2028,6 +2133,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
             self._run_chat_via_claude(
                 agent, root, messages, emit, resume_session_id, chat_mode=chat_mode,
                 disallowed_tools=disallowed_tools,
+                operator_trusted=operator_trusted,
             )
         except FileNotFoundError as e:
             emit("error", {
@@ -2058,6 +2164,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         tab_id: str,
         chat_mode: str = "build",
         disallowed_tools: list[str] | None = None,
+        operator_trusted: bool = False,
     ) -> bool:
         """Drive a chat turn via a persistent claude subprocess from the
         warm pool. Returns True on success (streamed clean to the client),
@@ -2150,7 +2257,13 @@ class _ChatHandler(BaseHTTPRequestHandler):
         #                                retry: only retry if no partial
         #                                content was shipped (otherwise
         #                                retry would double-print).
-        state = {"emitted_session": False, "emitted_any_text": False}
+        state = {
+            "emitted_session": False,
+            "emitted_any_text": False,
+            "emitted_any_tool": False,
+            "pending_auth_text": "",
+            "auth_failure_as_success": False,
+        }
 
         def make_on_event() -> Callable[[dict], None]:
             def on_event(ev: dict) -> None:
@@ -2172,6 +2285,19 @@ class _ChatHandler(BaseHTTPRequestHandler):
                         if btype == "text":
                             text = block.get("text") or ""
                             if text:
+                                pending = str(state["pending_auth_text"] or "")
+                                candidate = pending + text
+                                if (
+                                    not state["emitted_any_text"]
+                                    and not state["emitted_any_tool"]
+                                    and _is_quota_diagnostic_candidate(candidate)
+                                ):
+                                    state["pending_auth_text"] = candidate
+                                    continue
+                                if pending:
+                                    emit("delta", {"text": pending})
+                                    state["emitted_any_text"] = True
+                                    state["pending_auth_text"] = ""
                                 emit("delta", {"text": text})
                                 state["emitted_any_text"] = True
                         elif btype == "tool_use":
@@ -2180,6 +2306,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                             tinput = block.get("input") or {}
                             mapped = _map_tool_use(tname, tinput)
                             mapped["tool_use_id"] = tid
+                            state["emitted_any_tool"] = True
                             emit("tool", mapped)
                     return
                 if etype == "user":
@@ -2191,11 +2318,29 @@ class _ChatHandler(BaseHTTPRequestHandler):
                                 continue
                             if block.get("type") == "tool_result":
                                 tres = _map_tool_result(block, ev)
+                                state["emitted_any_tool"] = True
                                 emit("tool_result", tres)
                     return
                 if etype == "result":
                     usage = ev.get("usage") or {}
                     out_tokens = usage.get("output_tokens") or 0
+                    pending = str(state["pending_auth_text"] or "")
+                    result_text = str(ev.get("result") or "")
+                    diagnostic = pending or result_text
+                    if (
+                        not state["emitted_any_text"]
+                        and not state["emitted_any_tool"]
+                        and out_tokens == 0
+                        and diagnostic
+                        and _is_auth_failure(diagnostic, None)
+                    ):
+                        state["auth_failure_as_success"] = True
+                        state["pending_auth_text"] = ""
+                        return
+                    if pending:
+                        emit("delta", {"text": pending})
+                        state["emitted_any_text"] = True
+                        state["pending_auth_text"] = ""
                     # Phase 8.1.3 (warm path mirror) — surface empty
                     # success so the dashboard doesn't render a silent
                     # "no response" toast when hooks failed. Same logic
@@ -2263,6 +2408,33 @@ class _ChatHandler(BaseHTTPRequestHandler):
         turn_started_at = time.time()
         ok = wp.send_turn(prompt_text, make_on_event(), max_seconds=1800)
         if ok:
+            if state["auth_failure_as_success"]:
+                # Claude emitted its quota UI as exit-0 assistant text. The
+                # text stayed buffered and the result confirmed no model/tool
+                # work occurred, so a single replay is safe.
+                wp.kill(reason="quota_diagnostic")
+                fallback_prompt = self._build_local_cli_prompt(
+                    agent, messages, resolve_entry_file(root, agent)
+                )
+                if _try_emit_codex_fallback(
+                    fallback_prompt,
+                    root=root,
+                    chat_mode=chat_mode,
+                    operator_trusted=operator_trusted,
+                    auth_failure=True,
+                    emitted_any_text=False,
+                    emitted_any_tool=False,
+                    emitted_session=state["emitted_session"],
+                    emit=emit,
+                    done_data={"warm_aborted": True},
+                ):
+                    return True
+                emit("error", {
+                    "code": "subscription_auth_failure",
+                    "message": "Claude subscription quota or auth failure; Codex fallback was unavailable.",
+                })
+                emit("done", {"warm_aborted": True, "auth_failure": True})
+                return True
             return True
 
         # send_turn returned False — process died mid-turn or stream
@@ -2277,10 +2449,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         exit_code = wp.proc.poll()
         wp.kill(reason="send_turn_failed")
 
-        auth_failure = (
-            not state["emitted_any_text"]
-            and _is_auth_failure(stderr_tail, exit_code)
-        )
+        auth_failure = _is_auth_failure(stderr_tail, exit_code)
         if not auth_failure:
             # Warm process died for a non-auth reason. Two sub-cases:
             #
@@ -2343,15 +2512,24 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # sticky-marked the pool "paid" for the rest of the session. The key
         # is out of credits + banned (CLI-only rule), so that retry was doomed
         # AND poisoned every subsequent turn in the session onto the dead key.
-        # 2026-08-26: before surfacing the error, degrade to the OpenCode free
-        # tier (text-only, bravo-oneshot agent) so the chat still answers
+        # Before surfacing a Claude subscription outage, degrade to the Codex
+        # subscription wrapper so the chat still answers
         # during a quota window instead of dead-ending on Retry.
-        fallback_text = _opencode_fallback_text(prompt_text)
-        if fallback_text:
-            if not state["emitted_session"]:
-                emit("session", {"session_id": "opencode-fallback"})
-            emit("delta", {"text": fallback_text})
-            emit("done", {"warm_aborted": True, "auth_failure": True, "fallback": "opencode"})
+        fallback_prompt = self._build_local_cli_prompt(
+            agent, messages, resolve_entry_file(root, agent)
+        )
+        if _try_emit_codex_fallback(
+            fallback_prompt,
+            root=root,
+            chat_mode=chat_mode,
+            operator_trusted=operator_trusted,
+            auth_failure=auth_failure,
+            emitted_any_text=state["emitted_any_text"],
+            emitted_any_tool=state["emitted_any_tool"],
+            emitted_session=state["emitted_session"],
+            emit=emit,
+            done_data={"warm_aborted": True},
+        ):
             return True
         emit("error", {
             "code": "subscription_auth_failure",
@@ -3024,6 +3202,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         resume_session_id: str | None = None,
         chat_mode: str = "build",
         disallowed_tools: list[str] | None = None,
+        operator_trusted: bool = False,
     ) -> None:
         """Spawn `claude --print --output-format=stream-json` and pipe the
         operator's latest message in. Translate stream-json events to the
@@ -3222,6 +3401,9 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # Read line-by-line. Each line is a complete JSON event.
         emitted_session = False
         accumulated_text = ""
+        emitted_any_tool = False
+        pending_auth_text = ""
+        auth_failure_as_success = False
         # Track whether we've already sent the terminal `done` event so
         # we never double-emit AND never leave the SSE stream open
         # without one. Closes the chat-hang bug from 2026-05-10: claude
@@ -3304,6 +3486,18 @@ class _ChatHandler(BaseHTTPRequestHandler):
                         if btype == "text":
                             text = block.get("text") or ""
                             if text:
+                                candidate = pending_auth_text + text
+                                if (
+                                    not accumulated_text.strip()
+                                    and not emitted_any_tool
+                                    and _is_quota_diagnostic_candidate(candidate)
+                                ):
+                                    pending_auth_text = candidate
+                                    continue
+                                if pending_auth_text:
+                                    emit("delta", {"text": pending_auth_text})
+                                    accumulated_text += pending_auth_text
+                                    pending_auth_text = ""
                                 # Claude Code with --include-partial-messages
                                 # emits incremental text. Forward each chunk
                                 # as a delta so the UI streams.
@@ -3332,6 +3526,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                             tinput = block.get("input") or {}
                             mapped = _map_tool_use(tname, tinput)
                             mapped["tool_use_id"] = tid
+                            emitted_any_tool = True
                             emit("tool", mapped)
                             last_emitted_was_tool = True
                     continue
@@ -3346,6 +3541,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                                 continue
                             if block.get("type") == "tool_result":
                                 tres = _map_tool_result(block, ev)
+                                emitted_any_tool = True
                                 emit("tool_result", tres)
                     continue
 
@@ -3353,6 +3549,22 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 if etype == "result":
                     usage = ev.get("usage") or {}
                     out_tokens = usage.get("output_tokens") or 0
+                    result_text = str(ev.get("result") or "")
+                    diagnostic = pending_auth_text or result_text
+                    if (
+                        not accumulated_text.strip()
+                        and not emitted_any_tool
+                        and out_tokens == 0
+                        and diagnostic
+                        and _is_auth_failure(diagnostic, None)
+                    ):
+                        pending_auth_text = ""
+                        auth_failure_as_success = True
+                        continue
+                    if pending_auth_text:
+                        emit("delta", {"text": pending_auth_text})
+                        accumulated_text += pending_auth_text
+                        pending_auth_text = ""
                     # Phase 8.1.3 — surface the "empty success" case. Claude
                     # Code 2.1.39 returns a clean result event with no text
                     # blocks and 0 output_tokens when the model declined to
@@ -3419,12 +3631,67 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
             rc = proc.wait(timeout=5)
             watchdog_stop.set()  # stream's done; stop the timeout timer
+            if auth_failure_as_success:
+                fallback_prompt = self._build_local_cli_prompt(
+                    agent, messages, resolve_entry_file(root, agent)
+                )
+                if _try_emit_codex_fallback(
+                    fallback_prompt,
+                    root=root,
+                    chat_mode=chat_mode,
+                    operator_trusted=operator_trusted,
+                    auth_failure=True,
+                    emitted_any_text=False,
+                    emitted_any_tool=False,
+                    emitted_session=emitted_session,
+                    emit=emit,
+                    done_data={
+                        "stop_reason": "codex_fallback",
+                        "num_turns": 0,
+                    },
+                ):
+                    emitted_done = True
+                    return
+                emit("error", {
+                    "code": "subscription_auth_failure",
+                    "message": "Claude subscription quota or auth failure; Codex fallback was unavailable.",
+                })
+                emit("done", {"auth_failure": True})
+                emitted_done = True
+                return
             if rc != 0:
                 # Wait briefly for the stderr drainer to finish reading
                 # whatever's still in the pipe — claude may have written
                 # error context AFTER exiting.
                 stderr_thread.join(timeout=2)
                 stderr_full = "".join(stderr_chunks).strip()
+                auth_failure = _is_auth_failure(
+                    "\n".join(part for part in (stderr_full, pending_auth_text) if part),
+                    rc,
+                )
+                fallback_prompt = self._build_local_cli_prompt(
+                    agent, messages, resolve_entry_file(root, agent)
+                )
+                if (
+                    not emitted_done
+                    and _try_emit_codex_fallback(
+                        fallback_prompt,
+                        root=root,
+                        chat_mode=chat_mode,
+                        operator_trusted=operator_trusted,
+                        auth_failure=auth_failure,
+                        emitted_any_text=bool(accumulated_text.strip()),
+                        emitted_any_tool=emitted_any_tool,
+                        emitted_session=emitted_session,
+                        emit=emit,
+                        done_data={
+                            "stop_reason": "codex_fallback",
+                            "num_turns": 0,
+                        },
+                    )
+                ):
+                    emitted_done = True
+                    return
                 # Heuristic: detect stale --resume session id and tell the
                 # user clearly. claude prints something like "Session
                 # not found" or "Could not find session" when the resume

@@ -822,11 +822,20 @@ def check_fleet_persistence() -> tuple[str, bool, str, str]:
             if down:
                 problems.append(f"{len(down)}/{len(rows)} managed process(es) NOT RUNNING: "
                                 + ", ".join(down[:6]))
+            duplicates = sorted(
+                r["name"] for r in rows
+                if fleet_watchdog.classify(r) == "duplicate"
+            )
+            if duplicates:
+                problems.append(
+                    f"{len(duplicates)}/{len(rows)} managed process(es) DUPLICATE: "
+                    + ", ".join(duplicates[:6])
+                )
             # Counted by classify(), so "6/8 up" can never again read as "2 are
             # down" when the other two are an operator stop and a broken
             # manifest entry — two things nobody should be paged about.
             tally = {state: sum(1 for r in rows if fleet_watchdog.classify(r) == state)
-                     for state in ("running", "disabled", "unrunnable")}
+                     for state in ("running", "disabled", "unrunnable", "duplicate")}
             fleet = ", ".join(f"{n} {state}" for state, n in tally.items() if n)
     except Exception as e:  # noqa: BLE001
         problems.append(f"could not verify fleet liveness via fleet_watchdog "

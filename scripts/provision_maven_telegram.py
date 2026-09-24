@@ -42,6 +42,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from lib import secret_loader  # noqa: E402
+from lib.env_store import locked_update_text  # noqa: E402
 from sibling_repos import SIBLING_REPOS  # noqa: E402
 
 SOURCE_KEY = "TELEGRAM_ALLOWED_USERS"
@@ -62,17 +63,21 @@ def describe(value: str) -> str:
     return f"{len(ids)} recipient(s), fingerprint {fingerprint(value)}"
 
 
-def parse_env(path: Path) -> dict[str, str]:
-    if not path.exists():
-        return {}
+def parse_env_text(text: str) -> dict[str, str]:
     out: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+    for line in text.splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, _, v = line.partition("=")
         out[k.strip()] = v.strip()
     return out
+
+
+def parse_env(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    return parse_env_text(path.read_text(encoding="utf-8", errors="ignore"))
 
 
 def main() -> int:
@@ -116,33 +121,35 @@ def main() -> int:
             print("\nNOT PROVISIONED. Re-run without --check to fix.")
             return 1
 
-    text = MAVEN_ENV.read_text(encoding="utf-8")
-    backup = MAVEN_ENV.parent / ".env.agents.bak.pre_telegram"
-    backup.write_text(text, encoding="utf-8")
-    print(f"\nBackup: {backup.name}")
+    action = "unchanged"
 
-    if current:
-        # Replace the existing assignment in place, preserving file order.
-        lines = text.splitlines()
-        for i, line in enumerate(lines):
-            if line.strip().startswith(f"{TARGET_KEY}="):
-                lines[i] = f"{TARGET_KEY}={source}"
-                break
-        new_text = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
-        action = "updated"
-    else:
-        sep = "" if text.endswith("\n") else "\n"
-        new_text = (
-            f"{text}{sep}\n"
+    def provision(current_text: str) -> str:
+        nonlocal action
+        locked_current = (parse_env_text(current_text).get(TARGET_KEY) or "").strip()
+        if locked_current == source:
+            return current_text
+        if locked_current:
+            # Replace the existing assignment in place, preserving file order.
+            lines = current_text.splitlines()
+            for i, line in enumerate(lines):
+                if line.strip().startswith(f"{TARGET_KEY}="):
+                    lines[i] = f"{TARGET_KEY}={source}"
+                    break
+            action = "updated"
+            return "\n".join(lines) + ("\n" if current_text.endswith("\n") else "")
+
+        separator = "" if current_text.endswith("\n") else "\n"
+        action = "added"
+        return (
+            f"{current_text}{separator}\n"
             f"{SECTION_HEADER}{'-' * max(0, 71 - len(SECTION_HEADER))}\n"
             f"# Set by scripts/provision_maven_telegram.py (Bravo). Same value as Bravo's\n"
             f"# {SOURCE_KEY}. Without it, every Maven alert resolves to zero\n"
             f"# recipients and is dropped silently.\n"
             f"{TARGET_KEY}={source}\n"
         )
-        action = "added"
 
-    MAVEN_ENV.write_text(new_text, encoding="utf-8")
+    locked_update_text(MAVEN_ENV, provision)
 
     verify = (parse_env(MAVEN_ENV).get(TARGET_KEY) or "").strip()
     if verify != source:

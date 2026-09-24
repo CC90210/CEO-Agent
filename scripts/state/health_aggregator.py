@@ -15,7 +15,7 @@ Checks:
   3. Site Reputation      — site_reputation.db reachable
   4. Backups              — most recent backup < 24h old, integrity check passes
   5. Guard Modes          — env-var posture matches expectation
-  6. Daemons              — PM2 process list has the expected daemons
+  6. Daemons              — Fleet Watchdog on Windows; PM2 on Linux/VPS
   7. API Endpoints        — state-api /health responds < 5s
   8. Disk Space           — state/ < 80%, tmp/ < 90%
   9. Git Status           — working tree clean, last commit < 7 days
@@ -49,8 +49,8 @@ ENV_FILE = PROJECT_ROOT / ".env.agents"
 EXPECTED_STATE_TABLES = {"agent_state", "session_log", "active_task"}
 EXPECTED_DAEMONS = {"event-router"}  # core daemon from PLAYBOOK (override-consumer deleted 2026-05-22)
 REQUIRED_ENV_KEYS = (
-    "BRAVO_SUPABASE_URL",
-    "BRAVO_SUPABASE_SERVICE_ROLE_KEY",
+    "TURSO_DATABASE_URL",
+    "TURSO_AUTH_TOKEN",
 )
 
 
@@ -158,22 +158,84 @@ def check_backups() -> dict[str, Any]:
 
 
 def check_guard_modes() -> dict[str, Any]:
-    secret = os.environ.get("EMPIRE_HOOK_SECRET_GUARD", "report").lower()
-    exec_g = os.environ.get("EMPIRE_HOOK_EXEC_GUARD", "report").lower()
-    state_g = os.environ.get("EMPIRE_HOOK_STATE_GUARD", "off").lower()
+    keys = (
+        "EMPIRE_HOOK_SECRET_GUARD",
+        "EMPIRE_HOOK_EXEC_GUARD",
+        "EMPIRE_HOOK_STATE_GUARD",
+    )
+    tracked: dict[str, str] = {}
+    settings_path = PROJECT_ROOT / ".claude" / "settings.json"
+    try:
+        payload = json.loads(settings_path.read_text(encoding="utf-8"))
+        raw_env = payload.get("env") if isinstance(payload, dict) else None
+        if isinstance(raw_env, dict):
+            tracked = {
+                key: str(raw_env[key]).lower()
+                for key in keys
+                if key in raw_env
+            }
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        # Explicit process values still have authority. If the tracked file is
+        # absent or malformed, conservative defaults below keep this fail-safe.
+        tracked = {}
+
+    defaults = {
+        "EMPIRE_HOOK_SECRET_GUARD": "report",
+        "EMPIRE_HOOK_EXEC_GUARD": "report",
+        "EMPIRE_HOOK_STATE_GUARD": "off",
+    }
+    resolved = {
+        key: os.environ.get(key, tracked.get(key, defaults[key])).lower()
+        for key in keys
+    }
+    used_tracked = any(key not in os.environ and key in tracked for key in keys)
+    secret = resolved["EMPIRE_HOOK_SECRET_GUARD"]
+    exec_g = resolved["EMPIRE_HOOK_EXEC_GUARD"]
+    state_g = resolved["EMPIRE_HOOK_STATE_GUARD"]
     notes = []
     if secret == "off":
         return _fail("secret_guard=off (must be report or enforce)")
     if exec_g == "off":
         notes.append("exec_guard=off")
-    notes.append(f"secret={secret}, exec={exec_g}, state={state_g}")
+    source = "tracked settings fallback" if used_tracked else "process environment"
+    notes.append(f"secret={secret}, exec={exec_g}, state={state_g} ({source})")
     if exec_g == "report" or state_g == "off":
         return _warn(", ".join(notes) + " — production should be enforce")
     return _ok(", ".join(notes))
 
 
 def check_daemons() -> dict[str, Any]:
-    # PM2 list — best-effort. Missing PM2 is a warning (dev/test environment).
+    if sys.platform == "win32":
+        try:
+            from ops.fleet_watchdog import classify  # noqa: PLC0415
+
+            rows = _fleet_watchdog_status()
+        except Exception as exc:  # noqa: BLE001 - health-check boundary
+            return _warn(
+                f"Fleet Watchdog status failed: {type(exc).__name__}: {exc}"
+            )
+        states = {row.get("name"): classify(row) for row in rows}
+        running = {name for name, state in states.items() if state == "running"}
+        missing = EXPECTED_DAEMONS - running
+        unhealthy = {
+            name: state for name, state in states.items()
+            if state in {"down", "unrunnable", "duplicate"}
+        }
+        if missing or unhealthy:
+            unhealthy_detail = [
+                f"{name} ({state})" for name, state in sorted(unhealthy.items())
+            ]
+            return _warn(
+                "Fleet Watchdog missing/unhealthy daemons: "
+                f"{sorted(missing)}; unhealthy: {unhealthy_detail} "
+                f"(running: {sorted(running)})"
+            )
+        enabled = sum(1 for state in states.values() if state != "disabled")
+        if enabled == 0:
+            return _warn("Fleet Watchdog has no enabled daemons")
+        return _ok(f"Fleet Watchdog: {len(running)}/{enabled} enabled daemons online")
+
+    # Linux/VPS deployments still use PM2. Missing PM2 is a warning in dev.
     pm2 = shutil.which("pm2")
     if not pm2:
         return _warn("pm2 not installed (dev environment)")
@@ -193,7 +255,14 @@ def check_daemons() -> dict[str, Any]:
     missing = EXPECTED_DAEMONS - running
     if missing:
         return _warn(f"missing daemons: {sorted(missing)} (running: {sorted(running)})")
-    return _ok(f"{len(running)} daemons online")
+    return _ok(f"PM2: {len(running)} daemons online")
+
+
+def _fleet_watchdog_status() -> list[dict[str, Any]]:
+    """Indirection keeps the Windows supervisor probe testable without WMI."""
+    from ops.fleet_watchdog import status  # noqa: PLC0415
+
+    return status()
 
 
 def check_api_endpoints() -> dict[str, Any]:
@@ -213,20 +282,49 @@ def check_api_endpoints() -> dict[str, Any]:
     return _ok(f"state-api healthy, latency {elapsed_ms:.0f}ms")
 
 
+def _telegram_transport_report() -> dict[str, Any]:
+    import system_health  # noqa: PLC0415
+
+    return system_health.check_telegram_transport()
+
+
+def check_telegram_transport() -> dict[str, Any]:
+    try:
+        report = _telegram_transport_report()
+    except Exception as exc:  # noqa: BLE001 - health boundary
+        return _fail(f"transport probe failed: {type(exc).__name__}: {exc}")
+    detail = str(report.get("detail") or "")
+    items = report.get("items") or []
+    if items:
+        detail = f"{detail}: {'; '.join(str(item) for item in items[:3])}"
+    status = str(report.get("status") or "").lower()
+    if status == "green":
+        return _ok(detail)
+    if status == "yellow":
+        return _warn(detail)
+    return _fail(detail or "Telegram transport unhealthy")
+
+
 def check_disk_space() -> dict[str, Any]:
     notes = []
-    for name, path in (("state", STATE_DIR), ("tmp", TMP_DIR)):
+    seen_volumes: set[str] = set()
+    for path in (STATE_DIR, TMP_DIR):
         if not path.exists():
             continue
+        volume = (path.resolve().anchor or path.anchor or str(path)).rstrip("\\/") or "/"
+        volume_key = volume.lower()
+        if volume_key in seen_volumes:
+            continue
+        seen_volumes.add(volume_key)
         try:
             usage = shutil.disk_usage(path)
         except OSError:
             continue
         pct_used = (usage.used / usage.total) * 100 if usage.total else 0
-        limit = 80 if name == "state" else 90
+        limit = 90
         if pct_used > limit:
-            return _fail(f"{name}/ {pct_used:.0f}% full (> {limit}%)")
-        notes.append(f"{name}/ {pct_used:.0f}%")
+            return _fail(f"volume {volume} {pct_used:.0f}% full (> {limit}%)")
+        notes.append(f"volume {volume} {pct_used:.0f}%")
     return _ok(", ".join(notes))
 
 
@@ -288,6 +386,7 @@ CHECKS = [
     ("Guard Modes",     check_guard_modes),
     ("Daemons",         check_daemons),
     ("API Endpoints",   check_api_endpoints),
+    ("Telegram Transport", check_telegram_transport),
     ("Disk Space",      check_disk_space),
     ("Git Status",      check_git_status),
     ("Credentials",     check_credentials),

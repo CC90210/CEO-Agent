@@ -37,6 +37,7 @@ ENV_FILE = PROJECT_ROOT / ".env.agents"
 ACCESS_LOG = PROJECT_ROOT / "state" / "secret_access.log"
 
 _CACHE: dict[str, str] | None = None
+_AUDITED_SCOPES: set[tuple[str, tuple[str, ...] | str]] = set()
 
 
 class SecretLoaderRefused(RuntimeError):
@@ -107,19 +108,31 @@ def _log_access(caller: Path | None, keys: Iterable[str] | None,
     line cannot answer the question it exists for — "which caller touched this
     key?" — so the fix makes the record both smaller and true.
     """
+    caller_text = str(caller) if caller else "<unknown>"
+    normalized_keys: tuple[str, ...] | str
+    if keys is None:
+        normalized_keys = "<all>"
+    else:
+        normalized_keys = tuple(sorted(set(keys)))
+    scope = (caller_text, normalized_keys)
+    if scope in _AUDITED_SCOPES:
+        return
+
     try:
         ACCESS_LOG.parent.mkdir(parents=True, exist_ok=True)
         record: dict = {
             "ts": datetime.now(timezone.utc).isoformat(),
-            "caller": str(caller) if caller else "<unknown>",
+            "caller": caller_text,
+            "pid": os.getpid(),
         }
         if keys is None:
             record["keys"] = "<all>"
             record["key_count"] = key_count
         else:
-            record["keys"] = sorted(set(keys))
+            record["keys"] = list(normalized_keys)
         with ACCESS_LOG.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record) + "\n")
+        _AUDITED_SCOPES.add(scope)
     except OSError:
         pass
 
@@ -272,3 +285,4 @@ def reset_cache() -> None:
     """Test hook — reset the in-process cache."""
     global _CACHE
     _CACHE = None
+    _AUDITED_SCOPES.clear()

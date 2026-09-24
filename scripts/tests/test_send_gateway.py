@@ -1792,6 +1792,14 @@ class TestInboundClassifier(unittest.TestCase):
         self.assertEqual(r["intent"], "unsubscribe")
         self.assertEqual(r["suggested_action"], "mark_unsubscribed")
 
+    def test_02b_fallback_ignores_stop_in_quoted_outreach_footer(self):
+        r = self.ic._keyword_fallback(
+            "What do you run on your GPU instance?\n\n"
+            "On Tue, Sep 22, 2026 at 10:30 AM CC wrote:\n"
+            "> Reply STOP to unsubscribe."
+        )
+        self.assertNotEqual(r["intent"], "unsubscribe")
+
     def test_03_fallback_classifies_bounce(self):
         r = self.ic._keyword_fallback("mailer-daemon: delivery status undeliverable")
         self.assertEqual(r["intent"], "spam_bounce")

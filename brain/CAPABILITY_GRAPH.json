@@ -1,7 +1,7 @@
 {
   "schema_version": "1.2",
   "agent": "bravo",
-  "generated_at": "2026-09-19T08:03:32.479870+00:00",
+  "generated_at": "2026-09-23T17:44:32.558867+00:00",
   "totals": {
     "skills": 164,
     "scripts": 215,
@@ -11,8 +11,8 @@
     "resources": 14,
     "runtime_entrypoints": 3,
     "nodes_total": 470,
-    "edges_total": 225,
-    "drift_count": 4
+    "edges_total": 226,
+    "drift_count": 0
   },
   "nodes": [
     {
@@ -5794,7 +5794,7 @@
       "kind": "script",
       "name": "build_maven_env",
       "path": "scripts/build_maven_env.py",
-      "description": "Generate Maven's clean .env.agents: - Copy shared-infra keys from Bravo - Drop SunBiz-specific keys (those stay in SunBiz-Marketing repo) - Add empty placeholders for Maven-specific OASIS/PropFlow/Nostalgic ad creds",
+      "description": "Generate Maven's clean .env.agents: - Copy shared-infra keys from Bravo - Keep unclassified existing keys unless a reviewed destructive override drops them - Add empty placeholders for Maven-specific OASIS/PropFlow/Nostalgic ad creds",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -7451,7 +7451,7 @@
       "kind": "script",
       "name": "set_vercel_calendar_env",
       "path": "scripts/set_vercel_calendar_env.py",
-      "description": "Push the OASIS workspace Google Calendar credentials to Vercel Production.",
+      "description": "Safely stage the shared OASIS Calendar credential bundle for Vercel.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -7916,7 +7916,7 @@
       "discovery": "auto-capability-meta",
       "category": "infra.gpu",
       "lifecycle": "active",
-      "risk": "remote_exec",
+      "risk": "external_write",
       "triggers": [
         "connect to the gpu server",
         "bootstrap the gpu box",
@@ -7939,7 +7939,7 @@
       "discovery": "auto-capability-meta",
       "category": "content.video_generation",
       "lifecycle": "active",
-      "risk": "local_compute",
+      "risk": "local_write",
       "triggers": [
         "generate a video clip on the gpu",
         "animate a product screenshot into video",
@@ -8033,7 +8033,7 @@
       "owner": "bravo",
       "discovery": "auto-capability-meta",
       "category": "infra.hostinger",
-      "lifecycle": null,
+      "lifecycle": "active",
       "risk": "external_write",
       "triggers": [
         "list the hostinger vps fleet",
@@ -10370,6 +10370,11 @@
     },
     {
       "from": "script:inbound_classifier",
+      "to": "script:email_playbook",
+      "kind": "calls"
+    },
+    {
+      "from": "script:inbound_classifier",
       "to": "script:notify",
       "kind": "calls"
     },
@@ -11069,22 +11074,5 @@
       "kind": "uses"
     }
   ],
-  "drift": [
-    {
-      "node": "script:oasisgpu",
-      "issue": "invalid CAPABILITY_META: risk must be one of ['destructive', 'external_write', 'local_write', 'read_only']"
-    },
-    {
-      "node": "script:wan_gen",
-      "issue": "invalid CAPABILITY_META: risk must be one of ['destructive', 'external_write', 'local_write', 'read_only']"
-    },
-    {
-      "node": "script:hostinger_tool",
-      "issue": "invalid CAPABILITY_META: missing fields: lifecycle"
-    },
-    {
-      "node": "script:hostinger_tool",
-      "issue": "invalid CAPABILITY_META: lifecycle must be one of ['active', 'deprecated', 'manual', 'one_off']"
-    }
-  ]
+  "drift": []
 }

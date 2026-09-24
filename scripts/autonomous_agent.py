@@ -660,7 +660,7 @@ def execute_decisions(
 
 def _draft_body_for_decision(d: Decision, _env: dict[str, str]) -> tuple[Optional[str], Optional[str]]:
     """Produce subject+body for decisions that want to send. Routes model calls
-    through lib.model_fallback (subscription claude CLI first, OpenCode
+    through lib.model_fallback (Claude subscription first, Codex subscription
     fallback) — never the metered ANTHROPIC_API_KEY (out of credits + banned
     per CC's CLI-only rule)."""
     from lib.model_fallback import run_smart_cli
@@ -702,7 +702,7 @@ Output ONLY the email."""
     text = run_smart_cli(prompt, model="haiku", timeout=90,
                          task_type="reasoning", agent_name="autonomous_agent")
     if text is None:
-        print("[autonomous_agent] draft generation failed (claude CLI + opencode fallback unavailable)", file=sys.stderr)
+        print("[autonomous_agent] draft generation failed (tool-denied Claude unavailable; Codex withheld for untrusted input)", file=sys.stderr)
         return None, None
     text = text.strip()
 

@@ -270,7 +270,7 @@ def _is_opaque(last_result: str | None) -> bool:
     read as a green tick.
     """
     text = str(last_result or "").strip()
-    return text in ("}", "]", "})", "}]")
+    return text.upper().startswith("DEFERRED:") or text in ("}", "]", "})", "}]")
 
 
 def _parse_ts(value) -> datetime | None:
@@ -438,11 +438,14 @@ def find_bad_crons(include_tenant: bool = True) -> dict[str, list[dict]]:
                 "detail": reason,
             })
         elif _is_opaque(last_result):
+            deferred = str(last_result or "").strip().upper().startswith("DEFERRED:")
             findings["opaque"].append({
                 "name": name, "source": "cron_jobs",
                 "last_result": str(last_result or "").strip()[:200],
                 "last_run_at": row.get("last_run_at"),
-                "detail": "last_result is a truncated JSON tail — verdict unknowable",
+                "detail": ("last run deferred; waiting for its automatic retry"
+                           if deferred else
+                           "last_result is a truncated JSON tail — verdict unknowable"),
             })
 
         stale, stale_reason = staleness(str(row.get("schedule") or ""),
@@ -580,7 +583,12 @@ def _scan_daemon_backed(findings: dict[str, list[dict]]) -> dict[str, list[dict]
             kind = classify(row)
             if kind in ("running", "disabled"):
                 continue  # healthy, or an operator stop we must not page on
-            state = f"UNRUNNABLE ({row['unrunnable']})" if kind == "unrunnable" else "not running"
+            if kind == "unrunnable":
+                state = f"UNRUNNABLE ({row['unrunnable']})"
+            elif kind == "duplicate":
+                state = f"DUPLICATE ROOTS ({row.get('root_pids', [])})"
+            else:
+                state = "not running"
         findings["failing"].append({
             "name": job_name, "source": "daemon",
             "last_result": f"daemon {pm2_name!r}: {state}",

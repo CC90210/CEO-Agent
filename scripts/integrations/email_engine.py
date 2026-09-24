@@ -2250,7 +2250,7 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                 # escaping here too would double-encode the subject.
                 notify(
                     f"POSSIBLE opt-out from {sender_addr} — flagged by the "
-                    "degraded keyword classifier (model outage), no literal "
+                    "safe deterministic classifier, no literal "
                     f"STOP/UNSUBSCRIBE opener.\nSubject: {subject or ''}\n"
                     "NOT auto-suppressed — review and suppress manually if genuine.",
                     category="email",

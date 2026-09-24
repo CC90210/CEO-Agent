@@ -26,10 +26,11 @@ it is pm2 ITSELF that then fails).
 
 DESIGN NOTES
 ------------
-* MANIFEST = ~/.pm2/dump.pm2, filtered to THIS repo. It is the accurate record
-  of what was actually running, and it already exists. Other agents' processes
-  (Maven in CMO-Agent, Atlas in CFO-Agent) are deliberately out of scope — this
-  supervises Bravo's fleet, not the machine's.
+* MANIFEST = the committed ecosystem.config.js plus explicitly declared sibling
+  specs. ~/.pm2/dump.pm2 is optional compatibility input for legacy entries;
+  deleting or corrupting the retired PM2 snapshot must not erase the fleet.
+* LIFECYCLE = config/fleet_lifecycle.json. Every daemon needs a retention reason;
+  future burst workers use bounded leases instead of becoming permanent drift.
 * NEVER invoke pm2. Calling pm2 while its pipe is blocked SPAWNS AN ORPHAN
   DAEMON; 23 accumulated that way, several from health checks. A supervisor that
   degrades the thing it supervises is worse than none.
@@ -41,13 +42,18 @@ DESIGN NOTES
   which is worse than a daemon being down because it is invisible.
 
   python scripts/ops/fleet_watchdog.py status
+  python scripts/ops/fleet_watchdog.py logs bravo-telegram --lines 60
   python scripts/ops/fleet_watchdog.py up [--only bravo-scheduler] [--dry-run]
+  python scripts/ops/fleet_watchdog.py lifecycle
+  python scripts/ops/fleet_watchdog.py lease <name> --minutes 30 --reason "..."
+  python scripts/ops/fleet_watchdog.py release-lease <name>
   python scripts/ops/fleet_watchdog.py disable <name> / enable <name>
   python scripts/ops/fleet_watchdog.py install-task     # every 5 min, user-level
 """
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import re
@@ -62,7 +68,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DUMP = Path.home() / ".pm2" / "dump.pm2"
 LOG = PROJECT_ROOT / "state" / "fleet_watchdog.log"
 DISABLED = PROJECT_ROOT / "state" / "fleet_disabled.json"
+LEASES = PROJECT_ROOT / "state" / "fleet_leases.json"
+LIFECYCLE_CONFIG = PROJECT_ROOT / "config" / "fleet_lifecycle.json"
 TASK_NAME = "Bravo Fleet Watchdog"
+MAX_LEASE_MINUTES = 24 * 60
 _NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 DETACHED = 0x00000008 if sys.platform == "win32" else 0
 
@@ -79,6 +88,138 @@ def disabled_names() -> set[str]:
         return set(json.loads(DISABLED.read_text(encoding="utf-8")))
     except Exception:  # noqa: BLE001
         return set()
+
+
+def _lifecycle_policy() -> dict[str, dict]:
+    """Load the committed lifecycle decision for every managed process.
+
+    Missing or malformed policy is not replaced with an implicit always-on
+    default. An undocumented daemon is exactly how background-process sprawl
+    returns, so _apply_lifecycle marks it unrunnable until a human-readable
+    retention reason is committed.
+    """
+    try:
+        payload = json.loads(LIFECYCLE_CONFIG.read_text(encoding="utf-8"))
+        if payload.get("schema_version") != 1:
+            raise ValueError("schema_version must be 1")
+        processes = payload.get("processes")
+        if not isinstance(processes, dict):
+            raise ValueError("processes must be an object")
+    except Exception as exc:  # noqa: BLE001 - configuration boundary
+        print(
+            f"[fleet] cannot read lifecycle policy {LIFECYCLE_CONFIG}: "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        return {}
+
+    valid: dict[str, dict] = {}
+    for name, raw in processes.items():
+        if not isinstance(raw, dict):
+            continue
+        mode = str(raw.get("mode") or "")
+        reason = str(raw.get("reason") or "").strip()
+        if mode not in {"always_on", "on_demand"} or not reason:
+            continue
+        valid[str(name)] = {**raw, "mode": mode, "reason": reason}
+    return valid
+
+
+def _apply_lifecycle(rows: "Sequence[dict]") -> list[dict]:
+    """Attach committed lifecycle metadata and fail closed on omissions."""
+    policy = _lifecycle_policy()
+    out: list[dict] = []
+    for source in rows:
+        row = dict(source)
+        meta = policy.get(str(row.get("name") or ""))
+        if meta:
+            row["lifecycle"] = meta["mode"]
+            row["lifecycle_reason"] = meta["reason"]
+            row["lifecycle_owner"] = str(meta.get("owner") or "")
+        else:
+            row["lifecycle"] = "unclassified"
+            row["lifecycle_reason"] = (
+                "No committed lifecycle policy; automatic launch is blocked"
+            )
+            row["lifecycle_owner"] = ""
+            defect = "missing committed lifecycle metadata"
+            prior = str(row.get("unrunnable") or "")
+            row["unrunnable"] = f"{prior}; {defect}" if prior else defect
+        out.append(row)
+    return out
+
+
+def _read_leases() -> dict[str, dict]:
+    """Read runtime on-demand leases. A missing file simply means no leases."""
+    try:
+        payload = json.loads(LEASES.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("lease registry must be an object")
+        return {str(k): v for k, v in payload.items() if isinstance(v, dict)}
+    except FileNotFoundError:
+        return {}
+    except Exception as exc:  # noqa: BLE001 - fail closed for on-demand work
+        print(
+            f"[fleet] cannot read lease registry {LEASES}: "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        return {}
+
+
+def _write_leases(leases: dict[str, dict]) -> None:
+    """Atomically replace the lease registry so readers never see half JSON."""
+    LEASES.parent.mkdir(parents=True, exist_ok=True)
+    temp = LEASES.with_name(f"{LEASES.name}.{os.getpid()}.tmp")
+    temp.write_text(json.dumps(leases, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(temp, LEASES)
+
+
+def lease_active(name: str, *, now: "float | None" = None) -> bool:
+    lease = _read_leases().get(name) or {}
+    try:
+        return float(lease.get("expires_at")) > (time.time() if now is None else now)
+    except (TypeError, ValueError):
+        return False
+
+
+def grant_lease(name: str, *, minutes: int, reason: str,
+                now: "float | None" = None) -> tuple[bool, str]:
+    """Grant a bounded lease to a process explicitly classified on-demand."""
+    if not 1 <= minutes <= MAX_LEASE_MINUTES:
+        return False, f"minutes must be between 1 and {MAX_LEASE_MINUTES}"
+    reason = reason.strip()
+    if not reason:
+        return False, "a lease reason is required"
+    app = next((row for row in manifest() if row.get("name") == name), None)
+    if app is None:
+        return False, f"unknown daemon: {name}"
+    if app.get("lifecycle") != "on_demand":
+        return False, f"{name} is {app.get('lifecycle')}, not on_demand"
+    issued = time.time() if now is None else now
+    expires = issued + (minutes * 60)
+    leases = _read_leases()
+    leases[name] = {
+        "issued_at": issued,
+        "expires_at": expires,
+        "reason": reason,
+        "issued_by_pid": os.getpid(),
+    }
+    _write_leases(leases)
+    _log(
+        f"lifecycle lease granted: {name}, {minutes}m, "
+        f"expires_at={expires}, reason={reason}"
+    )
+    return True, f"leased until {datetime.fromtimestamp(expires, timezone.utc).isoformat()}"
+
+
+def release_lease(name: str) -> tuple[bool, str]:
+    leases = _read_leases()
+    existed = name in leases
+    leases.pop(name, None)
+    _write_leases(leases)
+    _log(f"lifecycle lease released: {name} (existed={existed})")
+    return True, "released" if existed else "no active lease"
 
 
 def _ecosystem_apps(eco_path: "Path | None" = None) -> dict[str, dict]:
@@ -174,19 +315,27 @@ def _sibling_manifest() -> list[dict]:
 def manifest() -> list[dict]:
     """Bravo's managed processes, plus the declared sibling daemons.
 
-    dump.pm2 says WHAT was running; ecosystem.config.js says HOW to run it.
-    Names come from the dump (machine truth) AND from this repo's committed
-    config, because the dump has been frozen since PM2 was retired and a daemon
-    added after that exists only in the config. Launch specs prefer the
-    committed config and fall back to the dump. Siblings come from
-    SIBLING_APPS, because they are deliberately outside the repo filter below.
+    ecosystem.config.js is the durable source of truth. dump.pm2 is optional
+    compatibility input for legacy processes that have not yet been moved into
+    the committed config; it has been frozen since PM2 was retired. Launch
+    specs prefer the committed config and fall back to a usable dump. Siblings
+    come from SIBLING_APPS because they are deliberately outside the repo
+    filter below.
     """
     eco = _ecosystem_apps()
+    apps = []
     try:
         apps = json.loads(DUMP.read_text(encoding="utf-8"))
+        if not isinstance(apps, list):
+            raise ValueError("expected a JSON array")
+        apps = [app for app in apps if isinstance(app, dict)]
+    except FileNotFoundError:
+        # PM2 has been retired. Its snapshot is compatibility input, not a
+        # dependency, so a machine that never had PM2 should stay quiet.
+        pass
     except Exception as e:  # noqa: BLE001
+        # A PRESENT but corrupt/unreadable snapshot remains useful evidence.
         print(f"[fleet] cannot read {DUMP}: {type(e).__name__}: {e}", file=sys.stderr)
-        return []
     out = []
     root = str(PROJECT_ROOT).replace("/", "\\").lower()
     for a in apps:
@@ -254,7 +403,7 @@ def manifest() -> list[dict]:
     # Siblings last, and never overriding a same-named local app.
     known = {r["name"] for r in out}
     out.extend(r for r in _sibling_manifest() if r["name"] not in known)
-    return out
+    return _apply_lifecycle(out)
 
 
 def _process_table() -> str | None:
@@ -318,11 +467,12 @@ def _process_table() -> str | None:
     try:
         proc = subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-             # "|<pid>|<cmdline>" per line so the PID self-check has an
-             # unambiguous token to match and cannot collide with a substring
-             # of some other number in a command line.
+             # "|<pid>|<parent-pid>|<cmdline>" per line. Parentage collapses
+             # a .venv launcher plus its interpreter child into one daemon
+             # tree while preserving the self-check's |<pid>| token.
              "Get-CimInstance Win32_Process | "
-             "ForEach-Object { '|' + $_.ProcessId + '|' + $_.CommandLine }"],
+             "ForEach-Object { '|' + $_.ProcessId + '|' + "
+             "$_.ParentProcessId + '|' + $_.CommandLine }"],
             capture_output=True, text=True, timeout=90,
             errors="ignore", creationflags=_NO_WINDOW)
         table = _verified((proc.stdout or "").lower())
@@ -333,18 +483,27 @@ def _process_table() -> str | None:
 
     try:
         proc = subprocess.run(
-            ["wmic", "process", "get", "ProcessId,CommandLine", "/format:csv"],
+            ["wmic", "process", "get",
+             "ProcessId,ParentProcessId,CommandLine", "/format:csv"],
             capture_output=True, text=True, timeout=90,
             errors="ignore", creationflags=_NO_WINDOW)
         # CSV rows are Node,CommandLine,ProcessId — normalise the PID into the
         # same |<pid>| token the self-check looks for.
-        raw = (proc.stdout or "").lower()
+        raw = proc.stdout or ""
         lines = []
-        for line in raw.splitlines():
-            parts = line.rsplit(",", 1)
-            if len(parts) == 2 and parts[1].strip().isdigit():
-                lines.append(f"|{parts[1].strip()}|{parts[0]}")
-        table = _verified("\n".join(lines) if lines else None)
+        for original in csv.DictReader(
+                line for line in raw.splitlines() if line.strip()):
+            row = {
+                str(k).strip().lower(): (v or "")
+                for k, v in original.items()
+            }
+            pid = row.get("processid", "").strip()
+            parent = row.get("parentprocessid", "").strip() or "0"
+            if pid.isdigit() and parent.isdigit():
+                lines.append(
+                    f"|{pid}|{parent}|{row.get('commandline', '')}"
+                )
+        table = _verified("\n".join(lines).lower() if lines else None)
         if table:
             return table
     except Exception:  # noqa: BLE001
@@ -428,7 +587,8 @@ class ProcessTableUnreadable(RuntimeError):
     """
 
 
-_ROW_PID = re.compile(r"^\|\d+\|")
+_ROW_PID = re.compile(r"^\|(?P<pid>\d+)\|")
+_ROW_WITH_PARENT = re.compile(r"^\|(?P<pid>\d+)\|(?P<parent_pid>\d+)\|")
 _TOKENS = re.compile(r'"[^"]*"|\S+')
 # Flags whose VALUE is inline code, never a script path. A process running
 # inline code is a probe or a one-liner, never a supervised daemon — and it is
@@ -457,10 +617,71 @@ def _table_rows(table: str) -> list[str]:
     rows: list[str] = []
     for line in lines:
         if _ROW_PID.match(line) or not rows:
-            rows.append(_ROW_PID.sub("", line))
+            parent = _ROW_WITH_PARENT.match(line)
+            rows.append(
+                _ROW_WITH_PARENT.sub("", line)
+                if parent else _ROW_PID.sub("", line)
+            )
         else:
             rows[-1] += "\n" + line
     return rows
+
+
+def _table_process_rows(table: str) -> list[dict]:
+    """Return PID, parent PID and command line for each process record.
+
+    Historic ``|pid|command`` records and bare command-line fixtures remain
+    readable. With no parent evidence, each matching row is conservatively an
+    independent root: this can warn, but can never hide duplicate processes.
+    """
+    lines = table.splitlines()
+    if not any(_ROW_PID.match(line) for line in lines):
+        return [
+            {"pid": None, "parent_pid": None, "cmdline": line}
+            for line in lines
+            if line
+        ]
+    rows: list[dict] = []
+    for line in lines:
+        parent = _ROW_WITH_PARENT.match(line)
+        legacy = _ROW_PID.match(line)
+        if parent:
+            rows.append({
+                "pid": int(parent.group("pid")),
+                "parent_pid": int(parent.group("parent_pid")),
+                "cmdline": line[parent.end():],
+            })
+        elif legacy:
+            rows.append({
+                "pid": int(legacy.group("pid")),
+                "parent_pid": None,
+                "cmdline": line[legacy.end():],
+            })
+        elif rows:
+            rows[-1]["cmdline"] += "\n" + line
+    return rows
+
+
+def _matching_process_rows(table: str, ident: str, *,
+                           other_idents: "Sequence[str]" = ()) -> list[dict]:
+    if not ident:
+        return []
+    return [
+        row for row in _table_process_rows(table)
+        if _row_runs(row["cmdline"], ident)
+        and not _claimed_elsewhere(row["cmdline"], ident, other_idents)
+    ]
+
+
+def _root_process_rows(rows: "Sequence[dict]") -> list[dict]:
+    """Independent roots, collapsing a matching launcher/child chain."""
+    matching_pids = {
+        row["pid"] for row in rows if isinstance(row.get("pid"), int)
+    }
+    return [
+        row for row in rows
+        if row.get("pid") is None or row.get("parent_pid") not in matching_pids
+    ]
 
 
 def _cmdline_target(cmdline: str) -> str:
@@ -578,7 +799,6 @@ def status() -> list[dict]:
     # bystander command can talk out of restarting a dead daemon is not a
     # supervisor. It is the mirror image of the duplicate-fleet bug: that one
     # started daemons on no evidence, this one refuses to on false evidence.
-    cmdlines = _table_rows(table)
     apps = manifest()
     rows = []
     for app in apps:
@@ -587,16 +807,26 @@ def status() -> list[dict]:
         # see _claimed_elsewhere. Without this, Bravo's telegram bridge read as
         # running off Maven's process and would never have been restarted.
         others = _other_idents(app["name"], apps)
-        rows.append({**app, "ident": ident,
-                     "running": bool(ident and any(
-                         _row_runs(c, ident) and not _claimed_elsewhere(c, ident, others)
-                         for c in cmdlines)),
-                     "disabled": app["name"] in off})
+        matches = _matching_process_rows(table, ident, other_idents=others)
+        roots = _root_process_rows(matches)
+        rows.append({
+            **app,
+            "ident": ident,
+            "running": bool(roots),
+            "pids": [
+                row["pid"] for row in matches if row.get("pid") is not None
+            ],
+            "root_pids": [
+                row["pid"] for row in roots if row.get("pid") is not None
+            ],
+            "root_count": len(roots),
+            "disabled": app["name"] in off,
+        })
     return rows
 
 
 def classify(row: dict) -> str:
-    """The state of one daemon: 'running' | 'disabled' | 'unrunnable' | 'down'.
+    """One daemon's state, including unsafe independent duplicate roots.
 
     ONE DEFINITION, deliberately. `status()` returns raw flags, and every
     consumer used to re-derive meaning from them by hand — harness_eval,
@@ -619,6 +849,11 @@ def classify(row: dict) -> str:
                    "down" pins every alert permanently red.
       down       — supposed to be running, is not. The actual alarm.
     """
+    # Duplicate roots outrank every boolean flag. Two live schedulers are not
+    # "running" in the healthy sense: they execute cron/email work twice. A
+    # disabled marker must not hide a failed stop that left duplicates alive.
+    if int(row.get("root_count") or 0) > 1:
+        return "duplicate"
     if row.get("disabled"):
         return "disabled"
     if row.get("running"):
@@ -644,6 +879,58 @@ CRASH_LOOP_STARTS = 3
 CRASH_LOOP_WINDOW_SEC = 3600
 
 
+def read_daemon_log(name: str, lines: int = 60) -> str | None:
+    """Return a bounded tail from the watchdog-owned log for one daemon.
+
+    The name becomes part of a path, so accept only manifest-name characters;
+    this read-only operator surface must not become an arbitrary file reader.
+    None distinguishes a missing log from an existing empty one.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
+        raise ValueError("daemon name contains unsupported characters")
+    path = DAEMON_LOG_DIR / f"daemon-{name}.log"
+    if not path.exists():
+        return None
+    if lines <= 0:
+        return ""
+    tail = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    return "\n".join(tail[-lines:])
+
+
+def _daemon_log_needs_rollover(name: str) -> bool:
+    """Whether a watchdog-owned daemon log is over its hard size limit."""
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
+        return False
+    try:
+        return (
+            DAEMON_LOG_DIR / f"daemon-{name}.log"
+        ).stat().st_size > DAEMON_LOG_MAX_BYTES
+    except OSError:
+        return False
+
+
+def _roll_daemon_log(name: str) -> tuple[bool, str]:
+    """Atomically retain one rolled copy of an oversized daemon log.
+
+    The caller must first stop the daemon that owns the active stdout handle.
+    ``os.replace`` either publishes the complete active file as ``.1`` or
+    leaves both files untouched. There is deliberately no copy-truncate
+    fallback: truncating beneath a live writer can lose the exact traceback
+    this log exists to preserve.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
+        return False, "daemon name contains unsupported characters"
+    path = DAEMON_LOG_DIR / f"daemon-{name}.log"
+    try:
+        if not path.exists() or path.stat().st_size <= DAEMON_LOG_MAX_BYTES:
+            return True, "within limit"
+        rolled = path.with_suffix(".log.1")
+        os.replace(path, rolled)
+        return True, f"rolled to {rolled.name}"
+    except OSError as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+
+
 def _daemon_log(name: str):
     """An append handle for one daemon's stdout+stderr, or None.
 
@@ -654,22 +941,18 @@ def _daemon_log(name: str):
     the next pass five minutes later would start it again, forever, with the
     fleet reading "0 down" in between passes because the timing hid it.
 
-    Bounded by hand: this is a raw file handle given to a detached child, so no
-    logging handler is in the loop to rotate it. One rolled copy is kept, which
-    is what makes a crash loop's FIRST failure survivable — the loop's later
-    output would otherwise push the original traceback out.
+    This is a raw file handle given to a detached child, so no logging handler
+    can rotate it in place. Startup rolls a stale oversized file, and the
+    five-minute ``up`` pass safely stops, rolls and immediately restarts a
+    healthy writer that crosses the limit. One rolled copy is retained, which
+    keeps the first useful traceback without recreating PM2's log pile.
     """
     try:
         DAEMON_LOG_DIR.mkdir(parents=True, exist_ok=True)
         path = DAEMON_LOG_DIR / f"daemon-{name}.log"
-        if path.exists() and path.stat().st_size > DAEMON_LOG_MAX_BYTES:
-            rolled = path.with_suffix(".log.1")
-            try:
-                if rolled.exists():
-                    rolled.unlink()
-                path.rename(rolled)
-            except OSError:
-                path.write_text("", encoding="utf-8")  # held open: truncate
+        rolled, detail = _roll_daemon_log(name)
+        if not rolled:
+            _log(f"daemon log rollover deferred for {name}: {detail}")
         return open(path, "a", encoding="utf-8", errors="replace")
     except OSError:
         return None  # never block a start on a log file
@@ -720,6 +1003,13 @@ def start(app: dict, dry: bool = False) -> tuple[bool, str]:
             interp = sys.executable
     if interp and interp.lower() not in ("none", ""):
         cmd.append(interp)
+        # Node's bundled CA set does not include the local Windows trust chain
+        # used on this host. Keep verification ON, but make every supervised
+        # Node daemon use the OS certificate store. This launch boundary covers
+        # Bravo, coordination and sibling Telegram bridges without teaching
+        # each application a different TLS workaround.
+        if Path(interp.strip('"')).name.lower() in ("node", "node.exe"):
+            cmd.append("--use-system-ca")
     if script:
         cmd.append(script)
     cmd.extend(str(a) for a in app["args"])
@@ -800,18 +1090,21 @@ def _table_pid_rows(table: str) -> list[tuple[int, str]]:
     Same folding as _table_rows — a command line containing newlines is ONE
     process — but the PID is kept instead of stripped, because a kill needs it.
     """
-    rows: list[tuple[int, str]] = []
-    for line in table.splitlines():
-        m = _ROW_PID.match(line)
-        if m:
-            rows.append((int(m.group(0).strip("|")), _ROW_PID.sub("", line)))
-        elif rows:
-            rows[-1] = (rows[-1][0], rows[-1][1] + "\n" + line)
-    return rows
+    return [
+        (row["pid"], row["cmdline"])
+        for row in _table_process_rows(table)
+        if row.get("pid") is not None
+    ]
 
 
 def pids_for(ident: str, *, other_idents: "Sequence[str]" = ()) -> list[int]:
-    """PIDs of processes actually EXECUTING this daemon's script/module.
+    """Independent root PIDs executing this daemon's script/module.
+
+    A Windows venv launcher and the interpreter it starts both show the same
+    command line. Returning both made stop issue redundant taskkills; more
+    importantly, counting both would call every Python daemon a duplicate.
+    Parent relationships collapse that pair while preserving truly separate
+    roots.
 
     Raises ProcessTableUnreadable rather than returning [] on no evidence: an
     empty list here would read as "already stopped" and silently succeed.
@@ -827,11 +1120,11 @@ def pids_for(ident: str, *, other_idents: "Sequence[str]" = ()) -> list[int]:
         raise ProcessTableUnreadable(
             "could not read the process table — refusing to report a daemon "
             "as stopped without seeing the process list")
-    if not ident:
-        return []
-    return [pid for pid, cmd in _table_pid_rows(table)
-            if _row_runs(cmd, ident)
-            and not _claimed_elsewhere(cmd, ident, other_idents)]
+    matches = _matching_process_rows(table, ident, other_idents=other_idents)
+    return [
+        row["pid"] for row in _root_process_rows(matches)
+        if row.get("pid") is not None
+    ]
 
 
 def stop(app: dict) -> tuple[bool, str]:
@@ -948,13 +1241,39 @@ def _release_run_lock() -> None:
         pass
 
 
+def _configure_console_encoding() -> None:
+    """Keep diagnostic/log output from crashing on Windows' cp1252 console."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError, TypeError, ValueError):
+            # Captured/test streams may expose but reject reconfiguration. The
+            # command still works for ASCII output, and read_daemon_log itself
+            # already decodes malformed log bytes with replacement.
+            pass
+
+
 def main() -> int:
+    _configure_console_encoding()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = p.add_subparsers(dest="cmd", required=True)
     ps = sub.add_parser("status"); ps.add_argument("--json", action="store_true")
+    pl = sub.add_parser("logs"); pl.add_argument("name")
+    pl.add_argument("--lines", type=int, default=60)
     pu = sub.add_parser("up")
     pu.add_argument("--only"); pu.add_argument("--dry-run", action="store_true")
     pu.add_argument("--json", action="store_true")
+    plc = sub.add_parser("lifecycle")
+    plc.add_argument("--json", action="store_true")
+    ple = sub.add_parser("lease")
+    ple.add_argument("name")
+    ple.add_argument("--minutes", type=int, required=True)
+    ple.add_argument("--reason", required=True)
+    prl = sub.add_parser("release-lease")
+    prl.add_argument("name")
     pd = sub.add_parser("disable"); pd.add_argument("name")
     pe = sub.add_parser("enable"); pe.add_argument("name")
     # One verb per dashboard button. The UI used to shell `pm2 <action>`, which
@@ -979,9 +1298,10 @@ def main() -> int:
             print(f"ABORTED: {msg}", file=sys.stderr)
             return 1
 
-    # Only the mutating pass needs the lock; read-only status must stay callable
-    # from the health checks that now depend on it.
-    if a.cmd == "up" and not _acquire_run_lock():
+    # Every action that can launch or reconcile a daemon shares one lock;
+    # read-only status must stay callable from health checks that depend on it.
+    lock_commands = {"up", "start", "restart", "lease", "release-lease"}
+    if a.cmd in lock_commands and not _acquire_run_lock():
         _log("skipped: another watchdog pass holds the lock")
         print("skipped: another watchdog pass is already running")
         return 0
@@ -993,45 +1313,176 @@ def main() -> int:
         print(f"ABORTED: {exc}", file=sys.stderr)
         return 1
     finally:
-        if a.cmd == "up":
+        if a.cmd in lock_commands:
             _release_run_lock()
 
 
 def _dispatch(a) -> int:
+    if a.cmd == "logs":
+        try:
+            content = read_daemon_log(a.name, a.lines)
+        except (OSError, ValueError) as exc:
+            print(f"cannot read daemon log: {exc}", file=sys.stderr)
+            return 2
+        if content is None:
+            print(f"no watchdog log for {a.name}", file=sys.stderr)
+            return 1
+        if content:
+            print(content)
+        return 0
+
+    if a.cmd == "lifecycle":
+        leases = _read_leases()
+        rows = [{
+            "name": row["name"],
+            "mode": row.get("lifecycle"),
+            "reason": row.get("lifecycle_reason"),
+            "owner": row.get("lifecycle_owner"),
+            "lease": leases.get(row["name"]),
+            "lease_active": lease_active(row["name"]),
+            "unrunnable": row.get("unrunnable") or "",
+        } for row in manifest()]
+        if a.json:
+            print(json.dumps(rows, indent=2, default=str))
+        else:
+            for row in rows:
+                lease = " active lease" if row["lease_active"] else ""
+                print(
+                    f"  {row['name']:<30} {row['mode']:<12}{lease}  "
+                    f"{row['reason']}"
+                )
+        return 1 if any(row["mode"] == "unclassified" for row in rows) else 0
+
+    if a.cmd == "lease":
+        ok, detail = grant_lease(
+            a.name, minutes=a.minutes, reason=a.reason
+        )
+        print(f"lease {a.name}: {detail}")
+        return 0 if ok else 1
+
+    if a.cmd == "release-lease":
+        ok, detail = release_lease(a.name)
+        print(f"release-lease {a.name}: {detail}")
+        return 0 if ok else 1
+
     if a.cmd == "status":
         rows = status()
         if a.json:
             print(json.dumps(rows, indent=2, default=str)); return 0
-        down = [r for r in rows if not r["running"] and not r["disabled"]
-                and not r.get("unrunnable")]
+        states = {r["name"]: classify(r) for r in rows}
+        unhealthy = [
+            r for r in rows if states[r["name"]] in {"down", "duplicate"}
+        ]
         for r in rows:
-            if r.get("unrunnable"):
-                state = "UNRUNNABLE"
-            else:
-                state = "DISABLED" if r["disabled"] else ("UP" if r["running"] else "DOWN")
+            state = states[r["name"]].upper()
             print(f"  {str(r['name']):<22} {state:<11} {r['ident']}")
+            if r.get("root_count"):
+                print(
+                    f"  {'':<22} -> {r['root_count']} root tree(s); "
+                    f"roots={r.get('root_pids', [])}; pids={r.get('pids', [])}"
+                )
             if r.get("unrunnable"):
                 print(f"  {'':<22} -> {r['unrunnable']}")
-        print(f"\n{len(down)} of {len(rows)} down (excluding disabled)")
-        return 1 if down else 0
+        print(
+            f"\n{len(unhealthy)} of {len(rows)} unhealthy "
+            "(down or duplicate; excluding disabled/unrunnable)"
+        )
+        return 1 if unhealthy else 0
 
     if a.cmd == "up":
         rows = status()
-        started, failed = [], []
+        started, stopped, reconciled, failed = [], [], [], []
         for r in rows:
             if r["disabled"]:
                 continue
             if a.only and r["name"] != a.only:
                 continue
-            if r["running"] or r.get("unrunnable"):
+            state = classify(r)
+            if r.get("lifecycle") == "on_demand" and not lease_active(r["name"]):
+                if state in {"running", "duplicate"}:
+                    if a.dry_run:
+                        stopped.append((r["name"], "DRY: stop after lease expiry"))
+                    else:
+                        ok, detail = stop(r)
+                        (stopped if ok else failed).append((r["name"], detail))
+                continue
+            if state == "duplicate":
+                roots = r.get("root_pids") or []
+                if a.dry_run:
+                    reconciled.append((
+                        r["name"],
+                        f"DRY: stop roots {roots}, then start exactly one",
+                    ))
+                    continue
+                stopped_ok, stopped_detail = stop(r)
+                if not stopped_ok:
+                    failed.append((
+                        r["name"], f"duplicate cleanup failed: {stopped_detail}",
+                    ))
+                    continue
+                started_ok, started_detail = start(r)
+                if started_ok:
+                    reconciled.append((
+                        r["name"],
+                        f"{stopped_detail}; started one ({started_detail})",
+                    ))
+                else:
+                    failed.append((
+                        r["name"],
+                        f"duplicates stopped but restart failed: {started_detail}",
+                    ))
+                continue
+            if state == "running" and _daemon_log_needs_rollover(r["name"]):
+                if a.dry_run:
+                    reconciled.append((
+                        r["name"],
+                        "DRY: supervised restart to rotate oversized daemon log",
+                    ))
+                    continue
+                stopped_ok, stopped_detail = stop(r)
+                if not stopped_ok:
+                    failed.append((
+                        r["name"],
+                        f"log rotation could not stop daemon: {stopped_detail}",
+                    ))
+                    continue
+                rolled_ok, rolled_detail = _roll_daemon_log(r["name"])
+                started_ok, started_detail = start(r)
+                # start() retries the same safe rollover before opening the new
+                # output handle. A transient reader may therefore release the
+                # file between the explicit attempt and restart.
+                rolled_ok = rolled_ok or not _daemon_log_needs_rollover(r["name"])
+                if rolled_ok and started_ok:
+                    reconciled.append((
+                        r["name"],
+                        f"rotated log via supervised restart ({rolled_detail}; "
+                        f"{started_detail})",
+                    ))
+                elif started_ok:
+                    failed.append((
+                        r["name"],
+                        f"daemon restored but log rotation failed: {rolled_detail}",
+                    ))
+                else:
+                    failed.append((
+                        r["name"],
+                        f"log rotation stopped daemon but restart failed: "
+                        f"{started_detail}",
+                    ))
+                continue
+            if state in {"running", "unrunnable"}:
                 continue
             ok, detail = start(r, dry=a.dry_run)
             (started if ok else failed).append((r["name"], detail))
         for n, d in started:
             print(f"  started {n}  ({d})")
+        for n, d in stopped:
+            print(f"  stopped {n}  ({d})")
+        for n, d in reconciled:
+            print(f"  reconciled {n}  ({d})")
         for n, d in failed:
             print(f"  FAILED  {n}  ({d})", file=sys.stderr)
-        if not started and not failed:
+        if not started and not stopped and not reconciled and not failed:
             print("  nothing to start — everything up or disabled")
         # Always record the PASS, not only the starts.
         #
@@ -1043,13 +1494,24 @@ def _dispatch(a) -> int:
         # A silent supervisor cannot be audited.
         up = sum(1 for r in rows if r["running"])
         _log(f"pass: {up}/{len(rows)} up, {len(started)} started, "
-             f"{len(failed)} failed, {sum(1 for r in rows if r['disabled'])} disabled")
+             f"{len(stopped)} lease-stopped, {len(reconciled)} reconciled, "
+             f"{len(failed)} failed, "
+             f"{sum(1 for r in rows if r['disabled'])} disabled")
         return 1 if failed else 0
 
     if a.cmd in ("start", "stop", "restart"):
         app = _app_by_name(a.name)
         if app is None:
             print(f"unknown daemon: {a.name}", file=sys.stderr)
+            return 2
+        if (a.cmd in {"start", "restart"}
+                and app.get("lifecycle") == "on_demand"
+                and not lease_active(a.name)):
+            print(
+                f"{a.name} requires an active lease; use: fleet_watchdog.py "
+                f"lease {a.name} --minutes <n> --reason <why>",
+                file=sys.stderr,
+            )
             return 2
         off = disabled_names()
         if a.cmd == "stop":
@@ -1065,7 +1527,11 @@ def _dispatch(a) -> int:
             off.discard(a.name)
             _write_disabled(off)
             fresh = _app_by_name(a.name) or app
-            if fresh.get("running"):
+            if classify(fresh) == "duplicate":
+                ok, detail = stop(fresh)
+                if ok:
+                    ok, detail = start(fresh)
+            elif fresh.get("running"):
                 # `up` has always skipped running apps; this verb did not, so a
                 # dashboard Start on a healthy daemon — or a click racing the
                 # 5-minute pass — quietly produced a SECOND copy. Duplicate

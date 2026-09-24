@@ -15,7 +15,7 @@ Mechanical checks still run, because an authorized pair can still be a typo:
   * the source must actually be populated,
   * the target must be an OPEN `# FILL` slot (never silently overwrite),
   * both values must share a shape class (a password is not an email),
-  * the write is re-read from disk and rolled back if it did not land.
+  * the complete candidate is re-parsed before one locked atomic replacement.
 
 Usage:
   python scripts/integrations/secret_apply_authorized.py \
@@ -27,9 +27,9 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import hashlib
 import json
 import re
-import shutil
 import sys
 from pathlib import Path
 
@@ -51,7 +51,7 @@ LOG = ROOT / "state" / "secret_alias_authorized.log"
 
 
 sys.path.insert(0, str(ROOT / "scripts"))
-from lib.env_store import parse_text as _populated  # noqa: E402
+from lib.env_store import locked_update_text, parse_text as _populated  # noqa: E402
 
 REFUTATIONS = ROOT / "config" / "secret_match_refutations.json"
 
@@ -99,6 +99,30 @@ def _looks_like_credential(v: str) -> bool:
     return bool(re.search(r"[A-Za-z0-9_-]{20,}", v))
 
 
+_CREDENTIAL_KEY_RE = re.compile(
+    r"(?:^|_)(?:API_KEY|PRIVATE_KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|PASSCODE)(?:_|$)"
+)
+
+
+def _safe_value_summary(value: str) -> str:
+    """Return a comparison-safe description without echoing the value."""
+    digest = hashlib.sha256(value.encode("utf-8", "replace")).hexdigest()[:16]
+    return f"shape={_shape(value.strip())} sha256:{digest}"
+
+
+def _set_audit_record(*, stamp: str, key: str, value: str, reason: str) -> dict[str, str]:
+    """Describe an authorized set without creating a plaintext secret copy."""
+    digest = hashlib.sha256(value.encode("utf-8", "replace")).hexdigest()[:16]
+    return {
+        "ts": stamp,
+        "target": key.strip(),
+        "op": "set",
+        "shape": _shape(value.strip()),
+        "value_sha256": f"sha256:{digest}",
+        "reason": reason,
+    }
+
+
 def _set_values(text: str, pairs: list[str], apply: bool) -> tuple[int, str]:
     """Overwrite already-populated keys. Separate from alias application because
     the risk profile is different: an alias fills a hole, a set destroys a value.
@@ -110,7 +134,7 @@ def _set_values(text: str, pairs: list[str], apply: bool) -> tuple[int, str]:
             # `--set KEY` (a typo) would otherwise partition to an empty value
             # and blank a live setting. An omitted value is never an intent to
             # erase, so it is an error, not an empty assignment.
-            print(f"  REFUSED {spec!r}: no '=' — expected KEY=VALUE")
+            print("  REFUSED malformed --set argument: expected KEY=VALUE")
             return (-1, text)
         key, _, value = spec.partition("=")
         key, value = key.strip(), value.strip()
@@ -121,14 +145,25 @@ def _set_values(text: str, pairs: list[str], apply: bool) -> tuple[int, str]:
         if current is None:
             print(f"  REFUSED {key}: not present — use --pair to fill a slot, not --set")
             return (-1, text)
+        if _CREDENTIAL_KEY_RE.search(key.upper()):
+            print(
+                f"  REFUSED {key}: credential-named keys are not accepted "
+                "by the config-only --set path"
+            )
+            return (-1, text)
         if current == value:
-            print(f"  SKIP    {key}: already {value!r}")
+            print(f"  SKIP    {key}: unchanged [{_safe_value_summary(value)}]")
             continue
         if _looks_like_credential(current):
             print(f"  REFUSED {key}: current value looks like a live credential, "
                   f"not a config flag — refusing to overwrite it from here")
             return (-1, text)
-        print(f"  SET     {key}: {current!r} -> {value!r}")
+        if _looks_like_credential(value):
+            print(f"  REFUSED {key}: replacement looks like a live credential; "
+                  "use the dedicated secret provisioning path")
+            return (-1, text)
+        print(f"  SET     {key}: [{_safe_value_summary(current)}] -> "
+              f"[{_safe_value_summary(value)}]")
         planned.append((key, value))
 
     if not apply:
@@ -203,20 +238,61 @@ def main() -> int:
         return 0
 
     stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    backup = STORE.with_name(f".env.agents.bak.{stamp}")
-    shutil.copy2(STORE, backup)
-    text = set_text
-    for target, source, _sh in planned:
-        text = text.replace(f"# FILL {target}=", f"{target}={pop[source]}", 1)
-    STORE.write_text(text, encoding="utf-8", newline="\n")
+    write_errors: list[str] = []
 
-    after = _populated(STORE.read_text(encoding="utf-8"))
-    bad = [t for t, s, _ in planned if after.get(t) != pop[s]]
-    bad += [k.split("=", 1)[0].strip() for k in a.set_pairs
-            if after.get(k.split("=", 1)[0].strip()) != k.split("=", 1)[1].strip()]
-    if bad:
-        shutil.copy2(backup, STORE)
-        sys.stderr.write(f"write verification FAILED for {bad}; store restored from {backup.name}\n")
+    def apply_authorized(current: str) -> str:
+        current_pop = _populated(current)
+
+        # The dry-run checks above explain the plan to the operator. Repeat the
+        # load-bearing state checks under the writer lock so an intervening
+        # process cannot make that plan stale or get its unrelated edit erased.
+        for target, source, _shape_name in planned:
+            if current_pop.get(source) != pop[source]:
+                write_errors.append(f"{target} (source changed)")
+            elif f"# FILL {target}=" not in current:
+                write_errors.append(f"{target} (slot closed)")
+        for spec in a.set_pairs:
+            key, _, _value = spec.partition("=")
+            key = key.strip()
+            if current_pop.get(key) != pop.get(key):
+                write_errors.append(f"{key} (current value changed)")
+        if write_errors:
+            return current
+
+        candidate = current
+        for spec in a.set_pairs:
+            key, _, value = spec.partition("=")
+            key, value = key.strip(), value.strip()
+            candidate = re.sub(
+                rf"(?m)^{re.escape(key)}=.*$",
+                f"{key}={value}",
+                candidate,
+                count=1,
+            )
+        for target, source, _shape_name in planned:
+            candidate = candidate.replace(
+                f"# FILL {target}=", f"{target}={current_pop[source]}", 1
+            )
+
+        candidate_pop = _populated(candidate)
+        write_errors.extend(
+            target
+            for target, source, _shape_name in planned
+            if candidate_pop.get(target) != current_pop[source]
+        )
+        write_errors.extend(
+            spec.partition("=")[0].strip()
+            for spec in a.set_pairs
+            if candidate_pop.get(spec.partition("=")[0].strip())
+            != spec.partition("=")[2].strip()
+        )
+        return current if write_errors else candidate
+
+    locked_update_text(STORE, apply_authorized)
+    if write_errors:
+        sys.stderr.write(
+            f"write verification FAILED for {write_errors}; store unchanged\n"
+        )
         return 1
 
     LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -228,12 +304,14 @@ def main() -> int:
             }) + "\n")
         for spec in a.set_pairs:
             key, _, value = spec.partition("=")
-            fh.write(json.dumps({
-                "ts": stamp, "target": key.strip(), "op": "set",
-                "value": value.strip(), "reason": a.reason,
-            }) + "\n")
+            fh.write(json.dumps(_set_audit_record(
+                stamp=stamp,
+                key=key,
+                value=value,
+                reason=a.reason,
+            )) + "\n")
     print(f"\napplied {len(planned)} alias(es) + {set_count} set(s); "
-          f"backup {backup.name}; logged to {LOG.name}")
+          f"store replaced atomically; logged to {LOG.name}")
     return 0
 
 

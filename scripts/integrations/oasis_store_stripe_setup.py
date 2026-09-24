@@ -14,9 +14,7 @@ _write_env pattern arthrisil_stripe_setup uses — key NAMES only on stdout.
 from __future__ import annotations
 
 import argparse
-import datetime
 import json
-import shutil
 import sys
 import urllib.error
 import urllib.parse
@@ -26,6 +24,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
+from lib.env_store import locked_update_text  # noqa: E402
 from lib.secret_loader import load_env  # noqa: E402
 
 KEY_NAME = "OASIS_STORE_STRIPE_SECRET_KEY"
@@ -96,22 +95,21 @@ def _flatten(d: dict, prefix: str = "") -> dict:
 
 def _write_env(pairs: dict[str, str]) -> list[str]:
     env_path = PROJECT_ROOT / ".env.agents"
-    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    shutil.copy2(env_path, env_path.with_suffix(f".agents.bak-{stamp}"))
-    lines = env_path.read_text(encoding="utf-8").splitlines()
-    written = []
-    for k, v in pairs.items():
-        replaced = False
-        for i, line in enumerate(lines):
-            if line.startswith(f"{k}="):
-                lines[i] = f"{k}={v}"
-                replaced = True
-                break
-        if not replaced:
-            lines.append(f"{k}={v}")
-        written.append(k)
-    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return written
+    def merge(current: str) -> str:
+        lines = current.splitlines()
+        for key, value in pairs.items():
+            replaced = False
+            for index, line in enumerate(lines):
+                if line.startswith(f"{key}="):
+                    lines[index] = f"{key}={value}"
+                    replaced = True
+                    break
+            if not replaced:
+                lines.append(f"{key}={value}")
+        return "\n".join(lines) + "\n"
+
+    locked_update_text(env_path, merge)
+    return list(pairs)
 
 
 def cmd_gen_secrets(args) -> int:

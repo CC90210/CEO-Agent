@@ -141,6 +141,86 @@ def test_a_successful_script_run_writes_nothing(dump_dir):
     assert not list(dump_dir.glob("*.log")), "a passing job wrote a failure dump"
 
 
+def test_a_cooperative_deferral_stays_visible_without_a_failure_dump(
+    dump_dir, failing_script, monkeypatch
+):
+    class Deferred:
+        returncode = 75
+        stdout = "DEFERRED: claude_quota retry_after=420"
+        stderr = ""
+
+    monkeypatch.setattr(sch.subprocess, "run", lambda *_args, **_kwargs: Deferred())
+    result = sch.run_script_action({"script": failing_script})
+
+    assert result == "DEFERRED: claude_quota retry_after=420"
+    assert not list(dump_dir.glob("*.log"))
+
+
+def test_empty_invalid_handle_startup_is_retried_before_reporting_failure(
+    dump_dir, failing_script, monkeypatch
+):
+    """A dead inherited Windows handle is a host spawn flake, not a job run.
+
+    The measured signature is exact: 0xC0000008 with BOTH streams empty.  The
+    scheduler must retry that signature locally so a five-minute revenue drain
+    does not become a red incident and then turn green by itself five minutes
+    later.  A successful retry must leave no failure dump.
+    """
+    class Result:
+        def __init__(self, returncode, stdout="", stderr=""):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    attempts = iter([
+        Result(sch.WINDOWS_STATUS_INVALID_HANDLE),
+        Result(0, stdout="recovered"),
+    ])
+    calls = []
+
+    def fake_run(*args, **kwargs):
+        calls.append((args, kwargs))
+        return next(attempts)
+
+    monkeypatch.setattr(sch.subprocess, "run", fake_run)
+    result = sch.run_script_action({"script": failing_script})
+
+    assert result == "recovered"
+    assert len(calls) == 2
+    assert not list(dump_dir.glob("*.log"))
+
+
+@pytest.mark.parametrize(
+    ("returncode", "stdout", "stderr"),
+    [
+        (1, "", "real application error"),
+        (3221225480, "child reached its own code", ""),
+    ],
+)
+def test_real_or_started_child_failures_are_never_retried(
+    dump_dir, failing_script, monkeypatch, returncode, stdout, stderr
+):
+    """Retry only the before-start signature; replaying work can duplicate sends."""
+    class Result:
+        def __init__(self):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    calls = []
+
+    def fake_run(*args, **kwargs):
+        calls.append((args, kwargs))
+        return Result()
+
+    monkeypatch.setattr(sch.subprocess, "run", fake_run)
+    result = sch.run_script_action({"script": failing_script})
+
+    assert result.startswith("ERROR: script_run exit")
+    assert len(calls) == 1
+    assert len(list(dump_dir.glob("*.log"))) == 1
+
+
 # ------------------------------------------------------ the pointer's use ---
 
 def test_the_dump_pointer_survives_the_clip_into_last_result(dump_dir, failing_script):
@@ -186,7 +266,9 @@ def test_both_failure_branches_still_call_persist_failure():
         "this branch is the ONLY evidence that class of failure ever produces")
 
     nonzero = [n for n in ast.walk(tree)
-               if isinstance(n, ast.If) and "returncode" in ast.unparse(n.test)]
+               if isinstance(n, ast.If)
+               and "returncode" in ast.unparse(n.test)
+               and "!= 0" in ast.unparse(n.test)]
     assert nonzero, "run_script_action no longer checks returncode"
     assert all(persists(n) for n in nonzero), (
         "the non-zero-exit branch stopped dumping — this is the original "

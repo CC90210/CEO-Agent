@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -112,6 +114,29 @@ def test_guard_modes_all_enforce_ok(sandbox, monkeypatch):
     assert r["status"] == "ok"
 
 
+def test_guard_modes_fall_back_to_tracked_runtime_settings(sandbox, monkeypatch):
+    for key in (
+        "EMPIRE_HOOK_SECRET_GUARD",
+        "EMPIRE_HOOK_EXEC_GUARD",
+        "EMPIRE_HOOK_STATE_GUARD",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    settings = sandbox / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    settings.write_text(json.dumps({
+        "env": {
+            "EMPIRE_HOOK_SECRET_GUARD": "enforce",
+            "EMPIRE_HOOK_EXEC_GUARD": "enforce",
+            "EMPIRE_HOOK_STATE_GUARD": "enforce",
+        }
+    }), encoding="utf-8")
+
+    r = ha.check_guard_modes()
+
+    assert r["status"] == "ok"
+    assert "tracked settings" in r["detail"]
+
+
 def test_credentials_missing_env_fails(sandbox):
     r = ha.check_credentials()
     assert r["status"] == "fail"
@@ -119,8 +144,8 @@ def test_credentials_missing_env_fails(sandbox):
 
 def test_credentials_complete_ok(sandbox):
     _seed_env_file(sandbox / ".env.agents", {
-        "BRAVO_SUPABASE_URL": "https://example.supabase.co",
-        "BRAVO_SUPABASE_SERVICE_ROLE_KEY": "deadbeef",
+        "TURSO_DATABASE_URL": "libsql://example.turso.io",
+        "TURSO_AUTH_TOKEN": "deadbeef",
         "EXTRA_KEY": "value",
     })
     r = ha.check_credentials()
@@ -131,6 +156,90 @@ def test_disk_space_check_returns_ok_or_fail(sandbox):
     (sandbox / "tmp").mkdir()
     r = ha.check_disk_space()
     assert r["status"] in ("ok", "warn", "fail")
+
+
+def test_disk_space_labels_whole_volume_not_state_directory(sandbox, monkeypatch):
+    (sandbox / "tmp").mkdir()
+    usage = shutil._ntuple_diskusage(total=100, used=93, free=7)
+    monkeypatch.setattr(ha.shutil, "disk_usage", lambda _path: usage)
+
+    result = ha.check_disk_space()
+
+    assert result["status"] == "fail"
+    assert "volume" in result["detail"].lower()
+    assert "state/" not in result["detail"].lower()
+
+
+def test_health_aggregator_surfaces_transport_failure(monkeypatch):
+    monkeypatch.setattr(
+        ha,
+        "_telegram_transport_report",
+        lambda: {"status": "red", "detail": "polling_conflict", "items": []},
+        raising=False,
+    )
+    result = ha.check_telegram_transport()
+    assert result["status"] == "fail"
+    assert "polling_conflict" in result["detail"]
+
+
+def test_windows_daemon_check_uses_watchdog_without_touching_pm2(monkeypatch):
+    monkeypatch.setattr(ha.sys, "platform", "win32")
+    monkeypatch.setattr(
+        ha,
+        "_fleet_watchdog_status",
+        lambda: [
+            {"name": "event-router", "running": True, "disabled": False,
+             "unrunnable": ""},
+        ],
+        raising=False,
+    )
+
+    def pm2_is_forbidden(_name):
+        pytest.fail("the Windows health check must not query or wake PM2")
+
+    monkeypatch.setattr(ha.shutil, "which", pm2_is_forbidden)
+
+    result = ha.check_daemons()
+
+    assert result["status"] == "ok"
+    assert "fleet watchdog" in result["detail"].lower()
+
+
+def test_windows_daemon_check_warns_on_duplicate_roots(monkeypatch):
+    monkeypatch.setattr(ha.sys, "platform", "win32")
+    monkeypatch.setattr(
+        ha,
+        "_fleet_watchdog_status",
+        lambda: [{
+            "name": "event-router", "running": True, "root_count": 2,
+            "root_pids": [10, 20], "disabled": False, "unrunnable": "",
+        }],
+        raising=False,
+    )
+
+    result = ha.check_daemons()
+
+    assert result["status"] == "warn"
+    assert "event-router" in result["detail"]
+    assert "duplicate" in result["detail"].lower()
+
+
+def test_linux_daemon_check_keeps_the_pm2_vps_path(monkeypatch):
+    monkeypatch.setattr(ha.sys, "platform", "linux")
+    monkeypatch.setattr(ha.shutil, "which", lambda name: "/usr/bin/pm2")
+    completed = subprocess.CompletedProcess(
+        ["pm2", "jlist"], 0,
+        stdout=json.dumps([
+            {"name": "event-router", "pm2_env": {"status": "online"}},
+        ]),
+        stderr="",
+    )
+    monkeypatch.setattr(ha, "safe_run", lambda *a, **k: completed)
+
+    result = ha.check_daemons()
+
+    assert result["status"] == "ok"
+    assert "pm2" in result["detail"].lower()
 
 
 # ── Aggregation tests ──────────────────────────────────────────────────

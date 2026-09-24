@@ -1,14 +1,9 @@
 """Cross-agent self-improvement sweep for Bravo, Atlas, and Maven.
 
-Runs each agent's self_audit, scans memory staleness, rebuilds the
-capability graph, and applies mechanical fixes (drift markers, stale
-flags). Returns a single human-readable digest for Telegram.
+Runs each agent's self_audit and previews maintenance work. The scheduled
+sweep is observation-only: tracked files move only after operator review.
 
-Mechanical fixes applied automatically:
-  - Capability graph rebuild (catches new/renamed skills + scripts)
-  - Stale memory flagging (writes to memory/STALE_MEMORY.md)
-
-Judgment-call fixes are surfaced, not applied:
+All fixes are surfaced, not applied:
   - Mistakes review summary
   - Drift items requiring human decisions
 
@@ -107,10 +102,10 @@ def rebuild_capability_graph(root: Path) -> str | None:
     builder = root / "scripts" / "build_capability_graph.py"
     if not builder.exists():
         return None
-    rc, _out, err = _run([PYTHON, str(builder)], cwd=root, timeout=120)
+    rc, out, err = _run([PYTHON, str(builder), "--check"], cwd=root, timeout=120)
     if rc == 0:
-        return "capability graph rebuilt"
-    return f"capability rebuild failed: {err[:120]}"
+        return None
+    return f"capability graph drift detected (not applied): {(err or out)[:120]}"
 
 
 def autofix_drift(root: Path) -> str | None:
@@ -119,38 +114,37 @@ def autofix_drift(root: Path) -> str | None:
     autofix = root / "scripts" / "drift_autofix.py"
     if not autofix.exists():
         return None
-    rc, out, err = _run([PYTHON, str(autofix), "apply", "--json"], cwd=root, timeout=120)
+    rc, out, err = _run([PYTHON, str(autofix), "scan", "--json"], cwd=root, timeout=120)
     if rc != 0 or not out.strip().startswith("{"):
         return f"autofix failed: {(err or out)[:120]}"
     try:
         data = json.loads(out)
     except json.JSONDecodeError:
         return "autofix output unparseable"
-    skills = len(data.get("skill_fixes", []))
-    scripts = len(data.get("script_fixes", []))
-    if skills == 0 and scripts == 0:
+    drift = int(data.get("drift_total", 0) or 0)
+    if drift == 0:
         return None  # nothing to report
-    return f"autofixed {skills} skills + {scripts} scripts"
+    return f"{drift} deterministic drift fix(es) proposed (not applied)"
 
 
 def archive_stale_memory(root: Path) -> str | None:
-    """Move stale memory entries to archives. Pure script call, no LLM."""
+    """Preview memory archive actions without moving any entries."""
     aging = root / "scripts" / "core" / "memory_aging.py"
     if not aging.exists():
         return None
     rc, out, err = _run(
-        [PYTHON, str(aging), "archive", "--json"],
+        [PYTHON, str(aging), "archive", "--dry-run", "--json"],
         cwd=root, timeout=60,
     )
     if rc != 0:
         return f"archive failed: {(err or out)[:120]}"
     try:
         data = json.loads(out)
-        archived = data.get("archived", 0) if isinstance(data, dict) else 0
+        actions = data.get("actions", []) if isinstance(data, dict) else []
     except json.JSONDecodeError:
         return None
-    if archived:
-        return f"archived {archived} stale memory entries"
+    if actions:
+        return f"{len(actions)} memory maintenance action(s) proposed (not applied)"
     return None
 
 
@@ -250,10 +244,15 @@ def run_sweep(agents: list[str]) -> dict[str, Any]:
             continue
         r = audit_agent(name, root)
         if not r.skipped and not r.errors:
-            # Run auto-heal engine if present to ensure 100/100 score
+            # Observe the auto-heal engine in check mode; never claim a target
+            # score or mutation from this scheduled read-only sweep.
             auto_heal_script = root / "scripts" / "core" / "auto_heal.py"
             if auto_heal_script.exists():
-                rc_h, out_h, _ = _run([PYTHON, str(auto_heal_script), "--json"], cwd=root, timeout=120)
+                rc_h, out_h, _ = _run(
+                    [PYTHON, str(auto_heal_script), "--check", "--json"],
+                    cwd=root,
+                    timeout=120,
+                )
                 if rc_h == 0 and out_h.strip().startswith("{"):
                     try:
                         h_data = json.loads(out_h)
@@ -263,16 +262,16 @@ def run_sweep(agents: list[str]) -> dict[str, Any]:
                     except Exception:
                         pass
 
-            # Auto-fix mechanical drift FIRST so the rebuild reflects the fixes
+            # Preview mechanical maintenance; the cron never mutates tracked files.
             autofix_msg = autofix_drift(root)
             if autofix_msg:
-                r.fixes_applied.append(autofix_msg)
+                r.warnings.append(autofix_msg)
             archive_msg = archive_stale_memory(root)
             if archive_msg:
-                r.fixes_applied.append(archive_msg)
+                r.warnings.append(archive_msg)
             rebuild_msg = rebuild_capability_graph(root)
             if rebuild_msg:
-                r.fixes_applied.append(rebuild_msg)
+                r.warnings.append(rebuild_msg)
 
             # Build warnings in priority order (repeat patterns first — they're
             # evidence that a prevention rule isn't sticking, the strongest
@@ -289,7 +288,7 @@ def run_sweep(agents: list[str]) -> dict[str, Any]:
 
             recent = collect_recent_mistakes(root, limit=3)
             if recent:
-                r.fixes_applied.append(f"recent mistakes: {len(recent)}")
+                r.warnings.append(f"recent mistakes: {len(recent)}")
                 r.warnings.append(f"latest mistake: {recent[0][:120]}")
 
             # self_audit warnings (drift counts) last — informational, not actionable

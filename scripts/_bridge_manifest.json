@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "generated_at_iso": "2026-09-19T18:43:49.502488+00:00",
-  "script_count": 170,
-  "entry_count": 355,
+  "generated_at_iso": "2026-09-24T15:26:41.454590+00:00",
+  "script_count": 171,
+  "entry_count": 356,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -2221,6 +2221,14 @@
       "subcmd": null,
       "mutating": true,
       "help": "seed_profile.py \u2014 seed (or update) the OASIS Command Center operator profile."
+    },
+    {
+      "key": "set_vercel_calendar_env",
+      "path": "scripts/set_vercel_calendar_env.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Safely stage the shared OASIS Calendar credential bundle for Vercel."
     },
     {
       "key": "skill_metrics_track",

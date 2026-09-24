@@ -150,6 +150,42 @@ OPT_OUT_SIGNALS = (
     "opt-out", "do not contact", "don't contact",
 )
 
+# Opt-outs must be authored by the inbound sender, not copied from a newsletter
+# footer or CC's own quoted outreach. The old whole-body substring test marked
+# ordinary replies as opt-outs whenever a quoted thread contained "Reply STOP".
+_QUOTED_REPLY_START_RE = re.compile(
+    r"^(?:\s*>|\s*On\s+.+\s+wrote:\s*$|\s*-{2,}\s*Original Message\s*-{2,}\s*$|"
+    r"\s*-{2,}\s*Forwarded message\s*-{2,}\s*$|\s*Begin forwarded message:\s*$|"
+    r"\s*_{5,}\s*$|\s*From:\s+.+@.+$)",
+    re.IGNORECASE,
+)
+_OPT_OUT_OPENER_RE = re.compile(
+    r"^\s*(?:please\s+)?(?:unsubscribe(?:\s+me)?|stop(?:\s+(?:emailing|contacting|"
+    r"messaging)(?:\s+me)?)?|take\s+me\s+off(?:\s+your\s+list)?|remove\s+me|"
+    r"opt[- ]out|do\s+not\s+contact(?:\s+me)?|don['’]t\s+contact(?:\s+me)?)\b",
+    re.IGNORECASE,
+)
+
+
+def current_reply_text(body: str) -> str:
+    """Return only text authored above the first recognizable quoted thread."""
+    kept: list[str] = []
+    for line in (body or "").replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if _QUOTED_REPLY_START_RE.match(line):
+            break
+        kept.append(line)
+    return "\n".join(kept).strip()
+
+
+def has_explicit_opt_out(subject: str, body: str) -> bool:
+    """True only for an opt-out opener in the current reply or subject."""
+    visible = current_reply_text(body)
+    first_visible = next((line for line in visible.splitlines() if line.strip()), "")
+    clean_subject = re.sub(r"^(?:(?:re|fw|fwd):\s*)+", "", subject or "",
+                           flags=re.IGNORECASE)
+    return bool(_OPT_OUT_OPENER_RE.match(first_visible)
+                or _OPT_OUT_OPENER_RE.match(clean_subject))
+
 # ── Alert taxonomy (greppable, matches the n8n vocabulary) ───────────────────
 
 ALERT_TAGS = {
@@ -345,7 +381,7 @@ def detect_red_flags(subject: str, body: str, from_addr: str = "") -> list[str]:
         flags.append("outage")
     if any(s in hay for s in FRUSTRATION_SIGNALS):
         flags.append("frustrated")
-    if any(s in hay for s in OPT_OUT_SIGNALS):
+    if has_explicit_opt_out(subject, body):
         flags.append("opt_out")
     if any(s in hay for s in MONEY_SIGNALS):
         flags.append("money")

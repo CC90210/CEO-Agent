@@ -1,6 +1,6 @@
 ---
 tags: [brain, operations, retention, data-lifecycle]
-last_updated: 2026-08-28
+last_updated: 2026-09-23
 ---
 
 # Data Lifecycle
@@ -41,8 +41,10 @@ are complete. Never prune.
 | Store | Policy | Enforced by |
 |---|---|---|
 | `state/*.log` (all) | 5 MB, 5 gzipped backups | `scripts/hooks/rotate_logs.py`, fired by SessionStart **and** the Daily Log Rotation Audit cron (04:00 ET) |
-| `~/.pm2/logs/*` | daily rotation | `pm2-logrotate` (legacy; PM2 is no longer the supervisor — see [[V6_ARCHITECTURE]]) |
-| `state/cron_timings.jsonl` | 4,000 records, trimmed in place | `scheduler._record_job_timing` on write. **`rotate_logs.py` covers `state/*.log` only — a `.jsonl` is invisible to it**, which is why this file bounds itself. |
+| `state/secret_access.log` | same 5 MB / 5-backup cap; JSONL audit metadata only (caller, process, requested key names/count), never credential values | `scripts/lib/secret_loader.py` writes it; `rotate_logs.py` compresses older slices as `.log.gz`. The `.gz` files are intentionally binary archives, not broken text files. |
+| `memory/telegram_bridge.log`, `memory/coordination_bridge.log` | 5 MB, 5 gzipped backups each | `scripts/hooks/rotate_logs.py`; these are the only `memory/*.log` files swept automatically, so unrelated operator evidence is not captured accidentally |
+| Retired `pm2-*.log` output | 7 days when it is under `tmp/` | PM2 is retired on Windows; `tmp_hygiene.py` no longer preserves its logs permanently. The Task Scheduler fleet watchdog owns live process supervision. |
+| `state/cron_timings.jsonl` | 4,000 records, trimmed in place | `scheduler._record_job_timing` on write. **`rotate_logs.py` covers `.log` targets only — a `.jsonl` is invisible to it**, which is why this file bounds itself. |
 | `state/email_sweep.log` | 5 MB via the `state/*.log` rule above | `rotate_logs.py` |
 | `state/logs/daemon-*.log` | 2 MB + one rolled copy | `fleet_watchdog._daemon_log` on each start. Hand-rolled because the handle is given to a DETACHED child, so no logging handler is in the loop to rotate it. One copy is kept so a crash loop's FIRST traceback survives the noise that follows it. |
 
@@ -57,8 +59,8 @@ cap repeatedly, the log is wrong, not the rotation.**
 
 | Store | Retention | Enforced by |
 |---|---|---|
-| `tmp/` (top level) | 30 days | Weekly tmp/ Hygiene cron (Sun 03:00 ET) → `scripts/utilities/tmp_hygiene.py` |
-| `tmp/cron_failures/*` | **90 days, per file** | same job, `_prune_cron_failures` |
+| `tmp/` (top level) | **7 days stale, then 7 days recoverable quarantine** | Weekly tmp/ Hygiene cron (Sun 03:00 ET) invokes `scripts/utilities/tmp_hygiene.py --days 7`. The first eligible pass moves an entry to `tmp/.hygiene_quarantine/`; only a later pass can purge it after the quarantine window. Fresh descendants and scan/action races fail closed. |
+| `tmp/cron_failures/*` | **90 days per file, then the same 7-day quarantine** | same job, `_prune_cron_failures`; the archive directory itself is never removed wholesale |
 | `agent_events` rows still `pending` | **30 days → status `dead`** | Weekly Event Bus Retention cron (Sun 03:30 ET) → `scripts/core/event_retention.py` |
 
 Two traps live in this section, both of which have already bitten:

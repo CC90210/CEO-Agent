@@ -34,6 +34,7 @@ sys.path.insert(0, str(ROOT))
 _REPO = Path(__file__).resolve().parents[2]
 import sys as _sys
 _sys.path.insert(0, str(_REPO / 'scripts'))
+from lib.env_store import locked_update_text  # noqa: E402
 from lib.secret_loader import load_env as _load_env  # noqa: E402
 
 _env = _load_env()
@@ -86,42 +87,39 @@ def _save_to_env_agents(*, profile_id: str, raw_secret: str, dashboard_url: str)
     the secret cleanly. Returns the path written.
     """
     env_path = ROOT / ".env.agents"
-    existing_lines: list[str] = []
-    if env_path.exists():
-        existing_lines = env_path.read_text(encoding="utf-8").splitlines()
-
     keys_to_set = {
         "OASIS_PROFILE_ID": profile_id,
         "OASIS_OUTBOUND_HMAC_SECRET": raw_secret,
         "OASIS_DASHBOARD_URL": dashboard_url,
     }
 
-    out_lines: list[str] = []
-    seen: set[str] = set()
-    for line in existing_lines:
-        stripped = line.strip()
-        if "=" in stripped and not stripped.startswith("#"):
-            key = stripped.split("=", 1)[0].strip()
-            if key in keys_to_set:
+    def merge(current: str) -> str:
+        out_lines: list[str] = []
+        seen: set[str] = set()
+        for line in current.splitlines():
+            stripped = line.strip()
+            if "=" in stripped and not stripped.startswith("#"):
+                key = stripped.split("=", 1)[0].strip()
+                if key in keys_to_set:
+                    out_lines.append(f"{key}={keys_to_set[key]}")
+                    seen.add(key)
+                    continue
+            out_lines.append(line)
+
+        # Append any keys we didn't find under a labeled section.
+        missing = [k for k in keys_to_set if k not in seen]
+        if missing:
+            if out_lines and out_lines[-1].strip() != "":
+                out_lines.append("")
+            out_lines.append(
+                "# OASIS Command Center outbound write-through "
+                "(managed by n8n_webhook_secret.py)"
+            )
+            for key in missing:
                 out_lines.append(f"{key}={keys_to_set[key]}")
-                seen.add(key)
-                continue
-        out_lines.append(line)
+        return "\n".join(out_lines) + "\n"
 
-    # Append any keys we didn't find under a labeled section
-    missing = [k for k in keys_to_set if k not in seen]
-    if missing:
-        if out_lines and out_lines[-1].strip() != "":
-            out_lines.append("")
-        out_lines.append("# OASIS Command Center outbound write-through (managed by n8n_webhook_secret.py)")
-        for key in missing:
-            out_lines.append(f"{key}={keys_to_set[key]}")
-
-    env_path.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
-    try:
-        os.chmod(env_path, 0o600)
-    except Exception:
-        pass
+    locked_update_text(env_path, merge)
     return str(env_path)
 
 

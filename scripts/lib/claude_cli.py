@@ -11,13 +11,10 @@ which STRIPS ANTHROPIC_API_KEY from the child env so the CLI authenticates with
 CC's Claude Code subscription (OAuth token from `claude setup-token`). The boot
 is lean and side-effect-free: no MCP servers, no slash commands, no tools.
 
-CAVEAT (documented 2026-08-13, behaviour left as-is): run_claude_cli passes
---setting-sources "user,project", so user+project settings (and therefore hooks)
-DO load — this docstring previously claimed "" and was wrong. The sibling
-run_claude_cli_on_document does pass "". Measured cost of the difference on a
-one-shot haiku call: 11.1s with "user,project" vs 5.3s with "". Flagged for CC
-rather than changed unilaterally, since every automation on this path (daily
-brief, sleep agent, email classifier) would shift behaviour at once.
+Pure text calls load no settings sources. That excludes project/user hooks so a
+SessionEnd hook cannot turn a successful model response into a failed cron,
+while retaining the keychain read required for subscription OAuth. The CLI's
+``--bare`` mode is intentionally not used because it also skips keychain reads.
 
 Returns the model's text, or None on ANY failure (missing CLI, expired token,
 timeout, non-zero exit) so callers degrade gracefully instead of crashing.
@@ -30,6 +27,7 @@ import shutil
 import subprocess
 import sys
 import time
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -42,7 +40,10 @@ try:
 except Exception:  # pragma: no cover - fallback if helper moves
     WINDOWLESS_FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
-from lib.claude_auth import build_claude_spawn_env  # noqa: E402
+from lib.claude_auth import (  # noqa: E402
+    build_claude_spawn_env,
+    is_claude_auth_or_quota_failure,
+)
 
 # --- Quota circuit breaker ----------------------------------------------------
 # State lives on disk, not in memory: the callers that hurt are short-lived cron
@@ -58,6 +59,59 @@ QUOTA_COOLDOWN_DEFAULT_SEC = 1800  # 30 min
 
 _RESET_HINT = re.compile(
     r"reset[s]?\s+(?:at|on|in)?\s*([0-9]{1,2}(?::[0-9]{2})?\s*(?:am|pm)?)", re.IGNORECASE)
+
+_AUTH_STOP_PATTERN = re.compile(
+    r"authentication[_ -]?error|oauth\s+token\s+(?:has\s+)?expired|"
+    r"please\s+obtain\s+(?:a\s+)?new\s+token|"
+    r"invalid[_ -]+(?:api[_ -]+key|bearer|token)|unauthori[sz]ed|forbidden|"
+    r"not\s+(?:logged\s+in|authenticated)|please\s+run\s+/login|"
+    r"run\s+`?claude\s+login`?|permission[_ -]?error|"
+    r"(?:status|code|error|http)\W{0,12}(?:401|403)\b|"
+    r"\b(?:401|403)\s+(?:unauthori[sz]ed|forbidden)\b",
+    re.IGNORECASE,
+)
+_QUOTA_STOP_PATTERN = re.compile(
+    r"usage\s+limit|rate[_ -]+limit(?:[_ -]+error)?|"
+    r"quota[_ -]+(?:exceeded|reached)|"
+    r"(?:reached|hit)\s+(?:your\s+)?(?:session|weekly|daily|monthly|hourly|usage|rate)?\s*limit|"
+    r"you\s+have\s+used\s+all|"
+    r"(?:session|weekly|daily|monthly|hourly|credit)\s+limit|"
+    r"\d+\s*-?\s*hour\s+limit|limit\s+(?:has\s+been\s+)?reached|"
+    r"limit\s+(?:will\s+)?resets?|resets\s+at|try\s+again\s+(?:later|after|in)|"
+    r"credit\s+balance\s+is\s+too\s+low|insufficient\s+credits?|"
+    r"out\s+of\s+credits|no\s+credits\s+remaining|"
+    r"upgrade\s+to\s+(?:a\s+)?(?:paid|pro|max)|overloaded(?:_error)?|"
+    r"(?:status|code|error|http)\W{0,12}(?:429|529)\b|"
+    r"\b(?:429|529)\s+(?:too\s+many\s+requests|overloaded)\b",
+    re.IGNORECASE,
+)
+
+
+def _signal_sha256(raw_message: str) -> str:
+    """Stable diagnostic identity without persisting provider output."""
+    digest = hashlib.sha256((raw_message or "").encode("utf-8", "replace")).hexdigest()
+    return f"sha256:{digest}"
+
+
+def _classify_provider_stop(raw_message: str, exit_code: int) -> Optional[str]:
+    """Return ``quota`` or ``auth`` for a recognized Claude stop.
+
+    Authentication and quota share a broad fleet predicate because both can
+    justify trying another model path.  They must not share the disk-backed
+    cooldown, though: a persistent bad credential is an outage, not a healthy
+    deferred cron.  Ambiguous matches therefore classify as auth and fail
+    loud rather than silently opening the quota breaker.
+    """
+    raw = raw_message or ""
+    if exit_code == 0 or not raw:
+        return None
+    if _AUTH_STOP_PATTERN.search(raw):
+        return "auth"
+    if _QUOTA_STOP_PATTERN.search(raw):
+        return "quota"
+    if is_claude_auth_or_quota_failure(raw, exit_code):
+        return "auth"
+    return None
 
 
 def _quota_cooldown_remaining() -> int:
@@ -86,7 +140,8 @@ def _open_quota_breaker(raw_message: str) -> None:
         "until_epoch": time.time() + cooldown,
         "cooldown_sec": cooldown,
         "reset_hint": hint.group(1) if hint else None,
-        "raw": (raw_message or "")[:300],
+        "signal_sha256": _signal_sha256(raw_message),
+        "signal_length": len(raw_message or ""),
     }, cap=None, indent=2)
     if not ok:
         sys.stderr.write("[claude_cli] could not record quota state — the "
@@ -193,7 +248,7 @@ def run_claude_cli(
         "--no-session-persistence",
         "--disable-slash-commands",
         "--strict-mcp-config",
-        "--setting-sources", "user,project",
+        "--setting-sources", "",
     ]
 
     env = build_claude_spawn_env(force_api_key=False, extras={
@@ -219,14 +274,27 @@ def run_claude_cli(
         # empty, stdout discarded — which left the failure un-diagnosable after
         # the fact. Scan BOTH streams for the quota marker and report whichever
         # one actually carried text, so the next occurrence names its own cause.
-        blob = f"{err}\n{out}".lower()
-        if "weekly limit" in blob or "usage limit" in blob or "quota" in blob:
+        # Classify the complete provider response.  Claude can put a harmless
+        # launcher warning on stderr while writing the actual quota/auth stop
+        # to stdout; choosing only the first non-empty stream masks that stop
+        # and makes scheduled jobs fail instead of deferring cleanly.
+        detail_text = "\n".join(part for part in (err, out) if part)
+        stop_kind = _classify_provider_stop(detail_text, proc.returncode)
+        if stop_kind == "quota":
             sys.stderr.write(
-                f"[claude_cli] quota limit reached (resets on schedule): {(err or out)[:150]}\n")
-            _open_quota_breaker(err or out)
+                "[claude_cli] quota stop detected "
+                f"({_signal_sha256(detail_text)}, {len(detail_text)} chars)\n")
+            _open_quota_breaker(detail_text)
             return None
-        detail = err[:300] if err else (f"(stderr empty) stdout: {out[:300]}" if out
-                                        else "(no output on either stream)")
+        if stop_kind == "auth":
+            sys.stderr.write(
+                "[claude_cli] authentication stop detected; quota breaker remains open "
+                f"({_signal_sha256(detail_text)}, {len(detail_text)} chars)\n")
+            return None
+        if detail_text:
+            detail = f"{_signal_sha256(detail_text)}, {len(detail_text)} chars"
+        else:
+            detail = "no output on either stream"
         sys.stderr.write(f"[claude_cli] exit {proc.returncode}: {detail}\n")
         return None
     text = (proc.stdout or "").strip() or None

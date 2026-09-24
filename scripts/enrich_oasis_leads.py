@@ -179,7 +179,7 @@ def _ask_claude(markdown: str) -> Optional[dict]:
     text = run_smart_cli(prompt, model="haiku", timeout=90,
                          task_type="fast", agent_name="enrich_oasis_leads")
     if text is None:
-        print("  [model] call failed (claude CLI + opencode fallback unavailable)", file=sys.stderr)
+        print("  [model] call failed (tool-denied Claude unavailable; Codex withheld for untrusted lead data)", file=sys.stderr)
         return None
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if not m:

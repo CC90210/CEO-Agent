@@ -94,21 +94,33 @@ The agent took a destructive action you didn't approve. Steps:
 
 ## Restoring from a clean install
 
-If the local state is so confused that surgical recovery isn't worth it, you can rebuild from a fresh clone without losing your credentials:
+If the local state is so confused that surgical recovery isn't worth it, you
+can rebuild from a fresh clone without leaving a second plaintext credential
+file behind:
 
 ```bash
-# 1. Back up the env and state files (the parts that took setup time)
-cp .env.agents ~/bravo-backup-env.agents
+# 1. Stream the canonical env directly into an encrypted archive. GPG prompts
+# for the passphrase; plaintext is never staged beside the repo or in /tmp.
+umask 077
+ENV_ARCHIVE="$HOME/bravo-env-$(date -u +%Y%m%dT%H%M%SZ).tar.gz.gpg"
+tar -C "$PWD" -czf - -- .env.agents \
+  | gpg --symmetric --cipher-algo AES256 --output "$ENV_ARCHIVE"
+gpg --decrypt "$ENV_ARCHIVE" | tar -tzf - | grep -qx '\.env\.agents'
+
+# State contains no provider credentials and may use an ordinary copy.
 cp -r state/ ~/bravo-backup-state/
 
-# 2. Burn the working tree
+# 2. Only after the encrypted archive verifies, remove the sole plaintext
+# credential file, then quarantine and re-clone the working tree.
+rm -f .env.agents
 cd ..
 mv Business-Empire-Agent Business-Empire-Agent.bak
 git clone https://github.com/CC90210/CEO-Agent.git Business-Empire-Agent
 cd Business-Empire-Agent
 
-# 3. Restore your credentials and (optionally) your DB
-cp ~/bravo-backup-env.agents .env.agents
+# 3. Restore the one canonical credential file directly from the encrypted
+# stream, then restore the optional state copy.
+gpg --decrypt "$ENV_ARCHIVE" | tar -xzf - -C "$PWD" -- .env.agents
 chmod 600 .env.agents
 cp -r ~/bravo-backup-state/ state/
 
@@ -117,13 +129,15 @@ bash install.sh
 docker compose -f infra/docker-compose.local.yml up -d --build
 ```
 
-Total time: ~10 minutes. The backup is your insurance.
+Total time: ~10 minutes. Keep the encrypted artifact until the rebuilt agent
+passes `bravo doctor`; it is safe to store off-box with its passphrase kept in
+the password manager.
 
 ## What you can NOT lose
 
-Three things are physically impossible to wipe by accident:
+Three things remain recoverable through independent controls:
 
-1. **`.env.agents`** — gitignored, immune to `git checkout`, write-blocked by `secret_guard`.
+1. **`.env.agents`** — gitignored and write-blocked by `secret_guard`; recovery comes from a verified encrypted off-box snapshot, never a plaintext copy.
 2. **`state/migrations/`** — checked into git; even a full `state/` directory wipe restores them on next clone.
 3. **Turso (empire DB) data** — lives in the cloud, not in this repo. Burning the local working tree doesn't touch your CRM or pipeline rows.
 

@@ -10,8 +10,7 @@ Probes (each → green / yellow / red; red fails --strict):
   1. cron-scripts   — every SEED_JOBS action_config.script exists on disk AND py-compiles
   2. hook-targets   — every command in .claude/settings.local.json hooks points at a real file
   3. mcp-wrappers   — every MCP server in MCP_CONFIG_PATHS references a wrapper that exists
-  4. pm2-paths      — no PM2 daemon for THIS repo has a stale/missing pm_exec_path (the
-                      CEO-Agent → Business-Empire-Agent rename class); online daemons noted
+  4. fleet-supervisor — Fleet Watchdog truth on Windows; retained PM2 path audit elsewhere
   5. path-drift     — no `scripts/<x>.py` reference in scripts/ + hooks + bravo_cli fails to resolve
   6. subprocess-raw — count production subprocess.run/Popen OUTSIDE lib/ + tests (yellow if > 0)
   7. silent-except  — count `except …: pass|return None` without a breadcrumb (yellow if > threshold)
@@ -37,6 +36,7 @@ import os
 import re
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -46,10 +46,6 @@ except Exception:
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-try:
-    from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
-except Exception:
-    WINDOWLESS_FLAGS = 0
 
 RED, YELLOW, GREEN = "red", "yellow", "green"
 SKIP_DIRS = {"_archive", "node_modules", ".venv", "tmp", "__pycache__", "tests"}
@@ -57,6 +53,21 @@ SKIP_DIRS = {"_archive", "node_modules", ".venv", "tmp", "__pycache__", "tests"}
 # sample or brace-glob, not a real dependency (e.g. scheduler.py's `"script": "scripts/foo.py"`
 # cron example, or `scripts/state/{secret,exec,state}_guard.py` brace notation).
 EXAMPLE_TOKENS = ("foo", "bar", "baz", "example", "placeholder", "your", "dummy", "sample", "<", "{", "}")
+BRIDGE_TRANSPORT_HEALTH_FILES = {
+    "bravo-telegram": PROJECT_ROOT / "state" / "telegram_transport_health.json",
+    "bravo-coord": PROJECT_ROOT / "state" / "coordination_transport_health.json",
+}
+_MAVEN_ROOT = Path.home() / "CMO-Agent"
+if _MAVEN_ROOT.is_dir():
+    # Optional sibling: required when the repo is installed, absent elsewhere.
+    BRIDGE_TRANSPORT_HEALTH_FILES["maven-telegram"] = (
+        _MAVEN_ROOT / "tmp" / "maven_telegram_health.json"
+    )
+BRIDGE_TRANSPORT_MAX_AGE_SEC = 12 * 60
+
+
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def _is_example(ref: str) -> bool:
@@ -64,12 +75,26 @@ def _is_example(ref: str) -> bool:
     return any(tok in low for tok in EXAMPLE_TOKENS)
 
 
-def _pm2(args):
-    """Run pm2 cross-platform (Windows pm2 is a .cmd shim → needs shell)."""
-    if os.name == "nt":
-        return subprocess.run("pm2 " + " ".join(args), shell=True, capture_output=True,
-                              text=True, timeout=15, creationflags=WINDOWLESS_FLAGS)
-    return subprocess.run(["pm2", *args], capture_output=True, text=True, timeout=15)  # noqa: SUBPROCESS (POSIX branch; creationflags is Windows-only)
+def _is_windows_host() -> bool:
+    """Keep platform routing injectable without mutating process-global os.name."""
+    return os.name == "nt"
+
+
+def _pm2_snapshot() -> list[dict]:
+    """Read the active PM2 fleet on hosts where PM2 remains the supervisor."""
+    result = subprocess.run(
+        ["pm2", "jlist"],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )  # noqa: SUBPROCESS (POSIX supervisor probe; creationflags is Windows-only)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or f"exit {result.returncode}").strip()
+        raise RuntimeError(detail[:160])
+    payload = json.loads(result.stdout or "[]")
+    if not isinstance(payload, list) or not all(isinstance(row, dict) for row in payload):
+        raise ValueError("pm2 jlist did not return a process list")
+    return payload
 
 
 def _result(name, status, detail, items=None):
@@ -166,29 +191,133 @@ def check_mcp_wrappers():
     return _result("mcp-wrappers", GREEN, f"{len(present)}/{len(paths)} MCP configs present; referenced wrappers resolve")
 
 
-# ── 4. PM2 path audit ───────────────────────────────────────────────────────
-def check_pm2_paths():
+# ── 4. platform supervisor audit ────────────────────────────────────────────
+def _check_pm2_supervisor():
+    """Retain the Linux/VPS PM2 path audit after Windows retired PM2."""
     try:
-        r = _pm2(["jlist"])
-        procs = json.loads(r.stdout or "[]")
-    except Exception as e:
-        return _result("pm2-paths", YELLOW, f"pm2 unavailable / jlist failed: {str(e)[:80]}")
-    stale, online = [], 0
-    root_name = PROJECT_ROOT.name  # "Business-Empire-Agent"
-    for p in procs:
-        exec_path = (p.get("pm2_env", {}) or {}).get("pm_exec_path", "") or ""
-        status = (p.get("pm2_env", {}) or {}).get("status", "")
+        procs = _pm2_snapshot()
+    except Exception as exc:  # noqa: BLE001 - diagnostic boundary
+        return _result(
+            "fleet-supervisor",
+            YELLOW,
+            f"pm2 unavailable / jlist failed: {type(exc).__name__}: {str(exc)[:80]}",
+        )
+
+    stale: list[str] = []
+    online = 0
+    root_name = PROJECT_ROOT.name
+    for proc in procs:
+        env = proc.get("pm2_env", {}) or {}
+        exec_path = env.get("pm_exec_path", "") or ""
+        status = env.get("status", "")
         if status == "online":
             online += 1
-        # flag daemons that belong to THIS repo (by old or new name) but point at a dead path
         looks_ours = "CEO-Agent" in exec_path or root_name in exec_path
         if looks_ours and exec_path and not Path(exec_path).exists():
-            stale.append(f"{p.get('name')}: {exec_path}")
+            stale.append(f"{proc.get('name')}: {exec_path}")
         elif "CEO-Agent" in exec_path and root_name not in exec_path:
-            stale.append(f"{p.get('name')}: stale repo name → {exec_path}")
+            stale.append(f"{proc.get('name')}: stale repo name → {exec_path}")
     if stale:
-        return _result("pm2-paths", RED, f"{len(stale)} stale/dead PM2 path(s) ({online} online)", stale)
-    return _result("pm2-paths", GREEN, f"{len(procs)} daemons, {online} online; no stale paths for this repo")
+        return _result(
+            "fleet-supervisor",
+            RED,
+            f"{len(stale)} stale/dead PM2 path(s) ({online} online)",
+            stale,
+        )
+    return _result(
+        "fleet-supervisor",
+        GREEN,
+        f"PM2: {len(procs)} daemons, {online} online; no stale paths for this repo",
+    )
+
+
+def _fleet_snapshot() -> list[dict]:
+    """Read the canonical Windows supervisor without waking retired PM2."""
+    from ops.fleet_watchdog import classify, status  # noqa: PLC0415
+
+    return [
+        {"name": row["name"], "state": classify(row)}
+        for row in status()
+    ]
+
+
+def check_fleet_supervisor():
+    if not _is_windows_host():
+        return _check_pm2_supervisor()
+    try:
+        rows = _fleet_snapshot()
+    except Exception as exc:  # noqa: BLE001 - diagnostic boundary
+        return _result(
+            "fleet-supervisor",
+            YELLOW,
+            f"fleet status unreadable: {type(exc).__name__}: {str(exc)[:80]}",
+        )
+    bad = [
+        r["name"] for r in rows
+        if r.get("state") in {"down", "unrunnable", "duplicate"}
+    ]
+    running = sum(1 for r in rows if r.get("state") == "running")
+    disabled = sum(1 for r in rows if r.get("state") == "disabled")
+    if bad:
+        return _result(
+            "fleet-supervisor",
+            RED,
+            f"{len(bad)} daemon(s) down/unrunnable/duplicate; "
+            f"{running} running, {disabled} disabled",
+            bad,
+        )
+    enabled = len(rows) - disabled
+    if enabled == 0:
+        return _result(
+            "fleet-supervisor",
+            RED,
+            f"no enabled daemons in fleet manifest; {disabled} disabled",
+            ["fleet manifest contains no enabled daemons"],
+        )
+    return _result(
+        "fleet-supervisor",
+        GREEN,
+        f"{running}/{enabled} enabled daemons running; {disabled} disabled",
+    )
+
+
+def check_telegram_transport():
+    """Require recent Telegram API success, not merely a live Node PID."""
+    failures: list[str] = []
+    healthy = 0
+    now = _now_utc()
+    for name, path in BRIDGE_TRANSPORT_HEALTH_FILES.items():
+        if not path.is_file():
+            failures.append(f"{name}: heartbeat missing")
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            checked = datetime.fromisoformat(str(payload.get("checked_at") or ""))
+            if checked.tzinfo is None:
+                checked = checked.replace(tzinfo=timezone.utc)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            failures.append(f"{name}: heartbeat unreadable")
+            continue
+        age = (now - checked.astimezone(timezone.utc)).total_seconds()
+        detail = str(payload.get("detail") or payload.get("error") or "failed")[:80]
+        if payload.get("ok") is not True:
+            failures.append(f"{name}: {detail}")
+        elif age < -300 or age > BRIDGE_TRANSPORT_MAX_AGE_SEC:
+            failures.append(f"{name}: heartbeat stale ({int(age)}s)")
+        else:
+            healthy += 1
+    if failures:
+        return _result(
+            "telegram-transport",
+            RED,
+            f"{len(failures)} bridge transport check(s) failed; {healthy} healthy",
+            failures,
+        )
+    return _result(
+        "telegram-transport",
+        GREEN,
+        f"{healthy}/{len(BRIDGE_TRANSPORT_HEALTH_FILES)} bridge transports recently verified",
+    )
 
 
 # ── 5. path-drift detector ──────────────────────────────────────────────────
@@ -297,8 +426,9 @@ def check_silent_except():
                    [f"{r}: {n}" for r, n in sorted(hits, key=lambda x: -x[1])[:12]])
 
 
-CHECKS = [check_cron_scripts, check_hook_targets, check_mcp_wrappers, check_pm2_paths,
-          check_path_drift, check_subprocess_raw, check_silent_except]
+CHECKS = [check_cron_scripts, check_hook_targets, check_mcp_wrappers, check_fleet_supervisor,
+          check_telegram_transport, check_path_drift, check_subprocess_raw,
+          check_silent_except]
 
 
 def run():

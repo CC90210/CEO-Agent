@@ -238,3 +238,95 @@ def test_lowercase_failure_summary_does_not_trip_the_job_classifier():
     import scheduler as s
     assert not s._looks_like_failure("published: 0/3  ·  failed: 3")
     assert s._looks_like_failure("ERROR: database unavailable")
+
+
+def test_maven_tls_eof_failure_keeps_retry_budget(tmp_path, monkeypatch):
+    """An R2 TLS EOF is transient transport trouble, not a deterministic preflight."""
+    import scheduler as s
+    monkeypatch.setattr(s, "FAILURE_DUMP_DIR", tmp_path)
+    dump = tmp_path / "c-users-user-cmo-agent-run.log"
+    dump.write_text("SSLError: UNEXPECTED_EOF_WHILE_READING during R2 upload", encoding="utf-8")
+    job = {"name": "Maven — Carousel Post", "action_config": {}}
+
+    retryable, reason = s.failure_is_retryable(job, f"ERROR [full: {dump.name}]")
+
+    assert retryable is True
+    assert reason == ""
+
+
+def test_maven_empty_carousel_bank_opens_the_circuit():
+    import scheduler as s
+    job = {"name": "Maven \u2014 Carousel Post", "action_config": {}}
+    retryable, reason = s.failure_is_retryable(job, "ERROR: carousel bank empty")
+    assert retryable is False
+    assert "carousel bank empty" in reason
+
+
+def test_maven_transient_publish_failure_keeps_retry_budget():
+    import scheduler as s
+    job = {"name": "Maven — Carousel Post", "action_config": {}}
+    assert s.failure_is_retryable(job, "ERROR: Late API returned 502 timeout")[0] is True
+
+
+def test_nonretryable_markers_are_scoped_to_the_declaring_job():
+    import scheduler as s
+    other = {"name": "Unrelated Job", "action_config": {}}
+    assert s.failure_is_retryable(other, "ERROR: carousel bank EMPTY")[0] is True
+
+
+def test_slow_nonretryable_failure_sends_only_its_dedicated_alert(monkeypatch):
+    """A daily job must not send both non-retryable and generic failure pages."""
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+    import scheduler as s
+
+    job = {
+        "id": "job-1",
+        "name": "Deterministic Preflight",
+        "action_type": "content_post",
+        "action_config": {"non_retryable_markers": ["configuration missing"]},
+        "schedule": "0 6 * * *",
+        "next_run_at": datetime.now(timezone.utc).isoformat(),
+        "run_count": 0,
+        "fail_count": 0,
+    }
+
+    class CronTable:
+        def __init__(self):
+            self.reading = True
+            self.updated = []
+
+        @property
+        def not_(self):
+            return self
+
+        def select(self, *_args, **_kwargs):
+            self.reading = True
+            return self
+
+        def update(self, payload):
+            self.reading = False
+            self.updated.append(payload)
+            return self
+
+        def execute(self):
+            return SimpleNamespace(data=[job] if self.reading else [])
+
+        def __getattr__(self, _name):
+            return lambda *_args, **_kwargs: self
+
+    table = CronTable()
+    client = SimpleNamespace(table=lambda _name: table)
+    alerts = []
+    monkeypatch.setattr(s, "execute_job", lambda *_args: "ERROR: configuration missing")
+    monkeypatch.setattr(s, "_record_job_timing", lambda *_args: None)
+    monkeypatch.setattr(s, "failure_dump_hint", lambda *_args: "")
+    monkeypatch.setattr(s, "notify_error", lambda *args, **kwargs: alerts.append((args, kwargs)))
+    monkeypatch.setattr(s, "notify", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(s, "log", lambda *_args: None)
+
+    assert s.check_and_run_due_jobs(client, {}) == 1
+    assert len(alerts) == 1
+    assert alerts[0][1]["stage"] == "non_retryable"
+    assert alerts[0][1]["agent"] == "maven"
+    assert table.updated[-1]["fail_count"] == 0

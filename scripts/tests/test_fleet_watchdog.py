@@ -15,6 +15,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -379,6 +380,63 @@ def test_daemon_absent_from_a_readable_table_is_down(restore_table):
     assert "bravo-scheduler" in down
 
 
+def test_launcher_and_child_are_one_daemon_root(monkeypatch, restore_table):
+    """Windows venv launchers spawn the real interpreter as a child.
+
+    Two matching PIDs in one parent/child tree are one daemon, not a duplicate.
+    """
+    app = {"name": "bravo-scheduler", "script": "scripts/scheduler.py",
+           "args": [], "interp": "pythonw.exe", "cwd": str(REPO_ROOT),
+           "unrunnable": "", "lifecycle": "always_on"}
+    monkeypatch.setattr(fw, "manifest", lambda: [app])
+    monkeypatch.setattr(fw, "disabled_names", set)
+    fw._process_table = lambda: (
+        "|100|1|c:/repo/.venv/scripts/pythonw.exe scripts/scheduler.py\n"
+        "|101|100|c:/python312/pythonw.exe scripts/scheduler.py"
+    )
+
+    [row] = fw.status()
+
+    assert row["pids"] == [100, 101]
+    assert row["root_pids"] == [100]
+    assert row["root_count"] == 1
+    assert fw.classify(row) == "running"
+
+
+def test_independent_daemon_roots_are_duplicate_and_never_green(
+        monkeypatch, restore_table):
+    app = {"name": "bravo-scheduler", "script": "scripts/scheduler.py",
+           "args": [], "interp": "pythonw.exe", "cwd": str(REPO_ROOT),
+           "unrunnable": "", "lifecycle": "always_on"}
+    monkeypatch.setattr(fw, "manifest", lambda: [app])
+    monkeypatch.setattr(fw, "disabled_names", set)
+    fw._process_table = lambda: (
+        "|100|1|pythonw.exe scripts/scheduler.py\n"
+        "|101|100|pythonw.exe scripts/scheduler.py\n"
+        "|200|1|pythonw.exe scripts/scheduler.py\n"
+        "|201|200|pythonw.exe scripts/scheduler.py"
+    )
+
+    [row] = fw.status()
+
+    assert row["pids"] == [100, 101, 200, 201]
+    assert row["root_pids"] == [100, 200]
+    assert row["root_count"] == 2
+    assert row["running"] is True
+    assert fw.classify(row) == "duplicate"
+
+
+def test_stop_targets_each_independent_root_once(monkeypatch, restore_table):
+    fw._process_table = lambda: (
+        "|100|1|pythonw.exe scripts/scheduler.py\n"
+        "|101|100|pythonw.exe scripts/scheduler.py\n"
+        "|200|1|pythonw.exe scripts/scheduler.py\n"
+        "|201|200|pythonw.exe scripts/scheduler.py"
+    )
+
+    assert fw.pids_for("scheduler.py") == [100, 200]
+
+
 # ------------------------------------------------- liveness is not mention ---
 # Added 2026-08-29 after the mirror-image incident. `status()` tested
 # `ident in table` — a substring search across the WHOLE process table — so any
@@ -534,6 +592,22 @@ def test_an_unreadable_holder_falls_back_to_the_age_fence(tmp_path, monkeypatch)
     assert fw._acquire_run_lock() is False, "an unreadable holder is not a dead one"
 
 
+@pytest.mark.parametrize("command", ["start", "restart"])
+def test_manual_start_and_restart_respect_the_watchdog_lifecycle_lock(
+    command, monkeypatch, capsys
+):
+    """A dashboard action must not race the scheduled reconciliation pass."""
+    dispatched: list[str] = []
+    monkeypatch.setattr(fw, "_windows_session_id", lambda: 1)
+    monkeypatch.setattr(fw, "_acquire_run_lock", lambda: False)
+    monkeypatch.setattr(fw, "_dispatch", lambda args: dispatched.append(args.cmd) or 0)
+    monkeypatch.setattr(sys, "argv", ["fleet_watchdog.py", command, "bravo-telegram"])
+
+    assert fw.main() == 0
+    assert dispatched == []
+    assert "another watchdog pass" in capsys.readouterr().out
+
+
 # ------------------------------------------------ one definition of state ---
 # Added after a self-review found that fixing the pm2 probes had created FIVE
 # hand-rolled predicates for "is this daemon a problem?" — in harness_eval,
@@ -546,6 +620,10 @@ def test_an_unreadable_holder_falls_back_to_the_age_fence(tmp_path, monkeypatch)
 
 
 @pytest.mark.parametrize("row,expected", [
+    ({"disabled": False, "running": True, "root_count": 2,
+      "unrunnable": ""}, "duplicate"),
+    ({"disabled": True, "running": True, "root_count": 2,
+      "unrunnable": ""}, "duplicate"),
     ({"disabled": True, "running": False, "unrunnable": ""}, "disabled"),
     ({"disabled": True, "running": True, "unrunnable": ""}, "disabled"),
     ({"disabled": False, "running": True, "unrunnable": ""}, "running"),
@@ -574,6 +652,99 @@ def test_down_names_excludes_disabled_and_unrunnable():
     assert fw.down_names(rows) == ["d"]
 
 
+def test_up_reconciles_duplicate_roots_stop_all_then_start_one(monkeypatch):
+    row = {"name": "worker", "running": True, "root_count": 2,
+           "root_pids": [100, 200], "pids": [100, 101, 200, 201],
+           "disabled": False, "unrunnable": "", "lifecycle": "always_on"}
+    events = []
+    monkeypatch.setattr(fw, "status", lambda: [row])
+    monkeypatch.setattr(
+        fw, "stop", lambda app: events.append(("stop", app["root_pids"])) or
+        (True, "stopped"))
+    monkeypatch.setattr(
+        fw, "start", lambda app, dry=False: events.append(("start", dry)) or
+        (True, "started"))
+    monkeypatch.setattr(fw, "_log", lambda _message: None)
+
+    rc = fw._dispatch(SimpleNamespace(
+        cmd="up", only=None, dry_run=False, json=False))
+
+    assert rc == 0
+    assert events == [("stop", [100, 200]), ("start", False)]
+
+
+def test_up_dry_run_reports_duplicate_reconciliation_without_mutation(
+        monkeypatch):
+    row = {"name": "worker", "running": True, "root_count": 2,
+           "root_pids": [100, 200], "pids": [100, 200],
+           "disabled": False, "unrunnable": "", "lifecycle": "always_on"}
+    monkeypatch.setattr(fw, "status", lambda: [row])
+    monkeypatch.setattr(
+        fw, "stop", lambda _app: pytest.fail("dry-run must not stop a daemon"))
+    monkeypatch.setattr(
+        fw, "start", lambda _app, dry=False: pytest.fail(
+            "dry-run duplicate reconciliation must not start a daemon"))
+    monkeypatch.setattr(fw, "_log", lambda _message: None)
+
+    assert fw._dispatch(SimpleNamespace(
+        cmd="up", only=None, dry_run=True, json=False)) == 0
+
+
+def test_unleased_on_demand_worker_stays_down(monkeypatch):
+    row = {"name": "burst-worker", "running": False, "root_count": 0,
+           "root_pids": [], "pids": [], "disabled": False,
+           "unrunnable": "", "lifecycle": "on_demand"}
+    monkeypatch.setattr(fw, "status", lambda: [row])
+    monkeypatch.setattr(fw, "lease_active", lambda _name: False)
+    monkeypatch.setattr(
+        fw, "start", lambda *_a, **_k: pytest.fail(
+            "an on-demand worker needs an active lease"))
+    monkeypatch.setattr(fw, "_log", lambda _message: None)
+
+    assert fw._dispatch(SimpleNamespace(
+        cmd="up", only=None, dry_run=False, json=False)) == 0
+
+
+def test_active_lease_starts_on_demand_worker(monkeypatch):
+    row = {"name": "burst-worker", "running": False, "root_count": 0,
+           "root_pids": [], "pids": [], "disabled": False,
+           "unrunnable": "", "lifecycle": "on_demand"}
+    started = []
+    monkeypatch.setattr(fw, "status", lambda: [row])
+    monkeypatch.setattr(fw, "lease_active", lambda _name: True)
+    monkeypatch.setattr(
+        fw, "start", lambda app, dry=False: started.append(app["name"]) or
+        (True, "started"))
+    monkeypatch.setattr(fw, "_log", lambda _message: None)
+
+    assert fw._dispatch(SimpleNamespace(
+        cmd="up", only=None, dry_run=False, json=False)) == 0
+    assert started == ["burst-worker"]
+
+
+def test_expired_lease_stops_on_demand_worker_without_touching_always_on(
+        monkeypatch):
+    rows = [
+        {"name": "burst-worker", "running": True, "root_count": 1,
+         "root_pids": [100], "pids": [100], "disabled": False,
+         "unrunnable": "", "lifecycle": "on_demand"},
+        {"name": "revenue-daemon", "running": True, "root_count": 1,
+         "root_pids": [200], "pids": [200], "disabled": False,
+         "unrunnable": "", "lifecycle": "always_on"},
+    ]
+    stopped = []
+    monkeypatch.setattr(fw, "status", lambda: rows)
+    monkeypatch.setattr(fw, "lease_active", lambda _name: False)
+    monkeypatch.setattr(
+        fw, "stop", lambda app: stopped.append(app["name"]) or
+        (True, "stopped"))
+    monkeypatch.setattr(fw, "_log", lambda _message: None)
+
+    assert fw._dispatch(SimpleNamespace(
+        cmd="up", only=None, dry_run=False, json=False)) == 0
+    assert stopped == ["burst-worker"]
+
+
 def test_consumers_do_not_reimplement_the_predicate():
     """Every consumer must ASK fleet_watchdog rather than re-derive state from
     the raw flags. A second copy is how the five disagreed in the first place."""
@@ -581,6 +752,7 @@ def test_consumers_do_not_reimplement_the_predicate():
         REPO_ROOT / "scripts" / "harness_eval.py",
         REPO_ROOT / "scripts" / "core" / "cron_health_check.py",
         REPO_ROOT / "scripts" / "dashboard_email_queue_monitor.py",
+        REPO_ROOT / "scripts" / "system_health.py",
         REPO_ROOT / "bravo_cli" / "local_bridge.py",
     ]
     for path in consumers:
@@ -643,6 +815,35 @@ def test_supervision_allowed_from_a_user_session(monkeypatch):
     assert fw.main() == 0, "a user-session pass must be allowed through the guard"
 
 
+# ------------------------------------------- Node system certificate store ---
+# Added 2026-09-23. Node's bundled CA set rejected api.telegram.org on this
+# Windows host (UNABLE_TO_VERIFY_LEAF_SIGNATURE), while the same executable
+# reached Telegram with --use-system-ca. The watchdog is the one launch boundary
+# shared by Bravo, coordination and Maven, so the trust-store choice belongs
+# here rather than in three daemon implementations.
+
+@pytest.mark.parametrize("interp", ["node", ""])
+def test_every_node_daemon_uses_the_windows_system_ca(interp, tmp_path):
+    """Cover both an explicit Node interpreter and .js inference."""
+    app = {"name": "telegram-probe", "interp": interp,
+           "script": "telegram_agent.js", "args": [],
+           "cwd": str(tmp_path), "unrunnable": ""}
+    ok, detail = fw.start(app, dry=True)
+    assert ok
+    assert detail == "DRY: node --use-system-ca telegram_agent.js"
+    assert fw._row_runs(
+        "node --use-system-ca telegram_agent.js", fw._identity(app))
+
+
+def test_python_daemons_do_not_receive_a_node_only_flag(tmp_path):
+    app = {"name": "python-probe", "interp": "python.exe",
+           "script": "worker.py", "args": [],
+           "cwd": str(tmp_path), "unrunnable": ""}
+    ok, detail = fw.start(app, dry=True)
+    assert ok
+    assert detail == "DRY: python.exe worker.py"
+
+
 # ------------------------------------------- a crash is not a silent event ---
 # Added 2026-08-29. `start()` passed stdout=DEVNULL and stderr=DEVNULL. PM2 used
 # to capture those streams and PM2 is no longer the supervisor, so a daemon that
@@ -683,8 +884,7 @@ def test_an_unwritable_log_does_not_block_the_start(tmp_path, monkeypatch):
 
 
 def test_the_daemon_log_is_bounded(tmp_path, monkeypatch):
-    """A raw handle handed to a detached child has no logging handler behind it,
-    so nothing else can rotate this file."""
+    """Startup rolls stale output before handing a fresh handle to the child."""
     monkeypatch.setattr(fw, "DAEMON_LOG_DIR", tmp_path / "logs")
     monkeypatch.setattr(fw, "DAEMON_LOG_MAX_BYTES", 500)
     (tmp_path / "logs").mkdir()
@@ -695,6 +895,67 @@ def test_the_daemon_log_is_bounded(tmp_path, monkeypatch):
     fh.close()
     assert big.stat().st_size < 500, "oversized daemon log was not rolled"
     assert (tmp_path / "logs" / "daemon-probe.log.1").exists(), "first traceback was lost"
+
+
+def test_periodic_up_rotates_a_running_daemon_log_at_the_size_limit(
+        tmp_path, monkeypatch, capsys):
+    """The five-minute watchdog pass must bound logs even when a daemon never dies."""
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    active = log_dir / "daemon-probe.log"
+    active.write_text("first traceback\n" + ("x" * 5000), encoding="utf-8")
+    monkeypatch.setattr(fw, "DAEMON_LOG_DIR", log_dir)
+    monkeypatch.setattr(fw, "DAEMON_LOG_MAX_BYTES", 500)
+    monkeypatch.setattr(fw, "_log", lambda _message: None)
+    row = {
+        "name": "probe",
+        "ident": "probe.py",
+        "running": True,
+        "root_count": 1,
+        "disabled": False,
+        "unrunnable": "",
+        "lifecycle": "always_on",
+    }
+    monkeypatch.setattr(fw, "status", lambda: [row])
+    actions = []
+    monkeypatch.setattr(
+        fw, "stop", lambda app: actions.append(("stop", app["name"])) or
+        (True, "stopped"))
+    monkeypatch.setattr(
+        fw, "start", lambda app, dry=False:
+        actions.append(("start", app["name"])) or (True, "started"))
+
+    args = type("Args", (), {"cmd": "up", "only": None, "dry_run": False})()
+    assert fw._dispatch(args) == 0
+
+    assert actions == [("stop", "probe"), ("start", "probe")]
+    assert not active.exists()
+    assert (log_dir / "daemon-probe.log.1").read_text(
+        encoding="utf-8").startswith("first traceback")
+    assert "rotated log" in capsys.readouterr().out.lower()
+
+
+def test_failed_daemon_log_roll_never_truncates_the_only_copy(
+        tmp_path, monkeypatch):
+    """A sharing violation must defer rotation, never copy-truncate live evidence."""
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    active = log_dir / "daemon-probe.log"
+    rolled = log_dir / "daemon-probe.log.1"
+    active.write_text("current-evidence", encoding="utf-8")
+    rolled.write_text("previous-evidence", encoding="utf-8")
+    monkeypatch.setattr(fw, "DAEMON_LOG_DIR", log_dir)
+    monkeypatch.setattr(fw, "DAEMON_LOG_MAX_BYTES", 5)
+    monkeypatch.setattr(
+        fw.os, "replace", lambda *_args: (_ for _ in ()).throw(
+            PermissionError("file is open")))
+
+    ok, detail = fw._roll_daemon_log("probe")
+
+    assert not ok
+    assert "file is open" in detail
+    assert active.read_text(encoding="utf-8") == "current-evidence"
+    assert rolled.read_text(encoding="utf-8") == "previous-evidence"
 
 
 def test_a_crash_loop_is_counted_not_just_restarted(tmp_path, monkeypatch):
@@ -773,6 +1034,212 @@ def test_an_app_only_the_committed_config_declares_is_supervised(monkeypatch, tm
         r"c:\users\user\business-empire-agent\.venv\scripts\pythonw.exe "
         r"scripts/dashboard_email_consumer.py loop --interval 10",
         fw._identity(adopted))
+
+
+@pytest.mark.parametrize("dump_contents", [None, "{not valid json"])
+def test_committed_and_sibling_specs_survive_an_unusable_pm2_dump(
+        monkeypatch, tmp_path, dump_contents):
+    """PM2 is retired, so its compatibility snapshot cannot be a prerequisite.
+
+    A deleted or corrupt dump must not erase the committed local fleet or the
+    explicitly declared sibling fleet from the watchdog's view.
+    """
+    dump = tmp_path / "dump.pm2"
+    if dump_contents is not None:
+        dump.write_text(dump_contents, encoding="utf-8")
+    monkeypatch.setattr(fw, "DUMP", dump)
+    monkeypatch.setattr(
+        fw,
+        "_ecosystem_apps",
+        lambda *a, **k: {"dashboard-email-consumer": CONSUMER},
+    )
+    sibling = {
+        "name": "maven-telegram",
+        "script": r"C:\Users\User\CMO-Agent\telegram_agent.js",
+        "args": [],
+        "interp": "node",
+        "cwd": r"C:\Users\User\CMO-Agent",
+        "unrunnable": "",
+    }
+    monkeypatch.setattr(fw, "_sibling_manifest", lambda: [sibling])
+
+    rows = fw.manifest()
+
+    assert [row["name"] for row in rows] == [
+        "dashboard-email-consumer",
+        "maven-telegram",
+    ]
+
+
+def test_missing_optional_pm2_dump_is_silent(monkeypatch, tmp_path, capsys):
+    missing = tmp_path / "missing-dump.pm2"
+    monkeypatch.setattr(fw, "DUMP", missing)
+    monkeypatch.setattr(
+        fw, "_ecosystem_apps",
+        lambda *a, **k: {"dashboard-email-consumer": CONSUMER})
+    monkeypatch.setattr(fw, "_sibling_manifest", list)
+
+    assert fw.manifest()
+    assert capsys.readouterr().err == ""
+
+
+def test_corrupt_present_pm2_dump_remains_diagnostic(
+        monkeypatch, tmp_path, capsys):
+    dump = tmp_path / "dump.pm2"
+    dump.write_text("{not-json", encoding="utf-8")
+    monkeypatch.setattr(fw, "DUMP", dump)
+    monkeypatch.setattr(
+        fw, "_ecosystem_apps",
+        lambda *a, **k: {"dashboard-email-consumer": CONSUMER})
+    monkeypatch.setattr(fw, "_sibling_manifest", list)
+
+    assert fw.manifest()
+    assert "cannot read" in capsys.readouterr().err.lower()
+
+
+def test_every_current_daemon_has_explicit_retention_metadata():
+    policies = fw._lifecycle_policy()
+    current = set(fw._ecosystem_apps()) | set(fw.SIBLING_APPS)
+
+    assert current <= set(policies)
+    for name in current:
+        assert policies[name]["mode"] == "always_on"
+        assert len(policies[name]["reason"].strip()) >= 20
+
+
+def test_linux_extraction_consumer_has_explicit_retention_metadata():
+    """Platform-gated ecosystem entries must not disappear from Windows audits."""
+    import shutil
+    import subprocess
+
+    if not shutil.which("node"):
+        pytest.skip("node is not installed")
+    driver = (
+        "Object.defineProperty(process,'platform',{value:'linux'});"
+        "const cfg=require(process.argv[1]);"
+        "process.stdout.write(JSON.stringify(cfg.apps.map(app=>app.name)));"
+    )
+    proc = subprocess.run(
+        ["node", "-e", driver, str(REPO_ROOT / "ecosystem.config.js")],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert proc.returncode == 0, proc.stderr
+    linux_names = set(json.loads(proc.stdout))
+    policies = fw._lifecycle_policy()
+
+    assert "extraction-consumer" in linux_names
+    assert policies["extraction-consumer"]["mode"] == "always_on"
+    assert policies["extraction-consumer"]["owner"] == "CC / Bravo"
+    assert len(policies["extraction-consumer"]["reason"].strip()) >= 20
+
+
+def test_unclassified_daemon_fails_closed_instead_of_becoming_always_on(
+        monkeypatch):
+    monkeypatch.setattr(fw, "_lifecycle_policy", dict)
+    [row] = fw._apply_lifecycle([{
+        "name": "mystery-worker", "script": "worker.py", "args": [],
+        "interp": "python.exe", "cwd": str(REPO_ROOT), "unrunnable": "",
+    }])
+
+    assert row["lifecycle"] == "unclassified"
+    assert "lifecycle" in row["unrunnable"].lower()
+
+
+def test_on_demand_lease_is_bounded_persisted_and_auditable(
+        monkeypatch, tmp_path):
+    monkeypatch.setattr(fw, "LEASES", tmp_path / "fleet_leases.json")
+    app = {"name": "burst-worker", "lifecycle": "on_demand"}
+    monkeypatch.setattr(fw, "manifest", lambda: [app])
+    monkeypatch.setattr(fw, "_log", lambda _message: None)
+
+    ok, detail = fw.grant_lease(
+        "burst-worker", minutes=15, reason="operator-approved export", now=1000)
+
+    assert ok, detail
+    assert fw.lease_active("burst-worker", now=1899)
+    assert not fw.lease_active("burst-worker", now=1900)
+    payload = json.loads(fw.LEASES.read_text(encoding="utf-8"))
+    assert payload["burst-worker"]["reason"] == "operator-approved export"
+    assert payload["burst-worker"]["expires_at"] == 1900
+
+
+def test_watchdog_logs_reads_the_bounded_daemon_log_without_pm2(
+        monkeypatch, tmp_path, capsys):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "daemon-bravo-telegram.log").write_text(
+        "old\nnew-1\nnew-2\n", encoding="utf-8")
+    monkeypatch.setattr(fw, "DAEMON_LOG_DIR", log_dir)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["fleet_watchdog.py", "logs", "bravo-telegram", "--lines", "2"],
+    )
+
+    assert fw.main() == 0
+    output = capsys.readouterr().out
+    assert "old" not in output
+    assert "new-1" in output and "new-2" in output
+
+
+def test_watchdog_logs_reconfigures_narrow_windows_console_for_emoji(
+        monkeypatch, tmp_path):
+    class NarrowConsole:
+        def __init__(self):
+            self.encoding = "cp1252"
+            self.errors = "strict"
+            self.output = []
+
+        def reconfigure(self, *, encoding, errors):
+            self.encoding = encoding
+            self.errors = errors
+
+        def write(self, value):
+            value.encode(self.encoding, self.errors)
+            self.output.append(value)
+            return len(value)
+
+        def flush(self):
+            return None
+
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "daemon-bravo-telegram.log").write_text(
+        "bridge ready \U0001f7e2\n", encoding="utf-8")
+    console = NarrowConsole()
+    monkeypatch.setattr(fw, "DAEMON_LOG_DIR", log_dir)
+    monkeypatch.setattr(sys, "stdout", console)
+    monkeypatch.setattr(
+        sys, "argv", ["fleet_watchdog.py", "logs", "bravo-telegram"])
+
+    assert fw.main() == 0
+    assert console.encoding == "utf-8"
+    assert "bridge ready \U0001f7e2" in "".join(console.output)
+
+
+def test_each_daemon_log_name_reads_only_its_own_file(monkeypatch, tmp_path):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "daemon-bravo-telegram.log").write_text(
+        "BRAVO-ONLY\n", encoding="utf-8")
+    (log_dir / "daemon-bravo-coord.log").write_text(
+        "COORD-ONLY\n", encoding="utf-8")
+    monkeypatch.setattr(fw, "DAEMON_LOG_DIR", log_dir)
+
+    assert fw.read_daemon_log("bravo-telegram", 10) == "BRAVO-ONLY"
+    assert fw.read_daemon_log("bravo-coord", 10) == "COORD-ONLY"
+
+
+def test_watchdog_log_zero_lines_does_not_expand_to_the_whole_file(
+        monkeypatch, tmp_path):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "daemon-probe.log").write_text("secret-old-output\n", encoding="utf-8")
+    monkeypatch.setattr(fw, "DAEMON_LOG_DIR", log_dir)
+
+    assert fw.read_daemon_log("probe", 0) == ""
 
 
 def test_a_worktree_copy_does_not_adopt_the_canonical_checkouts_apps(monkeypatch, tmp_path):

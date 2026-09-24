@@ -38,6 +38,7 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))  # so 'integrations' + 'lib' import cleanly
 
 from integrations.field_encryption import decrypt_field  # noqa: E402
+from lib.env_store import locked_update_text  # noqa: E402
 from lib.secret_loader import ENV_FILE  # canonical .env.agents path  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -183,11 +184,9 @@ def _collect(sb, tenant_id: str) -> tuple[dict[str, str], list[str]]:
     return out, problems
 
 
-def _parse_env_file(path: Path) -> dict[str, str]:
+def _parse_env_text(text: str) -> dict[str, str]:
     existing: dict[str, str] = {}
-    if not path.exists():
-        return existing
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in text.splitlines():
         s = line.strip()
         if not s or s.startswith("#") or "=" not in s:
             continue
@@ -196,8 +195,32 @@ def _parse_env_file(path: Path) -> dict[str, str]:
     return existing
 
 
+def _parse_env_file(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    return _parse_env_text(path.read_text(encoding="utf-8"))
+
+
 def _is_preserved(key: str) -> bool:
     return any(key == p or key.startswith(p) for p in PRESERVE_PREFIXES)
+
+
+def _merge_materialized(
+    existing: dict[str, str], materialized: dict[str, str]
+) -> tuple[dict[str, str], list[str]]:
+    final = dict(existing)
+    set_names: list[str] = []
+    for key, value in materialized.items():
+        if _is_preserved(key):
+            continue  # never let the tenant store clobber operator-only secrets
+        if final.get(key) != value:
+            set_names.append(key)
+        final[key] = value
+    for key, value in STATIC_DEFAULTS.items():
+        if key not in final:
+            final[key] = value
+            set_names.append(key)
+    return final, set_names
 
 
 def main() -> None:
@@ -209,21 +232,6 @@ def main() -> None:
     sb = _client()
     tenant_id = _resolve_tenant(sb, args.tenant)
     materialized, problems = _collect(sb, tenant_id)
-
-    # Merge: existing file wins for PRESERVED keys; materialized wins otherwise.
-    existing = _parse_env_file(ENV_FILE)
-    final = dict(existing)
-    set_names: list[str] = []
-    for k, v in materialized.items():
-        if _is_preserved(k):
-            continue  # never let the tenant store clobber operator-only secrets
-        if final.get(k) != v:
-            set_names.append(k)
-        final[k] = v
-    for k, v in STATIC_DEFAULTS.items():
-        if k not in final:
-            final[k] = v
-            set_names.append(k)
 
     # Report — NAMES ONLY, never values.
     print(f"tenant: {args.tenant} ({tenant_id})")
@@ -243,12 +251,16 @@ def main() -> None:
         print(f"\nDRY RUN — re-run with --apply to write {ENV_FILE} (chmod 600).")
         return
 
-    lines = [f"{k}={v}" for k, v in final.items()]
-    ENV_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    try:
-        os.chmod(ENV_FILE, 0o600)
-    except OSError:
-        pass
+    set_names: list[str] = []
+
+    def merge(current: str) -> str:
+        nonlocal set_names
+        final, set_names = _merge_materialized(
+            _parse_env_text(current), materialized
+        )
+        return "\n".join(f"{key}={value}" for key, value in final.items()) + "\n"
+
+    locked_update_text(ENV_FILE, merge)
     print(f"\n✅ Wrote {len(set_names)} updated key(s) to the secrets file (chmod 600). Operator-only keys preserved.")
 
 

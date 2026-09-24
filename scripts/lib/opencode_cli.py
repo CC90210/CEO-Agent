@@ -2,9 +2,9 @@
 
 Mirrors the claude_cli.py pattern: spawns the local `opencode run` CLI with
 non-interactive flags, feeds the prompt via STDIN (never argv), and returns
-the model's text or None on any failure. This is the FALLBACK layer — called
-by model_fallback.py when the Claude subscription CLI is unavailable (quota /
-auth / timeout).
+the model's text or None on any failure. This legacy optional layer is called
+only by explicit interactive tooling. Automatic unattended fallback now uses
+the Codex subscription wrapper because OpenCode rejects external free-tier calls.
 
 SECURITY (V8 hardening, adversarial-review fixes 2026-08-25):
   1. NO shell anywhere. The binary is resolved to a directly-executable image

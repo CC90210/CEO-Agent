@@ -3,7 +3,7 @@ AI Operator Console
 
 Single-command control surface for the Windows AI workstation.
 Designed to be safe by default: status/log/doctor are read-only; restart only
-touches known PM2 AI services.
+touches known Fleet Watchdog services.
 #>
 
 [CmdletBinding()]
@@ -16,37 +16,46 @@ param(
 
 $ErrorActionPreference = "Continue"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
+$FleetWatchdog = Join-Path $RepoRoot "scripts\ops\fleet_watchdog.py"
+
+function Invoke-FleetWatchdog {
+    param([string[]]$FleetArgs)
+    $python = Join-Path $RepoRoot ".venv\Scripts\python.exe"
+    if (-not (Test-Path -LiteralPath $python)) {
+        $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+        if (-not $pythonCommand) {
+            Write-Host "Python is not installed or not on PATH." -ForegroundColor Red
+            return
+        }
+        $python = $pythonCommand.Source
+    }
+    if (-not (Test-Path -LiteralPath $FleetWatchdog)) {
+        Write-Host "Fleet Watchdog not found: $FleetWatchdog" -ForegroundColor Red
+        return
+    }
+    & $python $FleetWatchdog @FleetArgs
+}
 
 function Invoke-Doctor {
     & (Join-Path $PSScriptRoot "ai_workstation_doctor.ps1")
 }
 
 function Show-Services {
-    $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
-    if (-not $pm2) {
-        Write-Host "pm2 is not installed or not on PATH." -ForegroundColor Red
-        return
-    }
-    pm2 list
+    Invoke-FleetWatchdog -FleetArgs @("status")
 }
 
 function Show-Logs {
-    $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
-    if (-not $pm2) {
-        Write-Host "pm2 is not installed or not on PATH." -ForegroundColor Red
-        return
+    foreach ($name in @("bravo-telegram", "bravo-scheduler")) {
+        Write-Host ""
+        Write-Host "$name (Fleet Watchdog)" -ForegroundColor Cyan
+        Invoke-FleetWatchdog -FleetArgs @("logs", $name, "--lines", "$Lines")
     }
-    pm2 logs bravo-telegram --lines $Lines --nostream
-    pm2 logs bravo-scheduler --lines $Lines --nostream
 }
 
 function Restart-Bravo {
-    $pm2 = Get-Command pm2 -ErrorAction SilentlyContinue
-    if (-not $pm2) {
-        Write-Host "pm2 is not installed or not on PATH." -ForegroundColor Red
-        return
+    foreach ($name in @("bravo-telegram", "bravo-scheduler")) {
+        Invoke-FleetWatchdog -FleetArgs @("restart", $name)
     }
-    pm2 restart bravo-telegram bravo-scheduler
 }
 
 function Show-SecurityEvents {
@@ -77,7 +86,7 @@ function Show-Performance {
 }
 
 function Show-Tools {
-    $commands = "python", "node", "npm", "pm2", "git", "winget", "wsl", "uv", "bun", "claude", "gemini", "ollama", "nvidia-smi"
+    $commands = "python", "node", "npm", "git", "winget", "wsl", "uv", "bun", "claude", "gemini", "ollama", "nvidia-smi"
     $rows = foreach ($name in $commands) {
         $cmd = Get-Command $name -ErrorAction SilentlyContinue
         if ($cmd) {

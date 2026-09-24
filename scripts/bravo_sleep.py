@@ -53,6 +53,15 @@ LAST_RUN_PATH = PROJECT_ROOT / "state" / "sleep_agent_last_run.txt"
 VALID_TARGETS = {"MISTAKES", "PATTERNS", "DECISIONS"}
 COOLDOWN_DAYS = 7
 MEMORY_DIFF_DIR = PROJECT_ROOT / "state" / "memory_diff"
+DEFERRED_EXIT_CODE = 75
+
+
+class ModelQuotaDeferred(RuntimeError):
+    """The subscription is capped; this noncritical pass should wait."""
+
+    def __init__(self, remaining_seconds: int):
+        self.remaining_seconds = remaining_seconds
+        super().__init__(f"Claude quota cooldown active ({remaining_seconds}s remaining)")
 
 # V7.3.0 anti-pollution guard (OpenViking plugin lesson): never let injected
 # retrieval/system context that leaked into a logged note be re-captured as if
@@ -165,11 +174,9 @@ def _recent_git_log(hours: int) -> str:
 
 
 def _call_model(prompt: str) -> str:
-    # Unified smart executor (lib.model_fallback): Claude CLI on CC's
-    # subscription first, automatic OpenCode fallback on quota/auth/timeout —
-    # the exact failure that left this nightly job dead in Aug 2026. Never the
-    # metered ANTHROPIC_API_KEY. Haiku alias stays tier-1 (cheapest); the
-    # OpenCode tiers resolve via task_type="reasoning".
+    # Session-log content is untrusted. Claude's one-shot path denies every
+    # tool; Codex CLI has no equivalent no-tools mode, so this job deliberately
+    # defers during quota instead of exposing local files to injected content.
     sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
     from lib.model_fallback import run_smart_cli  # type: ignore
     # Timeout is 180s, not the CLI default: this runs at 04:00 behind PYTHONW
@@ -182,7 +189,13 @@ def _call_model(prompt: str) -> str:
         task_type="reasoning", agent_name="bravo_sleep",
     )
     if not text:
-        raise RuntimeError("model call returned no text (claude CLI + opencode fallback both unavailable)")
+        from lib.claude_cli import _quota_cooldown_remaining  # type: ignore
+        remaining = _quota_cooldown_remaining()
+        if remaining > 0:
+            raise ModelQuotaDeferred(remaining)
+        raise RuntimeError(
+            "tool-denied Claude returned no text; Codex was not used for untrusted session data"
+        )
     return text
 
 
@@ -273,8 +286,9 @@ def _judge_duplicates(candidates: list[tuple[dict, list[dict]]]) -> dict[str, st
     """One batched model call deciding create/skip for candidates that have
     near-dup evidence (OpenViking two-level dedup pattern, candidate level —
     'merge' deliberately not adopted: this pipeline is append-only by design,
-    see ADR-0011). Returns {title: decision}; on any failure, everything
-    defaults to 'create' (the 7-day cooldown still backstops)."""
+    see ADR-0011). Returns {title: decision}; on non-quota failures, everything
+    defaults to 'create' (the 7-day cooldown still backstops). Quota must
+    propagate so the whole run defers before any memory write."""
     if not candidates:
         return {}
     blocks = []
@@ -290,6 +304,8 @@ def _judge_duplicates(candidates: list[tuple[dict, list[dict]]]) -> dict[str, st
             if isinstance(d, dict) and d.get("decision") in ("create", "skip"):
                 out[str(d.get("title", "")).strip()] = d["decision"]
         return out
+    except ModelQuotaDeferred:
+        raise
     except Exception:  # noqa: BLE001
         return {}
 
@@ -326,6 +342,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     )
     try:
         raw = _call_model(prompt)
+    except ModelQuotaDeferred as exc:
+        print(
+            f"DEFERRED: claude_quota retry_after={exc.remaining_seconds} "
+            "no memory files changed"
+        )
+        return DEFERRED_EXIT_CODE
     except RuntimeError as e:
         print(f"[bravo_sleep] model call failed: {e}", file=sys.stderr)
         return 3
@@ -355,7 +377,14 @@ def cmd_run(args: argparse.Namespace) -> int:
             staged.append((p, dups, "pending-judgment"))
         else:
             staged.append((p, [], "create"))
-    verdicts = _judge_duplicates(needs_judgment)
+    try:
+        verdicts = _judge_duplicates(needs_judgment)
+    except ModelQuotaDeferred as exc:
+        print(
+            f"DEFERRED: claude_quota retry_after={exc.remaining_seconds} "
+            "no memory files changed"
+        )
+        return DEFERRED_EXIT_CODE
 
     written = 0
     skipped = 0

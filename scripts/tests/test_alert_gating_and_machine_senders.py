@@ -10,6 +10,7 @@ Each test here fails against the pre-fix code. None of them touch the network.
 from __future__ import annotations
 
 import sys
+import time
 from datetime import timedelta
 from pathlib import Path
 
@@ -145,6 +146,28 @@ def test_timeout_writes_a_dump_with_whatever_the_child_emitted(tmp_path, monkeyp
     assert "partial stderr" in body, "the child's last words were dropped"
     assert "partial stdout" in body
     assert "TIMEOUT" in body
+
+
+def test_failure_ring_keeps_newest_cross_repo_dump_by_mtime(tmp_path, monkeypatch):
+    """Path slugs must not decide which diagnostic evidence survives."""
+    monkeypatch.setattr(scheduler, "FAILURE_DUMP_DIR", tmp_path)
+    monkeypatch.setattr(scheduler, "FAILURE_DUMP_KEEP", 2)
+    monkeypatch.setattr(scheduler, "load_env", lambda: {})
+
+    newest_cross_repo = tmp_path / "c-users-user-cmo-agent-new.log"
+    oldest_local = tmp_path / "scripts-old.log"
+    newest_cross_repo.write_text("new cross-repo evidence", encoding="utf-8")
+    oldest_local.write_text("old local evidence", encoding="utf-8")
+    old = time.time() - 86_400
+    newest = time.time() - 60
+    import os
+    os.utime(oldest_local, (old, old))
+    os.utime(newest_cross_repo, (newest, newest))
+
+    scheduler.persist_failure("scripts/current.py", ["python", "current.py"], 1, "boom")
+
+    assert newest_cross_repo.exists(), "newest Maven evidence was pruned by filename order"
+    assert not oldest_local.exists(), "the oldest evidence should leave the bounded ring"
 
 
 # ── 5. The two alert stages must not share a dedup identity ──────────────────

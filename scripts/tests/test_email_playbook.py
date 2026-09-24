@@ -23,6 +23,7 @@ from email_playbook import (  # noqa: E402
     classify_sender,
     detect_red_flags,
     extract_forwarded_sender,
+    has_explicit_opt_out,
     is_forwarded,
     lint_draft,
     voice_rules,
@@ -94,6 +95,22 @@ class TestRedFlags(unittest.TestCase):
 
     def test_opt_out_flagged(self):
         self.assertIn("opt_out", detect_red_flags("re", "please take me off your list"))
+
+    def test_quoted_reply_stop_footer_is_not_an_opt_out(self):
+        body = ("What do you run on your GPU instance?\n\n"
+                "On Tue, Sep 22, 2026 at 10:30 AM CC wrote:\n"
+                "> Reply STOP to unsubscribe from these emails.")
+        self.assertFalse(has_explicit_opt_out("Re: GPU instance", body))
+        self.assertNotIn("opt_out", detect_red_flags("Re: GPU instance", body))
+
+    def test_bulk_unsubscribe_footer_is_not_an_opt_out(self):
+        body = "You have one new LinkedIn message.\n\nUnsubscribe from these notifications"
+        self.assertFalse(has_explicit_opt_out("You have 1 new message", body))
+        self.assertNotIn("opt_out", detect_red_flags("You have 1 new message", body))
+
+    def test_stop_subject_or_first_reply_line_is_an_opt_out(self):
+        self.assertTrue(has_explicit_opt_out("Re: hello", "STOP emailing me"))
+        self.assertTrue(has_explicit_opt_out("Re: Unsubscribe me", ""))
 
     def test_clean_email_has_no_flags(self):
         self.assertEqual(detect_red_flags("Re: scheduling",

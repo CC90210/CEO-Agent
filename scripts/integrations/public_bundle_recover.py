@@ -27,10 +27,8 @@ from __future__ import annotations
 
 import argparse
 import base64
-import datetime as _dt
 import json
 import re
-import shutil
 import sys
 import urllib.request
 from pathlib import Path
@@ -92,7 +90,7 @@ def _store_text() -> str:
 
 
 sys.path.insert(0, str(ROOT / "scripts"))
-from lib.env_store import parse_text as _populated  # noqa: E402
+from lib.env_store import locked_update_text, parse_text as _populated  # noqa: E402
 
 
 def _open_gaps(slug: str, text: str) -> dict[str, str]:
@@ -223,20 +221,30 @@ def main() -> int:
         print("\nreport only — re-run with --apply to write these into the store.")
         return 0
 
-    stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    shutil.copy2(STORE, STORE.with_name(f".env.agents.bak.{stamp}"))
-    for src, v in found.items():
-        text = text.replace(f"# FILL {src}=", f"{src}={v}", 1)
-    STORE.write_text(text, encoding="utf-8", newline="\n")
+    applied: dict[str, str] = {}
+    invalid: list[str] = []
 
-    # Re-read from disk: confirm the write landed and the slot is really closed.
-    after = _populated(_store_text())
-    bad = [s for s in found if after.get(s) != found[s]]
-    if bad:
-        shutil.copy2(STORE.with_name(f".env.agents.bak.{stamp}"), STORE)
-        sys.stderr.write(f"write verification FAILED for {bad}; store restored\n")
+    def fill_open_slots(current: str) -> str:
+        candidate = current
+        for src, value in found.items():
+            marker = f"# FILL {src}="
+            if marker not in candidate:
+                continue
+            candidate = candidate.replace(marker, f"{src}={value}", 1)
+            applied[src] = value
+
+        # Validate the complete candidate before the atomic replacement. Once
+        # the lock is released another legitimate writer may run, so a
+        # post-write read cannot distinguish corruption from a newer update.
+        parsed = _populated(candidate)
+        invalid.extend(src for src, value in applied.items() if parsed.get(src) != value)
+        return current if invalid else candidate
+
+    locked_update_text(STORE, fill_open_slots)
+    if invalid:
+        sys.stderr.write(f"write verification FAILED for {invalid}; store unchanged\n")
         return 1
-    print(f"\napplied {len(found)} value(s); backup .env.agents.bak.{stamp}")
+    print(f"\napplied {len(applied)} value(s) atomically")
     return 0
 
 

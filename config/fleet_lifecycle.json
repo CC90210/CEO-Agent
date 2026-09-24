@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "processes": {
+    "bravo-scheduler": {
+      "mode": "always_on",
+      "owner": "CC / Bravo",
+      "reason": "Runs the scheduled inbound, follow-up, health, and revenue operations that must continue without an operator session."
+    },
+    "bravo-ig-dm": {
+      "mode": "always_on",
+      "owner": "CC / Bravo",
+      "reason": "Responds to inbound Instagram prospects quickly; moving it to on-demand would silently delay revenue conversations."
+    },
+    "bravo-telegram": {
+      "mode": "always_on",
+      "owner": "CC / Bravo",
+      "reason": "Provides CC's primary mobile command and alert channel for Bravo, including operational approvals and incident visibility."
+    },
+    "bravo-coord": {
+      "mode": "always_on",
+      "owner": "CC / Adon",
+      "reason": "Maintains the OASIS coordination channel between CC, Adon, Bravo, and APEX so approvals and handoffs are not missed."
+    },
+    "claude-bridge": {
+      "mode": "always_on",
+      "owner": "CC / Bravo",
+      "reason": "Serves the local Agent Command Center chat and tool bridge; stopping it makes the operator control surface unavailable."
+    },
+    "claude-bridge-ping": {
+      "mode": "always_on",
+      "owner": "CC / Bravo",
+      "reason": "Publishes bridge reachability and polls tenant jobs so the Agent Command Center has current local-runner state."
+    },
+    "event-router": {
+      "mode": "always_on",
+      "owner": "CC / Adon",
+      "reason": "Tails and routes cross-agent events continuously; intermittent operation would create delayed or lost coordination work."
+    },
+    "dashboard-email-consumer": {
+      "mode": "always_on",
+      "owner": "CC / Bravo",
+      "reason": "Consumes approved dashboard email jobs promptly so sales and client communication does not wait for a manual worker start."
+    },
+    "dashboard-email-queue-monitor": {
+      "mode": "always_on",
+      "owner": "CC / Bravo",
+      "reason": "Monitors the dashboard email queue and its consumer continuously so blocked revenue communication is surfaced quickly."
+    },
+    "extraction-consumer": {
+      "mode": "always_on",
+      "owner": "CC / Bravo",
+      "reason": "Drains document extraction jobs on the Linux VPS; exactly one always-on consumer must own the queue to prevent duplicate processing."
+    },
+    "breeze-live-watch": {
+      "mode": "always_on",
+      "owner": "CC / Bravo",
+      "reason": "Watches live Breeze work for state changes that must reach the operating harness without waiting for a manual poll."
+    },
+    "atlas-telegram": {
+      "mode": "always_on",
+      "owner": "CC / Atlas",
+      "reason": "Keeps CC's finance agent command and alert channel reachable; finance incidents and approvals cannot depend on a manual start."
+    },
+    "maven-telegram": {
+      "mode": "always_on",
+      "owner": "CC / Maven",
+      "reason": "Keeps CC's marketing agent command and alert channel reachable for the active outreach, content, and sales pipeline."
+    }
+  }
+}

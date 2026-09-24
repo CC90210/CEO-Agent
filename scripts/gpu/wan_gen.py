@@ -53,7 +53,8 @@ from pathlib import Path
 CAPABILITY_META = {
     "category": "content.video_generation",
     "lifecycle": "active",
-    "risk": "local_compute",
+    # Generation writes rendered media to the GPU host's output tree.
+    "risk": "local_write",
     "triggers": [
         "generate a video clip on the gpu",
         "animate a product screenshot into video",

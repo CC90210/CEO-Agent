@@ -679,6 +679,11 @@ def check_cron_results_legible():
         text = str(last or "").strip()
         if not text:
             continue  # never run yet — that is staleness, a different question
+        # A cooperative deferral preserves its reason and retry window. This
+        # gate measures information loss, so a legible DEFERRED marker is not
+        # equivalent to a lone closing brace.
+        if text.upper().startswith("DEFERRED:"):
+            continue
         name = str(j.get("name") or "?")
         if _is_opaque(text):
             opaque.append(name)
@@ -786,8 +791,11 @@ def check_pm2_fleet():
     down = down_names(rows)
     disabled = sorted(r["name"] for r in rows if classify(r) == "disabled")
     unrunnable = sorted(r["name"] for r in rows if classify(r) == "unrunnable")
+    duplicates = sorted(r["name"] for r in rows if classify(r) == "duplicate")
     up = states.count("running")
 
+    if duplicates:
+        return False, f"daemon root trees DUPLICATE: {duplicates}"
     if down:
         return False, f"daemons DOWN: {down}"
     notes = []
@@ -966,8 +974,11 @@ def check_model_call_path():
     text = run_claude_cli("Reply with exactly one word: ready", model="haiku", timeout=90)
     if text and "ready" in text.lower():
         return True, "local claude CLI answered on subscription OAuth"
-    fb = "available" if is_fallback_available() else "NOT installed"
-    return False, f"claude CLI probe failed (got {text!r}) — opencode fallback {fb}, automations degrade to it"
+    fb = "authenticated and ready" if is_fallback_available() else "not authenticated/ready"
+    return False, (
+        f"claude CLI probe failed (got {text!r}) — Codex fallback {fb} for "
+        "authenticated operator sessions; untrusted automations safely defer"
+    )
 
 
 # V7.1: each check belongs to a named SLICE (pattern: Made-With-ML slice-based

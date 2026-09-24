@@ -2,9 +2,9 @@
 #
 # env_backup.sh — encrypted off-box copy of the un-versioned runtime secrets.
 #
-# .env.agents is the ONLY copy of every credential the daemons need (Supabase
+# .env.agents is the ONLY plaintext copy of every credential the daemons need (Supabase
 # service-role, Gmail app password, bridge bearer, HMAC secrets, the backup
-# passphrase, ...). It lives nowhere durable. This gpg-encrypts it (AES256,
+# passphrase, ...). This streams it into a durable encrypted artifact (AES256,
 # symmetric, same BACKUP_GPG_PASSPHRASE) into /srv/sunbiz/backups/secrets/ and
 # hands off to backups_push.sh for off-box replication.
 #
@@ -34,36 +34,38 @@ if [ -z "${PASS:-}" ]; then
   exit 1
 fi
 
-# Un-versioned runtime config to back up. .env.agents (the ceo-agent file the
-# sunbiz-agent symlink points at) is the critical one. Add more here if other
-# un-versioned secrets appear on the box.
-FILES=("$ENV_FILE")
-
-STAGE="$(mktemp -d /tmp/sunbiz_env.XXXXXX)"
-cleanup() { rm -rf "$STAGE"; }
+OUT="$SECRETS_DIR/env-agents-${TS}.tar.gz.gpg"
+TMP_OUT="$(mktemp "$SECRETS_DIR/.env-agents-${TS}.XXXXXX.gpg")"
+cleanup() {
+  [ -n "${TMP_OUT:-}" ] && rm -f "$TMP_OUT"
+  unset PASS
+}
 trap cleanup EXIT
 
-for f in "${FILES[@]}"; do
-  [ -f "$f" ] && cp -a "$f" "$STAGE/$(basename "$f")"
-done
-tar -C "$STAGE" -czf "$STAGE.tar.gz" .
+# Stream the one canonical plaintext file straight through tar into gpg. The
+# only temporary artifact is already encrypted and lives in the destination
+# directory; no plaintext copy or tarball ever lands in /tmp.
+tar -C "$REPO_ROOT" -czf - -- "$(basename "$ENV_FILE")" \
+  | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 \
+      --symmetric --cipher-algo AES256 -o "$TMP_OUT" \
+      3< <(printf '%s' "$PASS")
+chmod 600 "$TMP_OUT"
 
-OUT="$SECRETS_DIR/env-agents-${TS}.tar.gz.gpg"
-gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 \
-    --symmetric --cipher-algo AES256 -o "$OUT" "$STAGE.tar.gz" 3<<<"$PASS"
-rm -f "$STAGE.tar.gz"
+# Self-check: confirm it decrypts (no count drill needed for a config blob).
+if gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 -d "$TMP_OUT" \
+     3< <(printf '%s' "$PASS") \
+     | tar -tzf - >/dev/null 2>&1; then
+  log "decrypt self-check OK"
+else
+  log "ERROR decrypt self-check FAILED — discarding unusable encrypted temp"
+  exit 1
+fi
+
+mv -f "$TMP_OUT" "$OUT"
+TMP_OUT=""
 chmod 600 "$OUT"
 SIZE="$(du -h "$OUT" | cut -f1)"
 log "encrypted secrets snapshot: $OUT ($SIZE)"
-
-# Self-check: confirm it decrypts (no count drill needed for a config blob).
-if gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 -d "$OUT" 3<<<"$PASS" \
-     | tar -tz >/dev/null 2>&1; then
-  log "decrypt self-check OK"
-else
-  log "ERROR decrypt self-check FAILED — keeping artifact for inspection"
-  exit 1
-fi
 
 # Retention: keep the newest RETAIN snapshots.
 mapfile -t OLD < <(ls -1t "$SECRETS_DIR"/env-agents-*.tar.gz.gpg 2>/dev/null | tail -n +$((RETAIN+1)))

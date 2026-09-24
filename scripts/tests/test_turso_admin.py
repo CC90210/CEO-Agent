@@ -38,7 +38,14 @@ def test_every_database_has_a_url_and_token_var():
 def test_one_database_per_supabase_project():
     """Breeze holds merchant bank data — it must not share a database."""
     assert ta.EMPIRE_DATABASES.keys() == {
-        "bravo-empire", "breeze-portal", "nostalgic-requests", "propflow", "oasis-platform"}
+        "bravo-empire",
+        "breeze-portal",
+        "nostalgic-requests",
+        "propflow",
+        "oasis-platform",
+        "arthrisil-studio",
+        "oasis-store",
+    }
 
 
 def test_bravo_uses_the_canonical_env_var_db_turso_reads():

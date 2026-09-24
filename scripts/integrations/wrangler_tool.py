@@ -120,6 +120,14 @@ def _wrangler_env(registry: dict, extra: dict | None = None) -> dict[str, str]:
     env["CLOUDFLARE_API_TOKEN"] = _cf_token(loaded)
     env["CLOUDFLARE_ACCOUNT_ID"] = _account_id(registry, loaded)
     env.setdefault("WRANGLER_SEND_METRICS", "false")
+    # Node's bundled CA set does not include the Windows trust store used by
+    # the local corporate/VPN proxy.  Every Wrangler boundary (deploy, secret
+    # put, tail, and reads) must inherit system trust or a successful Worker
+    # upload can be followed by 100 failed secret updates.
+    node_options = env.get("NODE_OPTIONS", "").split()
+    if "--use-system-ca" not in node_options:
+        node_options.append("--use-system-ca")
+    env["NODE_OPTIONS"] = " ".join(node_options)
     return env
 
 
@@ -632,6 +640,53 @@ def cmd_secrets_list(registry: dict, args: argparse.Namespace) -> int:
     return proc.returncode
 
 
+def cmd_r2_object(registry: dict, args: argparse.Namespace) -> int:
+    """Use Cloudflare's authenticated API when the local S3 hostname is blocked.
+
+    Values and API credentials stay in the child environment; object keys and
+    local file paths are the only argv data.
+    """
+    app = _app(registry, args.app)
+    bucket = str(args.bucket or "").strip()
+    namespace = str(args.namespace or "").replace("\\", "/").strip("/")
+    key = str(args.key or "").replace("\\", "/").lstrip("/")
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", bucket):
+        raise RuntimeError("invalid R2 bucket name")
+    if args.action != "probe" and (not key or ".." in key.split("/")):
+        raise RuntimeError("invalid R2 object key")
+    if namespace:
+        if ".." in namespace.split("/"):
+            raise RuntimeError("invalid R2 object namespace")
+        key = f"{namespace}/{key}" if key else namespace
+    env = _wrangler_env(registry)
+    if args.action == "probe":
+        cmd = [_npx(), "wrangler", "r2", "bucket", "info", bucket, "--json"]
+    else:
+        cmd = [_npx(), "wrangler", "r2", "object", args.action,
+               f"{bucket}/{key}", "--remote"]
+        if args.action == "put":
+            source = Path(args.file or "").resolve()
+            if not source.is_file():
+                raise RuntimeError(f"R2 upload file is missing: {source}")
+            cmd.extend(["--file", str(source)])
+            if args.content_type:
+                cmd.extend(["--content-type", args.content_type])
+            cmd.append("--force")
+        elif args.action == "get":
+            destination = Path(args.file or "").resolve()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            cmd.extend(["--file", str(destination)])
+        elif args.action == "delete":
+            cmd.append("--force")
+    proc = _run(cmd, cwd=app["path"], env=env, capture=True, timeout=180)
+    if proc.returncode != 0:
+        print((proc.stderr or proc.stdout or "R2 command failed").strip()[-600:], file=sys.stderr)
+        return proc.returncode
+    print(json.dumps({"ok": True, "action": args.action, "bucket": bucket,
+                      "key": key or None}))
+    return 0
+
+
 def _build_env(registry: dict, slug: str) -> dict[str, str]:
     """Vercel injects the FULL env at build (module-scope code like
     `new Stripe(process.env.KEY)` runs during page-data collection), so the
@@ -891,7 +946,11 @@ def cmd_workflow(registry: dict, args: argparse.Namespace) -> int:
         "slug": slug,
         "account_id": registry.get("account_id", "<account id>"),
         "build_cmd": build_cmd,
-        "deploy_cmd": "deploy",  # wrangler-action reads the repo's wrangler.jsonc
+        # Most apps need only ``deploy`` because wrangler-action reads the
+        # repository config. A few health surfaces also require per-release
+        # identity vars; keep those in the registry so regeneration cannot
+        # silently strip them from CI.
+        "deploy_cmd": app.get("deploy_command", "deploy"),
         "build_label": build_label,
         "build_desc": build_desc,
         "build_env": "\n".join(lines) + "\n",
@@ -963,6 +1022,13 @@ def main() -> int:
     add("secrets-push", cmd_secrets_push, needs_app=True,
         **{"--allow-missing": {"action": "store_true", "dest": "allow_missing"}})
     add("secrets-list", cmd_secrets_list, needs_app=True)
+    add("r2-object", cmd_r2_object, needs_app=True,
+        **{"--action": {"required": True, "choices": ("probe", "put", "get", "delete")},
+           "--bucket": {"required": True},
+           "--namespace": {"default": ""},
+           "--key": {"default": ""},
+           "--file": {"default": None},
+           "--content-type": {"default": None, "dest": "content_type"}})
     add("build", cmd_build, needs_app=True)
     add("preview", cmd_preview, needs_app=True)
     add("upload", cmd_upload, needs_app=True)

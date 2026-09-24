@@ -2,7 +2,7 @@
 
 # Brain Index
 
-Auto-generated index of tracked `brain/*.md` — **69 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
+Auto-generated index of tracked `brain/*.md` — **70 files**. Each file's first H1 is its description. Local-only (gitignored) files are intentionally omitted.
 
 ## Core identity & governance
 - [AGENTIC_OS_REFERENCE.md](AGENTIC_OS_REFERENCE.md) — Agentic OS Reference
@@ -30,6 +30,7 @@ Auto-generated index of tracked `brain/*.md` — **69 files**. Each file's first
 
 ## Prompts & playbooks
 - [CLIENT_PLAYBOOK.md](CLIENT_PLAYBOOK.md) — OASIS WEBSITE APPOINTMENT-SETTING PLAYBOOK V5
+- [REVENUE_DAILY_PLAYBOOK.md](REVENUE_DAILY_PLAYBOOK.md) — OASIS AI — Revenue Daily Playbook
 - [WAVE3_OASIS_CC_RUNBOOK.md](WAVE3_OASIS_CC_RUNBOOK.md) — Wave 3 Runbook — OASIS Command Center → Cloudflare Workers
 
 ## Reference & architecture
@@ -48,7 +49,7 @@ Auto-generated index of tracked `brain/*.md` — **69 files**. Each file's first
 - [DASHBOARD.md](DASHBOARD.md) — Command Center
 - [DATA_LIFECYCLE.md](DATA_LIFECYCLE.md) — Data Lifecycle
 - [DATA_TAXONOMY.md](DATA_TAXONOMY.md) — Data Taxonomy
-- [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS Website Sales Engine V5
+- [DEAL_ARCHITECTURE.md](DEAL_ARCHITECTURE.md) — DEAL ARCHITECTURE — OASIS Website Sales Engine
 - [DNS_CUTOVER_AND_VERCEL_EXIT_CHECKLIST.md](DNS_CUTOVER_AND_VERCEL_EXIT_CHECKLIST.md) — DNS Cutover & Vercel Cancellation Checklist
 - [EMAIL_PIPELINE.md](EMAIL_PIPELINE.md) — Inbound Email Pipeline — Runbook
 - [EVENT_BUS_CONTRACT.md](EVENT_BUS_CONTRACT.md) — EVENT BUS CONTRACT — V6 BUILD 3

@@ -45,6 +45,7 @@ ensure_os_trust()
 
 import requests  # noqa: E402
 
+from lib.env_store import locked_update_text  # noqa: E402
 from lib.secret_loader import ENV_FILE, load_env  # noqa: E402
 from lib.structured_log import get_logger  # noqa: E402
 
@@ -128,20 +129,22 @@ def _write_env(pairs: dict[str, str]) -> list[str]:
     that is the entire point of doing the write here instead of printing the token
     and asking a human to paste it back.
     """
-    existing = ENV_FILE.read_text(encoding="utf-8").splitlines() if ENV_FILE.exists() else []
-    out: list[str] = []
-    replaced: set[str] = set()
-    for line in existing:
-        key = line.split("=", 1)[0].strip() if "=" in line else ""
-        if key in pairs:
-            out.append(f"{key}={pairs[key]}")
-            replaced.add(key)
-        else:
-            out.append(line)
-    for key, val in pairs.items():
-        if key not in replaced:
-            out.append(f"{key}={val}")
-    ENV_FILE.write_text("\n".join(out) + "\n", encoding="utf-8")
+    def merge(current: str) -> str:
+        out: list[str] = []
+        replaced: set[str] = set()
+        for line in current.splitlines():
+            key = line.split("=", 1)[0].strip() if "=" in line else ""
+            if key in pairs:
+                out.append(f"{key}={pairs[key]}")
+                replaced.add(key)
+            else:
+                out.append(line)
+        for key, val in pairs.items():
+            if key not in replaced:
+                out.append(f"{key}={val}")
+        return "\n".join(out) + "\n"
+
+    locked_update_text(ENV_FILE, merge)
     return sorted(pairs)
 
 

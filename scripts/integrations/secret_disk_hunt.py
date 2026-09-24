@@ -15,8 +15,8 @@ SAFETY CONTRACT — the reason an agent may run this at all:
     sources, so "two files hold different values for this key" is reportable
     without printing either.
   * `--apply` writes only into `# FILL <NS>__<KEY>=` placeholders that already
-    exist. It never invents a key, never overwrites a populated one, and takes
-    a timestamped backup first.
+    exist. It never invents a key, never overwrites a populated one, and uses
+    an atomic single-copy replacement.
   * Files are read, never modified, and nothing is copied anywhere.
 
     python scripts/integrations/secret_disk_hunt.py           # report only
@@ -26,10 +26,8 @@ SAFETY CONTRACT — the reason an agent may run this at all:
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
 import json
 import os
-import shutil
 import sys
 from pathlib import Path
 
@@ -322,26 +320,30 @@ def main() -> int:
         print("\nnothing to apply.")
         return 0
 
-    stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    shutil.copy2(ENV_FILE, ENV_FILE.with_name(f".env.agents.bak.{stamp}"))
-    text = ENV_FILE.read_text(encoding="utf-8")
     written = 0
-    for k, v in resolved.items():
-        if "\n" in v or "\r" in v:
-            continue
-        for _slug, src in want[k]:
-            marker = f"# FILL {src}="
-            if marker in text:
-                text = text.replace(marker, f"{src}=", 1)
-                text = text.replace(f"{src}=\n", f"{src}={v}\n", 1)
-                written += 1
-            else:
-                # No stub to fill — the key was added to a manifest but never
-                # written into the store. Create it in its app's group.
-                text = _insert_key(text, src, v)
-                written += 1
-    ENV_FILE.write_text(text, encoding="utf-8", newline="\n")
-    print(f"\nwrote {written} value(s) into the agents env store (backup: .env.agents.bak.{stamp})")
+
+    def fill_recovered(current: str) -> str:
+        nonlocal written
+        text = current
+        for key, value in resolved.items():
+            if "\n" in value or "\r" in value:
+                continue
+            for _slug, src in want[key]:
+                marker = f"# FILL {src}="
+                if marker in text:
+                    text = text.replace(marker, f"{src}=", 1)
+                    text = text.replace(f"{src}=\n", f"{src}={value}\n", 1)
+                    written += 1
+                elif src not in env_store.key_names(text):
+                    # No stub to fill — the key was added to a manifest but
+                    # never written into the store. Create it in its app group.
+                    # Re-check under the lock so a concurrent writer wins.
+                    text = _insert_key(text, src, value)
+                    written += 1
+        return text
+
+    env_store.locked_update_text(ENV_FILE, fill_recovered)
+    print(f"\nwrote {written} value(s) into the agents env store atomically")
     return 0
 
 

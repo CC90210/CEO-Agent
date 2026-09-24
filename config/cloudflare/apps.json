@@ -172,6 +172,7 @@
       "build_env": {
         "NODE_OPTIONS": "--max-old-space-size=4096 --use-system-ca"
       },
+      "deploy_command": "deploy --var DEPLOY_ENV:production --var DEPLOY_PLATFORM:cloudflare --var DEPLOY_SURFACE:oasis --var DEPLOY_GIT_REF:${{ github.ref_name }} --var DEPLOY_GIT_SHA:${{ github.sha }}",
       "note": "APEX-shared repo — coord_claim before editing; 28 crons; native-dep refactors gated on CC decisions. apply.sunbizfunding.com REMOVED 2026-09-07: it has no DNS record at all (NXDOMAIN), 0 personalized form links have ever been minted, and across 487 lead_interactions mentioning sunbizfunding.com it appears in ZERO — the live funding flow uses the apex and www, which resolve. Binding a hostname that does not exist would fail the Cloudflare cutover. Do not re-add without creating the CNAME first; the Vercel project still lists it (read-only tooling, operator removes it there)."
     },
     "oasis-store": {

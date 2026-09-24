@@ -19,7 +19,8 @@ SCRIPTS_STATE = SCRIPTS / "state"
 # Order matters: repo root first (so `bravo_cli`, `tests`, etc. resolve as
 # packages), then scripts/ + subdirs (so flat `event_bus.py`,
 # `state_manager.py`, `memory_retriever.py` imports resolve).
-for path in (ROOT, SCRIPTS, SCRIPTS_CORE, SCRIPTS_STATE):
+for path in reversed((ROOT, SCRIPTS, SCRIPTS_CORE, SCRIPTS_STATE)):
     s = str(path)
-    if s not in sys.path:
-        sys.path.insert(0, s)
+    if s in sys.path:
+        sys.path.remove(s)
+    sys.path.insert(0, s)
