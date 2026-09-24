@@ -204,6 +204,41 @@ def test_apply_uses_working_encrypted_gws_session_after_stale_env_tokens(
         assert value not in rendered
 
 
+def test_store_flag_persists_the_verified_bundle_to_the_env_store(tmp_path: Path) -> None:
+    # 2026-09-24: the fix reached Vercel only; production is the Cloudflare
+    # Worker, whose secrets come FROM the env store, so booking stayed down.
+    gws_bundle = calendar_env.CalendarCredentialBundle.from_mapping({
+        "GOOGLE_SYSTEM_CALENDAR_CLIENT_ID": "live-gws.apps.googleusercontent.com",
+        "GOOGLE_SYSTEM_CALENDAR_CLIENT_SECRET": "live-gws-secret",
+        "GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN": "live-gws-refresh",
+        "GOOGLE_SYSTEM_CALENDAR_ADDRESS": "calendar-owner@oasisai.work",
+        "GOOGLE_CALENDAR_ID": "primary",
+    })
+    env_file = tmp_path / ".env.agents"
+    env_file.write_text("UNRELATED_KEY=keep-me\nGOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN=stale\n", encoding="utf-8")
+    output = io.StringIO()
+
+    result = calendar_env.main(
+        ["--apply", "--store"],
+        env_loader=_legacy_mapping,
+        verifier=lambda bundle: None if bundle is gws_bundle else (_ for _ in ()).throw(
+            calendar_env.CredentialVerificationError("invalid_grant")),
+        deployer=lambda _bundle, _app_dir: None,
+        gws_loader=lambda _values: ("encrypted gws credential store", gws_bundle),
+        app_dir=tmp_path,
+        stdout=output,
+        storer=lambda bundle: calendar_env.store_bundle(bundle, env_file),
+    )
+
+    assert result == 0
+    stored = env_file.read_text(encoding="utf-8")
+    assert "UNRELATED_KEY=keep-me" in stored, "peer keys must survive"
+    assert "GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN=live-gws-refresh" in stored
+    assert "=stale" not in stored
+    assert "live-gws" not in output.getvalue(), "values never reach the output"
+    assert "secrets-push --app oasis-command-center" in output.getvalue()
+
+
 def test_gws_export_is_captured_unmasked_without_secret_output(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

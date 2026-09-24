@@ -421,7 +421,30 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="verify the bundle against Google, then write all five Production variables",
     )
+    parser.add_argument(
+        "--store",
+        action="store_true",
+        help=(
+            "with --apply: also write the verified five fields into the canonical env "
+            "store (.env.agents), the source `wrangler_tool.py secrets-push` deploys to "
+            "the Cloudflare Worker that actually serves oasisai.work"
+        ),
+    )
     return parser
+
+
+def store_bundle(bundle: CalendarCredentialBundle, env_file: Path | None = None) -> None:
+    """Persist the verified bundle into the canonical env store, values unseen.
+
+    Production (oasisai.work) is the Cloudflare Worker, whose secrets are pushed
+    FROM this store. On 2026-09-24 the verified credential was written to Vercel
+    only; the Worker kept the rejected one and booking stayed down. A credential
+    fixed anywhere but its source of truth is reverted by the next routine push.
+    """
+    from lib.env_store import update_env_values
+    from lib.secret_loader import ENV_FILE
+
+    update_env_values(env_file or ENV_FILE, dict(bundle.vercel_items()))
 
 
 def main(
@@ -439,6 +462,7 @@ def main(
     ) = None,
     app_dir: Path | None = None,
     stdout: TextIO | None = None,
+    storer: Callable[[CalendarCredentialBundle], None] | None = None,
 ) -> int:
     args = _parser().parse_args(argv)
     output = stdout or sys.stdout
@@ -518,6 +542,17 @@ def main(
         f"from {selected_source}.",
         file=output,
     )
+    if args.store:
+        try:
+            (storer or store_bundle)(selected_bundle)
+        except Exception as exc:  # noqa: BLE001 - reported, never swallowed
+            print(f"ERROR: could not write the env store ({type(exc).__name__})", file=output)
+            return 1
+        print(
+            "Wrote the same verified bundle to the canonical env store. Push it to the "
+            "Worker: python scripts/integrations/wrangler_tool.py secrets-push --app oasis-command-center",
+            file=output,
+        )
     return 0
 
 
