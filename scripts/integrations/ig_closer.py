@@ -204,9 +204,9 @@ class CloseResult:
 # failure path is catchable by a test rather than by an operator reading a
 # Telegram message about a step that does not exist.
 STAGES_OF_FAILURE: tuple[str, ...] = (
-    "precondition", "denied_domain", "calendar_unverified", "no_slots",
-    "meet_link_missing", "lead_bridge", "claim_lost", "calendar_create",
-    "email", "finalize", "notify", "unexpected",
+    "precondition", "denied_domain", "calendar_unverified", "slot_taken",
+    "no_slots", "meet_link_missing", "lead_bridge", "claim_lost",
+    "calendar_create", "email", "finalize", "notify", "unexpected",
 )
 
 # Prefixed onto the error a failed booking is PARKED with, whenever the calendar
@@ -466,6 +466,26 @@ def verify_calendar_readable(*, days: int = BOOKING_DAYS_HORIZON) -> bool:
     return bool(ok)
 
 
+def verify_slot_free(slot: Mapping[str, str]) -> tuple[bool, str]:
+    """(ok, reason) for a slot a CALLER chose: one fresh calendar read.
+
+    reason is "free", "calendar_unverified" (the read failed) or "slot_taken".
+    Before this, a caller's slot was never re-checked: the DM setter now offers
+    real slots and books the one the prospect picks, possibly hours after it was
+    read, and something else may have landed on it since. Reads far enough ahead
+    to cover the slot itself, not just the default horizon.
+    """
+    start = book_discovery_call._parse_iso_local(str(slot.get("start") or ""))
+    today = datetime.now(book_discovery_call.TZ).date()
+    days = max(BOOKING_DAYS_HORIZON, (start.date() - today).days + 1)
+    ok, busy = book_discovery_call.read_calendar(days)
+    if not ok:
+        return False, "calendar_unverified"
+    if not book_discovery_call.slot_is_free(str(slot.get("start") or ""), busy):
+        return False, "slot_taken"
+    return True, "free"
+
+
 def choose_slot(*, days: int = BOOKING_DAYS_HORIZON,
                 limit: int = 12) -> Optional[dict[str, str]]:
     """First bookable 30-minute window, or None.
@@ -654,7 +674,28 @@ def close(
 
         # ── 3. calendar must be provably readable ────────────────────────────
         step = "calendar_unverified"
-        if not verify_calendar_readable():
+        if slot:
+            # A caller's slot used to be booked without a second look. The DM
+            # setter (2026-09-24) now books the offered slot the prospect picked,
+            # which can be hours after the offer was read, so it is re-checked
+            # against a FRESH read. Pre-claim, like every failure above: writes
+            # nothing.
+            try:
+                book_discovery_call._parse_iso_local(str(slot.get("start") or ""))
+            except ValueError:
+                return _fail(row, "precondition",
+                             f"slot start {slot.get('start')!r} is not an ISO time")
+            slot_ok, why = verify_slot_free(slot)
+            if not slot_ok:
+                if why == "slot_taken":
+                    return _fail(row, "slot_taken",
+                                 f"{slot.get('label') or slot.get('start')} is no "
+                                 "longer free on the calendar", slot=slot)
+                return _fail(row, "calendar_unverified",
+                             "the calendar read failed, so the chosen slot cannot "
+                             "be confirmed free — refusing to book on an "
+                             "unverified calendar", slot=slot)
+        elif not verify_calendar_readable():
             return _fail(row, "calendar_unverified",
                          "busy_windows() returned nothing, which means the calendar "
                          "read failed or the week is implausibly empty — refusing to "

@@ -251,6 +251,7 @@ def _starfield_data_uri() -> str:
 # The brand this module speaks for itself. The generic BRAVO_* variables below
 # describe THIS brand's operator, so they may only fill in for this brand.
 from lib.tenant_brand import brand_for_mailbox  # noqa: E402
+from lib.booking_link import resolve_booking_url  # noqa: E402
 
 _OWN_BRAND = "oasis"
 
@@ -343,8 +344,13 @@ def _signature_block(brand: Optional[str] = None) -> str:
 
 def _booking_link() -> Optional[str]:
     """If set, included as a soft CTA below the body. Brand-agnostic;
-    the booking link itself is operator-level config."""
-    return os.environ.get("BOOKING_LINK") or None
+    the booking link itself is operator-level config.
+
+    Through the resolver (2026-09-24): a raw env read would append
+    "Book a call: <retired link>" to every branded send while the env still
+    held the schedule the command center deleted on 2026-09-09.
+    """
+    return resolve_booking_url() or None
 
 
 def _website(brand: Optional[str] = None) -> str:

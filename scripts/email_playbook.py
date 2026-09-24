@@ -27,12 +27,18 @@ from __future__ import annotations
 import re
 from typing import Optional
 
+from lib.booking_link import contains_retired_booking_url, resolve_booking_url
+
 # ── Identity ─────────────────────────────────────────────────────────────────
 
 OWNER_EMAILS = {"konamak@icloud.com", "conaugh@oasisai.work", "cc@oasisai.work"}
 OWNER_DOMAINS = {"oasisai.work"}
 
-BOOKING_LINK = "https://calendar.app.google/tpfvJYBGircnGu8G8"
+# No BOOKING_LINK constant (removed 2026-09-24). It held a calendar link the
+# command center retired on 2026-09-09; frozen at import, it outlived its
+# schedule by two weeks and a DM bot handed it to a real prospect. The link
+# is resolved at CALL time by lib.booking_link.resolve_booking_url(), which
+# answers "" when nothing usable is configured.
 SIGNATURE = "Conaugh McKenna\nOASIS AI Solutions\noasisai.work"
 
 # ── Sender triage ────────────────────────────────────────────────────────────
@@ -479,6 +485,23 @@ HARD_RULES = """HARD RULES — these override everything else:
 7. 3-6 sentences. Anything over 80 words needs a reason to exist."""
 
 
+NO_BOOKING_LINK_RULE = (
+    "There is no self-serve booking link. Never paste a calendar or booking URL. "
+    "To set up a call, ask for their email and a couple of times that suit them, "
+    "and say the invite will follow."
+)
+
+
+def _booking_line() -> str:
+    # Resolved per call, never cached: the 2026-09-24 DM incident was a dead link
+    # frozen into this prompt. No usable link -> say so, so the model cannot fall
+    # back on a URL it remembers from an older thread.
+    link = resolve_booking_url()
+    if not link:
+        return NO_BOOKING_LINK_RULE
+    return f"Booking link (the ONLY booking mechanism — never propose times yourself):\n{link}"
+
+
 def voice_rules() -> str:
     """The full copy ruleset for a reply drafted as CC."""
     return (
@@ -493,7 +516,7 @@ def voice_rules() -> str:
         "Never start two consecutive sentences with the same word.\n\n"
         + HARD_RULES + "\n\n"
         f"Sign off exactly:\n{SIGNATURE}\n\n"
-        f"Booking link (the ONLY booking mechanism — never propose times yourself):\n{BOOKING_LINK}"
+        + _booking_line()
     )
 
 
@@ -533,7 +556,12 @@ def lint_draft(body: str) -> list[str]:
     for phrase, pattern in _BANNED_PHRASE_RES:
         if pattern.search(b):
             out.append(f"banned phrase: {phrase}")
-    if b.count(BOOKING_LINK.lower()) > 1:
+    # A retired link is a dead page in front of a prospect (2026-09-24 DM
+    # incident): flagged wherever it appears, configured or not.
+    if contains_retired_booking_url(body):
+        out.append("contains a retired booking link")
+    link = resolve_booking_url()
+    if link and b.count(link.lower()) > 1:
         out.append("booking link appears more than once")
     if re.search(r"(?im)^\s*p\.?s\.?[:\s]", body or ""):
         out.append("contains a P.S. line")

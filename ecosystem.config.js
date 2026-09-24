@@ -226,11 +226,17 @@ if (IS_WIN) {
 // REFUSES to boot if it is armed; the poller's O_EXCL lock is the second guard.
 // Check with: python scripts/integrations/ig_dm_daemon.py --check-conflict
 //
-// KILL SWITCH: pm2 stop bravo-ig-dm   (the setter goes silent; nothing else does)
+// BOOKING ARMED (CC, 2026-09-24): `--book` lets the setter book the real slot a
+// prospect picks (calendar event + Google invite). Remove it to disarm.
+//
+// KILL SWITCH: python scripts/ops/fleet_watchdog.py stop bravo-ig-dm
+// (PM2 is retired; the watchdog supervises this entry. The setter goes silent;
+// nothing else does.)
 if (IS_WIN) {
     apps.push({
         name: "bravo-ig-dm",
         script: "scripts/integrations/ig_dm_daemon.py",
+        args: "--book",
         interpreter: PYTHONW,
         cwd: PROJECT_ROOT,
         watch: false,

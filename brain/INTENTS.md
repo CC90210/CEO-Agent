@@ -302,15 +302,19 @@ CC drops a URL, a paste, a file path, a research request, or any vague pointer l
 
 ## "Instagram DMs / the setter" (check it, tune it, never re-arm its cron)
 
-The setter is AUTONOMOUS: PM2 process `bravo-ig-dm` runs
-`scripts/integrations/ig_dm_daemon.py`, which polls Zernio, replies in CC's
-voice via the local Claude CLI, extracts lead facts, and hands warm/blocked
-threads to CC. There is no operator step in the reply loop.
+The setter is AUTONOMOUS: fleet daemon `bravo-ig-dm` (supervised by
+`scripts/ops/fleet_watchdog.py`; PM2 is retired, and even `pm2 ls` spawns a
+stray daemon) runs `scripts/integrations/ig_dm_daemon.py`, which polls Zernio,
+replies in CC's voice via the local Claude CLI, offers two REAL open slots read
+from CC's calendar, and books the one the prospect picks. There is no operator
+step in the reply loop.
 
-1. "Is it working?" → `pm2 logs bravo-ig-dm --lines 20 --nostream` (ticks log
-   only when work happened; silence between = healthy quiet inbox) and
+1. "Is it working?" → `state/logs/daemon-bravo-ig-dm.log` (ticks log only when
+   work happened; silence between = healthy quiet inbox; `no_slots=N` means the
+   calendar read failed and replies offered no times) and
    `python scripts/integrations/ig_dm_daemon.py --check-conflict`.
-2. "Pause it / resume it" → `pm2 stop bravo-ig-dm` / `pm2 start bravo-ig-dm`.
+2. "Pause it / resume it" → `python scripts/ops/fleet_watchdog.py stop bravo-ig-dm`
+   / `start bravo-ig-dm`.
    NEVER arm the `Instagram DM Closer` cron row — the daemon reads that row at
    boot and REFUSES TO START while it is armed (two live runners double-message
    prospects; shipped 2026-08-20). The row is a config anchor, nothing more.
@@ -318,8 +322,11 @@ threads to CC. There is no operator step in the reply loop.
    `instagram_dm_conversations` (stage, budgets, handoff_pending, last_error)
    before touching anything; a budget refusal or terminal stage is a decision,
    not a fault.
-4. Booking stays `--book` OFF until CC supervises one real `--apply` against
-   his own conversation and email.
+4. Booking is ARMED (`--book` in `ecosystem.config.js`, CC's call 2026-09-24):
+   a picked offered slot is re-checked against a fresh calendar read, booked as
+   a 30-min Google Meet, and the invite emailed. Disarm = remove `--book` from
+   the args, then `fleet_watchdog.py restart bravo-ig-dm`. Never put a booking
+   URL in a DM (see `scripts/lib/booking_link.py`).
 
 ## How to extend this file
 

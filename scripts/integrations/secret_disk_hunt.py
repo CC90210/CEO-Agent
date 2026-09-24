@@ -65,6 +65,7 @@ MAX_BYTES = 2_000_000
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from lib import env_store  # noqa: E402
+from lib.booking_link import is_retired_booking_url  # noqa: E402
 
 
 # Template files document the SHAPE of a key with a placeholder value. Treating
@@ -164,6 +165,8 @@ DERIVATIONS: dict[str, tuple[str, str, str]] = {
                                         "run_dashboard_script.py COMPAT_DEFAULTS — Supabase retired"),
     # The booking link is one URL for the business; BOOKING_LINK was recovered
     # from disk and NEXT_PUBLIC_ is the client-side copy of the same value.
+    # A RETIRED link is never aliased (see _derive): copying it is how the
+    # schedule deleted on 2026-09-09 would be "restored" into a second key.
     "NEXT_PUBLIC_BOOKING_URL": ("alias", "BOOKING_LINK",
                                 "client-side copy of the same booking URL"),
     # The app's own production origin, per Vercel's domain list for the project.
@@ -230,6 +233,10 @@ def _derive(loaded_get) -> dict[str, tuple[str, str]]:
             out[key] = (ref, why)
         else:
             v = (loaded_get(ref) or "").strip()
+            if v and is_retired_booking_url(v):
+                print(f"  REFUSED   {key}: {ref} holds a retired booking URL "
+                      f"(lib/booking_link.py), not copied")
+                continue
             if v:
                 out[key] = (v, f"{why} (from {ref})")
     return out
@@ -262,8 +269,15 @@ def main() -> int:
 
     # {KEY: {digest: (value, [files])}} — collision-aware without printing values
     found: dict[str, dict[str, tuple[str, list[str]]]] = {}
+    retired_seen: set[str] = set()
     for p in files:
         for k, v in _parse(p).items():
+            if k in want and is_retired_booking_url(v):
+                # 2026-09-24: env backups still hold the booking schedule the
+                # command center deleted on 2026-09-09. Recovering it would put
+                # a dead page back in front of prospects: never a candidate.
+                retired_seen.add(k)
+                continue
             if k in want:
                 d = _digest(v)
                 slot = found.setdefault(k, {})
@@ -273,6 +287,9 @@ def main() -> int:
                     slot[d] = (v, [str(p)])
 
     print(f"scanned {len(files)} env-shaped file(s) for {len(want)} outstanding key(s)\n")
+    for k in sorted(retired_seen):
+        print(f"  REFUSED   {k:42} retired booking URL on disk "
+              f"(lib/booking_link.py), never recovered")
     resolved, conflicted = {}, {}
     for k in sorted(want):
         slot = found.get(k)

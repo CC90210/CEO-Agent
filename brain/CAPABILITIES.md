@@ -566,7 +566,7 @@ Four entry files at the repo root — one per AI tooling surface. Every agent th
 | Vercel secret recovery (CLI path) | `scripts/integrations/vercel_env_pull_sync.py` | `vercel env pull` for a LINKED repo; pulls to the scratchpad, shreds after, prints key names + shape only. **Does NOT recover `sensitive`-type vars** — proven 2026-08-30 (all 26 OASIS CC vars EMPTY; a control project returned 17/18). Those need recovery-from-issuer or rotation: `brain/OASIS_CC_SECRET_FILL_GUIDE.md`. |
 | Ledger | `lead_interactions` table (+ migration 003: `cooldown_until`, `agent_source`, `metadata`) | Unified cross-engine action log. |
 | CASL | `scripts/casl_compliance.py` | Suppression + footer + RFC 2369/8058 headers. Composed by the gateway. |
-| Templates | `scripts/wire_all_templates.py` | Keeps OASIS Welcome / Value Add / CTA congruent across sessions. Verifies `https://oasisai.work` + `https://calendar.app.google/tpfvJYBGircnGu8G8`. |
+| Templates | `scripts/wire_all_templates.py` | Keeps OASIS Welcome / Value Add / CTA congruent across sessions. Verifies `https://oasisai.work` + a booking link; its hardcoded default is the old link, RETIRED 2026-09-09 (appointment schedule deleted); no self-serve booking link; the IG setter offers real calendar slots; resolver: scripts/lib/booking_link.py |
 
 Rewired engines (all route through gateway): `outreach_engine`, `email_engine`, `funnel_nurture`, `booking_engine`. `outreach_batch` was retired 2026-05-16 along with the cold-outreach Telegram-approval cron. See [[skills/send-gateway/SKILL]] for complete contract.
 

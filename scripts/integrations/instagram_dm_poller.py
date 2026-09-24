@@ -703,6 +703,8 @@ _SUMMARY_KEYS: tuple[tuple[str, str], ...] = (
     ("skipped_budget", "budget"),
     ("budget_exhausted", "exhausted"),
     ("skipped_red_flag", "red_flag"),
+    # The calendar could not be read, so replies went out offering no times.
+    ("slots_unavailable", "no_slots"),
     ("replied", "replied"),
     # The denominator that makes `replied` mean anything: replied=2 is healthy
     # against needed=2 and an incident against needed=9.
@@ -780,6 +782,54 @@ def _fetch_thread(key: str, conv_id: str, account_id: str) -> list[dict]:
     if str(payload.get("sortOrderApplied") or "").lower() == "desc":
         msgs = list(reversed(msgs))
     return msgs
+
+
+# ── real call slots (2026-09-24) ─────────────────────────────────────────────
+# The bot told a real prospect "I've got room Tuesday or Wednesday" and handed
+# over a dead booking link: it could not see the calendar, so it invented days.
+# decide() is now given the open slots read from the calendar, and may name
+# nothing else. Read at most ONCE per run (a tick answers a few prospects in a
+# few minutes; the calendar does not move meaningfully in between) and only when
+# a conversation that could be offered a call actually reaches the model.
+SLOT_STAGES = frozenset({"new", "engaged", "qualified", "booking"})
+_RUN_SLOTS: Optional[tuple[dict[str, str], ...]] = None
+
+
+def _offered_slots() -> tuple[dict[str, str], ...]:
+    """The seam: real open slots from Conaugh's calendar. Raises when the read
+    failed, so the one caller below has a single failure path to count."""
+    import book_discovery_call  # noqa: PLC0415 — only a model turn pays for this import
+
+    # One retry. A single google_tool read fails transiently on this box (seen
+    # 2026-09-24 between two ~3s successes), and a failed read costs the
+    # prospect every concrete time for the whole run.
+    for _attempt in range(2):
+        ok, slots = book_discovery_call.offer_slots()
+        if ok:
+            return tuple(slots)
+    raise RuntimeError("calendar read failed twice; offering no call slots this run")
+
+
+def _slots_for_turn(stage: str, bump) -> tuple[dict[str, str], ...]:
+    """The run's offered slots for a conversation at `stage`. FAILS CLOSED.
+
+    Any failure is printed with its traceback, counted as slots_unavailable,
+    and becomes () for the rest of the run: the reply then names no time at all
+    (the brain rejects any it tries), which is the honest answer, and the tick
+    carries on answering everyone else.
+    """
+    global _RUN_SLOTS
+    if stage not in SLOT_STAGES:
+        return ()
+    if _RUN_SLOTS is None:
+        try:
+            _RUN_SLOTS = tuple(_offered_slots())
+        except Exception as exc:  # noqa: BLE001 — traced and counted, never swallowed
+            traceback.print_exc()
+            print(f"  [error] no call slots this run: {exc}", file=sys.stderr)
+            bump("slots_unavailable")
+            _RUN_SLOTS = ()
+    return _RUN_SLOTS
 
 
 def _display_name(conv: dict, handle: str) -> str:
@@ -883,6 +933,8 @@ def _accumulate(target: dict, delta: dict) -> None:
 
 
 def _poll(args) -> int:
+    global _RUN_SLOTS
+    _RUN_SLOTS = None  # one calendar read per run, never carried into the next
     brain = _sibling("ig_conversation_brain")
     state = _sibling("ig_dm_state")
     closer = _sibling("ig_closer") if args.book else None
@@ -901,7 +953,7 @@ def _poll(args) -> int:
         "leads_created": 0, "bookings_attempted": 0, "bookings_applied": 0,
         "handoffs": 0, "skipped_paused": 0, "skipped_our_turn": 0,
         "skipped_no_messages": 0, "skipped_seen": 0, "skipped_unchanged": 0,
-        "skipped_budget": 0, "skipped_red_flag": 0,
+        "skipped_budget": 0, "skipped_red_flag": 0, "slots_unavailable": 0,
         "failures_model": 0, "failures_guardrail": 0, "budget_exhausted": 0,
         "errors": 0, "live": bool(args.live), "book_armed": bool(args.book),
     }
@@ -1559,6 +1611,10 @@ def _answer_conversation(*, candidate: _Candidate, key, db, brain, state, closer
     # scrolled out of the window above. Without it a prospect who comes back
     # after a week is re-qualified from zero.
     carried_memory = brain.LeadMemory.from_row(row)
+    # Read BEFORE the timeout below is sized: the calendar read is a google_tool
+    # subprocess, and time it spends must come out of the model's share of the
+    # run, not be added on top of it.
+    offered = _slots_for_turn(stage, bump)
     # The timeout is derived from what is LEFT of the run, not left on the
     # brain's 90s default: decide() may spend two subprocesses, so an unbounded
     # default made the true worst case 55 + 2x90 = 235s against a 60-second tick.
@@ -1576,6 +1632,10 @@ def _answer_conversation(*, candidate: _Candidate, key, db, brain, state, closer
         replies_left_today=max(
             0, state.DAILY_REPLY_CAP_PER_CONVERSATION - replies_today),
         timeout=model_timeout,
+        offered_slots=offered,
+        # Tells the model whether a book turn books the slot itself or hands it
+        # to Conaugh, so the copy never claims an invite nobody is sending.
+        booking_armed=bool(args.book),
     )
     bump("model_calls")
 
@@ -1846,28 +1906,78 @@ def _answer_conversation(*, candidate: _Candidate, key, db, brain, state, closer
         _run_close(
             db=db, row=row, decision=decision, state=state, closer=closer,
             handle=handle, conv_id=conv_id, args=args, bump=bump,
+            offered_slots=offered,
         )
     return delta
 
 
-def _run_close(*, db, row, decision, state, closer, handle, conv_id, args, bump) -> None:
+def _picked_slot(decision, offered_slots) -> Optional[dict[str, str]]:
+    """The offered slot dict a book decision named, or None."""
+    wanted = str(getattr(decision, "slot", None) or "")
+    return next((dict(s) for s in offered_slots or ()
+                 if wanted and str(s.get("start") or "")[:16] == wanted), None)
+
+
+def _book_command(conv_id: str, slot: dict[str, str]) -> str:
+    """The one line CC runs to book an unarmed pick.
+
+    The handoff in _run_close parks the row at handed_off + paused, which
+    close() refuses by design (CLOSEABLE_STAGES), so the line puts it back at
+    booking first. close() then re-reads the calendar and refuses a slot that
+    was taken since the offer.
+    """
+    return (f"python scripts/integrations/ig_dm_state.py resume --conversation-id "
+            f"{conv_id} --stage booking && python scripts/integrations/ig_closer.py "
+            f'close --conversation-id {conv_id} --start "{slot["start"][:16]}" --apply')
+
+
+def _run_close(*, db, row, decision, state, closer, handle, conv_id, args, bump,
+               offered_slots=()) -> None:
     """Booking is armed only by --book. Without it the request becomes a handoff.
 
     The operator has not authorised autonomous booking of real meetings, and
     book(apply=True) mails a stranger a Google invite — the first irreversible
     outward effect in the whole pipeline.
+
+    Either way the slot is the one the prospect PICKED from the offer (the brain
+    guarantees decision.slot is an offered id), never a fresh "next free" slot:
+    the DM already told them which time they are getting.
     """
+    picked = _picked_slot(decision, offered_slots)
     if not args.book or closer is None:
         state.request_handoff(db, str(row["id"]), reason="book_requested_unarmed")
         bump("handoffs")
+        if picked:
+            # They were told Conaugh sends the invite; this is the ask. Agent-
+            # authored only: the label and the id are ours, and the prospect's
+            # address is deliberately not repeated here.
+            what = (f"picked {_notify_safe(picked.get('label'), 40)} ET and was told "
+                    f"Conaugh will send the invite. Book it: "
+                    f"{_book_command(conv_id, picked)}")
+        else:
+            what = "is ready to book, but no offered slot could be matched"
         _notify(
-            f"Handoff: @{handle} needs you. Reason: ready to book, but the poller "
-            f"is not armed for booking (--book off). Stage: {row.get('stage')}. "
-            f"Conversation {conv_id}.",
+            f"Handoff: @{_notify_safe(handle, 64)} {what}. The poller is not armed "
+            f"for booking (--book off). Conversation {conv_id}.",
             conv_id=conv_id, event="handoff",
                     live=args.live,
         )
         print(f"  @{handle}: ready to book — poller unarmed, handed to CC")
+        return
+
+    if picked is None:
+        # Unreachable while the brain's Gate E holds. Never book a time the
+        # prospect was not shown.
+        state.request_handoff(db, str(row["id"]), reason="book_slot_unresolved")
+        bump("handoffs")
+        _notify(
+            f"Handoff: @{_notify_safe(handle, 64)} needs you. Reason: a booking "
+            f"named no offered slot, so nothing was booked. Stage: {row.get('stage')}. "
+            f"Conversation {conv_id}.",
+            conv_id=conv_id, event="handoff", live=args.live,
+        )
+        print(f"  [error] @{handle}: book decision named no offered slot — handed to CC",
+              file=sys.stderr)
         return
 
     if not decision.extracted.email:
@@ -1884,7 +1994,8 @@ def _run_close(*, db, row, decision, state, closer, handle, conv_id, args, bump)
         return
 
     bump("bookings_attempted")
-    result = closer.close(db, row, extracted=decision.extracted, apply=True)
+    result = closer.close(db, row, extracted=decision.extracted, apply=True,
+                          slot=picked)
     if result.applied:
         bump("bookings_applied")
         print(f"  @{handle}: BOOKED {result.slot_label} "

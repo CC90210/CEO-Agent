@@ -264,6 +264,8 @@ def no_live_side_effects(monkeypatch):
     # verify_calendar_readable shells out to google_tool.
     monkeypatch.setattr(ig_closer, "resolve_meet_link", lambda: MEET_LINK)
     monkeypatch.setattr(ig_closer, "verify_calendar_readable", lambda **k: True)
+    # A caller-chosen slot is re-read against the calendar before the claim.
+    monkeypatch.setattr(ig_closer, "verify_slot_free", lambda slot: (True, "free"))
     monkeypatch.setattr(ig_closer, "choose_slot", lambda **k: dict(SLOT))
 
 
@@ -1731,3 +1733,223 @@ def test_a_booking_without_an_event_id_stores_null_not_a_fake_one(db, db_path,
 
     assert result.ok is True
     assert committed_row(db_path, result.row_id)["booked_event_id"] is None
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 10. REAL SLOTS: OFFERED FROM ONE READ, RE-READ BEFORE THEY ARE BOOKED
+# ════════════════════════════════════════════════════════════════════════════
+#
+# 2026-09-24: the DM setter told a prospect "I've got room Tuesday or Wednesday"
+# with no calendar in sight. It now offers slots from offer_slots() and books the
+# one the prospect picks through close(slot=...). Two properties carry that:
+# the offer FAILS CLOSED on an unread calendar (free_slots fails open), and a
+# caller's slot is re-checked against a fresh read, because hours can pass
+# between the offer and the pick.
+
+from datetime import datetime, timedelta  # noqa: E402
+
+REAL_VERIFY_SLOT_FREE = ig_closer.verify_slot_free
+TZ = book_discovery_call.TZ
+
+
+def _at(day: int, hour: int, minute: int = 0, month: int = 9) -> datetime:
+    return datetime(2026, month, day, hour, minute, tzinfo=TZ)
+
+
+def _legacy_free_slots(busy, now, days, limit):
+    """free_slots() exactly as it was before free_slots_from was extracted,
+    copied verbatim apart from `now` arriving as an argument. The reference the
+    refactor is held to."""
+    earliest = now + timedelta(hours=book_discovery_call.LEAD_TIME_HOURS)
+    out = []
+    for d in range(days + 1):
+        day = (now + timedelta(days=d)).replace(
+            hour=book_discovery_call.WORK_START_H, minute=0, second=0, microsecond=0)
+        if day.weekday() >= 5:
+            continue
+        cursor = day
+        end_of_day = day.replace(hour=book_discovery_call.WORK_END_H)
+        while cursor + timedelta(minutes=book_discovery_call.CALL_MINUTES) <= end_of_day:
+            slot_end = cursor + timedelta(minutes=book_discovery_call.CALL_MINUTES)
+            if cursor < earliest:
+                cursor += timedelta(minutes=book_discovery_call.CALL_MINUTES)
+                continue
+            pad = timedelta(minutes=book_discovery_call.BUFFER_MINUTES)
+            clash = any(not (slot_end + pad <= b0 or cursor - pad >= b1)
+                        for b0, b1 in busy)
+            if not clash:
+                out.append({
+                    "start": cursor.isoformat(timespec="minutes"),
+                    "end": slot_end.isoformat(timespec="minutes"),
+                    "label": cursor.strftime("%a %d %b, %-I:%M %p")
+                    if sys.platform != "win32"
+                    else cursor.strftime("%a %d %b, %I:%M %p").replace(" 0", " "),
+                })
+                if len(out) >= limit:
+                    return out
+            cursor += timedelta(minutes=book_discovery_call.CALL_MINUTES)
+    return out
+
+
+# Tue 1 Sep 08:00: the 12h lead time rules out Tuesday, Wed 2 has a 10:00-11:00
+# meeting, Thu 3 is an all-day entry, Fri 4 is busy from 13:00.
+SPREAD_NOW = _at(1, 8)
+SPREAD_BUSY = [
+    (_at(2, 10), _at(2, 11)),
+    (_at(3, 0), _at(3, 23, 59)),
+    (_at(4, 13), _at(4, 17)),
+]
+
+
+@pytest.mark.parametrize("busy,now,days,limit", [
+    (SPREAD_BUSY, SPREAD_NOW, 8, 200),
+    (SPREAD_BUSY, SPREAD_NOW, 3, 5),
+    ([], _at(4, 16, 45), 5, 12),          # a Friday afternoon, over a weekend
+    ([(_at(8, 9), _at(8, 17))], _at(7, 21, 10), 2, 40),
+])
+def test_free_slots_from_is_the_old_free_slots(busy, now, days, limit):
+    """IDENTICAL behaviour, not "close": weekdays, 9-17, 30-minute calls, 15-min
+    buffers, 12h lead time, :00/:30 steps, the same labels, the same cap."""
+    assert (book_discovery_call.free_slots_from(busy, days=days, limit=limit, now=now)
+            == _legacy_free_slots(busy, now, days, limit))
+
+
+def test_free_slots_is_the_read_plus_free_slots_from(monkeypatch):
+    """The wrapper still reads busy_windows off the module (so the autouse Boom
+    and the REAL_BUSY patch keep working) and hands it on unchanged."""
+    monkeypatch.setattr(book_discovery_call, "_run", _calendar_reader())
+    monkeypatch.setattr(book_discovery_call, "busy_windows", REAL_BUSY)
+    _freeze_calendar_clock(monkeypatch)
+
+    via_wrapper = REAL_FREE_SLOTS(days=3, limit=40)
+    direct = book_discovery_call.free_slots_from(REAL_BUSY(3), days=3, limit=40)
+    assert via_wrapper and via_wrapper == direct
+
+
+def test_offer_slots_fails_closed_on_an_unread_calendar(monkeypatch):
+    """free_slots() answers a failed read with every working hour. Offering a
+    stranger those is the incident all over again."""
+    reads: list[int] = []
+    monkeypatch.setattr(book_discovery_call, "read_calendar",
+                        lambda days: reads.append(days) or (False, []))
+
+    assert book_discovery_call.offer_slots(now=SPREAD_NOW) == (False, [])
+    assert reads == [book_discovery_call.OFFER_DAYS_HORIZON], "exactly one read"
+
+
+def test_offer_slots_spreads_the_offer_across_days(monkeypatch):
+    reads: list[int] = []
+    monkeypatch.setattr(book_discovery_call, "read_calendar",
+                        lambda days: reads.append(days) or (True, list(SPREAD_BUSY)))
+
+    ok, slots = book_discovery_call.offer_slots(now=SPREAD_NOW)
+
+    assert ok is True and len(reads) == 1
+    assert [s["start"][:16] for s in slots] == [
+        # Wed 2: the first free slot at/after 10:00 is 11:30 (the meeting plus
+        # its buffer), and 14:00.
+        "2026-09-02T11:30", "2026-09-02T14:00",
+        # Thu 3 is blocked all day. Fri 4 has nothing at/after 14:00, so the
+        # afternoon pick falls back to the earliest remaining slot.
+        "2026-09-04T09:00", "2026-09-04T10:00",
+        "2026-09-07T10:00", "2026-09-07T14:00",
+        "2026-09-08T10:00", "2026-09-08T14:00",
+    ]
+    assert slots[0]["label"].startswith("Wed") and "11:30 AM" in slots[0]["label"]
+    assert all(set(s) == {"start", "end", "label"} for s in slots)
+
+
+def test_offer_slots_is_deterministic_and_honours_its_caps(monkeypatch):
+    monkeypatch.setattr(book_discovery_call, "read_calendar",
+                        lambda days: (True, list(SPREAD_BUSY)))
+
+    first = book_discovery_call.offer_slots(now=SPREAD_NOW)
+    assert first == book_discovery_call.offer_slots(now=SPREAD_NOW)
+
+    _, one_a_day = book_discovery_call.offer_slots(now=SPREAD_NOW, per_day=1, limit=3)
+    assert [s["start"][:16] for s in one_a_day] == [
+        "2026-09-02T11:30", "2026-09-04T10:00", "2026-09-07T10:00"]
+
+
+def test_slot_is_free_applies_the_same_clash_rule():
+    busy = [(_at(2, 10), _at(2, 11))]
+    now = SPREAD_NOW
+    assert book_discovery_call.slot_is_free("2026-09-02T14:00", busy, now=now) is True
+    # Inside the meeting, and inside its 15-minute buffer on either side.
+    assert book_discovery_call.slot_is_free("2026-09-02T10:30", busy, now=now) is False
+    assert book_discovery_call.slot_is_free("2026-09-02T09:30", busy, now=now) is False
+    assert book_discovery_call.slot_is_free("2026-09-02T11:00", busy, now=now) is False
+    assert book_discovery_call.slot_is_free("2026-09-02T11:30-04:00", busy, now=now) is True
+    # Already started: never bookable.
+    assert book_discovery_call.slot_is_free("2026-09-01T07:30", [], now=now) is False
+
+
+def test_verify_slot_free_reads_once_and_answers_three_ways(monkeypatch):
+    start = (datetime.now(TZ) + timedelta(days=3)).replace(
+        hour=10, minute=0, second=0, microsecond=0)
+    slot = {"start": start.isoformat(timespec="minutes"), "end": "", "label": "x"}
+    answers: list = []
+    reads: list[int] = []
+
+    def _read(days):
+        reads.append(days)
+        return answers[0]
+
+    monkeypatch.setattr(book_discovery_call, "read_calendar", _read)
+
+    answers[:] = [(False, [])]
+    assert REAL_VERIFY_SLOT_FREE(slot) == (False, "calendar_unverified")
+    answers[:] = [(True, [(start - timedelta(minutes=10), start + timedelta(minutes=20))])]
+    assert REAL_VERIFY_SLOT_FREE(slot) == (False, "slot_taken")
+    answers[:] = [(True, [])]
+    assert REAL_VERIFY_SLOT_FREE(slot) == (True, "free")
+    assert len(reads) == 3, "one fresh read per check"
+    assert all(d >= 4 for d in reads), "the read must reach the slot's own day"
+
+    far = dict(slot, start=(start + timedelta(days=20)).isoformat(timespec="minutes"))
+    REAL_VERIFY_SLOT_FREE(far)
+    assert reads[-1] >= 24, "a slot beyond the default horizon was checked blind"
+
+
+def test_a_caller_slot_is_rechecked_with_one_fresh_read(db, monkeypatch):
+    """Before 2026-09-24 a caller's slot was booked without a second look."""
+    seen: list[dict] = []
+    monkeypatch.setattr(ig_closer, "verify_slot_free",
+                        lambda s: seen.append(dict(s)) or (True, "free"))
+    readable = Calls(True)
+    monkeypatch.setattr(ig_closer, "verify_calendar_readable", readable)
+    choose = Calls(dict(SLOT))
+    monkeypatch.setattr(ig_closer, "choose_slot", choose)
+    other = dict(SLOT, start="2026-09-02T14:00-04:00", end="2026-09-02T14:30-04:00",
+                 label="Wed 2 Sep, 2:00 PM")
+
+    result = close(db, make_row(db), slot=other)
+
+    assert result.ok is True and result.slot_start == other["start"]
+    assert seen == [other]
+    assert readable.n == 0, "a caller slot gets ONE read, through verify_slot_free"
+    assert choose.n == 0, "the prospect's pick must never be swapped for another slot"
+
+
+@pytest.mark.parametrize("verdict,expected", [
+    ("slot_taken", "slot_taken"),
+    ("calendar_unverified", "calendar_unverified"),
+])
+def test_a_caller_slot_that_cannot_be_confirmed_is_refused_before_the_claim(
+        db, db_path, monkeypatch, verdict, expected):
+    book = Calls(calendar_ok())
+    send = Calls(sent_ok())
+    notifier = Notifier()
+    monkeypatch.setattr(book_discovery_call, "book", book)
+    monkeypatch.setattr(send_gateway, "send", send)
+    monkeypatch.setattr(ig_closer, "verify_slot_free", lambda s: (False, verdict))
+    row = make_row(db)
+    before = committed_row(db_path, row["id"])
+
+    result = close(db, row, apply=True, slot=dict(SLOT), notifier=notifier)
+
+    assert (result.ok, result.stage_of_failure) == (False, expected)
+    assert result.stage_of_failure in ig_closer.STAGES_OF_FAILURE
+    assert book.n == 0 and send.n == 0 and notifier.n == 0
+    assert committed_row(db_path, row["id"]) == before, "a pre-claim failure wrote"
+    assert committed_leads(db_path) == [], "a pre-claim failure bridged a lead"

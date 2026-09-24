@@ -325,20 +325,46 @@ class TestDraftObeysPlaybook(unittest.TestCase):
         self.assertTrue(d["ship"])
         self.assertEqual(d["lint"], [])
 
-    def test_playbook_rules_reach_the_model(self):
+    def _system_prompt_with_booking_link(self, link):
+        """The drafter's system prompt with BOOKING_LINK = `link` (None = unset)
+        and no env-file fallback, so this machine's env store cannot leak in."""
+        import os
+        from unittest import mock
+
         from email_brain import draft_reply_via_cli
-        from email_playbook import BOOKING_LINK
+        from lib import booking_link
         seen = {}
 
         def runner(prompt, system=None, model="sonnet", timeout=90):
             seen["system"] = system or ""
             return '{"subject":"Re","body":"ok"}'
 
-        draft_reply_via_cli(_email(), "business_opportunity", runner=runner,
-                            critic=lambda s, b: {"verdict": "ship"})
-        self.assertIn(BOOKING_LINK, seen["system"])
-        self.assertIn("NEVER quote a price", seen["system"])
-        self.assertIn("OASIS AI Solutions", seen["system"])
+        env = {k: v for k, v in os.environ.items()
+               if k not in booking_link.BOOKING_URL_ENV_KEYS}
+        if link is not None:
+            env["BOOKING_LINK"] = link
+        with mock.patch.dict(os.environ, env, clear=True), \
+                mock.patch.object(booking_link, "_env_file_values", return_value={}):
+            draft_reply_via_cli(_email(), "business_opportunity", runner=runner,
+                                critic=lambda s, b: {"verdict": "ship"})
+        return seen["system"]
+
+    def test_playbook_rules_reach_the_model(self):
+        good = "https://cal.example.com/oasis/30min"
+        system = self._system_prompt_with_booking_link(good)
+        self.assertIn(good, system)
+        self.assertIn("NEVER quote a price", system)
+        self.assertIn("OASIS AI Solutions", system)
+
+    def test_retired_or_missing_link_never_reaches_the_model(self):
+        # 2026-09-24: the retired schedule was the "ONLY booking mechanism" in
+        # this prompt. Dead or absent, the model is told there is no link.
+        for link in ("https://calendar.app.google/tpfvJYBGircnGu8G8", None):
+            with self.subTest(link=link):
+                system = self._system_prompt_with_booking_link(link)
+                self.assertNotIn("calendar.app.google", system.lower())
+                self.assertIn("There is no self-serve booking link.", system)
+                self.assertIn("NEVER quote a price", system)
 
 
 class TestTaggedAlerts(unittest.TestCase):

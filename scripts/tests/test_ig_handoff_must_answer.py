@@ -67,6 +67,7 @@ def _payload(*, action: str, stage: str, reply, handoff_reason=None) -> str:
                    ("budget", "objections", "pitched", "summary")},
         "handoff_reason": handoff_reason,
         "confidence": 0.7,
+        "slot": None,
     })
 
 
