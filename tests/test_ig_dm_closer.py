@@ -4145,6 +4145,34 @@ def test_a_time_rejection_retry_names_the_real_slots_and_says_drop_the_ask():
     assert "Fri 25 Sep, 9:00 AM ET | Mon 28 Sep, 2:00 PM ET" in retry_prompt
 
 
+def test_the_day_after_tomorrow_is_not_tomorrow(monkeypatch):
+    """Tomorrow (Fri 25) 9:00 is offered; the day after (Sat 26) is not."""
+    monkeypatch.setattr(brain, "_now",
+                        lambda: datetime(2026, 9, 24, 16, 0, tzinfo=timezone.utc))
+    assert not has(_vs("tomorrow at 9am?"), "names_unoffered_time")
+    assert has(_vs("the day after tomorrow at 9am?"), "names_unoffered_time")
+
+
+@pytest.mark.parametrize("current,model_stage", [
+    ("engaged", "engaged"), ("qualified", "qualified"), ("booking", "engaged"),
+])
+def test_a_book_turn_always_lands_at_booking(current, model_stage):
+    """Independent review 2026-09-24: "book" with stage "engaged" was accepted,
+    the DM promised the time, and the closer then refused the row because
+    engaged is not a CLOSEABLE_STAGE."""
+    raw = json.loads(decision_json(stage=model_stage, action="book",
+                                   reply="Locked, Fri 25 Sep, 9:00 AM ET. Conaugh will send "
+                                         "the invite to that email.",
+                                   extracted=_email()))
+    raw["slot"] = "2026-09-25T09:00"
+    d = brain.decide(inbound_turns(PICKED_WITH_EMAIL), current_stage=current,
+                     participant_display_name="P", runner=Runner(json.dumps(raw)),
+                     offered_slots=OFFER)
+    assert d.ok and d.action == "book" and d.stage == "booking", d
+    if model_stage != "booking":
+        assert f"stage_coerced:{model_stage}->booking" in d.violations
+
+
 def test_offered_dates_and_ordinary_numbers_pass():
     assert _vs("Sep 25 or Sep 28?") == []
     assert _vs("25 septembre ou 28 septembre?") == []
