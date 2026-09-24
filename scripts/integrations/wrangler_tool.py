@@ -986,6 +986,23 @@ def cmd_tail(registry: dict, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_deployments(registry: dict, args: argparse.Namespace) -> int:
+    """What is LIVE on the Worker right now: `wrangler deployments list`.
+
+    Added 2026-09-24. An agent took `vercel inspect` + "Aliased oasisai.work" as
+    proof of what production ran, redeployed Vercel to fix a credential, and
+    changed nothing — oasisai.work is this Worker (`x-opennext: 1`). The Worker's
+    own deployment history (who, when, code vs "Secret Change") is the answer to
+    "what is live", and it should be one command, not a scratch script.
+    """
+    app = _app(registry, args.app)
+    cmd = [_npx(), "wrangler", "deployments", "list", "--name", app["worker_name"]]
+    res = _run(cmd, cwd=app["path"], env=_wrangler_env(registry), capture=True, timeout=180)
+    out = (res.stdout or "") + (res.stderr or "")
+    print("\n".join(out.splitlines()[-args.lines:]) or "(no output)")
+    return res.returncode
+
+
 # ---------------------------------------------------------------- main
 
 def main() -> int:
@@ -1037,6 +1054,8 @@ def main() -> int:
            "--skip-secrets": {"action": "store_true", "dest": "skip_secrets"}})
     add("tail", cmd_tail, needs_app=True,
         **{"--seconds": {"type": float, "default": 120.0, "dest": "seconds"}})
+    add("deployments", cmd_deployments, needs_app=True,
+        **{"--lines": {"type": int, "default": 40, "dest": "lines"}})
     add("workflow", cmd_workflow, needs_app=True)
     add("scaffold", cmd_scaffold, needs_app=True,
         **{"--force": {"action": "store_true", "dest": "force"}})
