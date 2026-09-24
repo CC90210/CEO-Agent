@@ -254,13 +254,42 @@ def _registry() -> dict:
     return json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
 
 
+# build/deploy --dir: ship COMMITTED work from a clean git worktree while the
+# registered checkout holds someone's in-progress edits (a shared repo, several
+# agents). Only a worktree of the SAME repository is accepted, so an arbitrary
+# folder can never be deployed as the app.
+_DIR_OVERRIDE: dict[str, Path] = {}
+
+
+def _git_common_dir(path: Path) -> Path | None:
+    proc = safe_run(
+        ["git", "-C", str(path), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        capture_output=True, text=True,
+    )
+    return Path(proc.stdout.strip()).resolve() if proc.returncode == 0 and proc.stdout.strip() else None
+
+
+def _set_dir_override(registry: dict, slug: str, override: str | None) -> None:
+    if not override:
+        return
+    registered = Path(_app(registry, slug)["dir"])
+    candidate = Path(override).resolve()
+    want, got = _git_common_dir(registered), _git_common_dir(candidate)
+    if not want or got != want:
+        raise RuntimeError(f"--dir {candidate} is not a git worktree of {registered}")
+    _DIR_OVERRIDE[slug] = candidate
+    head = safe_run(["git", "-C", str(candidate), "rev-parse", "--short", "HEAD"],
+                    capture_output=True, text=True).stdout.strip()
+    print(f"[target] building from worktree {candidate} @ {head}")
+
+
 def _app(registry: dict, slug: str) -> dict:
     apps = registry.get("apps") or {}
     if slug not in apps:
         raise RuntimeError(f"app '{slug}' not in registry ({', '.join(sorted(apps))})")
     app = dict(apps[slug])
     app["slug"] = slug
-    app_dir = Path(app["dir"])
+    app_dir = _DIR_OVERRIDE.get(slug) or Path(app["dir"])
     if not app_dir.exists():
         raise RuntimeError(f"app dir not found: {app_dir}")
     app["path"] = app_dir
@@ -743,6 +772,7 @@ def _opennext(registry: dict, slug: str, verb: str, capture: bool = True) -> int
 
 
 def cmd_build(registry: dict, args: argparse.Namespace) -> int:
+    _set_dir_override(registry, args.app, getattr(args, "dir", None))
     return _opennext(registry, args.app, "build")
 
 
@@ -763,6 +793,7 @@ def cmd_deploy(registry: dict, args: argparse.Namespace) -> int:
     window where the fresh worker lacks secrets serves zero traffic — nothing
     routes to a brand-new workers.dev URL."""
     slug = args.app
+    _set_dir_override(registry, slug, getattr(args, "dir", None))
     # Name the destination on every deploy. An account switch that is invisible
     # is an account switch that gets reported as having happened when it did not.
     print(f"[target] account={_account_id(registry, _secrets())} app={slug}")
@@ -1046,12 +1077,14 @@ def main() -> int:
            "--key": {"default": ""},
            "--file": {"default": None},
            "--content-type": {"default": None, "dest": "content_type"}})
-    add("build", cmd_build, needs_app=True)
+    dir_flag = {"--dir": {"default": None, "help": "build from this git worktree of the app's repo"}}
+    add("build", cmd_build, needs_app=True, **dir_flag)
     add("preview", cmd_preview, needs_app=True)
     add("upload", cmd_upload, needs_app=True)
     add("deploy", cmd_deploy, needs_app=True,
         **{"--skip-build": {"action": "store_true", "dest": "skip_build"},
-           "--skip-secrets": {"action": "store_true", "dest": "skip_secrets"}})
+           "--skip-secrets": {"action": "store_true", "dest": "skip_secrets"},
+           **dir_flag})
     add("tail", cmd_tail, needs_app=True,
         **{"--seconds": {"type": float, "default": 120.0, "dest": "seconds"}})
     add("deployments", cmd_deployments, needs_app=True,
