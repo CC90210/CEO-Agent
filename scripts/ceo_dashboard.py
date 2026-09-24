@@ -29,13 +29,15 @@ from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 # 0xC0000008 STATUS_INVALID_HANDLE startup death that made CC's brief render
 # "Client health: unavailable" reaches this depth too.
 from lib.subprocess_helpers import safe_run  # noqa: E402
+from lib.revenue_goal import describe as describe_goal  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-MRR_GOAL_USD = 10000.0
-MRR_TARGET_DATE = datetime.date(2026, 9, 30)  # North Star per CLAUDE.md WHY section ($5K achieved 2026-06-20 — BreezeAdvance deal; target reset to $10K)
+# The company goal is NOT a constant here. It is the active row in the
+# Command Center's revenue_goals table (lib/revenue_goal.py) — a revenue-
+# collected sprint, not an MRR target. MRR is reported on its own.
 STRIPE_API = "https://api.stripe.com/v1"
 STRIPE_VERSION = "2025-01-27.acacia"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -325,9 +327,12 @@ def _content_this_week() -> tuple[dict[str, int], Optional[str]]:
 # Memory file helpers
 # ---------------------------------------------------------------------------
 
-def _days_to_target() -> int:
-    today = datetime.date.today()
-    return max((MRR_TARGET_DATE - today).days, 0)
+def _active_goal() -> tuple[dict | None, str | None]:
+    try:
+        from lib.revenue_goal import active_revenue_goal
+        return active_revenue_goal(), None
+    except Exception as e:  # noqa: BLE001 - surfaced in the briefing, not swallowed
+        return None, f"{type(e).__name__}: {e}"
 
 
 def _mrr_from_memory() -> float:
@@ -531,18 +536,17 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
     total_posts = sum(content_counts.values())
     total_target = sum(CONTENT_TARGETS.values())
 
-    days_left = _days_to_target()
-    mrr_pct = round((net_mrr / MRR_GOAL_USD) * 100, 1) if MRR_GOAL_USD > 0 else 0.0
+    goal, goal_err = _active_goal()
+    if goal_err:
+        errors["goal"] = goal_err
 
     data = {
         "date": datetime.date.today().isoformat(),
         "mrr": {
             "value": net_mrr,
-            "target": MRR_GOAL_USD,
-            "pct": mrr_pct,
-            "days_to_target": days_left,
             "source": mrr_source,
         },
+        "goal": goal,
         "pipeline": {
             "total_value": pipeline["total_pipeline"],
             "active_leads": pipeline["active_count"],
@@ -579,8 +583,7 @@ def _format_briefing(data: dict) -> str:
     cash = data["cash"]
     content = data["content"]
 
-    pct = mrr["pct"]
-    bar = _progress_bar(pct)
+    goal = data.get("goal")
 
     content_status = "on pace" if content["posts_this_week"] >= content["target"] else f"BEHIND by {content['target'] - content['posts_this_week']}"
 
@@ -610,8 +613,10 @@ def _format_briefing(data: dict) -> str:
         separator,
         "",
         "NET MRR",
-        f"  ${mrr['value']:,.0f} / ${mrr['target']:,.0f}  ({pct}%)  |  {mrr['days_to_target']} days to target",
-        f"  {bar}",
+        f"  ${mrr['value']:,.0f}/mo (live Stripe; no MRR target)",
+        "",
+        "REVENUE GOAL",
+        f"  {describe_goal(goal)}",
         "",
         "PIPELINE",
         f"  ${pipeline['total_value']:,.0f} across {pipeline['active_leads']} active leads",
@@ -672,10 +677,8 @@ def _format_revenue(env: dict) -> str:
     lines += [
         "-" * 34,
         f"{'NET MRR TOTAL':<20} ${total:>9,.2f}",
-        f"{'TARGET':<20} ${MRR_GOAL_USD:>9,.2f}",
-        f"{'GAP':<20} ${max(MRR_GOAL_USD - total, 0):>9,.2f}",
         "",
-        f"OVERHEAD:  ${MONTHLY_OVERHEAD_USD:,.2f}/mo  ({round(MONTHLY_OVERHEAD_USD / MRR_GOAL_USD * 100, 1)}% of target)",
+        f"OVERHEAD:  ${MONTHLY_OVERHEAD_USD:,.2f}/mo  ({round(MONTHLY_OVERHEAD_USD / total * 100, 1) if total else 0}% of MRR)",
         f"NET AFTER OVERHEAD: ${max(total - MONTHLY_OVERHEAD_USD, 0):,.2f}/mo",
         "",
         "Run `python scripts/revenue_engine.py history` for 6-month trend.",

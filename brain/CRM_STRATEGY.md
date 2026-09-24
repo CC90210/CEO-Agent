@@ -24,7 +24,7 @@ To maintain system integrity and focus on high-conversion leads, we distinguish 
 
 ---
 
-**Note:** This distinction prevents our primary business management systems from being cluttered with unqualified/unresponsive data while Tier 1 absorbs the inbound top-of-funnel (plus the occasional operator-approved cold batch). Anchored to the North Star — $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20; target owned by Atlas, CFO-Agent).
+**Note:** This distinction prevents our primary business management systems from being cluttered with unqualified/unresponsive data while Tier 1 absorbs the inbound top-of-funnel (plus the occasional operator-approved cold batch). Anchored to the current goal — ≥ US$6,000 revenue collected 2026-09-24 → 2026-10-24 (October sprint, set 2026-09-24; baseline = live Stripe MRR); the number is owned by Atlas (CFO-Agent). The former $10K-by-2026-09-30 target is retired.
 
 ## Related
 - [[brain/STATE]] — current MRR + pipeline state

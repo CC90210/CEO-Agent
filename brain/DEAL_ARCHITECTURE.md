@@ -48,7 +48,7 @@ A lead is qualified only when the rep confirms decision authority, a specific we
 - Adon/APEX owns the upstream lead-scraping fleet, `leadgen_*` territory model, and Command Center lead-sheets surface. Its promoted output is a normal `tenant_records` lead with `data.assigned_to`, `website`, `website_condition`, `audit_findings`, `icp_track`, and initial stage `researched`.
 - **Interim (CC-directed, 2026-08-19): until the APEX `leadgen_*` system ships, Bravo runs the research layer via `scripts/scrape_website_sales_leads.py`** — Firecrawl discovery + contact extraction + AI website audit (`website_condition`, `audit_findings`, `pitch_angle`, `icp_track`, `automation_openings`), promoted straight into `tenant_records` on `oasis-webdev` at stage `researched` under the same contract. APEX takes over at the promotion boundary with no schema change.
 - CC and Adon choose territories, approve batches, and assign the promoted leads; this sales engine does not duplicate territory storage.
-- Sales reps call assigned leads, diagnose, qualify, and book a founder Google Meet.
+- Sales reps call assigned leads, diagnose, qualify, and book a founder Google Meet. **Since 2026-09-24 the only reps are David (opener) and Schneur (builder); CC and Adon run all other sales and marketing. Retired reps are deactivated (reversible), not deleted.**
 - CC or Adon owns the audit/demo, package, automation discovery, price, proposal, and close — unless the deal's attributed rep is on the closer track and runs the close themselves; founder approval of the commission remains mandatory before payout.
 - The fulfillment owner collects assets, builds, runs QA, launches, and maintains.
 

@@ -14,8 +14,7 @@ Usage:
   python scripts/seed_profile.py \
       --email someone@example.com \
       --full-name "Some One" \
-      --brand "Their Brand" \
-      --mrr-target 10000
+      --brand "Their Brand"
 
   # Just refresh today's plan + primary lead (don't touch profile)
   python scripts/seed_profile.py --plan-only
@@ -59,8 +58,11 @@ CC_DEFAULTS = {
     "display_name": "CC",
     "brand": "OASIS AI",
     "role": "operator",
-    "mrr_target_usd": 10000.00,
-    "mrr_target_date": "2026-09-30",
+    # Retired 2026-09-24: the Command Center no longer reads profile MRR
+    # targets. The company goal is a revenue_goals row (migration 182) and MRR
+    # is live Stripe only. Left None so a re-seed never re-stamps a stale target.
+    "mrr_target_usd": None,
+    "mrr_target_date": None,
     "agents_enabled": ["bravo", "codex", "atlas", "maven", "aura", "hermes"],
     "primary_agent": "bravo",
     "primary_script_version": "cold_call_v1",

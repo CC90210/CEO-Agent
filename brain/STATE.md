@@ -1,12 +1,26 @@
 ---
 tags: [state, ephemeral, fable-5]
 architecture_version: V9.2.2
-last_updated: 2026-08-31
+last_updated: 2026-09-24
 freshness_threshold_days: 30
 verified: 2026-07-26
 model_standard: fable-5
 ---
 # STATE — Current Operational State
+
+> **2026-09-24 — OASIS fresh start (CC).** The OASIS sales team is retired:
+> **CC and Adon run all sales and marketing.** Schneur (builder) and David
+> (opener) are the only reps who stay and the only ones with commission logic.
+> Ariel, Ethan Perez, Jasper van Veen and Yaacov azoulay are **deactivated, not
+> deleted** (reversible from Command Center → Settings → Team). OASIS restarts
+> at the live Stripe MRR (≈ CA$100) — no hand-set numbers. **October sprint:
+> ≥ US$6,000 revenue COLLECTED, 2026-09-24 → 2026-10-24** (Atlas owns the
+> number; the Today card reads `revenue_goals` + the Finances ledger). The old
+> "$10K Net MRR by 2026-09-30" north star is retired. New: Command Center
+> **FOUNDERS → Finances** (bookkeeping, invoicing from the OASIS mailbox,
+> business + personal books) whose automations Atlas runs. The pipeline board
+> shows only the current revenue cycle (`lib/pipeline-cycle.ts`, since
+> 2026-09-23); older leads are preserved, not deleted.
 
 > **2026-07-26 — Inbound email automation is LIVE.** The n8n "OASIS Inbound
 > Qualifier" is replaced by a native pipeline (classifier + `email_brain` +
@@ -64,7 +78,7 @@ model_standard: fable-5
 | **Version** | **V9.2.0** (frontmatter `architecture_version` is canonical — one line, fleet-wide) | Unifies four previously separate lines (Bravo substrate V7.6 · Bravo protocol V9.1 · Maven V7.16 · Atlas none) into a single number shared by Bravo, Maven and Atlas. V8 was never used. Substrate content: V6 foundation + V7.0 reliability + V7.1 Radar + V7.2 persona bench + V7.3 typed memory + V7.4 agent-fleet contract + V7.5 guard/continuity + V7.6 evidence-gated refinement; protocol content: V9.0/V9.1 Opus-5 agentic protocols + 7 production defenses. Released history: CHANGELOG.md — note V7.5.x shipped 2026-08-03 but was never entered there; `CONTEXT.md` § V7.5 is its record. |
 | **Position**| EXECUTING — PAID CLIENT WORK | SunBiz + Breeze (BreezeAdvance) are active paying-client development. Deal terms and revenue are tracked by Atlas (CFO). Top priority: deliver the client work that keeps them retained. |
 | **Confidence** | 0.80 | Core automations production-grade and verified running (Montreal fleet reset 2026-07-07). SunBiz/Breeze delivered at spec. |
-| **Focus Area** | **HARNESS INTEGRITY + ONGOING CLIENT DELIVERY** | Montreal turnkey reset (2026-07-07): fleet persistence + identity truth. SunBiz / Breeze delivery continues. |
+| **Focus Area** | **OCTOBER SPRINT — FOUNDER-LED SALES + SYSTEMS THAT CARRY DISTRIBUTION** | 2026-09-24 reset: CC + Adon sell and market; Bravo keeps the Command Center, fleet and client delivery reliable so sales time is never spent on tooling. SunBiz / Breeze delivery continues. |
 | **Energy** | EXECUTING / FOCUSED | Long sprint closed cleanly. Bridge surface as reliable as terminal. Codebase hygiene reset (552 MB, 0 subprocess violations). |
 | **Memory Health** | GOOD | Files current. Latest retro 2026-06-12. Long-term re-verified 2026-06-12. |
 

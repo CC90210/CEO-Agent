@@ -1,12 +1,12 @@
 ---
-description: "War-time daily revenue playbook: 3 time blocks (morning pipeline load, midday conversion, evening compound), daily scorecard, 12-day sprint calendar to $10K MRR by Sept 30"
+description: "War-time daily revenue playbook: 3 time blocks (morning pipeline load, midday conversion, evening compound), daily scorecard, sprint calendar toward the October revenue goal"
 tags: [revenue, playbook, daily, sprint, sales, outreach]
 last_updated: 2026-09-18
 freshness_threshold_days: 14
 ---
 # OASIS AI — Revenue Daily Playbook
 
-> **Goal:** $10,000 USD Net MRR by September 30, 2026.
+> **Goal:** ≥ US$6,000 revenue collected 2026-09-24 → 2026-10-24 (October sprint, set 2026-09-24; baseline = live Stripe MRR). (The $10K-by-2026-09-30 target is retired.)
 > **Current:** ~$6,000/mo (BreezeAdvance). Gap: ~$4,000/mo = **8–10 new Starter/Growth retainer clients.**
 > **Time left:** ~12 days. This is a war-time schedule.
 >
@@ -246,7 +246,7 @@ Track these numbers every day. If any hit zero, that day was a failure.
 | Engagement comments | ≥ 20 | ___ |
 
 > [!CAUTION]
-> **The uncomfortable truth:** You have the tech, the tools, the AI army, the GPU box, the content pipeline, the CRM, the proposal generator, the email gateway, the whole machine. The only thing between you and $10K MRR is **the 10 outreach messages you haven't sent today.** The machine is built. Now USE it.
+> **The uncomfortable truth:** You have the tech, the tools, the AI army, the GPU box, the content pipeline, the CRM, the proposal generator, the email gateway, the whole machine. The only thing between you and the October goal is **the 10 outreach messages you haven't sent today.** The machine is built. Now USE it.
 
 ---
 

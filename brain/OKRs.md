@@ -10,7 +10,11 @@ verified: 2026-06-20
 > Set: 2026-03-28 | Review: Weekly (confidence scores) | Grade: End of June
 > Reference: [[skills/strategic-planning/SKILL]]
 
-## Objective 1: Hit $5,000 USD Net MRR and Diversify Revenue — ✅ MRR target ACHIEVED 2026-06-20 (new North Star: $10K by Sept 30, 2026)
+## Objective 1 (current, 2026-09-24): October sprint — ≥ US$6,000 revenue collected by 2026-10-24, founder-led sales (CC + Adon)
+
+> The Q2 objective below ($5K Net MRR, achieved 2026-06-20) and the later $10K-by-2026-09-30 target are **retired** — OASIS restarted from the live Stripe MRR on 2026-09-24. Atlas owns the number; Today tracks it from `revenue_goals`.
+
+## Objective 1 (historical): Hit $5,000 USD Net MRR and Diversify Revenue — ✅ ACHIEVED 2026-06-20
 
 **Why:** Current 94% concentration on a single retainer client is an existential risk. Hitting $5K MRR with diversification proves the business model works beyond one client.
 

@@ -32,7 +32,7 @@ CC is in wartime. Every action must close the 1,678 USD gap or protect existing 
 ### Core Responsibilities
 
 **Strategic:**
-- Setting and owning the North Star (10K USD MRR by September 30, 2026 — $5K achieved 2026-06-20)
+- Setting and owning the revenue goal (currently ≥ US$6,000 revenue collected 2026-09-24 → 2026-10-24 (October sprint, set 2026-09-24; baseline = live Stripe MRR))
 - Deciding which verticals to target -- not delegatable without CEO sign-off
 - Pricing and packaging (Wickman EOS rocks -- the 3-5 things that matter most this quarter)
 - ICP definition and ownership. Wickman (Traction): the marketing strategy component of Vision --
@@ -85,7 +85,7 @@ top-client at 93% is a critical risk. Two new clients at 800 USD/mo transforms t
 
 | Metric | Target / Threshold |
 |--------|---|
-| Net MRR | 10,000 USD by September 30, 2026 ($5K achieved 2026-06-20) |
+| Revenue collected | ≥ 6,000 USD, 2026-09-24 → 2026-10-24 (MRR baseline = live Stripe) |
 | Client health score | All clients GREEN (0 RED) |
 | Revenue concentration | No single client > 50% (stretch: < 30%) |
 | Pipeline velocity | Qualified leads closed within 14 days |

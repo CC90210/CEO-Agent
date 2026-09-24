@@ -36,7 +36,22 @@ ensure_os_trust()
 
 # -- Constants -----------------------------------------------------------------
 
-MRR_GOAL_USD = 10000.0
+# No MRR target (CC 2026-09-24: "we'll see what our MRR ends up being").
+# The company goal is a revenue-COLLECTED sprint that lives in the Command
+# Center's revenue_goals table; lib/revenue_goal.py is the only reader.
+_GOAL_CACHE: dict = {}
+
+
+def _goal() -> dict | None:
+    if "goal" not in _GOAL_CACHE:
+        from lib.revenue_goal import active_revenue_goal
+        _GOAL_CACHE["goal"] = active_revenue_goal()
+    return _GOAL_CACHE["goal"]
+
+
+def describe_goal(goal: dict | None) -> str:
+    from lib.revenue_goal import describe
+    return describe(goal)
 STRIPE_API = "https://api.stripe.com/v1"
 
 # Stripe events we care about for sync
@@ -300,11 +315,16 @@ def calculate_mrr(env_vars: dict[str, str], db) -> dict:
         stripe_error = "No Stripe keys configured in .env.agents"
 
     manual_mrr, manual_stale = _mrr_manual_from_supabase(db)
-    total_mrr = round(stripe_mrr + manual_mrr, 2)
+    # MRR is LIVE STRIPE ONLY (CC, 2026-09-24: "what's in our Stripe dashboard,
+    # and that's it"). The hand-entered revenue_events retainers ($6,191 of the
+    # old $6,263) are still read and reported, but no longer counted — they are
+    # Atlas's to reconcile, not a number to present as MRR.
+    total_mrr = round(stripe_mrr, 2)
 
     payload = {
         "stripe_mrr": stripe_mrr,
         "manual_mrr": manual_mrr,
+        "manual_counted": False,
         "total_mrr": total_mrr,
         "stripe_available": stripe_available,
         "stripe_error": stripe_error,
@@ -382,16 +402,10 @@ def cmd_mrr(env_vars: dict[str, str], db, args) -> dict:
         print(f"  Stripe MRR:  ${mrr['stripe_mrr']:,.2f}  ({len(mrr['stripe_subs'])} active subscription(s))")
     else:
         print(f"  Stripe MRR:  unavailable - {mrr['stripe_error']}")
-    print(f"  Manual MRR:  ${mrr['manual_mrr']:,.2f}  (Supabase tracked)")
     print(f"  -------------------------------------")
-    print(f"  Total MRR:   ${mrr['total_mrr']:,.2f}")
-    gap = max(0.0, MRR_GOAL_USD - mrr["total_mrr"])
-    pct = (mrr["total_mrr"] / MRR_GOAL_USD * 100) if MRR_GOAL_USD else 0
-    print(f"\n  Goal:        ${MRR_GOAL_USD:,.0f}  ({pct:.1f}% there)")
-    if gap > 0:
-        avg = mrr["total_mrr"] / max(len(mrr["stripe_subs"]), 1)
-        clients_needed = int(gap / avg) + 1 if avg else "?"
-        print(f"  Gap:         ${gap:,.2f} - need ~{clients_needed} clients at ${avg:,.0f}/mo avg")
+    print(f"  Net MRR:     ${mrr['total_mrr']:,.2f}  (live Stripe only)")
+    print(f"\n  Not counted: ${mrr['manual_mrr']:,.2f}  manual revenue_events retainers (Atlas to reconcile)")
+    print(f"\n  Goal:        {describe_goal(_goal())}")
     return mrr
 
 
@@ -402,17 +416,12 @@ def cmd_dashboard(env_vars: dict[str, str], db, args) -> dict:
     pipeline = _pipeline_stats(db)
     last = _last_payment(db)
 
-    gap = max(0.0, MRR_GOAL_USD - mrr["total_mrr"])
-    pct = (mrr["total_mrr"] / MRR_GOAL_USD * 100) if MRR_GOAL_USD else 0
     avg_deal = pipeline["avg_deal_size"] or (mrr["total_mrr"] / max(len(mrr["stripe_subs"]), 1))
-    clients_needed = int(gap / avg_deal) + 1 if avg_deal else "?"
+    goal = _goal()
 
     data = {
         "mrr": mrr["total_mrr"],
-        "mrr_goal": MRR_GOAL_USD,
-        "mrr_pct": round(pct, 1),
-        "gap": round(gap, 2),
-        "clients_needed": clients_needed,
+        "goal": goal,
         "avg_deal": round(avg_deal, 2),
         "pipeline": pipeline["pipeline"],
         "leads": pipeline["leads"],
@@ -426,11 +435,8 @@ def cmd_dashboard(env_vars: dict[str, str], db, args) -> dict:
 
     print("=== OASIS Revenue Dashboard ===\n")
     stripe_note = "" if mrr["stripe_available"] else "  [Stripe unavailable - Supabase only]"
-    print(f"  MRR:         ${mrr['total_mrr']:,.2f} / ${MRR_GOAL_USD:,.0f}  ({pct:.1f}%){stripe_note}")
-    if gap > 0:
-        print(f"  Gap:         ${gap:,.2f} - need ~{clients_needed} clients at ${avg_deal:,.0f}/mo avg")
-    else:
-        print(f"  Goal reached! ${mrr['total_mrr']:,.2f} MRR")
+    print(f"  MRR:         ${mrr['total_mrr']:,.2f}/mo (live Stripe){stripe_note}")
+    print(f"  Goal:        {describe_goal(goal)}")
 
     if pipeline["pipeline"] > 0:
         print(f"  Pipeline:    ${pipeline['pipeline']:,.0f}  ({pipeline['leads']} leads)")
@@ -670,7 +676,6 @@ def cmd_forecast(env_vars: dict[str, str], db, args) -> dict:
     # Weighted pipeline contribution: pipeline * conversion_rate
     pipeline_mrr = round(pipeline_val * conversion, 2)
     projected_mrr = round(current_mrr + pipeline_mrr, 2)
-    gap = max(0.0, MRR_GOAL_USD - projected_mrr)
 
     # Months to goal at current net new MRR rate
     # Use last 3 months avg growth from history if available
@@ -691,18 +696,12 @@ def cmd_forecast(env_vars: dict[str, str], db, args) -> dict:
     except Exception:
         avg_monthly_growth = 0.0
 
-    months_to_goal = None
-    if avg_monthly_growth > 0 and gap > 0:
-        months_to_goal = int(gap / avg_monthly_growth) + 1
 
     result = {
         "current_mrr": current_mrr,
         "pipeline_mrr": pipeline_mrr,
         "projected_mrr": projected_mrr,
-        "gap_after_pipeline": round(gap, 2),
         "avg_monthly_growth": round(avg_monthly_growth, 2),
-        "months_to_goal": months_to_goal,
-        "goal": MRR_GOAL_USD,
     }
 
     if getattr(args, "output_json", False):
@@ -712,12 +711,8 @@ def cmd_forecast(env_vars: dict[str, str], db, args) -> dict:
     print(f"  Current MRR:          ${current_mrr:,.2f}")
     print(f"  Pipeline contribution: ${pipeline_mrr:,.2f}  ({pipeline_val:,.0f} pipeline x {conversion*100:.0f}% conversion)")
     print(f"  Projected MRR:        ${projected_mrr:,.2f}")
-    print(f"  Remaining gap:        ${gap:,.2f}")
     if avg_monthly_growth > 0:
         print(f"  Avg monthly growth:   ${avg_monthly_growth:,.2f}/mo  (3-month avg)")
-    if months_to_goal is not None:
-        target_date = datetime.date.today() + datetime.timedelta(days=30 * months_to_goal)
-        print(f"  At this rate:         ~{months_to_goal} month(s) to goal  ({target_date.strftime('%B %Y')})")
     else:
         print(f"  Growth rate unknown - log more monthly history to forecast timeline")
 
@@ -807,48 +802,30 @@ def cmd_clients(env_vars: dict[str, str], db, args) -> list[dict]:
 # -- Command: goal -------------------------------------------------------------
 
 def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
+    """The active revenue goal (revenue_goals row) beside live Stripe MRR.
+
+    Progress toward a COLLECTED-revenue goal comes from the Command Center's
+    Finances ledger (Today page / /api/internal/finance/summary) — not from
+    MRR, which measures something else and is shown separately.
+    """
+    from lib.revenue_goal import days_left
+
     mrr_data = calculate_mrr(env_vars, db)
-    current = mrr_data["total_mrr"]
-    pct = (current / MRR_GOAL_USD * 100) if MRR_GOAL_USD else 0
-    gap = max(0.0, MRR_GOAL_USD - current)
-
-    # Build progress bar (30 chars wide)
-    filled = int(pct / 100 * 30)
-    bar = "#" * filled + "-" * (30 - filled)
-
-    # North Star per CLAUDE.md WHY section: $10K Net MRR by September 30, 2026.
-    # ($5K achieved 2026-06-20 — BreezeAdvance deal; target reset to $10K.) The
-    # canonical date is the only thing this comment needs to track; update the
-    # date below to match brain/STATE.md.
-    DEADLINE = datetime.date(2026, 9, 30)
+    goal = _goal()
     result = {
-        "current_mrr": current,
-        "goal": MRR_GOAL_USD,
-        "pct": round(pct, 1),
-        "gap": round(gap, 2),
-        "deadline": DEADLINE.isoformat(),
+        "current_mrr": mrr_data["total_mrr"],
+        "goal": goal,
+        "days_left": days_left(goal) if goal else None,
     }
 
     if getattr(args, "output_json", False):
         return result
 
-    print("=== $10,000 MRR Goal - OASIS AI Solutions ===\n")
-    print(f"  Progress:  [{bar}]  {pct:.1f}%")
-    print(f"  Current:   ${current:,.2f}")
-    print(f"  Goal:      ${MRR_GOAL_USD:,.0f}")
-    print(f"  Gap:       ${gap:,.2f}")
-    print(f"  Deadline:  {DEADLINE.strftime('%B')} {DEADLINE.day}, {DEADLINE.year}")
-
-    if gap <= 0:
-        print("\n  GOAL ACHIEVED. Only good things from now on.")
-    else:
-        # Days remaining to deadline
-        deadline = DEADLINE
-        days_left = (deadline - datetime.date.today()).days
-        if days_left > 0:
-            daily_needed = gap / days_left
-            print(f"\n  {days_left} days remaining - need ${daily_needed:,.2f}/day in new MRR")
-
+    print("=== Revenue goal - OASIS AI Solutions ===\n")
+    print(f"  Goal:      {describe_goal(goal)}")
+    if goal:
+        print(f"  Days left: {result['days_left']} (deadline day included)")
+    print(f"  MRR:       ${mrr_data['total_mrr']:,.2f}/mo live Stripe (tracked, no MRR target)")
     return result
 
 
@@ -909,7 +886,7 @@ Examples:
 
     sub.add_parser("forecast", parents=[parent], help="Project MRR trajectory toward goal")
     sub.add_parser("clients", parents=[parent], help="List active clients with monthly amounts")
-    sub.add_parser("goal", parents=[parent], help="Show $10,000 MRR goal progress")
+    sub.add_parser("goal", parents=[parent], help="Show the active revenue goal")
 
     return parser
 

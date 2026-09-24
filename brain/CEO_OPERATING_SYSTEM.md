@@ -13,7 +13,7 @@ verified: 2026-06-09
 ## The CEO's 7 Domains
 
 ### 1. Revenue & Growth
-**Goal:** Hit $10,000 USD Net MRR by September 30, 2026 ($5K achieved 2026-06-20 — BreezeAdvance deal)
+**Goal:** ≥ US$6,000 revenue collected 2026-09-24 → 2026-10-24 (October sprint, set 2026-09-24; baseline = live Stripe MRR). Tracked live on Command Center → Today (`revenue_goals` + Finances ledger); owned by Atlas. The $10K-by-2026-09-30 MRR target is retired.
 
 | Function | Tool | Command |
 |----------|------|---------|

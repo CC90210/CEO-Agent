@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """sync_mrr.py — daily MRR auto-sync from revenue_engine to Turso.
 
-Computes Net MRR via revenue_engine.calculate_mrr() (Stripe subscriptions
-+ manual retainer entries from revenue_events) and writes the result to
+Computes Net MRR via revenue_engine.calculate_mrr() — LIVE STRIPE ONLY since
+2026-09-24 (manual revenue_events retainers are reported, not counted) — and
+writes the result to
 two Turso locations so the OASIS Agent Command Center dashboard
 self-heals every day without operator intervention:
 
@@ -47,17 +48,16 @@ def sync(operator_email: str, *, dry_run: bool, as_json: bool) -> dict:
     total = float(mrr["total_mrr"])
     today = dt.date.today().isoformat()
 
-    # Refuse to launder a degraded read into the system of record. The manual
-    # component is ~99% of total MRR, so when revenue_engine could only carry
-    # it forward from a snapshot, writing that figure to
-    # user_profiles.mrr_current_usd would make a stale number indistinguishable
-    # from a live one for Atlas and every dashboard downstream. Nothing is lost
-    # by skipping — the cached value is what is already on file — and failing
-    # here surfaces via the hourly cron health check instead of going quiet.
-    manual_stale = mrr.get("manual_stale")
-    if manual_stale:
-        result = {"ok": False, "error": f"refusing to write degraded MRR — {manual_stale}",
-                  "total_mrr": total, "manual_stale": manual_stale}
+    # Refuse to launder a degraded read into the system of record. Since
+    # 2026-09-24 MRR is live Stripe ONLY (the manual revenue_events retainers
+    # are reported but not counted), so the degraded case is Stripe itself
+    # being unreadable: total would then be a confident $0 that nothing
+    # distinguishes from "no subscribers". Skip the write and fail loudly — the
+    # hourly cron health check surfaces it.
+    if not mrr.get("stripe_available"):
+        result = {"ok": False,
+                  "error": f"refusing to write MRR without a live Stripe read — {mrr.get('stripe_error')}",
+                  "total_mrr": total}
         print(json.dumps(result) if as_json
               else f"ERROR: {result['error']}", file=sys.stderr)
         return result
@@ -83,12 +83,12 @@ def sync(operator_email: str, *, dry_run: bool, as_json: bool) -> dict:
         "tenant_id": tenant_id,
         "snapshot_date": today,
         "mrr_usd": total,
-        "target_usd": float(profile.get("mrr_target_usd") or 10000),
+        "target_usd": None,  # no MRR target since 2026-09-24; the goal is revenue_goals
         "source": "sync_mrr",
         "metadata": {
             "stripe_mrr": mrr["stripe_mrr"],
-            "manual_mrr": mrr["manual_mrr"],
-            "note": "Auto-synced by scripts/core/sync_mrr.py",
+            "manual_mrr_not_counted": mrr["manual_mrr"],
+            "note": "Auto-synced by scripts/core/sync_mrr.py (live Stripe only)",
         },
     }
 
@@ -129,7 +129,7 @@ def sync(operator_email: str, *, dry_run: bool, as_json: bool) -> dict:
         print(
             f"sync_mrr [{verb}] {operator_email}: "
             f"${previous:.2f} -> ${total:.2f} "
-            f"(stripe ${mrr['stripe_mrr']:.2f} + manual ${mrr['manual_mrr']:.2f}) "
+            f"(live Stripe; manual ${mrr['manual_mrr']:.2f} not counted) "
             f"snapshot={today}"
         )
     return result

@@ -24,7 +24,6 @@ import argparse
 import json
 import math
 import sys
-from datetime import datetime, timezone
 
 
 # ---------------------------------------------------------------------------
@@ -38,8 +37,11 @@ DEFAULT_CHURN_RATE = 0.01    # ~1%/mo (conservative floor)
 DEFAULT_GROSS_MARGIN = 0.94  # 94%
 DEFAULT_CAC = 250.0          # opportunity cost estimate (no paid ads)
 DEFAULT_CASH_ON_HAND = 5000.0  # conservative estimate — CC to update
+# A PROJECTION MILESTONE for the what-if scenarios below — not the company
+# goal. There is no MRR target (CC, 2026-09-24); the company goal is the
+# revenue-collected sprint in the Command Center's revenue_goals table
+# (scripts/lib/revenue_goal.py). The dated "$10K by 2026-09-30" is retired.
 MRR_TARGET = 10000.0
-TARGET_DATE = "2026-09-30"
 
 DEFAULT_CLIENT_REVENUE = {
     "Stripe": 180.0,
@@ -109,21 +111,14 @@ def interpret_hhi(hhi: float) -> str:
 
 
 def mrr_gap_to_target(current_mrr: float) -> dict:
+    """Distance to the scenario milestone (undated — see MRR_TARGET)."""
     gap = MRR_TARGET - current_mrr
-    today = datetime.now(timezone.utc)
-    try:
-        target = datetime.strptime(TARGET_DATE, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-        days_remaining = (target - today).days
-    except ValueError:
-        days_remaining = 0
     pct = (current_mrr / MRR_TARGET) * 100
     return {
         "current_mrr": current_mrr,
-        "target_mrr": MRR_TARGET,
+        "milestone_mrr": MRR_TARGET,
         "gap": gap,
         "pct_complete": round(pct, 1),
-        "days_remaining": max(days_remaining, 0),
-        "target_date": TARGET_DATE,
     }
 
 
@@ -251,12 +246,12 @@ def _print_unit_economics(r: dict, mrr_str: str, ratio_str: str, payback_str: st
     print(f"  Monthly Net:        ${r['monthly_burn']:,.0f} ({'PROFITABLE' if r['monthly_burn'] >= 0 else 'BURNING'})")
     print(f"  Runway:             {runway_str}")
     print()
-    print("MRR PROGRESS")
+    print("MRR vs SCENARIO MILESTONE (not the company goal)")
     print("-" * 40)
     bar_filled = int((gap["pct_complete"] / 100) * 20)
     bar = "#" * bar_filled + "." * (20 - bar_filled)
-    print(f"  ${gap['current_mrr']:,.0f} / ${gap['target_mrr']:,.0f} [{bar}] {gap['pct_complete']}%")
-    print(f"  Gap: ${gap['gap']:,.0f} | {gap['days_remaining']} days to {gap['target_date']}")
+    print(f"  ${gap['current_mrr']:,.0f} / ${gap['milestone_mrr']:,.0f} [{bar}] {gap['pct_complete']}%")
+    print(f"  Gap: ${gap['gap']:,.0f}  (company goal: python scripts/revenue_engine.py goal)")
 
 
 def cmd_forecast(args: argparse.Namespace) -> dict:
