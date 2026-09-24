@@ -45,28 +45,65 @@ def _run_nslookup(name: str, record_type: str) -> dict[str, Any]:
     combined = "\n".join(
         part for part in [proc.stdout.strip(), proc.stderr.strip()] if part
     )
-    records: list[str] = []
-    for line in combined.splitlines():
-        cleaned = line.strip()
-        if not cleaned:
-            continue
-        lower = cleaned.lower()
-        # Ubuntu nslookup prints TXT answers as `<name>\ttext = "..."` —
-        # the line starts with the queried name, not with "text =", so
-        # match anywhere in the line and slice past the marker.
-        if "text =" in lower:
-            idx = lower.find("text =")
-            records.append(cleaned[idx + len("text ="):].strip().strip('"'))
-        elif "nameserver =" in lower:
-            records.append(cleaned.split("=", 1)[1].strip())
-        elif "mail exchanger =" in lower:
-            records.append(cleaned.split("=", 1)[1].strip())
     return {
         "ok": proc.returncode == 0,
-        "records": records,
+        "records": parse_nslookup_records(combined),
         "raw": combined[:4000],
         "error": None if proc.returncode == 0 else combined[:500] or f"nslookup exit {proc.returncode}",
     }
+
+
+def parse_nslookup_records(output: str) -> list[str]:
+    """TXT / NS / MX answers from nslookup output, on Linux AND Windows.
+
+    Ubuntu prints a TXT answer on one line: `<name>\\ttext = "v=spf1 ..."`.
+    Windows prints the marker alone and the value on the FOLLOWING indented
+    line(s), one quoted chunk per line for long records (DKIM keys):
+
+        oasisai.work    text =
+
+                "v=spf1 include:_spf.google.com ~all"
+
+    Parsing only the marker line read every Windows TXT record as empty, so the
+    doctor reported SPF/DKIM/DMARC missing for a domain that had all three
+    (2026-09-24) — a monitor that cries wolf gets ignored the day it's right.
+    """
+    records: list[str] = []
+    pending: list[str] | None = None  # Windows: chunks of a TXT value in progress
+
+    def flush() -> None:
+        nonlocal pending
+        if pending is not None:
+            records.append("".join(pending))
+            pending = None
+
+    for line in output.splitlines():
+        cleaned = line.strip()
+        lower = cleaned.lower()
+        if pending is not None:
+            if cleaned.startswith('"'):
+                pending.append(cleaned.strip('"'))
+                continue
+            if not cleaned:
+                continue  # Windows leaves a blank line between marker and value
+            flush()
+        if not cleaned:
+            continue
+        if "text =" in lower:
+            idx = lower.find("text =")
+            value = cleaned[idx + len("text ="):].strip()
+            if value:
+                records.append(value.strip('"'))
+            else:
+                pending = []
+        elif "nameserver =" in lower:
+            records.append(cleaned.split("=", 1)[1].strip())
+        elif "mail exchanger =" in lower:
+            # "MX preference = 1, mail exchanger = host" — the host, not "1, ...".
+            idx = lower.find("mail exchanger =")
+            records.append(cleaned[idx + len("mail exchanger ="):].strip())
+    flush()
+    return [r for r in records if r]
 
 
 def _first_txt(name: str) -> dict[str, Any]:
