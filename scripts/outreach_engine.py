@@ -27,6 +27,7 @@ if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
 from name_utils import safe_full_name
+from lib.booking_link import resolve_booking_url
 
 
 # -- Credentials ---------------------------------------------------------------
@@ -137,7 +138,13 @@ def build_email_body(lead_name, business_name, business_type, meet_link, meeting
     tz_abbr = local.strftime("%Z") or "ET"  # EST in winter, EDT in summer
     date_str = local.strftime(f"%A, %B %d at %I:%M %p {tz_abbr}")
 
-    booking_link = os.environ.get("BOOKING_LINK", "https://calendar.app.google/tpfvJYBGircnGu8G8")
+    # No hardcoded default (2026-09-24): the old one was the schedule the command
+    # center retired on 2026-09-09. No usable link -> no "grab any slot" line and
+    # no "Book a call:" in the signature, rather than a dead page.
+    booking_link = resolve_booking_url()
+    reschedule = (f"\n\nIf that time doesn't work, grab any slot that works for you: {booking_link}"
+                  if booking_link else "")
+    book_sig = f" | Book a call: {booking_link}" if booking_link else ""
     body = f"""Hi {lead_name},
 
 I came across {business_name} and noticed a few areas where AI automation could make a real difference - specifically around scheduling, follow-ups, and client communication.
@@ -149,15 +156,13 @@ I'd love to show you exactly how this works for your business. No pitch, just a 
 I've set aside time for a 30-minute discovery call:
 
     {date_str}
-    Google Meet: {meet_link}
-
-If that time doesn't work, grab any slot that works for you: {booking_link}
+    Google Meet: {meet_link}{reschedule}
 
 Looking forward to connecting.
 
 Conaugh McKenna
 Founder, OASIS AI Solutions
-oasisai.work | Book a call: {booking_link}"""
+oasisai.work{book_sig}"""
     return body
 
 

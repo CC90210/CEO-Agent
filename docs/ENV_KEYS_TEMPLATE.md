@@ -139,7 +139,7 @@ Before flipping an app that queries from the browser, prove the tenant boundary:
 | `GMAIL_ADDRESS` | Same (legacy alias) |
 | `GMAIL_APP_PASSWORD` | 16-char app password from Google Account → Security |
 | `GOOGLE_MEET_LINK` | Default Meet URL for booking confirmations |
-| `BOOKING_LINK` | `https://calendar.app.google/tpfvJYBGircnGu8G8` (DO NOT use Calendly) |
+| `BOOKING_LINK` | RETIRED 2026-09-09 (appointment schedule deleted); no self-serve booking link; the IG setter offers real calendar slots; resolver: scripts/lib/booking_link.py |
 | `WEBSITE_LINK` | `https://oasisai.work` |
 
 ## Automation — n8n + Late/Zernio

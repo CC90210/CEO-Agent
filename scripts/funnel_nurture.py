@@ -37,6 +37,7 @@ from name_utils import safe_first_name
 # Windows CA-bundle fix (2026-07-28) — see lib/tls_trust.py. Must precede the
 # first DB call or it dies with CERTIFICATE_VERIFY_FAILED.
 from lib.tls_trust import ensure_os_trust  # noqa: E402
+from lib.booking_link import resolve_booking_url  # noqa: E402
 
 ensure_os_trust()
 
@@ -139,7 +140,9 @@ GMAIL_USER = "conaugh@oasisai.work"
 
 def _booking_link() -> str:
     """Return booking link from env, or fallback to mailto reply."""
-    link = os.environ.get("BOOKING_LINK", "") or os.environ.get("BOOKING_MEET_LINK", "")
+    # Through the resolver (2026-09-24): the raw env read would hand a nurture
+    # lead the schedule the command center retired on 2026-09-09.
+    link = resolve_booking_url()
     if link:
         return link
     return f"mailto:{GMAIL_USER}?subject=Book%20My%20Free%20Strategy%20Call"

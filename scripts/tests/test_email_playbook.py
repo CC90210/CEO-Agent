@@ -9,16 +9,19 @@ silently deleting a vendor receipt.
 
 from __future__ import annotations
 
+import contextlib
+import os
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from lib import booking_link  # noqa: E402
 from email_playbook import (  # noqa: E402
-    BOOKING_LINK,
     alert,
     classify_sender,
     detect_red_flags,
@@ -160,12 +163,49 @@ class TestAlerts(unittest.TestCase):
         self.assertEqual(len(tags), 5)
 
 
+GOOD_LINK = "https://cal.example.com/oasis/30min"
+RETIRED_LINK = "https://calendar.app.google/tpfvJYBGircnGu8G8"
+
+
+def _booking_env(link: str | None) -> contextlib.ExitStack:
+    """os.environ with BOOKING_LINK = `link` (or no booking key at all), and no
+    env-file fallback, so the result never depends on this machine's env store."""
+    env = {k: v for k, v in os.environ.items()
+           if k not in booking_link.BOOKING_URL_ENV_KEYS}
+    if link is not None:
+        env["BOOKING_LINK"] = link
+    stack = contextlib.ExitStack()
+    stack.enter_context(mock.patch.dict(os.environ, env, clear=True))
+    stack.enter_context(mock.patch.object(booking_link, "_env_file_values", return_value={}))
+    return stack
+
+
 class TestCopyRules(unittest.TestCase):
     def test_voice_rules_carry_link_and_signature(self):
-        v = voice_rules()
-        self.assertIn(BOOKING_LINK, v)
+        with _booking_env(GOOD_LINK):
+            v = voice_rules()
+        self.assertIn(GOOD_LINK, v)
+        self.assertNotIn("no self-serve booking link", v)
         self.assertIn("OASIS AI Solutions", v)
         self.assertIn("NEVER quote a price", v)
+
+    def test_voice_rules_refuse_the_retired_link(self):
+        # 2026-09-24: the retired schedule reached a prospect through this prompt.
+        # Configured or not, it must never be offered to the model again.
+        for configured in (RETIRED_LINK, RETIRED_LINK.lower() + "/", None):
+            with self.subTest(configured=configured), _booking_env(configured):
+                v = voice_rules()
+                self.assertNotIn("calendar.app.google", v.lower())
+                self.assertIn("There is no self-serve booking link.", v)
+                self.assertIn("Never paste a calendar or booking URL.", v)
+                self.assertIn("NEVER quote a price", v)
+
+    def test_voice_rules_resolve_at_call_time(self):
+        # The dead value outlived its schedule because it was frozen at import.
+        with _booking_env(None):
+            self.assertNotIn(GOOD_LINK, voice_rules())
+        with _booking_env(GOOD_LINK):
+            self.assertIn(GOOD_LINK, voice_rules())
 
     def test_lint_catches_banned_phrases(self):
         issues = lint_draft("Thank you for reaching out. Best regards, CC")
@@ -176,14 +216,31 @@ class TestCopyRules(unittest.TestCase):
         self.assertTrue(any("dollar" in i for i in lint_draft("It'll be $2,000 flat.")))
 
     def test_lint_catches_duplicate_booking_link(self):
-        body = f"grab a slot {BOOKING_LINK} or here {BOOKING_LINK}"
-        self.assertTrue(any("more than once" in i for i in lint_draft(body)))
+        body = f"grab a slot {GOOD_LINK} or here {GOOD_LINK}"
+        with _booking_env(GOOD_LINK):
+            self.assertTrue(any("more than once" in i for i in lint_draft(body)))
+
+    def test_duplicate_check_needs_a_configured_link(self):
+        body = "see https://oasisai.work or https://oasisai.work"
+        with _booking_env(None):
+            self.assertFalse(any("more than once" in i for i in lint_draft(body)))
+
+    def test_lint_flags_a_retired_booking_url(self):
+        drafts = (
+            f"grab whatever slot fits you here: {RETIRED_LINK}",
+            "book here calendar.app.google/TPFVJYBGIRCNGU8G8/ anytime",
+        )
+        for configured in (None, GOOD_LINK, RETIRED_LINK):
+            for body in drafts:
+                with self.subTest(configured=configured, body=body), _booking_env(configured):
+                    self.assertIn("contains a retired booking link", lint_draft(body))
 
     def test_clean_draft_passes(self):
         body = ("Saw the HVAC scheduling mess you described - that's fixable.\n\n"
-                f"15 min on Zoom is the fastest way to see if it fits: {BOOKING_LINK}\n\n"
+                f"15 min on Zoom is the fastest way to see if it fits: {GOOD_LINK}\n\n"
                 "Conaugh McKenna\nOASIS AI Solutions\noasisai.work")
-        self.assertEqual(lint_draft(body), [])
+        with _booking_env(GOOD_LINK):
+            self.assertEqual(lint_draft(body), [])
 
 
 if __name__ == "__main__":
