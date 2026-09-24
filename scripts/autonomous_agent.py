@@ -689,11 +689,12 @@ Rules:
 - 80-120 words max
 - No slop openers ("hope this finds you well", "wanted to reach out", "quick question")
 - First line: one specific, concrete angle
-- CTA: "Grab any slot that works: https://calendar.app.google/tpfvJYBGircnGu8G8"
+- CTA: ask them to reply with a couple of times that suit them for a 30-minute call
+  (no booking link: the old calendar link was deleted, see scripts/lib/booking_link.py)
 - Signature block:
     Conaugh McKenna
     OASIS AI Solutions
-    oasisai.work | Book a call: https://calendar.app.google/tpfvJYBGircnGu8G8
+    oasisai.work
 - Subject on line 1 as "Subject: <subject>"
 - Blank line, then body.
 
