@@ -433,18 +433,46 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def store_bundle(bundle: CalendarCredentialBundle, env_file: Path | None = None) -> None:
+MANIFEST_PATH = REPO_ROOT / "config" / "cloudflare" / "manifests" / "oasis-command-center.json"
+
+
+def worker_source_keys(manifest_path: Path = MANIFEST_PATH) -> dict[str, str]:
+    """Deployed key -> env-store key the Worker's secrets-push actually reads.
+
+    The manifest namespaces per-app secrets (e.g. GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN
+    is pushed from OASIS_COMMAND_CENTER__GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN).
+    Writing only the bare name is what left the first --store run ineffective:
+    the push re-sent the stale namespaced value.
+    """
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entries = data if isinstance(data, list) else data.get("secrets") or data.get("keys") or []
+    return {m["key"]: m.get("source") or m["key"] for m in entries if "key" in m}
+
+
+def store_bundle(
+    bundle: CalendarCredentialBundle,
+    env_file: Path | None = None,
+    manifest_path: Path = MANIFEST_PATH,
+) -> None:
     """Persist the verified bundle into the canonical env store, values unseen.
 
     Production (oasisai.work) is the Cloudflare Worker, whose secrets are pushed
     FROM this store. On 2026-09-24 the verified credential was written to Vercel
     only; the Worker kept the rejected one and booking stayed down. A credential
     fixed anywhere but its source of truth is reverted by the next routine push.
+
+    Writes BOTH the Worker's source keys (from the manifest) and the bare names
+    this tool itself scans as its first candidate.
     """
     from lib.env_store import update_env_values
     from lib.secret_loader import ENV_FILE
 
-    update_env_values(env_file or ENV_FILE, dict(bundle.vercel_items()))
+    sources = worker_source_keys(manifest_path)
+    updates: dict[str, str] = {}
+    for name, value in bundle.vercel_items():
+        updates[name] = value
+        updates[sources.get(name, name)] = value
+    update_env_values(env_file or ENV_FILE, updates)
 
 
 def main(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 from pathlib import Path
 from types import SimpleNamespace
@@ -215,7 +216,16 @@ def test_store_flag_persists_the_verified_bundle_to_the_env_store(tmp_path: Path
         "GOOGLE_CALENDAR_ID": "primary",
     })
     env_file = tmp_path / ".env.agents"
-    env_file.write_text("UNRELATED_KEY=keep-me\nGOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN=stale\n", encoding="utf-8")
+    env_file.write_text(
+        "UNRELATED_KEY=keep-me\nGOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN=stale\n"
+        "OASIS_COMMAND_CENTER__GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN=stale\n",
+        encoding="utf-8",
+    )
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps([
+        {"key": "GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN",
+         "source": "OASIS_COMMAND_CENTER__GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN", "scope": "runtime"},
+    ]), encoding="utf-8")
     output = io.StringIO()
 
     result = calendar_env.main(
@@ -227,13 +237,15 @@ def test_store_flag_persists_the_verified_bundle_to_the_env_store(tmp_path: Path
         gws_loader=lambda _values: ("encrypted gws credential store", gws_bundle),
         app_dir=tmp_path,
         stdout=output,
-        storer=lambda bundle: calendar_env.store_bundle(bundle, env_file),
+        storer=lambda bundle: calendar_env.store_bundle(bundle, env_file, manifest),
     )
 
     assert result == 0
     stored = env_file.read_text(encoding="utf-8")
     assert "UNRELATED_KEY=keep-me" in stored, "peer keys must survive"
-    assert "GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN=live-gws-refresh" in stored
+    assert "\nGOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN=live-gws-refresh" in stored
+    # The key the Worker push actually reads — the one the first version missed.
+    assert "OASIS_COMMAND_CENTER__GOOGLE_SYSTEM_CALENDAR_REFRESH_TOKEN=live-gws-refresh" in stored
     assert "=stale" not in stored
     assert "live-gws" not in output.getvalue(), "values never reach the output"
     assert "secrets-push --app oasis-command-center" in output.getvalue()
