@@ -1,7 +1,7 @@
 ---
 description: "Audit of all dashboard metrics traced to source, categorized as real/verified/real-but-buggy/fake; reference for agents verifying data trustworthiness"
 tags: [audit, metrics, dashboard, transparency]
-last_updated: 2026-09-22
+last_updated: 2026-09-24
 freshness_threshold_days: 30
 verified: 2026-06-09
 ---
@@ -17,12 +17,12 @@ Audit run 2026-05-07. Tenant: `ef8d389e-3f15-43f2-ae00-3660f69a1452` (CC's). Pro
 
 | Metric | Source | Verdict | Notes |
 |---|---|---|---|
-| **Net MRR** | `mrrSnapshot()` → `mrr_snapshots` table latest row | ⚠️ **Operator-supplied, not Stripe-computed** | Latest value: $6,000 / $10,000 target (BreezeAdvance deal closed 2026-06-20 — CC's 60% of $10K recurring). Source column = `"profile"` — value is read from `user_profiles.mrr_current_usd` and snapshotted nightly. CC manually edits that field. No Stripe-driven auto-computation today. To make real: add a writer that pulls Stripe + retainer rev shares + adds to mrr_current_usd before the snapshot. |
-| **Gap to goal** | computed from MRR + `profile.mrr_target_usd` | ✅ Real | Math is correct; relies on the MRR value being trustworthy. |
-| **Days left** | computed from `profile.mrr_target_date` | ✅ Real | `mrr_target_date` = 2026-09-30 ($5K achieved 2026-06-20 — target reset to $10K). |
+| **Net MRR** | `loadOasisMoney()` (lib/goals/oasis-money.ts) → `stripeMrr()` → `fin_subscriptions` (Finances ledger, synced from OASIS's Stripe) | ✅ Real — **since 2026-09-24** | Live Stripe only, CAD with USD alongside (own-day Bank of Canada rate). Shows "Stripe not connected" — never $0 — until a founder pins OASIS's Stripe account (`fin_settings.stripe_account_id`). The hand-typed `user_profiles.mrr_current_usd` ($6,263) is no longer read on any OASIS surface. Same loader feeds /analytics and the in-app agent's `mrr_today`. |
+| **Revenue goal (collected)** | `getActiveRevenueGoal()` → `revenue_goals` row + `revenueCollected()` over the goal window | ✅ Real | Goal = ≥ US$6,000 COLLECTED 2026-09-24 → 2026-10-24 (money received, net of refunds, each payment at its own day's FX). Counts only manually recorded payments until Stripe is connected — the goal card says so. Replaces the retired $10K-MRR-by-09-30 target. Set in Settings → Revenue goal. |
+| **Days left / daily need** | `computeGoalProgress()` (lib/goals/goal-math.ts) | ✅ Real | Inclusive end date, Toronto calendar days. |
 | **Replies (7d)** | `outreachReplyRate(tenantId, 7)` | ✅ Real | 14 lead_interactions in 7d, 1 inbound, 13 outbound. Reply rate ≈ 7.7%. |
-| **MRR added (7d)** | `mrrHistory(30)` last - 8th-last | ✅ Real | Computed from snapshot rows. |
-| **Top client share** | `topClientConcentration()` → `profile.custom_fields.top_client_mrr_usd` | ⚠️ **Operator-supplied** | As of 2026-05-18: $0 / null — no dominant client (primary retainer ended). Hand-set in user_profiles.custom_fields. Not auto-derived from any client-revenue source. |
+| **Collected (7d)** | `revenueCollected()` last 7 Toronto days | ✅ Real | Replaced "MRR added (7d)", which diffed hand-typed snapshot rows. |
+| **Top customer share** | `revenueByCustomer()` over the goal window | ✅ Real | Replaced `topClientConcentration()` (hand-set custom field; function deleted 2026-09-24). |
 | **Active pipeline** | `activePipeline(tenantId)` | ✅ Real | 5 active leads (216 archived in May 2026 cleanup). |
 | **Reply rate (7d)** | `outreachReplyRate()` | ✅ Real | 1/13 = 7.7%. |
 | **Decisions today** | `todayCounts(tenantId).decisions` | ⚠️ Empty | The agent_decisions table only has 2 rows ever (2026-05-01). Autonomous loops haven't been firing. Always returns 0 for today. |
@@ -126,9 +126,7 @@ All sub-pages are static content — not "metrics" per se, just curated docs / d
 - Devices list
 
 **Real but operator-supplied (3) — should be auto-derived in future:**
-- Net MRR (reads `user_profiles.mrr_current_usd`, hand-set)
-- Top client share (reads `custom_fields.top_client_mrr_usd`, hand-set)
-- mrr_target / mrr_target_date (profile fields)
+- ~~Net MRR, top client share, mrr_target / mrr_target_date~~ — resolved 2026-09-24 for OASIS: live Stripe via the Finances ledger + the `revenue_goals` row (see the Today table). Other workspaces still read their own profile fields.
 
 **Real but with bugs found in this audit (2):**
 - Activity tape: chunk A3 had a phantom `tenant_id` filter on a column that doesn't exist on agent_events. **Fixed during this audit.**
@@ -141,9 +139,9 @@ All sub-pages are static content — not "metrics" per se, just curated docs / d
 
 **Action items to make every metric truly real:**
 
-1. **Stripe → MRR auto-pipeline:** nightly cron pulls Stripe customers + retainer rev shares + writes to `user_profiles.mrr_current_usd` + appends to `mrr_snapshots`. Removes the manual edit dependency.
+1. ~~Stripe → MRR auto-pipeline~~ — done 2026-09-24 as the Finances suite (Stripe webhook + nightly reconcile into `fin_*`, Atlas-operated). **Open:** a founder must connect OASIS's Stripe account (restricted key on the Worker + pin in Finances → Settings → Stripe + webhook secret).
 
-2. **Top-client auto-derivation:** another nightly cron computes top customer share from active subscriptions, writes to `custom_fields.top_client_mrr_usd`. Removes manual edit.
+2. ~~Top-client auto-derivation~~ — done: `revenueByCustomer()`.
 
 3. **Get autonomous loops actually running** on Atlas/Maven/Aura/Hermes (or honestly mark them as "not configured" until they are). Right now the dashboard shows them with stale "1 cycle" data which feels like a facade even though the snapshot value is technically real.
 
