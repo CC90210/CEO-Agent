@@ -205,8 +205,8 @@ _Last synced: 2026-09-22T08:02:46.279910+00:00_
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-23
+- **Date:** 2026-09-25
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Finalized production rollout: existing Google Calendar bundle verified and applied; Vercel deployment dpl_H9thS7mCnsbDPmgMYSru9DoNF4kx reached READY and oasisai.work alias updated. CMO clean branch 9c807b7 and OCC f6b75360 are pushed.
+- **Result:** OASIS fresh-start revamp finalized: PR #458 merged (0921681c); Worker Stripe key -> full OASIS key (Prices/Payment Links write verified); Finances Turso US$26.99 + rent = Wise auto-transfer US$1,944.12 on the 2nd (voided+re-recorded); 36 leases released; flagged USD balance US$9.88 vs Oct-2 rent
 
-*Last updated: 2026-09-23*
+*Last updated: 2026-09-25*
