@@ -64,14 +64,7 @@ def main() -> int:
         for path in ("/v1/charges", "/v1/payment_intents", "/v1/balance_transactions", "/v1/refunds",
                      "/v1/subscriptions", "/v1/invoices", "/v1/customers", "/v1/prices", "/v1/products",
                      "/v1/payment_links", "/v1/webhook_endpoints", "/v1/balance"):
-            req = urllib.request.Request(f"https://api.stripe.com{path}{'' if path == '/v1/balance' else '?limit=1'}",
-                                         headers={"Authorization": f"Bearer {restricted}", "User-Agent": "bravo-stripe-key-account/1.0"})
-            try:
-                with urllib.request.urlopen(req, timeout=20) as resp:
-                    status = resp.status
-            except urllib.error.HTTPError as exc:
-                status = exc.code
-            print(f"  {path:28} {status}")
+            print(f"  {path:28} {_status(restricted, 'GET', path if path == '/v1/balance' else f'{path}?limit=1')}")
         # WRITE permissions without side effects: an empty POST is rejected with
         # 403 when the key lacks the permission, and with 400 (missing params)
         # when it has it — Stripe checks permission first, so nothing is created.
@@ -80,16 +73,25 @@ def main() -> int:
         # and had to be deleted), so it is never probed this way.
         print("STRIPE_RESTRICTED_KEY write permissions (empty POST; 400 = allowed, 403 = denied):")
         for path in ("/v1/products", "/v1/prices", "/v1/payment_links", "/v1/subscriptions", "/v1/invoices"):
-            req = urllib.request.Request(f"https://api.stripe.com{path}", data=b"", method="POST",
-                                         headers={"Authorization": f"Bearer {restricted}", "User-Agent": "bravo-stripe-key-account/1.0"})
-            try:
-                with urllib.request.urlopen(req, timeout=20) as resp:
-                    status = resp.status
-            except urllib.error.HTTPError as exc:
-                status = exc.code
+            status = _status(restricted, "POST", path)
             verdict = "allowed" if status == 400 else ("DENIED" if status == 403 else "unexpected")
             print(f"  POST {path:24} {status} {verdict}")
     return 0
+
+
+def _status(key: str, method: str, path: str) -> int:
+    """HTTP status only — the body is never read or printed."""
+    req = urllib.request.Request(
+        f"https://api.stripe.com{path}",
+        data=b"" if method == "POST" else None,
+        method=method,
+        headers={"Authorization": f"Bearer {key}", "User-Agent": "bravo-stripe-key-account/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            return resp.status
+    except urllib.error.HTTPError as exc:
+        return exc.code
 
 
 if __name__ == "__main__":
