@@ -51,9 +51,7 @@ def main() -> int:
     env = load_env()
     org = env.get("STRIPE_ORG_KEY") or ""
     oasis = env.get("STRIPE_OASIS_ACCT_ID") or ""
-    extra = []
-    if "--keys" in sys.argv:
-        extra = [k.strip() for k in sys.argv[sys.argv.index("--keys") + 1].split(",") if k.strip()]
+    extra = [k.strip() for k in (_flag_value("--keys") or "").split(",") if k.strip()]
     for name in ("STRIPE_SECRET_KEY", "STRIPE_RESTRICTED_KEY", *extra):
         value = env.get(name) or ""
         print(f"{name}: {account(value) if value else 'absent'}")
@@ -63,7 +61,7 @@ def main() -> int:
         print(f"STRIPE_ORG_KEY + STRIPE_OASIS_ACCT_ID: {'org key absent' if not org else 'account id absent'}")
     if "--probe" in sys.argv:
         # --probe-key NAME probes another stored key instead of the restricted one.
-        probe_name = sys.argv[sys.argv.index("--probe-key") + 1] if "--probe-key" in sys.argv else "STRIPE_RESTRICTED_KEY"
+        probe_name = _flag_value("--probe-key") or "STRIPE_RESTRICTED_KEY"
         restricted = env.get(probe_name) or ""
         print(f"{probe_name} key type: {'full secret key' if restricted.startswith('sk_') else 'restricted key' if restricted.startswith('rk_') else 'other'}")
         print(f"{probe_name} read permissions (GET ?limit=1; status only):")
@@ -83,6 +81,16 @@ def main() -> int:
             verdict = "allowed" if status == 400 else ("DENIED" if status == 403 else "unexpected")
             print(f"  POST {path:24} {status} {verdict}")
     return 0
+
+
+def _flag_value(flag: str) -> str | None:
+    """The argument after `flag`; None when the flag is absent."""
+    if flag not in sys.argv:
+        return None
+    i = sys.argv.index(flag) + 1
+    if i >= len(sys.argv) or sys.argv[i].startswith("--"):
+        raise SystemExit(f"{flag} needs a value")
+    return sys.argv[i]
 
 
 def _status(key: str, method: str, path: str) -> int:
