@@ -72,6 +72,23 @@ def main() -> int:
             except urllib.error.HTTPError as exc:
                 status = exc.code
             print(f"  {path:28} {status}")
+        # WRITE permissions without side effects: an empty POST is rejected with
+        # 403 when the key lacks the permission, and with 400 (missing params)
+        # when it has it — Stripe checks permission first, so nothing is created.
+        # ONLY endpoints whose create REQUIRES params belong here. /v1/customers
+        # does not (an empty POST creates a blank customer — it did, 2026-09-24,
+        # and had to be deleted), so it is never probed this way.
+        print("STRIPE_RESTRICTED_KEY write permissions (empty POST; 400 = allowed, 403 = denied):")
+        for path in ("/v1/products", "/v1/prices", "/v1/payment_links", "/v1/subscriptions", "/v1/invoices"):
+            req = urllib.request.Request(f"https://api.stripe.com{path}", data=b"", method="POST",
+                                         headers={"Authorization": f"Bearer {restricted}", "User-Agent": "bravo-stripe-key-account/1.0"})
+            try:
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    status = resp.status
+            except urllib.error.HTTPError as exc:
+                status = exc.code
+            verdict = "allowed" if status == 400 else ("DENIED" if status == 403 else "unexpected")
+            print(f"  POST {path:24} {status} {verdict}")
     return 0
 
 
