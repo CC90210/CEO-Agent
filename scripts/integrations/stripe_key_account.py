@@ -51,7 +51,10 @@ def main() -> int:
     env = load_env()
     org = env.get("STRIPE_ORG_KEY") or ""
     oasis = env.get("STRIPE_OASIS_ACCT_ID") or ""
-    for name in ("STRIPE_SECRET_KEY", "STRIPE_RESTRICTED_KEY"):
+    extra = []
+    if "--keys" in sys.argv:
+        extra = [k.strip() for k in sys.argv[sys.argv.index("--keys") + 1].split(",") if k.strip()]
+    for name in ("STRIPE_SECRET_KEY", "STRIPE_RESTRICTED_KEY", *extra):
         value = env.get(name) or ""
         print(f"{name}: {account(value) if value else 'absent'}")
     if org and oasis:
@@ -59,8 +62,11 @@ def main() -> int:
     else:
         print(f"STRIPE_ORG_KEY + STRIPE_OASIS_ACCT_ID: {'org key absent' if not org else 'account id absent'}")
     if "--probe" in sys.argv:
-        restricted = env.get("STRIPE_RESTRICTED_KEY") or ""
-        print("STRIPE_RESTRICTED_KEY read permissions (GET ?limit=1; status only):")
+        # --probe-key NAME probes another stored key instead of the restricted one.
+        probe_name = sys.argv[sys.argv.index("--probe-key") + 1] if "--probe-key" in sys.argv else "STRIPE_RESTRICTED_KEY"
+        restricted = env.get(probe_name) or ""
+        print(f"{probe_name} key type: {'full secret key' if restricted.startswith('sk_') else 'restricted key' if restricted.startswith('rk_') else 'other'}")
+        print(f"{probe_name} read permissions (GET ?limit=1; status only):")
         for path in ("/v1/charges", "/v1/payment_intents", "/v1/balance_transactions", "/v1/refunds",
                      "/v1/subscriptions", "/v1/invoices", "/v1/customers", "/v1/prices", "/v1/products",
                      "/v1/payment_links", "/v1/webhook_endpoints", "/v1/balance"):
@@ -71,7 +77,7 @@ def main() -> int:
         # ONLY endpoints whose create REQUIRES params belong here. /v1/customers
         # does not (an empty POST creates a blank customer — it did, 2026-09-24,
         # and had to be deleted), so it is never probed this way.
-        print("STRIPE_RESTRICTED_KEY write permissions (empty POST; 400 = allowed, 403 = denied):")
+        print(f"{probe_name} write permissions (empty POST; 400 = allowed, 403 = denied):")
         for path in ("/v1/products", "/v1/prices", "/v1/payment_links", "/v1/subscriptions", "/v1/invoices"):
             status = _status(restricted, "POST", path)
             verdict = "allowed" if status == 400 else ("DENIED" if status == 403 else "unexpected")

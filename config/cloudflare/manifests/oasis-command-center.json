@@ -507,7 +507,7 @@
     },
     {
       "key": "STRIPE_SECRET_KEY",
-      "source": "STRIPE_RESTRICTED_KEY",
+      "source": "OASIS_AI_PLATFORM__STRIPE_SECRET_KEY",
       "scope": "runtime"
     },
     {
