@@ -17,14 +17,11 @@ dashboard first, deliberately).
 """
 from __future__ import annotations
 
-import json
 import sys
-import urllib.error
-import urllib.parse
-import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from integrations.stripe_tool import StripeClient  # noqa: E402  (org key + Stripe-Context, retries)
 from lib.env_store import digest, update_env_values  # noqa: E402
 from lib.secret_loader import ENV_FILE, load_env  # noqa: E402
 
@@ -42,51 +39,21 @@ EVENTS = (
 )
 
 
-# Organization keys require an account context and an explicit API version
-# (the pairing scripts/integrations/stripe_tool.py uses).
-STRIPE_VERSION = "2025-01-27.acacia"
-
-
-def _call(key: str, method: str, path: str, form: list[tuple[str, str]] | None = None) -> dict:
-    data = urllib.parse.urlencode(form).encode() if form else None
-    req = urllib.request.Request(
-        f"https://api.stripe.com{path}",
-        data=data,
-        method=method,
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Stripe-Context": OASIS_ACCOUNT,
-            "Stripe-Version": STRIPE_VERSION,
-            "User-Agent": "bravo-stripe-finance-webhook/1.0",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            return json.load(resp)
-    except urllib.error.HTTPError as exc:
-        try:
-            message = (json.loads(exc.read().decode("utf-8", "replace")).get("error") or {}).get("message", "")
-        except ValueError:
-            message = ""
-        raise SystemExit(f"Stripe {method} {path} -> HTTP {exc.code}: {message[:200]}") from None
-
-
-def _key() -> str:
-    key = load_env(required=["STRIPE_ORG_KEY"])["STRIPE_ORG_KEY"]
-    account = _call(key, "GET", "/v1/account").get("id")
+def _client() -> StripeClient:
+    client = StripeClient(load_env(required=["STRIPE_ORG_KEY"])["STRIPE_ORG_KEY"], OASIS_ACCOUNT)
+    account = client.get("account").get("id")
     if account != OASIS_ACCOUNT:
         raise SystemExit(f"refusing: the key reaches {account}, not OASIS's {OASIS_ACCOUNT}")
-    return key
+    return client
 
 
-def _existing(key: str) -> list[dict]:
-    rows = _call(key, "GET", "/v1/webhook_endpoints?limit=100").get("data") or []
+def _existing(client: StripeClient) -> list[dict]:
+    rows = client.get("webhook_endpoints", {"limit": 100}).get("data") or []
     return [r for r in rows if r.get("url") == URL]
 
 
 def status() -> int:
-    key = _key()
-    rows = _existing(key)
+    rows = _existing(_client())
     if not rows:
         print(f"no endpoint for {URL}")
     for r in rows:
@@ -97,12 +64,12 @@ def status() -> int:
 
 
 def create() -> int:
-    key = _key()
-    if _existing(key):
+    client = _client()
+    if _existing(client):
         raise SystemExit(f"an endpoint for {URL} already exists; its secret cannot be read back. Use `status`.")
     form = [("url", URL), ("description", "OASIS command center - Finances ledger")]
     form += [("enabled_events[]", e) for e in EVENTS]
-    created = _call(key, "POST", "/v1/webhook_endpoints", form)
+    created = client.post("webhook_endpoints", form)
     secret = created.get("secret") or ""
     if not secret.startswith("whsec_"):
         raise SystemExit(f"endpoint {created.get('id')} created but Stripe returned no signing secret")
