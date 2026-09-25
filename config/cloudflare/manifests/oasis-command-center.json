@@ -166,6 +166,11 @@
       "scope": "runtime"
     },
     {
+      "key": "FINANCE_AGENT_TOKEN",
+      "source": "OASIS_COMMAND_CENTER__FINANCE_AGENT_TOKEN",
+      "scope": "runtime"
+    },
+    {
       "key": "GOOGLE_SYSTEM_CALENDAR_CLIENT_ID",
       "source": "OASIS_COMMAND_CENTER__GOOGLE_SYSTEM_CALENDAR_CLIENT_ID",
       "scope": "runtime"
@@ -498,6 +503,26 @@
     {
       "key": "TT_PG_BRIDGE_TOKEN",
       "source": "OASIS_COMMAND_CENTER__TT_PG_BRIDGE_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "STRIPE_SECRET_KEY",
+      "source": "STRIPE_RESTRICTED_KEY",
+      "scope": "runtime"
+    },
+    {
+      "key": "STRIPE_FINANCE_WEBHOOK_SECRET",
+      "source": "OASIS_COMMAND_CENTER__STRIPE_FINANCE_WEBHOOK_SECRET",
+      "scope": "runtime"
+    },
+    {
+      "key": "WISE_API_TOKEN",
+      "source": "WISE_API_TOKEN",
+      "scope": "runtime"
+    },
+    {
+      "key": "WISE_PROFILE_ID",
+      "source": "WISE_PROFILE_ID",
       "scope": "runtime"
     }
   ]
