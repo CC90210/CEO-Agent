@@ -207,6 +207,6 @@ _Last synced: 2026-09-22T08:02:46.279910+00:00_
 
 - **Date:** 2026-09-25
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** OASIS fresh-start revamp finalized: PR #458 merged (0921681c); Worker Stripe key -> full OASIS key (Prices/Payment Links write verified); Finances Turso US$26.99 + rent = Wise auto-transfer US$1,944.12 on the 2nd (voided+re-recorded); 36 leases released; flagged USD balance US$9.88 vs Oct-2 rent
+- **Result:** Security fix live: PR #459 (9264b472, Worker a8c7b735) limits the Worker's full Stripe key to OASIS tenants; review finding #3 fixed (f08d0f28); live reconcile via Worker still reaches Stripe
 
 *Last updated: 2026-09-25*
