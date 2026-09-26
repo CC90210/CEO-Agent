@@ -164,11 +164,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-15
+- **Date:** 2026-09-26
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Vercel evacuation in progress: deployed AURA, Revline, and Showroom Workers; migrated and size-verified all 109 Showroom media objects (268,005,785 bytes) from Vercel Blob to active-account R2, rebuilt/redeployed Showroom with zero Vercel Blob refs. Gritly app/type build passes but local OpenNext bundle is blocked by Windows symlink permissions, so final build moves to Linux CI. Listing Studio needs active-account R2 application credentials before Vercel Blob can be retired.
+- **Result:** Oasis-Wispr: pushed bravo/mac-support (app_context macOS path, TERMINALS, pyobjc pins, tests, docs/MAC_HANDOVER.md); Mac port itself still uncommitted on CC's laptop
 
-*Last updated: 2026-09-15*
+*Last updated: 2026-09-26*
 
 ## Manifest
 
@@ -200,24 +200,24 @@ _Last synced: 2026-09-12T08:01:37.258099+00:00_
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-15
+- **Date:** 2026-09-26
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Vercel evacuation in progress: deployed AURA, Revline, and Showroom Workers; migrated and size-verified all 109 Showroom media objects (268,005,785 bytes) from Vercel Blob to active-account R2, rebuilt/redeployed Showroom with zero Vercel Blob refs. Gritly app/type build passes but local OpenNext bundle is blocked by Windows symlink permissions, so final build moves to Linux CI. Listing Studio needs active-account R2 application credentials before Vercel Blob can be retired.
+- **Result:** Oasis-Wispr: pushed bravo/mac-support (app_context macOS path, TERMINALS, pyobjc pins, tests, docs/MAC_HANDOVER.md); Mac port itself still uncommitted on CC's laptop
 
-*Last updated: 2026-09-15*
+*Last updated: 2026-09-26*
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-15
+- **Date:** 2026-09-26
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Vercel evacuation in progress: deployed AURA, Revline, and Showroom Workers; migrated and size-verified all 109 Showroom media objects (268,005,785 bytes) from Vercel Blob to active-account R2, rebuilt/redeployed Showroom with zero Vercel Blob refs. Gritly app/type build passes but local OpenNext bundle is blocked by Windows symlink permissions, so final build moves to Linux CI. Listing Studio needs active-account R2 application credentials before Vercel Blob can be retired.
+- **Result:** Oasis-Wispr: pushed bravo/mac-support (app_context macOS path, TERMINALS, pyobjc pins, tests, docs/MAC_HANDOVER.md); Mac port itself still uncommitted on CC's laptop
 
-*Last updated: 2026-09-15*
+*Last updated: 2026-09-26*
 
 ## Last Heartbeat
 
-- **Date:** 2026-09-15
+- **Date:** 2026-09-26
 - **Agent:** BRAVO via Claude Code (claude-fable-5)
-- **Result:** Vercel evacuation in progress: deployed AURA, Revline, and Showroom Workers; migrated and size-verified all 109 Showroom media objects (268,005,785 bytes) from Vercel Blob to active-account R2, rebuilt/redeployed Showroom with zero Vercel Blob refs. Gritly app/type build passes but local OpenNext bundle is blocked by Windows symlink permissions, so final build moves to Linux CI. Listing Studio needs active-account R2 application credentials before Vercel Blob can be retired.
+- **Result:** Oasis-Wispr: pushed bravo/mac-support (app_context macOS path, TERMINALS, pyobjc pins, tests, docs/MAC_HANDOVER.md); Mac port itself still uncommitted on CC's laptop
 
-*Last updated: 2026-09-15*
+*Last updated: 2026-09-26*
